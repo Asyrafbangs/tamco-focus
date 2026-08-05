@@ -11,6 +11,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { dirname as pathDirname } from 'node:path';
 import { createConnection } from 'node:net';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -27,23 +28,47 @@ function record(name, ok, detail, remedy) {
 /**
  * Runs a command and returns its trimmed output, or null if it is unavailable.
  *
- * Windows resolves `npm` and `npx` to `.cmd` shims, which `execFileSync` will
- * not find on its own. Naming the shim directly is safer than enabling `shell`,
- * which would concatenate arguments unescaped.
+ * Every plausible spelling is tried rather than one guess. On Windows `npm`
+ * resolves to a `.cmd` shim from cmd.exe but to a shell script from Git Bash,
+ * and which one `execFileSync` can see depends on the parent shell — guessing a
+ * single form reported perfectly working tools as missing.
  */
-function tryCommand(command, args) {
-  const executable =
-    process.platform === 'win32' && ['npm', 'npx'].includes(command) ? `${command}.cmd` : command;
+function tryCommand(command, args, extraCandidates = []) {
+  const candidates =
+    process.platform === 'win32'
+      ? [`${command}.cmd`, `${command}.exe`, command, ...extraCandidates]
+      : [command, ...extraCandidates];
 
-  try {
-    return execFileSync(executable, args, {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-  } catch {
-    return null;
+  for (const executable of candidates) {
+    try {
+      return execFileSync(executable, args, {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim();
+    } catch {
+      // Try the next spelling.
+    }
   }
+
+  return null;
 }
+
+/**
+ * Docker Desktop can install per-machine or per-user, and only the former puts
+ * `docker` on the system PATH. Checking the per-user location too avoids
+ * reporting a working installation as absent.
+ */
+const DOCKER_CANDIDATES = [
+  join(
+    process.env.LOCALAPPDATA ?? '',
+    'Programs',
+    'DockerDesktop',
+    'resources',
+    'bin',
+    'docker.exe',
+  ),
+  join(process.env.ProgramFiles ?? '', 'Docker', 'Docker', 'resources', 'bin', 'docker.exe'),
+].filter((path) => path.length > 20);
 
 // --- Node -------------------------------------------------------------------
 
@@ -57,7 +82,12 @@ record(
 
 // --- Package manager --------------------------------------------------------
 
-const npmVersion = tryCommand('npm', ['-v']);
+// npm ships beside the Node binary. Resolving it from `process.execPath` avoids
+// PATH lookup entirely, which matters under Git Bash: its PATH holds
+// `/c/...` entries that the Windows process API cannot resolve, so every
+// bare-name lookup fails even for tools that are plainly installed.
+const nodeDir = pathDirname(process.execPath);
+const npmVersion = tryCommand('npm', ['-v'], [join(nodeDir, 'npm.cmd'), join(nodeDir, 'npm')]);
 record(
   'npm',
   Boolean(npmVersion),
@@ -81,11 +111,12 @@ record(
 // there is no Postgres, no Auth, and no Storage, so this is the one
 // prerequisite that blocks everything downstream.
 
-const dockerVersion = tryCommand('docker', ['--version']);
+const dockerVersion = tryCommand('docker', ['--version'], DOCKER_CANDIDATES);
 let dockerRunning = false;
 
 if (dockerVersion) {
-  dockerRunning = tryCommand('docker', ['info', '--format', '{{.ServerVersion}}']) !== null;
+  dockerRunning =
+    tryCommand('docker', ['info', '--format', '{{.ServerVersion}}'], DOCKER_CANDIDATES) !== null;
 }
 
 record(
@@ -110,7 +141,10 @@ record(
 
 // --- Supabase CLI -----------------------------------------------------------
 
-const supabaseVersion = tryCommand('npx', ['--no-install', 'supabase', '--version']);
+const supabaseVersion = tryCommand(process.execPath, [
+  join(repoRoot, 'scripts', 'supabase-cli.mjs'),
+  '--version',
+]);
 record(
   'Supabase CLI',
   Boolean(supabaseVersion),

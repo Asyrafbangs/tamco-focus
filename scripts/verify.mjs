@@ -75,7 +75,7 @@ const GATES = [
   {
     name: 'RLS / database tests',
     command: 'node',
-    args: ['scripts/supabase-cli.mjs', 'test', 'db'],
+    args: ['scripts/run-rls-tests.mjs'],
     needsDatabase: true,
   },
   {

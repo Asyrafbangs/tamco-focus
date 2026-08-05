@@ -55,7 +55,12 @@ enable_signup = false
 enable_anonymous_sign_ins = false
 
 [auth.email]
-enable_signup = false
+# Keeps the email provider ENABLED, which is what allows sign-in at all.
+# Setting this false disables email logins entirely, not just registration —
+# self-registration is closed by `enable_signup = false` in the [auth] block
+# above, which is the correct lever for "administrators provision every account"
+# (MASTER_PRODUCT_SPEC.md section 31B.1).
+enable_signup = true
 double_confirm_changes = true
 # Local-only. Seeded accounts are created pre-confirmed so tests can sign in
 # without an inbox round-trip.

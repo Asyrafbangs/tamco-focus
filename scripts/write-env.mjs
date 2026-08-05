@@ -22,15 +22,19 @@ if (!existsSync(envPath)) {
   console.log('Created .env.local from .env.example');
 }
 
-const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-
+// Routed through the wrapper rather than `npx`, which cannot be spawned
+// directly on Windows: Node 18.20+ rejects `.cmd` shims without a shell.
 let status;
 try {
-  status = execFileSync(npx, ['supabase', 'status', '-o', 'env'], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  status = execFileSync(
+    process.execPath,
+    [join(repoRoot, 'scripts', 'supabase-cli.mjs'), 'status', '-o', 'env'],
+    {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  );
 } catch (cause) {
   console.error(
     'Could not read the Supabase status. The local stack must be running.\n' +

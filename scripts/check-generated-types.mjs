@@ -15,13 +15,22 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const typesPath = join(repoRoot, 'src', 'lib', 'database.types.ts');
 
-const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-
+// Routed through the wrapper rather than `npx`: Node 18.20+ refuses to spawn a
+// `.cmd` shim without a shell, so calling npx directly fails with EINVAL on
+// Windows and looks like "the stack is not running".
 let generated;
 try {
   generated = execFileSync(
-    npx,
-    ['supabase', 'gen', 'types', 'typescript', '--local', '--schema', 'public'],
+    process.execPath,
+    [
+      join(repoRoot, 'scripts', 'supabase-cli.mjs'),
+      'gen',
+      'types',
+      'typescript',
+      '--local',
+      '--schema',
+      'public',
+    ],
     { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
   );
 } catch (cause) {

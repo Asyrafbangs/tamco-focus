@@ -24,52 +24,56 @@ begin;
 -- to a value committed in this repository beyond the documented local default.
 -- ---------------------------------------------------------------------------
 
-create or replace function pg_temp.seed_auth_user(
-  p_id uuid,
-  p_email text,
-  p_password text
-)
-returns void
-language plpgsql
-as $$
+-- A DO block rather than a helper function: `supabase db reset` pipelines this
+-- file as a batch, and no temporary schema exists for a `pg_temp` function to
+-- live in. This creates nothing that needs cleaning up afterwards.
+--
+-- The last account is deliberately history-free, so the guarded
+-- permanent-deletion path has a legitimate subject (section 31B.8).
+do $$
+declare
+  account record;
 begin
-  insert into auth.users (
-    instance_id, id, aud, role, email, encrypted_password,
-    email_confirmed_at, created_at, updated_at,
-    raw_app_meta_data, raw_user_meta_data,
-    confirmation_token, recovery_token, email_change_token_new, email_change
-  ) values (
-    '00000000-0000-0000-0000-000000000000',
-    p_id,
-    'authenticated',
-    'authenticated',
-    p_email,
-    extensions.crypt(p_password, extensions.gen_salt('bf')),
-    now(), now(), now(),
-    '{"provider":"email","providers":["email"]}'::jsonb,
-    '{}'::jsonb,
-    '', '', '', ''
-  );
+  for account in
+    select *
+      from (values
+        ('f0c05000-0000-4000-a000-000000000001'::uuid, 'admin@tamco.local'),
+        ('f0c05000-0000-4000-a000-000000000002'::uuid, 'izzul@tamco.local'),
+        ('f0c05000-0000-4000-a000-000000000003'::uuid, 'amer@tamco.local'),
+        ('f0c05000-0000-4000-a000-000000000004'::uuid, 'izzah@tamco.local'),
+        ('f0c05000-0000-4000-a000-000000000005'::uuid, 'ajmal@tamco.local'),
+        ('f0c05000-0000-4000-a000-000000000006'::uuid, 'lim@tamco.local'),
+        ('f0c05000-0000-4000-a000-000000000007'::uuid, 'temp.tester@tamco.local')
+      ) as t(id, email)
+  loop
+    insert into auth.users (
+      instance_id, id, aud, role, email, encrypted_password,
+      email_confirmed_at, created_at, updated_at,
+      raw_app_meta_data, raw_user_meta_data,
+      confirmation_token, recovery_token, email_change_token_new, email_change
+    ) values (
+      '00000000-0000-0000-0000-000000000000',
+      account.id,
+      'authenticated',
+      'authenticated',
+      account.email,
+      extensions.crypt('LocalFocus123!', extensions.gen_salt('bf')),
+      now(), now(), now(),
+      '{"provider":"email","providers":["email"]}'::jsonb,
+      '{}'::jsonb,
+      '', '', '', ''
+    );
 
-  insert into auth.identities (
-    provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at
-  ) values (
-    p_id::text, p_id,
-    jsonb_build_object('sub', p_id::text, 'email', p_email, 'email_verified', true),
-    'email', now(), now(), now()
-  );
+    insert into auth.identities (
+      provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+    ) values (
+      account.id::text, account.id,
+      jsonb_build_object('sub', account.id::text, 'email', account.email, 'email_verified', true),
+      'email', now(), now(), now()
+    );
+  end loop;
 end;
 $$;
-
-select pg_temp.seed_auth_user('f0c05000-0000-4000-a000-000000000001', 'admin@tamco.local',  'LocalFocus123!');
-select pg_temp.seed_auth_user('f0c05000-0000-4000-a000-000000000002', 'izzul@tamco.local',  'LocalFocus123!');
-select pg_temp.seed_auth_user('f0c05000-0000-4000-a000-000000000003', 'amer@tamco.local',   'LocalFocus123!');
-select pg_temp.seed_auth_user('f0c05000-0000-4000-a000-000000000004', 'izzah@tamco.local',  'LocalFocus123!');
-select pg_temp.seed_auth_user('f0c05000-0000-4000-a000-000000000005', 'ajmal@tamco.local',  'LocalFocus123!');
-select pg_temp.seed_auth_user('f0c05000-0000-4000-a000-000000000006', 'lim@tamco.local',    'LocalFocus123!');
--- Deliberately history-free, so the guarded permanent-deletion path has a
--- legitimate subject to exercise (MASTER_PRODUCT_SPEC.md section 31B.8).
-select pg_temp.seed_auth_user('f0c05000-0000-4000-a000-000000000007', 'temp.tester@tamco.local', 'LocalFocus123!');
 
 -- ---------------------------------------------------------------------------
 -- Departments

@@ -34,11 +34,25 @@ if (typeof binaryPath !== 'string') {
   );
 }
 
-const result = spawnSync(binaryPath, process.argv.slice(2), {
-  cwd: repoRoot,
-  stdio: 'inherit',
-  env: process.env,
-});
+// Node 18.20+ refuses to spawn a `.cmd` or `.bat` shim without `shell: true`
+// (the CVE-2024-27980 fix) and fails with EINVAL. Windows npm shims are exactly
+// that, so the shim is run through a shell with its path quoted; every other
+// platform spawns the binary directly, with no shell involved.
+const isWindowsShim = /\.(cmd|bat)$/i.test(binaryPath);
+const args = process.argv.slice(2);
+
+const result = isWindowsShim
+  ? spawnSync(`"${binaryPath}" ${args.map((arg) => `"${arg}"`).join(' ')}`, {
+      cwd: repoRoot,
+      stdio: 'inherit',
+      env: process.env,
+      shell: true,
+    })
+  : spawnSync(binaryPath, args, {
+      cwd: repoRoot,
+      stdio: 'inherit',
+      env: process.env,
+    });
 
 if (result.error) {
   console.error(
