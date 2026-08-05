@@ -58,21 +58,48 @@ Produced by `npm run verify` on 5 August 2026.
 | Integration tests     | _SKIP_   | Needs Docker                    |
 | End-to-end tests      | _SKIP_   | Needs Docker                    |
 
-**6 passed, 0 failed, 5 skipped.** `npm run verify` exits 2 when anything was
+**7 passed, 0 failed, 5 skipped.** `npm run verify` exits 2 when anything was
 skipped, so a skipped gate can never be mistaken for a green one.
 
-### What "SQL syntax PASS" does and does not mean
+### The schema does now execute
 
-`scripts/check-sql-syntax.mjs` parses every migration with the real PostgreSQL
-grammar (libpg_query, compiled to WebAssembly). That proves the SQL is
-grammatically valid. It does **not** prove it is semantically correct: it
-cannot know whether a column exists, whether a policy expression type-checks,
-whether a trigger fires in the right order, or whether the RLS rules actually
-allow and deny what they intend.
+`npm run check:schema` applies all 14 migrations and the seed to a real
+PostgreSQL 18 engine running in-process (PGlite — the genuine parser, planner,
+and executor compiled to WebAssembly), then exercises the transactional
+procedures against the loaded fixtures. It needs no Docker, so it runs on this
+machine and in any environment.
 
-**The schema has never been executed.** That is the single largest piece of
-unverified work in this repository, and the first thing to do once Docker is
-available is `npm run db:reset`.
+Sixteen behaviour checks pass, covering the rules the product turns on:
+
+- focus counting reads committed state, and the target resolves to the approved 5
+- within-target activation succeeds in one call
+- crossing the target returns `reason_required` at 5 → 6 of 5 — exactly one
+  question, and activation is never blocked
+- activation proceeds once a reason is given, with `over_target` set
+- "Other" without a note is rejected
+- a repeated click replays the first result rather than acting twice
+- a stale version is rejected as `version_conflict`
+- audit events reject a content rewrite
+- routine occurrence generation is idempotent across re-runs
+- a date-only commitment is not overdue during the afternoon of its due date
+- a team member cannot delete a user; an administrator cannot delete one with
+  retained history; a history-free account deletes after ID confirmation, and
+  the security-log entry outlives the row
+- Amer sees Izzah and Ajmal through the explicit grant, and does not see Lim
+
+Running it found four real defects a syntax check could never have caught, all
+now fixed: a seeded completed task with no `completed_at`; a `record` variable
+passed where a `routine_templates` composite was required; an `ON CONFLICT` that
+did not repeat its partial index predicate, which silently broke idempotent
+routine generation; and a retained-history rule that counted an account's own
+`user_created` event and so made every properly created account undeletable.
+
+**What this still does not prove.** PGlite is a single-user engine with no
+GoTrue and no PostgREST, so the harness stands in a minimal `auth` and `storage`
+surface. RLS policies are verified only as far as compiling and attaching —
+whether they **allow and deny correctly** for `anon`, `authenticated`, and
+`service_role` under real JWTs is still unproven and needs `supabase test db`.
+That is now the largest remaining piece of unverified work.
 
 ---
 
@@ -224,12 +251,18 @@ Two structural decisions worth surfacing:
 ## 7. Next steps, in order
 
 1. Install Docker Desktop and WSL 2, then run `npm run preflight` until it is
-   clean.
-2. Run `scripts/setup-local.ps1`. **Expect `supabase db reset` to surface
-   semantic SQL errors on first run** — the schema has never been executed.
+   clean. This is the only step that needs administrator rights and a restart,
+   and it is the one thing that cannot be done from inside this repository.
+2. Run `scripts/setup-local.ps1`. The schema now applies cleanly to a real
+   PostgreSQL 18 engine, so `supabase db reset` has a good chance of working
+   first time — but Supabase adds roles, JWT claims, and the `storage` service
+   that the in-process harness only stands in for, so budget for a few
+   platform-specific corrections.
 3. Commit the generated `src/lib/database.types.ts`.
-4. Write the RLS tests, starting with the Amer/Izzah/Ajmal visibility case and
-   the view-does-not-grant-edit denial cases.
+4. Write the RLS tests. This is the largest remaining verification gap: the
+   policies are proven to compile and attach, not to allow and deny correctly.
+   Start with the Amer/Izzah/Ajmal visibility case and the
+   view-does-not-grant-edit denial cases.
 5. Build the task detail drawer, then Capture Work — between them they unlock
    most of the remaining workflows.
-6. Fill in `docs/`.
+6. Fill in the rest of `docs/`.

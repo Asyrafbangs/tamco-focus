@@ -21,11 +21,18 @@ create table public.audit_events (
 
   -- The actor. Nullable only for system-generated events such as scheduled
   -- routine occurrence generation, which no human performed.
-  actor_id uuid references public.user_profiles (id),
+  --
+  -- ON DELETE SET NULL, not RESTRICT: an account with no participation history
+  -- may be permanently deleted (section 31B.2), and deletion has to be able to
+  -- sever the identity link. The event itself survives with its content intact,
+  -- and `admin_security_log` retains the employee ID and email in denormalised
+  -- columns that no foreign key can cascade away. The append-only trigger below
+  -- permits this nulling and nothing else.
+  actor_id uuid references public.user_profiles (id) on delete set null,
 
   -- Subjects. An event concerns at most one of each.
   task_id uuid references public.tasks (id) on delete cascade,
-  subject_user_id uuid references public.user_profiles (id),
+  subject_user_id uuid references public.user_profiles (id) on delete set null,
 
   previous_status public.task_status,
   new_status public.task_status,
@@ -69,9 +76,49 @@ begin
 end;
 $$;
 
+-- The ONE permitted update: severing a reference to a permanently deleted
+-- account. Every other column must be byte-identical, so this cannot be used to
+-- rewrite what an event says — only to forget who it pointed at, which is what
+-- deletion means. Anything else still raises.
+create or replace function focus.allow_only_identity_severance()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.id                   is not distinct from old.id
+     and new.event_type       is not distinct from old.event_type
+     and new.occurred_at      is not distinct from old.occurred_at
+     and new.task_id          is not distinct from old.task_id
+     and new.previous_status  is not distinct from old.previous_status
+     and new.new_status       is not distinct from old.new_status
+     and new.bucket           is not distinct from old.bucket
+     and new.count_before     is not distinct from old.count_before
+     and new.count_after      is not distinct from old.count_after
+     and new.target_at_event  is not distinct from old.target_at_event
+     and new.over_target      is not distinct from old.over_target
+     and new.reason_code      is not distinct from old.reason_code
+     and new.reason_note      is not distinct from old.reason_note
+     and new.reversal_of_event_id is not distinct from old.reversal_of_event_id
+     and new.task_version     is not distinct from old.task_version
+     and new.detail           is not distinct from old.detail
+     -- Each identity column may only go from set to NULL, never change to a
+     -- different person.
+     and (new.actor_id is not distinct from old.actor_id or new.actor_id is null)
+     and (new.subject_user_id is not distinct from old.subject_user_id
+          or new.subject_user_id is null)
+  then
+    return new;
+  end if;
+
+  raise exception
+    'audit_events is append-only. Record a reversal event instead of modifying history.'
+    using errcode = 'insufficient_privilege';
+end;
+$$;
+
 create trigger audit_events_no_update
   before update on public.audit_events
-  for each row execute function focus.reject_audit_mutation();
+  for each row execute function focus.allow_only_identity_severance();
 
 create trigger audit_events_no_delete
   before delete on public.audit_events

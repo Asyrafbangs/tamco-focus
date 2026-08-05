@@ -733,7 +733,10 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  template record;
+  -- Declared as the table's row type, not `record`: `focus.next_occurrence_date`
+  -- takes a `public.routine_templates` composite argument, and an untyped
+  -- record cannot be cast to a named composite type.
+  template public.routine_templates%rowtype;
   horizon date;
   cursor_date date;
   new_task_id uuid;
@@ -774,7 +777,13 @@ begin
         false,
         template.id, cursor_date
       )
-      on conflict (routine_template_id, occurrence_date) do nothing
+      -- `tasks_routine_occurrence_unique` is a PARTIAL index, so the predicate
+      -- has to be repeated here for Postgres to infer the arbiter. Without it
+      -- the insert raises "no unique or exclusion constraint matching the
+      -- ON CONFLICT specification", and generation is no longer idempotent.
+      on conflict (routine_template_id, occurrence_date)
+        where routine_template_id is not null
+        do nothing
       returning id into new_task_id;
 
       if new_task_id is not null then

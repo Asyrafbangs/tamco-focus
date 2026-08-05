@@ -300,8 +300,19 @@ as $$
                              or second_reviewer_id = p_user_id),
     'notifications',    (select count(*) from public.notifications
                           where recipient_id = p_user_id or actor_id = p_user_id),
+    -- An account's OWN administrative lifecycle events do not count as retained
+    -- history. Provisioning always writes `user_created`, so counting it would
+    -- make every properly created account undeletable and contradict section
+    -- 31B.8, which requires a history-free account to be deletable. What counts
+    -- is participation: anything this person did (`actor_id`), and anything
+    -- that happened to them beyond their own account administration.
     'audit_events',     (select count(*) from public.audit_events
-                          where actor_id = p_user_id or subject_user_id = p_user_id),
+                          where actor_id = p_user_id
+                             or (subject_user_id = p_user_id
+                                 and event_type not in (
+                                   'user_created', 'user_updated',
+                                   'user_deactivated', 'user_reactivated',
+                                   'visibility_changed'))),
     'email_deliveries', (select count(*) from public.email_deliveries where recipient_id = p_user_id),
     'direct_reports',   (select count(*) from public.user_profiles
                           where reporting_manager_id = p_user_id)

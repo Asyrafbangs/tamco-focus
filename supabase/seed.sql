@@ -191,7 +191,11 @@ insert into public.tasks (
   id, title, description, next_action, status, work_class, focus_bucket, origin,
   urgency, primary_owner_id, created_by, due_at, due_is_date_only, review_at,
   progress_percent, is_mandatory, mandatory_justification,
-  created_at, state_entered_at, last_meaningful_update_at, activated_at, activated_by
+  created_at, state_entered_at, last_meaningful_update_at, activated_at, activated_by,
+  -- Supplied in the insert rather than a follow-up update: the
+  -- `tasks_completed_at_consistent` constraint rejects a completed row that
+  -- carries no completion timestamp, and it is checked per statement.
+  completed_at
 ) values
 
 -- Izzah: an active Major Project, within target.
@@ -204,7 +208,7 @@ insert into public.tasks (
  now() + interval '45 days', true, now() + interval '10 days',
  35, false, null,
  now() - interval '62 days', now() - interval '48 days', now() - interval '2 days',
- now() - interval '48 days', 'f0c05000-0000-4000-a000-000000000004'),
+ now() - interval '48 days', 'f0c05000-0000-4000-a000-000000000004', null),
 
 -- Izzah: active operational action, OVERDUE and STALE. Drives the My Day
 -- Needs Attention banner and the amber "No update" chip.
@@ -217,7 +221,7 @@ insert into public.tasks (
  now() - interval '4 days', true, null,
  60, false, null,
  now() - interval '30 days', now() - interval '25 days', now() - interval '11 days',
- now() - interval '25 days', 'f0c05000-0000-4000-a000-000000000004'),
+ now() - interval '25 days', 'f0c05000-0000-4000-a000-000000000004', null),
 
 -- Izzah: active operational action with an open barrier.
 ('f0c05300-0000-4000-a000-000000000003',
@@ -229,7 +233,7 @@ insert into public.tasks (
  now() + interval '12 days', true, null,
  20, false, null,
  now() - interval '18 days', now() - interval '15 days', now() - interval '1 day',
- now() - interval '15 days', 'f0c05000-0000-4000-a000-000000000004'),
+ now() - interval '15 days', 'f0c05000-0000-4000-a000-000000000004', null),
 
 -- Izzah: Available Work, ready to activate. Activating a fourth operational
 -- action stays within the target of five.
@@ -242,7 +246,7 @@ insert into public.tasks (
  now() + interval '21 days', true, null,
  0, false, null,
  now() - interval '9 days', now() - interval '9 days', now() - interval '9 days',
- null, null),
+ null, null, null),
 
 -- Izzah: an active Self-Development Plan, at target.
 ('f0c05300-0000-4000-a000-000000000005',
@@ -254,7 +258,7 @@ insert into public.tasks (
  now() + interval '80 days', true, now() + interval '30 days',
  45, false, null,
  now() - interval '70 days', now() - interval '70 days', now() - interval '5 days',
- now() - interval '70 days', 'f0c05000-0000-4000-a000-000000000004'),
+ now() - interval '70 days', 'f0c05000-0000-4000-a000-000000000004', null),
 
 -- Amer: a Quick Action due today. Consumes no focus target.
 ('f0c05300-0000-4000-a000-000000000006',
@@ -266,7 +270,7 @@ insert into public.tasks (
  date_trunc('day', now()) + interval '17 hours', false, null,
  0, false, null,
  now() - interval '3 hours', now() - interval '3 hours', now() - interval '3 hours',
- now() - interval '3 hours', 'f0c05000-0000-4000-a000-000000000003'),
+ now() - interval '3 hours', 'f0c05000-0000-4000-a000-000000000003', null),
 
 -- Amer: a mandatory operational action. Section 4 allows this to activate above
 -- target without the reason question.
@@ -280,7 +284,7 @@ insert into public.tasks (
  50, true,
  'Active safety risk reported on the production line requiring immediate controlled action.',
  now() - interval '1 day', now() - interval '1 day', now() - interval '4 hours',
- now() - interval '1 day', 'f0c05000-0000-4000-a000-000000000003'),
+ now() - interval '1 day', 'f0c05000-0000-4000-a000-000000000003', null),
 
 -- Amer: a shared task where Izzah contributes through a checklist handoff.
 ('f0c05300-0000-4000-a000-000000000008',
@@ -292,7 +296,7 @@ insert into public.tasks (
  now() + interval '16 days', true, null,
  25, false, null,
  now() - interval '20 days', now() - interval '14 days', now() - interval '3 days',
- now() - interval '14 days', 'f0c05000-0000-4000-a000-000000000003'),
+ now() - interval '14 days', 'f0c05000-0000-4000-a000-000000000003', null),
 
 -- Ajmal: Available Work awaiting selection.
 ('f0c05300-0000-4000-a000-000000000009',
@@ -304,7 +308,7 @@ insert into public.tasks (
  now() + interval '6 days', true, null,
  0, false, null,
  now() - interval '11 days', now() - interval '11 days', now() - interval '11 days',
- null, null),
+ null, null, null),
 
 -- Ajmal: paused work with restart information.
 ('f0c05300-0000-4000-a000-00000000000a',
@@ -316,7 +320,7 @@ insert into public.tasks (
  now() + interval '40 days', true, now() + interval '14 days',
  30, false, null,
  now() - interval '55 days', now() - interval '20 days', now() - interval '20 days',
- null, null),
+ null, null, null),
 
 -- Lim: completed work awaiting a review decision. Evidence exists but nobody
 -- has decided yet, which is the state the Completion Review queue shows.
@@ -329,11 +333,12 @@ insert into public.tasks (
  now() - interval '6 days', true, null,
  100, false, null,
  now() - interval '35 days', now() - interval '2 days', now() - interval '2 days',
- now() - interval '30 days', 'f0c05000-0000-4000-a000-000000000006');
+ now() - interval '30 days', 'f0c05000-0000-4000-a000-000000000006', now() - interval '2 days');
 
+-- Review metadata, not a state (section 20.2). `completed_at` is already set by
+-- the insert above, so it is deliberately not repeated here.
 update public.tasks
-   set completed_at = now() - interval '2 days',
-       review_status = 'pending',
+   set review_status = 'pending',
        reviewer_id = 'f0c05000-0000-4000-a000-000000000002'
  where id = 'f0c05300-0000-4000-a000-00000000000b';
 

@@ -50,6 +50,10 @@ const bin = {
 /** @type {{name: string, command: string, args: string[], needsDatabase?: boolean}[]} */
 const GATES = [
   { name: 'SQL syntax', command: 'node', args: ['scripts/check-sql-syntax.mjs'] },
+  // Executes every migration and the seed against a real PostgreSQL engine
+  // (PGlite), then exercises the transactional procedures. Needs no Docker, so
+  // it runs everywhere and catches semantic errors a syntax check cannot.
+  { name: 'Schema executes', command: 'node', args: ['scripts/check-schema.mjs'] },
   { name: 'Secret scan', command: 'node', args: ['scripts/scan-secrets.mjs'] },
   { name: 'Format check', command: 'node', args: [bin.prettier, '--check', '.'] },
   { name: 'Type check', command: 'node', args: [bin.tsc, '--noEmit'] },

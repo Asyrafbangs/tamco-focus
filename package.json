@@ -26,7 +26,8 @@
     "test:integration": "vitest run --project integration",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install --with-deps chromium",
-    "smoke": "node scripts/smoke-test.mjs",
+    "check:sql": "node scripts/check-sql-syntax.mjs",
+    "check:schema": "node scripts/check-schema.mjs",
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "preflight": "node scripts/preflight.mjs",
     "verify": "node scripts/verify.mjs"
@@ -42,6 +43,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
+    "@electric-sql/pglite": "^0.5.4",
     "@eslint/eslintrc": "^3.3.6",
     "@playwright/test": "^1.55.1",
     "@types/node": "^22.18.6",
