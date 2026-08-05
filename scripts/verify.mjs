@@ -58,7 +58,14 @@ const GATES = [
   { name: 'Format check', command: 'node', args: [bin.prettier, '--check', '.'] },
   { name: 'Type check', command: 'node', args: [bin.tsc, '--noEmit'] },
   { name: 'Unit tests', command: 'node', args: [bin.vitest, 'run', '--project', 'unit'] },
-  { name: 'Production build', command: 'node', args: [bin.next, 'build'] },
+  {
+    name: 'Production build',
+    command: 'node',
+    args: [bin.next, 'build'],
+    // Built into its own directory so running this never removes the output a
+    // dev server is currently serving.
+    env: { NEXT_DIST_DIR: '.next-verify' },
+  },
 
   {
     name: 'Database reset',
@@ -106,7 +113,7 @@ for (const gate of GATES) {
   const result = spawnSync(gate.command, gate.args, {
     cwd: repoRoot,
     stdio: 'inherit',
-    env: process.env,
+    env: { ...process.env, ...(gate.env ?? {}) },
   });
 
   // A spawn that never started reports `status: null`. Saying so is the

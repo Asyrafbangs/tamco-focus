@@ -23,6 +23,13 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   typedRoutes: false,
 
+  // `next build` empties and rewrites its output directory. When the verify
+  // suite ran a production build while a dev server was up, it removed the
+  // chunks that server was serving, and the next page request failed with
+  // ENOENT on a compiled route. Letting the build gate target its own directory
+  // keeps the two from colliding.
+  distDir: process.env.NEXT_DIST_DIR ?? '.next',
+
   // Attachments are streamed through authorised server routes, never proxied
   // through the Next.js image optimiser.
   images: { remotePatterns: [] },
