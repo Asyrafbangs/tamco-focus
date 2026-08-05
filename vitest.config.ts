@@ -30,6 +30,9 @@ export default defineConfig({
           include: ['tests/integration/**/*.test.ts'],
           environment: 'node',
           setupFiles: ['tests/integration/setup.ts'],
+          // Resets the database once before the suite; see the file for why
+          // per-test cleanup is neither possible nor desirable here.
+          globalSetup: ['tests/integration/global-setup.ts'],
           testTimeout: 30_000,
           hookTimeout: 60_000,
         },
