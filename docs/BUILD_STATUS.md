@@ -6,106 +6,79 @@
 
 This document reports what was built, what was verified, and what was not. It
 exists because `BUILD_ACCEPTANCE_GATES.md` requires failures to be reported
-honestly, and because this build ran on a machine that could not execute every
-gate.
+honestly.
 
 ---
 
-## 1. The blocking constraint
+## 1. Environment
 
-**Docker is not installed on this machine, and WSL 2 is not available.**
+Docker Desktop and WSL 2 are installed, and the full local Supabase stack runs:
+Postgres, GoTrue, PostgREST, Storage, and Studio. The application signs in and
+serves live data at `http://localhost:3000`.
 
-```
-FAIL  Docker engine  not installed
-```
-
-The local Supabase stack (Postgres, Auth, Storage, PostgREST) runs in
-containers. Without a container runtime there is no database, which means the
-following genuinely cannot be executed here:
-
-- `supabase start` / `supabase db reset` — applying migrations and fixtures
-- `supabase gen types` — generating `src/lib/database.types.ts`
-- `supabase test db` — RLS and database tests
-- integration tests, which exercise the real transactional procedures
-- end-to-end tests, which need a running application with real data
-- any manual sign-in or click-through of the application
-
-Installing Docker Desktop needs administrator rights, a multi-gigabyte
-download, a WSL 2 installation, and a restart. That is a change to the
-machine, not to this repository, so it was left for the Product Owner to make.
-`npm run preflight` prints the exact remedy.
-
-**Nothing in this repository fakes its way around that.** No mock database, no
-stubbed Supabase client, no test that passes because it was skipped.
+Nothing in this repository fakes a service. There is no mock database, no
+stubbed Supabase client, and no test that passes because it was skipped.
 
 ---
 
 ## 2. Verification results
 
-Produced by `npm run verify` on 5 August 2026.
+Produced by `npm run verify`.
 
-| Gate                  | Result   | Notes                           |
-| --------------------- | -------- | ------------------------------- |
-| SQL syntax            | **PASS** | 355 statements across 15 files  |
-| Secret scan           | **PASS** | No credentials in tracked files |
-| Format check          | **PASS** | Prettier                        |
-| Type check            | **PASS** | `tsc --noEmit`, strict          |
-| Unit tests            | **PASS** | 86 tests across 4 files         |
-| Production build      | **PASS** | `next build`, lint included     |
-| Database reset        | _SKIP_   | Needs Docker                    |
-| Generated types match | _SKIP_   | Needs Docker                    |
-| RLS / database tests  | _SKIP_   | Needs Docker                    |
-| Integration tests     | _SKIP_   | Needs Docker                    |
-| End-to-end tests      | _SKIP_   | Needs Docker                    |
+| Gate                  | Result   | Notes                                       |
+| --------------------- | -------- | ------------------------------------------- |
+| SQL syntax            | **PASS** | 355+ statements parsed                      |
+| Schema executes       | **PASS** | 16 migrations + seed, 16 behaviour checks   |
+| Secret scan           | **PASS** | No credentials in tracked files             |
+| Format check          | **PASS** | Prettier                                    |
+| Type check            | **PASS** | `tsc --noEmit`, strict                      |
+| Unit tests            | **PASS** | 86 tests, pure domain logic                 |
+| Production build      | **PASS** | `next build`, lint included                 |
+| Database reset        | **PASS** | All migrations and fixtures from zero       |
+| Generated types match | **PASS** | `database.types.ts` matches the live schema |
+| RLS / database tests  | **PASS** | 24 pgTAP assertions                         |
+| Integration tests     | **PASS** | 11 tests against the real stack             |
+| End-to-end tests      | **FAIL** | Not written                                 |
 
-**7 passed, 0 failed, 5 skipped.** `npm run verify` exits 2 when anything was
-skipped, so a skipped gate can never be mistaken for a green one.
+**11 passed, 1 failed, 0 skipped.**
 
-### The schema does now execute
+The RLS gate no longer passes vacuously: `scripts/run-rls-tests.mjs` fails when
+`supabase/tests/` is empty, listing the properties the suite must cover. A
+security gate that goes green with zero tests is worse than one that fails.
 
-`npm run check:schema` applies all 14 migrations and the seed to a real
-PostgreSQL 18 engine running in-process (PGlite — the genuine parser, planner,
-and executor compiled to WebAssembly), then exercises the transactional
-procedures against the loaded fixtures. It needs no Docker, so it runs on this
-machine and in any environment.
+### What is now genuinely proven
 
-Sixteen behaviour checks pass, covering the rules the product turns on:
+Against a real database, with real GoTrue sessions and RLS active:
 
-- focus counting reads committed state, and the target resolves to the approved 5
-- within-target activation succeeds in one call
-- crossing the target returns `reason_required` at 5 → 6 of 5 — exactly one
-  question, and activation is never blocked
-- activation proceeds once a reason is given, with `over_target` set
-- "Other" without a note is rejected
-- a repeated click replays the first result rather than acting twice
-- a stale version is rejected as `version_conflict`
-- audit events reject a content rewrite
-- routine occurrence generation is idempotent across re-runs
-- a date-only commitment is not overdue during the afternoon of its due date
-- a team member cannot delete a user; an administrator cannot delete one with
-  retained history; a history-free account deletes after ID confirmation, and
-  the security-log entry outlives the row
-- Amer sees Izzah and Ajmal through the explicit grant, and does not see Lim
+- `anon` is refused at the privilege gate on every table
+- Amer views Izzah and Ajmal through the explicit grant, and not Lim
+- Amer can view but cannot activate, move out, or reassign work he does not
+  own — section 3.4, demonstrated rather than asserted
+- a deactivated account reads nothing despite holding a valid token
+- audit events cannot be forged or rewritten by a client
+- activation is one call within target, asks exactly one question when it would
+  cross the target, and proceeds on a reason with no approval step
+- stale versions conflict, repeat clicks are absorbed, concurrent activations
+  do not double-count
+- undo reverses the transition while preserving both events
+- completion is blocked while required evidence is missing
 
-Running it found four real defects a syntax check could never have caught, all
-now fixed: a seeded completed task with no `completed_at`; a `record` variable
-passed where a `routine_templates` composite was required; an `ON CONFLICT` that
-did not repeat its partial index predicate, which silently broke idempotent
-routine generation; and a retained-history rule that counted an account's own
-`user_created` event and so made every properly created account undeletable.
+### Defects found by actually running it
 
-**What this still does not prove.** PGlite is a single-user engine with no
-GoTrue and no PostgREST, so the harness stands in a minimal `auth` and `storage`
-surface. RLS policies are verified only as far as compiling and attaching —
-whether they **allow and deny correctly** for `anon`, `authenticated`, and
-`service_role` under real JWTs is still unproven and needs `supabase test db`.
-That is now the largest remaining piece of unverified work.
+Eight, none visible to static checking. Four from executing the schema
+(a seeded completed task with no `completed_at`; a `record` passed where a
+composite was required; an `ON CONFLICT` missing its partial-index predicate;
+a retained-history rule that made every account undeletable), and four from
+running the stack (`[auth.email] enable_signup = false` disabling email logins
+outright; a policy subquery causing infinite recursion; `EXECUTE` revoked from
+the policy helpers; and table privileges never granted to `authenticated` or
+`service_role`).
 
 ---
 
 ## 3. What is implemented
 
-### Database (`supabase/migrations/`, 14 forward-only migrations)
+### Database (`supabase/migrations/`, 18 forward-only migrations)
 
 - Full normalised schema: identity and org, visibility, focus targets, settings,
   tasks, collaborators, relations, checklists, barriers, updates, attachments,
@@ -191,12 +164,10 @@ incomplete, which is the intended signal.
 
 **Tests — not written:**
 
-- RLS tests (`supabase/tests/`) — including the Amer/Izzah/Ajmal case, which is
-  an explicit acceptance gate. The fixtures for it are seeded and waiting.
-- Integration tests (`tests/integration/`) — `vitest.config.ts` references
-  `tests/integration/setup.ts`, which does not exist yet, so that project cannot
-  run even with Docker present.
-- End-to-end and accessibility tests (`tests/e2e/`).
+- End-to-end and accessibility tests (`tests/e2e/`). Playwright is configured
+  for desktop and mobile viewports and `@axe-core/playwright` is installed, but
+  no specs exist, so the browser journeys and the automated accessibility
+  checks in BUILD_ACCEPTANCE_GATES.md section 6 remain unverified.
 
 **Documentation — not written:**
 
