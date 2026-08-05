@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Next.js build output
+.next/
+out/
+next-env.d.ts
+
+# Production build artefacts
+build/
+dist/
+
+# Environment files — never commit real values
+.env
+.env.local
+.env.*.local
+.env.production
+!.env.example
+
+# Supabase local stack — volumes, generated state, downloaded binaries
+supabase/.branches/
+supabase/.temp/
+supabase/volumes/
+supabase/.env
+
+# Locally uploaded fixture attachments
+storage/
+tmp/
+uploads/
+
+# Test output
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# Logs
+*.log
+npm-debug.log*
+logs/
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Local generated credential file for seeded accounts
+LOCAL_TEST_ACCOUNTS.local.md

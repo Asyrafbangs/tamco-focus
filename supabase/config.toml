@@ -1,0 +1,76 @@
+# TAMCO Focus — local Supabase stack configuration.
+#
+# This file describes the LOCAL development stack only. It is never linked to a
+# hosted Supabase project during the current build stage.
+
+project_id = "tamco-focus"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+# Bounds the rows any single PostgREST request can return, so a mis-scoped
+# query cannot stream the whole table.
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[realtime]
+enabled = false
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://127.0.0.1"
+
+[inbucket]
+# Local mail catcher. The weekly summary worker writes to the delivery log and,
+# when EMAIL_TRANSPORT=inbucket, also delivers here for visual inspection.
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+# Local ceiling. The authoritative per-file limit lives in ATTACHMENT_MAX_BYTES
+# and is enforced in the domain layer and by the storage bucket definition.
+file_size_limit = "12MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+# Administrators provision every account through the user directory. Public
+# self-signup is closed.
+enable_signup = false
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = false
+double_confirm_changes = true
+# Local-only. Seeded accounts are created pre-confirmed so tests can sign in
+# without an inbox round-trip.
+enable_confirmations = false
+secure_password_change = true
+
+[auth.email.template.invite]
+subject = "You have been added to TAMCO Focus"
+
+[auth.sms]
+enable_signup = false
+enable_confirmations = false
+
+[analytics]
+enabled = false
+
+[edge_runtime]
+enabled = false

@@ -1,0 +1,29 @@
+node_modules/
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+package-lock.json
+src/lib/database.types.ts
+
+# Product Owner supplied prototypes and specifications are authoritative source
+# artefacts. They are kept byte-identical to the approved originals so that a
+# diff against a future revision shows only the Product Owner's changes, never
+# a reformatting by this repository.
+desktop/
+mobile/
+index.html
+MASTER_PRODUCT_SPEC.md
+PRODUCTION_LOGIC.md
+ONE_SHOT_LOCAL_BUILD_PROMPT.md
+CHANGE_INTAKE_PROTOCOL.md
+BUILD_ACCEPTANCE_GATES.md
+LOCAL_FIRST_BUILD_GUIDE.md
+CHANGELOG.md
+AGENTS.md
+CLAUDE.md
+
+# SQL is formatted by hand to keep migration diffs readable.
+supabase/migrations/
+supabase/tests/

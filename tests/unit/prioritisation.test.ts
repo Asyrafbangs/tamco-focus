@@ -1,0 +1,264 @@
+import { describe, expect, it } from 'vitest';
+
+import { comingUp, needsAttention, rankTasks, startHere, todayList } from '@/domain/prioritisation';
+import { makeTask, NOW } from './fixtures';
+
+const DAY = 86_400_000;
+const viewerId = '00000000-0000-4000-b000-000000000001';
+const context = { viewerId, now: NOW };
+
+describe('Start Here ordering (section 9.4)', () => {
+  it('puts mandatory safety work above everything else', () => {
+    const mandatory = makeTask({ id: 'mandatory', isMandatory: true });
+    const overdue = makeTask({
+      id: 'overdue',
+      isOverdue: true,
+      dueAt: new Date(NOW.getTime() - 3 * DAY).toISOString(),
+    });
+
+    expect(startHere([overdue, mandatory], context)!.task.id).toBe('mandatory');
+  });
+
+  it('puts overdue work above work merely due today', () => {
+    const overdue = makeTask({
+      id: 'overdue',
+      isOverdue: true,
+      dueAt: new Date(NOW.getTime() - DAY).toISOString(),
+    });
+    const dueToday = makeTask({ id: 'today', dueAt: NOW.toISOString() });
+
+    expect(startHere([dueToday, overdue], context)!.task.id).toBe('overdue');
+  });
+
+  it('treats an open barrier as needing attention alongside overdue work', () => {
+    const blocked = makeTask({ id: 'blocked', openBarrierCount: 1 });
+    const active = makeTask({ id: 'active' });
+
+    expect(startHere([active, blocked], context)!.task.id).toBe('blocked');
+  });
+
+  it('ranks a ready handoff above ordinary active work', () => {
+    const handoff = makeTask({ id: 'handoff', status: 'backlog' });
+    const active = makeTask({ id: 'active', status: 'active' });
+
+    const ranked = rankTasks([active, handoff], {
+      ...context,
+      handoffReadyTaskIds: new Set(['handoff']),
+    });
+
+    expect(ranked[0]!.task.id).toBe('handoff');
+  });
+
+  it('excludes completed and cancelled work entirely', () => {
+    const done = makeTask({ id: 'done', status: 'completed', completedAt: NOW.toISOString() });
+    const cancelled = makeTask({
+      id: 'cancelled',
+      status: 'cancelled',
+      cancelledAt: NOW.toISOString(),
+    });
+
+    expect(rankTasks([done, cancelled], context)).toHaveLength(0);
+  });
+});
+
+describe('tie-breaking within a band (section 9.4)', () => {
+  it('prefers the earliest exact due time', () => {
+    const later = makeTask({
+      id: 'later',
+      dueAt: new Date(NOW.getTime() + 4 * 3_600_000).toISOString(),
+    });
+    const sooner = makeTask({
+      id: 'sooner',
+      dueAt: new Date(NOW.getTime() + 1 * 3_600_000).toISOString(),
+    });
+
+    const ranked = rankTasks([later, sooner], context);
+    expect(ranked.map((entry) => entry.task.id)).toEqual(['sooner', 'later']);
+  });
+
+  it('prefers Critical over High over Normal at the same due time', () => {
+    const due = new Date(NOW.getTime() + 3_600_000).toISOString();
+
+    const ranked = rankTasks(
+      [
+        makeTask({ id: 'normal', urgency: 'normal', dueAt: due }),
+        makeTask({ id: 'critical', urgency: 'critical', dueAt: due }),
+        makeTask({ id: 'high', urgency: 'high', dueAt: due }),
+      ],
+      context,
+    );
+
+    expect(ranked.map((entry) => entry.task.id)).toEqual(['critical', 'high', 'normal']);
+  });
+
+  it('prefers work blocking the most other work', () => {
+    const due = new Date(NOW.getTime() + 3_600_000).toISOString();
+
+    const ranked = rankTasks(
+      [makeTask({ id: 'blocks-one', dueAt: due }), makeTask({ id: 'blocks-three', dueAt: due })],
+      {
+        ...context,
+        blockingCounts: new Map([
+          ['blocks-one', 1],
+          ['blocks-three', 3],
+        ]),
+      },
+    );
+
+    expect(ranked[0]!.task.id).toBe('blocks-three');
+  });
+
+  it('falls back to the least recently updated', () => {
+    const due = new Date(NOW.getTime() + 3_600_000).toISOString();
+
+    const ranked = rankTasks(
+      [
+        makeTask({
+          id: 'fresh',
+          dueAt: due,
+          lastMeaningfulUpdateAt: new Date(NOW.getTime() - DAY).toISOString(),
+        }),
+        makeTask({
+          id: 'neglected',
+          dueAt: due,
+          lastMeaningfulUpdateAt: new Date(NOW.getTime() - 12 * DAY).toISOString(),
+        }),
+      ],
+      context,
+    );
+
+    expect(ranked[0]!.task.id).toBe('neglected');
+  });
+
+  it('produces a stable order for otherwise identical work', () => {
+    const due = new Date(NOW.getTime() + 3_600_000).toISOString();
+    const shared = { dueAt: due, lastMeaningfulUpdateAt: NOW.toISOString() };
+
+    const tasks = [makeTask({ id: 'bbb', ...shared }), makeTask({ id: 'aaa', ...shared })];
+
+    expect(rankTasks(tasks, context).map((entry) => entry.task.id)).toEqual(
+      rankTasks([...tasks].reverse(), context).map((entry) => entry.task.id),
+    );
+  });
+});
+
+describe('Why this? (section 9.5)', () => {
+  it('explains an overdue recommendation in days', () => {
+    const task = makeTask({
+      isOverdue: true,
+      dueAt: new Date(NOW.getTime() - 3 * DAY).toISOString(),
+    });
+
+    expect(startHere([task], context)!.why).toBe('Selected because this is overdue by 3 days.');
+  });
+
+  it('explains a due-today recommendation', () => {
+    const task = makeTask({ dueAt: new Date(NOW.getTime() + 3_600_000).toISOString() });
+
+    expect(startHere([task], context)!.why).toContain('due today');
+  });
+
+  it('names the next action when recommending active work', () => {
+    const task = makeTask({ status: 'active', nextAction: 'Chase the contractor' });
+
+    expect(startHere([task], context)!.why).toContain('Chase the contractor');
+  });
+
+  it('always gives a plain-language sentence', () => {
+    const tasks = [
+      makeTask({ id: '1', isMandatory: true }),
+      makeTask({ id: '2', openBarrierCount: 1 }),
+      makeTask({ id: '3', status: 'active' }),
+    ];
+
+    for (const entry of rankTasks(tasks, context)) {
+      expect(entry.why.startsWith('Selected because')).toBe(true);
+      expect(entry.why.endsWith('.')).toBe(true);
+    }
+  });
+});
+
+describe('Today list (section 9.6)', () => {
+  it('caps the list at the configured maximum', () => {
+    const tasks = Array.from({ length: 12 }, (_, index) =>
+      makeTask({ id: `task-${index}`, status: 'active' }),
+    );
+
+    expect(todayList(tasks, context, 5)).toHaveLength(5);
+    expect(todayList(tasks, context, 3)).toHaveLength(3);
+  });
+});
+
+describe('Needs Attention (section 9.3)', () => {
+  it('stays empty when nothing is genuinely exceptional', () => {
+    const ordinary = [
+      makeTask({ id: '1', status: 'active' }),
+      makeTask({ id: '2', status: 'backlog' }),
+    ];
+
+    expect(needsAttention(ordinary, context)).toHaveLength(0);
+  });
+
+  it('reports overdue work with a written explanation', () => {
+    const task = makeTask({
+      isOverdue: true,
+      dueAt: new Date(NOW.getTime() - 2 * DAY).toISOString(),
+    });
+
+    const items = needsAttention([task], context);
+    expect(items).toHaveLength(1);
+    expect(items[0]!.kind).toBe('overdue');
+    expect(items[0]!.message).toBe('Overdue by 2 days.');
+  });
+
+  it('distinguishes an overdue routine from other overdue work', () => {
+    const routine = makeTask({
+      workClass: 'routine_occurrence',
+      focusBucket: null,
+      isOverdue: true,
+      dueAt: new Date(NOW.getTime() - DAY).toISOString(),
+    });
+
+    expect(needsAttention([routine], context)[0]!.kind).toBe('overdue_routine');
+  });
+
+  it('reports a paused task whose review date has passed', () => {
+    const task = makeTask({
+      status: 'paused',
+      reviewAt: new Date(NOW.getTime() - DAY).toISOString(),
+    });
+
+    expect(needsAttention([task], context).map((item) => item.kind)).toContain(
+      'paused_review_passed',
+    );
+  });
+
+  it('gives every item a written message, never colour alone', () => {
+    const task = makeTask({ isMandatory: true, isOverdue: true, openBarrierCount: 1 });
+
+    for (const item of needsAttention([task], context)) {
+      expect(item.message.length).toBeGreaterThan(10);
+    }
+  });
+});
+
+describe('Coming Up (section 9.7)', () => {
+  it('shows only the nearest few commitments inside the window', () => {
+    const tasks = [
+      makeTask({ id: 'in-2d', dueAt: new Date(NOW.getTime() + 2 * DAY).toISOString() }),
+      makeTask({ id: 'in-1d', dueAt: new Date(NOW.getTime() + 1 * DAY).toISOString() }),
+      makeTask({ id: 'in-3d', dueAt: new Date(NOW.getTime() + 3 * DAY).toISOString() }),
+      makeTask({ id: 'in-30d', dueAt: new Date(NOW.getTime() + 30 * DAY).toISOString() }),
+    ];
+
+    const upcoming = comingUp(tasks, { ...context, upcomingWindowDays: 7 }, 3);
+
+    expect(upcoming.map((task) => task.id)).toEqual(['in-1d', 'in-2d', 'in-3d']);
+  });
+
+  it('excludes work that is already overdue', () => {
+    const overdue = makeTask({ dueAt: new Date(NOW.getTime() - DAY).toISOString() });
+
+    expect(comingUp([overdue], context)).toHaveLength(0);
+  });
+});
