@@ -105,6 +105,40 @@ export async function getMyTasks(userId: string): Promise<TaskOverview[]> {
   return (data ?? []).map(toTaskOverview);
 }
 
+/**
+ * Routine occurrences for the caller (section 16.3).
+ *
+ * Only current and near-term cycles, so future occurrences do not flood the
+ * interface. Completed ones from the recent past are included so a person can
+ * see what they have already done this week.
+ */
+export async function getRoutineOccurrences(
+  userId: string,
+  leadDays = 14,
+): Promise<TaskOverview[]> {
+  const supabase = await createSupabaseServerClient();
+
+  const horizon = new Date(Date.now() + leadDays * 86_400_000).toISOString().slice(0, 10);
+  const lookBack = new Date(Date.now() - 7 * 86_400_000).toISOString().slice(0, 10);
+
+  const { data, error } = await supabase
+    .from('task_overview')
+    .select('*')
+    .eq('work_class', 'routine_occurrence')
+    .eq('primary_owner_id', userId)
+    .gte('occurrence_date', lookBack)
+    .lte('occurrence_date', horizon)
+    .order('occurrence_date', { ascending: true })
+    .limit(100);
+
+  if (error) {
+    console.error(`[getRoutineOccurrences] ${error.message}`);
+    throw new Error('ROUTINES_UNAVAILABLE');
+  }
+
+  return (data ?? []).map(toTaskOverview);
+}
+
 /** Focus counts against targets, straight from committed state. */
 export async function getFocusSummary(userId: string): Promise<FocusSummary[]> {
   const supabase = await createSupabaseServerClient();
