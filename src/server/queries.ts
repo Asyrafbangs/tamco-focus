@@ -223,6 +223,84 @@ export async function getActionRequiredCount(userId: string): Promise<number> {
   return count ?? 0;
 }
 
+/** One person's row in Team Load (section 18.3). */
+export interface TeamLoadRow {
+  userId: string;
+  fullName: string;
+  employeeId: string;
+  availableWorkCount: number;
+  overdueCount: number;
+  staleCount: number;
+  openBarrierCount: number;
+  routinesThisWeek: number;
+  routinesCompletedThisWeek: number;
+  routinesOverdue: number;
+  quickActionsCreatedThisWeek: number;
+  operationalCreatedThisWeek: number;
+  decisionsPending: number;
+}
+
+/**
+ * Team Load (section 18).
+ *
+ * Returns only the people the caller is authorised to see — RLS on the
+ * underlying view does the filtering, so a manager sees their reporting line
+ * and an administrator sees everyone, without this query knowing the rule.
+ * The caller's own row is excluded: Team Load is about other people's load.
+ */
+export async function getTeamLoad(viewerId: string): Promise<TeamLoadRow[]> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from('team_load_summary')
+    .select('*')
+    .neq('user_id', viewerId)
+    .order('full_name', { ascending: true })
+    .limit(200);
+
+  if (error) {
+    console.error(`[getTeamLoad] ${error.message}`);
+    throw new Error('TEAM_LOAD_UNAVAILABLE');
+  }
+
+  return (data ?? []).map((row) => ({
+    userId: row.user_id as string,
+    fullName: row.full_name as string,
+    employeeId: row.employee_id as string,
+    availableWorkCount: Number(row.available_work_count ?? 0),
+    overdueCount: Number(row.overdue_count ?? 0),
+    staleCount: Number(row.stale_count ?? 0),
+    openBarrierCount: Number(row.open_barrier_count ?? 0),
+    routinesThisWeek: Number(row.routines_this_week ?? 0),
+    routinesCompletedThisWeek: Number(row.routines_completed_this_week ?? 0),
+    routinesOverdue: Number(row.routines_overdue ?? 0),
+    quickActionsCreatedThisWeek: Number(row.quick_actions_created_this_week ?? 0),
+    operationalCreatedThisWeek: Number(row.operational_created_this_week ?? 0),
+    decisionsPending: Number(row.decisions_pending ?? 0),
+  }));
+}
+
+/** Focus counts against targets for everyone the caller may see. */
+export async function getTeamFocusSummary(): Promise<FocusSummary[]> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase.from('focus_summary').select('*').limit(600);
+
+  if (error) {
+    console.error(`[getTeamFocusSummary] ${error.message}`);
+    return [];
+  }
+
+  return (data ?? []).map((row) => ({
+    userId: row.user_id as string,
+    bucket: row.bucket as FocusBucket,
+    activeCount: Number(row.active_count ?? 0),
+    recommendedTarget: Number(row.recommended_target ?? 0),
+    isOverTarget: Boolean(row.is_over_target),
+    overTargetSince: (row.over_target_since as string) ?? null,
+  }));
+}
+
 /** Manager-configurable values the interface needs in order to render. */
 export async function getDisplaySettings(): Promise<{
   staleThresholdDays: number;
