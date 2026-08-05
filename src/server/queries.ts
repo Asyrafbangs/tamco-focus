@@ -223,6 +223,59 @@ export async function getActionRequiredCount(userId: string): Promise<number> {
   return count ?? 0;
 }
 
+/** A dated commitment on the Monthly Plan (section 17.2). */
+export interface PlanEvent {
+  taskId: string;
+  title: string;
+  primaryOwnerId: string;
+  status: string;
+  workClass: string;
+  occursAt: string;
+  dueIsDateOnly: boolean;
+  /** `due`, `overdue`, `routine`, or `review`. */
+  eventKind: 'due' | 'overdue' | 'routine' | 'review';
+}
+
+/**
+ * Dated commitments inside a calendar month (section 17.2).
+ *
+ * Covers due dates, overdue work, routine occurrences, and review or selection
+ * deadlines. The view already labels each row with its kind so the calendar and
+ * the mobile agenda render from one source.
+ */
+export async function getPlanEvents(
+  userId: string,
+  monthStart: Date,
+  monthEnd: Date,
+): Promise<PlanEvent[]> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from('plan_events')
+    .select('*')
+    .eq('primary_owner_id', userId)
+    .gte('occurs_at', monthStart.toISOString())
+    .lte('occurs_at', monthEnd.toISOString())
+    .order('occurs_at', { ascending: true })
+    .limit(400);
+
+  if (error) {
+    console.error(`[getPlanEvents] ${error.message}`);
+    throw new Error('PLAN_UNAVAILABLE');
+  }
+
+  return (data ?? []).map((row) => ({
+    taskId: row.task_id as string,
+    title: row.title as string,
+    primaryOwnerId: row.primary_owner_id as string,
+    status: row.status as string,
+    workClass: row.work_class as string,
+    occursAt: row.occurs_at as string,
+    dueIsDateOnly: Boolean(row.due_is_date_only),
+    eventKind: row.event_kind as PlanEvent['eventKind'],
+  }));
+}
+
 /** One person's row in Team Load (section 18.3). */
 export interface TeamLoadRow {
   userId: string;

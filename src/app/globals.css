@@ -859,6 +859,94 @@ button {
 }
 
 /* ------------------------------------------------------------------------ */
+/* Monthly Plan (section 17)                                                 */
+/* ------------------------------------------------------------------------ */
+
+.plan-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-left: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.cal-head {
+  padding: 9px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.day {
+  min-height: 120px;
+  padding: 8px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.day.today {
+  background: var(--blue-bg);
+}
+.daynum {
+  font-size: 11px;
+  color: var(--muted);
+}
+.day.today .daynum {
+  color: var(--blue);
+  font-weight: 700;
+}
+
+/* Section 17.3 — the calendar is informational. Items open the task; they are
+   never draggable, because due date and ownership are governed changes. */
+.cal-item {
+  display: block;
+  margin-top: 6px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  background: var(--blue-bg);
+  color: var(--blue);
+  font-size: 9px;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cal-item:hover {
+  text-decoration: underline;
+}
+.cal-item.routine {
+  background: var(--green-bg);
+  color: var(--green);
+}
+.cal-item.review {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+.cal-item.overdue {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.plan-legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------------ */
 /* States (section 27)                                                       */
 /* ------------------------------------------------------------------------ */
 
@@ -1040,6 +1128,12 @@ button {
 }
 
 @media (max-width: 900px) {
+  .calendar {
+    font-size: 10px;
+  }
+  .day {
+    min-height: 90px;
+  }
   .today-grid {
     grid-template-columns: 1fr;
   }
@@ -1122,6 +1216,33 @@ button {
   }
   .row-actions {
     justify-content: flex-start;
+  }
+
+  /* Section 17.4 — mobile gets a date-grouped agenda rather than a compressed
+     calendar grid. Each day becomes a card, and empty days disappear. */
+  .calendar {
+    display: block;
+    border: 0;
+    background: transparent;
+  }
+  .cal-head {
+    display: none;
+  }
+  .day {
+    min-height: auto;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    background: var(--surface);
+  }
+  .day.is-empty {
+    display: none;
+  }
+  .cal-item {
+    font-size: 12px;
+    padding: 8px 10px;
+    white-space: normal;
+    min-height: 40px;
   }
 
   /* Section 4.2 — a labelled bottom navigation sized for touch. */
