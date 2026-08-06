@@ -3542,6 +3542,68 @@ button {
 
 /* The loading skeleton shares the panel's box but not its class, so the two
    are never ambiguous to a selector or to assistive technology. */
+/* Goal progress control (v34).
+   Values follow the prototype's `.goal-range-ticks` rule exactly. */
+.goal-range {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.goal-range input[type='range'] {
+  flex: 1;
+  min-width: 0;
+}
+.goal-range-number {
+  width: 72px;
+  flex: 0 0 auto;
+  text-align: center;
+}
+.goal-range-ticks {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 8px;
+  margin-top: 6px;
+}
+.goal-range-caption {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 9px;
+  margin-top: 2px;
+}
+.goal-range-saved {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+/* Amber, because an unsaved value is a state the user must resolve — and it is
+   named in words as well as coloured. */
+.goal-range-new {
+  color: var(--amber);
+  font-weight: 600;
+}
+
+/* Completed milestones collapse behind a summary (v34) so the current
+   milestone stays prominent. */
+.goal-milestones-done > summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  margin-bottom: 8px;
+  min-height: var(--control-h);
+  display: flex;
+  align-items: center;
+}
+.goal-milestones-done > summary:hover {
+  color: var(--text);
+}
+
 .goal-list-panel-skeleton {
   background: var(--surface);
   border: 1px solid var(--line);

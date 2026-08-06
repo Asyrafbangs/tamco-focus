@@ -1,0 +1,52 @@
+.formalWeight {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 38px;
+  padding: 9px 12px;
+  border-top: 1px solid var(--line-soft);
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface-2);
+}
+
+.formalWeight strong {
+  font-size: 10px;
+}
+
+.formalWeight span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.complete {
+  background: var(--green-bg);
+}
+
+.complete strong {
+  color: var(--green);
+}
+
+.under {
+  background: var(--amber-bg);
+}
+
+.under strong {
+  color: var(--amber);
+}
+
+.over {
+  background: var(--red-bg);
+}
+
+.over strong {
+  color: var(--red);
+}
+
+@media (max-width: 560px) {
+  .formalWeight {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+}

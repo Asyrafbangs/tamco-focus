@@ -1967,6 +1967,16 @@ Owner completes task with evidence → task becomes Completed with Pending Revie
 
 Settings → Visibility Rules → select Amer → add Izzah and Ajmal → preview effective access → Save → RLS rule updated → audit event recorded → Amer gains view-only access within defined scope.
 
+## A10. V34 Goal workspace and formal weighting
+
+- Goals remain a dedicated workspace, separate from Calendar, with My Goals and authorised Team Goals views.
+- Active, For discussion, Completed, and All lifecycle views use the same compact, whole-row interaction. Draft and `pending_discussion` Goals appear under For discussion; completed and closed Goals appear under Completed.
+- Only Active Goals count toward formal allocation and weighted progress. The formal set targets exactly 100%; discussion and completed Goals are excluded. Agreeing or activating above 100% is blocked, while Save for discussion remains available.
+- A Goal exposes one primary progress value, calculated from the agreed milestone weights. Historical reported values remain retained records but are not presented as a competing current percentage.
+- Completed milestones are collapsed by default. The current open milestone is visually prominent and opens a focused right-side update drawer on desktop or bottom sheet on mobile.
+- A milestone check-in starts from saved progress, keeps the 5% slider and percentage entry synchronised, distinguishes unsaved progress, requires What changed, and optionally captures evidence, next step, or support. Mark complete is part of the same form and Save update is the sole primary action.
+- Evidence is linked to the specific milestone update. Support continues through the existing actionable manager notification and escalation path.
+
 ---
 
 # Appendix B — Product-owner review checklist for future revisions

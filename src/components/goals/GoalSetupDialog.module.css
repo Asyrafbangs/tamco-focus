@@ -1,0 +1,40 @@
+.formalWeight {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--green) 28%, var(--line));
+  border-radius: 10px;
+  background: var(--green-bg);
+}
+
+.formalWeight strong,
+.formalWeight span {
+  display: block;
+}
+
+.formalWeight strong {
+  font-size: 10.5px;
+}
+
+.formalWeight span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.error {
+  border-color: color-mix(in srgb, var(--red) 28%, var(--line));
+  background: var(--red-bg);
+}
+
+.error strong {
+  color: var(--red);
+}
+
+@media (max-width: 560px) {
+  .formalWeight {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

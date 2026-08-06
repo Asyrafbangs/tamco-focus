@@ -1,5 +1,13 @@
 # TAMCO Focus — Change Log
 
+## v34 Goal workspace focus — 7 August 2026
+
+- Added Active, For discussion, Completed, and All lifecycle views consistently across My Goals and Team Goals, including closed-history visibility and filter-preserving drawer links.
+- Made milestone-derived progress the single current Goal value and limited formal allocation/weighted progress to Active Goals.
+- Added the 100% formal-weight activation/agreement guard with unchanged public Goal operation signatures; discussion saves remain available.
+- Rebuilt milestone check-ins as a desktop right drawer/mobile bottom sheet with synchronised 5% controls, saved-versus-unsaved state, required change text, milestone evidence, next step, support, completion, and one Save update action.
+- Added compact explicit Goal health labels, action-on-attention/hover/focus behaviour, completed-milestone collapse, current-milestone emphasis, targeted tests, and v34 Goal documentation.
+
 ## v30 — 5 August 2026
 
 - Added administrator-only user creation and account management.

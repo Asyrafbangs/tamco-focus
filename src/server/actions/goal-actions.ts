@@ -1,0 +1,517 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+
+import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
+import type { OperationResult } from '@/domain/types';
+import { safeAttachmentFileName, validateAttachmentFiles } from '@/server/attachments';
+
+const uuid = z.string().uuid();
+const idempotencyKey = z.string().min(8).max(128);
+const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const progress = z.coerce
+  .number()
+  .int()
+  .min(0)
+  .max(100)
+  .refine((value) => value % 5 === 0);
+const optionalText = (maximum = 4000) => z.string().trim().max(maximum).nullish();
+const milestoneSchema = z.object({
+  id: uuid.optional(),
+  source_milestone_id: uuid.nullish(),
+  title: z.string().trim().min(1).max(500),
+  completion_definition: z.string().trim().min(1).max(2000),
+  weight_percent: z.number().int().min(1).max(100).nullish(),
+  progress_percent: progress.default(0),
+});
+
+type RpcResult = { ok: boolean; code: string; message?: string; [key: string]: unknown };
+
+async function formalWeightGuard({
+  ownerId,
+  proposedWeight,
+  excludeGoalId,
+}: {
+  ownerId: string;
+  proposedWeight: number;
+  excludeGoalId?: string;
+}): Promise<OperationResult | null> {
+  await requireProfile();
+  const supabase = await createSupabaseServerClient();
+  let query = supabase
+    .from('goals')
+    .select('id,weight_percent')
+    .eq('owner_id', ownerId)
+    .eq('status', 'active');
+  if (excludeGoalId) query = query.neq('id', excludeGoalId);
+  const { data, error } = await query.limit(100);
+  if (error) {
+    console.error(`[formalWeightGuard] ${error.message}`);
+    return {
+      ok: false,
+      code: 'unexpected_error',
+      message: 'The formal Goal allocation could not be checked, so activation was not attempted.',
+    };
+  }
+  const activeWeight = (data ?? []).reduce(
+    (total, goal) => total + Number(goal.weight_percent ?? 0),
+    0,
+  );
+  if (activeWeight + proposedWeight <= 100) return null;
+  return {
+    ok: false,
+    code: 'invalid_target',
+    message: `Active Goal weight would become ${activeWeight + proposedWeight}%. Reduce the weight or save the Goal for discussion.`,
+  };
+}
+
+async function callGoalProcedure(
+  name: string,
+  args: Record<string, unknown>,
+  paths: readonly string[] = ['/goals', '/today', '/team'],
+): Promise<OperationResult> {
+  await requireProfile();
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc(name, args);
+  if (error) {
+    console.error(`[${name}] ${error.code ?? 'unknown'}: ${error.message}`);
+    return {
+      ok: false,
+      code: 'unexpected_error',
+      message: 'Something went wrong and nothing was changed. Try again.',
+    };
+  }
+  const result = data as RpcResult;
+  if (result?.ok) for (const path of paths) revalidatePath(path);
+  return result as OperationResult;
+}
+
+export interface GoalMilestoneInput {
+  id?: string;
+  source_milestone_id?: string | null;
+  title: string;
+  completion_definition: string;
+  weight_percent?: number | null;
+  progress_percent?: number;
+}
+
+const createSchema = z.object({
+  ownerId: uuid,
+  expectedResult: z.string().trim().min(1).max(500),
+  successMeasure: z.string().trim().min(1).max(2000),
+  targetDate: dateOnly,
+  employeeApproach: optionalText(),
+  supportAgreed: optionalText(),
+  dependencies: optionalText(),
+  baseline: optionalText(),
+  purpose: optionalText(),
+  weightPercent: z.number().int().min(0).max(100).default(0),
+  category: z.enum(['performance', 'improvement', 'development']).default('performance'),
+  milestones: z.array(milestoneSchema).min(1).max(10),
+  activate: z.boolean().default(false),
+  idempotencyKey,
+});
+
+export async function createGoal(input: z.input<typeof createSchema>): Promise<OperationResult> {
+  const parsed = createSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      code: 'validation_failed',
+      message: 'Add an employee, clear result, success measure, target date, and milestones.',
+    };
+  }
+  if (parsed.data.activate) {
+    const blocked = await formalWeightGuard({
+      ownerId: parsed.data.ownerId,
+      proposedWeight: parsed.data.weightPercent,
+    });
+    if (blocked) return blocked;
+  }
+  return callGoalProcedure('create_goal', {
+    p_owner_id: parsed.data.ownerId,
+    p_expected_result: parsed.data.expectedResult,
+    p_success_measure: parsed.data.successMeasure,
+    p_target_date: parsed.data.targetDate,
+    p_employee_approach: parsed.data.employeeApproach || null,
+    p_support_agreed: parsed.data.supportAgreed || null,
+    p_dependencies: parsed.data.dependencies || null,
+    p_baseline: parsed.data.baseline || null,
+    p_purpose: parsed.data.purpose || null,
+    p_weight_percent: parsed.data.weightPercent,
+    p_category: parsed.data.category,
+    p_milestones: parsed.data.milestones,
+    p_activate: parsed.data.activate,
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+}
+
+interface UploadedGoalFiles {
+  attachments: Array<{
+    id: string;
+    storage_path: string;
+    file_name: string;
+    mime_type: string;
+    byte_size: number;
+  }>;
+  paths: string[];
+}
+
+async function uploadGoalFiles(goalId: string, files: File[]): Promise<UploadedGoalFiles | string> {
+  const validation = validateAttachmentFiles(files);
+  if (validation) return validation;
+  const supabase = await createSupabaseServerClient();
+  const result: UploadedGoalFiles = { attachments: [], paths: [] };
+  for (const file of files) {
+    const id = crypto.randomUUID();
+    const path = `goals/${goalId}/${id}-${safeAttachmentFileName(file.name)}`;
+    const { error } = await supabase.storage.from('task-attachments').upload(path, file, {
+      contentType: file.type,
+      upsert: false,
+    });
+    if (error) {
+      if (result.paths.length) await supabase.storage.from('task-attachments').remove(result.paths);
+      console.error(`[uploadGoalFiles] ${error.message}`);
+      return 'The files could not be saved, so nothing was posted.';
+    }
+    result.paths.push(path);
+    result.attachments.push({
+      id,
+      storage_path: path,
+      file_name: file.name,
+      mime_type: file.type,
+      byte_size: file.size,
+    });
+  }
+  return result;
+}
+
+async function cleanupGoalFiles(paths: string[]) {
+  if (!paths.length) return;
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.storage.from('task-attachments').remove(paths);
+  if (error) console.error(`[cleanupGoalFiles] ${error.message}`);
+}
+
+export async function postGoalUpdate(formData: FormData): Promise<OperationResult> {
+  await requireProfile();
+  const parsed = z
+    .object({
+      goalId: uuid,
+      expectedVersion: z.coerce.number().int().positive(),
+      progress,
+      whatChanged: z.string().trim().min(1).max(4000),
+      nextStep: optionalText(),
+      supportRequested: z.enum(['true', 'false']).default('false'),
+      supportDetails: optionalText(),
+      idempotencyKey,
+    })
+    .safeParse({
+      goalId: formData.get('goalId'),
+      expectedVersion: formData.get('expectedVersion'),
+      progress: formData.get('progress'),
+      whatChanged: formData.get('whatChanged'),
+      nextStep: formData.get('nextStep') || null,
+      supportRequested: formData.get('supportRequested') === 'on' ? 'true' : 'false',
+      supportDetails: formData.get('supportDetails') || null,
+      idempotencyKey: formData.get('idempotencyKey'),
+    });
+  if (!parsed.success || (parsed.data.supportRequested === 'true' && !parsed.data.supportDetails)) {
+    return {
+      ok: false,
+      code: 'validation_failed',
+      message:
+        'Choose a five-percent progress value, record what changed, and describe support if requested.',
+    };
+  }
+  const files = formData
+    .getAll('files')
+    .filter((value): value is File => value instanceof File && value.size > 0);
+  const uploaded = await uploadGoalFiles(parsed.data.goalId, files);
+  if (typeof uploaded === 'string') {
+    return { ok: false, code: 'validation_failed', message: uploaded };
+  }
+  const result = await callGoalProcedure('post_goal_update', {
+    p_goal_id: parsed.data.goalId,
+    p_expected_version: parsed.data.expectedVersion,
+    p_progress: parsed.data.progress,
+    p_what_changed: parsed.data.whatChanged,
+    p_next_step: parsed.data.nextStep || null,
+    p_support_requested: parsed.data.supportRequested === 'true',
+    p_support_details: parsed.data.supportDetails || null,
+    p_attachments: uploaded.attachments,
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+  if (!result.ok) await cleanupGoalFiles(uploaded.paths);
+  return result;
+}
+
+export async function postGoalMilestoneUpdate(formData: FormData): Promise<OperationResult> {
+  await requireProfile();
+  const parsed = z
+    .object({
+      goalId: uuid,
+      milestoneId: uuid,
+      expectedVersion: z.coerce.number().int().positive(),
+      progress,
+      comment: z.string().trim().min(1).max(4000),
+      nextStep: optionalText(),
+      supportRequested: z.enum(['true', 'false']).default('false'),
+      supportDetails: optionalText(),
+      markComplete: z.enum(['true', 'false']).default('false'),
+      idempotencyKey,
+    })
+    .safeParse({
+      goalId: formData.get('goalId'),
+      milestoneId: formData.get('milestoneId'),
+      expectedVersion: formData.get('expectedVersion'),
+      progress: formData.get('progress'),
+      comment: formData.get('comment'),
+      nextStep: formData.get('nextStep') || null,
+      supportRequested: formData.get('supportRequested') === 'on' ? 'true' : 'false',
+      supportDetails: formData.get('supportDetails') || null,
+      markComplete: formData.get('markComplete') === 'true' ? 'true' : 'false',
+      idempotencyKey: formData.get('idempotencyKey'),
+    });
+  if (
+    !parsed.success ||
+    (parsed.data.supportRequested === 'true' && !parsed.data.supportDetails) ||
+    (parsed.data.supportRequested === 'true' && parsed.data.markComplete === 'true')
+  ) {
+    return {
+      ok: false,
+      code: 'validation_failed',
+      message:
+        'Use a valid progress value, record what changed, and describe support when requested. Complete milestones and support requests must be saved separately.',
+    };
+  }
+
+  const milestoneComment = [
+    parsed.data.comment,
+    parsed.data.nextStep ? `Next step: ${parsed.data.nextStep}` : null,
+    parsed.data.supportRequested === 'true'
+      ? `Support requested: ${parsed.data.supportDetails}`
+      : null,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join('\n\n');
+  const files = formData
+    .getAll('files')
+    .filter((value): value is File => value instanceof File && value.size > 0);
+  const uploaded = await uploadGoalFiles(parsed.data.goalId, files);
+  if (typeof uploaded === 'string') {
+    return { ok: false, code: 'validation_failed', message: uploaded };
+  }
+  const result = await callGoalProcedure('post_goal_milestone_checkin', {
+    p_goal_id: parsed.data.goalId,
+    p_milestone_id: parsed.data.milestoneId,
+    p_expected_version: parsed.data.expectedVersion,
+    p_progress: parsed.data.progress,
+    p_comment: milestoneComment,
+    p_what_changed: parsed.data.comment,
+    p_next_step: parsed.data.nextStep || null,
+    p_support_requested: parsed.data.supportRequested === 'true',
+    p_support_details: parsed.data.supportDetails || null,
+    p_mark_complete: parsed.data.markComplete === 'true',
+    p_attachments: uploaded.attachments,
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+  if (!result.ok) {
+    await cleanupGoalFiles(uploaded.paths);
+    return result;
+  }
+  return result;
+}
+
+const proposalSchema = z.object({
+  goalId: uuid,
+  expectedVersion: z.number().int().positive(),
+  expectedResult: z.string().trim().min(1).max(500),
+  successMeasure: z.string().trim().min(1).max(2000),
+  targetDate: dateOnly,
+  employeeApproach: optionalText(),
+  supportAgreed: optionalText(),
+  dependencies: optionalText(),
+  baseline: optionalText(),
+  purpose: optionalText(),
+  weightPercent: z.number().int().min(0).max(100),
+  milestones: z.array(milestoneSchema).min(1).max(10),
+  idempotencyKey,
+});
+
+export async function proposeGoalVersion(input: z.input<typeof proposalSchema>) {
+  const parsed = proposalSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      code: 'validation_failed' as const,
+      message: 'Complete the agreed result and every milestone before saving changes.',
+    };
+  }
+  return callGoalProcedure('propose_goal_version', {
+    p_goal_id: parsed.data.goalId,
+    p_expected_version: parsed.data.expectedVersion,
+    p_expected_result: parsed.data.expectedResult,
+    p_success_measure: parsed.data.successMeasure,
+    p_target_date: parsed.data.targetDate,
+    p_employee_approach: parsed.data.employeeApproach || null,
+    p_support_agreed: parsed.data.supportAgreed || null,
+    p_dependencies: parsed.data.dependencies || null,
+    p_baseline: parsed.data.baseline || null,
+    p_purpose: parsed.data.purpose || null,
+    p_weight_percent: parsed.data.weightPercent,
+    p_milestones: parsed.data.milestones,
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+}
+
+export async function agreeGoalVersion(input: {
+  goalId: string;
+  pendingVersionId: string;
+  expectedVersion: number;
+  idempotencyKey: string;
+}) {
+  const parsed = z
+    .object({
+      goalId: uuid,
+      pendingVersionId: uuid,
+      expectedVersion: z.number().int().positive(),
+      idempotencyKey,
+    })
+    .safeParse(input);
+  if (!parsed.success)
+    return { ok: false as const, code: 'validation_failed' as const, message: 'Invalid request.' };
+  const supabase = await createSupabaseServerClient();
+  const [{ data: goal }, { data: pendingVersion }] = await Promise.all([
+    supabase.from('goals').select('owner_id').eq('id', parsed.data.goalId).maybeSingle(),
+    supabase
+      .from('goal_versions')
+      .select('weight_percent')
+      .eq('id', parsed.data.pendingVersionId)
+      .eq('goal_id', parsed.data.goalId)
+      .maybeSingle(),
+  ]);
+  if (goal && pendingVersion) {
+    const blocked = await formalWeightGuard({
+      ownerId: goal.owner_id,
+      proposedWeight: Number(pendingVersion.weight_percent),
+      excludeGoalId: parsed.data.goalId,
+    });
+    if (blocked) return blocked;
+  }
+  return callGoalProcedure('agree_goal_version', {
+    p_goal_id: parsed.data.goalId,
+    p_pending_version_id: parsed.data.pendingVersionId,
+    p_expected_version: parsed.data.expectedVersion,
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+}
+
+export async function requestGoalUpdate(input: {
+  goalId: string;
+  expectedVersion: number;
+  message?: string;
+  idempotencyKey: string;
+}) {
+  const parsed = z
+    .object({
+      goalId: uuid,
+      expectedVersion: z.number().int().positive(),
+      message: optionalText(1000),
+      idempotencyKey,
+    })
+    .safeParse(input);
+  if (!parsed.success)
+    return { ok: false as const, code: 'validation_failed' as const, message: 'Invalid request.' };
+  return callGoalProcedure('request_goal_update', {
+    p_goal_id: parsed.data.goalId,
+    p_expected_version: parsed.data.expectedVersion,
+    p_message: parsed.data.message || null,
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+}
+
+export async function resolveGoalSupport(input: {
+  supportRequestId: string;
+  resolutionNote: string;
+  idempotencyKey: string;
+}) {
+  const parsed = z
+    .object({
+      supportRequestId: uuid,
+      resolutionNote: z.string().trim().min(1).max(2000),
+      idempotencyKey,
+    })
+    .safeParse(input);
+  if (!parsed.success)
+    return {
+      ok: false as const,
+      code: 'validation_failed' as const,
+      message: 'Record how the support was resolved.',
+    };
+  return callGoalProcedure('resolve_goal_support', {
+    p_support_request_id: parsed.data.supportRequestId,
+    p_resolution_note: parsed.data.resolutionNote,
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+}
+
+export async function linkGoalWork(input: {
+  goalId: string;
+  taskId: string;
+  milestoneId?: string | null;
+  expectedVersion: number;
+  idempotencyKey: string;
+}) {
+  const parsed = z
+    .object({
+      goalId: uuid,
+      taskId: uuid,
+      milestoneId: uuid.nullish(),
+      expectedVersion: z.number().int().positive(),
+      idempotencyKey,
+    })
+    .safeParse(input);
+  if (!parsed.success)
+    return {
+      ok: false as const,
+      code: 'validation_failed' as const,
+      message: 'Select valid work to link.',
+    };
+  return callGoalProcedure('link_goal_work', {
+    p_goal_id: parsed.data.goalId,
+    p_task_id: parsed.data.taskId,
+    p_milestone_id: parsed.data.milestoneId || null,
+    p_expected_version: parsed.data.expectedVersion,
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+}
+
+export async function closeGoal(input: {
+  goalId: string;
+  expectedVersion: number;
+  reason: string;
+  idempotencyKey: string;
+}) {
+  const parsed = z
+    .object({
+      goalId: uuid,
+      expectedVersion: z.number().int().positive(),
+      reason: z.string().trim().min(1).max(2000),
+      idempotencyKey,
+    })
+    .safeParse(input);
+  if (!parsed.success)
+    return {
+      ok: false as const,
+      code: 'validation_failed' as const,
+      message: 'Record why this Goal is being closed.',
+    };
+  return callGoalProcedure('close_goal', {
+    p_goal_id: parsed.data.goalId,
+    p_expected_version: parsed.data.expectedVersion,
+    p_reason: parsed.data.reason,
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+}

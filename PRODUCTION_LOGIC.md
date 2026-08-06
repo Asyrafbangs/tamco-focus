@@ -468,3 +468,13 @@ Return duration values and accessible labels from a shared domain/service layer 
 6. Leadership summary selects manager sections emphasising team wins, barriers, overdue or stale work, focus-target exceptions, support needed, and upcoming commitments.
 7. Detailed team summary may add more progress and completion coverage, but should still remain a management briefing rather than an exhaustive export.
 8. Preview screens in the prototype are visual references; the production implementation must render the same information through a reusable email template system.
+
+## V34 — Goal lifecycle, formal weighting, and milestone check-ins
+
+1. Lifecycle filtering is presentation over authoritative Goal states: Active = `active`; For discussion = `draft` or `pending_discussion`; Completed = `completed` or `closed`; All excludes cancelled records.
+2. Formal allocation and weighted Goal progress include Active Goals only. Formal weighted progress uses each active Goal's milestone-derived percentage and Goal weight.
+3. `create_goal` and `agree_goal_version` retain their public signatures. V34 wrappers take an owner-scoped transaction advisory lock, sum the owner's other Active Goal weights, and return `invalid_target` before activation when the result would exceed 100%. Discussion saves are not subject to the formal limit. The renamed v33 implementations are not executable by client roles.
+4. Current Goal progress is `round(sum(milestone progress × milestone weight) / sum(milestone weight))` over the active agreed version. The stored reported percentage remains retained history and is not shown as a second current value.
+5. A milestone check-in initialises both controls from persisted progress. Slider and direct percentage entry use 5% steps; client movement remains explicitly unsaved until Save update succeeds.
+6. `post_goal_milestone_checkin` composes the existing milestone-update and Goal-support operations in one database transaction. It stores prior/new milestone progress, required What changed, optional next/support context, milestone completion, evidence, audit data, and the existing actionable support notification. Any failed support operation rolls back the check-in.
+7. Evidence metadata references the milestone update. Completing every agreed milestone transitions the Goal to Completed through the existing milestone operation.

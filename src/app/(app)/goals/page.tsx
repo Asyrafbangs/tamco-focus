@@ -3,14 +3,18 @@ import Link from 'next/link';
 import { GoalDetailDrawer } from '@/components/goals/GoalDetailDrawer';
 import { GoalRow } from '@/components/goals/GoalRow';
 import { GoalSetupDialog } from '@/components/goals/GoalSetupDialog';
+import { EmptyState, StatusBadge, WorkspaceTabs } from '@/components/ui/ParityPrimitives';
 import {
-  EmptyState,
-  ProgressIndicator,
-  StatusBadge,
-  WorkspaceTabs,
-} from '@/components/ui/ParityPrimitives';
+  GOAL_LIFECYCLE_LABELS,
+  GOAL_LIFECYCLE_VIEWS,
+  formalGoalWeightSummary,
+  matchesGoalLifecycle,
+  type GoalLifecycleView,
+  type GoalOverview,
+} from '@/domain/goals';
 import { requireProfile } from '@/lib/supabase/server';
 import {
+  getGoalActiveWeights,
   getGoalDetail,
   getGoalEmployeeOptions,
   getGoalsForOwner,
@@ -18,6 +22,47 @@ import {
   getTeamGoalSummary,
 } from '@/server/goal-queries';
 import { getWorkableTasks } from '@/server/queries';
+
+import styles from './goals.module.css';
+
+const LIFECYCLE_EMPTY: Record<GoalLifecycleView, string> = {
+  active:
+    'No goal has been agreed and activated yet. Goals saved for discussion are under For discussion.',
+  discussion:
+    'Nothing is awaiting agreement. Goals saved for discussion appear here until they are agreed and activated.',
+  completed: 'No goal has been completed or closed yet.',
+  all: 'No goals exist in any state.',
+};
+
+function weightedDerivedProgress(goals: readonly GoalOverview[]): number {
+  const active = goals.filter((goal) => goal.status === 'active');
+  const totalWeight = active.reduce((total, goal) => total + goal.weightPercent, 0);
+  if (totalWeight === 0) return 0;
+  return Math.round(
+    active.reduce((total, goal) => total + goal.derivedProgress * goal.weightPercent, 0) /
+      totalWeight,
+  );
+}
+
+function FormalWeight({ goals }: { goals: readonly GoalOverview[] }) {
+  const summary = formalGoalWeightSummary(goals);
+  return (
+    <div
+      className={`${styles.formalWeight} ${styles[summary.state]}`}
+      role="status"
+      aria-label={`Active Goal weight ${summary.allocated} percent`}
+    >
+      <strong>Active Goal weight {summary.allocated}%</strong>
+      <span>
+        {summary.state === 'complete'
+          ? 'Formal weighting is aligned to 100%.'
+          : summary.state === 'over'
+            ? `${summary.over}% over the formal limit.`
+            : `${summary.remaining}% remains to allocate.`}
+      </span>
+    </div>
+  );
+}
 
 export default async function GoalsPage({
   searchParams,
@@ -35,10 +80,11 @@ export default async function GoalsPage({
   const params = await searchParams;
   const canManage = profile.role === 'manager' || profile.role === 'administrator';
 
-  const [myGoals, teamSummary, employees, visibleWork] = await Promise.all([
+  const [myGoals, teamSummary, employees, activeWeights, visibleWork] = await Promise.all([
     getMyGoals(profile.id),
     canManage ? getTeamGoalSummary(profile.id) : Promise.resolve([]),
     canManage ? getGoalEmployeeOptions(profile.id) : Promise.resolve([]),
+    canManage ? getGoalActiveWeights() : Promise.resolve<Record<string, number>>({}),
     getWorkableTasks(),
   ]);
 
@@ -71,50 +117,19 @@ export default async function GoalsPage({
   const goalDetail = params.goal ? await getGoalDetail(params.goal) : null;
   const rows = view === 'team' ? teamGoals : myGoals;
 
-  /*
-   * v34: the workspace separates Active, For discussion, Completed, and All,
-   * defaulting to Active. Draft or discussion goals must never be presented as
-   * agreed outcomes (MASTER_PRODUCT_SPEC.md, "V34 — Goal workspace focus and
-   * formal weighting").
-   */
-  const LIFECYCLE_VIEWS = ['active', 'discussion', 'completed', 'all'] as const;
-  type LifecycleView = (typeof LIFECYCLE_VIEWS)[number];
-
-  const LIFECYCLE_LABELS: Record<LifecycleView, string> = {
-    active: 'Active',
-    discussion: 'For discussion',
-    completed: 'Completed',
-    all: 'All',
-  };
-
-  const LIFECYCLE_EMPTY: Record<LifecycleView, string> = {
-    active:
-      'No goal has been agreed and activated yet. Goals saved for discussion are under For discussion.',
-    discussion:
-      'Nothing is awaiting agreement. Goals saved for discussion appear here until they are agreed and activated.',
-    completed: 'No goal has been completed or closed yet.',
-    all: 'No goals exist in any state.',
-  };
-
-  const lifecycle: LifecycleView = LIFECYCLE_VIEWS.includes(params.lifecycle as LifecycleView)
-    ? (params.lifecycle as LifecycleView)
+  const lifecycle: GoalLifecycleView = GOAL_LIFECYCLE_VIEWS.includes(
+    params.lifecycle as GoalLifecycleView,
+  )
+    ? (params.lifecycle as GoalLifecycleView)
     : 'active';
 
-  const matchesLifecycle = (status: string, wanted: LifecycleView) => {
-    if (wanted === 'all') return true;
-    if (wanted === 'active') return status === 'active';
-    // "Save for discussion" leaves the goal unagreed, which is `draft`.
-    if (wanted === 'discussion') return status === 'draft';
-    return status === 'completed' || status === 'closed';
-  };
+  const visibleRows = rows.filter((goal) => matchesGoalLifecycle(goal.status, lifecycle));
 
-  const visibleRows = rows.filter((goal) => matchesLifecycle(goal.status, lifecycle));
-
-  const lifecycleCount = (wanted: LifecycleView) =>
-    rows.filter((goal) => matchesLifecycle(goal.status, wanted)).length;
+  const lifecycleCount = (wanted: GoalLifecycleView) =>
+    rows.filter((goal) => matchesGoalLifecycle(goal.status, wanted)).length;
 
   // Switching lifecycle must keep the person and workspace context.
-  const lifecycleHref = (wanted: LifecycleView) => {
+  const lifecycleHref = (wanted: GoalLifecycleView) => {
     const query = new URLSearchParams();
     if (view === 'team') query.set('view', 'team');
     if (view === 'team' && selectedPersonId) query.set('person', selectedPersonId);
@@ -122,22 +137,22 @@ export default async function GoalsPage({
     const search = query.toString();
     return search ? `/goals?${search}` : '/goals';
   };
-  const totalWeight = rows
-    .filter((goal) => goal.status === 'active')
-    .reduce((total, goal) => total + goal.weightPercent, 0);
   const activeRows = rows.filter((goal) => goal.status === 'active');
-  const weightedProgress = Math.round(
-    activeRows.reduce((total, goal) => total + goal.reportedProgress * goal.weightPercent, 0) /
-      Math.max(
-        1,
-        activeRows.reduce((total, goal) => total + goal.weightPercent, 0),
-      ),
-  );
-  const attentionCount = rows.filter(
+  const weightedProgress = weightedDerivedProgress(rows);
+  const attentionCount = activeRows.filter(
     (goal) => goal.health === 'need_attention' || goal.health === 'support_requested',
   ).length;
-  const closeHref =
-    view === 'team' && selectedPersonId ? `/goals?view=team&person=${selectedPersonId}` : '/goals';
+  const closeHref = lifecycleHref(lifecycle);
+  const goalHref = (goalId: string) => {
+    const query = new URLSearchParams(closeHref.split('?')[1] ?? '');
+    query.set('goal', goalId);
+    return `/goals?${query.toString()}`;
+  };
+  const personHref = (personId: string) => {
+    const query = new URLSearchParams({ view: 'team', person: personId });
+    if (lifecycle !== 'active') query.set('lifecycle', lifecycle);
+    return `/goals?${query.toString()}`;
+  };
 
   return (
     <>
@@ -147,7 +162,16 @@ export default async function GoalsPage({
           <h1>Goals</h1>
           <p>Keep agreed outcomes visible, update progress, and surface support early.</p>
         </div>
-        <div className="actions">{canManage && <GoalSetupDialog employees={employees} />}</div>
+        <div className="actions">
+          {canManage && (
+            <GoalSetupDialog
+              employees={employees.map((employee) => ({
+                ...employee,
+                activeWeight: activeWeights[employee.id] ?? 0,
+              }))}
+            />
+          )}
+        </div>
       </div>
 
       <section className="goals-page-intro">
@@ -193,7 +217,7 @@ export default async function GoalsPage({
             </div>
             <div className="goal-summary-inline" aria-label="Goal summary">
               <div>
-                <b>{rows.length}</b>Goals
+                <b>{activeRows.length}</b>Active
               </div>
               <div>
                 <b>{weightedProgress}%</b>Weighted progress
@@ -203,12 +227,7 @@ export default async function GoalsPage({
               </div>
             </div>
           </div>
-          {totalWeight > 0 && totalWeight !== 100 && (
-            <div className="goal-weight-context" role="status">
-              <strong>Goal weights total {totalWeight}%</strong>
-              <span>Align them to 100% when this becomes the formal set.</span>
-            </div>
-          )}
+          <FormalWeight goals={rows} />
           <WorkspaceTabs
             label="Goal lifecycle"
             items={[
@@ -245,7 +264,7 @@ export default async function GoalsPage({
                 <GoalRow
                   key={goal.id}
                   goal={goal}
-                  href={`/goals?goal=${goal.id}`}
+                  href={goalHref(goal.id)}
                   timeZone={profile.timezone}
                   now={renderTime}
                 />
@@ -256,7 +275,7 @@ export default async function GoalsPage({
               title={
                 rows.length === 0
                   ? 'No Goals have been agreed yet'
-                  : `Nothing in ${LIFECYCLE_LABELS[lifecycle]}`
+                  : `Nothing in ${GOAL_LIFECYCLE_LABELS[lifecycle]}`
               }
               action={
                 /* Section 27.2 — when a filter is hiding the goals rather than
@@ -292,7 +311,7 @@ export default async function GoalsPage({
               return (
                 <Link
                   key={person.userId}
-                  href={`/goals?view=team&person=${person.userId}`}
+                  href={personHref(person.userId)}
                   className={`team-goal-person interactive-row${active ? ' active' : ''}`}
                   aria-current={active ? 'true' : undefined}
                 >
@@ -337,7 +356,7 @@ export default async function GoalsPage({
                       <span>Active</span>
                     </div>
                     <div>
-                      <strong>{selectedPerson.weightedProgress}%</strong>
+                      <strong>{weightedProgress}%</strong>
                       <span>Weighted progress</span>
                     </div>
                     <div>
@@ -346,39 +365,42 @@ export default async function GoalsPage({
                     </div>
                   </div>
                 </header>
-                {teamGoals.length ? (
+                <FormalWeight goals={teamGoals} />
+                <WorkspaceTabs
+                  label="Goal lifecycle"
+                  items={GOAL_LIFECYCLE_VIEWS.map((item) => ({
+                    href: lifecycleHref(item),
+                    label: GOAL_LIFECYCLE_LABELS[item],
+                    active: lifecycle === item,
+                    count: item === 'all' ? rows.length : lifecycleCount(item),
+                  }))}
+                />
+                {visibleRows.length ? (
                   <div className="goal-list">
-                    {teamGoals.map((goal) => (
+                    {visibleRows.map((goal) => (
                       <GoalRow
                         key={goal.id}
                         goal={goal}
-                        href={`/goals?view=team&person=${selectedPerson.userId}&goal=${goal.id}`}
+                        href={goalHref(goal.id)}
                         timeZone={profile.timezone}
                         now={renderTime}
                       />
                     ))}
                   </div>
                 ) : (
-                  <EmptyState title="No Goals for this employee">
-                    <p>Use Set a Goal to begin the manager-led alignment conversation.</p>
+                  <EmptyState
+                    title={
+                      teamGoals.length === 0
+                        ? 'No Goals for this employee'
+                        : `Nothing in ${GOAL_LIFECYCLE_LABELS[lifecycle]}`
+                    }
+                  >
+                    <p>
+                      {teamGoals.length === 0
+                        ? 'Use Set a Goal to begin the manager-led alignment conversation.'
+                        : LIFECYCLE_EMPTY[lifecycle]}
+                    </p>
                   </EmptyState>
-                )}
-                {teamGoals.length > 0 && (
-                  <div className="team-goal-derived-summary">
-                    <span>Milestone-derived context</span>
-                    <ProgressIndicator
-                      value={Math.round(
-                        teamGoals.reduce(
-                          (total, goal) => total + goal.derivedProgress * goal.weightPercent,
-                          0,
-                        ) /
-                          Math.max(
-                            1,
-                            teamGoals.reduce((total, goal) => total + goal.weightPercent, 0),
-                          ),
-                      )}
-                    />
-                  </div>
                 )}
               </>
             ) : (

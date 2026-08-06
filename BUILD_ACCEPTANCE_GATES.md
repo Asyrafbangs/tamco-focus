@@ -92,3 +92,18 @@ The build is not complete until every applicable gate passes.
 - [ ] Future GitHub, Supabase, and Vercel steps are documented.
 - [ ] `MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`, and `CHANGELOG.md` are current.
 - [ ] No external deployment, remote link, or GitHub push occurred.
+
+## 10. V34 Goal-module acceptance
+
+- [ ] Goals remains a standalone workspace; Calendar contains no Goal workspace.
+- [ ] Active, For discussion, Completed, and All filters work for My Goals and Team Goals.
+- [ ] Only Active Goals contribute to formal allocation and milestone-derived weighted progress.
+- [ ] Agree or activate is blocked above 100%; Save for discussion remains available.
+- [ ] Goal rows are whole-row keyboard and pointer targets, with independent Update actions visible on attention, hover, or focus.
+- [ ] Each Goal row and detail hero shows one milestone-derived progress value.
+- [ ] Completed milestones collapse by default and the current milestone is prominent.
+- [ ] Milestone update is a desktop right drawer and mobile bottom sheet with Escape close and focus restoration.
+- [ ] Slider and percentage entry remain synchronised in 5% steps and unsaved progress is explicit.
+- [ ] What changed is required; evidence, next step, support, and mark complete persist through one Save update action.
+- [ ] Evidence belongs to the milestone update and support uses the existing actionable manager notification path.
+- [ ] Goal unit, integration/permission, desktop/mobile E2E, accessibility, theme, regression, and production-build checks pass.

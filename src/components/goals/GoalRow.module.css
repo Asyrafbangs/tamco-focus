@@ -1,0 +1,72 @@
+.row {
+  position: relative;
+}
+
+.rowAction {
+  position: relative;
+  z-index: 2;
+  opacity: 0;
+  transform: translateX(3px);
+  transition:
+    opacity var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing);
+}
+
+.row:hover .rowAction,
+.row:focus-within .rowAction,
+.row:global(.attention) .rowAction {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.healthLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 8.7px;
+  font-weight: 650;
+}
+
+.healthLabel::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  content: '';
+}
+
+.healthAttention {
+  border-color: color-mix(in srgb, var(--amber) 25%, var(--line));
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+.healthAttention::before {
+  background: var(--amber);
+}
+
+.healthCompleted {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.discussion :global(.goal-row-progress),
+.discussion :global(.goal-row-date strong) {
+  opacity: 0.65;
+}
+
+.completed {
+  background: color-mix(in srgb, var(--green-bg) 38%, var(--surface));
+}
+
+@media (max-width: 760px) {
+  .rowAction {
+    display: none;
+  }
+}
