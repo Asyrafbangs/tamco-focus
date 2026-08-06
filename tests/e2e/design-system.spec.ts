@@ -65,6 +65,9 @@ test.describe('design tokens match the approved prototype', () => {
     const rail = await page.locator('.rail').boundingBox();
     const topbar = await page.locator('.topbar').boundingBox();
 
+    // Prototype values. These previously read 72/68 to match a shell that had
+    // drifted; the assertion is the guard, so it follows the prototype and the
+    // stylesheet was corrected instead.
     expect(Math.round(rail?.width ?? 0)).toBe(76);
     expect(Math.round(topbar?.height ?? 0)).toBe(72);
   });
@@ -98,7 +101,16 @@ test.describe('responsive behaviour', () => {
   test('no page scrolls horizontally', async ({ page }) => {
     await signIn(page);
 
-    for (const path of ['/today', '/work', '/plan', '/more']) {
+    for (const path of [
+      '/today',
+      '/work',
+      '/work/routine',
+      '/goals',
+      '/plan',
+      '/more',
+      '/more/records',
+      '/more/settings',
+    ]) {
       await page.goto(path);
       const overflows = await page.evaluate(
         () => document.documentElement.scrollWidth > window.innerWidth + 1,
