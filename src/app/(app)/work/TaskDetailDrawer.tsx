@@ -76,8 +76,8 @@ export function TaskDetailDrawer({
   const [activeTab, setActiveTab] = useState<'overview' | 'checklist' | 'updates'>('overview');
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [barrierOpen, setBarrierOpen] = useState(false);
-  const [updateOpen, setUpdateOpen] = useState(false);
   const [ageInfoOpen, setAgeInfoOpen] = useState(false);
+  const [drawerExpanded, setDrawerExpanded] = useState(false);
   const [nextAction, setNextAction] = useState<string | null>(task.nextAction);
   const [nextActionDraft, setNextActionDraft] = useState(task.nextAction ?? '');
   const [nextActionEditing, setNextActionEditing] = useState(false);
@@ -126,7 +126,6 @@ export function TaskDetailDrawer({
         }
         setTaskVersion((current) => current + 1);
         form.reset();
-        setUpdateOpen(false);
       }
     });
   }
@@ -206,29 +205,38 @@ export function TaskDetailDrawer({
     <SideDrawer
       closeHref={closeHref}
       closeLabel="Close task detail"
+      className={`task-detail-drawer${drawerExpanded ? ' expanded' : ''}`}
       eyebrow={WORK_CLASS_LABELS[task.workClass]}
       title={task.title}
       titleId="task-detail-title"
+      actions={
+        <button
+          type="button"
+          className="btn small ghost"
+          aria-pressed={drawerExpanded}
+          onClick={() => setDrawerExpanded((current) => !current)}
+        >
+          {drawerExpanded ? 'Restore' : 'Expand'}
+        </button>
+      }
     >
       <div className="task-detail-scroll" data-tab={activeTab}>
-        <div className="task-detail-meta" aria-label="Task metadata">
-          <span className={`status ${task.status}`}>{TASK_STATUS_LABELS[task.status]}</span>
-          <span className="pill">Owner: {task.ownerName}</span>
-          <span className="pill">{formatDue(task.dueAt, task.dueIsDateOnly, timeZone)}</span>
-          {task.isMandatory && <span className="flag red">Mandatory</span>}
-        </div>
-        <div className="task-age-controls">
-          <AgeChips task={task} staleThresholdDays={staleThresholdDays} />
-          <button
-            type="button"
-            className="task-age-info"
-            aria-label="Explain task-age indicators"
-            title="Explain task-age indicators"
-            onClick={() => setAgeInfoOpen(true)}
+        {detail.capabilities.canContribute && (
+          <section
+            className={`barrier-callout${
+              detail.barriers.some((item) => item.status === 'open') ? ' active' : ''
+            }`}
+            aria-label="Task support"
           >
-            i
-          </button>
-        </div>
+            <div>
+              <strong>Need support?</strong>
+              <p>Raise a barrier before the task becomes overdue.</p>
+            </div>
+            <button type="button" className="btn small danger" onClick={() => setBarrierOpen(true)}>
+              Raise Barrier
+            </button>
+          </section>
+        )}
 
         <Modal open={ageInfoOpen} title="Task-age indicators" onClose={() => setAgeInfoOpen(false)}>
           <div className="modal-head">
@@ -293,14 +301,6 @@ export function TaskDetailDrawer({
               onClick={() => setActiveTab(tab)}
             >
               {tab === 'overview' ? 'Overview' : tab === 'checklist' ? 'Checklist' : 'Updates'}
-              {tab === 'checklist' && (
-                <span>
-                  {task.checklistCompleted}/{task.checklistTotal}
-                </span>
-              )}
-              {tab === 'updates' && detail.updates.length > 0 && (
-                <span>{detail.updates.length}</span>
-              )}
             </button>
           ))}
         </nav>
@@ -312,34 +312,8 @@ export function TaskDetailDrawer({
           </div>
         )}
 
-        {detail.capabilities.canContribute && (
-          <section
-            className={`drawer-panel-overview barrier-callout${
-              detail.barriers.some((item) => item.status === 'open') ? ' active' : ''
-            }`}
-          >
-            <div>
-              <strong>
-                {barrierOpen ? 'Barrier support' : 'Is something blocking this work?'}
-              </strong>
-              <p>
-                Raise a barrier when you need support, a decision, or cannot continue. It does not
-                pause the work unless you choose “Work cannot continue”.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="btn small danger"
-              onClick={() => setBarrierOpen(!barrierOpen)}
-            >
-              {barrierOpen ? 'Hide form' : 'Raise Barrier'}
-            </button>
-          </section>
-        )}
-
-        {barrierOpen && detail.capabilities.canContribute && (
+        <Modal open={barrierOpen} title="Raise Barrier" onClose={() => setBarrierOpen(false)}>
           <form
-            className="detail-form card inset"
             onSubmit={(event) => {
               event.preventDefault();
               const form = event.currentTarget;
@@ -360,44 +334,101 @@ export function TaskDetailDrawer({
               });
             }}
           >
-            <div className="field">
-              <label htmlFor={`barrier-${task.id}`}>What is the barrier?</label>
-              <textarea
-                id={`barrier-${task.id}`}
-                name="description"
-                rows={3}
-                required
-                maxLength={2000}
-              />
+            <div className="modal-head">
+              <div>
+                <strong>Raise Barrier</strong>
+                <span>Record what is blocking the work and the support you need.</span>
+              </div>
+              <button
+                type="button"
+                className="btn small"
+                aria-label="Close Raise Barrier"
+                onClick={() => setBarrierOpen(false)}
+              >
+                &times;
+              </button>
             </div>
-            <div className="field">
-              <label htmlFor={`support-${task.id}`}>What support is needed?</label>
-              <textarea
-                id={`support-${task.id}`}
-                name="supportNeeded"
-                rows={2}
-                required
-                maxLength={2000}
-              />
+            <div className="modal-body">
+              <div className="field">
+                <label htmlFor={`barrier-${task.id}`}>What is the barrier?</label>
+                <textarea
+                  id={`barrier-${task.id}`}
+                  name="description"
+                  rows={3}
+                  required
+                  maxLength={2000}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor={`support-${task.id}`}>What support is needed?</label>
+                <textarea
+                  id={`support-${task.id}`}
+                  name="supportNeeded"
+                  rows={2}
+                  required
+                  maxLength={2000}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor={`impact-${task.id}`}>Impact if unresolved</label>
+                <select id={`impact-${task.id}`} name="impact" required defaultValue="may_delay">
+                  {Object.entries(BARRIER_IMPACT_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <label className="check-row">
+                <input type="checkbox" name="meetingQueue" /> Add to Meeting Queue
+              </label>
             </div>
-            <div className="field">
-              <label htmlFor={`impact-${task.id}`}>Impact if unresolved</label>
-              <select id={`impact-${task.id}`} name="impact" required defaultValue="may_delay">
-                {Object.entries(BARRIER_IMPACT_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+            <div className="modal-foot">
+              <button type="button" className="btn" onClick={() => setBarrierOpen(false)}>
+                Cancel
+              </button>
+              <button className="btn danger" disabled={pending}>
+                {pending ? 'Submitting...' : 'Submit barrier'}
+              </button>
             </div>
-            <label className="check-row">
-              <input type="checkbox" name="meetingQueue" /> Add to Meeting Queue
-            </label>
-            <button className="btn danger" disabled={pending}>
-              Submit barrier
-            </button>
           </form>
-        )}
+        </Modal>
+
+        <div className="task-metadata-strip drawer-panel-overview" aria-label="Task metadata">
+          <span className="task-metadata-chip">
+            <span className={`metadata-dot ${task.status}`} aria-hidden="true" />
+            <strong>{TASK_STATUS_LABELS[task.status]}</strong>
+            <span>Status</span>
+          </span>
+          <span className="task-metadata-chip">
+            <span className="metadata-dot blue" aria-hidden="true" />
+            <strong>{formatDue(task.dueAt, task.dueIsDateOnly, timeZone)}</strong>
+            <span>{task.routineTemplateId ? 'Occurrence' : 'Due'}</span>
+          </span>
+          <AgeChips task={task} staleThresholdDays={staleThresholdDays} />
+          <button
+            type="button"
+            className="task-age-info"
+            aria-label="Explain task-age indicators"
+            title="Explain task-age indicators"
+            onClick={() => setAgeInfoOpen(true)}
+          >
+            i
+          </button>
+          <span className="task-metadata-chip">
+            <span className={`metadata-dot urgency-${task.urgency}`} aria-hidden="true" />
+            <strong>{task.urgency[0]?.toUpperCase() + task.urgency.slice(1)}</strong>
+            <span>Urgency</span>
+          </span>
+          <span className="task-metadata-chip progress">
+            <span className="task-metadata-progress" aria-hidden="true">
+              <span style={{ width: `${task.progressPercent}%` }} />
+            </span>
+            <strong>{task.progressPercent}%</strong>
+            <span>Progress</span>
+          </span>
+          {task.isMandatory && <span className="flag red">Mandatory</span>}
+        </div>
 
         {task.description && (
           <section
@@ -412,12 +443,10 @@ export function TaskDetailDrawer({
         )}
 
         <section
-          className="detail-section next-action-section drawer-panel-overview"
+          className="task-tab-section next-action-section drawer-panel-overview"
           aria-labelledby="next-action-heading"
         >
-          <p className="eyebrow" id="next-action-heading">
-            Next action
-          </p>
+          <h3 id="next-action-heading">Next action</h3>
           <div className="next-action-card">
             {!nextActionEditing ? (
               <div className="next-action-view">
@@ -427,7 +456,11 @@ export function TaskDetailDrawer({
                   </strong>
                   <span>
                     {nextAction
-                      ? 'Keep this to one practical action sentence.'
+                      ? `${task.routineTemplateId ? 'Occurrence' : 'Due'}: ${formatDue(
+                          task.dueAt,
+                          task.dueIsDateOnly,
+                          timeZone,
+                        )} · Keep this to one practical action sentence.`
                       : 'Add the smallest concrete action that will move this task forward.'}
                   </span>
                   {nextAction && (
@@ -495,153 +528,160 @@ export function TaskDetailDrawer({
               </form>
             )}
           </div>
+        </section>
 
-          {detail.capabilities.canEdit && (
-            <div className="detail-lifecycle">
-              <TaskRowActions
-                taskId={task.id}
-                title={task.title}
-                status={task.status}
-                version={task.version}
-                bucket={task.focusBucket}
-                isMandatory={task.isMandatory}
-              />
+        {detail.capabilities.canEdit && (
+          <section className="detail-section task-lifecycle-section drawer-panel-overview">
+            <details className="task-actions-details">
+              <summary>More task actions</summary>
+              <div className="detail-lifecycle">
+                <TaskRowActions
+                  taskId={task.id}
+                  title={task.title}
+                  status={task.status}
+                  version={task.version}
+                  bucket={task.focusBucket}
+                  isMandatory={task.isMandatory}
+                />
 
-              {task.status === 'active' && (
-                <>
-                  <details>
-                    <summary>Pause</summary>
-                    <form
-                      className="detail-form"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        const form = event.currentTarget;
-                        const data = new FormData(form);
-                        const restart = String(data.get('restartAt') ?? '');
-                        startTransition(async () => {
-                          const result = await pauseTask({
-                            taskId: task.id,
-                            expectedVersion: task.version,
-                            reason: String(data.get('reason') ?? ''),
-                            restartAt: restart ? new Date(restart).toISOString() : null,
-                            idempotencyKey: idempotencyKey(),
+                {task.status === 'active' && (
+                  <>
+                    <details>
+                      <summary>Pause</summary>
+                      <form
+                        className="detail-form"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          const form = event.currentTarget;
+                          const data = new FormData(form);
+                          const restart = String(data.get('restartAt') ?? '');
+                          startTransition(async () => {
+                            const result = await pauseTask({
+                              taskId: task.id,
+                              expectedVersion: task.version,
+                              reason: String(data.get('reason') ?? ''),
+                              restartAt: restart ? new Date(restart).toISOString() : null,
+                              idempotencyKey: idempotencyKey(),
+                            });
+                            finish(result, 'Work paused with restart information recorded.');
                           });
-                          finish(result, 'Work paused with restart information recorded.');
-                        });
-                      }}
-                    >
-                      <div className="field">
-                        <label htmlFor={`pause-reason-${task.id}`}>Why pause?</label>
-                        <textarea id={`pause-reason-${task.id}`} name="reason" required rows={2} />
-                      </div>
-                      <div className="field">
-                        <label htmlFor={`restart-${task.id}`}>Restart or review at</label>
-                        <input
-                          id={`restart-${task.id}`}
-                          name="restartAt"
-                          type="datetime-local"
-                          required
-                        />
-                      </div>
-                      <button className="btn small" disabled={pending}>
-                        Pause work
-                      </button>
-                    </form>
-                  </details>
-                  <details>
-                    <summary>Complete</summary>
-                    <form
-                      className="detail-form"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        const data = new FormData(event.currentTarget);
-                        startTransition(async () => {
-                          const result = await completeTask({
-                            taskId: task.id,
-                            expectedVersion: task.version,
-                            completionNote: String(data.get('completionNote') ?? '') || null,
-                            idempotencyKey: idempotencyKey(),
-                          });
-                          finish(result, 'Completion recorded.');
-                        });
-                      }}
-                    >
-                      <div className="field">
-                        <label htmlFor={`complete-note-${task.id}`}>Completion note</label>
-                        <textarea id={`complete-note-${task.id}`} name="completionNote" rows={2} />
-                      </div>
-                      <button className="btn small primary" disabled={pending}>
-                        Complete task
-                      </button>
-                    </form>
-                  </details>
-                </>
-              )}
-
-              {task.status === 'paused' && (
-                <div className="detail-form">
-                  {resumeNeedsReason && (
-                    <>
-                      <div className="field">
-                        <label htmlFor={`resume-reason-${task.id}`}>
-                          Why is this additional focus needed now?
-                        </label>
-                        <select
-                          id={`resume-reason-${task.id}`}
-                          value={resumeReason ?? ''}
-                          onChange={(event) =>
-                            setResumeReason((event.target.value || null) as ActivationReason | null)
-                          }
-                        >
-                          <option value="">Select a reason</option>
-                          {ACTIVATION_REASON_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      {resumeReason === 'other' && (
+                        }}
+                      >
                         <div className="field">
-                          <label htmlFor={`resume-note-${task.id}`}>Add a short note</label>
+                          <label htmlFor={`pause-reason-${task.id}`}>Why pause?</label>
                           <textarea
-                            id={`resume-note-${task.id}`}
-                            value={resumeNote}
-                            onChange={(event) => setResumeNote(event.target.value)}
+                            id={`pause-reason-${task.id}`}
+                            name="reason"
+                            required
                             rows={2}
                           />
                         </div>
-                      )}
-                    </>
-                  )}
-                  <button
-                    type="button"
-                    className="btn primary"
-                    onClick={runResume}
-                    disabled={pending}
-                  >
-                    Resume work
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+                        <div className="field">
+                          <label htmlFor={`restart-${task.id}`}>Restart or review at</label>
+                          <input
+                            id={`restart-${task.id}`}
+                            name="restartAt"
+                            type="datetime-local"
+                            required
+                          />
+                        </div>
+                        <button className="btn small" disabled={pending}>
+                          Pause work
+                        </button>
+                      </form>
+                    </details>
+                    <details>
+                      <summary>Complete</summary>
+                      <form
+                        className="detail-form"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          const data = new FormData(event.currentTarget);
+                          startTransition(async () => {
+                            const result = await completeTask({
+                              taskId: task.id,
+                              expectedVersion: task.version,
+                              completionNote: String(data.get('completionNote') ?? '') || null,
+                              idempotencyKey: idempotencyKey(),
+                            });
+                            finish(result, 'Completion recorded.');
+                          });
+                        }}
+                      >
+                        <div className="field">
+                          <label htmlFor={`complete-note-${task.id}`}>Completion note</label>
+                          <textarea
+                            id={`complete-note-${task.id}`}
+                            name="completionNote"
+                            rows={2}
+                          />
+                        </div>
+                        <button className="btn small primary" disabled={pending}>
+                          Complete task
+                        </button>
+                      </form>
+                    </details>
+                  </>
+                )}
+
+                {task.status === 'paused' && (
+                  <div className="detail-form">
+                    {resumeNeedsReason && (
+                      <>
+                        <div className="field">
+                          <label htmlFor={`resume-reason-${task.id}`}>
+                            Why is this additional focus needed now?
+                          </label>
+                          <select
+                            id={`resume-reason-${task.id}`}
+                            value={resumeReason ?? ''}
+                            onChange={(event) =>
+                              setResumeReason(
+                                (event.target.value || null) as ActivationReason | null,
+                              )
+                            }
+                          >
+                            <option value="">Select a reason</option>
+                            {ACTIVATION_REASON_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {resumeReason === 'other' && (
+                          <div className="field">
+                            <label htmlFor={`resume-note-${task.id}`}>Add a short note</label>
+                            <textarea
+                              id={`resume-note-${task.id}`}
+                              value={resumeNote}
+                              onChange={(event) => setResumeNote(event.target.value)}
+                              rows={2}
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      className="btn primary"
+                      onClick={runResume}
+                      disabled={pending}
+                    >
+                      Resume work
+                    </button>
+                  </div>
+                )}
+              </div>
+            </details>
+          </section>
+        )}
 
         <section
-          className="detail-section drawer-panel-checklist"
+          className="task-tab-section drawer-panel-checklist"
           aria-labelledby="checklist-heading"
         >
-          <div className="sectionhead">
-            <div>
-              <h3 id="checklist-heading">Checklist</h3>
-              <p>
-                {detail.checklist.length
-                  ? `${task.checklistCompleted} of ${task.checklistTotal} complete`
-                  : 'No checklist is required for this work.'}
-              </p>
-            </div>
-          </div>
+          <h3 id="checklist-heading">Checklist</h3>
           {nextAction ? (
             <ChecklistItem
               state="ready"
@@ -649,7 +689,7 @@ export function TaskDetailDrawer({
                 detail.capabilities.canEdit ? (
                   <button
                     type="button"
-                    className="btn small primary"
+                    className="btn small"
                     disabled={pending}
                     onClick={() => saveNextAction(true)}
                   >
@@ -661,7 +701,7 @@ export function TaskDetailDrawer({
               }
             >
               <strong>{nextAction}</strong>
-              <span>Current Next action - mark done here or edit it from Overview.</span>
+              <span>Current next action · mark done here or update it from Overview.</span>
             </ChecklistItem>
           ) : (
             <div className="next-action-checklist-empty">
@@ -762,7 +802,9 @@ export function TaskDetailDrawer({
                 {detail.capabilities.canContribute && item.state === 'completed' && (
                   <button
                     type="button"
-                    className="btn small ghost"
+                    className="flag green checklist-done-action"
+                    aria-label={`Reopen ${item.action}`}
+                    title="Reopen this checklist item"
                     disabled={pending}
                     onClick={() =>
                       startTransition(async () => {
@@ -776,7 +818,7 @@ export function TaskDetailDrawer({
                       })
                     }
                   >
-                    Reopen
+                    Done
                   </button>
                 )}
               </ChecklistItem>
@@ -784,81 +826,82 @@ export function TaskDetailDrawer({
           })}
         </section>
 
-        <section className="detail-section drawer-panel-updates" aria-labelledby="updates-heading">
-          <div className="sectionhead">
-            <div>
-              <h3 id="updates-heading">Updates</h3>
-              <p>Record meaningful progress and the next practical action.</p>
-            </div>
-            {detail.capabilities.canContribute && (
-              <button
-                type="button"
-                className="btn small"
-                onClick={() => setUpdateOpen(!updateOpen)}
-              >
-                {updateOpen ? 'Close composer' : 'Write update'}
-              </button>
-            )}
-          </div>
-          {updateOpen && detail.capabilities.canContribute && (
+        <section
+          className="task-tab-section drawer-panel-updates"
+          aria-labelledby="updates-heading"
+        >
+          <h3 id="updates-heading">Post an update</h3>
+          {detail.capabilities.canContribute && (
             <form
               key={nextAction ?? 'no-next-action'}
-              className="detail-form card inset"
+              className="task-update-composer"
               onSubmit={(event) => {
                 event.preventDefault();
                 submitUpdate(event.currentTarget);
               }}
             >
-              <div className="field">
-                <label htmlFor={`update-${task.id}`}>What changed?</label>
-                <textarea
-                  id={`update-${task.id}`}
-                  name="body"
-                  rows={4}
-                  maxLength={4000}
-                  placeholder="Describe the meaningful progress, result, or issue."
-                />
-              </div>
-              {detail.capabilities.canEdit ? (
+              <div className="update-form-grid">
                 <div className="field">
-                  <label htmlFor={`update-next-action-${task.id}`}>What happens next?</label>
-                  <input
-                    id={`update-next-action-${task.id}`}
-                    name="nextAction"
-                    type="text"
-                    maxLength={180}
-                    defaultValue={nextAction ?? ''}
-                    placeholder="One practical action that moves the task forward"
+                  <label htmlFor={`update-${task.id}`}>What changed?</label>
+                  <textarea
+                    id={`update-${task.id}`}
+                    name="body"
+                    rows={4}
+                    maxLength={4000}
+                    placeholder="Describe the meaningful progress, result or issue."
                   />
                 </div>
-              ) : (
-                <p className="muted">
-                  The task owner or authorised editor records What happens next.
-                </p>
-              )}
-              <div className="field">
-                <span className="field-label">Files or screenshots</span>
-                <AttachmentPicker label="Add files" disabled={pending} />
+                {detail.capabilities.canEdit ? (
+                  <div className="field">
+                    <label htmlFor={`update-next-action-${task.id}`}>What happens next?</label>
+                    <input
+                      id={`update-next-action-${task.id}`}
+                      name="nextAction"
+                      type="text"
+                      maxLength={180}
+                      defaultValue={nextAction ?? ''}
+                      placeholder="One practical action that moves the task forward"
+                    />
+                  </div>
+                ) : (
+                  <p className="muted">
+                    The task owner or authorised editor records What happens next.
+                  </p>
+                )}
               </div>
-              <label className="check-row">
-                <input type="checkbox" name="evidenceOnly" value="true" /> This is evidence only
-              </label>
-              {detail.participants.length > 1 && (
-                <fieldset className="mention-list">
-                  <legend>Mention participants</legend>
-                  {detail.participants.map((person) => (
-                    <label key={person.id} className="check-row">
-                      <input type="checkbox" name="mentionIds" value={person.id} />{' '}
-                      {person.fullName}
-                    </label>
-                  ))}
-                </fieldset>
-              )}
-              <button className="btn primary" disabled={pending}>
-                {pending ? 'Posting…' : 'Post update'}
-              </button>
+              <details className="update-options">
+                <summary>Update options</summary>
+                <label className="check-row">
+                  <input type="checkbox" name="evidenceOnly" value="true" /> This is evidence only
+                </label>
+                {detail.participants.length > 1 && (
+                  <fieldset className="mention-list">
+                    <legend>Mention participants</legend>
+                    {detail.participants.map((person) => (
+                      <label key={person.id} className="check-row">
+                        <input type="checkbox" name="mentionIds" value={person.id} />{' '}
+                        {person.fullName}
+                      </label>
+                    ))}
+                  </fieldset>
+                )}
+              </details>
+              <div className="update-composer-footer">
+                <AttachmentPicker label="Attach" disabled={pending} />
+                <button type="button" className="btn small" onClick={() => setBarrierOpen(true)}>
+                  Need support
+                </button>
+                <button className="btn small primary" disabled={pending}>
+                  {pending ? 'Posting…' : 'Post update'}
+                </button>
+              </div>
             </form>
           )}
+          <h3 className="recent-activity-heading">Recent activity</h3>
+          <div className="update-history-note">
+            <strong>Updates are timestamped automatically</strong>
+            <span>A changed next action also updates the task history and stale-work timer.</span>
+          </div>
           <div className="activity-list">
             {detail.updates.map((update) => (
               <article key={update.id} className="activity-item">

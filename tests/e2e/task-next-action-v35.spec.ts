@@ -36,6 +36,22 @@ test('Next action is editable, completable, and refreshed by a task update', asy
   await expect(detail).toBeVisible();
   await expect(detail.getByText('Next action', { exact: true }).first()).toBeVisible();
   await expect(detail.getByText('Do Next', { exact: true })).toHaveCount(0);
+  await expect(detail.getByRole('region', { name: 'Task support' })).toBeVisible();
+  await expect(detail.getByRole('tab', { name: 'Overview' })).toBeVisible();
+
+  const drawerBox = await detail.boundingBox();
+  expect(drawerBox).not.toBeNull();
+  if (testInfo.project.name === 'desktop') {
+    expect(drawerBox!.width).toBeGreaterThanOrEqual(618);
+    expect(drawerBox!.width).toBeLessThanOrEqual(622);
+    await expect(detail.getByRole('region', { name: 'Attachments and evidence' })).toBeHidden();
+    await detail.getByRole('button', { name: 'Expand' }).click();
+    await expect(detail.getByRole('region', { name: 'Attachments and evidence' })).toBeVisible();
+    await detail.getByRole('button', { name: 'Restore' }).click();
+  } else {
+    expect(drawerBox!.width).toBeGreaterThanOrEqual(388);
+    expect(drawerBox!.width).toBeLessThanOrEqual(392);
+  }
 
   const ageInfoButton = detail.getByRole('button', { name: 'Explain task-age indicators' });
   await ageInfoButton.click();
@@ -68,7 +84,7 @@ test('Next action is editable, completable, and refreshed by a task update', asy
   await expect(detail.getByText('Active', { exact: true }).first()).toBeVisible();
 
   await detail.getByRole('tab', { name: /Updates/ }).click();
-  await detail.getByRole('button', { name: 'Write update' }).click();
+  await expect(detail.getByRole('heading', { name: 'Post an update' })).toBeVisible();
   await detail.getByLabel('What changed?').fill(updateText);
   await detail.getByLabel('What happens next?').fill(updateAction);
   await detail.getByRole('button', { name: 'Post update' }).click();
