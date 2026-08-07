@@ -1,10 +1,10 @@
 # TAMCO Focus — Master Product Specification
 
 **Document status:** Authoritative product source of truth  
-**Baseline:** v33 dedicated Goals workspace and actionable milestone baseline  
+**Baseline:** v37 synchronized baseline — v34 Goals + v36 Next action + v36 Team Focus  
 **Product name:** TAMCO Focus  
 **Document owner:** Product Owner / EHS Manager  
-**Prepared:** 5 August 2026  
+**Prepared:** 7 August 2026  
 **Applies to:** Desktop web application, mobile web application, backend services, database, notifications, records, permissions, and audit controls
 
 ---
@@ -90,7 +90,7 @@ Examples:
 - **My Day:** What needs attention and what should I do next?
 - **My Focus:** What sustained commitments am I actively carrying?
 - **Routine Work:** What scheduled occurrence must I complete?
-- **Team Load:** Where does someone need support, reprioritisation, or a decision?
+- **Team Focus:** Who needs management attention, where is focus under pressure, and what changed?
 - **Records:** What completed evidence or retained record needs review?
 
 ## 1.3 Product principles
@@ -136,7 +136,7 @@ Examples:
 - barriers and support requests
 - Related Work / task dependencies
 - Monthly Plan
-- Team Load
+- Team Focus
 - Meeting Queue / decision queue
 - completion review
 - Records, attachments, audit history, and archive
@@ -269,6 +269,7 @@ The lean permanent destinations are:
 
 - **Today**
 - **Work**
+- **Goals**
 - **Plan**
 - **Team** — manager and administrator only
 - **More**
@@ -819,11 +820,9 @@ Reopening an item creates a reversal event. It does not erase the original compl
 
 The update composer is accessible near Next action but remains collapsed or visually quiet until needed.
 
-Prompts:
+Prompt:
 
-> What changed?
->
-> What happens next?
+> What changed, and what happens next?
 
 Support:
 
@@ -1017,7 +1016,7 @@ Completing one occurrence does not close the recurring template.
 
 ## 16.6 Routine burden
 
-Routine work does not consume focus targets, but Team Load shows:
+Routine work does not consume focus targets, but Team Focus may show:
 
 - occurrences this week
 - completed
@@ -1055,56 +1054,60 @@ Mobile uses a date-grouped agenda rather than forcing a compressed desktop calen
 
 ---
 
-# 18. Team Load
+# 18. Team Focus
 
 ## 18.1 Purpose
 
-Team Load gives managers visibility without requiring approval of every action.
+Team Focus is the manager exception-first workspace. It answers three questions quickly:
 
-## 18.2 Views
+1. Who needs management attention?
+2. Where is focus under pressure?
+3. What changed meaningfully?
 
-- by person
-- by focus bucket
-- routine load
+It is not a full expanded workload report for every employee.
 
-## 18.3 Per-person display
+## 18.2 Default view
 
-Show:
+- compact people list
+- default filter: **Needs attention**
+- optional **Everyone** view
+- default sort: management priority
+- optional name sort
+- each person row shows identity, meaningful exception indicators, compact Major / Operational / Development focus counts, highest current concern, and last meaningful activity
+- empty focus categories do not create large panels
+- focus capacity is numeric and must not be represented as task-completion progress bars
 
-- Major Project count and titles
-- Operational count and titles
-- Self-Development Plan count and title
-- quiet progress percentage
-- current due dates
-- Available Work needing selection
-- over-target state
-- barriers
-- stale updates
-- routine burden
+## 18.3 Priority order
 
-## 18.4 Employee-initiated work summary
+Default priority sorting is:
 
-Show compact weekly summary:
+1. barrier, safety or critical issue
+2. overdue work
+3. manager decision waiting
+4. over-focus-target condition
+5. stale work
+6. normal work
 
-- Quick Actions created
-- Operational Actions created
-- items needing manager decision
+## 18.4 Team-member detail
 
-Do not show every Quick Action individually unless it becomes exceptional.
+Selecting a person opens a right-side detail drawer on desktop and full-width detail on mobile. The detail prioritises:
 
-## 18.5 Manager attention
+- actionable manager attention
+- current focus
+- each current task's Next action
+- selective abnormal ageing
+- compact Available Work summary
+- routine workload
+- goal exceptions
+- link to the employee workspace where authorised
 
-Surface individual items when:
+## 18.5 Information discipline
 
-- approval or management decision is required
-- Active focus changed materially
-- over-target condition exists
-- work is safety/compliance related
-- work is overdue or stale
-- barrier is raised
-- classification appears inappropriate
+Normal short-lived task age remains visually quiet. Age becomes prominent when overdue, stale, unusually old, or long-paused. Raw activity counts such as work created this week do not appear by default unless an unusual volume has a management implication.
 
----
+## 18.6 Permissions
+
+Team Focus is a presentation layer over existing authorised tasks, routines, goals, barriers and audit events. It does not grant new permissions or create duplicate manager-only data.
 
 # 19. Meeting Queue
 
@@ -1882,7 +1885,7 @@ The interface must show age without making every row visually heavy:
 - red compact chip such as `Overdue 2d`
 - amber compact chip such as `No update 7d` when the configured stale threshold is exceeded
 
-Age indicators appear in My Day, My Focus, Available Work, Team Load, routine occurrence lists, and task detail. Red is reserved for genuinely overdue or actionable conditions. Tooltips or accessible labels must explain how each duration is calculated.
+Age indicators appear in My Day, My Focus, Available Work, Team Focus where management-significant, routine occurrence lists, and task detail. Red is reserved for genuinely overdue or actionable conditions. Tooltips or accessible labels must explain how each duration is calculated.
 
 ## 31B.7 Date and time calculation requirements
 
@@ -1902,78 +1905,16 @@ A release is not acceptable unless:
 - duplicate weekly emails are prevented
 - Open, current-state, overdue, and stale indicators are calculated from timestamps and displayed consistently on desktop and mobile
 
-# 31C. Goals v33
 
-## 31C.1 Workspace and navigation
+## V37 — Synchronized reference baseline
 
-Goals are a dedicated primary workspace at `/goals`, positioned between Work and Plan in desktop and mobile navigation. Plan remains the calendar workspace and must not host Goals. The Goals workspace provides:
+The uploaded `index(20260807-072841).html` is the canonical visual and interaction reference for this revision. Production and future prototypes must preserve its example-data relationships, wording, navigation, click behaviour, drawers, themes, Goals flow, Next action behaviour and Team Focus flow unless a later approved change explicitly supersedes them.
 
-- **My Goals:** one compact list of the signed-in employee's Goals
-- **Team Goals:** an authorised manager master-detail view with people on the left and the selected person's Goals on the right
-- semantic whole-row opening, with Quick Update and other nested actions remaining independent
-- a right-side detail drawer on desktop and full-width detail panel on mobile
-
-My Day may show compact Goal Progress exceptions only when a decision or update is meaningful: a due check-in, requested update, requested support, attention state, approaching target, or recent milestone completion. It must not list every Goal.
-
-## 31C.2 Goal agreement and versioning
-
-Goal setting is a manager-led two-step alignment process:
-
-1. manager expectation: employee, expected result, success measure, target date, with optional baseline, weight, category, and purpose
-2. employee contribution and alignment: employee approach, agreed support, dependencies, and one to ten jointly defined milestones
-
-The flow may save a pending version for discussion or explicitly agree and activate it. A structural change to a title/result, definition of done, weight, milestone membership, or order creates a new pending version. The previous active agreement remains operational and immutable until an authorised manager agrees the new version. Normal overall and milestone progress updates do not require a structural approval.
-
-## 31C.3 Progress and actionable milestones
-
-The model retains two distinct progress values:
-
-- **reported overall progress:** selected by the updater in five-percent steps
-- **milestone-derived progress:** the weighted result of active-version milestones
-
-Derived progress is supporting context and must never silently overwrite the reported value. Each milestone has a title, definition of done, weight, five-percent-step progress, comments, completion action, evidence, and independent history. Completing every active milestone completes the Goal; completing linked task work does not change either Goal progress value.
-
-The approved representative local fixture is **Safety Digitalisation**, using these milestones:
-
-1. Identify recurring operational issues that could be solved digitally
-2. Select a suitable digital or AI tool
-3. Develop a working prototype
-4. Test the solution with users
-5. Record results, lessons learned, and next actions
-
-This is ordinary seed data, never a hard-coded application case.
-
-## 31C.4 Detail, evidence, and records
-
-Goal detail provides Overview, Milestones, Updates, and Evidence & Work. It shows the owner, manager/reviewer, health, target, agreed outcome, progress, current milestone, weight, agreement date, version state, support, updates, evidence, linked work, and audit activity. Supporting baseline, approach, support, dependencies, and purpose remain secondary or collapsible.
-
-Goal evidence uses the existing private attachment bucket under a Goal-specific path. Authorised access is RLS-controlled, downloads use short-lived signed URLs, and opening an attachment is recorded without being treated as acceptance or progress. Goal audit history is immutable and preserves created, updated, supported, versioned, agreed, completed, linked, and closed events.
-
-## 31C.5 Authority and notifications
-
-RLS separates Goal view, update, structural edit, and agreement. An employee can view and update their own Goals. A manager can coach and update authorised direct-report Goals and is the normal agreement authority. Explicit visibility grants view only and never confer update or agreement. Administrators retain controlled organisation authority.
-
-Actionable notifications cover support requests, manager update requests, pending structural alignment, and milestone completion. Support requests surface in Goal detail, relevant My Day views, the manager weekly summary, notifications, and audit history. Minor slider movement produces one confirmed update transaction rather than notification spam.
-
-## 31C.6 Weekly summary and experience states
-
-Weekly email summaries include Goal information only when meaningful. Employee sections may include progress, due check-ins, support, attention, approaching targets, and completed milestones. Manager leadership sections may include meaningful team progress, recognition-worthy milestones, support, stale updates, approaching targets, and pending alignment decisions. Sections are capped and curated; they are never long Goal exports.
-
-Desktop and mobile must include loading, empty, permission-safe, validation, conflict, retry, pending agreement, support, completed, and closed states. Sliders, tabs, whole-row targets, drawers, and forms must remain keyboard-operable, labelled, focus-visible, responsive, dark-theme compatible, and reduced-motion aware.
+This revision reconciles older conflicting text: Goals are a dedicated primary workspace, Plan remains Calendar, the task detail uses **Next action**, and the manager workspace is **Team Focus**.
 
 # 32. Revision history
 
-## v33 — 6 August 2026
-
-- established Goals as a dedicated workspace separate from Plan
-- added compact My Goals and authorised Team Goals master-detail experiences
-- added two-step manager-led Goal setup, explicit agreement, and immutable structural version history
-- separated reported overall progress from weighted milestone-derived progress
-- made milestones independently updateable, commentable, completable, and evidence-capable
-- integrated meaningful Goal exceptions into My Day, notifications, audit, and weekly summaries
-- added private Goal evidence, linked work without automatic progress coupling, RLS, transactions, tests, and the Safety Digitalisation local fixture
-
-## v30 — 5 August 2026
+## v34 — 5 August 2026
 
 - added administrator user creation, account maintenance, deactivation, and controlled deletion
 - added personal weekly email summaries and manager team-change summaries
@@ -2038,25 +1979,6 @@ Owner completes task with evidence → task becomes Completed with Pending Revie
 
 Settings → Visibility Rules → select Amer → add Izzah and Ajmal → preview effective access → Save → RLS rule updated → audit event recorded → Amer gains view-only access within defined scope.
 
-## A10. V34 Goal workspace and formal weighting
-
-- Goals remain a dedicated workspace, separate from Calendar, with My Goals and authorised Team Goals views.
-- Active, For discussion, Completed, and All lifecycle views use the same compact, whole-row interaction. Draft and `pending_discussion` Goals appear under For discussion; completed and closed Goals appear under Completed.
-- Only Active Goals count toward formal allocation and weighted progress. The formal set targets exactly 100%; discussion and completed Goals are excluded. Agreeing or activating above 100% is blocked, while Save for discussion remains available.
-- A Goal exposes one primary progress value, calculated from the agreed milestone weights. Historical reported values remain retained records but are not presented as a competing current percentage.
-- Completed milestones are collapsed by default. The current open milestone is visually prominent and opens a focused right-side update drawer on desktop or bottom sheet on mobile.
-- A milestone check-in starts from saved progress, keeps the 5% slider and percentage entry synchronised, distinguishes unsaved progress, requires What changed, and optionally captures evidence, next step, or support. Mark complete is part of the same form and Save update is the sole primary action.
-- Evidence is linked to the specific milestone update. Support continues through the existing actionable manager notification and escalation path.
-
-## A11. V35 Next action and task-age clarity
-
-- Every Active task may carry one concise Next action. Generic placeholders are prohibited; an empty value is presented as **No next action recorded**.
-- An authorised task editor can Set, Edit, or Mark done inline from Overview. Mark done records immutable history and clears the immediate action without completing or changing the task state.
-- The current Next action is also presented as an actionable Checklist item.
-- Progress posting separates **What changed?** from **What happens next?**. A supplied Next action is saved in the same transaction as the update and attachments.
-- A Next-action change is meaningful activity and resets stale-work timing.
-- Task-age calculations remain derived from timestamps; their explanation is available through an accessible information control beside the compact age indicators, never inside the Next action card.
-
 ---
 
 # Appendix B — Product-owner review checklist for future revisions
@@ -2073,3 +1995,147 @@ Before approving a change, confirm:
 - Is it implemented consistently on desktop and mobile?
 - Does it require an update to this specification?
 - Does it require a data migration or new test?
+
+
+
+## V34 — Lean Goals module
+
+### Purpose
+The Goals module manages agreed performance and development outcomes without becoming a second task list or a duplicate weekly-reporting process. A goal represents the outcome to achieve; tasks and routines represent work that supports the outcome.
+
+### Navigation
+Goals are a dedicated primary workspace, separate from Calendar. Employees see My Goals. Managers and authorised viewers also see Team Goals. Plan remains the Calendar/planning workspace.
+
+### Goal-setting operating model
+1. The manager prepares the expected result, business reason, baseline, target, target date and proposed weight.
+2. The employee contributes the proposed approach, dependencies and support required during a one-to-one discussion.
+3. Both agree the final success result, milestones, weight, date and support.
+4. The action is recorded as **Agreed & Active**, not merely approved by the manager.
+5. Progress updates do not require approval unless the target, measure, owner or due date is materially changed.
+
+### Lean lifecycle and health
+Internal lifecycle: Draft, Discussion, Active, Closed. Active-goal health shown to users: On track, Need attention, Completed.
+
+### Required goal fields
+- Expected result / goal title
+- Why it matters
+- Current position or baseline
+- Agreed success result
+- Target date
+- Owner
+- Manager or reviewer
+- Weight where the goal belongs to a formal weighted set
+- Employee approach
+- Support or dependency
+- Milestones and milestone weights
+
+### Progress method
+Formal goals should default to milestone-based progress. The overall percentage is the weighted total of milestone progress. Linked-task completion must never increase goal progress automatically. The system may prompt the owner to post a goal update when linked work changes.
+
+### Lean progress check-in
+A normal update must be completable in approximately one minute and capture only: milestone changed, current status, current result where useful, what changed, next step, optional attachment, and whether support is needed. Attachments are linked to the specific update and also shown in the goal Evidence view.
+
+### Manager experience
+Managers see team goal health, meaningful progress, goals needing attention, stale check-ins, support requests and upcoming target dates. The interface must not rank employees against one another. A one-to-one preparation view should recognise progress, surface expectation or support issues and reuse existing task/goal evidence rather than request duplicate reporting.
+
+### Integration
+- My Day surfaces a goal only when a check-in is due, support is requested, a target is near, a manager requests an update or a linked milestone changes.
+- Weekly employee email includes meaningful goal progress or check-ins due.
+- Weekly manager email includes recognition, goals needing support, stale check-ins and material goal changes.
+- Goal detail shows linked tasks and routines, but a goal remains a separate outcome record.
+
+### Initial refined annual goal set
+The prototype includes a five-goal, 100%-weighted annual set: BR2 Warehouse ESH Readiness and Stabilisation (30%), Field Service Safety Assurance (25%), Electrical Testing-Area Safety Improvement (20%), Safety Digitalisation with Demonstrated Benefit (10%), and Bukit Raja Safety Opportunity Performance (15%). The detailed milestones and success measures in the prototype are the approved starting structure.
+
+
+## V34 — Lean minimalist Goal workspace redesign
+
+### Design correction
+The Goal module must follow the same interaction model as the rest of TAMCO Focus. It must not use a dense dashboard, multiple summary-card grids, or a large centred detail modal.
+
+### Approved Goal workspace pattern
+- Goals remain a dedicated primary workspace, separate from Calendar.
+- My Goals uses one compact list.
+- Team Goals uses a two-pane master-detail layout: people on the left and the selected person's goals on the right.
+- Summary information is shown as one compact line rather than multiple metric cards.
+- Each goal is shown as a single row containing health, title, current milestone, progress, target date, update age, and one Update action.
+- Goal weight remains secondary information.
+- Goal details open in the same right-side drawer pattern used elsewhere in the application.
+
+### Lean update flow
+A normal goal update requires only:
+1. Milestone
+2. Milestone progress stage
+3. What changed
+
+Next step, support request, and attachment are optional. Health is inferred: a support request or stated concern changes the goal to Need attention; otherwise it remains On track unless all milestones are complete.
+
+### Progressive disclosure
+Manager expectation, employee approach, support, baseline, and purpose remain available in the goal drawer but are collapsed behind expandable agreement sections so the default view stays concise.
+
+
+## V34 — Standalone Goals workspace and actionable milestones
+
+### Placement
+Goals are a dedicated primary workspace and are not embedded inside the Calendar page. Calendar remains a separate planning view. My Day shows only a compact goal strip when a check-in, support request, approaching target, or other meaningful exception exists.
+
+### Quick goal update
+Opening a goal provides a one-minute update path: adjust the overall progress with a slider, write a short progress note, optionally attach a file/photo/screenshot, and save. Next step and support request remain progressively disclosed.
+
+### Actionable milestones
+Each milestone supports direct progress adjustment, mark complete, comment/evidence update, and retained update history. Milestones are created together during the goal-setting conversation rather than generated automatically after activation.
+
+### Milestone alignment
+Employees may suggest milestone changes. Managers and employees discuss the change. Saving for discussion does not replace the current agreed milestone version. Agreeing changes creates a new active milestone version and records the previous version in audit history.
+
+### Safety Digitalisation example
+The standard example milestones are: identify recurring operational issues suitable for digitalisation; select a suitable digital or AI tool; develop a working prototype; test with users; and record results, lessons learned, and next actions.
+
+
+## V34 — Goal workspace focus and formal weighting
+
+### Goal views
+The Goal workspace must separate **Active**, **For discussion**, **Completed**, and **All**. The default view is Active. Draft or discussion goals must never be presented as agreed outcomes.
+
+### Formal goal weight
+Only agreed Active performance goals contribute to the formal weight total and weighted progress. The system must show allocated and remaining weight. An Active goal cannot be agreed if it would increase the formal set above 100%; it may be saved for discussion instead.
+
+### Goal-list hierarchy
+Each row shows one primary progress value, health, target date, last meaningful update, and secondary weight. Milestone-based goals calculate overall progress from milestone weights. The whole row is clickable; repeated Update buttons remain hidden until hover/focus or an attention condition.
+
+### Milestone check-in
+Completed milestones are collapsed by default. The current milestone is prominent. Updating a milestone uses a right-side drawer on desktop and a bottom sheet on mobile. The user adjusts progress through a slider or direct 5% input, records **What changed?**, optionally attaches evidence or requests support, optionally marks the milestone complete, and saves through one primary **Save update** action.
+
+
+## V36 — Next action and task-age clarity
+
+### Next action purpose
+Every Active task may carry one concise **Next action**: the smallest concrete action that will move the task forward. The interface must never show generic placeholder text such as “Continue next action.” When no action has been recorded, show **No next action recorded** with a clear Set next action control.
+
+### Update paths
+The owner may update the Next action directly from the task Overview or through the **What happens next?** field when posting a progress update. The current Next action may also appear as the next actionable checklist item. Marking the Next action done does not complete the task; it clears the immediate action and prompts the owner to set the next practical action.
+
+### Task-age explanation
+Open age, current-state age, overdue age, and stale/no-update age remain compact indicators. Their calculation explanation must be hidden behind an accessible information control beside the indicators. The explanation must not appear inside the Next action card.
+
+### Reuse
+A meaningful Next action may be reused by My Day, Start Here, task lists, handovers, manager views, stale-work review, and weekly email summaries.
+
+
+## V36 — Team Focus manager workspace
+
+The manager Team workspace is renamed **Team Focus** and follows an exception-first master–detail pattern. Its default purpose is to answer: who needs management attention, where focus is under pressure, and what has meaningfully changed.
+
+### Default manager view
+- Show a compact team list rather than expanded workload cards for every person.
+- Default filter: **Needs attention**. An **Everyone** view remains available.
+- Default sort: management priority, with optional name sort.
+- Each person row shows identity, only meaningful exception indicators, compact 1/5/1 focus counts, highest current concern, and last meaningful activity.
+- Empty Major Project or Self-Development categories must not consume large panels.
+- Capacity counts are numeric indicators, not completion progress bars.
+
+### Team-member detail
+Selecting a person opens a right-side detail drawer on desktop and full-width detail on mobile. The detail prioritises: actionable manager attention, current focus, next actions, selective abnormal ageing, then compact secondary workload. Routine, Available Work and Goal information remain collapsed summaries unless they require attention.
+
+### Information discipline
+Normal task age stays visually quiet. Ageing becomes prominent only when overdue, stale, unusually old, or long-paused. Low-value activity counts such as raw work-created-this-week should not appear in the default manager scan unless an unusual volume creates a management implication.

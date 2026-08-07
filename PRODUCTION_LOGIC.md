@@ -1,6 +1,6 @@
 # TAMCO Focus — Production Logic
 
-**Current implementation baseline:** v33 dedicated Goals, milestones, evidence, and agreement history  
+**Current implementation baseline:** v37 synchronized baseline — v34 Goals + v36 Next action + v36 Team Focus  
 **Purpose:** Implementation reference for backend, database, API, audit, permissions, UI state, and acceptance testing.  
 **Maintenance rule:** Every approved workflow change must update this file and `MASTER_PRODUCT_SPEC.md` in the same revision. Updated specifications and prototypes supplied later must be processed through `CHANGE_INTAKE_PROTOCOL.md`.
 
@@ -281,7 +281,7 @@ Avoid:
 
 ## 11. Revision log
 
-### 11.4 v30 revision note
+### 11.4 v34 revision note
 
 - added user creation, account deactivation, and controlled permanent deletion logic
 - added personal weekly email and manager team-change digest logic
@@ -458,52 +458,7 @@ A date-only commitment becomes overdue only after the organisation-local end of 
 Return duration values and accessible labels from a shared domain/service layer so desktop, mobile, email, and exports use identical calculations. Red overdue indicators must not be inferred from display text.
 
 
-## 16. Goals v33
-
-### 16.1 Canonical state
-
-- `goals` owns identity, owner, manager, category, lifecycle status, health, reported overall progress, target, weight, check-in timestamps, active/pending version pointers, and optimistic `version`.
-- `goal_versions` stores immutable agreement candidates and history. At most one active and one pending version may exist for a Goal.
-- `goal_milestones` belongs to a version. One to ten milestones are required; explicit weights must total 100, or the transaction assigns an even 100% split.
-- `goal_updates` and `goal_milestone_updates` are append-only progress/comment records.
-- agreements, attachments, attachment views, support requests, linked work, notifications, and audit events retain their Goal foreign keys.
-
-### 16.2 Authority
-
-- Goal view follows ownership, named manager/reviewer participation, administrator authority, or effective user visibility.
-- View access never grants update, structural edit, or agreement.
-- The owner and authorised manager may post normal progress and propose structure.
-- Only an authorised manager/administrator who is not the owner may agree a pending version.
-- Clients receive capability flags from `get_goal_capabilities`; they do not duplicate permission rules.
-- All Goal tables have RLS. Client table grants are read-only; mutation occurs through locked security-definer procedures.
-
-### 16.3 Creation and agreement transaction
-
-`create_goal` validates the active employee, manager authority, required result/measure/date, category, weight, and milestone payload. It creates the Goal, first version, milestone set, participants, optional agreement, audit, and actionable notification atomically. Save for discussion creates `pending_discussion` plus a pending version. Agree and activate creates an active version and agreement.
-
-`propose_goal_version` locks the Goal and checks its expected version. The candidate version and all candidate milestones are inserted within one exception subtransaction so invalid structure leaves no orphan pending version. The active version pointer does not move. `agree_goal_version` locks again, supersedes the previous active version, activates the exact pending version, records agreement, updates Goal summary fields, and audits the before/after version IDs.
-
-### 16.4 Progress transactions
-
-- Overall progress is an integer from 0 to 100 in five-percent steps. `post_goal_update` requires `what_changed`; next step, support request, and evidence are optional. Requested support requires details and creates one manager action in the same transaction.
-- Milestone progress is independently stored in five-percent steps. `post_goal_milestone_update` changes one active-version milestone, records its prior/new value, comment, completion, evidence, audit, and notification atomically.
-- Derived progress is `round(sum(progress × weight) / sum(weight))` over the active version. It is read context and never overwrites reported progress.
-- All active milestones at 100% transition the Goal to Completed. Closing is a separate manager decision with a reason. History is retained.
-- Expected versions and idempotency keys protect every confirmed mutation from stale writes and repeated clicks.
-
-### 16.5 Evidence and linked work
-
-Goal files use the existing private `task-attachments` bucket under `goals/<goal-id>/...`. Before metadata commits, the operation verifies path scope, uploader ownership, size metadata, and storage-object existence. Failed transactions remove only their newly uploaded orphan paths. Authorised downloads record an attachment view before returning a short-lived signed URL.
-
-`link_goal_work` requires both structural Goal authority and task visibility. A task can be linked to the overall Goal or an active-version milestone. Links are NULL-safe unique. Linking or completing work never changes Goal progress.
-
-### 16.6 Attention, My Day, and email
-
-The Goal overview read model derives check-in due, update requested, support open, target approaching, recent milestone completion, and a written attention reason. My Day selects only owner/manager Goals with one of these meaningful signals.
-
-The weekly worker selects active Goals per recipient and visible direct-report Goals for enabled manager summaries. It includes only progress within the reporting window or an active exception/alignment signal, caps employee and team Goal lines, HTML-escapes user content, and preserves the existing recipient/period idempotency and retry rules.
-
-## V30 — Weekly email preference logic
+## V34 — Weekly email preference logic
 
 1. Personal weekly summary preference is stored per user as a high-level mode: `off`, `focused`, or `standard`.
 2. Manager team-summary preference is stored per eligible user as `off`, `leadership`, or `detailed`.
@@ -514,23 +469,69 @@ The weekly worker selects active Goals per recipient and visible direct-report G
 7. Detailed team summary may add more progress and completion coverage, but should still remain a management briefing rather than an exhaustive export.
 8. Preview screens in the prototype are visual references; the production implementation must render the same information through a reusable email template system.
 
-## V34 — Goal lifecycle, formal weighting, and milestone check-ins
 
-1. Lifecycle filtering is presentation over authoritative Goal states: Active = `active`; For discussion = `draft` or `pending_discussion`; Completed = `completed` or `closed`; All excludes cancelled records.
-2. Formal allocation and weighted Goal progress include Active Goals only. Formal weighted progress uses each active Goal's milestone-derived percentage and Goal weight.
-3. `create_goal` and `agree_goal_version` retain their public signatures. V34 wrappers take an owner-scoped transaction advisory lock, sum the owner's other Active Goal weights, and return `invalid_target` before activation when the result would exceed 100%. Discussion saves are not subject to the formal limit. The renamed v33 implementations are not executable by client roles.
-4. Current Goal progress is `round(sum(milestone progress × milestone weight) / sum(milestone weight))` over the active agreed version. The stored reported percentage remains retained history and is not shown as a second current value.
-5. A milestone check-in initialises both controls from persisted progress. Slider and direct percentage entry use 5% steps; client movement remains explicitly unsaved until Save update succeeds.
-6. `post_goal_milestone_checkin` composes the existing milestone-update and Goal-support operations in one database transaction. It stores prior/new milestone progress, required What changed, optional next/support context, milestone completion, evidence, audit data, and the existing actionable support notification. Any failed support operation rolls back the check-in.
-7. Evidence metadata references the milestone update. Completing every agreed milestone transitions the Goal to Completed through the existing milestone operation.
+## V34 — Lean Goal update logic
 
-## V35 - Next action production logic
+1. Goal progress is recalculated from milestone weights after every update.
+2. Users select a coarse milestone stage rather than manually entering an arbitrary overall goal percentage. Supported stages are current value, Started (25%), Halfway (50%), Nearly done (75%), and Complete (100%).
+3. Only `what_changed` is mandatory for a normal update.
+4. `next_step`, attachment, and support detail are optional.
+5. Selecting support required sets goal health to `Need attention` and creates a manager-visible support signal.
+6. When every milestone is 100%, the goal becomes Completed/Closed.
+7. A goal detail is displayed in a right-side drawer; the previous centred goal-detail modal is not the approved production pattern.
+8. Team Goals must render people and selected-person goals through one master-detail view and must not simultaneously show a team table plus a second card grid.
 
-1. `tasks.next_action` remains the nullable, short-text authoritative current action. No schema column or client-side shadow record is introduced.
-2. Direct Overview edits and progress-update changes use `focus.apply_task_next_action`; permission, terminal-state, placeholder, audit, timestamp, and version rules remain database-authoritative.
-3. Direct Set/Edit/Mark done uses `set_task_next_action` with optimistic versioning and idempotency. Only `focus.can_edit_task` authority may change the value.
-4. `post_task_update` retains its public name and existing named arguments and adds optional `p_next_action`. A non-empty value is committed atomically with update, attachment, mention, task-age, and audit records.
-5. Setting or changing Next action writes `next_action_changed`. Mark done writes `next_action_completed`, retains the completed sentence in immutable audit detail, clears `next_action`, and never changes task state.
-6. Every actual change resets `last_meaningful_update_at`. Re-saving the same action does not create a duplicate Next-action audit event.
-7. Generic placeholders such as `Continue next action` and `Continue the next action` are rejected in both the server-action boundary and the database command.
-8. Task-age explanations are accessible through a modal beside the derived duration indicators and are not duplicated in the action card.
+
+## V34 — Goal update and milestone logic
+
+1. Goals are routed through a dedicated `/goals` workspace; Calendar remains independent.
+2. Overall goal progress can be updated through a range control in 5% increments. Each change requires a short update note and creates an audit event.
+3. A milestone can be updated through an inline range control, marked complete, or opened for a comment/evidence update.
+4. Milestone progress updates recalculate the weighted milestone progress. A direct overall-goal update records the employee-reported overall progress and the source of that change. Production must preserve both the reported progress and the milestone-derived progress when they differ.
+5. Files uploaded through a goal or milestone update remain linked to that specific update and are also visible in the combined Evidence view.
+6. Milestone edits are versioned. `Save for discussion` stores a pending milestone version and leaves the active agreed version unchanged. `Agree changes` activates the pending version and records who agreed and when.
+7. New goals require at least one jointly defined milestone before they can be saved for discussion or activated. Milestone weights are evenly distributed by default and may be refined later.
+
+
+## V34 — Goal weighting and milestone-update rules
+
+1. `formal_weight_total` is calculated only from goals whose lifecycle is `Active`.
+2. Draft, Discussion, Closed, Deferred, and Cancelled goals do not contribute to the formal Active total.
+3. `Agree & activate` must reject a transaction that would take the employee above 100% formal Active weight. Saving for discussion remains allowed.
+4. For a milestone-based goal, `goal.progress` is derived from the weighted milestone progress values. Ordinary task completion and general goal notes never change it automatically.
+5. The milestone editor must initialise from the persisted saved value. Unsaved slider movement is displayed as a new value and is not committed until Save update.
+6. `Mark milestone complete` sets the milestone to 100% within the same audited update transaction.
+7. A milestone update may contain a note, attachments, next step, and support request. Attachments inherit the goal and milestone visibility policy.
+8. The update transaction records old progress, new progress, author, timestamp, comment, files, support state, and recalculated overall goal progress.
+
+
+## V36 — Next action production logic
+
+1. `next_action` is a nullable short text field on the task record. It should normally be limited to one practical action sentence.
+2. A Next action can be changed directly from task Overview or supplied with a progress update. Both paths use the same task command/service and create an immutable audit event.
+3. Changing `next_action` qualifies as a meaningful update and resets the configured stale-work timer. Mere viewing does not.
+4. Posting a progress update with a non-empty **What happens next?** value updates `next_action` in the same transaction as the update and attachment records.
+5. Marking the Next action done records the completed action in history and clears the current `next_action`; it does not change the task state or mark the task Completed.
+6. Display-source priority is: manually confirmed Next action, latest progress-update Next action, explicitly confirmed next incomplete checklist item, then no action recorded. Automatic suggestions must never silently overwrite a confirmed action.
+7. Generic placeholders such as “Continue next action” are prohibited in persisted data and production UI.
+8. Task-age calculations remain derived from timestamps. Their explanatory copy is presented through an information popover/modal and is not repeated in the action card.
+
+
+## V36 — Team Focus presentation logic
+
+1. Team Focus does not introduce a new task state or change capacity rules. It is a manager presentation layer over existing tasks, routines, barriers, goals and audit events.
+2. `Needs attention` includes manager-relevant exceptions such as barriers/support requests, overdue work, pending manager decisions or selection exceptions, over-focus-target conditions, and other protected escalation events already defined elsewhere.
+3. Default priority sorting is exception severity first: barrier/safety/critical issue, overdue work, manager decision, over-focus-target, stale work, then normal work.
+4. Capacity is rendered as a numeric soft-target indicator (for example `Operational 6 / 5`). It must not be represented as a task-completion progress bar.
+5. Age indicators are selectively surfaced when they are management-significant. Normal short-lived age values may remain hidden.
+6. The Team Focus drawer reuses the existing task Next Action, barrier, routine, goal, permission and visibility logic; it must not create duplicate manager-only task data.
+7. A manager may open the underlying task/workspace from Team Focus. Existing permission and visibility controls remain authoritative.
+
+
+## V37 — Reference synchronization rule
+
+1. `index(20260807-072841).html` is the canonical prototype behaviour for the v37 synchronization baseline.
+2. The same sample users, tasks, goals, routines, focus counts, barriers, ageing values and interaction examples are retained in desktop and mobile prototype files.
+3. This revision introduces no new task state, permission, focus-target rule, goal calculation rule, notification rule, or backend workflow beyond the latest approved v34/v36 logic.
+4. Where older text conflicts with the latest prototype, use: dedicated Goals workspace; Plan as Calendar; **Next action** in task detail; **Team Focus** as the manager exception-first workspace.
+5. UI synchronization must not be implemented by replacing real production data with prototype fixtures. Prototype data is reference/demo data only.

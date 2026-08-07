@@ -1,48 +1,113 @@
-# TAMCO Focus v35 — Local-First Application
+# TAMCO Focus v37 — Synchronized Prototype & Production Reference
+
+
+## v37 canonical reference
+
+This revision is synchronized to the Product Owner's uploaded `index(20260807-072841).html`. That file is the canonical example-data, UI/UX, wording, design, function and flow reference for this baseline.
+
+- Desktop: `desktop/index.html`
+- Mobile: `mobile/index.html`
+- Selector: `index.html`
+- Authoritative product requirements: `MASTER_PRODUCT_SPEC.md`
+- Detailed workflow logic: `PRODUCTION_LOGIC.md`
+- Definition of done: `BUILD_ACCEPTANCE_GATES.md`
+
+The mobile build uses the same example data and JavaScript behaviour as desktop; only the composition is forced into the approved phone layout.
 
 ## Purpose
 
-This repository contains the complete local-first TAMCO Focus application and its approved product/build specifications. The current stage runs entirely on the local computer. GitHub, hosted Supabase, and Vercel connections are intentionally deferred.
+This package is designed to be handed to Codex, Claude Code, or a development team to build TAMCO Focus locally as a complete production-oriented application.
 
-## Authoritative reading order
+The application must run on the local computer first. GitHub, hosted Supabase, and Vercel connections are intentionally deferred.
 
-1. `MASTER_PRODUCT_SPEC.md`
-2. `PRODUCTION_LOGIC.md`
-3. `ONE_SHOT_LOCAL_BUILD_PROMPT.md`
-4. `CHANGE_INTAKE_PROTOCOL.md`
-5. `BUILD_ACCEPTANCE_GATES.md`
-6. Latest desktop and mobile prototypes
+## Start here
 
-Desktop and mobile visual references live at `desktop/index.html` and `mobile/index.html`; `index.html` selects between them.
+1. `ONE_SHOT_LOCAL_BUILD_PROMPT.md` — paste or execute this as the main build instruction.
+2. `MASTER_PRODUCT_SPEC.md` — authoritative product source of truth.
+3. `PRODUCTION_LOGIC.md` — detailed workflow and transaction logic.
+4. `AGENTS.md` — Codex/repository instructions.
+5. `CLAUDE.md` — Claude Code project instructions.
+6. `CHANGE_INTAKE_PROTOCOL.md` — how later updated specs and prototypes must be applied.
+7. `BUILD_ACCEPTANCE_GATES.md` — objective definition of done.
+8. `LOCAL_FIRST_BUILD_GUIDE.md` — local setup and later connection sequence.
 
-## Implementation
+## Visual references
 
-- Next.js App Router with strict TypeScript
-- local Supabase Postgres, Auth, Storage, migrations, and RLS
-- complete work, routine, collaboration, Goal, review, record, settings, identity, and visibility workflows
-- dedicated My Goals and Team Goals workspaces with versioned agreement, actionable milestones, private evidence, support, and meaningful weekly-summary integration
-- task Next actions with inline editing, checklist completion, atomic progress-update refresh, immutable audit history, and accessible task-age guidance
-- local routine and weekly-summary workers
-- unit, SQL, pgTAP/RLS, real-stack integration, desktop/mobile E2E, and accessibility gates
+- Desktop: `desktop/index.html`
+- Mobile: `mobile/index.html`
+- Selector: `index.html`
 
-## v35 review focus
+## Flexible future updates
 
-Open an Active task and review the Next action card, inline Set/Edit and Mark done controls, the task-age information control, separate **What changed?** and **What happens next?** update fields, and the current Next action in Checklist.
+The prompt is deliberately not a frozen list of product behaviour. The Product Owner may later provide updated Markdown files and desktop/mobile prototypes. The latest approved `MASTER_PRODUCT_SPEC.md` remains authoritative, and all changes must follow `CHANGE_INTAKE_PROTOCOL.md`.
 
-## Run locally
+## Current implementation direction
 
-1. Install dependencies with `npm.cmd install`.
-2. Start Docker Desktop and run `npm.cmd run supabase:start`.
-3. Run `powershell -ExecutionPolicy Bypass -File scripts/setup-local.ps1`.
-4. Run `npm.cmd run db:reset` and `npm.cmd run dev`.
-5. Open `http://localhost:3000/sign-in`.
+- Next.js App Router and strict TypeScript
+- local Supabase for Postgres, Auth, Storage, migrations, and RLS
+- local Git repository
+- GitHub remote connected later
+- hosted Supabase connected later
+- Vercel deployment later
 
-Use `npm.cmd run worker:tick` for the local routine and weekly-summary jobs. See `docs/local-operations.md` for operations and `docs/test-strategy.md` for the complete verification gate.
+## Explicit local-fixture exception
 
-## Local fixtures
+The engineering standard prohibits fake production behaviour. Reproducible local-only seed users and test fixtures are explicitly required for development and tests. They must never be treated as production data.
 
-Reproducible seed users and test records are explicitly local-only. They are required for development and automated verification and must never be treated as production data or copied to a hosted environment.
 
-## Future changes
+## v34 review path
 
-Product requirements may supersede the initial prompt. Inventory newer approved Markdown and prototypes, then follow `CHANGE_INTAKE_PROTOCOL.md`. Do not connect external services or deploy until separately authorised.
+1. Switch the role to **System Admin — Administrator**.
+2. Open **More → Settings → Users & accounts**.
+3. Create a user, edit email/role/reporting manager, preview a weekly email, deactivate access, or test controlled deletion with a newly created history-free user.
+4. Open **More → Weekly email summary** as a team member and as Izzul to compare the personal and manager versions.
+5. Open **My Day**, **Work**, **Team Focus**, and any task drawer to review `Open`, current-state, `Overdue`, and `No update` indicators.
+
+The HTML prototypes simulate these interactions. Production must implement the database, authentication administration, email worker, RLS, audit, and duration calculations defined in `MASTER_PRODUCT_SPEC.md` and `PRODUCTION_LOGIC.md`.
+
+
+## V34 — Lean Goals prototype
+
+Goals are a dedicated workspace separate from Calendar. The Goals prototype demonstrates manager-led one-to-one goal setting, employee contribution, weighted annual goals, milestone-based progress, short updates with attachments, linked work, team-goal visibility, leadership discussion preparation and weekly-email integration. The five sample goals supplied by the product owner remain the example goal set.
+
+
+## V34 review focus
+
+The Goal module was redesigned after the v31 layout was judged too dashboard-heavy and too form-like. Review **Goals** directly as both Amer and Izzul. The approved interaction is now a compact goal list, a manager people-to-goals master-detail view, a right-side goal drawer, and a one-minute progress update.
+
+
+## V34 review path
+
+1. Open **Goals** directly from the main navigation.
+2. As Izzul, select **Team Goals**, Amer, and **Safety Digitalisation with Demonstrated Benefit**.
+3. Use **Update** for the quick overall-goal update with slider, note and attachment.
+4. Open **Milestones** to adjust progress inline, mark complete, or add comment/evidence.
+5. Select **Edit milestones** to review the save-for-discussion and agree-changes workflow.
+6. Open **Plan** separately to confirm the Calendar no longer contains Goals.
+
+
+## V34 review path
+
+1. Choose **Izzul — Manager**.
+2. Open **Goals → Team Goals → Amer**.
+3. Review Active, For discussion, Completed, and All filters.
+4. Confirm the formal Active goal weight is 100% while the discussion goal is excluded.
+5. Open **BR2 Warehouse ESH Readiness and Stabilisation → Milestones**.
+6. Expand completed milestones, then update the current milestone.
+7. Review the right-side check-in drawer, percentage slider and input, evidence, support request, and Mark complete option.
+
+
+## v36 review focus
+
+This package includes every v34 Goal improvement and adds the approved task Next action refinement. Open an Active task such as **First-aid box QR rollout** and review:
+
+1. The **Next action** card in Overview.
+2. Inline Edit, Set next action, and Mark done behaviour.
+3. The information control beside Open/Active/Overdue age indicators.
+4. Separate **What changed?** and **What happens next?** fields under Updates.
+5. The current Next action displayed as an actionable Checklist item.
+
+
+## v36 review focus
+
+Open the application as **Izzul — Manager** and choose **Team**. Review the new Team Focus list, switch between Needs attention and Everyone, change sorting, then open a team member. The detail drawer demonstrates the exception-first manager workflow while preserving the v34 Goals and v35 Next Action changes.

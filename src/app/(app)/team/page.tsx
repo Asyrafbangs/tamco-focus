@@ -15,7 +15,7 @@ import {
 } from '@/server/queries';
 
 /**
- * Team Load (section 18).
+ * Team Focus (section 18).
  *
  * Gives managers visibility WITHOUT requiring approval of every action
  * (section 18.1). Nothing on this page approves anything; it surfaces where
@@ -83,7 +83,7 @@ export default async function TeamPage() {
   if (profile.role !== 'manager' && profile.role !== 'administrator') {
     return (
       <div className="card empty-state">
-        <h3>Team Load is not available to you</h3>
+        <h3>Team Focus is not available to you</h3>
         <p>
           This page shows workload across a reporting line, which is a manager and administrator
           view. Your own work is on My Day and Work.
@@ -116,7 +116,7 @@ export default async function TeamPage() {
       <div className="pagehead">
         <div>
           <p className="eyebrow">Team</p>
-          <h1>Team Load</h1>
+          <h1>Team Focus</h1>
           <p>Where someone needs support, reprioritisation, or a decision.</p>
         </div>
       </div>
@@ -126,7 +126,7 @@ export default async function TeamPage() {
         <div className="card empty-state">
           <h3>Nobody is visible to you yet</h3>
           <p>
-            Team Load shows the people your visibility rules cover. An administrator configures
+            Team Focus shows the people your visibility rules cover. An administrator configures
             these under Settings, either by reporting line or by naming people explicitly.
           </p>
           <Link href="/today" className="btn">

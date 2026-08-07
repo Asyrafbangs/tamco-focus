@@ -564,7 +564,7 @@ export async function getPlanEvents(
   }));
 }
 
-/** One person's row in Team Load (section 18.3). */
+/** One person's row in Team Focus (section 18.3). */
 export interface TeamLoadRow {
   userId: string;
   fullName: string;
@@ -582,12 +582,12 @@ export interface TeamLoadRow {
 }
 
 /**
- * Team Load (section 18).
+ * Team Focus (section 18).
  *
  * Returns only the people the caller is authorised to see — RLS on the
  * underlying view does the filtering, so a manager sees their reporting line
  * and an administrator sees everyone, without this query knowing the rule.
- * The caller's own row is excluded: Team Load is about other people's load.
+ * The caller's own row is excluded: Team Focus is about other people's load.
  */
 export async function getTeamLoad(viewerId: string): Promise<TeamLoadRow[]> {
   const supabase = await createSupabaseServerClient();

@@ -172,9 +172,9 @@ const CAPACITY_EFFECT: Record<CaptureDestination, string> = {
 
 const MANAGER_VISIBILITY: Record<CaptureDestination, string> = {
   quick_action: 'Appears in your manager’s weekly summary, not as an individual alert.',
-  operational_available_work: 'Visible to your manager in Team Load. No approval needed.',
+  operational_available_work: 'Visible to your manager in Team Focus. No approval needed.',
   routine_template_request: 'Your manager reviews the routine before occurrences are generated.',
-  self_development_plan: 'Visible to your manager in Team Load. No approval needed.',
+  self_development_plan: 'Visible to your manager in Team Focus. No approval needed.',
   collaborative_contribution: 'Visible to the owner of the task you are contributing to.',
   major_project_request: 'Your manager reviews this proposal before it becomes a project.',
   mandatory_operational_action: 'Your manager is notified immediately.',

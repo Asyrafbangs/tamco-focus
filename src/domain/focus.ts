@@ -51,7 +51,7 @@ export interface FocusBadge {
 }
 
 /**
- * The count badge shown on focus tabs and in Team Load.
+ * The count badge shown on focus tabs and in Team Focus.
  *
  * Section 7.4 requires the count in red, for example `6 / 5`, accompanied by the
  * written label "Over focus target".

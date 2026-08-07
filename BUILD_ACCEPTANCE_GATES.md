@@ -93,31 +93,104 @@ The build is not complete until every applicable gate passes.
 - [ ] `MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`, and `CHANGELOG.md` are current.
 - [ ] No external deployment, remote link, or GitHub push occurred.
 
-## 10. V34 Goal-module acceptance
 
-- [ ] Goals remains a standalone workspace; Calendar contains no Goal workspace.
-- [ ] Active, For discussion, Completed, and All filters work for My Goals and Team Goals.
-- [ ] Only Active Goals contribute to formal allocation and milestone-derived weighted progress.
-- [ ] Agree or activate is blocked above 100%; Save for discussion remains available.
-- [ ] Goal rows are whole-row keyboard and pointer targets, with independent Update actions visible on attention, hover, or focus.
-- [ ] Each Goal row and detail hero shows one milestone-derived progress value.
-- [ ] Completed milestones collapse by default and the current milestone is prominent.
-- [ ] Milestone update is a desktop right drawer and mobile bottom sheet with Escape close and focus restoration.
-- [ ] Slider and percentage entry remain synchronised in 5% steps and unsaved progress is explicit.
-- [ ] What changed is required; evidence, next step, support, and mark complete persist through one Save update action.
-- [ ] Evidence belongs to the milestone update and support uses the existing actionable manager notification path.
-- [ ] Goal unit, integration/permission, desktop/mobile E2E, accessibility, theme, regression, and production-build checks pass.
+## User lifecycle, weekly summaries, and task-age gates (v34)
 
-## 11. V35 Next-action acceptance
+- [ ] Administrator can create a user with required name, employee ID, email, department, role, reporting manager, and notification preferences.
+- [ ] Duplicate employee ID and normalized email are rejected by both application validation and database constraints.
+- [ ] Deactivation prevents sign-in and new assignment while preserving all historical records.
+- [ ] Open owned work is reassigned or explicitly controlled before deactivation completes.
+- [ ] Permanent deletion is blocked when retained task, file, review, approval, notification, or audit history exists.
+- [ ] A history-free user can be permanently deleted only after employee-ID confirmation.
+- [ ] Personal weekly summaries are generated from canonical task/audit activity, not manually duplicated status reports.
+- [ ] Manager weekly summaries contain direct-report changes and exceptions and respect effective visibility.
+- [ ] Weekly-email delivery is idempotent, retryable, auditable, and protected against duplicate sends.
+- [ ] Open, current-state, overdue, and stale durations are calculated from timestamps in the shared domain layer.
+- [ ] Date-only due commitments do not become overdue before the organisation-local end of the due date.
+- [ ] Duration indicators and accessible labels are consistent across desktop, mobile, email, and exports.
 
-- [ ] Task Overview says **Next action**, never **Do Next**.
-- [ ] A meaningful sentence is shown when recorded; otherwise **No next action recorded** appears.
-- [ ] Authorised editors can Set/Edit and Mark done inline from Overview.
-- [ ] Mark done clears the immediate action without completing or changing task state.
-- [ ] The current Next action is actionable from Checklist.
-- [ ] Progress updates have separate **What changed?** and **What happens next?** fields.
-- [ ] A supplied Next action commits atomically with the progress update and attachments.
-- [ ] View-only users cannot change Next action and generic placeholders are rejected.
-- [ ] Next-action changes reset stale-work timing and write immutable audit events.
-- [ ] Task-age explanation opens from an accessible control beside the age indicators and is absent from the Next action card.
-- [ ] Desktop/mobile interaction, accessibility, targeted integration, SQL, type, lint, and production-build checks pass.
+
+## V34 Goals acceptance gates
+
+- Goals are accessible as a dedicated primary workspace; Plan remains the Calendar/planning workspace.
+- Employees can view their agreed goals and post a lean progress update with an optional attachment.
+- Managers can view Team Goals, prepare a one-to-one discussion and set up a goal with manager expectation plus employee contribution.
+- Formal goal sets warn when weights do not total 100.
+- Milestone progress calculates goal progress deterministically.
+- Linked-task completion does not automatically modify goal progress.
+- Support requests appear in manager attention surfaces.
+- Goal updates, target changes, attachments and closure create audit events.
+- Employee and manager weekly summaries include only meaningful goal information.
+- Desktop and mobile goal flows pass end-to-end tests and accessibility checks.
+
+
+## V34 Goal UX gates
+
+- My Goals is a compact list rather than a card grid.
+- Team Goals uses a people-to-goals master-detail layout.
+- Opening a goal uses a right-side drawer.
+- The normal update flow has only three required decisions: milestone, stage, and what changed.
+- Goal weight and formal agreement details are secondary.
+- Mobile Goal views remain readable without horizontal scrolling.
+
+
+## V34 goal acceptance gates
+
+- [ ] Goals are accessible as a dedicated workspace and are not nested inside Calendar.
+- [ ] My Day displays goal information only for meaningful check-ins or exceptions.
+- [ ] Overall goal progress can be adjusted by slider and saved with a required note.
+- [ ] Milestone progress can be adjusted directly and marked complete.
+- [ ] Milestone comments and evidence can be posted through the same update model.
+- [ ] Milestone edits support pending discussion and explicit agreement without overwriting the current version prematurely.
+- [ ] Goal and milestone attachments remain linked to the originating update and visible in the combined evidence view.
+
+
+## V34 goal acceptance gates
+
+- Active, For discussion, Completed, and All views are distinct and correctly filtered.
+- Discussion goals do not appear as agreed Active outcomes or contribute to weighted progress.
+- Active formal weight above 100% is blocked at activation, while Save for discussion remains available.
+- Milestone-based goals display one overall percentage calculated from milestones.
+- Completed milestones are collapsed by default and can be expanded.
+- Milestone update opens as a drawer on desktop and a bottom sheet on mobile.
+- Slider, direct numeric input, saved value, and unsaved new value remain synchronised.
+- Save update is the only primary commit action; Mark complete is an option within that update.
+- Comment, evidence and support request persist in the milestone history.
+
+
+## V36 — Next action acceptance gates
+
+- Task Overview labels the section **Next action**, not **Do next**.
+- A real action sentence is displayed when recorded; otherwise **No next action recorded** is shown.
+- Users can set or edit the Next action inline from Overview.
+- Progress updates use separate **What changed?** and **What happens next?** fields.
+- Saving a progress update refreshes the current Next action when a new value is supplied.
+- Marking the Next action done does not complete or change the task state.
+- The current Next action can be completed from the Checklist view.
+- No generic “Continue next action” placeholder is shown.
+- Task-age explanatory copy is accessed through an accessible information control beside the age indicators.
+- The age explanation is absent from the Next action card.
+- Desktop and mobile behaviour are both verified.
+
+
+## V36 Team Focus acceptance gates
+
+- Manager Team workspace is labelled Team Focus.
+- Default view is an exception-first compact people list.
+- Needs-attention filtering and priority sorting work without changing task data.
+- Empty focus categories do not render large empty panels.
+- Capacity is shown numerically and over-target remains visibly exceptional.
+- Selecting a person opens a detail view with actionable attention, current focus and Next Action.
+- Normal ageing remains quiet; overdue/stale/long-running conditions remain visible.
+- Desktop and mobile interaction remains usable and existing permissions are preserved.
+
+
+## V37 synchronized-reference acceptance gates
+
+- [ ] Desktop prototype preserves the uploaded reference example data, wording, navigation, click behaviour, drawers, themes, Goals flow, Next action flow, and Team Focus flow.
+- [ ] Mobile prototype uses the same example data and business interactions with a phone-appropriate composition.
+- [ ] Goals are a dedicated primary workspace and are not nested inside Calendar.
+- [ ] Task detail uses **Next action**, not Do next or generic placeholder text.
+- [ ] Team manager workspace is **Team Focus** and defaults to exception-first scanning.
+- [ ] No business logic, permission rule, RLS rule, notification rule, focus-target rule, or production data is silently changed merely to match prototype appearance.
+- [ ] Updated Master Product Specification, Production Logic, Change Log, README, desktop index and mobile index all describe the same baseline.

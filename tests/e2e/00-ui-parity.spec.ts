@@ -102,7 +102,7 @@ test('main employee surfaces retain prototype structure at every required viewpo
 test('manager Team view uses compact RLS-authorised workload rows', async ({ page }, testInfo) => {
   await signIn(page, 'izzul@tamco.local');
   await page.goto('/team');
-  await expect(page.getByRole('heading', { name: 'Team Load' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Team Focus' })).toBeVisible();
   await expect(page.locator('.member-card').first()).toBeVisible();
   await expect(page.locator('.member-focus-grid').first()).toBeVisible();
   await expect(page.locator('.member-task-row').first()).toBeVisible();
