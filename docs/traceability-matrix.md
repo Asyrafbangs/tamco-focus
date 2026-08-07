@@ -1,0 +1,26 @@
+# TAMCO Focus — implementation traceability matrix
+
+**Baseline:** v33, 6 August 2026  
+**Status key:** Implemented, Partial, Not started
+
+| Requirement                                        | Application module                                           | Database authority                                         | Verification                                           | Status                   |
+| -------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------ | ------------------------ |
+| Authentication and active-account gating           | Sign-in, authenticated layout, middleware                    | Auth plus RLS helpers                                      | Build, RLS suite                                       | Implemented              |
+| My Day prioritisation and Why this?                | Today route and prioritisation domain                        | `task_overview`                                            | 22 unit tests                                          | Implemented              |
+| Focus targets, Activate, Move out, Undo            | Work route and task actions                                  | Transactional RPCs and audit                               | Unit, integration, pgTAP                               | Implemented              |
+| Capture Work classification and confirmation       | Capture route, capture actions, classification domain        | `work_captures`, migration 019 RPC, RLS, private Storage   | 17 unit tests plus integration cases                   | Implemented              |
+| Task-age indicators                                | `AgeChips`, duration domain                                  | Timestamp anchors and `task_overview`                      | 30 unit tests                                          | Implemented              |
+| Routine occurrence list                            | Routine route                                                | Templates, occurrences, generation RPC                     | Schema and integration                                 | Implemented              |
+| Monthly Plan                                       | Plan route                                                   | `plan_events`                                              | Build                                                  | Implemented              |
+| Team Load                                          | Team route                                                   | `team_load_summary`, visibility RLS                        | pgTAP and build                                        | Implemented              |
+| Task master-detail, checklist, updates, barriers   | Responsive drawer/sheet, lifecycle, evidence and activity UI | Transactional RPCs, private Storage and RLS                | Integration + desktop/mobile E2E/Axe                   | Implemented and verified |
+| Records and completion review                      | More records, attachments, audit, archive, task review       | Records, private attachments, immutable audit, review RPCs | Integration + desktop/mobile E2E/Axe                   | Implemented and verified |
+| Administrator users and visibility settings        | User directory, lifecycle actions, effective-access preview  | Identity/visibility RPCs, RLS, security log                | Schema, pgTAP, integration, E2E/Axe                    | Implemented and verified |
+| Weekly email summaries                             | Preferences, renderer, local worker, delivery history        | Unique period key, atomic claim, bounded retry             | Unit + integration duplicate test                      | Implemented and verified |
+| Routine occurrence scheduler                       | Local routine worker command                                 | Idempotent generation procedure and watermark              | Schema + integration idempotency                       | Implemented and verified |
+| Dedicated My Goals / Team Goals workspace          | `/goals`, Goal rows, manager master-detail, responsive nav   | Goal security-invoker read models and capability helpers   | pgTAP + desktop/mobile Playwright/Axe                  | Implemented and verified |
+| Goal setup, versions, milestones, and agreement    | Two-step setup, Goal drawer, version and milestone editors   | Locked/idempotent Goal procedures and immutable agreements | 6 unit + 7 real-stack integration tests                | Implemented and verified |
+| Goal support, evidence, linked work, and summaries | My Day exceptions, private files, Evidence & Work, email     | Goal RLS, private Storage, notifications, audit, worker    | pgTAP, integration, 23 weekly-summary unit tests, E2E  | Implemented and verified |
+| E2E and automated accessibility                    | Playwright desktop/mobile critical journeys                  | n/a                                                        | Capture, task detail, More, admin, visibility with Axe | Implemented and verified |
+
+The approved v33 application modules are mapped above. Detailed workflow contracts remain in `MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`, and the handoff documents in this directory.

@@ -7,7 +7,7 @@ import {
   isFivePercentStep,
   matchesGoalLifecycle,
   validateGoalMilestones,
-  weightedMilestoneProgress,
+  milestoneDerivedProgress,
 } from '@/domain/goals';
 
 describe('Goal v34 lifecycle and formal weighting', () => {
@@ -39,7 +39,7 @@ describe('Goal v34 lifecycle and formal weighting', () => {
 
 describe('Goal progress', () => {
   it('keeps the approved Safety Digitalisation reported and derived values independent', () => {
-    const derived = weightedMilestoneProgress([
+    const derived = milestoneDerivedProgress([
       { weightPercent: 20, progressPercent: 60 },
       { weightPercent: 20, progressPercent: 25 },
       { weightPercent: 20, progressPercent: 10 },
@@ -47,17 +47,28 @@ describe('Goal progress', () => {
       { weightPercent: 20, progressPercent: 0 },
     ]);
 
+    // Plain average of 60, 25, 10, 0, 0.
     expect(derived).toBe(19);
     expect(goalProgressDifference(20, derived)).toBe(1);
   });
 
-  it('normalises when a historical version has non-100 weights', () => {
-    expect(
-      weightedMilestoneProgress([
-        { weightPercent: 2, progressPercent: 100 },
-        { weightPercent: 1, progressPercent: 0 },
-      ]),
-    ).toBe(67);
+  it('ignores milestone weight entirely — weighting belongs to the goal', () => {
+    // Identical completion, wildly different weights: the result must not move.
+    const even = milestoneDerivedProgress([
+      { weightPercent: 50, progressPercent: 100 },
+      { weightPercent: 50, progressPercent: 0 },
+    ]);
+    const lopsided = milestoneDerivedProgress([
+      { weightPercent: 90, progressPercent: 100 },
+      { weightPercent: 10, progressPercent: 0 },
+    ]);
+
+    expect(even).toBe(50);
+    expect(lopsided).toBe(50);
+  });
+
+  it('returns zero when a goal has no milestones yet', () => {
+    expect(milestoneDerivedProgress([])).toBe(0);
   });
 
   it('accepts only five-percent progress increments', () => {

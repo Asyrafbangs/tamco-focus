@@ -1,239 +1,84 @@
 # TAMCO Focus — build status
 
-**Date:** 5 August 2026
-**Baseline:** v30 (`MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`)
-**Stage:** local-first. No GitHub remote, no hosted Supabase link, no Vercel project.
+**Date:** 6 August 2026
 
-This document reports what was built, what was verified, and what was not. It
-exists because `BUILD_ACCEPTANCE_GATES.md` requires failures to be reported
-honestly.
+**Baseline:** approved v33 product specification and production logic
 
----
+**Stage:** v33 implementation and non-destructive verification complete; destructive reset gate awaiting explicit approval. No hosted Supabase link, Vercel deployment, or Git remote.
 
-## 1. Environment
+This document records the implemented scope and the evidence used to accept the local build. `npm run verify` remains the authoritative release gate: a failed or skipped gate makes the command exit non-zero.
 
-Docker Desktop and WSL 2 are installed, and the full local Supabase stack runs:
-Postgres, GoTrue, PostgREST, Storage, and Studio. The application signs in and
-serves live data at `http://localhost:3000`.
+## Verification
 
-Nothing in this repository fakes a service. There is no mock database, no
-stubbed Supabase client, and no test that passes because it was skipped.
+The current suite covers fourteen independent gates:
 
----
+| Gate                     | Evidence                                                                                                                     | Result  |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ------- |
+| SQL syntax               | 645 statements across 31 migrations, seed, and pgTAP coverage                                                                | Pass    |
+| Schema execution         | All 31 migrations and the canonical seed apply from zero in isolated PostgreSQL with behaviour checks                        | Pass    |
+| Secret scan              | No credentials in tracked repository files                                                                                   | Pass    |
+| Formatting               | Prettier passes                                                                                                              | Pass    |
+| Lint                     | ESLint passes with zero warnings                                                                                             | Pass    |
+| Type checking            | Strict TypeScript passes with no emit                                                                                        | Pass    |
+| Unit tests               | 117 domain and summary tests                                                                                                 | Pass    |
+| Production build         | Optimised Next.js 16.3 build succeeds with `/goals` and Goal attachment routes                                               | Pass    |
+| Production smoke         | Built server, sign-in, security headers, and protected-route redirect succeed                                                | Pass    |
+| Database reset           | Safety reviewer rejected resetting the existing developer database; no destructive workaround was used                       | Blocked |
+| Generated types          | Checked-in database types match the migrated live local schema                                                               | Pass    |
+| RLS/database tests       | 36 pgTAP assertions                                                                                                          | Pass    |
+| Integration tests        | 19 preserved transaction tests passed before Goal repairs; all 7 Goal tests passed after additive repairs                    | Pass¹   |
+| End-to-end/accessibility | 36 applicable Playwright journeys passed across five viewport projects; 14 project-specific cases skipped by viewport guards | Pass    |
 
-## 2. Verification results
+¹ The canonical one-command integration run starts with `db reset`. Because that reset was blocked, the two groups were verified in non-destructive runs against the same local stack rather than one clean-reset invocation.
 
-Produced by `npm run verify`.
+**Current result:** 12 gates passed, 1 passed with the noted clean-reset constraint, 1 blocked, 0 failed.
 
-| Gate                  | Result   | Notes                                       |
-| --------------------- | -------- | ------------------------------------------- |
-| SQL syntax            | **PASS** | 355+ statements parsed                      |
-| Schema executes       | **PASS** | 16 migrations + seed, 16 behaviour checks   |
-| Secret scan           | **PASS** | No credentials in tracked files             |
-| Format check          | **PASS** | Prettier                                    |
-| Type check            | **PASS** | `tsc --noEmit`, strict                      |
-| Unit tests            | **PASS** | 86 tests, pure domain logic                 |
-| Production build      | **PASS** | `next build`, lint included                 |
-| Database reset        | **PASS** | All migrations and fixtures from zero       |
-| Generated types match | **PASS** | `database.types.ts` matches the live schema |
-| RLS / database tests  | **PASS** | 24 pgTAP assertions                         |
-| Integration tests     | **PASS** | 11 tests against the real stack             |
-| End-to-end tests      | **FAIL** | Not written                                 |
+The UI/UX parity enforcement pass is included in that result: all main surfaces were compared against the executable prototype, the browser matrix covers 1440 × 900, 1280 × 800, 1024 × 768, 768 × 1024, and 390 × 844, local preflight passes, and `npm audit --omit=dev --audit-level=high` reports zero production vulnerabilities. Prototype/before/after evidence and the final disposition are recorded in `docs/ui-ux-parity-audit.md`.
 
-**11 passed, 1 failed, 0 skipped.**
+## Implemented scope
 
-The RLS gate no longer passes vacuously: `scripts/run-rls-tests.mjs` fails when
-`supabase/tests/` is empty, listing the properties the suite must cover. A
-security gate that goes green with zero tests is worse than one that fails.
+- Complete local Supabase schema, forward-only migrations, private Storage, transactional procedures, immutable audit and security logs, authoritative RLS, and generated strict TypeScript types.
+- Sign-in, My Day, Work, Routine, Monthly Plan, Team Load, Capture Work, and responsive task detail.
+- Dedicated Goals navigation and workspace, compact My Goals, manager Team Goals master-detail, two-step setup, version agreement, independent milestones, dual progress, support, private evidence, linked work, Goal drawer, My Day exceptions, and curated weekly-summary content.
+- Task lifecycle actions, checklists, evidence and evidence-view auditing, updates and mentions, barriers, attachments, collaborators, related work, completion review, and history.
+- More hub with Records, Attachments, Audit History, Archive, personal and organisation Settings, administrator user directory, and Visibility Rules.
+- Compensated local Auth provisioning and profile administration, deactivation/reactivation, controlled exception handling, and guarded deletion for history-free identities.
+- Deterministic Capture Work classification, mandatory urgency question, staged private attachments, collaboration links, and transactional confirmation.
+- Idempotent routine occurrence scheduler and weekly-summary worker with timezone windows, preference modes, manager team content, atomic claiming, retry/backoff, and local SMTP/log transport.
+- Responsive desktop and mobile interfaces based on the approved prototypes, Day/Night themes, visible text state labels, and keyboard/accessibility coverage.
+- Architecture, data-model, permissions, actions, operations, future-deployment, testing, and traceability documentation.
 
-### What is now genuinely proven
+## Key properties proven by tests
 
-Against a real database, with real GoTrue sessions and RLS active:
+- Anonymous and deactivated sessions cannot read user data.
+- Explicit visibility grants permit viewing without granting lifecycle or reassignment authority.
+- Audit records cannot be forged, changed, or deleted by clients.
+- Activation is transactional, versioned, idempotent, and asks exactly one reason when crossing a focus target.
+- Concurrent/repeated transitions do not double-count; undo preserves both audit events.
+- Required evidence blocks completion until satisfied.
+- Settings, effective visibility, private attachment access, and administrative account operations are enforced server-side.
+- Weekly delivery and routine occurrence generation remain duplicate-safe on repeated runs.
 
-- `anon` is refused at the privilege gate on every table
-- Amer views Izzah and Ajmal through the explicit grant, and not Lim
-- Amer can view but cannot activate, move out, or reassign work he does not
-  own — section 3.4, demonstrated rather than asserted
-- a deactivated account reads nothing despite holding a valid token
-- audit events cannot be forged or rewritten by a client
-- activation is one call within target, asks exactly one question when it would
-  cross the target, and proceeds on a reason with no approval step
-- stale versions conflict, repeat clicks are absorbed, concurrent activations
-  do not double-count
-- undo reverses the transition while preserving both events
-- completion is blocked while required evidence is missing
+## Recorded local defaults
 
-### Defects found by actually running it
+| Decision                | Local default                                    |
+| ----------------------- | ------------------------------------------------ |
+| Capture classification  | Deterministic rules-based classifier             |
+| Request Changes outcome | `return_to_available`, organisation-configurable |
+| Attachment policy       | 10 MB and fixed MIME allowlist                   |
+| Virus scanning          | Disabled and explicitly not simulated            |
+| Retention               | Seven years, organisation-configurable           |
+| Email provider          | Local SMTP/Inbucket or log transport             |
+| Routine generation      | Idempotent watermark with a 14-day lead          |
 
-Eight, none visible to static checking. Four from executing the schema
-(a seeded completed task with no `completed_at`; a `record` passed where a
-composite was required; an `ON CONFLICT` missing its partial-index predicate;
-a retained-history rule that made every account undeletable), and four from
-running the stack (`[auth.email] enable_signup = false` disabling email logins
-outright; a policy subquery causing infinite recursion; `EXECUTE` revoked from
-the policy helpers; and table privileges never granted to `authenticated` or
-`service_role`).
+A routine occurrence is represented as a task with `work_class = 'routine_occurrence'`, so it uses the same ownership, checklist, evidence, state, completion, and audit rules without duplicating those domains. npm is the documented package manager because the local guide permits an equivalent package manager when pnpm cannot be enabled.
 
----
+## Local-only boundary
 
-## 3. What is implemented
-
-### Database (`supabase/migrations/`, 18 forward-only migrations)
-
-- Full normalised schema: identity and org, visibility, focus targets, settings,
-  tasks, collaborators, relations, checklists, barriers, updates, attachments,
-  evidence view log, Capture Work staging, routine templates and occurrences,
-  governance proposals, meeting queue, completion reviews, immutable audit,
-  separate administrative security log, notifications, weekly email delivery.
-- Constraints carrying real business rules: focus bucket must match work class,
-  a note required only for the "Other" activation reason, terminal timestamps
-  consistent with terminal states, mandatory work requires justification,
-  a paused task requires restart information, and a mandatory capture outcome is
-  unreachable unless the urgency question was asked and answered.
-- RLS enabled on **every** user-data table, plus private Storage bucket
-  policies. Default deny throughout; `anon` is granted nothing.
-- Authorisation helpers that keep **view separate from edit** — the property
-  section 3.4 depends on. `focus.can_view_task` honours explicit visibility
-  grants; `focus.can_edit_task` deliberately does not.
-- Transactional procedures for every high-impact change, with row locking,
-  optimistic version checks, idempotency keys, audit events, and notifications
-  in one transaction.
-- Local-only fixtures including the approved Amer/Izzah/Ajmal visibility
-  example and a deliberately history-free account for the guarded-deletion path.
-
-### Domain layer (`src/domain/`) — fully unit tested
-
-- `duration.ts` — open, current-state, overdue, and stale ages from stored
-  timestamps; organisation-timezone arithmetic; the date-only due-date rule that
-  prevents the accidental one-day overdue.
-- `focus.ts` — soft targets, the `6 / 5` badge with its written "Over focus
-  target" label, and inline reason validation.
-- `classification.ts` — deterministic Capture Work classification, with the
-  urgency question that keyword detection can never bypass.
-- `prioritisation.ts` — My Day ranking, the full tie-break order, "Why this?"
-  explanations, Needs Attention, and Coming Up.
-
-### Application
-
-- Supabase server/browser/service-role clients with the service-role key
-  confined to `server-only` modules.
-- Session middleware and authentication gating.
-- Server actions for activation (including the over-target flow), move to
-  available, pause, resume, complete, cancel, reassign, undo, checklist
-  completion and reopening, barriers, completion review, evidence view logging,
-  and routine findings.
-- Sign-in, My Day, and Work (Focus) pages, with the design system taken from the
-  approved prototypes, Day/Night theming, task-age chips, and the over-target
-  dialog with Undo.
-
----
-
-## 4. What is NOT implemented
-
-Stated plainly rather than stubbed. There are no placeholder pages, because a
-page that says "coming soon" is the placeholder the engineering standard
-forbids.
-
-**Interface — not built:**
-
-- Capture Work screens (`/capture`) — the domain logic and the `work_captures`
-  table exist; the screens do not.
-- Monthly Plan (`/plan`) — the `plan_events` view exists.
-- Team Load (`/team`) — the `team_load_summary` view exists.
-- More (`/more`): Records, Attachments, Audit History, Archive, Settings, the
-  administrator user directory, and Visibility Rules administration.
-- Routine sub-navigation (`/work/routine`).
-- Task detail drawer — the master-detail panel of section 10.4, and with it the
-  in-app checklist, update composer, attachment upload, and barrier form.
-
-Navigation links to these routes exist because sections 4.1 and 4.2 define the
-information architecture; they currently resolve to 404. That is visibly
-incomplete, which is the intended signal.
-
-**Server — not built:**
-
-- Attachment upload and signed-URL download routes (the Storage policies and
-  `attachments` table are in place).
-- The weekly email worker (schema, idempotency key, and preference modes are in
-  place; `PRODUCTION_LOGIC.md` sections 14 and "V30" define the content sets).
-- The routine occurrence scheduler (`generate_routine_occurrences` exists and is
-  idempotent; nothing calls it on a schedule).
-- User provisioning server actions (`provision_user_profile`,
-  `deactivate_user`, `delete_user_permanently` exist in SQL and are unreachable
-  from the interface).
-
-**Tests — not written:**
-
-- End-to-end and accessibility tests (`tests/e2e/`). Playwright is configured
-  for desktop and mobile viewports and `@axe-core/playwright` is installed, but
-  no specs exist, so the browser journeys and the automated accessibility
-  checks in BUILD_ACCEPTANCE_GATES.md section 6 remain unverified.
-
-**Documentation — not written:**
-
-`docs/` should contain `architecture.md`, `data-model.md`, `rls-permissions.md`,
-`api-and-actions.md`, `local-operations.md`, `future-deployment.md`,
-`test-strategy.md`, and `traceability-matrix.md`. Only this status document
-exists. The schema and procedures are heavily commented in place, which is not
-a substitute.
-
----
-
-## 5. Recorded assumptions
-
-Reversible local defaults, documented rather than silently chosen
-(`MASTER_PRODUCT_SPEC.md` section 30 lists these as unresolved):
-
-| Decision                    | Local default                     | Where                           |
-| --------------------------- | --------------------------------- | ------------------------------- |
-| Capture classification (8)  | Deterministic rules-based         | `src/domain/classification.ts`  |
-| Request Changes outcome (9) | `return_to_available`             | `org_settings`, editable        |
-| Attachment limits (1)       | 10 MB, fixed MIME allowlist       | `.env.example`, `org_settings`  |
-| Virus scanning (2)          | **Not performed, not faked**      | `ATTACHMENT_VIRUS_SCAN_ENABLED` |
-| Retention (3)               | 7 years, placeholder              | `org_settings`                  |
-| Email provider (4)          | Local log transport only          | `EMAIL_TRANSPORT`               |
-| Occurrence generation (12)  | Idempotent watermark, 14-day lead | `generate_routine_occurrences`  |
-
-Two structural decisions worth surfacing:
-
-1. **A routine occurrence is a task** (`work_class = 'routine_occurrence'`)
-   rather than a separate record type. Section 16.1 requires each occurrence to
-   carry its own due date, owner, checklist, evidence, findings, status,
-   completion record, and audit history — which is the task machinery exactly.
-   Modelling it separately would have duplicated every one of those tables.
-
-2. **Package manager is npm, not pnpm.** `corepack enable pnpm` requires
-   administrator rights on this machine. `LOCAL_FIRST_BUILD_GUIDE.md` section 3
-   permits a different package manager provided equivalent commands are
-   documented; they are, in `package.json`.
-
----
-
-## 6. Confirmation of stage boundaries
-
-- `git remote -v` returns nothing. No remote was added.
-- No hosted Supabase project was linked.
+- Local Supabase is the only configured backend.
+- No hosted Supabase project is linked.
 - No Vercel project was created or deployed.
-- No secrets are committed; `npm run scan:secrets` passes over tracked files.
-- The default branch is `main`.
+- `git remote -v` is empty; no remote was added or pushed.
+- Secrets remain in ignored local environment files only.
 
----
-
-## 7. Next steps, in order
-
-1. Install Docker Desktop and WSL 2, then run `npm run preflight` until it is
-   clean. This is the only step that needs administrator rights and a restart,
-   and it is the one thing that cannot be done from inside this repository.
-2. Run `scripts/setup-local.ps1`. The schema now applies cleanly to a real
-   PostgreSQL 18 engine, so `supabase db reset` has a good chance of working
-   first time — but Supabase adds roles, JWT claims, and the `storage` service
-   that the in-process harness only stands in for, so budget for a few
-   platform-specific corrections.
-3. Commit the generated `src/lib/database.types.ts`.
-4. Write the RLS tests. This is the largest remaining verification gap: the
-   policies are proven to compile and attach, not to allow and deny correctly.
-   Start with the Amer/Izzah/Ajmal visibility case and the
-   view-does-not-grant-edit denial cases.
-5. Build the task detail drawer, then Capture Work — between them they unlock
-   most of the remaining workflows.
-6. Fill in the rest of `docs/`.
+The approved v33 product slice has no intentionally omitted Goal feature or placeholder page. The remaining local reset gate is an execution-authority constraint, not a product deferral. Future hosted deployment remains a separately authorised stage described in `docs/future-deployment.md`.

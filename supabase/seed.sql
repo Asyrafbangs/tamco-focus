@@ -479,6 +479,187 @@ insert into public.work_proposals (kind, title, rationale, proposed_by, payload)
   '{"estimated_months": 6}'::jsonb
 );
 
+-- ---------------------------------------------------------------------------
+-- Goals v33 fixtures.
+--
+-- Safety Digitalisation is the approved representative Goal from the v33
+-- product package. It is ordinary relational fixture data: application code
+-- never branches on its identifier or title. The reported 20% deliberately
+-- differs from the milestone-derived 19% so both progress concepts remain
+-- visible and independently testable.
+-- ---------------------------------------------------------------------------
+
+insert into public.goals (
+  id, owner_id, manager_id, created_by, title, category, status, health,
+  reported_progress, target_date, weight_percent, checkin_due_at,
+  last_meaningful_update_at, active_version_id, agreed_at, version, created_at
+) values
+  ('f0c06000-0000-4000-a000-000000000001',
+   'f0c05000-0000-4000-a000-000000000003',
+   'f0c05000-0000-4000-a000-000000000002',
+   'f0c05000-0000-4000-a000-000000000002',
+   'Safety Digitalisation', 'improvement', 'active', 'support_requested',
+   20, current_date + 150, 10, now() - interval '1 day',
+   now() - interval '21 days', null, now() - interval '90 days', 1,
+   now() - interval '100 days'),
+
+  ('f0c06000-0000-4000-a000-000000000002',
+   'f0c05000-0000-4000-a000-000000000004',
+   'f0c05000-0000-4000-a000-000000000002',
+   'f0c05000-0000-4000-a000-000000000002',
+   'Strengthen frontline safety coaching', 'development', 'active', 'on_track',
+   25, current_date + 120, 25, now() + interval '14 days',
+   now() - interval '4 days', null, now() - interval '70 days', 1,
+   now() - interval '75 days');
+
+insert into public.goal_versions (
+  id, goal_id, version_number, status, title, expected_result, success_measure,
+  employee_approach, support_agreed, dependencies, baseline, purpose,
+  target_date, weight_percent, proposed_by, proposed_at, activated_at
+) values
+  ('f0c06100-0000-4000-a000-000000000001',
+   'f0c06000-0000-4000-a000-000000000001', 1, 'active',
+   'Safety Digitalisation',
+   'Use a practical digital or AI solution to remove recurring manual safety coordination work.',
+   'A working prototype is tested with users and its results, lessons and next actions are recorded.',
+   'Start from repeated coordination pain points, prototype the smallest useful workflow, and test it with the people doing the work.',
+   'Fortnightly coaching, access to users, and a decision on an approved pilot tool.',
+   'Availability of Operations users and access to non-sensitive example data.',
+   'Recurring observations, reminders, and follow-ups are currently tracked across spreadsheets and messages.',
+   'Reduce avoidable administration so safety time is spent on prevention and coaching.',
+   current_date + 150, 10,
+   'f0c05000-0000-4000-a000-000000000002', now() - interval '100 days',
+   now() - interval '90 days'),
+
+  ('f0c06100-0000-4000-a000-000000000002',
+   'f0c06000-0000-4000-a000-000000000002', 1, 'active',
+   'Strengthen frontline safety coaching',
+   'Establish a repeatable coaching rhythm with line supervisors.',
+   'Each supervisor receives two observed coaching sessions and can run the conversation without assistance.',
+   'Use real walk findings as short practice scenarios and reflect after each session.',
+   'Protected time with supervisors and feedback after observed sessions.',
+   'Shift coverage during the scheduled sessions.',
+   'Coaching currently happens informally and is not consistent between shifts.',
+   'Build confident frontline ownership of everyday safety conversations.',
+   current_date + 120, 25,
+   'f0c05000-0000-4000-a000-000000000002', now() - interval '75 days',
+   now() - interval '70 days');
+
+update public.goals
+   set active_version_id = case id
+     when 'f0c06000-0000-4000-a000-000000000001' then 'f0c06100-0000-4000-a000-000000000001'::uuid
+     when 'f0c06000-0000-4000-a000-000000000002' then 'f0c06100-0000-4000-a000-000000000002'::uuid
+   end
+ where id in (
+   'f0c06000-0000-4000-a000-000000000001',
+   'f0c06000-0000-4000-a000-000000000002'
+ );
+
+insert into public.goal_participants (goal_id, user_id, participant_role, added_by) values
+  ('f0c06000-0000-4000-a000-000000000001', 'f0c05000-0000-4000-a000-000000000003', 'employee', 'f0c05000-0000-4000-a000-000000000002'),
+  ('f0c06000-0000-4000-a000-000000000001', 'f0c05000-0000-4000-a000-000000000002', 'manager', 'f0c05000-0000-4000-a000-000000000002'),
+  ('f0c06000-0000-4000-a000-000000000002', 'f0c05000-0000-4000-a000-000000000004', 'employee', 'f0c05000-0000-4000-a000-000000000002'),
+  ('f0c06000-0000-4000-a000-000000000002', 'f0c05000-0000-4000-a000-000000000002', 'manager', 'f0c05000-0000-4000-a000-000000000002');
+
+insert into public.goal_milestones (
+  id, goal_version_id, position, title, completion_definition,
+  weight_percent, progress_percent, last_update_at
+) values
+  ('f0c06200-0000-4000-a000-000000000001', 'f0c06100-0000-4000-a000-000000000001', 1,
+   'Identify recurring operational issues that could be solved digitally',
+   'A prioritised problem statement is agreed with the people who perform the work.',
+   20, 60, now() - interval '35 days'),
+  ('f0c06200-0000-4000-a000-000000000002', 'f0c06100-0000-4000-a000-000000000001', 2,
+   'Select a suitable digital or AI tool',
+   'A tool is selected against data, access, usability, and support constraints.',
+   20, 25, now() - interval '21 days'),
+  ('f0c06200-0000-4000-a000-000000000003', 'f0c06100-0000-4000-a000-000000000001', 3,
+   'Develop a working prototype',
+   'The smallest end-to-end workflow can be demonstrated using non-sensitive data.',
+   20, 10, now() - interval '21 days'),
+  ('f0c06200-0000-4000-a000-000000000004', 'f0c06100-0000-4000-a000-000000000001', 4,
+   'Test the solution with users',
+   'At least three intended users complete the core workflow and their feedback is recorded.',
+   20, 0, now() - interval '90 days'),
+  ('f0c06200-0000-4000-a000-000000000005', 'f0c06100-0000-4000-a000-000000000001', 5,
+   'Record results, lessons learned, and next actions',
+   'The outcome, lessons, ownership, and recommendation are documented and discussed.',
+   20, 0, now() - interval '90 days'),
+
+  ('f0c06200-0000-4000-a000-000000000006', 'f0c06100-0000-4000-a000-000000000002', 1,
+   'Agree the coaching standard',
+   'The expected coaching behaviours and observation form are agreed.',
+   40, 40, now() - interval '9 days'),
+  ('f0c06200-0000-4000-a000-000000000007', 'f0c06100-0000-4000-a000-000000000002', 2,
+   'Run observed coaching sessions',
+   'Every line supervisor completes two observed sessions.',
+   35, 20, now() - interval '4 days'),
+  ('f0c06200-0000-4000-a000-000000000008', 'f0c06100-0000-4000-a000-000000000002', 3,
+   'Review confidence and consistency',
+   'A follow-up review confirms the coaching rhythm can continue without project support.',
+   25, 0, now() - interval '70 days');
+
+insert into public.goal_agreements (
+  id, goal_id, goal_version_id, employee_id, manager_id, agreed_by, agreed_at, detail
+) values
+  ('f0c06300-0000-4000-a000-000000000001',
+   'f0c06000-0000-4000-a000-000000000001',
+   'f0c06100-0000-4000-a000-000000000001',
+   'f0c05000-0000-4000-a000-000000000003',
+   'f0c05000-0000-4000-a000-000000000002',
+   'f0c05000-0000-4000-a000-000000000002', now() - interval '90 days',
+   '{"mode":"manager_employee_discussion"}'::jsonb),
+  ('f0c06300-0000-4000-a000-000000000002',
+   'f0c06000-0000-4000-a000-000000000002',
+   'f0c06100-0000-4000-a000-000000000002',
+   'f0c05000-0000-4000-a000-000000000004',
+   'f0c05000-0000-4000-a000-000000000002',
+   'f0c05000-0000-4000-a000-000000000002', now() - interval '70 days',
+   '{"mode":"manager_employee_discussion"}'::jsonb);
+
+insert into public.goal_updates (
+  id, goal_id, goal_version_id, author_id, previous_reported_progress,
+  new_reported_progress, what_changed, next_step, support_requested,
+  support_details, created_at
+) values
+  ('f0c06400-0000-4000-a000-000000000001',
+   'f0c06000-0000-4000-a000-000000000001',
+   'f0c06100-0000-4000-a000-000000000001',
+   'f0c05000-0000-4000-a000-000000000003', 15, 20,
+   'Compared two suitable tools and built the first prototype flow with sample inspection data.',
+   'Confirm which platform can be used for the user pilot.', true,
+   'Please confirm the approved pilot platform and arrange access to three Operations users.',
+   now() - interval '21 days'),
+  ('f0c06400-0000-4000-a000-000000000002',
+   'f0c06000-0000-4000-a000-000000000002',
+   'f0c06100-0000-4000-a000-000000000002',
+   'f0c05000-0000-4000-a000-000000000004', 20, 25,
+   'Completed the first observed session and incorporated feedback into the prompt card.',
+   'Schedule the remaining supervisors across both shifts.', false, null,
+   now() - interval '4 days');
+
+insert into public.goal_support_requests (
+  id, goal_id, goal_update_id, requested_by, manager_id, details, status, created_at
+) values (
+  'f0c06500-0000-4000-a000-000000000001',
+  'f0c06000-0000-4000-a000-000000000001',
+  'f0c06400-0000-4000-a000-000000000001',
+  'f0c05000-0000-4000-a000-000000000003',
+  'f0c05000-0000-4000-a000-000000000002',
+  'Please confirm the approved pilot platform and arrange access to three Operations users.',
+  'open', now() - interval '21 days'
+);
+
+insert into public.goal_work_links (
+  id, goal_id, milestone_id, task_id, linked_by, created_at
+) values (
+  'f0c06600-0000-4000-a000-000000000001',
+  'f0c06000-0000-4000-a000-000000000001',
+  'f0c06200-0000-4000-a000-000000000004',
+  'f0c05300-0000-4000-a000-000000000008',
+  'f0c05000-0000-4000-a000-000000000003', now() - interval '12 days'
+);
+
 commit;
 
 -- ---------------------------------------------------------------------------

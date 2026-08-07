@@ -1,7 +1,7 @@
 # TAMCO Focus — Master Product Specification
 
 **Document status:** Authoritative product source of truth  
-**Baseline:** v30 user lifecycle, weekly digest, and task-age visibility baseline  
+**Baseline:** v33 dedicated Goals workspace and actionable milestone baseline  
 **Product name:** TAMCO Focus  
 **Document owner:** Product Owner / EHS Manager  
 **Prepared:** 5 August 2026  
@@ -1902,7 +1902,76 @@ A release is not acceptable unless:
 - duplicate weekly emails are prevented
 - Open, current-state, overdue, and stale indicators are calculated from timestamps and displayed consistently on desktop and mobile
 
+# 31C. Goals v33
+
+## 31C.1 Workspace and navigation
+
+Goals are a dedicated primary workspace at `/goals`, positioned between Work and Plan in desktop and mobile navigation. Plan remains the calendar workspace and must not host Goals. The Goals workspace provides:
+
+- **My Goals:** one compact list of the signed-in employee's Goals
+- **Team Goals:** an authorised manager master-detail view with people on the left and the selected person's Goals on the right
+- semantic whole-row opening, with Quick Update and other nested actions remaining independent
+- a right-side detail drawer on desktop and full-width detail panel on mobile
+
+My Day may show compact Goal Progress exceptions only when a decision or update is meaningful: a due check-in, requested update, requested support, attention state, approaching target, or recent milestone completion. It must not list every Goal.
+
+## 31C.2 Goal agreement and versioning
+
+Goal setting is a manager-led two-step alignment process:
+
+1. manager expectation: employee, expected result, success measure, target date, with optional baseline, weight, category, and purpose
+2. employee contribution and alignment: employee approach, agreed support, dependencies, and one to ten jointly defined milestones
+
+The flow may save a pending version for discussion or explicitly agree and activate it. A structural change to a title/result, definition of done, weight, milestone membership, or order creates a new pending version. The previous active agreement remains operational and immutable until an authorised manager agrees the new version. Normal overall and milestone progress updates do not require a structural approval.
+
+## 31C.3 Progress and actionable milestones
+
+The model retains two distinct progress values:
+
+- **reported overall progress:** selected by the updater in five-percent steps
+- **milestone-derived progress:** the weighted result of active-version milestones
+
+Derived progress is supporting context and must never silently overwrite the reported value. Each milestone has a title, definition of done, weight, five-percent-step progress, comments, completion action, evidence, and independent history. Completing every active milestone completes the Goal; completing linked task work does not change either Goal progress value.
+
+The approved representative local fixture is **Safety Digitalisation**, using these milestones:
+
+1. Identify recurring operational issues that could be solved digitally
+2. Select a suitable digital or AI tool
+3. Develop a working prototype
+4. Test the solution with users
+5. Record results, lessons learned, and next actions
+
+This is ordinary seed data, never a hard-coded application case.
+
+## 31C.4 Detail, evidence, and records
+
+Goal detail provides Overview, Milestones, Updates, and Evidence & Work. It shows the owner, manager/reviewer, health, target, agreed outcome, progress, current milestone, weight, agreement date, version state, support, updates, evidence, linked work, and audit activity. Supporting baseline, approach, support, dependencies, and purpose remain secondary or collapsible.
+
+Goal evidence uses the existing private attachment bucket under a Goal-specific path. Authorised access is RLS-controlled, downloads use short-lived signed URLs, and opening an attachment is recorded without being treated as acceptance or progress. Goal audit history is immutable and preserves created, updated, supported, versioned, agreed, completed, linked, and closed events.
+
+## 31C.5 Authority and notifications
+
+RLS separates Goal view, update, structural edit, and agreement. An employee can view and update their own Goals. A manager can coach and update authorised direct-report Goals and is the normal agreement authority. Explicit visibility grants view only and never confer update or agreement. Administrators retain controlled organisation authority.
+
+Actionable notifications cover support requests, manager update requests, pending structural alignment, and milestone completion. Support requests surface in Goal detail, relevant My Day views, the manager weekly summary, notifications, and audit history. Minor slider movement produces one confirmed update transaction rather than notification spam.
+
+## 31C.6 Weekly summary and experience states
+
+Weekly email summaries include Goal information only when meaningful. Employee sections may include progress, due check-ins, support, attention, approaching targets, and completed milestones. Manager leadership sections may include meaningful team progress, recognition-worthy milestones, support, stale updates, approaching targets, and pending alignment decisions. Sections are capped and curated; they are never long Goal exports.
+
+Desktop and mobile must include loading, empty, permission-safe, validation, conflict, retry, pending agreement, support, completed, and closed states. Sliders, tabs, whole-row targets, drawers, and forms must remain keyboard-operable, labelled, focus-visible, responsive, dark-theme compatible, and reduced-motion aware.
+
 # 32. Revision history
+
+## v33 — 6 August 2026
+
+- established Goals as a dedicated workspace separate from Plan
+- added compact My Goals and authorised Team Goals master-detail experiences
+- added two-step manager-led Goal setup, explicit agreement, and immutable structural version history
+- separated reported overall progress from weighted milestone-derived progress
+- made milestones independently updateable, commentable, completable, and evidence-capable
+- integrated meaningful Goal exceptions into My Day, notifications, audit, and weekly summaries
+- added private Goal evidence, linked work without automatic progress coupling, RLS, transactions, tests, and the Safety Digitalisation local fixture
 
 ## v30 — 5 August 2026
 
@@ -2004,4 +2073,3 @@ Before approving a change, confirm:
 - Is it implemented consistently on desktop and mobile?
 - Does it require an update to this specification?
 - Does it require a data migration or new test?
-

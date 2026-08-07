@@ -1,6 +1,6 @@
 # TAMCO Focus — Production Logic
 
-**Current implementation baseline:** v30 user lifecycle, weekly digest, and task-age visibility  
+**Current implementation baseline:** v33 dedicated Goals, milestones, evidence, and agreement history  
 **Purpose:** Implementation reference for backend, database, API, audit, permissions, UI state, and acceptance testing.  
 **Maintenance rule:** Every approved workflow change must update this file and `MASTER_PRODUCT_SPEC.md` in the same revision. Updated specifications and prototypes supplied later must be processed through `CHANGE_INTAKE_PROTOCOL.md`.
 
@@ -457,6 +457,51 @@ A date-only commitment becomes overdue only after the organisation-local end of 
 
 Return duration values and accessible labels from a shared domain/service layer so desktop, mobile, email, and exports use identical calculations. Red overdue indicators must not be inferred from display text.
 
+
+## 16. Goals v33
+
+### 16.1 Canonical state
+
+- `goals` owns identity, owner, manager, category, lifecycle status, health, reported overall progress, target, weight, check-in timestamps, active/pending version pointers, and optimistic `version`.
+- `goal_versions` stores immutable agreement candidates and history. At most one active and one pending version may exist for a Goal.
+- `goal_milestones` belongs to a version. One to ten milestones are required; explicit weights must total 100, or the transaction assigns an even 100% split.
+- `goal_updates` and `goal_milestone_updates` are append-only progress/comment records.
+- agreements, attachments, attachment views, support requests, linked work, notifications, and audit events retain their Goal foreign keys.
+
+### 16.2 Authority
+
+- Goal view follows ownership, named manager/reviewer participation, administrator authority, or effective user visibility.
+- View access never grants update, structural edit, or agreement.
+- The owner and authorised manager may post normal progress and propose structure.
+- Only an authorised manager/administrator who is not the owner may agree a pending version.
+- Clients receive capability flags from `get_goal_capabilities`; they do not duplicate permission rules.
+- All Goal tables have RLS. Client table grants are read-only; mutation occurs through locked security-definer procedures.
+
+### 16.3 Creation and agreement transaction
+
+`create_goal` validates the active employee, manager authority, required result/measure/date, category, weight, and milestone payload. It creates the Goal, first version, milestone set, participants, optional agreement, audit, and actionable notification atomically. Save for discussion creates `pending_discussion` plus a pending version. Agree and activate creates an active version and agreement.
+
+`propose_goal_version` locks the Goal and checks its expected version. The candidate version and all candidate milestones are inserted within one exception subtransaction so invalid structure leaves no orphan pending version. The active version pointer does not move. `agree_goal_version` locks again, supersedes the previous active version, activates the exact pending version, records agreement, updates Goal summary fields, and audits the before/after version IDs.
+
+### 16.4 Progress transactions
+
+- Overall progress is an integer from 0 to 100 in five-percent steps. `post_goal_update` requires `what_changed`; next step, support request, and evidence are optional. Requested support requires details and creates one manager action in the same transaction.
+- Milestone progress is independently stored in five-percent steps. `post_goal_milestone_update` changes one active-version milestone, records its prior/new value, comment, completion, evidence, audit, and notification atomically.
+- Derived progress is `round(sum(progress × weight) / sum(weight))` over the active version. It is read context and never overwrites reported progress.
+- All active milestones at 100% transition the Goal to Completed. Closing is a separate manager decision with a reason. History is retained.
+- Expected versions and idempotency keys protect every confirmed mutation from stale writes and repeated clicks.
+
+### 16.5 Evidence and linked work
+
+Goal files use the existing private `task-attachments` bucket under `goals/<goal-id>/...`. Before metadata commits, the operation verifies path scope, uploader ownership, size metadata, and storage-object existence. Failed transactions remove only their newly uploaded orphan paths. Authorised downloads record an attachment view before returning a short-lived signed URL.
+
+`link_goal_work` requires both structural Goal authority and task visibility. A task can be linked to the overall Goal or an active-version milestone. Links are NULL-safe unique. Linking or completing work never changes Goal progress.
+
+### 16.6 Attention, My Day, and email
+
+The Goal overview read model derives check-in due, update requested, support open, target approaching, recent milestone completion, and a written attention reason. My Day selects only owner/manager Goals with one of these meaningful signals.
+
+The weekly worker selects active Goals per recipient and visible direct-report Goals for enabled manager summaries. It includes only progress within the reporting window or an active exception/alignment signal, caps employee and team Goal lines, HTML-escapes user content, and preserves the existing recipient/period idempotency and retry rules.
 
 ## V30 — Weekly email preference logic
 

@@ -8,6 +8,7 @@ node_modules/
 # The verify suite's isolated build directory, so a production build never
 # clobbers a running dev server.
 .next-verify/
+.next-e2e/
 out/
 next-env.d.ts
 

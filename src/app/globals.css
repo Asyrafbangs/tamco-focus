@@ -1934,6 +1934,11 @@ button {
 .cal-item,
 .attachment-row,
 .attachment-picker-button {
+  /* The leading glyph and the label are adjacent nodes with no whitespace, so
+     without a gap this renders as "+Add files". */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   transition:
     background-color var(--motion-fast) var(--motion-easing),
     border-color var(--motion-fast) var(--motion-easing),
@@ -3437,6 +3442,24 @@ button {
   border-radius: 8px;
   font-weight: 600;
   text-decoration: none;
+  /* The label and its count are separate spans with no whitespace between
+     them, so without this they render as "Active2". */
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Counts read as a quiet secondary value, not part of the label. */
+.workspace-tabs a .count {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+.workspace-tabs a .count.over {
+  background: var(--red);
+  color: #fff;
 }
 .workspace-tabs a.active {
   background: var(--surface);
@@ -4667,6 +4690,22 @@ button {
   gap: 16px;
   padding: 18px 20px 14px;
   border-bottom: 1px solid var(--line);
+}
+/* The title and its supporting sentence are separate inline elements with no
+   whitespace between them; stack them so they do not read as one run-on. */
+.modal-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.modal-head > div > strong {
+  font-size: 15px;
+  font-weight: 650;
+}
+.modal-head > div > span {
+  font-size: 12px;
+  color: var(--muted);
 }
 .modal-head h2 {
   margin: 2px 0 4px;

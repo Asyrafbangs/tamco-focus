@@ -41,6 +41,7 @@ const hasDocker = dockerAvailable();
  */
 const bin = {
   prettier: 'node_modules/prettier/bin/prettier.cjs',
+  eslint: 'node_modules/eslint/bin/eslint.js',
   tsc: 'node_modules/typescript/bin/tsc',
   vitest: 'node_modules/vitest/vitest.mjs',
   next: 'node_modules/next/dist/bin/next',
@@ -56,6 +57,7 @@ const GATES = [
   { name: 'Schema executes', command: 'node', args: ['scripts/check-schema.mjs'] },
   { name: 'Secret scan', command: 'node', args: ['scripts/scan-secrets.mjs'] },
   { name: 'Format check', command: 'node', args: [bin.prettier, '--check', '.'] },
+  { name: 'Lint', command: 'node', args: [bin.eslint, '.', '--max-warnings=0'] },
   { name: 'Type check', command: 'node', args: [bin.tsc, '--noEmit'] },
   { name: 'Unit tests', command: 'node', args: [bin.vitest, 'run', '--project', 'unit'] },
   {
@@ -65,6 +67,11 @@ const GATES = [
     // Built into its own directory so running this never removes the output a
     // dev server is currently serving.
     env: { NEXT_DIST_DIR: '.next-verify' },
+  },
+  {
+    name: 'Production smoke',
+    command: 'node',
+    args: ['scripts/run-production-smoke.mjs'],
   },
 
   {
@@ -94,7 +101,7 @@ const GATES = [
   {
     name: 'End-to-end tests',
     command: 'node',
-    args: [bin.playwright, 'test'],
+    args: ['scripts/run-e2e.mjs'],
     needsDatabase: true,
   },
 ];

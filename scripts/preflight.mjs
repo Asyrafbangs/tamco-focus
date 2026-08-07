@@ -87,7 +87,26 @@ record(
 // `/c/...` entries that the Windows process API cannot resolve, so every
 // bare-name lookup fails even for tools that are plainly installed.
 const nodeDir = pathDirname(process.execPath);
-const npmVersion = tryCommand('npm', ['-v'], [join(nodeDir, 'npm.cmd'), join(nodeDir, 'npm')]);
+const npmCliCandidates = [
+  join(nodeDir, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+  join(nodeDir, '..', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+];
+let npmVersion = tryCommand('npm', ['-v'], [join(nodeDir, 'npm.cmd'), join(nodeDir, 'npm')]);
+
+// Node 24 no longer lets execFile execute a Windows `.cmd` shim directly.
+// Invoking npm's JavaScript entrypoint with the current Node executable avoids
+// a shell and verifies the same installed package that `npm.cmd` delegates to.
+for (const npmCli of npmCliCandidates) {
+  if (npmVersion || !existsSync(npmCli)) continue;
+  try {
+    npmVersion = execFileSync(process.execPath, [npmCli, '-v'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    // Keep looking; the final report carries the remedy if all candidates fail.
+  }
+}
 record(
   'npm',
   Boolean(npmVersion),

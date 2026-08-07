@@ -291,21 +291,6 @@ export function GoalSetupDialog({ employees }: { employees: EmployeeOption[] }) 
                       }
                     />
                   </div>
-                  <div className="field compact-field">
-                    <label htmlFor={`setup-milestone-weight-${index}`}>Weight (%)</label>
-                    <input
-                      id={`setup-milestone-weight-${index}`}
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={milestone.weight_percent ?? ''}
-                      onChange={(event) =>
-                        setMilestone(index, {
-                          weight_percent: event.target.value ? Number(event.target.value) : null,
-                        })
-                      }
-                    />
-                  </div>
                   {milestones.length > 1 && (
                     <button
                       type="button"
@@ -322,8 +307,8 @@ export function GoalSetupDialog({ employees }: { employees: EmployeeOption[] }) 
                 </article>
               ))}
               <p className="sub">
-                Leave all weights blank for an even split, or enter every weight so the total is
-                100%.
+                Each milestone counts equally towards the goal. Weighting is set on the goal itself,
+                not on individual milestones.
               </p>
             </section>
           </div>

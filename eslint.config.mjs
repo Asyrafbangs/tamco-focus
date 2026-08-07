@@ -1,25 +1,22 @@
-import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { FlatCompat } from '@eslint/eslintrc';
+import { defineConfig, globalIgnores } from 'eslint/config';
+import nextVitals from 'eslint-config-next/core-web-vitals';
+import nextTypeScript from 'eslint-config-next/typescript';
 
-const compat = new FlatCompat({
-  baseDirectory: dirname(fileURLToPath(import.meta.url)),
-});
-
-export default [
-  {
-    ignores: [
-      'node_modules/**',
-      '.next/**',
-      'playwright-report/**',
-      'test-results/**',
-      'coverage/**',
-      'src/lib/database.types.ts',
-      'desktop/**',
-      'mobile/**',
-    ],
-  },
-  ...compat.extends('next/core-web-vitals', 'next/typescript'),
+export default defineConfig([
+  ...nextVitals,
+  ...nextTypeScript,
+  globalIgnores([
+    'node_modules/**',
+    '.next/**',
+    '.next-e2e/**',
+    '.next-verify/**',
+    'playwright-report/**',
+    'test-results/**',
+    'coverage/**',
+    'src/lib/database.types.ts',
+    'desktop/**',
+    'mobile/**',
+  ]),
   {
     rules: {
       '@typescript-eslint/no-unused-vars': [
@@ -29,8 +26,7 @@ export default [
       '@typescript-eslint/no-explicit-any': 'error',
       'no-console': ['error', { allow: ['warn', 'error', 'info'] }],
       // `x == null` is the idiomatic way to test null and undefined together,
-      // which matters for nullable answers that are meaningfully tri-state
-      // ("not asked yet" vs "answered no"). Every other comparison is strict.
+      // which matters for nullable answers that are meaningfully tri-state.
       eqeqeq: ['error', 'always', { null: 'ignore' }],
       'prefer-const': 'error',
     },
@@ -40,4 +36,4 @@ export default [
     files: ['scripts/**/*.mjs', 'tests/**/*.ts', '*.config.ts', '*.config.mjs'],
     rules: { 'no-console': 'off' },
   },
-];
+]);

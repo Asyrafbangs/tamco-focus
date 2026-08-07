@@ -146,16 +146,18 @@ export function isFivePercentStep(value: number): boolean {
   return Number.isInteger(value) && value >= 0 && value <= 100 && value % 5 === 0;
 }
 
-/** Weighted milestone progress is evidence-derived and intentionally remains
- * separate from the employee's reported overall progress. */
-export function weightedMilestoneProgress(milestones: readonly GoalMilestoneProgress[]): number {
-  const totalWeight = milestones.reduce((total, milestone) => total + milestone.weightPercent, 0);
-  if (totalWeight <= 0) return 0;
-  const weighted = milestones.reduce(
-    (total, milestone) => total + milestone.progressPercent * milestone.weightPercent,
-    0,
-  );
-  return Math.round(weighted / totalWeight);
+/**
+ * Milestone-derived progress: the plain average of milestone completion.
+ *
+ * Weighting belongs to the GOAL, not to its milestones — a milestone records
+ * how complete it is, a goal records how much it counts towards the formal set.
+ * This value stays separate from the employee's reported overall progress, so
+ * the two can be compared rather than one silently overwriting the other.
+ */
+export function milestoneDerivedProgress(milestones: readonly GoalMilestoneProgress[]): number {
+  if (milestones.length === 0) return 0;
+  const total = milestones.reduce((sum, milestone) => sum + milestone.progressPercent, 0);
+  return Math.round(total / milestones.length);
 }
 
 export interface GoalMilestoneDraft {

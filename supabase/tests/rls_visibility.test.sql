@@ -16,7 +16,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(24);
+select plan(36);
 
 -- ---------------------------------------------------------------------------
 -- Fixture identities (supabase/seed.sql)
@@ -105,6 +105,12 @@ select throws_ok(
   '42501',
   null,
   'anon cannot read attachments');
+
+select throws_ok(
+  'select id from public.goals',
+  '42501',
+  null,
+  'anon cannot read Goals');
 
 select pg_temp.reset_role();
 
@@ -260,7 +266,88 @@ select throws_ok(
 select pg_temp.reset_role();
 
 -- ---------------------------------------------------------------------------
--- 8. A deactivated account loses access even holding a valid token.
+-- 8. Goal visibility is broad enough for coaching, but never grants edit.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as(pg_temp.uid('amer'));
+
+select isnt_empty(
+  format('select id from public.goals where owner_id = %L', pg_temp.uid('amer')),
+  'Amer can view his own Goal');
+
+select isnt_empty(
+  format('select id from public.goals where owner_id = %L', pg_temp.uid('izzah')),
+  'Amer can view Izzah''s Goal through the approved explicit visibility grant');
+
+select is(
+  (select public.get_goal_capabilities('f0c06000-0000-4000-a000-000000000002') ->> 'can_view'),
+  'true',
+  'an authorised Goal viewer receives view capability');
+
+select is(
+  (select public.get_goal_capabilities('f0c06000-0000-4000-a000-000000000002') ->> 'can_update'),
+  'false',
+  'the same viewer does not receive update capability');
+
+select is(
+  (select public.post_goal_update(
+    'f0c06000-0000-4000-a000-000000000002', 1, 30,
+    'Attempted update by a view-only participant.', null, false, null, '[]'::jsonb,
+    'rls-goal-view-only-update') ->> 'code'),
+  'not_authorised',
+  'a view-only participant cannot update another employee''s Goal');
+
+select throws_ok(
+  $$ update public.goals
+        set title = 'tampered Goal'
+      where id = 'f0c06000-0000-4000-a000-000000000002' $$,
+  '42501',
+  null,
+  'clients cannot bypass Goal procedures with a direct update');
+
+select is(
+  (select public.post_goal_update(
+    'f0c06000-0000-4000-a000-000000000001', 1, 25,
+    'Validated the prototype workflow with the first Operations user.',
+    'Schedule two more user tests.', false, null, '[]'::jsonb,
+    'rls-goal-owner-update') ->> 'code'),
+  'goal_update_posted',
+  'a Goal owner can post their own lean overall update');
+
+select isnt_empty(
+  $$ select id from public.audit_events
+      where goal_id = 'f0c06000-0000-4000-a000-000000000001'
+        and event_type = 'goal_update_posted' $$,
+  'the owner update writes immutable Goal audit history');
+
+select pg_temp.reset_role();
+
+select pg_temp.act_as(pg_temp.uid('izzul'));
+
+select is(
+  (select count(*)::int from public.goals
+    where owner_id in (pg_temp.uid('amer'), pg_temp.uid('izzah'))),
+  2,
+  'a manager can view Goals for both direct reports');
+
+select is(
+  (select public.get_goal_capabilities('f0c06000-0000-4000-a000-000000000001') ->> 'can_agree'),
+  'true',
+  'the authorised manager can agree a structural Goal version');
+
+select pg_temp.reset_role();
+
+select pg_temp.act_as(pg_temp.uid('lim'));
+
+select is_empty(
+  $$ select id from public.goals
+      where id = 'f0c06000-0000-4000-a000-000000000001' $$,
+  'a person with no team visibility cannot read another employee''s Goal');
+
+select pg_temp.reset_role();
+
+-- ---------------------------------------------------------------------------
+-- 9. A deactivated account loses access even holding a valid token.
 -- ---------------------------------------------------------------------------
 
 select public.deactivate_user(pg_temp.uid('lim'), true);
@@ -278,7 +365,7 @@ select is_empty(
 select pg_temp.reset_role();
 
 -- ---------------------------------------------------------------------------
--- 9. Attachments follow the authorisation of the task that owns them.
+-- 10. Attachments follow the authorisation of the task that owns them.
 -- ---------------------------------------------------------------------------
 
 select pg_temp.act_as(pg_temp.uid('lim'));
