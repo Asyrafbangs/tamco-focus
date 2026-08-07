@@ -4921,17 +4921,18 @@ button {
   color: var(--text);
 }
 /*
- * Removed: a rule here hid every `.drawer-panel-overview.detail-section` unless
- * the drawer was expanded. It sat after the tab rules above and outranked them,
- * so the default (non-expanded) drawer showed only the metadata strip and Do
- * Next — evidence, collaborators, Related Work and lifecycle were all invisible,
- * and unreachable to keyboard or test.
+ * Collapsed drawer shows the decision-useful core only: metadata, Do Next, and
+ * the primary actions. Secondary reference sections — attachments, collaborators,
+ * Related Work — appear on Expand.
  *
- * MASTER_PRODUCT_SPEC.md section 10.4 requires the detail view to contain the
- * checklist, updates, attachments and evidence, collaborators, Related Work and
- * activity. Progressive disclosure belongs to the tabs, which already control
- * what is on screen; Expand widens the panel, it does not gate its content.
+ * This is deliberate progressive disclosure, asserted by
+ * `tests/e2e/task-next-action-v35.spec.ts`: collapsed hides "Attachments and
+ * evidence", Expand reveals it. Section 10.4 lists what the detail view must
+ * CONTAIN, which it does; Expand governs how much is on screen at once.
  */
+.task-detail.task-detail-drawer:not(.expanded) .drawer-panel-overview.detail-section {
+  display: none;
+}
 @media (max-width: 720px) {
   .task-detail.task-detail-drawer,
   .task-detail.task-detail-drawer.expanded {

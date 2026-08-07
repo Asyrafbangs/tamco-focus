@@ -22,11 +22,12 @@ interface Destination {
 }
 
 const DESTINATIONS: Destination[] = [
-  { href: '/today', label: 'Today', icon: '◉' },
-  { href: '/work', label: 'Work', icon: '▦' },
-  { href: '/plan', label: 'Plan', icon: '▤' },
-  { href: '/team', label: 'Team', icon: '◑', managerOnly: true },
-  { href: '/more', label: 'More', icon: '⋯' },
+  { href: '/today', label: 'Today', icon: '◷' },
+  { href: '/work', label: 'Work', icon: '◎' },
+  { href: '/goals', label: 'Goals', icon: '◇' },
+  { href: '/plan', label: 'Plan', icon: '▦' },
+  { href: '/team', label: 'Team', icon: '♙', managerOnly: true },
+  { href: '/more', label: 'More', icon: '•••' },
 ];
 
 function visibleTo(role: AppRole): Destination[] {
@@ -42,6 +43,7 @@ function useIsActive() {
 
 interface NavigationProps {
   role: AppRole;
+  initials?: string;
   /**
    * Count of notifications that genuinely require action. Section 23.4 permits
    * a red indicator only in that case, and every one carries written text.
@@ -49,14 +51,14 @@ interface NavigationProps {
   actionRequiredCount?: number;
 }
 
-export function NavigationRail({ role, actionRequiredCount = 0 }: NavigationProps) {
+export function NavigationRail({ role, actionRequiredCount = 0, initials }: NavigationProps) {
   const isActive = useIsActive();
 
   return (
     <nav className="rail" aria-label="Main">
       <div className="brand">
         <div className="brandmark" aria-hidden="true">
-          TF
+          T
         </div>
         <span className="visually-hidden">TAMCO Focus</span>
       </div>
@@ -74,7 +76,9 @@ export function NavigationRail({ role, actionRequiredCount = 0 }: NavigationProp
               aria-current={active ? 'page' : undefined}
             >
               <span aria-hidden="true">{destination.icon}</span>
-              <span className="label">{destination.label}</span>
+              <span className="label" aria-hidden="true">
+                {destination.label}
+              </span>
               <span className="visually-hidden">{destination.label}</span>
 
               {showBadge && (
@@ -91,16 +95,26 @@ export function NavigationRail({ role, actionRequiredCount = 0 }: NavigationProp
           );
         })}
       </div>
+      {initials && (
+        <div className="railfoot" aria-hidden="true">
+          <div className="avatar">{initials}</div>
+        </div>
+      )}
     </nav>
   );
 }
 
 export function MobileNavigation({ role, actionRequiredCount = 0 }: NavigationProps) {
   const isActive = useIsActive();
+  const destinations = visibleTo(role);
 
   return (
-    <nav className="mobile-nav" aria-label="Main">
-      {visibleTo(role).map((destination) => {
+    <nav
+      className="mobile-nav"
+      aria-label="Main"
+      style={{ gridTemplateColumns: `repeat(${destinations.length}, minmax(0, 1fr))` }}
+    >
+      {destinations.map((destination) => {
         const active = isActive(destination.href);
         const showBadge = destination.href === '/today' && actionRequiredCount > 0;
 

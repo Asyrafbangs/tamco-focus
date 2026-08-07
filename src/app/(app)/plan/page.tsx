@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { CalendarItem } from '@/components/ui/ParityPrimitives';
 import { formatDue, localDateString } from '@/domain/duration';
 import { requireProfile } from '@/lib/supabase/server';
 import { getPlanEvents, type PlanEvent } from '@/server/queries';
@@ -120,6 +121,21 @@ export default async function PlanPage({
         </Link>
       </div>
 
+      <div className="plan-legend" aria-label="Calendar legend">
+        <span>
+          <span className="flag blue">Due</span> commitment date
+        </span>
+        <span>
+          <span className="flag red">Overdue</span> past its date and still open
+        </span>
+        <span>
+          <span className="flag green">Routine</span> scheduled occurrence
+        </span>
+        <span>
+          <span className="flag amber">Review by</span> review or selection deadline
+        </span>
+      </div>
+
       {totalInMonth === 0 ? (
         /* Section 27.2 — what is empty, why, and the next useful action. */
         <div className="card empty-state">
@@ -174,41 +190,19 @@ export default async function PlanPage({
                 </div>
 
                 {dayEvents.map((event) => (
-                  <Link
+                  <CalendarItem
                     key={`${event.taskId}-${event.eventKind}-${event.occursAt}`}
                     href={`/work?task=${event.taskId}`}
-                    className={`cal-item ${event.eventKind}`}
+                    kind={event.eventKind}
                     title={`${EVENT_LABELS[event.eventKind]}: ${event.title}`}
-                  >
-                    {event.title}
-                    <span className="visually-hidden">
-                      {' — '}
-                      {EVENT_LABELS[event.eventKind]}{' '}
-                      {formatDue(event.occursAt, event.dueIsDateOnly, timeZone)}
-                    </span>
-                  </Link>
+                    accessibleSuffix={`${event.title} — ${EVENT_LABELS[event.eventKind]} ${formatDue(event.occursAt, event.dueIsDateOnly, timeZone)}`}
+                  />
                 ))}
               </div>
             );
           })}
         </div>
       )}
-
-      {/* Colour is never the only signal (section 1.3, item 12). */}
-      <div className="plan-legend">
-        <span>
-          <span className="flag blue">Due</span> commitment date
-        </span>
-        <span>
-          <span className="flag red">Overdue</span> past its date and still open
-        </span>
-        <span>
-          <span className="flag green">Routine</span> scheduled occurrence
-        </span>
-        <span>
-          <span className="flag amber">Review by</span> review or selection deadline
-        </span>
-      </div>
     </>
   );
 }

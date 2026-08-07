@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 
+import { AppHydration } from '@/components/AppHydration';
+
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -44,11 +46,14 @@ const themeBootstrap = `
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" data-theme="light" suppressHydrationWarning>
+    <html lang="en" data-theme="light" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <AppHydration />
+      </body>
     </html>
   );
 }

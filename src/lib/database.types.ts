@@ -210,6 +210,7 @@ export type Database = {
           count_before: number | null
           detail: Json
           event_type: Database["public"]["Enums"]["audit_event_type"]
+          goal_id: string | null
           id: string
           new_status: Database["public"]["Enums"]["task_status"] | null
           occurred_at: string
@@ -230,6 +231,7 @@ export type Database = {
           count_before?: number | null
           detail?: Json
           event_type: Database["public"]["Enums"]["audit_event_type"]
+          goal_id?: string | null
           id?: string
           new_status?: Database["public"]["Enums"]["task_status"] | null
           occurred_at?: string
@@ -250,6 +252,7 @@ export type Database = {
           count_before?: number | null
           detail?: Json
           event_type?: Database["public"]["Enums"]["audit_event_type"]
+          goal_id?: string | null
           id?: string
           new_status?: Database["public"]["Enums"]["task_status"] | null
           occurred_at?: string
@@ -283,6 +286,20 @@ export type Database = {
             columns: ["actor_id"]
             isOneToOne: false
             referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_events_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goal_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_events_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
             referencedColumns: ["id"]
           },
           {
@@ -686,6 +703,7 @@ export type Database = {
           next_retry_at: string | null
           period_end: string
           period_start: string
+          processing_started_at: string | null
           queued_at: string
           recipient_email: string
           recipient_id: string
@@ -703,6 +721,7 @@ export type Database = {
           next_retry_at?: string | null
           period_end: string
           period_start: string
+          processing_started_at?: string | null
           queued_at?: string
           recipient_email: string
           recipient_id: string
@@ -720,6 +739,7 @@ export type Database = {
           next_retry_at?: string | null
           period_end?: string
           period_start?: string
+          processing_started_at?: string | null
           queued_at?: string
           recipient_email?: string
           recipient_id?: string
@@ -806,6 +826,1115 @@ export type Database = {
             columns: ["changed_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goal_agreements: {
+        Row: {
+          agreed_at: string
+          agreed_by: string
+          detail: Json
+          employee_id: string
+          goal_id: string
+          goal_version_id: string
+          id: string
+          manager_id: string
+        }
+        Insert: {
+          agreed_at?: string
+          agreed_by: string
+          detail?: Json
+          employee_id: string
+          goal_id: string
+          goal_version_id: string
+          id?: string
+          manager_id: string
+        }
+        Update: {
+          agreed_at?: string
+          agreed_by?: string
+          detail?: Json
+          employee_id?: string
+          goal_id?: string
+          goal_version_id?: string
+          id?: string
+          manager_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_agreements_agreed_by_fkey"
+            columns: ["agreed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_agreements_agreed_by_fkey"
+            columns: ["agreed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_agreements_agreed_by_fkey"
+            columns: ["agreed_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_agreements_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_agreements_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_agreements_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_agreements_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goal_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_agreements_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_agreements_goal_version_id_fkey"
+            columns: ["goal_version_id"]
+            isOneToOne: true
+            referencedRelation: "goal_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_agreements_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_agreements_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_agreements_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goal_attachment_views: {
+        Row: {
+          attachment_id: string
+          id: string
+          viewed_at: string
+          viewer_id: string
+        }
+        Insert: {
+          attachment_id: string
+          id?: string
+          viewed_at?: string
+          viewer_id: string
+        }
+        Update: {
+          attachment_id?: string
+          id?: string
+          viewed_at?: string
+          viewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_attachment_views_attachment_id_fkey"
+            columns: ["attachment_id"]
+            isOneToOne: false
+            referencedRelation: "goal_attachments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_attachment_views_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_attachment_views_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_attachment_views_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goal_attachments: {
+        Row: {
+          byte_size: number
+          checksum_sha256: string | null
+          created_at: string
+          file_name: string
+          goal_id: string
+          goal_update_id: string | null
+          id: string
+          milestone_update_id: string | null
+          mime_type: string
+          storage_bucket: string
+          storage_path: string
+          uploaded_by: string
+          virus_scan_state: string
+        }
+        Insert: {
+          byte_size: number
+          checksum_sha256?: string | null
+          created_at?: string
+          file_name: string
+          goal_id: string
+          goal_update_id?: string | null
+          id?: string
+          milestone_update_id?: string | null
+          mime_type: string
+          storage_bucket?: string
+          storage_path: string
+          uploaded_by: string
+          virus_scan_state?: string
+        }
+        Update: {
+          byte_size?: number
+          checksum_sha256?: string | null
+          created_at?: string
+          file_name?: string
+          goal_id?: string
+          goal_update_id?: string | null
+          id?: string
+          milestone_update_id?: string | null
+          mime_type?: string
+          storage_bucket?: string
+          storage_path?: string
+          uploaded_by?: string
+          virus_scan_state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_attachments_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goal_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_attachments_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_attachments_goal_update_id_fkey"
+            columns: ["goal_update_id"]
+            isOneToOne: false
+            referencedRelation: "goal_updates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_attachments_milestone_update_id_fkey"
+            columns: ["milestone_update_id"]
+            isOneToOne: false
+            referencedRelation: "goal_milestone_updates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goal_milestone_updates: {
+        Row: {
+          author_id: string
+          comment: string | null
+          created_at: string
+          goal_id: string
+          id: string
+          marked_complete: boolean
+          milestone_id: string
+          new_progress: number
+          previous_progress: number
+        }
+        Insert: {
+          author_id: string
+          comment?: string | null
+          created_at?: string
+          goal_id: string
+          id?: string
+          marked_complete?: boolean
+          milestone_id: string
+          new_progress: number
+          previous_progress: number
+        }
+        Update: {
+          author_id?: string
+          comment?: string | null
+          created_at?: string
+          goal_id?: string
+          id?: string
+          marked_complete?: boolean
+          milestone_id?: string
+          new_progress?: number
+          previous_progress?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_milestone_updates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_milestone_updates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_milestone_updates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_milestone_updates_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goal_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_milestone_updates_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_milestone_updates_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "goal_milestones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_milestone_updates_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "goal_overview"
+            referencedColumns: ["current_milestone_id"]
+          },
+        ]
+      }
+      goal_milestones: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          completion_definition: string
+          created_at: string
+          goal_version_id: string
+          id: string
+          last_update_at: string
+          position: number
+          progress_percent: number
+          source_milestone_id: string | null
+          title: string
+          weight_percent: number
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_definition: string
+          created_at?: string
+          goal_version_id: string
+          id?: string
+          last_update_at?: string
+          position: number
+          progress_percent?: number
+          source_milestone_id?: string | null
+          title: string
+          weight_percent: number
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_definition?: string
+          created_at?: string
+          goal_version_id?: string
+          id?: string
+          last_update_at?: string
+          position?: number
+          progress_percent?: number
+          source_milestone_id?: string | null
+          title?: string
+          weight_percent?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_milestones_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_milestones_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_milestones_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_milestones_goal_version_id_fkey"
+            columns: ["goal_version_id"]
+            isOneToOne: false
+            referencedRelation: "goal_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_milestones_source_milestone_id_fkey"
+            columns: ["source_milestone_id"]
+            isOneToOne: false
+            referencedRelation: "goal_milestones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_milestones_source_milestone_id_fkey"
+            columns: ["source_milestone_id"]
+            isOneToOne: false
+            referencedRelation: "goal_overview"
+            referencedColumns: ["current_milestone_id"]
+          },
+        ]
+      }
+      goal_participants: {
+        Row: {
+          added_at: string
+          added_by: string
+          goal_id: string
+          participant_role: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          added_by: string
+          goal_id: string
+          participant_role: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          added_by?: string
+          goal_id?: string
+          participant_role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_participants_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_participants_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_participants_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_participants_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goal_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_participants_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goal_support_requests: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          created_at: string
+          details: string
+          goal_id: string
+          goal_update_id: string
+          id: string
+          manager_id: string | null
+          requested_by: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          details: string
+          goal_id: string
+          goal_update_id: string
+          id?: string
+          manager_id?: string | null
+          requested_by: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          details?: string
+          goal_id?: string
+          goal_update_id?: string
+          id?: string
+          manager_id?: string | null
+          requested_by?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_support_requests_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goal_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_goal_update_id_fkey"
+            columns: ["goal_update_id"]
+            isOneToOne: true
+            referencedRelation: "goal_updates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goal_updates: {
+        Row: {
+          author_id: string
+          created_at: string
+          goal_id: string
+          goal_version_id: string
+          id: string
+          kind: Database["public"]["Enums"]["goal_update_kind"]
+          new_reported_progress: number
+          next_step: string | null
+          previous_reported_progress: number
+          support_details: string | null
+          support_requested: boolean
+          what_changed: string
+        }
+        Insert: {
+          author_id: string
+          created_at?: string
+          goal_id: string
+          goal_version_id: string
+          id?: string
+          kind?: Database["public"]["Enums"]["goal_update_kind"]
+          new_reported_progress: number
+          next_step?: string | null
+          previous_reported_progress: number
+          support_details?: string | null
+          support_requested?: boolean
+          what_changed: string
+        }
+        Update: {
+          author_id?: string
+          created_at?: string
+          goal_id?: string
+          goal_version_id?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["goal_update_kind"]
+          new_reported_progress?: number
+          next_step?: string | null
+          previous_reported_progress?: number
+          support_details?: string | null
+          support_requested?: boolean
+          what_changed?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_updates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_updates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_updates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_updates_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goal_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_updates_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_updates_goal_version_id_fkey"
+            columns: ["goal_version_id"]
+            isOneToOne: false
+            referencedRelation: "goal_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goal_versions: {
+        Row: {
+          activated_at: string | null
+          baseline: string | null
+          dependencies: string | null
+          employee_approach: string | null
+          expected_result: string
+          goal_id: string
+          id: string
+          proposed_at: string
+          proposed_by: string
+          purpose: string | null
+          status: Database["public"]["Enums"]["goal_version_status"]
+          success_measure: string
+          superseded_at: string | null
+          support_agreed: string | null
+          target_date: string
+          title: string
+          version: number
+          version_number: number
+          weight_percent: number
+        }
+        Insert: {
+          activated_at?: string | null
+          baseline?: string | null
+          dependencies?: string | null
+          employee_approach?: string | null
+          expected_result: string
+          goal_id: string
+          id?: string
+          proposed_at?: string
+          proposed_by: string
+          purpose?: string | null
+          status?: Database["public"]["Enums"]["goal_version_status"]
+          success_measure: string
+          superseded_at?: string | null
+          support_agreed?: string | null
+          target_date: string
+          title: string
+          version?: number
+          version_number: number
+          weight_percent?: number
+        }
+        Update: {
+          activated_at?: string | null
+          baseline?: string | null
+          dependencies?: string | null
+          employee_approach?: string | null
+          expected_result?: string
+          goal_id?: string
+          id?: string
+          proposed_at?: string
+          proposed_by?: string
+          purpose?: string | null
+          status?: Database["public"]["Enums"]["goal_version_status"]
+          success_measure?: string
+          superseded_at?: string | null
+          support_agreed?: string | null
+          target_date?: string
+          title?: string
+          version?: number
+          version_number?: number
+          weight_percent?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_versions_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goal_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_versions_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_versions_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_versions_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_versions_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goal_work_links: {
+        Row: {
+          created_at: string
+          goal_id: string
+          id: string
+          linked_by: string
+          milestone_id: string | null
+          task_id: string
+        }
+        Insert: {
+          created_at?: string
+          goal_id: string
+          id?: string
+          linked_by: string
+          milestone_id?: string | null
+          task_id: string
+        }
+        Update: {
+          created_at?: string
+          goal_id?: string
+          id?: string
+          linked_by?: string
+          milestone_id?: string | null
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_work_links_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goal_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_work_links_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_work_links_linked_by_fkey"
+            columns: ["linked_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_work_links_linked_by_fkey"
+            columns: ["linked_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_work_links_linked_by_fkey"
+            columns: ["linked_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_work_links_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "goal_milestones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_work_links_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "goal_overview"
+            referencedColumns: ["current_milestone_id"]
+          },
+          {
+            foreignKeyName: "goal_work_links_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "task_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_work_links_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goals: {
+        Row: {
+          active_version_id: string | null
+          agreed_at: string | null
+          category: string
+          checkin_due_at: string | null
+          closed_at: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string
+          health: Database["public"]["Enums"]["goal_health"]
+          id: string
+          last_meaningful_update_at: string
+          manager_id: string | null
+          owner_id: string
+          pending_version_id: string | null
+          reported_progress: number
+          status: Database["public"]["Enums"]["goal_status"]
+          target_date: string
+          title: string
+          update_requested_at: string | null
+          updated_at: string
+          version: number
+          weight_percent: number
+        }
+        Insert: {
+          active_version_id?: string | null
+          agreed_at?: string | null
+          category?: string
+          checkin_due_at?: string | null
+          closed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by: string
+          health?: Database["public"]["Enums"]["goal_health"]
+          id?: string
+          last_meaningful_update_at?: string
+          manager_id?: string | null
+          owner_id: string
+          pending_version_id?: string | null
+          reported_progress?: number
+          status?: Database["public"]["Enums"]["goal_status"]
+          target_date: string
+          title: string
+          update_requested_at?: string | null
+          updated_at?: string
+          version?: number
+          weight_percent?: number
+        }
+        Update: {
+          active_version_id?: string | null
+          agreed_at?: string | null
+          category?: string
+          checkin_due_at?: string | null
+          closed_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string
+          health?: Database["public"]["Enums"]["goal_health"]
+          id?: string
+          last_meaningful_update_at?: string
+          manager_id?: string | null
+          owner_id?: string
+          pending_version_id?: string | null
+          reported_progress?: number
+          status?: Database["public"]["Enums"]["goal_status"]
+          target_date?: string
+          title?: string
+          update_requested_at?: string | null
+          updated_at?: string
+          version?: number
+          weight_percent?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goals_active_version_fk"
+            columns: ["active_version_id"]
+            isOneToOne: false
+            referencedRelation: "goal_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goals_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goals_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goals_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goals_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_pending_version_fk"
+            columns: ["pending_version_id"]
+            isOneToOne: false
+            referencedRelation: "goal_versions"
             referencedColumns: ["id"]
           },
         ]
@@ -926,6 +2055,7 @@ export type Database = {
           body: string
           channel: Database["public"]["Enums"]["notification_channel"]
           created_at: string
+          goal_id: string | null
           id: string
           kind: Database["public"]["Enums"]["notification_kind"]
           read_at: string | null
@@ -940,6 +2070,7 @@ export type Database = {
           body: string
           channel?: Database["public"]["Enums"]["notification_channel"]
           created_at?: string
+          goal_id?: string | null
           id?: string
           kind: Database["public"]["Enums"]["notification_kind"]
           read_at?: string | null
@@ -954,6 +2085,7 @@ export type Database = {
           body?: string
           channel?: Database["public"]["Enums"]["notification_channel"]
           created_at?: string
+          goal_id?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["notification_kind"]
           read_at?: string | null
@@ -989,6 +2121,20 @@ export type Database = {
             columns: ["barrier_id"]
             isOneToOne: false
             referencedRelation: "barriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goal_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
             referencedColumns: ["id"]
           },
           {
@@ -1998,6 +3144,8 @@ export type Database = {
       user_profiles: {
         Row: {
           created_at: string
+          daily_brief_hour: number
+          daily_brief_mode: string
           deactivated_at: string | null
           default_landing_page: string
           department_id: string | null
@@ -2012,7 +3160,9 @@ export type Database = {
           reduced_motion: boolean
           reporting_manager_id: string | null
           role: Database["public"]["Enums"]["app_role"]
+          shortcut_hints: boolean
           status: Database["public"]["Enums"]["account_status"]
+          status_labels_always_visible: boolean
           team_summary_mode: Database["public"]["Enums"]["team_summary_mode"]
           text_size: string
           theme_preference: string
@@ -2021,6 +3171,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          daily_brief_hour?: number
+          daily_brief_mode?: string
           deactivated_at?: string | null
           default_landing_page?: string
           department_id?: string | null
@@ -2035,7 +3187,9 @@ export type Database = {
           reduced_motion?: boolean
           reporting_manager_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
+          shortcut_hints?: boolean
           status?: Database["public"]["Enums"]["account_status"]
+          status_labels_always_visible?: boolean
           team_summary_mode?: Database["public"]["Enums"]["team_summary_mode"]
           text_size?: string
           theme_preference?: string
@@ -2044,6 +3198,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          daily_brief_hour?: number
+          daily_brief_mode?: string
           deactivated_at?: string | null
           default_landing_page?: string
           department_id?: string | null
@@ -2058,7 +3214,9 @@ export type Database = {
           reduced_motion?: boolean
           reporting_manager_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
+          shortcut_hints?: boolean
           status?: Database["public"]["Enums"]["account_status"]
+          status_labels_always_visible?: boolean
           team_summary_mode?: Database["public"]["Enums"]["team_summary_mode"]
           text_size?: string
           theme_preference?: string
@@ -2302,12 +3460,15 @@ export type Database = {
             | Database["public"]["Enums"]["capture_destination"]
             | null
           created_at: string
+          created_proposal_id: string | null
           created_task_id: string | null
+          description: string | null
           due_at: string | null
           due_is_date_only: boolean
           followup_answer: string | null
           followup_question: string | null
           id: string
+          parent_task_id: string | null
           recommendation_reason: string
           recommended_destination: Database["public"]["Enums"]["capture_destination"]
           resolved_at: string | null
@@ -2323,12 +3484,15 @@ export type Database = {
             | Database["public"]["Enums"]["capture_destination"]
             | null
           created_at?: string
+          created_proposal_id?: string | null
           created_task_id?: string | null
+          description?: string | null
           due_at?: string | null
           due_is_date_only?: boolean
           followup_answer?: string | null
           followup_question?: string | null
           id?: string
+          parent_task_id?: string | null
           recommendation_reason: string
           recommended_destination: Database["public"]["Enums"]["capture_destination"]
           resolved_at?: string | null
@@ -2344,12 +3508,15 @@ export type Database = {
             | Database["public"]["Enums"]["capture_destination"]
             | null
           created_at?: string
+          created_proposal_id?: string | null
           created_task_id?: string | null
+          description?: string | null
           due_at?: string | null
           due_is_date_only?: boolean
           followup_answer?: string | null
           followup_question?: string | null
           id?: string
+          parent_task_id?: string | null
           recommendation_reason?: string
           recommended_destination?: Database["public"]["Enums"]["capture_destination"]
           resolved_at?: string | null
@@ -2382,6 +3549,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "work_captures_created_proposal_id_fkey"
+            columns: ["created_proposal_id"]
+            isOneToOne: false
+            referencedRelation: "work_proposals"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "work_captures_created_task_id_fkey"
             columns: ["created_task_id"]
             isOneToOne: false
@@ -2391,6 +3565,20 @@ export type Database = {
           {
             foreignKeyName: "work_captures_created_task_id_fkey"
             columns: ["created_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_captures_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "task_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_captures_parent_task_id_fkey"
+            columns: ["parent_task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
             referencedColumns: ["id"]
@@ -2522,6 +3710,169 @@ export type Database = {
           user_id: string | null
         }
         Relationships: []
+      }
+      goal_overview: {
+        Row: {
+          active_version_id: string | null
+          active_version_number: number | null
+          agreed_at: string | null
+          attention_reason: string | null
+          baseline: string | null
+          category: string | null
+          checkin_due_at: string | null
+          closed_at: string | null
+          completed_at: string | null
+          created_at: string | null
+          current_milestone_id: string | null
+          current_milestone_progress: number | null
+          current_milestone_title: string | null
+          dependencies: string | null
+          derived_progress: number | null
+          employee_approach: string | null
+          expected_result: string | null
+          has_recent_milestone_completion: boolean | null
+          health: Database["public"]["Enums"]["goal_health"] | null
+          id: string | null
+          is_checkin_due: boolean | null
+          is_target_approaching: boolean | null
+          is_update_requested: boolean | null
+          last_meaningful_update_at: string | null
+          manager_id: string | null
+          manager_name: string | null
+          needs_attention: boolean | null
+          next_milestone_title: string | null
+          open_support_count: number | null
+          owner_employee_id: string | null
+          owner_id: string | null
+          owner_name: string | null
+          pending_version_id: string | null
+          purpose: string | null
+          reported_progress: number | null
+          reporting_manager_id: string | null
+          status: Database["public"]["Enums"]["goal_status"] | null
+          success_measure: string | null
+          support_agreed: string | null
+          target_date: string | null
+          title: string | null
+          update_requested_at: string | null
+          version: number | null
+          weight_percent: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goals_active_version_fk"
+            columns: ["active_version_id"]
+            isOneToOne: false
+            referencedRelation: "goal_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goals_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goals_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goals_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goals_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_pending_version_fk"
+            columns: ["pending_version_id"]
+            isOneToOne: false
+            referencedRelation: "goal_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_profiles_reporting_manager_id_fkey"
+            columns: ["reporting_manager_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_profiles_reporting_manager_id_fkey"
+            columns: ["reporting_manager_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_profiles_reporting_manager_id_fkey"
+            columns: ["reporting_manager_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goal_team_summary: {
+        Row: {
+          active_goal_count: number | null
+          attention_count: number | null
+          checkin_due_count: number | null
+          employee_id: string | null
+          full_name: string | null
+          last_goal_update_at: string | null
+          support_request_count: number | null
+          user_id: string | null
+          weighted_progress: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goals_owner_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goals_owner_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goals_owner_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       plan_events: {
         Row: {
@@ -2735,12 +4086,40 @@ export type Database = {
         }
         Returns: Json
       }
+      agree_goal_version: {
+        Args: {
+          p_expected_version: number
+          p_goal_id: string
+          p_idempotency_key?: string
+          p_pending_version_id: string
+        }
+        Returns: Json
+      }
+      agree_goal_version_v33_internal: {
+        Args: {
+          p_expected_version: number
+          p_goal_id: string
+          p_idempotency_key?: string
+          p_pending_version_id: string
+        }
+        Returns: Json
+      }
       cancel_task: {
         Args: {
           p_expected_version: number
           p_idempotency_key?: string
           p_reason: string
           p_task_id: string
+        }
+        Returns: Json
+      }
+      claim_email_delivery: { Args: { p_delivery_id: string }; Returns: Json }
+      close_goal: {
+        Args: {
+          p_expected_version: number
+          p_goal_id: string
+          p_idempotency_key?: string
+          p_reason: string
         }
         Returns: Json
       }
@@ -2758,6 +4137,53 @@ export type Database = {
           p_expected_version: number
           p_idempotency_key?: string
           p_task_id: string
+        }
+        Returns: Json
+      }
+      confirm_work_capture: {
+        Args: {
+          p_capture_id: string
+          p_destination: Database["public"]["Enums"]["capture_destination"]
+          p_idempotency_key?: string
+          p_parent_task_id?: string
+        }
+        Returns: Json
+      }
+      create_goal: {
+        Args: {
+          p_activate?: boolean
+          p_baseline?: string
+          p_category?: string
+          p_dependencies?: string
+          p_employee_approach?: string
+          p_expected_result: string
+          p_idempotency_key?: string
+          p_milestones?: Json
+          p_owner_id: string
+          p_purpose?: string
+          p_success_measure: string
+          p_support_agreed?: string
+          p_target_date: string
+          p_weight_percent?: number
+        }
+        Returns: Json
+      }
+      create_goal_v33_internal: {
+        Args: {
+          p_activate?: boolean
+          p_baseline?: string
+          p_category?: string
+          p_dependencies?: string
+          p_employee_approach?: string
+          p_expected_result: string
+          p_idempotency_key?: string
+          p_milestones?: Json
+          p_owner_id: string
+          p_purpose?: string
+          p_success_measure: string
+          p_support_agreed?: string
+          p_target_date: string
+          p_weight_percent?: number
         }
         Returns: Json
       }
@@ -2782,6 +4208,18 @@ export type Database = {
         Args: { p_through?: string }
         Returns: Json
       }
+      get_goal_capabilities: { Args: { p_goal_id: string }; Returns: Json }
+      get_task_capabilities: { Args: { p_task_id: string }; Returns: Json }
+      link_goal_work: {
+        Args: {
+          p_expected_version?: number
+          p_goal_id: string
+          p_idempotency_key?: string
+          p_milestone_id?: string
+          p_task_id: string
+        }
+        Returns: Json
+      }
       move_task_to_available: {
         Args: {
           p_expected_version: number
@@ -2797,6 +4235,50 @@ export type Database = {
           p_reason: string
           p_restart_at?: string
           p_task_id: string
+        }
+        Returns: Json
+      }
+      post_goal_milestone_checkin: {
+        Args: {
+          p_attachments?: Json
+          p_comment: string
+          p_expected_version: number
+          p_goal_id: string
+          p_idempotency_key?: string
+          p_mark_complete?: boolean
+          p_milestone_id: string
+          p_next_step?: string
+          p_progress: number
+          p_support_details?: string
+          p_support_requested?: boolean
+          p_what_changed: string
+        }
+        Returns: Json
+      }
+      post_goal_milestone_update: {
+        Args: {
+          p_attachments?: Json
+          p_comment?: string
+          p_expected_version: number
+          p_goal_id: string
+          p_idempotency_key?: string
+          p_mark_complete?: boolean
+          p_milestone_id: string
+          p_progress: number
+        }
+        Returns: Json
+      }
+      post_goal_update: {
+        Args: {
+          p_attachments?: Json
+          p_expected_version: number
+          p_goal_id: string
+          p_idempotency_key?: string
+          p_next_step?: string
+          p_progress: number
+          p_support_details?: string
+          p_support_requested?: boolean
+          p_what_changed: string
         }
         Returns: Json
       }
@@ -2833,6 +4315,24 @@ export type Database = {
           source: string
           user_id: string
         }[]
+      }
+      propose_goal_version: {
+        Args: {
+          p_baseline?: string
+          p_dependencies?: string
+          p_employee_approach?: string
+          p_expected_result: string
+          p_expected_version: number
+          p_goal_id: string
+          p_idempotency_key?: string
+          p_milestones?: Json
+          p_purpose?: string
+          p_success_measure: string
+          p_support_agreed?: string
+          p_target_date: string
+          p_weight_percent?: number
+        }
+        Returns: Json
       }
       provision_user_profile: {
         Args: {
@@ -2874,6 +4374,10 @@ export type Database = {
         Args: { p_attachment_id: string }
         Returns: Json
       }
+      record_goal_attachment_view: {
+        Args: { p_attachment_id: string }
+        Returns: Json
+      }
       record_routine_finding: {
         Args: {
           p_description: string
@@ -2887,8 +4391,25 @@ export type Database = {
         Args: { p_item_id: string; p_reason?: string }
         Returns: Json
       }
+      request_goal_update: {
+        Args: {
+          p_expected_version: number
+          p_goal_id: string
+          p_idempotency_key?: string
+          p_message?: string
+        }
+        Returns: Json
+      }
       resolve_barrier: {
         Args: { p_barrier_id: string; p_resolution_note: string }
+        Returns: Json
+      }
+      resolve_goal_support: {
+        Args: {
+          p_idempotency_key?: string
+          p_resolution_note: string
+          p_support_request_id: string
+        }
         Returns: Json
       }
       resume_task: {
@@ -2922,6 +4443,29 @@ export type Database = {
       }
       undo_event: {
         Args: { p_event_id: string; p_idempotency_key?: string }
+        Returns: Json
+      }
+      update_my_preferences: {
+        Args: {
+          p_assignment_changes: boolean
+          p_barrier_involving_me: boolean
+          p_collaboration_handoff: boolean
+          p_daily_brief_hour: number
+          p_daily_brief_mode: string
+          p_default_landing_page: string
+          p_due_today_and_deadlines: boolean
+          p_first_day_of_week: number
+          p_personal_summary_mode: Database["public"]["Enums"]["personal_summary_mode"]
+          p_quiet_hours_enabled: boolean
+          p_quiet_hours_end: number
+          p_quiet_hours_start: number
+          p_reduced_motion: boolean
+          p_routine_upcoming: boolean
+          p_shortcut_hints: boolean
+          p_status_labels_always_visible: boolean
+          p_text_size: string
+          p_theme_preference: string
+        }
         Returns: Json
       }
       update_user_profile: {
@@ -2987,6 +4531,18 @@ export type Database = {
         | "user_reactivated"
         | "user_deleted"
         | "event_reversed"
+        | "goal_created"
+        | "goal_update_posted"
+        | "goal_milestone_updated"
+        | "goal_milestone_completed"
+        | "goal_version_proposed"
+        | "goal_version_agreed"
+        | "goal_support_requested"
+        | "goal_support_resolved"
+        | "goal_work_linked"
+        | "goal_update_requested"
+        | "goal_completed"
+        | "goal_closed"
         | "next_action_changed"
         | "next_action_completed"
       barrier_impact:
@@ -3005,12 +4561,26 @@ export type Database = {
         | "mandatory_operational_action"
       capture_status: "pending_confirmation" | "confirmed" | "discarded"
       checklist_item_state: "waiting" | "ready" | "completed"
-      email_delivery_status: "queued" | "sent" | "failed"
+      email_delivery_status: "queued" | "processing" | "sent" | "failed"
       email_summary_type: "personal" | "manager_team"
       evidence_rule: "not_required" | "optional" | "required"
       finding_severity: "minor" | "significant" | "immediate_risk"
       focus_bucket: "major" | "operational" | "self_development"
       focus_target_scope: "system" | "department" | "user"
+      goal_health:
+        | "on_track"
+        | "need_attention"
+        | "support_requested"
+        | "completed"
+      goal_status:
+        | "draft"
+        | "pending_discussion"
+        | "active"
+        | "completed"
+        | "closed"
+        | "cancelled"
+      goal_update_kind: "overall" | "milestone" | "comment"
+      goal_version_status: "pending" | "active" | "superseded" | "rejected"
       meeting_item_source:
         | "barrier"
         | "overdue_high_impact"
@@ -3035,6 +4605,10 @@ export type Database = {
         | "stale_work"
         | "collaboration_handoff"
         | "ownership_changed"
+        | "goal_support_requested"
+        | "goal_update_requested"
+        | "goal_version_ready"
+        | "goal_milestone_completed"
       personal_summary_mode: "off" | "focused" | "standard"
       proposal_status: "pending" | "approved" | "rejected"
       recurrence_frequency: "daily" | "weekly" | "monthly"
@@ -3235,6 +4809,18 @@ export const Constants = {
         "user_reactivated",
         "user_deleted",
         "event_reversed",
+        "goal_created",
+        "goal_update_posted",
+        "goal_milestone_updated",
+        "goal_milestone_completed",
+        "goal_version_proposed",
+        "goal_version_agreed",
+        "goal_support_requested",
+        "goal_support_resolved",
+        "goal_work_linked",
+        "goal_update_requested",
+        "goal_completed",
+        "goal_closed",
         "next_action_changed",
         "next_action_completed",
       ],
@@ -3256,12 +4842,28 @@ export const Constants = {
       ],
       capture_status: ["pending_confirmation", "confirmed", "discarded"],
       checklist_item_state: ["waiting", "ready", "completed"],
-      email_delivery_status: ["queued", "sent", "failed"],
+      email_delivery_status: ["queued", "processing", "sent", "failed"],
       email_summary_type: ["personal", "manager_team"],
       evidence_rule: ["not_required", "optional", "required"],
       finding_severity: ["minor", "significant", "immediate_risk"],
       focus_bucket: ["major", "operational", "self_development"],
       focus_target_scope: ["system", "department", "user"],
+      goal_health: [
+        "on_track",
+        "need_attention",
+        "support_requested",
+        "completed",
+      ],
+      goal_status: [
+        "draft",
+        "pending_discussion",
+        "active",
+        "completed",
+        "closed",
+        "cancelled",
+      ],
+      goal_update_kind: ["overall", "milestone", "comment"],
+      goal_version_status: ["pending", "active", "superseded", "rejected"],
       meeting_item_source: [
         "barrier",
         "overdue_high_impact",
@@ -3287,6 +4889,10 @@ export const Constants = {
         "stale_work",
         "collaboration_handoff",
         "ownership_changed",
+        "goal_support_requested",
+        "goal_update_requested",
+        "goal_version_ready",
+        "goal_milestone_completed",
       ],
       personal_summary_mode: ["off", "focused", "standard"],
       proposal_status: ["pending", "approved", "rejected"],

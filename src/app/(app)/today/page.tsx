@@ -1,7 +1,9 @@
 import Link from 'next/link';
 
 import { AgeChips } from '@/components/AgeChips';
+import { RowPrimaryLink } from '@/components/ui/ParityPrimitives';
 import { formatDue } from '@/domain/duration';
+import { goalExceptionMessage } from '@/domain/goals';
 import { comingUp, needsAttention, startHere, todayList } from '@/domain/prioritisation';
 import { TASK_STATUS_LABELS, WORK_CLASS_LABELS } from '@/domain/types';
 import { requireProfile } from '@/lib/supabase/server';
@@ -11,7 +13,10 @@ import {
   getFocusSummary,
   getHandoffReadyTaskIds,
   getMyTasks,
+  getCollaborativeParentOptions,
 } from '@/server/queries';
+import { getGoalExceptions, getMyGoals } from '@/server/goal-queries';
+import { CaptureWork } from '../capture/CaptureWork';
 
 import { WhyThis } from './WhyThis';
 
@@ -21,15 +26,32 @@ import { WhyThis } from './WhyThis';
  * A decision page, not a system summary. It answers three questions: what
  * requires attention, what should I do next, and what is coming soon.
  */
-export default async function TodayPage() {
+export default async function TodayPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ capture?: string }>;
+}) {
   const profile = await requireProfile();
+  const params = await searchParams;
 
-  const [tasks, focus, handoffReadyTaskIds, blockingCounts, settings] = await Promise.all([
+  const [
+    tasks,
+    focus,
+    handoffReadyTaskIds,
+    blockingCounts,
+    settings,
+    goalExceptions,
+    myGoals,
+    parentOptions,
+  ] = await Promise.all([
     getMyTasks(profile.id),
     getFocusSummary(profile.id),
     getHandoffReadyTaskIds(profile.id),
     getBlockingCounts(),
     getDisplaySettings(),
+    getGoalExceptions(profile.id),
+    getMyGoals(profile.id),
+    params.capture === '1' ? getCollaborativeParentOptions(profile.id) : Promise.resolve([]),
   ]);
 
   const context = {
@@ -50,6 +72,13 @@ export default async function TodayPage() {
   const overdueCount = tasks.filter((task) => task.isOverdue).length;
   const staleCount = tasks.filter((task) => task.isStale).length;
   const overTargetBuckets = focus.filter((bucket) => bucket.isOverTarget);
+  const goalWeight = myGoals.reduce((total, goal) => total + goal.weightPercent, 0);
+  const weightedGoalProgress = goalWeight
+    ? Math.round(
+        myGoals.reduce((total, goal) => total + goal.reportedProgress * goal.weightPercent, 0) /
+          goalWeight,
+      )
+    : 0;
 
   const todayLabel = new Intl.DateTimeFormat('en-GB', {
     weekday: 'long',
@@ -62,13 +91,19 @@ export default async function TodayPage() {
     <>
       <div className="pagehead">
         <div>
-          <p className="eyebrow">{todayLabel}</p>
-          <h1>My Day</h1>
-          <p>What needs attention, and what to do next.</p>
+          <p className="eyebrow">Daily workspace</p>
+          <h1>{profile.full_name.split(' ')[0]} · My Day</h1>
+          <p>{todayLabel} · What needs attention, what to do next, and what is coming soon.</p>
         </div>
         <div className="actions">
-          <Link href="/capture" className="btn primary">
-            Capture work
+          <Link href="/plan" className="btn">
+            Monthly Plan
+          </Link>
+          <Link href="/work" className="btn">
+            Open My Focus
+          </Link>
+          <Link href="/today?capture=1" className="btn primary">
+            ＋ Capture Work
           </Link>
         </div>
       </div>
@@ -97,14 +132,24 @@ export default async function TodayPage() {
       <div className="today-grid">
         {/* Section 9.2 — one Start Here recommendation, with a Why this?
             explanation (section 9.5). */}
-        <section className="card start-card" aria-labelledby="start-here-heading">
+        <section
+          className={`card start-card${recommendation ? ' interactive-row' : ''}`}
+          aria-labelledby="start-here-heading"
+        >
           <p className="reasonline" id="start-here-heading">
             Start here
           </p>
 
           {recommendation ? (
             <>
-              <h2>{recommendation.task.title}</h2>
+              <h2>
+                <RowPrimaryLink
+                  href={`/work?task=${recommendation.task.id}`}
+                  ariaLabel={`Open ${recommendation.task.title}`}
+                >
+                  {recommendation.task.title}
+                </RowPrimaryLink>
+              </h2>
               <p>{recommendation.task.nextAction ?? 'Open the task to decide the next step.'}</p>
 
               <div className="start-meta">
@@ -167,7 +212,7 @@ export default async function TodayPage() {
               <Link
                 key={entry.task.id}
                 href={`/work?task=${entry.task.id}`}
-                className="today-item"
+                className="today-item interactive-row"
                 style={{ textDecoration: 'none', color: 'inherit', display: 'grid' }}
               >
                 <div
@@ -245,6 +290,33 @@ export default async function TodayPage() {
         ))}
       </div>
 
+      {myGoals.length > 0 && (
+        <section
+          className={`goal-quick-strip${goalExceptions.length > 0 ? ' attention' : ''}`}
+          aria-label="Goal progress"
+        >
+          <div className="goal-quick-strip-copy">
+            <strong>
+              {myGoals.length} goal{myGoals.length === 1 ? '' : 's'} · {weightedGoalProgress}%
+              weighted progress
+            </strong>
+            <span>
+              {goalExceptions[0]
+                ? `${goalExceptions[0].title} · ${goalExceptionMessage(goalExceptions[0])}`
+                : 'No Goal check-in needs attention now.'}
+            </span>
+          </div>
+          <Link
+            href={
+              goalExceptions[0] ? `/goals?goal=${goalExceptions[0].id}&action=update` : '/goals'
+            }
+            className="btn small"
+          >
+            {goalExceptions[0] ? 'Update' : 'Open Goals'}
+          </Link>
+        </section>
+      )}
+
       {/* Section 9.7 — the nearest two or three commitments, and nothing more. */}
       <section className="card coming" aria-labelledby="coming-heading">
         <div className="sectionhead">
@@ -263,7 +335,7 @@ export default async function TodayPage() {
               <Link
                 key={task.id}
                 href={`/work?task=${task.id}`}
-                className="coming-item"
+                className="coming-item interactive-row"
                 style={{ textDecoration: 'none', color: 'inherit' }}
               >
                 <strong>{task.title}</strong>
@@ -283,6 +355,7 @@ export default async function TodayPage() {
           </div>
         )}
       </section>
+      {params.capture === '1' && <CaptureWork parentOptions={parentOptions} modal />}
     </>
   );
 }

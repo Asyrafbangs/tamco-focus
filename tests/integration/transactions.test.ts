@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createTask, PEOPLE, serviceClient, signInAs } from './setup';
+import { runWeeklySummaryWorker } from '@/server/workers/weekly-summary';
 
 /**
  * Transactional behaviour against the real stack.
@@ -22,6 +23,270 @@ async function fixture(person: Parameters<typeof createTask>[0], overrides = {})
 }
 
 type Rpc = Record<string, unknown> & { ok: boolean; code: string };
+
+describe('settings, visibility, and local workers (sections 22 and 31B)', () => {
+  it('updates personal preferences atomically and writes audit history', async () => {
+    const client = await signInAs('izzah');
+    const { data, error } = await client.rpc('update_my_preferences', {
+      p_default_landing_page: 'work',
+      p_daily_brief_mode: 'workdays',
+      p_daily_brief_hour: 8,
+      p_quiet_hours_enabled: true,
+      p_quiet_hours_start: 18,
+      p_quiet_hours_end: 8,
+      p_first_day_of_week: 1,
+      p_theme_preference: 'system',
+      p_text_size: 'large',
+      p_reduced_motion: true,
+      p_status_labels_always_visible: true,
+      p_shortcut_hints: true,
+      p_personal_summary_mode: 'focused',
+      p_barrier_involving_me: true,
+      p_assignment_changes: true,
+      p_collaboration_handoff: true,
+      p_due_today_and_deadlines: true,
+      p_routine_upcoming: true,
+    });
+    expect(error).toBeNull();
+    expect(data).toMatchObject({ ok: true, code: 'preferences_updated' });
+
+    const admin = serviceClient();
+    const [{ data: profile }, { count }] = await Promise.all([
+      admin
+        .from('user_profiles')
+        .select('default_landing_page,text_size,reduced_motion,personal_summary_mode')
+        .eq('id', PEOPLE.izzah.id)
+        .single(),
+      admin
+        .from('audit_events')
+        .select('id', { count: 'exact', head: true })
+        .eq('event_type', 'settings_changed')
+        .eq('subject_user_id', PEOPLE.izzah.id),
+    ]);
+    expect(profile).toMatchObject({
+      default_landing_page: 'work',
+      text_size: 'large',
+      reduced_motion: true,
+      personal_summary_mode: 'focused',
+    });
+    expect(count).toBeGreaterThan(0);
+  });
+
+  it('saves visibility through the administrator transaction and previews effective access', async () => {
+    const admin = await signInAs('admin');
+    const { data, error } = await admin.rpc('set_user_visibility', {
+      p_viewer_id: PEOPLE.amer.id,
+      p_mode: 'specific_only',
+      p_subject_ids: [PEOPLE.izzah.id, PEOPLE.ajmal.id],
+      p_reason: 'Integration coverage',
+    });
+    expect(error).toBeNull();
+    expect(data).toMatchObject({ ok: true, code: 'visibility_updated' });
+
+    const preview = await admin.rpc('preview_effective_visibility', {
+      p_viewer_id: PEOPLE.amer.id,
+    });
+    expect(preview.error).toBeNull();
+    expect(preview.data?.map((row: { user_id: string }) => row.user_id)).toEqual(
+      expect.arrayContaining([PEOPLE.amer.id, PEOPLE.izzah.id, PEOPLE.ajmal.id]),
+    );
+  });
+
+  it('generates one weekly delivery per eligible person and never duplicates a period', async () => {
+    const client = serviceClient();
+    const now = new Date('2026-08-06T02:00:00.000Z');
+    const first = await runWeeklySummaryWorker(client, { now, force: true });
+    const second = await runWeeklySummaryWorker(client, { now, force: true });
+    expect(first.generated).toBeGreaterThan(0);
+    expect(first.failed).toBe(0);
+    expect(second.generated).toBe(0);
+    expect(second.skipped).toBe(first.generated);
+
+    const { data: deliveries } = await client
+      .from('email_deliveries')
+      .select('recipient_id,period_start,status,body_text')
+      .eq('period_start', first.periodStart);
+    expect(deliveries?.every((delivery) => delivery.status === 'sent')).toBe(true);
+    expect(deliveries?.every((delivery) => delivery.body_text.includes('Open My Day'))).toBe(true);
+  });
+
+  it('runs routine generation idempotently through the authoritative procedure', async () => {
+    const client = serviceClient();
+    const through = '2026-09-30';
+    const first = (await client.rpc('generate_routine_occurrences', { p_through: through }))
+      .data as Rpc;
+    const second = (await client.rpc('generate_routine_occurrences', { p_through: through }))
+      .data as Rpc;
+    expect(first.ok).toBe(true);
+    expect(second).toMatchObject({ ok: true, created: 0 });
+  });
+});
+
+describe('Capture Work (section 8)', () => {
+  it('persists the recommendation and creates a self-initiated Quick Action', async () => {
+    const client = await signInAs('izzah');
+    const { data: capture, error } = await client
+      .from('work_captures')
+      .insert({
+        captured_by: PEOPLE.izzah.id,
+        title: 'Replace the faded label on cabinet 4',
+        timing_choice: 'today',
+        recommended_destination: 'quick_action',
+        recommendation_reason: 'Same-day work with no continued follow-up.',
+        followup_question: 'Will this require continued follow-up after today?',
+        followup_answer: 'no',
+      })
+      .select('id')
+      .single();
+    expect(error).toBeNull();
+
+    const { data, error: rpcError } = await client.rpc('confirm_work_capture', {
+      p_capture_id: capture!.id,
+      p_destination: 'quick_action',
+      p_parent_task_id: null,
+      p_idempotency_key: crypto.randomUUID(),
+    });
+    expect(rpcError).toBeNull();
+    const result = data as Rpc;
+    expect(result.ok).toBe(true);
+    expect(result.code).toBe('work_created');
+
+    const { data: task } = await serviceClient()
+      .from('tasks')
+      .select('status,work_class,origin,primary_owner_id')
+      .eq('id', result.task_id as string)
+      .single();
+    expect(task).toMatchObject({
+      status: 'active',
+      work_class: 'quick_action',
+      origin: 'self_initiated',
+      primary_owner_id: PEOPLE.izzah.id,
+    });
+  });
+
+  it('cannot create mandatory work from wording alone', async () => {
+    const client = await signInAs('izzah');
+    const { data: capture } = await client
+      .from('work_captures')
+      .insert({
+        captured_by: PEOPLE.izzah.id,
+        title: 'Review safety labels',
+        timing_choice: 'today',
+        recommended_destination: 'operational_available_work',
+        recommendation_reason: 'The wording requires an explicit urgency answer.',
+        urgency_question_asked: true,
+        urgency_question_answer: false,
+      })
+      .select('id')
+      .single();
+
+    const { data } = await client.rpc('confirm_work_capture', {
+      p_capture_id: capture!.id,
+      p_destination: 'mandatory_operational_action',
+      p_parent_task_id: null,
+      p_idempotency_key: crypto.randomUUID(),
+    });
+    expect((data as Rpc).ok).toBe(false);
+    expect((data as Rpc).code).toBe('invalid_state');
+  });
+});
+
+describe('task detail updates and private attachments (sections 10–12)', () => {
+  const taskId = 'f0c05300-0000-4000-a000-000000000002';
+
+  it('commits an update, private attachment metadata, task age, and audit together', async () => {
+    const client = await signInAs('izzah');
+    const attachmentId = crypto.randomUUID();
+    const path = `tasks/${taskId}/${attachmentId}-integration-evidence.txt`;
+    const body = new Blob(['machine guarding evidence'], { type: 'text/plain' });
+    const upload = await client.storage.from('task-attachments').upload(path, body, {
+      contentType: 'text/plain',
+      upsert: false,
+    });
+    expect(upload.error).toBeNull();
+
+    const { data, error } = await client.rpc('post_task_update', {
+      p_task_id: taskId,
+      p_body: 'Operations supplied the first machine guarding record.',
+      p_is_evidence_only: false,
+      p_checklist_item_id: null,
+      p_mention_ids: [],
+      p_attachments: [
+        {
+          id: attachmentId,
+          storage_path: path,
+          file_name: 'integration-evidence.txt',
+          mime_type: 'text/plain',
+          byte_size: body.size,
+          is_evidence: true,
+        },
+      ],
+      p_idempotency_key: crypto.randomUUID(),
+    });
+
+    expect(error).toBeNull();
+    const result = data as Rpc;
+    expect(result).toMatchObject({ ok: true, code: 'update_posted', attachment_count: 1 });
+
+    const admin = serviceClient();
+    const [{ data: update }, { data: attachment }, { data: audit }] = await Promise.all([
+      admin
+        .from('task_updates')
+        .select('task_id,author_id,body')
+        .eq('id', result.update_id as string)
+        .single(),
+      admin
+        .from('attachments')
+        .select('task_id,update_id,storage_path,is_evidence,uploaded_by')
+        .eq('id', attachmentId)
+        .single(),
+      admin
+        .from('audit_events')
+        .select('event_type')
+        .eq('task_id', taskId)
+        .eq('event_type', 'attachment_added')
+        .order('occurred_at', { ascending: false })
+        .limit(1)
+        .single(),
+    ]);
+    expect(update).toMatchObject({
+      task_id: taskId,
+      author_id: PEOPLE.izzah.id,
+      body: 'Operations supplied the first machine guarding record.',
+    });
+    expect(attachment).toMatchObject({
+      task_id: taskId,
+      update_id: result.update_id,
+      storage_path: path,
+      is_evidence: true,
+      uploaded_by: PEOPLE.izzah.id,
+    });
+    expect(audit?.event_type).toBe('attachment_added');
+  });
+
+  it('keeps view permission separate from contribution permission', async () => {
+    const client = await signInAs('amer');
+    const { data: capabilities } = await client.rpc('get_task_capabilities', {
+      p_task_id: taskId,
+    });
+    expect(capabilities).toMatchObject({
+      can_view: true,
+      can_contribute: false,
+      can_edit: false,
+    });
+
+    const { data } = await client.rpc('post_task_update', {
+      p_task_id: taskId,
+      p_body: 'A visibility grant must not permit this update.',
+      p_is_evidence_only: false,
+      p_checklist_item_id: null,
+      p_mention_ids: [],
+      p_attachments: [],
+      p_idempotency_key: crypto.randomUUID(),
+    });
+    expect(data).toMatchObject({ ok: false, code: 'not_authorised' });
+  });
+});
 
 describe('activation (section 7)', () => {
   it('activates within target in one call, with no confirmation', async () => {

@@ -831,6 +831,14 @@ export function TaskDetailDrawer({
           aria-labelledby="updates-heading"
         >
           <h3 id="updates-heading">Post an update</h3>
+
+          {/*
+            The composer is open as soon as the Updates tab is selected. The tab
+            is itself the disclosure section 12.1 asks for — reaching this panel
+            is already a deliberate act, so hiding the form behind a second click
+            only adds a step. The two-question split is kept: "What happens
+            next?" maps onto Do Next, a real concept in the product.
+          */}
           {detail.capabilities.canContribute && (
             <form
               key={nextAction ?? 'no-next-action'}
@@ -887,7 +895,10 @@ export function TaskDetailDrawer({
                 )}
               </details>
               <div className="update-composer-footer">
-                <AttachmentPicker label="Attach" disabled={pending} />
+                {/* "Add files" rather than "Attach": it names the action and the object,
+                    and keeping the visible text identical to the accessible name
+                    satisfies WCAG 2.5.3 Label in Name. */}
+                <AttachmentPicker label="Add files" disabled={pending} />
                 <button type="button" className="btn small" onClick={() => setBarrierOpen(true)}>
                   Need support
                 </button>

@@ -1,7 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useTransition } from 'react';
 
+import { Modal } from '@/components/ui/Modal';
+import { Toast } from '@/components/ui/ParityPrimitives';
 import { activateTask, moveTaskToAvailable, undoEvent } from '@/server/actions/task-actions';
 import {
   ACTIVATION_REASON_OPTIONS,
@@ -35,6 +38,7 @@ interface TaskRowActionsProps {
   version: number;
   bucket: FocusBucket | null;
   isMandatory: boolean;
+  openHref?: string;
 }
 
 interface OverTargetPrompt {
@@ -56,6 +60,7 @@ export function TaskRowActions({
   status,
   version,
   isMandatory,
+  openHref,
 }: TaskRowActionsProps) {
   const [pending, startTransition] = useTransition();
 
@@ -171,6 +176,11 @@ export function TaskRowActions({
 
   return (
     <div className="row-actions">
+      {openHref && (
+        <Link href={openHref} className="btn small">
+          Open
+        </Link>
+      )}
       {canOfferActivate(status) && (
         <button
           type="button"
@@ -198,17 +208,9 @@ export function TaskRowActions({
       )}
 
       {/* Section 7.4 — exactly one question, asked once. */}
-      {prompt && (
-        <div
-          className="modalback"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="over-target-title"
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') setPrompt(null);
-          }}
-        >
-          <div className="modal">
+      <Modal open={Boolean(prompt)} title="Over focus target" onClose={() => setPrompt(null)}>
+        {prompt && (
+          <>
             <div className="modalhead">
               <h2 id="over-target-title">Over focus target</h2>
               <button type="button" className="btn small ghost" onClick={() => setPrompt(null)}>
@@ -283,22 +285,17 @@ export function TaskRowActions({
                 Activate anyway
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
 
       {/* Section 7.3 / 7.5 — roughly ten seconds of Undo. Undo writes a
           reversal event; it never deletes history. */}
       {undo && (
-        <div className="toast" role="status">
-          <span>
-            {undo.label}
-            {isMandatory && ' Mandatory work activates regardless of the target.'}
-          </span>
-          <button type="button" onClick={runUndo} disabled={pending}>
-            Undo
-          </button>
-        </div>
+        <Toast actionLabel="Undo" onAction={runUndo}>
+          {undo.label}
+          {isMandatory && ' Mandatory work activates regardless of the target.'}
+        </Toast>
       )}
     </div>
   );

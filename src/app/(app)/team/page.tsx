@@ -1,10 +1,18 @@
 import Link from 'next/link';
 
+import { AgeChips } from '@/components/AgeChips';
+import { ProgressIndicator, RowPrimaryLink } from '@/components/ui/ParityPrimitives';
 import { focusBadge, overTargetDurationMs } from '@/domain/focus';
-import { formatDurationWords } from '@/domain/duration';
+import { formatDue, formatDurationWords } from '@/domain/duration';
 import { FOCUS_BUCKET_LABELS, type FocusBucket, type FocusSummary } from '@/domain/types';
 import { requireProfile } from '@/lib/supabase/server';
-import { getTeamFocusSummary, getTeamLoad, type TeamLoadRow } from '@/server/queries';
+import {
+  getDisplaySettings,
+  getTeamFocusSummary,
+  getTeamLoad,
+  getVisibleTeamTasks,
+  type TeamLoadRow,
+} from '@/server/queries';
 
 /**
  * Team Load (section 18).
@@ -87,7 +95,12 @@ export default async function TeamPage() {
     );
   }
 
-  const [team, allFocus] = await Promise.all([getTeamLoad(profile.id), getTeamFocusSummary()]);
+  const [team, allFocus, visibleTasks, settings] = await Promise.all([
+    getTeamLoad(profile.id),
+    getTeamFocusSummary(),
+    getVisibleTeamTasks(profile.id),
+    getDisplaySettings(),
+  ]);
 
   const focusFor = (userId: string) =>
     BUCKET_ORDER.map((bucket) =>
@@ -138,6 +151,9 @@ export default async function TeamPage() {
           <div className="team-grid">
             {team.map((person) => {
               const buckets = focusFor(person.userId);
+              const personTasks = visibleTasks.filter(
+                (task) => task.primaryOwnerId === person.userId,
+              );
               const reasons = attentionReasons(person, buckets);
               const initials = person.fullName
                 .split(' ')
@@ -189,6 +205,59 @@ export default async function TeamPage() {
                       </ul>
                     </div>
                   )}
+
+                  <div className="member-focus-grid">
+                    {BUCKET_ORDER.map((bucketKey) => {
+                      const bucket = buckets.find((entry) => entry.bucket === bucketKey);
+                      const bucketTasks = personTasks
+                        .filter(
+                          (task) => task.focusBucket === bucketKey && task.status !== 'backlog',
+                        )
+                        .slice(0, 2);
+                      const value = bucket?.recommendedTarget
+                        ? Math.min(
+                            100,
+                            Math.round((bucket.activeCount / bucket.recommendedTarget) * 100),
+                          )
+                        : 0;
+                      return (
+                        <section className="member-focus-column" key={bucketKey}>
+                          <header>
+                            <strong>{FOCUS_BUCKET_LABELS[bucketKey]}</strong>
+                            <span>
+                              {bucket?.activeCount ?? 0} / {bucket?.recommendedTarget ?? 0}
+                            </span>
+                          </header>
+                          <ProgressIndicator
+                            value={value}
+                            label={`${bucket?.activeCount ?? 0} active`}
+                          />
+                          <div className="member-task-list">
+                            {bucketTasks.map((task) => (
+                              <article className="member-task-row interactive-row" key={task.id}>
+                                <RowPrimaryLink
+                                  href={`/work?task=${task.id}`}
+                                  ariaLabel={`Open ${task.title}`}
+                                >
+                                  <strong>{task.title}</strong>
+                                </RowPrimaryLink>
+                                <span>
+                                  {formatDue(task.dueAt, task.dueIsDateOnly, profile.timezone)}
+                                </span>
+                                <AgeChips
+                                  task={task}
+                                  staleThresholdDays={settings.staleThresholdDays}
+                                />
+                              </article>
+                            ))}
+                            {bucketTasks.length === 0 && (
+                              <span className="member-task-empty">No active work</span>
+                            )}
+                          </div>
+                        </section>
+                      );
+                    })}
+                  </div>
 
                   <div className="member-loads">
                     <div className="loadbox">

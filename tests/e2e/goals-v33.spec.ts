@@ -122,7 +122,10 @@ test('milestone drawer synchronises progress, saves evidence, requests support, 
   await expect(drawer.getByText('Milestone update posted.')).toBeVisible();
 
   await drawer.getByRole('tab', { name: /Milestones/ }).click();
-  const current = drawer.locator('.goal-milestone').first();
+  // Completed milestones collapse into <details class="goal-milestones-done">,
+  // so a bare .first() can land on one that is not expanded and never becomes
+  // clickable. Target the current milestone explicitly.
+  const current = drawer.locator('.goal-milestone:not(.completed)').first();
   await current.locator('.goal-milestone-summary').click();
   const completionUpdate = page.getByRole('dialog', { name: /^Update / });
   await completionUpdate.getByLabel('What changed?').fill('The milestone result was accepted.');

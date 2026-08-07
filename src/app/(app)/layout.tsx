@@ -11,7 +11,7 @@ import { SignOutButton } from './SignOutButton';
 /**
  * The authenticated shell.
  *
- * Section 4 — permanent destinations are Today, Work, Plan, Team (manager and
+ * v33 — permanent destinations are Today, Work, Goals, Plan, Team (manager and
  * administrator only), and More, presented as a rail on desktop and a labelled
  * bottom bar on mobile.
  */
@@ -39,18 +39,28 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         Skip to main content
       </a>
 
-      <NavigationRail role={role} actionRequiredCount={actionRequiredCount} />
+      <NavigationRail role={role} actionRequiredCount={actionRequiredCount} initials={initials} />
 
       <div className="shell">
         <header className="topbar">
           <div className="top-left">
             <div className="product">
               <strong>TAMCO Focus</strong>
-              <span>{profile.full_name}</span>
+              <span>Tasks, routines and support</span>
             </div>
+            <form className="global-search" action="/more/records" role="search">
+              <label className="visually-hidden" htmlFor="global-search">
+                Search tasks, routines or people
+              </label>
+              <input id="global-search" name="q" placeholder="Search tasks, routines or people" />
+              <button type="submit" aria-label="Search tasks, routines or people">
+                ⌕
+              </button>
+            </form>
           </div>
 
           <div className="top-right">
+            <span className="signed-in-name">{profile.full_name}</span>
             <ThemeToggle />
             <div className="avatar" aria-hidden="true">
               {initials}

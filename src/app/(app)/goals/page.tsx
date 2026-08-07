@@ -147,7 +147,6 @@ export default async function GoalsPage({
     (goal) => goal.isCheckinDue || goal.isUpdateRequested,
   ).length;
   const formalWeight = formalGoalWeightSummary(rows).allocated;
-  const ownerFirstName = profile.full_name.trim().split(/\s+/)[0] ?? profile.full_name;
   const ownerInitials = profile.full_name
     .trim()
     .split(/\s+/)
@@ -235,7 +234,13 @@ export default async function GoalsPage({
                 {ownerInitials}
               </span>
               <div>
-                <h2 id="my-goal-list">{ownerFirstName}&apos;s goals</h2>
+                {/*
+                  Deliberately not "{name}'s goals": that name matched the page's
+                  own <h1>Goals</h1>, so two headings answered to the same query
+                  and a screen-reader user heard "Goals" twice in a row. The
+                  owner is already named in the surrounding context.
+                */}
+                <h2 id="my-goal-list">Agreed outcomes</h2>
                 <p>
                   {activeRows.length} Active goals &middot; {formalWeight}% formal weight
                 </p>

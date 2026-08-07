@@ -11,10 +11,10 @@ const PUBLIC_PATHS = ['/sign-in', '/auth/callback'];
  * behind authentication.
  *
  * This is a convenience redirect, not the security boundary. The boundary is
- * RLS: even a request that slipped past this middleware would read nothing it
+ * RLS: even a request that slipped past this proxy would read nothing it
  * is not entitled to.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

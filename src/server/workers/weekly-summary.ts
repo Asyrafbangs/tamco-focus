@@ -7,6 +7,7 @@ import { weeklyWindow } from '@/domain/weekly-schedule';
 type Client = SupabaseClient<Database, 'public'>;
 type Profile = Database['public']['Tables']['user_profiles']['Row'];
 type TaskRow = Database['public']['Views']['task_overview']['Row'];
+type GoalRow = Database['public']['Views']['goal_overview']['Row'];
 
 export interface WeeklyWorkerOptions {
   now?: Date;
@@ -46,6 +47,32 @@ const titleList = (title: string, tasks: TaskRow[], empty: string) => ({
   items: tasks.length ? tasks.map((task) => task.title ?? 'Untitled work') : [empty],
 });
 
+function meaningfulGoal(goal: GoalRow, reportingStart: Date) {
+  return Boolean(
+    goal.needs_attention ||
+    goal.is_checkin_due ||
+    goal.is_update_requested ||
+    goal.is_target_approaching ||
+    goal.has_recent_milestone_completion ||
+    Number(goal.open_support_count ?? 0) > 0 ||
+    goal.pending_version_id ||
+    (goal.last_meaningful_update_at &&
+      new Date(goal.last_meaningful_update_at).getTime() >= reportingStart.getTime()),
+  );
+}
+
+function goalSummaryLine(goal: GoalRow) {
+  const reasons = [
+    Number(goal.open_support_count ?? 0) > 0 ? 'support requested' : null,
+    goal.is_update_requested ? 'update requested' : null,
+    goal.is_checkin_due ? 'check-in due' : null,
+    goal.is_target_approaching ? 'target approaching' : null,
+    goal.has_recent_milestone_completion ? 'milestone completed' : null,
+    goal.pending_version_id ? 'changes awaiting agreement' : null,
+  ].filter(Boolean);
+  return `${goal.title ?? 'Untitled Goal'} — ${goal.reported_progress ?? 0}% overall${reasons.length ? `; ${reasons.join(', ')}` : '; progressed this week'}`;
+}
+
 /**
  * Exported for unit testing. Pure: it takes rows and returns strings, touching
  * neither the database nor the clock, so the preference-mode section selection
@@ -59,10 +86,15 @@ export function renderSummary(input: {
   teamTasks: TaskRow[];
   teamChanges: number;
   teamBarriers: number;
+  goals?: GoalRow[];
+  teamGoals?: GoalRow[];
   appBaseUrl: string;
   now: Date;
 }) {
   const { profile, tasks, now } = input;
+  const meaningfulGoals = (input.goals ?? []).filter((goal) =>
+    meaningfulGoal(goal, new Date(now.getTime() - 7 * 86_400_000)),
+  );
   const completed = tasks.filter((task) => task.status === 'completed' && task.completed_at);
   const attention = tasks.filter((task) => task.is_overdue || task.is_stale);
   const due = tasks.filter(
@@ -105,6 +137,12 @@ export function renderSummary(input: {
       titleList('Routine work due', routines, 'No routine occurrences are due this week.'),
     );
   }
+  if (meaningfulGoals.length > 0) {
+    sections.push({
+      title: 'Goal progress and check-ins',
+      items: meaningfulGoals.slice(0, 6).map(goalSummaryLine),
+    });
+  }
   sections.push({
     title: 'Recommended starting point',
     items: recommendation
@@ -115,6 +153,9 @@ export function renderSummary(input: {
   });
 
   if (profile.team_summary_mode !== 'off') {
+    const meaningfulTeamGoals = (input.teamGoals ?? []).filter((goal) =>
+      meaningfulGoal(goal, new Date(now.getTime() - 7 * 86_400_000)),
+    );
     sections.push(
       titleList(
         'Team wins and changes',
@@ -135,6 +176,14 @@ export function renderSummary(input: {
         ],
       },
     );
+    if (meaningfulTeamGoals.length > 0) {
+      sections.push({
+        title: 'Team Goal coaching',
+        items: meaningfulTeamGoals
+          .slice(0, 8)
+          .map((goal) => `${goal.owner_name ?? 'Team member'}: ${goalSummaryLine(goal)}`),
+      });
+    }
   }
 
   const subject = `TAMCO Focus weekly summary — ${profile.full_name}`;
@@ -252,10 +301,18 @@ export async function runWeeklySummaryWorker(
       window.reportingStart.toISOString(),
       window.reportingEnd.toISOString(),
     );
+    const { data: goalRows, error: goalError } = await client
+      .from('goal_overview')
+      .select('*')
+      .eq('owner_id', profile.id)
+      .eq('status', 'active')
+      .order('target_date', { ascending: true });
+    if (goalError) throw goalError;
 
     let teamTasks: TaskRow[] = [];
     let teamChanges = 0;
     let teamBarriers = 0;
+    let teamGoals: GoalRow[] = [];
     if (
       profile.team_summary_mode !== 'off' &&
       ['manager', 'administrator'].includes(profile.role)
@@ -299,6 +356,14 @@ export async function runWeeklySummaryWorker(
           .eq('status', 'open');
         if (barriers.error) throw barriers.error;
         teamBarriers = barriers.count ?? 0;
+        const teamGoalResult = await client
+          .from('goal_overview')
+          .select('*')
+          .in('owner_id', subjectIds)
+          .in('status', ['active', 'pending_discussion'])
+          .order('target_date', { ascending: true });
+        if (teamGoalResult.error) throw teamGoalResult.error;
+        teamGoals = teamGoalResult.data ?? [];
       }
     }
 
@@ -324,6 +389,8 @@ export async function runWeeklySummaryWorker(
       teamTasks,
       teamChanges,
       teamBarriers,
+      goals: goalRows ?? [],
+      teamGoals,
       appBaseUrl: options.appBaseUrl ?? 'http://localhost:3000',
       now,
     });

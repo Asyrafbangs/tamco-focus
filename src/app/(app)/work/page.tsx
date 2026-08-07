@@ -1,6 +1,14 @@
 import Link from 'next/link';
 
 import { AgeChips } from '@/components/AgeChips';
+import {
+  FocusTabs,
+  ProgressIndicator,
+  RowPrimaryLink,
+  TaskRow,
+  WorkspaceTabs,
+  type TabItem,
+} from '@/components/ui/ParityPrimitives';
 import { formatDue } from '@/domain/duration';
 import { focusBadge } from '@/domain/focus';
 import {
@@ -11,8 +19,9 @@ import {
   type TaskOverview,
 } from '@/domain/types';
 import { requireProfile } from '@/lib/supabase/server';
-import { getDisplaySettings, getFocusSummary, getMyTasks } from '@/server/queries';
+import { getDisplaySettings, getFocusSummary, getMyTasks, getTaskDetail } from '@/server/queries';
 
+import { TaskDetailDrawer } from './TaskDetailDrawer';
 import { TaskRowActions } from './TaskRowActions';
 
 /**
@@ -58,7 +67,7 @@ function tasksForTab(tasks: readonly TaskOverview[], tab: TabKey, viewerId: stri
 export default async function WorkPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; task?: string }>;
 }) {
   const profile = await requireProfile();
   const params = await searchParams;
@@ -68,10 +77,11 @@ export default async function WorkPage({
     ? (requested as TabKey)
     : 'operational';
 
-  const [tasks, focus, settings] = await Promise.all([
+  const [tasks, focus, settings, taskDetail] = await Promise.all([
     getMyTasks(profile.id),
     getFocusSummary(profile.id),
     getDisplaySettings(),
+    params.task ? getTaskDetail(params.task) : Promise.resolve(null),
   ]);
 
   const visible = tasksForTab(tasks, activeTab, profile.id);
@@ -95,17 +105,17 @@ export default async function WorkPage({
         </div>
       </div>
 
-      <div className="workspace-tabs">
-        <Link href="/work" className="active">
-          Focus
-        </Link>
-        <Link href="/work/routine">Routine</Link>
-      </div>
+      <WorkspaceTabs
+        items={[
+          { href: '/work', label: 'Focus', active: true },
+          { href: '/work/routine', label: 'Routine' },
+        ]}
+      />
 
       {/* Section 10.2 — a neutral badge shows the count against target; a red
           badge means action is required, never an unexplained number. */}
-      <nav className="focus-tabs" aria-label="Focus areas">
-        {TABS.map((tab) => {
+      <FocusTabs
+        items={TABS.map((tab) => {
           const summary = tab.bucket
             ? focus.find((entry) => entry.bucket === tab.bucket)
             : undefined;
@@ -114,20 +124,15 @@ export default async function WorkPage({
             ? badge?.text
             : String(tasksForTab(tasks, tab.key, profile.id).length);
 
-          return (
-            <Link
-              key={tab.key}
-              href={`/work?tab=${tab.key}`}
-              className={tab.key === activeTab ? 'active' : undefined}
-              aria-current={tab.key === activeTab ? 'page' : undefined}
-            >
-              {tab.label}
-              <span className={`count${badge?.tone === 'red' ? ' over' : ''}`}>{count}</span>
-              {badge && <span className="visually-hidden">. {badge.accessibleLabel}</span>}
-            </Link>
-          );
+          return {
+            href: `/work?tab=${tab.key}`,
+            label: tab.label,
+            active: tab.key === activeTab,
+            count,
+            attention: badge?.tone === 'red',
+          } satisfies TabItem;
         })}
-      </nav>
+      />
 
       {/* Section 7.4 — the over-target state is shown in red AND in words. */}
       {currentSummary?.isOverTarget && (
@@ -145,11 +150,16 @@ export default async function WorkPage({
       <div className="focus-panel">
         {visible.length > 0 ? (
           visible.map((task) => (
-            <article key={task.id} className="task-row">
+            <TaskRow key={task.id}>
               <div>
-                <Link href={`/work?task=${task.id}`} className="title-link">
+                <RowPrimaryLink
+                  href={`/work?tab=${activeTab}&task=${task.id}`}
+                  className="title-link"
+                  returnFocusId={`task-${task.id}`}
+                  ariaLabel={`Open ${task.title}`}
+                >
                   <strong>{task.title}</strong>
-                </Link>
+                </RowPrimaryLink>
                 <span className="sub">
                   {task.nextAction ?? WORK_CLASS_LABELS[task.workClass]}
                   {task.openBarrierCount > 0 && ' · Barrier open'}
@@ -168,14 +178,14 @@ export default async function WorkPage({
               </div>
 
               <div className="hide-narrow">
-                <div className="mini-progress" aria-hidden="true">
-                  <span style={{ width: `${task.progressPercent}%` }} />
-                </div>
-                <span className="sub">
-                  {task.checklistTotal > 0
-                    ? `${task.checklistCompleted} of ${task.checklistTotal} steps`
-                    : `${task.progressPercent}% complete`}
-                </span>
+                <ProgressIndicator
+                  value={task.progressPercent}
+                  label={
+                    task.checklistTotal > 0
+                      ? `${task.checklistCompleted} of ${task.checklistTotal} steps`
+                      : `${task.progressPercent}% complete`
+                  }
+                />
               </div>
 
               <TaskRowActions
@@ -185,8 +195,9 @@ export default async function WorkPage({
                 version={task.version}
                 bucket={task.focusBucket}
                 isMandatory={task.isMandatory}
+                openHref={`/work?tab=${activeTab}&task=${task.id}`}
               />
-            </article>
+            </TaskRow>
           ))
         ) : (
           /* Section 27.2 — what is empty, why, and the next useful action. */
@@ -205,6 +216,15 @@ export default async function WorkPage({
           </div>
         )}
       </div>
+
+      {taskDetail && (
+        <TaskDetailDrawer
+          detail={taskDetail}
+          closeHref={activeTab === 'operational' ? '/work' : `/work?tab=${activeTab}`}
+          timeZone={profile.timezone}
+          staleThresholdDays={settings.staleThresholdDays}
+        />
+      )}
     </>
   );
 }

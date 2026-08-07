@@ -16,6 +16,7 @@ import { escapeHtml, renderSummary } from '@/server/workers/weekly-summary';
 const NOW = new Date('2026-08-06T02:00:00.000Z');
 
 type Task = Parameters<typeof renderSummary>[0]['tasks'][number];
+type Goal = NonNullable<Parameters<typeof renderSummary>[0]['goals']>[number];
 
 function task(overrides: Partial<Task> = {}): Task {
   return {
@@ -32,6 +33,25 @@ function task(overrides: Partial<Task> = {}): Task {
     last_meaningful_update_at: '2026-08-05T02:00:00.000Z',
     ...overrides,
   } as Task;
+}
+
+function goal(overrides: Partial<Goal> = {}): Goal {
+  return {
+    id: crypto.randomUUID(),
+    owner_name: 'Izzah Nurul',
+    title: 'Safety Digitalisation',
+    status: 'active',
+    reported_progress: 20,
+    open_support_count: 0,
+    needs_attention: false,
+    is_checkin_due: false,
+    is_update_requested: false,
+    is_target_approaching: false,
+    has_recent_milestone_completion: false,
+    pending_version_id: null,
+    last_meaningful_update_at: '2026-08-05T02:00:00.000Z',
+    ...overrides,
+  } as Goal;
 }
 
 function profile(overrides: Record<string, unknown> = {}) {
@@ -174,6 +194,43 @@ describe('team sections (PRODUCTION_LOGIC.md "V30", item 6)', () => {
     const { text } = render({ profile: profile({ team_summary_mode: 'leadership' }) });
 
     expect(text.indexOf('Wins from last week')).toBeLessThan(text.indexOf('Team wins and changes'));
+  });
+});
+
+describe('meaningful Goal email inclusion (v33)', () => {
+  it('includes employee Goals only when a progress or exception signal is meaningful', () => {
+    const { text } = render({
+      goals: [
+        goal({ title: 'Progressed Goal' }),
+        goal({
+          title: 'Quiet Goal',
+          last_meaningful_update_at: '2026-07-01T02:00:00.000Z',
+        }),
+      ],
+    });
+
+    expect(text).toContain('Goal progress and check-ins');
+    expect(text).toContain('Progressed Goal — 20% overall');
+    expect(text).not.toContain('Quiet Goal');
+  });
+
+  it('surfaces support and pending alignment in the manager leadership section', () => {
+    const { text } = render({
+      profile: profile({ team_summary_mode: 'leadership' }),
+      teamGoals: [
+        goal({
+          owner_name: 'Amer Hakim',
+          open_support_count: 1,
+          pending_version_id: '00000000-0000-4000-a000-000000000099',
+          last_meaningful_update_at: '2026-07-01T02:00:00.000Z',
+        }),
+      ],
+    });
+
+    expect(text).toContain('Team Goal coaching');
+    expect(text).toContain('Amer Hakim: Safety Digitalisation');
+    expect(text).toContain('support requested');
+    expect(text).toContain('changes awaiting agreement');
   });
 });
 

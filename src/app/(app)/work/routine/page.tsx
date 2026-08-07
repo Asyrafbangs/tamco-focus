@@ -1,6 +1,12 @@
 import Link from 'next/link';
 
 import { AgeChips } from '@/components/AgeChips';
+import {
+  ProgressIndicator,
+  RoutineRow,
+  RowPrimaryLink,
+  WorkspaceTabs,
+} from '@/components/ui/ParityPrimitives';
 import { formatDue, localDateString } from '@/domain/duration';
 import { TASK_STATUS_LABELS, type TaskOverview } from '@/domain/types';
 import { requireProfile } from '@/lib/supabase/server';
@@ -69,12 +75,12 @@ export default async function RoutinePage() {
         </div>
       </div>
 
-      <div className="workspace-tabs">
-        <Link href="/work">Focus</Link>
-        <Link href="/work/routine" className="active">
-          Routine
-        </Link>
-      </div>
+      <WorkspaceTabs
+        items={[
+          { href: '/work', label: 'Focus' },
+          { href: '/work/routine', label: 'Routine', active: true },
+        ]}
+      />
 
       {overdue.length > 0 && (
         <div className="notice error" role="status">
@@ -115,11 +121,16 @@ export default async function RoutinePage() {
               </div>
 
               {group.items.map((task) => (
-                <article key={task.id} className="task-row">
+                <RoutineRow key={task.id}>
                   <div>
-                    <Link href={`/work?task=${task.id}`} className="title-link">
+                    <RowPrimaryLink
+                      href={`/work?task=${task.id}`}
+                      className="title-link"
+                      returnFocusId={`routine-${task.id}`}
+                      ariaLabel={`Open ${task.title}`}
+                    >
                       <strong>{task.title}</strong>
-                    </Link>
+                    </RowPrimaryLink>
                     <span className="sub">
                       {task.checklistTotal > 0
                         ? `${task.checklistCompleted} of ${task.checklistTotal} steps`
@@ -144,10 +155,10 @@ export default async function RoutinePage() {
                   </div>
 
                   <div className="hide-narrow">
-                    <div className="mini-progress" aria-hidden="true">
-                      <span style={{ width: `${task.progressPercent}%` }} />
-                    </div>
-                    <span className="sub">{task.progressPercent}% complete</span>
+                    <ProgressIndicator
+                      value={task.progressPercent}
+                      label={`${task.progressPercent}% complete`}
+                    />
                   </div>
 
                   <div className="row-actions">
@@ -155,7 +166,7 @@ export default async function RoutinePage() {
                       Open
                     </Link>
                   </div>
-                </article>
+                </RoutineRow>
               ))}
             </section>
           ))

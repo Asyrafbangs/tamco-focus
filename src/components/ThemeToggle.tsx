@@ -1,8 +1,28 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
 type Theme = 'light' | 'dark';
+
+const THEME_CHANGE_EVENT = 'tamco-focus-theme-change';
+
+function subscribeToTheme(callback: () => void) {
+  window.addEventListener('storage', callback);
+  window.addEventListener(THEME_CHANGE_EVENT, callback);
+
+  return () => {
+    window.removeEventListener('storage', callback);
+    window.removeEventListener(THEME_CHANGE_EVENT, callback);
+  };
+}
+
+function getAppliedTheme(): Theme {
+  return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+}
+
+function getServerTheme(): Theme {
+  return 'light';
+}
 
 /**
  * The single top-bar Day/Night toggle (section 25.7).
@@ -12,19 +32,12 @@ type Theme = 'light' | 'dark';
  * value and flips it, so the two can never disagree.
  */
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>('light');
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    const applied = document.documentElement.getAttribute('data-theme');
-    setTheme(applied === 'dark' ? 'dark' : 'light');
-    setReady(true);
-  }, []);
+  const theme = useSyncExternalStore(subscribeToTheme, getAppliedTheme, getServerTheme);
 
   function toggle() {
     const next: Theme = theme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
     document.documentElement.setAttribute('data-theme', next);
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
 
     try {
       localStorage.setItem('tamco-focus-theme', next);
@@ -46,7 +59,7 @@ export function ThemeToggle() {
       aria-pressed={theme === 'dark'}
       suppressHydrationWarning
     >
-      <span suppressHydrationWarning>{ready ? nextLabel : 'Theme'}</span>
+      <span suppressHydrationWarning>{nextLabel}</span>
       <span className="theme-knob" aria-hidden="true">
         {theme === 'dark' ? '☾' : '☀'}
       </span>
