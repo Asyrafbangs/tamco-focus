@@ -27,7 +27,16 @@ test('Goals is a dedicated accessible workspace with whole-row drawer interactio
   await signIn(page, 'amer@tamco.local');
   await page.goto('/goals');
 
-  await expect(page.getByRole('heading', { name: 'Goals' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Goals', exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/Agreed outcomes, visible progress, actionable milestones/),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('navigation', { name: 'Goal workspace' }).getByRole('link', {
+      name: 'My Goals',
+      exact: true,
+    }),
+  ).toBeVisible();
   await expect(
     page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: /Goals/ }),
   ).toBeVisible();
@@ -56,8 +65,10 @@ test('Goals is a dedicated accessible workspace with whole-row drawer interactio
     'aria-selected',
     'true',
   );
-  await expect(drawer.getByText('Calculated from the agreed milestone weights.')).toBeVisible();
-  await expect(drawer.getByText('Supporting context', { exact: true })).toBeVisible();
+  await expect(drawer.getByText('Milestone-based progress:', { exact: true })).toBeVisible();
+  await expect(drawer.getByText('Agreed outcome', { exact: true })).toBeVisible();
+  await expect(drawer.getByText('Manager expectation', { exact: true })).toBeVisible();
+  await expect(drawer.getByRole('button', { name: 'Update milestone' })).toBeVisible();
 
   await page.keyboard.press('Escape');
   await expect(drawer).toHaveCount(0);
@@ -89,7 +100,7 @@ test('milestone drawer synchronises progress, saves evidence, requests support, 
   await expect(percentage).toHaveValue('65');
   await percentage.fill('70');
   await expect(slider).toHaveValue('70');
-  await expect(update.getByText(/new value 70% \(not saved yet\)/)).toBeVisible();
+  await expect(update.getByText('New 70%', { exact: true })).toBeVisible();
   await update.getByLabel('What changed?').fill('Completed the next validation walkthrough.');
 
   const chooserPromise = page.waitForEvent('filechooser');
@@ -111,7 +122,7 @@ test('milestone drawer synchronises progress, saves evidence, requests support, 
   await expect(drawer.getByText('Milestone update posted.')).toBeVisible();
 
   await drawer.getByRole('tab', { name: /Milestones/ }).click();
-  const current = drawer.locator('.goal-milestone').filter({ hasText: 'Current milestone' });
+  const current = drawer.locator('.goal-milestone').first();
   await current.locator('.goal-milestone-summary').click();
   const completionUpdate = page.getByRole('dialog', { name: /^Update / });
   await completionUpdate.getByLabel('What changed?').fill('The milestone result was accepted.');
@@ -130,7 +141,7 @@ test('manager Team Goals and two-step setup retain the approved master-detail st
   await signIn(page, 'izzul@tamco.local');
   await page.goto('/goals?view=team');
 
-  await expect(page.getByRole('heading', { name: 'Goals' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Goals', exact: true })).toBeVisible();
   await expect(page.locator('.team-goal-people')).toBeVisible();
   await expect(page.locator('.team-goal-detail')).toBeVisible();
   await expect(page.getByText('Coaching and alignment', { exact: false })).toBeVisible();

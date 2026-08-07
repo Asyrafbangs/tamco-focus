@@ -1,5 +1,17 @@
 .row {
   position: relative;
+  grid-template-columns: minmax(300px, 1fr) 106px 165px 150px auto;
+  gap: 14px;
+  min-height: 70px;
+  padding-block: 9px;
+}
+
+.row :global(.goal-row-badges) {
+  margin: 0;
+}
+
+.row :global(.goal-row-badges .status-badge) {
+  max-width: 105px;
 }
 
 .rowAction {
@@ -66,7 +78,25 @@
 }
 
 @media (max-width: 760px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .row :global(.goal-row-badges) {
+    grid-column: 1 / -1;
+  }
+
   .rowAction {
+    display: none;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1120px) {
+  .row {
+    grid-template-columns: minmax(220px, 1fr) 100px 145px auto;
+  }
+
+  .row :global(.goal-row-date) {
     display: none;
   }
 }

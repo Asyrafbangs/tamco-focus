@@ -8,6 +8,7 @@ import {
   GOAL_LIFECYCLE_LABELS,
   GOAL_LIFECYCLE_VIEWS,
   formalGoalWeightSummary,
+  goalDisplayHealth,
   matchesGoalLifecycle,
   type GoalLifecycleView,
   type GoalOverview,
@@ -50,15 +51,15 @@ function FormalWeight({ goals }: { goals: readonly GoalOverview[] }) {
     <div
       className={`${styles.formalWeight} ${styles[summary.state]}`}
       role="status"
-      aria-label={`Active Goal weight ${summary.allocated} percent`}
+      aria-label={`${summary.allocated} percent formal Active weight`}
     >
-      <strong>Active Goal weight {summary.allocated}%</strong>
+      <strong>{summary.allocated}% formal Active weight</strong>
       <span>
         {summary.state === 'complete'
-          ? 'Formal weighting is aligned to 100%.'
+          ? 'Formal Active set aligned to 100%. Draft and discussion goals do not count.'
           : summary.state === 'over'
-            ? `${summary.over}% over the formal limit.`
-            : `${summary.remaining}% remains to allocate.`}
+            ? `Reduce Active goal weight by ${summary.over}% before agreeing another goal.`
+            : `${summary.remaining}% remains available for the formal Active set.`}
       </span>
     </div>
   );
@@ -142,6 +143,19 @@ export default async function GoalsPage({
   const attentionCount = activeRows.filter(
     (goal) => goal.health === 'need_attention' || goal.health === 'support_requested',
   ).length;
+  const updateDueCount = activeRows.filter(
+    (goal) => goal.isCheckinDue || goal.isUpdateRequested,
+  ).length;
+  const formalWeight = formalGoalWeightSummary(rows).allocated;
+  const ownerFirstName = profile.full_name.trim().split(/\s+/)[0] ?? profile.full_name;
+  const ownerInitials = profile.full_name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
+  const checkinGoal = activeRows.find((goal) => goalDisplayHealth(goal) !== 'On track');
   const closeHref = lifecycleHref(lifecycle);
   const goalHref = (goalId: string) => {
     const query = new URLSearchParams(closeHref.split('?')[1] ?? '');
@@ -160,7 +174,10 @@ export default async function GoalsPage({
         <div>
           <p className="eyebrow">Performance and development</p>
           <h1>Goals</h1>
-          <p>Keep agreed outcomes visible, update progress, and surface support early.</p>
+          <p>
+            Agreed outcomes, visible progress, actionable milestones and evidence&mdash;separate
+            from the Calendar.
+          </p>
         </div>
         <div className="actions">
           {canManage && (
@@ -178,7 +195,8 @@ export default async function GoalsPage({
         <div>
           <strong>Goals stay visible without becoming another daily task list.</strong>
           <span>
-            Use Goals for agreed outcomes, progress and support—not as a second task backlog.
+            Use quick updates for overall progress. Use milestones when a specific agreed result
+            changes.
           </span>
         </div>
         <details>
@@ -190,114 +208,137 @@ export default async function GoalsPage({
         </details>
       </section>
 
-      {canManage && (
-        <WorkspaceTabs
-          label="Goal workspace"
-          items={[
-            { href: '/goals', label: 'My Goals', active: view === 'my', count: myGoals.length },
-            {
-              href: '/goals?view=team',
-              label: 'Team Goals',
-              active: view === 'team',
-              count: teamPeople.reduce((total, person) => total + person.activeGoalCount, 0),
-              attention: teamPeople.some(
-                (person) => person.attentionCount > 0 || person.supportRequestCount > 0,
-              ),
-            },
-          ]}
-        />
-      )}
+      <WorkspaceTabs
+        label="Goal workspace"
+        items={[
+          { href: '/goals', label: 'My Goals', active: view === 'my' },
+          ...(canManage
+            ? [
+                {
+                  href: '/goals?view=team',
+                  label: 'Team Goals',
+                  active: view === 'team',
+                  attention: teamPeople.some(
+                    (person) => person.attentionCount > 0 || person.supportRequestCount > 0,
+                  ),
+                },
+              ]
+            : []),
+        ]}
+      />
 
       {view === 'my' ? (
-        <section className="goal-list-panel" aria-labelledby="my-goal-list">
-          <div className="sectionhead">
-            <div>
-              <h2 id="my-goal-list">Agreed outcomes</h2>
-              <p>Open a goal for context or use Update for a concise check-in.</p>
+        <section className={styles.personalWorkspace} aria-labelledby="my-goal-list">
+          <header className={styles.ownerSummary}>
+            <div className={styles.ownerIdentity}>
+              <span className={styles.ownerAvatar} aria-hidden="true">
+                {ownerInitials}
+              </span>
+              <div>
+                <h2 id="my-goal-list">{ownerFirstName}&apos;s goals</h2>
+                <p>
+                  {activeRows.length} Active goals &middot; {formalWeight}% formal weight
+                </p>
+              </div>
             </div>
             <div className="goal-summary-inline" aria-label="Goal summary">
-              <div>
-                <b>{activeRows.length}</b>Active
-              </div>
               <div>
                 <b>{weightedProgress}%</b>Weighted progress
               </div>
               <div className={attentionCount > 0 ? 'attention' : undefined}>
                 <b>{attentionCount}</b>Need attention
               </div>
+              <div className={updateDueCount > 0 ? 'attention' : undefined}>
+                <b>{updateDueCount}</b>Update due
+              </div>
             </div>
-          </div>
-          <FormalWeight goals={rows} />
-          <WorkspaceTabs
-            label="Goal lifecycle"
-            items={[
-              {
-                href: lifecycleHref('active'),
-                label: 'Active',
-                active: lifecycle === 'active',
-                count: lifecycleCount('active'),
-              },
-              {
-                href: lifecycleHref('discussion'),
-                label: 'For discussion',
-                active: lifecycle === 'discussion',
-                count: lifecycleCount('discussion'),
-              },
-              {
-                href: lifecycleHref('completed'),
-                label: 'Completed',
-                active: lifecycle === 'completed',
-                count: lifecycleCount('completed'),
-              },
-              {
-                href: lifecycleHref('all'),
-                label: 'All',
-                active: lifecycle === 'all',
-                count: rows.length,
-              },
-            ]}
-          />
+          </header>
 
-          {visibleRows.length ? (
-            <div className="goal-list">
-              {visibleRows.map((goal) => (
-                <GoalRow
-                  key={goal.id}
-                  goal={goal}
-                  href={goalHref(goal.id)}
-                  timeZone={profile.timezone}
-                  now={renderTime}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              title={
-                rows.length === 0
-                  ? 'No Goals have been agreed yet'
-                  : `Nothing in ${GOAL_LIFECYCLE_LABELS[lifecycle]}`
-              }
-              action={
-                /* Section 27.2 — when a filter is hiding the goals rather than
+          <div className={`goal-list-panel ${styles.goalListPanel}`}>
+            <FormalWeight goals={rows} />
+            <WorkspaceTabs
+              label="Goal lifecycle"
+              items={[
+                {
+                  href: lifecycleHref('active'),
+                  label: 'Active',
+                  active: lifecycle === 'active',
+                  count: lifecycleCount('active'),
+                },
+                {
+                  href: lifecycleHref('discussion'),
+                  label: 'For discussion',
+                  active: lifecycle === 'discussion',
+                  count: lifecycleCount('discussion'),
+                },
+                {
+                  href: lifecycleHref('completed'),
+                  label: 'Completed',
+                  active: lifecycle === 'completed',
+                  count: lifecycleCount('completed'),
+                },
+                {
+                  href: lifecycleHref('all'),
+                  label: 'All',
+                  active: lifecycle === 'all',
+                  count: rows.length,
+                },
+              ]}
+            />
+
+            {lifecycle === 'active' && checkinGoal && (
+              <div className={styles.checkinStrip}>
+                <div>
+                  <strong>Check-in needed &middot; {checkinGoal.title}</strong>
+                  <span>Record what changed or request support.</span>
+                </div>
+                <Link href={`${goalHref(checkinGoal.id)}&action=update`} className="btn small">
+                  Update
+                </Link>
+              </div>
+            )}
+
+            {visibleRows.length ? (
+              <div className="goal-list">
+                {visibleRows.map((goal) => (
+                  <GoalRow
+                    key={goal.id}
+                    goal={goal}
+                    href={goalHref(goal.id)}
+                    timeZone={profile.timezone}
+                    now={renderTime}
+                  />
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title={
+                  rows.length === 0
+                    ? 'No Goals have been agreed yet'
+                    : `Nothing in ${GOAL_LIFECYCLE_LABELS[lifecycle]}`
+                }
+                action={
+                  /* Section 27.2 — when a filter is hiding the goals rather than
                    there being none, the next useful action is to widen it. */
-                rows.length > 0 ? (
-                  <Link href={lifecycleHref('all')} className="btn">
-                    Show all Goals
-                  </Link>
-                ) : canManage ? undefined : (
-                  <Link href="/today" className="btn">
-                    Return to My Day
-                  </Link>
-                )
-              }
-            >
-              <p>
-                {rows.length === 0
-                  ? 'Goals appear here after a manager and employee align the result and milestones.'
-                  : LIFECYCLE_EMPTY[lifecycle]}
-              </p>
-            </EmptyState>
-          )}
+                  rows.length > 0 ? (
+                    <Link href={lifecycleHref('all')} className="btn">
+                      Show all Goals
+                    </Link>
+                  ) : canManage ? undefined : (
+                    <Link href="/today" className="btn">
+                      Return to My Day
+                    </Link>
+                  )
+                }
+              >
+                <p>
+                  {rows.length === 0
+                    ? 'Goals appear here after a manager and employee align the result and milestones.'
+                    : LIFECYCLE_EMPTY[lifecycle]}
+                </p>
+              </EmptyState>
+            )}
+          </div>
         </section>
       ) : (
         <div className="team-goals-layout">

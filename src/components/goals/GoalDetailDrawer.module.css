@@ -157,3 +157,418 @@
     padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
 }
+
+/* v34 prototype fidelity correction */
+.progressHero {
+  grid-template-columns: 1fr !important;
+  margin-top: 13px !important;
+}
+
+.goalHeroCard {
+  padding: 14px 16px !important;
+  background: var(--surface-2) !important;
+}
+
+.goalHeroTop,
+.currentFocusHead,
+.milestoneHeader,
+.updateContext {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.goalHeroTop > div > strong,
+.goalHeroTop > div > span,
+.currentFocus strong,
+.currentFocus span,
+.updateContext strong,
+.updateContext span {
+  display: block;
+}
+
+.goalHeroTop > div > strong {
+  margin: 0 0 4px !important;
+  font-size: 26px !important;
+  line-height: 1;
+}
+
+.goalHeroTop > div > span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.goalHeroCard :global(.progress-indicator) {
+  margin-top: 12px;
+}
+
+.goalHeroCard :global(.progress-track) {
+  height: 6px;
+}
+
+.goalHeroMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 13px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.goalHeroMeta b {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.outcome {
+  padding: 15px 1px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.outcome span,
+.outcome strong {
+  display: block;
+}
+
+.outcome span {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.outcome strong {
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.currentFocus {
+  margin-top: 13px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+}
+
+.currentFocus strong {
+  font-size: 11px;
+}
+
+.currentFocus span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 9.3px;
+  line-height: 1.45;
+}
+
+.currentFocus :global(.progress-indicator) {
+  margin-top: 10px;
+}
+
+.agreementDetails {
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.agreementDetails details {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.agreementDetails summary {
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.agreementDetails p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.5;
+}
+
+.managerActions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 12px;
+}
+
+.currentMilestone {
+  position: relative;
+}
+
+.currentMilestone :global(.goal-milestone-summary) {
+  padding: 11px 92px 11px 11px;
+}
+
+.milestoneAction {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  right: 11px;
+  transform: translateY(-50%);
+}
+
+:global(.goal-milestone) {
+  position: relative;
+}
+
+:global(.goal-milestone:not(.completed) .goal-milestone-summary) {
+  padding-right: 88px;
+}
+
+.milestoneHeader {
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.milestoneHeader h3,
+.milestoneHeader p {
+  margin: 0;
+}
+
+.milestoneHeader h3 {
+  font-size: 12px;
+}
+
+.milestoneHeader p {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 9.5px;
+}
+
+.milestoneHeader :global(.goal-structure-editor) {
+  margin: 0;
+}
+
+.updateDrawer :global(.modalhead) {
+  padding: 16px 18px 14px;
+}
+
+.updateBody {
+  padding: 16px 18px;
+}
+
+.updateContext {
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.updateContext strong {
+  font-size: 10px;
+}
+
+.updateContext span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 8.8px;
+}
+
+.progressCard {
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+}
+
+.progressCard > label {
+  display: block;
+  min-height: 36px;
+  font-size: 11px;
+}
+
+.progressCard > label output {
+  float: right;
+  margin-right: 82px;
+  color: var(--muted);
+  font-size: 8.7px;
+  font-weight: 500;
+}
+
+.progressCard :global(.goal-range) {
+  position: relative;
+  display: block;
+}
+
+.progressCard :global(.goal-range-number) {
+  position: absolute;
+  top: -43px;
+  right: 0;
+  height: 38px;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.progressCard :global(input[type='range']) {
+  width: 100%;
+}
+
+.progressCard :global(.goal-range-saved) {
+  display: none;
+}
+
+.updateBody :global(textarea[name='comment']) {
+  min-height: 106px;
+}
+
+.updateBody :global(.attachment-picker) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 10px;
+  padding: 10px 11px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.updateBody :global(.attachment-picker-button) {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+}
+
+.updateBody :global(.attachment-picker-hint) {
+  grid-row: 2;
+  grid-column: 1;
+}
+
+.updateBody :global(.attachment-picker)::before {
+  grid-row: 1;
+  grid-column: 1;
+  font-size: 10px;
+  font-weight: 700;
+  content: 'Add evidence';
+}
+
+.updateBody :global(.attachment-chip-list),
+.updateBody :global(.attachment-picker-error) {
+  grid-column: 1 / -1;
+}
+
+.updateFooter {
+  padding-inline: 18px;
+}
+
+.updateAttachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.fileChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 8.8px;
+  text-decoration: none;
+}
+
+.compactEmpty {
+  margin: 0;
+  padding: 10px 1px 18px;
+  color: var(--muted);
+  font-size: 9.5px;
+}
+
+.linkWorkDisclosure {
+  position: relative;
+  overflow: visible;
+}
+
+.linkWorkDisclosure > summary {
+  list-style: none;
+  white-space: nowrap;
+}
+
+.linkWorkDisclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.linkWorkDisclosure > :global(.goal-link-form) {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 7px);
+  right: 0;
+  width: 510px !important;
+  max-width: calc(100vw - 42px) !important;
+  box-shadow: var(--shadow);
+}
+
+:global(.goal-detail-drawer .task-detail-head-actions > .ghost:last-child) {
+  width: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0;
+  font-size: 0;
+}
+
+:global(.goal-detail-drawer .task-detail-head-actions > .ghost:last-child)::before {
+  font-size: 14px;
+  content: '×';
+}
+
+:global(.goal-detail-drawer .goal-update-list .sectionhead) {
+  margin-bottom: 0;
+  padding: 0 2px 11px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+:global(.goal-detail-drawer .goal-update) {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 0;
+}
+
+:global(.goal-detail-drawer .goal-update > time) {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+:global(.goal-detail-drawer .goal-update-head strong) {
+  font-size: 10.5px;
+}
+
+:global(.goal-detail-drawer .goal-update p) {
+  color: var(--muted);
+  font-size: 9.5px;
+  line-height: 1.5;
+}
+
+:global(.goal-detail-drawer .goal-file-row),
+:global(.goal-detail-drawer .goal-work-row) {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 57px;
+  padding: 9px 0;
+}
+
+:global(.goal-detail-drawer .goal-file-row strong),
+:global(.goal-detail-drawer .goal-work-row strong) {
+  font-size: 10px;
+}
+
+:global(.goal-detail-drawer .goal-file-row small),
+:global(.goal-detail-drawer .goal-work-row small) {
+  font-size: 8.8px;
+}
+
+@media (max-width: 760px) {
+  .goalHeroTop,
+  .currentFocusHead,
+  .milestoneHeader {
+    align-items: stretch;
+  }
+
+  :global(.goal-detail-drawer .goal-update) {
+    grid-template-columns: 1fr;
+    gap: 3px;
+  }
+}

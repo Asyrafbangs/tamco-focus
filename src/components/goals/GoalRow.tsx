@@ -57,18 +57,19 @@ export function GoalRow({
             goal.nextMilestoneTitle ??
             'Milestones ready for discussion'}
         </span>
-        <div className="goal-row-badges" aria-label={`Health: ${displayHealth}`}>
-          <span
-            className={`${styles.healthLabel}${needsAction ? ` ${styles.healthAttention}` : ''}${displayHealth === 'Completed' ? ` ${styles.healthCompleted}` : ''}`}
-          >
-            {displayHealth}
-          </span>
-          {goal.openSupportCount > 0 && <StatusBadge tone="red">Support requested</StatusBadge>}
-          {goal.pendingVersionId && <StatusBadge tone="purple">Changes to agree</StatusBadge>}
-          {goal.status !== 'active' && (
-            <StatusBadge tone="neutral">{GOAL_STATUS_LABELS[goal.status]}</StatusBadge>
-          )}
-        </div>
+      </div>
+
+      <div className="goal-row-badges" aria-label={`Health: ${displayHealth}`}>
+        <span
+          className={`${styles.healthLabel}${needsAction ? ` ${styles.healthAttention}` : ''}${displayHealth === 'Completed' ? ` ${styles.healthCompleted}` : ''}`}
+        >
+          {displayHealth}
+        </span>
+        {goal.openSupportCount > 0 && <StatusBadge tone="red">Support requested</StatusBadge>}
+        {goal.pendingVersionId && <StatusBadge tone="purple">Changes to agree</StatusBadge>}
+        {goal.status !== 'active' && (
+          <StatusBadge tone="neutral">{GOAL_STATUS_LABELS[goal.status]}</StatusBadge>
+        )}
       </div>
 
       <div className="goal-row-progress">
@@ -98,7 +99,10 @@ export function GoalRow({
       </div>
 
       {goal.status === 'active' && (
-        <Link href={`${href}&action=update`} className={`btn small row-action ${styles.rowAction}`}>
+        <Link
+          href={`${href}&action=update`}
+          className={`btn small primary row-action ${styles.rowAction}`}
+        >
           Update
         </Link>
       )}
