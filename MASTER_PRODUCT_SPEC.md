@@ -760,7 +760,7 @@ The detail view includes:
 - task title and work type
 - compact metadata row
 - red barrier action near the top
-- Do Next
+- Next action
 - checklist
 - updates
 - attachments and evidence
@@ -817,11 +817,13 @@ Reopening an item creates a reversal event. It does not erase the original compl
 
 ## 12.1 Update composer
 
-The update composer is accessible near Do Next but remains collapsed or visually quiet until needed.
+The update composer is accessible near Next action but remains collapsed or visually quiet until needed.
 
-Prompt:
+Prompts:
 
-> What changed, and what happens next?
+> What changed?
+>
+> What happens next?
 
 Support:
 
@@ -1976,6 +1978,15 @@ Settings → Visibility Rules → select Amer → add Izzah and Ajmal → previe
 - Completed milestones are collapsed by default. The current open milestone is visually prominent and opens a focused right-side update drawer on desktop or bottom sheet on mobile.
 - A milestone check-in starts from saved progress, keeps the 5% slider and percentage entry synchronised, distinguishes unsaved progress, requires What changed, and optionally captures evidence, next step, or support. Mark complete is part of the same form and Save update is the sole primary action.
 - Evidence is linked to the specific milestone update. Support continues through the existing actionable manager notification and escalation path.
+
+## A11. V35 Next action and task-age clarity
+
+- Every Active task may carry one concise Next action. Generic placeholders are prohibited; an empty value is presented as **No next action recorded**.
+- An authorised task editor can Set, Edit, or Mark done inline from Overview. Mark done records immutable history and clears the immediate action without completing or changing the task state.
+- The current Next action is also presented as an actionable Checklist item.
+- Progress posting separates **What changed?** from **What happens next?**. A supplied Next action is saved in the same transaction as the update and attachments.
+- A Next-action change is meaningful activity and resets stale-work timing.
+- Task-age calculations remain derived from timestamps; their explanation is available through an accessible information control beside the compact age indicators, never inside the Next action card.
 
 ---
 

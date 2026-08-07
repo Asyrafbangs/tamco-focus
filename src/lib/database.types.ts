@@ -2800,6 +2800,31 @@ export type Database = {
         }
         Returns: Json
       }
+      post_task_update: {
+        Args: {
+          p_attachments?: Json
+          p_body?: string
+          p_checklist_item_id?: string
+          p_idempotency_key?: string
+          p_is_evidence_only?: boolean
+          p_mention_ids?: string[]
+          p_next_action?: string
+          p_task_id: string
+        }
+        Returns: Json
+      }
+      post_task_update_v34_internal: {
+        Args: {
+          p_attachments?: Json
+          p_body?: string
+          p_checklist_item_id?: string
+          p_idempotency_key?: string
+          p_is_evidence_only?: boolean
+          p_mention_ids?: string[]
+          p_task_id: string
+        }
+        Returns: Json
+      }
       preview_effective_visibility: {
         Args: { p_viewer_id: string }
         Returns: {
@@ -2872,6 +2897,16 @@ export type Database = {
           p_idempotency_key?: string
           p_reason_code?: Database["public"]["Enums"]["activation_reason"]
           p_reason_note?: string
+          p_task_id: string
+        }
+        Returns: Json
+      }
+      set_task_next_action: {
+        Args: {
+          p_expected_version: number
+          p_idempotency_key?: string
+          p_mark_done?: boolean
+          p_next_action?: string
           p_task_id: string
         }
         Returns: Json
@@ -2952,6 +2987,8 @@ export type Database = {
         | "user_reactivated"
         | "user_deleted"
         | "event_reversed"
+        | "next_action_changed"
+        | "next_action_completed"
       barrier_impact:
         | "may_delay"
         | "cannot_continue"
@@ -3198,6 +3235,8 @@ export const Constants = {
         "user_reactivated",
         "user_deleted",
         "event_reversed",
+        "next_action_changed",
+        "next_action_completed",
       ],
       barrier_impact: [
         "may_delay",

@@ -1,5 +1,13 @@
 # TAMCO Focus — Change Log
 
+## v35 Next-action clarity — 7 August 2026
+
+- Renamed **Do Next** to **Next action** and replaced generic fallback wording with **No next action recorded**.
+- Added inline Set/Edit and Mark done controls, plus a virtual actionable Checklist row for the current action.
+- Split task progress posting into **What changed?** and **What happens next?**, with atomic Next-action persistence through the existing update transaction.
+- Added immutable Next-action change/completion events, edit-authority enforcement, stale-timer refresh, accessible task-age guidance, and focused desktop/mobile tests.
+- Preserved Goal v34 and all unrelated task states, permissions, attachment rules, notifications, capacity rules, and workflows.
+
 ## v34 Goal workspace focus — 7 August 2026
 
 - Added Active, For discussion, Completed, and All lifecycle views consistently across My Goals and Team Goals, including closed-history visibility and filter-preserving drawer links.

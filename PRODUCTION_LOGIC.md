@@ -478,3 +478,14 @@ Return duration values and accessible labels from a shared domain/service layer 
 5. A milestone check-in initialises both controls from persisted progress. Slider and direct percentage entry use 5% steps; client movement remains explicitly unsaved until Save update succeeds.
 6. `post_goal_milestone_checkin` composes the existing milestone-update and Goal-support operations in one database transaction. It stores prior/new milestone progress, required What changed, optional next/support context, milestone completion, evidence, audit data, and the existing actionable support notification. Any failed support operation rolls back the check-in.
 7. Evidence metadata references the milestone update. Completing every agreed milestone transitions the Goal to Completed through the existing milestone operation.
+
+## V35 - Next action production logic
+
+1. `tasks.next_action` remains the nullable, short-text authoritative current action. No schema column or client-side shadow record is introduced.
+2. Direct Overview edits and progress-update changes use `focus.apply_task_next_action`; permission, terminal-state, placeholder, audit, timestamp, and version rules remain database-authoritative.
+3. Direct Set/Edit/Mark done uses `set_task_next_action` with optimistic versioning and idempotency. Only `focus.can_edit_task` authority may change the value.
+4. `post_task_update` retains its public name and existing named arguments and adds optional `p_next_action`. A non-empty value is committed atomically with update, attachment, mention, task-age, and audit records.
+5. Setting or changing Next action writes `next_action_changed`. Mark done writes `next_action_completed`, retains the completed sentence in immutable audit detail, clears `next_action`, and never changes task state.
+6. Every actual change resets `last_meaningful_update_at`. Re-saving the same action does not create a duplicate Next-action audit event.
+7. Generic placeholders such as `Continue next action` and `Continue the next action` are rejected in both the server-action boundary and the database command.
+8. Task-age explanations are accessible through a modal beside the derived duration indicators and are not duplicated in the action card.

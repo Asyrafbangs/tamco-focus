@@ -107,3 +107,17 @@ The build is not complete until every applicable gate passes.
 - [ ] What changed is required; evidence, next step, support, and mark complete persist through one Save update action.
 - [ ] Evidence belongs to the milestone update and support uses the existing actionable manager notification path.
 - [ ] Goal unit, integration/permission, desktop/mobile E2E, accessibility, theme, regression, and production-build checks pass.
+
+## 11. V35 Next-action acceptance
+
+- [ ] Task Overview says **Next action**, never **Do Next**.
+- [ ] A meaningful sentence is shown when recorded; otherwise **No next action recorded** appears.
+- [ ] Authorised editors can Set/Edit and Mark done inline from Overview.
+- [ ] Mark done clears the immediate action without completing or changing task state.
+- [ ] The current Next action is actionable from Checklist.
+- [ ] Progress updates have separate **What changed?** and **What happens next?** fields.
+- [ ] A supplied Next action commits atomically with the progress update and attachments.
+- [ ] View-only users cannot change Next action and generic placeholders are rejected.
+- [ ] Next-action changes reset stale-work timing and write immutable audit events.
+- [ ] Task-age explanation opens from an accessible control beside the age indicators and is absent from the Next action card.
+- [ ] Desktop/mobile interaction, accessibility, targeted integration, SQL, type, lint, and production-build checks pass.

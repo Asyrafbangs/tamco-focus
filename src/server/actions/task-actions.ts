@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
 import type { OperationResult } from '@/domain/types';
+import { safeAttachmentFileName, validateAttachmentFiles } from '@/server/attachments';
 
 /**
  * Server actions for high-impact task transitions.
@@ -335,6 +336,182 @@ export async function reopenChecklistItem(input: { itemId: string; reason?: stri
     p_item_id: parsed.data.itemId,
     p_reason: parsed.data.reason ?? null,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Updates and attachments (section 12)
+// ---------------------------------------------------------------------------
+
+const nextActionText = z
+  .string()
+  .trim()
+  .min(1)
+  .max(180)
+  .refine(
+    (value) => !/^continue (the )?next action[\s.!?]*$/i.test(value),
+    'Replace the generic placeholder with one practical action.',
+  );
+
+const nextActionCommandSchema = z
+  .object({
+    taskId: uuid,
+    expectedVersion: z.number().int().positive(),
+    nextAction: nextActionText.nullish(),
+    markDone: z.boolean().default(false),
+    idempotencyKey,
+  })
+  .refine((value) => value.markDone || Boolean(value.nextAction), {
+    message: 'Write one clear Next action before saving.',
+    path: ['nextAction'],
+  });
+
+export async function setTaskNextAction(
+  input: z.input<typeof nextActionCommandSchema>,
+): Promise<OperationResult<{ version: number; next_action: string | null }>> {
+  const parsed = nextActionCommandSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      code: 'validation_failed' as const,
+      message: parsed.error.issues[0]?.message ?? 'Write one clear Next action before saving.',
+    };
+  }
+
+  return (await callProcedure(
+    'set_task_next_action',
+    {
+      p_task_id: parsed.data.taskId,
+      p_expected_version: parsed.data.expectedVersion,
+      p_next_action: parsed.data.nextAction ?? null,
+      p_mark_done: parsed.data.markDone,
+      p_idempotency_key: parsed.data.idempotencyKey ?? null,
+    },
+    ['/today', '/work', '/team'],
+  )) as OperationResult<{ version: number; next_action: string | null }>;
+}
+
+/**
+ * Uploads private objects and commits their metadata with the written update in
+ * one database procedure. If the procedure refuses the update, the narrowly
+ * scoped orphan-cleanup policy removes only the objects that never gained an
+ * authoritative attachment row.
+ */
+export async function postTaskUpdate(formData: FormData): Promise<OperationResult> {
+  await requireProfile();
+  const parsed = z
+    .object({
+      taskId: uuid,
+      body: z.string().trim().max(4000).optional(),
+      nextAction: nextActionText.optional(),
+      evidenceOnly: z.enum(['true', 'false']).default('false'),
+      checklistItemId: uuid.optional(),
+      idempotencyKey: z.string().min(8).max(128),
+    })
+    .safeParse({
+      taskId: formData.get('taskId'),
+      body: formData.get('body') || undefined,
+      nextAction: formData.get('nextAction') || undefined,
+      evidenceOnly: formData.get('evidenceOnly') || 'false',
+      checklistItemId: formData.get('checklistItemId') || undefined,
+      idempotencyKey: formData.get('idempotencyKey'),
+    });
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      code: 'validation_failed',
+      message: 'The update details are invalid.',
+    };
+  }
+
+  const files = formData
+    .getAll('files')
+    .filter((value): value is File => value instanceof File && value.size > 0);
+  const fileError = validateAttachmentFiles(files);
+  if (fileError) return { ok: false, code: 'validation_failed', message: fileError };
+
+  if (!parsed.data.body && files.length === 0) {
+    return {
+      ok: false,
+      code: 'validation_failed',
+      message: 'Write an update or attach at least one file.',
+    };
+  }
+
+  const mentionIds = formData
+    .getAll('mentionIds')
+    .map(String)
+    .filter((value) => uuid.safeParse(value).success);
+  const isEvidence = parsed.data.evidenceOnly === 'true' || Boolean(parsed.data.checklistItemId);
+  const supabase = await createSupabaseServerClient();
+  const uploadedPaths: string[] = [];
+  const attachments: Array<{
+    id: string;
+    storage_path: string;
+    file_name: string;
+    mime_type: string;
+    byte_size: number;
+    is_evidence: boolean;
+  }> = [];
+
+  for (const file of files) {
+    const id = crypto.randomUUID();
+    const path = `tasks/${parsed.data.taskId}/${id}-${safeAttachmentFileName(file.name)}`;
+    const { error } = await supabase.storage.from('task-attachments').upload(path, file, {
+      contentType: file.type,
+      upsert: false,
+    });
+    if (error) {
+      if (uploadedPaths.length)
+        await supabase.storage.from('task-attachments').remove(uploadedPaths);
+      console.error(`[postTaskUpdate:upload] ${error.message}`);
+      return {
+        ok: false,
+        code: 'unexpected_error',
+        message: 'The files could not be saved, so nothing was posted.',
+      };
+    }
+    uploadedPaths.push(path);
+    attachments.push({
+      id,
+      storage_path: path,
+      file_name: file.name,
+      mime_type: file.type,
+      byte_size: file.size,
+      is_evidence: isEvidence,
+    });
+  }
+
+  const { data, error } = await supabase.rpc('post_task_update', {
+    p_task_id: parsed.data.taskId,
+    p_body: parsed.data.body ?? null,
+    p_is_evidence_only: parsed.data.evidenceOnly === 'true',
+    p_checklist_item_id: parsed.data.checklistItemId ?? null,
+    p_mention_ids: mentionIds,
+    p_attachments: attachments,
+    p_idempotency_key: parsed.data.idempotencyKey,
+    p_next_action: parsed.data.nextAction ?? null,
+  });
+
+  if (error) {
+    if (uploadedPaths.length) await supabase.storage.from('task-attachments').remove(uploadedPaths);
+    console.error(`[postTaskUpdate] ${error.code ?? 'unknown'}: ${error.message}`);
+    return {
+      ok: false,
+      code: 'unexpected_error',
+      message: 'The update was not posted. Nothing was changed.',
+    };
+  }
+
+  const result = data as OperationResult;
+  if (!result.ok && uploadedPaths.length) {
+    const cleanup = await supabase.storage.from('task-attachments').remove(uploadedPaths);
+    if (cleanup.error) console.error(`[postTaskUpdate:cleanup] ${cleanup.error.message}`);
+  }
+  if (result.ok) {
+    for (const path of ['/today', '/work', '/team']) revalidatePath(path);
+  }
+  return result;
 }
 
 // ---------------------------------------------------------------------------
