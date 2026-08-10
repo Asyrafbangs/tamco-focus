@@ -16,6 +16,38 @@
 begin;
 
 -- ---------------------------------------------------------------------------
+-- Refuse to run against a database that holds real people.
+--
+-- The script layer already refuses to seed anything but the local stack, but a
+-- guard that depends on an environment variable depends on somebody having set
+-- it. This one depends on the data instead: every fixture identity in this file
+-- is `@tamco.local`, so a database containing any other address is a real
+-- environment and this seed has no business in it.
+--
+-- An empty hosted project is not caught here — nothing in the data can catch
+-- that — which is why `scripts/lib/environment.mjs` exists as well. Two
+-- independent guards, neither relying on memory.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  outsider text;
+begin
+  select email into outsider
+  from public.user_profiles
+  where email not like '%@tamco.local'
+  limit 1;
+
+  if outsider is not null then
+    raise exception using
+      errcode = 'raise_exception',
+      message = 'Refusing to seed development fixtures: this database holds real accounts.',
+      detail  = format('Found %L, which is not a @tamco.local fixture identity.', outsider),
+      hint    = 'Development fixtures belong in Local and Staging only.';
+  end if;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- Local auth identities.
 --
 -- Created directly because `supabase db reset` runs this file with no HTTP
@@ -670,3 +702,157 @@ begin
   raise notice 'TAMCO Focus local fixtures loaded. LOCAL DEVELOPMENT AND TEST DATA ONLY.';
 end;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Two further agreed goals for Amer, taken from the approved prototype's
+-- sample set (`desktop/index.html`, goals `goal-br2` and `goal-field`).
+--
+-- The prototype ships a fuller goal picture than a single 10% goal, and the
+-- formal-weight rule is only legible when a person carries several: 10 + 30 +
+-- 25 leaves 35% of the formal Active set available, which is exactly what the
+-- weight banner exists to communicate. The wording, milestones and weights are
+-- the Product Owner's, transposed into the relational shape this build uses.
+-- ---------------------------------------------------------------------------
+
+insert into public.goals (
+  id, owner_id, manager_id, created_by, title, category, status, health,
+  reported_progress, target_date, weight_percent, checkin_due_at,
+  last_meaningful_update_at, active_version_id, agreed_at, version, created_at
+) values
+  ('f0c06000-0000-4000-a000-000000000003',
+   'f0c05000-0000-4000-a000-000000000003',
+   'f0c05000-0000-4000-a000-000000000002',
+   'f0c05000-0000-4000-a000-000000000002',
+   'BR2 Warehouse ESH Readiness and Stabilisation', 'performance', 'active', 'on_track',
+   55, current_date + 115, 30, now() + interval '5 days',
+   now() - interval '8 days', null, now() - interval '204 days', 1,
+   now() - interval '210 days'),
+
+  ('f0c06000-0000-4000-a000-000000000004',
+   'f0c05000-0000-4000-a000-000000000003',
+   'f0c05000-0000-4000-a000-000000000002',
+   'f0c05000-0000-4000-a000-000000000002',
+   'Field Service Safety Assurance', 'performance', 'active', 'on_track',
+   40, current_date + 146, 25, now() + interval '24 days',
+   now() - interval '5 days', null, now() - interval '204 days', 1,
+   now() - interval '210 days');
+
+insert into public.goal_versions (
+  id, goal_id, version_number, status, title, expected_result, success_measure,
+  employee_approach, support_agreed, dependencies, baseline, purpose,
+  target_date, weight_percent, proposed_by, proposed_at, activated_at
+) values
+  ('f0c06100-0000-4000-a000-000000000003',
+   'f0c06000-0000-4000-a000-000000000003', 1, 'active',
+   'BR2 Warehouse ESH Readiness and Stabilisation',
+   'Complete ESH readiness, operational handover and initial safety stabilisation of the Bukit Raja 2 warehouse before full operation.',
+   'Core ESH controls approved, OSHWA score at least 90%, and no overdue critical action.',
+   'Complete the readiness review with Warehouse, close documentation gaps and verify controls through cross-audit.',
+   'Warehouse cooperation, Engineering input and timely approval of corrective actions.',
+   'Warehouse cooperation and Engineering availability during the handover window.',
+   'Warehouse controls and operating arrangements are still being established.',
+   'A safe and controlled warehouse start-up prevents unmanaged traffic, racking, emergency and operational risks.',
+   current_date + 115, 30,
+   'f0c05000-0000-4000-a000-000000000002', now() - interval '210 days',
+   now() - interval '204 days'),
+
+  ('f0c06100-0000-4000-a000-000000000004',
+   'f0c06000-0000-4000-a000-000000000004', 1, 'active',
+   'Field Service Safety Assurance',
+   'Establish and maintain a risk-based safety-assurance programme for formally notified field-service activities, prioritising critical and high-risk work.',
+   'All formally notified critical jobs reviewed, weekly risk-based verification when work is available, monthly reporting, and at least 80% site compliance.',
+   'Maintain a field-service register, prioritise flashover-risk jobs, conduct weekly verification when notified work is available and issue a consolidated monthly report.',
+   'Timely notification from Projects and Field Service, and support closing cross-department findings.',
+   'Access to customer requirements and advance notification of mobilisation dates.',
+   'Reviews and site verification are conducted, but coverage and reporting are not yet consistent.',
+   'Field-service work changes by site and requires consistent pre-mobilisation review, verification and follow-through.',
+   current_date + 146, 25,
+   'f0c05000-0000-4000-a000-000000000002', now() - interval '210 days',
+   now() - interval '204 days');
+
+update public.goals
+   set active_version_id = case id
+     when 'f0c06000-0000-4000-a000-000000000003' then 'f0c06100-0000-4000-a000-000000000003'::uuid
+     when 'f0c06000-0000-4000-a000-000000000004' then 'f0c06100-0000-4000-a000-000000000004'::uuid
+   end
+ where id in (
+   'f0c06000-0000-4000-a000-000000000003',
+   'f0c06000-0000-4000-a000-000000000004'
+ );
+
+insert into public.goal_participants (goal_id, user_id, participant_role, added_by) values
+  ('f0c06000-0000-4000-a000-000000000003', 'f0c05000-0000-4000-a000-000000000003', 'employee', 'f0c05000-0000-4000-a000-000000000002'),
+  ('f0c06000-0000-4000-a000-000000000003', 'f0c05000-0000-4000-a000-000000000002', 'manager', 'f0c05000-0000-4000-a000-000000000002'),
+  ('f0c06000-0000-4000-a000-000000000004', 'f0c05000-0000-4000-a000-000000000003', 'employee', 'f0c05000-0000-4000-a000-000000000002'),
+  ('f0c06000-0000-4000-a000-000000000004', 'f0c05000-0000-4000-a000-000000000002', 'manager', 'f0c05000-0000-4000-a000-000000000002');
+
+-- Milestone weights are equal because weighting belongs to the goal, not to its
+-- milestones. The column is retained for history and is never read.
+insert into public.goal_milestones (
+  id, goal_version_id, position, title, completion_definition,
+  weight_percent, progress_percent, completed_by, completed_at, last_update_at
+) values
+  -- A milestone at 100% must record who completed it and when.
+  ('f0c06200-0000-4000-a000-000000000009', 'f0c06100-0000-4000-a000-000000000003', 1,
+   'ESH readiness assessment completed',
+   'The readiness assessment is complete and signed off with Warehouse.',
+   25, 100, 'f0c05000-0000-4000-a000-000000000003', now() - interval '60 days',
+   now() - interval '60 days'),
+  ('f0c06200-0000-4000-a000-000000000010', 'f0c06100-0000-4000-a000-000000000003', 2,
+   'Core controls and documents approved',
+   'HIRARC, traffic plan, emergency arrangements, racking controls, procedures and signage are approved.',
+   25, 65, null, null, now() - interval '8 days'),
+  ('f0c06200-0000-4000-a000-000000000011', 'f0c06100-0000-4000-a000-000000000003', 3,
+   'Readiness verification achieved',
+   'A cross-audit confirms an OSHWA score of at least 90% with no overdue critical action.',
+   25, 30, null, null, now() - interval '25 days'),
+  ('f0c06200-0000-4000-a000-000000000012', 'f0c06100-0000-4000-a000-000000000003', 4,
+   'Initial stabilisation maintained',
+   'Monthly inspection and follow-through are sustained through the first operating quarter.',
+   25, 20, null, null, now() - interval '30 days'),
+
+  ('f0c06200-0000-4000-a000-000000000013', 'f0c06100-0000-4000-a000-000000000004', 1,
+   'Critical-job pre-mobilisation review',
+   'Every formally notified critical or flashover-risk job is reviewed before mobilisation.',
+   25, 55, null, null, now() - interval '5 days'),
+  ('f0c06200-0000-4000-a000-000000000014', 'f0c06100-0000-4000-a000-000000000004', 2,
+   'Risk-based site verification',
+   'At least one site verification is completed per week in which notified work is available.',
+   25, 45, null, null, now() - interval '12 days'),
+  ('f0c06200-0000-4000-a000-000000000015', 'f0c06100-0000-4000-a000-000000000004', 3,
+   'Monthly assurance reporting',
+   'A consolidated field-service assurance report is issued each month.',
+   25, 50, null, null, now() - interval '9 days'),
+  ('f0c06200-0000-4000-a000-000000000016', 'f0c06100-0000-4000-a000-000000000004', 4,
+   'Compliance and closure performance',
+   'Site compliance reaches at least 80% and cross-department findings are closed.',
+   25, 20, null, null, now() - interval '20 days');
+
+insert into public.goal_agreements (
+  id, goal_id, goal_version_id, employee_id, manager_id, agreed_by, agreed_at, detail
+) values
+  ('f0c06300-0000-4000-a000-000000000003',
+   'f0c06000-0000-4000-a000-000000000003',
+   'f0c06100-0000-4000-a000-000000000003',
+   'f0c05000-0000-4000-a000-000000000003',
+   'f0c05000-0000-4000-a000-000000000002',
+   'f0c05000-0000-4000-a000-000000000002', now() - interval '204 days',
+   '{"mode":"manager_employee_discussion"}'::jsonb),
+  ('f0c06300-0000-4000-a000-000000000004',
+   'f0c06000-0000-4000-a000-000000000004',
+   'f0c06100-0000-4000-a000-000000000004',
+   'f0c05000-0000-4000-a000-000000000003',
+   'f0c05000-0000-4000-a000-000000000002',
+   'f0c05000-0000-4000-a000-000000000002', now() - interval '204 days',
+   '{"mode":"manager_employee_discussion"}'::jsonb);
+-- Clean resets load fixtures after migrations, so mirror the migration-time
+-- compatibility backfill for legacy narrative Goal measures.
+insert into public.goal_success_measures (
+  goal_version_id, position, label, measure_type, target_text, current_state
+)
+select v.id, 1, v.success_measure, 'qualitative', v.success_measure, 'not_started'
+from public.goal_versions v
+where to_regclass('public.goal_success_measures') is not null
+  and not exists (
+    select 1 from public.goal_success_measures m where m.goal_version_id = v.id
+  );

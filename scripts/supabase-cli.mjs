@@ -12,9 +12,39 @@ import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { config } from 'dotenv';
+
+import { assertLocal, EnvironmentError } from './lib/environment.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
+
+/*
+ * Destructive subcommands are gated on positive environment identification
+ * (instruction sections 36 and 44).
+ *
+ * `db reset` drops and rebuilds; `--linked` and `--db-url` aim the CLI at a
+ * remote project. Any of them against Production would destroy real work, and
+ * "I was sure it was local" is not a control. The guard runs before the binary
+ * is spawned, so there is nothing to interrupt.
+ */
+const rawArgs = process.argv.slice(2);
+const destructiveCommand =
+  rawArgs[0] === 'db' && ['reset', 'dump'].includes(rawArgs[1] ?? '') && rawArgs[1] === 'reset';
+const aimedAtRemote = rawArgs.some((arg) => arg === '--linked' || arg.startsWith('--db-url'));
+
+if (destructiveCommand || aimedAtRemote) {
+  config({ path: join(repoRoot, '.env.local'), quiet: true });
+  try {
+    assertLocal(`run \`supabase ${rawArgs.join(' ')}\``);
+  } catch (error) {
+    if (error instanceof EnvironmentError) {
+      console.error(error.message);
+      process.exit(1);
+    }
+    throw error;
+  }
+}
 
 let binaryPath;
 try {

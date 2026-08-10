@@ -58,3 +58,7 @@ Thumbs.db
 
 # Local generated credential file for seeded accounts
 LOCAL_TEST_ACCOUNTS.local.md
+
+# Local agent tooling — vendored skill packages, not application code
+.claude/skills/
+skills-lock.json

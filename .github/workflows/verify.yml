@@ -1,0 +1,131 @@
+name: Verify
+
+# Every branch and every pull request. GitHub Free gives unlimited Actions
+# minutes on public repositories and 2,000 a month on private ones; this
+# workflow is sized to stay well inside that (instruction section 45).
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    # The gates that need no database. Fast, and they catch most of what a
+    # branch gets wrong.
+    name: Format, lint, types, unit, secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # A shallow clone cannot answer "was a secret ever committed", and
+          # that question is the point of the scan below.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Secret scan
+        run: npm run scan:secrets
+
+      - name: Format check
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: SQL syntax
+        run: npm run check:sql
+
+  database:
+    # The gates that need Postgres. Runs the real migrations against a real
+    # server, so drift and broken SQL are caught here rather than at cutover.
+    name: Migrations, RLS and integration
+    runs-on: ubuntu-latest
+    needs: static
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Start the local Supabase stack
+        run: npx supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,pooler
+
+      - name: Write the environment CI resolves to
+        run: node scripts/write-env.mjs
+        env:
+          TAMCO_ENV: local
+
+      - name: Schema executes
+        run: npm run check:schema
+
+      - name: Generated types match the schema
+        run: npm run db:types:check
+
+      - name: RLS and database tests
+        run: npm run db:test
+
+      - name: Integration tests
+        run: npm run test:integration
+
+      - name: Production build
+        run: npm run build
+
+  # End-to-end deliberately runs on demand rather than on every push. It needs
+  # a browser, a production build and a database reset between viewport
+  # projects, and on a free runner that is several minutes each time. Run it
+  # before merging to main, and before any deployment.
+  end-to-end:
+    name: End-to-end (on demand)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    needs: database
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+
+      - name: Start the local Supabase stack
+        run: npx supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,pooler
+
+      - name: Write the environment CI resolves to
+        run: node scripts/write-env.mjs
+        env:
+          TAMCO_ENV: local
+
+      - name: End-to-end tests
+        run: npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

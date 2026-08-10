@@ -2,7 +2,7 @@
   "name": "tamco-focus",
   "version": "30.0.0",
   "private": true,
-  "description": "TAMCO Focus — lean work-management system. Local-first build.",
+  "description": "TAMCO Focus \u2014 lean work-management system. Local-first build.",
   "packageManager": "npm@11.13.0",
   "engines": {
     "node": ">=20.11.0"
@@ -18,10 +18,12 @@
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
-    "db:reset": "supabase db reset",
+    "db:reset": "node scripts/supabase-cli.mjs db reset",
     "db:types": "supabase gen types typescript --local --schema public > src/lib/database.types.ts",
     "db:types:check": "node scripts/check-generated-types.mjs",
     "db:seed:goals": "node --env-file=.env.local scripts/seed-goals-v33.mjs",
+    "backup:database": "node --env-file=.env.local scripts/backup-database.mjs",
+    "restore:verify": "node --env-file=.env.local scripts/verify-restore.mjs",
     "db:test": "supabase test db",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
@@ -35,7 +37,8 @@
     "worker:routines": "tsx --env-file=.env.local scripts/run-routine-scheduler.ts",
     "worker:tick": "npm run worker:routines && npm run worker:weekly",
     "preflight": "node scripts/preflight.mjs",
-    "verify": "node scripts/verify.mjs"
+    "verify": "node scripts/verify.mjs",
+    "stop:dev": "node scripts/stop-dev.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",

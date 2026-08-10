@@ -7,6 +7,12 @@
  */
 import { createClient } from '@supabase/supabase-js';
 
+import { assertLocal } from './lib/environment.mjs';
+
+// Development fixtures, so the local stack is the only legitimate target
+// (instruction sections 26 and 28).
+assertLocal('seed development Goal fixtures');
+
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !serviceKey) throw new Error('Local Supabase environment values are missing.');
