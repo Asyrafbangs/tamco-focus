@@ -167,7 +167,31 @@ password with no reach beyond this machine, but §23 forbids plaintext passwords
 in environment examples without qualification. The value is removed; the name
 stays.
 
-### 5. Two free Supabase projects are available
+### 5. The Supabase free project allowance is already spent
 
-The free tier allows two active projects per organisation, so Staging and
-Production can both be hosted and Preview never needs to touch Production.
+Checked against the account on 11 August 2026. The organisation `izzulwork1's`
+holds two `ACTIVE_HEALTHY` projects:
+
+| Project                    | Region         |
+| -------------------------- | -------------- |
+| `first-aid-box-inspection` | ap-northeast-2 |
+| `sds-intake-hub`           | ap-southeast-1 |
+
+The free tier allows two active projects per organisation, so there is no room
+for `tamco-focus-staging` and `tamco-focus-production`. Both existing projects
+belong to other work and are not touched.
+
+Options, for the owner:
+
+- **Supabase Pro** — $25/month for the organisation, lifts the project limit and
+  brings the daily backups and PITR that finding 3 says we currently lack. This
+  is the option that solves two problems at once.
+- **A second free organisation** — permitted, and gives two more project slots.
+  Adds an account to manage; Staging and Production would live apart, which is
+  arguably a feature.
+- **Pause an existing project** — only if one is genuinely finished. Not a
+  decision to make on the owner's behalf.
+- **Production only, no hosted Staging** — the instruction's own fallback (§8):
+  local Supabase becomes the test environment and Production stays isolated.
+  Costs nothing and keeps the isolation rule intact. Preview would have no
+  database, so Preview deployments would be build-only.
