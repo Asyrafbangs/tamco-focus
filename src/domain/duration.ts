@@ -131,6 +131,51 @@ export function localDateString(at: Date, timeZone = DEFAULT_ORG_TIMEZONE): stri
   }).format(at);
 }
 
+/** Converts an organisation-local `datetime-local` value into an absolute
+ * instant. Browser date-time inputs carry no zone, so interpreting them in the
+ * device zone would let two editors save different commitments. */
+export function localDateTimeToInstant(value: string, timeZone = DEFAULT_ORG_TIMEZONE): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!match) {
+    throw new RangeError(`Expected a YYYY-MM-DDTHH:mm value, received "${value}"`);
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const wallClock = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+  let instant = wallClock - timeZoneOffsetMs(timeZone, new Date(wallClock));
+  instant = wallClock - timeZoneOffsetMs(timeZone, new Date(instant));
+  return new Date(instant);
+}
+
+/** Value for a date or datetime-local control, expressed in the organisation
+ * time zone rather than the viewer's device time zone. */
+export function dueInputValue(
+  dueAt: string | null,
+  dueIsDateOnly: boolean,
+  timeZone = DEFAULT_ORG_TIMEZONE,
+): string {
+  const due = parse(dueAt);
+  if (!due) return '';
+  if (dueIsDateOnly) return localDateString(due, timeZone);
+
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(due);
+  const read = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? '';
+  return `${read('year')}-${read('month')}-${read('day')}T${read('hour')}:${read('minute')}`;
+}
+
 // ---------------------------------------------------------------------------
 // Duration formatting
 // ---------------------------------------------------------------------------
@@ -373,4 +418,60 @@ export function formatDue(
     minute: '2-digit',
     hour12: false,
   }).format(due);
+}
+
+/** Compact due context for the focused Next Action card. */
+export function formatDueShort(
+  dueAt: string | null,
+  dueIsDateOnly: boolean,
+  timeZone = DEFAULT_ORG_TIMEZONE,
+): string {
+  const due = parse(dueAt);
+  if (!due) return 'No due date';
+
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    day: 'numeric',
+    month: 'short',
+    ...(dueIsDateOnly ? {} : { hour: '2-digit', minute: '2-digit', hour12: false }),
+  }).format(due);
+}
+
+/**
+ * Routine occurrence states (v41 section 15).
+ *
+ * Routine sits outside the 1 / 5 / 1 focus model, so it must not borrow focus
+ * vocabulary. A future occurrence is not "Available Work" waiting to be
+ * activated — nobody activates it, and it consumes no focus target. It is
+ * simply Upcoming, and then it is due, and then it is late.
+ */
+export type RoutineOccurrenceState = 'completed' | 'overdue' | 'due_today' | 'upcoming';
+
+export const ROUTINE_OCCURRENCE_LABELS: Record<RoutineOccurrenceState, string> = {
+  completed: 'Completed',
+  overdue: 'Overdue',
+  due_today: 'Due today',
+  upcoming: 'Upcoming',
+};
+
+export function routineOccurrenceState(
+  occurrence: {
+    status: string;
+    isOverdue: boolean;
+    occurrenceDate: string | null;
+    dueAt: string | null;
+  },
+  timeZone = DEFAULT_ORG_TIMEZONE,
+  now: Date = new Date(),
+): RoutineOccurrenceState {
+  if (occurrence.status === 'completed') return 'completed';
+  if (occurrence.isOverdue) return 'overdue';
+
+  const today = localDateString(now, timeZone);
+  const scheduled =
+    occurrence.occurrenceDate ??
+    (occurrence.dueAt ? localDateString(new Date(occurrence.dueAt), timeZone) : null);
+
+  if (scheduled && scheduled <= today) return 'due_today';
+  return 'upcoming';
 }

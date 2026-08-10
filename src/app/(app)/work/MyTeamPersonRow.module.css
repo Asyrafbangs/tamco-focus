@@ -1,0 +1,221 @@
+.listHeader,
+.row {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, 1.1fr)
+    minmax(260px, 2fr)
+    minmax(240px, 1.5fr)
+    minmax(150px, 1fr)
+    auto;
+  gap: 14px;
+  min-width: 0;
+}
+
+.listHeader {
+  align-items: center;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.listHeader span:last-child {
+  text-align: right;
+}
+
+.row {
+  align-items: center;
+  min-height: 72px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row:hover {
+  background: var(--surface-2);
+}
+
+.row:active {
+  transform: translateY(1px);
+}
+
+.row:focus-visible {
+  position: relative;
+  z-index: 1;
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+
+.person,
+.working,
+.attention,
+.latest {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.person strong,
+.working strong,
+.latest strong,
+.person span,
+.working span,
+.attention > span:last-child,
+.latest span {
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+}
+
+.person strong,
+.working strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.person span,
+.working span,
+.attention > span:last-child,
+.latest span,
+.latest strong {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.working span,
+.attention > span:last-child,
+.latest span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.flag {
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flag[data-tone='critical'] {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.flag[data-tone='attention'] {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+.muted,
+.unavailable {
+  color: var(--muted);
+}
+
+.unavailable {
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.action {
+  display: flex;
+  align-self: center;
+  justify-self: end;
+  justify-content: flex-end;
+}
+
+.action button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+@media (max-width: 1120px) {
+  .listHeader {
+    display: none;
+  }
+
+  .row {
+    grid-template-areas:
+      'person working action'
+      'attention latest action';
+    grid-template-columns: minmax(130px, 0.8fr) minmax(190px, 1.4fr) auto;
+    align-items: start;
+  }
+
+  .person {
+    grid-area: person;
+  }
+
+  .working {
+    grid-area: working;
+  }
+
+  .attention {
+    grid-area: attention;
+  }
+
+  .latest {
+    grid-area: latest;
+  }
+
+  .action {
+    grid-area: action;
+    align-self: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .row {
+    grid-template-areas:
+      'person action'
+      'working working'
+      'attention attention'
+      'latest latest';
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .working,
+  .attention,
+  .latest {
+    padding-top: 7px;
+    border-top: 1px solid var(--line-soft);
+  }
+
+  .action {
+    align-self: start;
+  }
+}

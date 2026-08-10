@@ -1,0 +1,47 @@
+# Task-detail clarity update — implementation impact map
+
+Date: 7 August 2026
+
+Reference: the approved task-detail screenshots and change brief supplied after the v37 package.
+
+## Scope and preservation boundary
+
+This is an incremental task-detail change. Authentication, task visibility, focus limits, workflow states, notifications, storage ownership, existing records, Goal behaviour, planning, Team Focus, routines, and completion review remain unchanged unless named below.
+
+| Requirement                         | Existing implementation                                                                                                           | Required change                                                                                                                                                                   | Authoritative layer                                           | Verification                                              |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------- |
+| Quiet task information line         | Separate status, due, age, urgency, progress, and mandatory pills compete across two wrapped rows                                 | One readable line for status, urgency, due, overdue age, progress, checklist count, and one age-information control                                                               | Drawer presentation; existing duration domain functions       | Unit formatting tests; narrow and desktop E2E             |
+| Age detail on demand                | Open/current-state/overdue/stale ages are always visible                                                                          | Keep calculations unchanged; move supporting ages into the existing accessible information modal                                                                                  | Drawer only                                                   | Keyboard, Escape, focus restoration, and overflow E2E     |
+| Editable due date                   | No task-detail due editor or guarded due mutation                                                                                 | Add a compact editor and one locked, permission-checked, versioned RPC recording old/new value, actor, timestamp, and reason                                                      | SQL RPC and immutable `audit_events`; thin Server Action      | Integration permission/audit tests; E2E edit/history flow |
+| Focused Next Action                 | The card carries repeated instructional prose                                                                                     | Keep the audited v35 operation; show only action, compact due/overdue context, Mark done, and Edit                                                                                | Drawer presentation; existing Next Action RPC                 | Existing v35 tests plus updated UI assertions             |
+| Overview checklist preview          | Checklist is only visible on its tab                                                                                              | Add a whole-row accessible tab shortcut with completion and outstanding required-evidence summary                                                                                 | Drawer presentation                                           | Mouse and keyboard E2E                                    |
+| Pinned Current Next Action          | Next Action looks like a normal checklist item                                                                                    | Render it as a separate pinned section and never count it in checklist progress                                                                                                   | Drawer; existing `tasks.next_action` model                    | UI assertions and progress integration test               |
+| Lean evidence rules                 | Every open item exposes upload and complete controls                                                                              | Not-required: Complete. Optional: Evidence + Complete. Required: Complete with evidence                                                                                           | Shared attachment picker and drawer interaction               | E2E label/action assertions                               |
+| Atomic required-evidence completion | Upload and checklist completion are separate operations                                                                           | Add one RPC that validates object ownership, inserts attachment metadata, completes the item, recalculates progress, and writes timestamp-aligned audit events in one transaction | SQL RPC; private storage upload remains in Server Action      | Integration atomicity, RLS, and activity-history tests    |
+| Checklist-derived progress          | Completion/reopen RPCs recalculate progress, but pre-existing fixture/manual percentages can disagree before the first transition | Add insertion/deletion maintenance and backfill so every task with checklist items derives progress only from those items; Next Action remains excluded                           | Forward migration and existing completion/reopen RPCs         | DB reset, integration calculation tests, generated types  |
+| Useful Recent activity              | Updates tab only lists authored updates; generic audit rows are buried on Overview                                                | Present due changes, Next Action changes/completion, checklist complete/reopen, evidence, and progress with readable event detail and actor/time                                  | Existing immutable audit read model plus presentation mapping | Integration audit payloads and E2E history assertions     |
+| Quiet no-barrier state              | No-barrier prompt is already red/pink                                                                                             | Neutral bordered support row when none is open; reserve red/pink for an actual open barrier                                                                                       | Drawer styles                                                 | Visual E2E and contrast/accessibility checks              |
+
+## Files and dependencies
+
+- Database: one forward migration for due-date mutation, atomic evidence completion, checklist progress maintenance, grants, comments, and data backfill.
+- Server: `src/server/actions/task-actions.ts` validates untrusted input, uploads narrowly scoped files, invokes SQL, cleans rejected objects, and revalidates task surfaces.
+- Domain: `src/domain/duration.ts` supplies organisation-time-zone input conversion and compact due/overdue presentation helpers.
+- Frontend: `src/app/(app)/work/TaskDetailDrawer.tsx`, a dedicated task activity presentation component, `AttachmentPicker`, and targeted task-detail CSS.
+- Tests: domain unit tests, Supabase integration tests, task-detail Playwright interactions, accessibility coverage, generated database types, production build, and smoke test.
+- Documentation: relevant task-detail, checklist, due-date, audit, barrier, and acceptance-gate sections only.
+
+## Permission and data-safety decisions
+
+1. Due-date changes require `focus.can_edit_task`, an active account, a non-terminal task, optimistic version agreement, and an idempotency key.
+2. Required evidence completion accepts only objects already uploaded by the signed-in actor beneath `tasks/<task-id>/`; rejected RPCs trigger exact-path cleanup in the Server Action.
+3. The database, not the client, recalculates checklist progress and writes the audit events.
+4. No history row is updated or deleted. A due-date correction produces another explicit due-date event, and checklist reopening continues to use a reversal event.
+
+## Implementation and validation outcome
+
+- Implemented the quiet information line, age-detail disclosure, audited due editor, focused Next Action, checklist preview, pinned current Next Action, evidence-rule actions, checklist-derived progress, timestamped activity presentation, and neutral no-barrier state.
+- Preserved task visibility, focus limits, state transitions, completion review, notifications, storage privacy, Goal operations, authentication, and unrelated application routes.
+- Database validation passed: SQL syntax, all migrations in an isolated PostgreSQL-compatible execution, generated types, 39 RLS/database assertions, and the v38 transaction tests.
+- Frontend validation passed: lint, formatting, strict TypeScript, 125 unit tests, the 63-case Playwright matrix across all configured viewports (42 executed, 21 explicitly inapplicable project skips), accessibility scans, production build, and production smoke.
+- The complete integration suite passed before the stateful E2E run. A later non-destructive repeat correctly encountered two already-consumed fixture assumptions; the local database was not reset because preserving existing data was an explicit constraint.

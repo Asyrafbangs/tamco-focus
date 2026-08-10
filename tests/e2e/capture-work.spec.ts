@@ -8,6 +8,18 @@ async function expectHydrated(page: import('@playwright/test').Page) {
 }
 
 async function expectAccessible(page: import('@playwright/test').Page) {
+  // Modals and drawers fade in, and Playwright calls an element visible well
+  // before its opacity reaches 1. axe measures whatever is painted at the
+  // instant it runs, so scanning mid-transition reports contrast for blended
+  // colours nobody ever sees — a real failure against a state that does not
+  // exist. Let every running transition settle first.
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .filter((animation) => animation instanceof CSSTransition)
+      .every((animation) => animation.playState === 'finished'),
+  );
+
   const results = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze();
@@ -56,7 +68,12 @@ test('employee captures a Quick Action from desktop and mobile', async ({ page }
   await page.getByRole('button', { name: 'Add Work' }).click();
 
   await expect(page.getByText('One quick question')).toBeVisible();
-  await page.getByRole('button', { name: /^No/ }).click();
+  // Scoped to the capture dialog. Unscoped, /^No/ also matched the top bar's
+  // "Notifications, …" button once the bell was added.
+  await page
+    .getByRole('dialog', { name: 'Capture work' })
+    .getByRole('button', { name: /^No/ })
+    .click();
   await expect(page.getByRole('heading', { name: 'Quick Action' })).toBeVisible();
   await page.getByRole('button', { name: 'Confirm & Create' }).click();
 
@@ -78,7 +95,7 @@ test('employee opens task detail and posts an update with private evidence', asy
   await expect(page).toHaveURL(/\/today$/);
   await expectHydrated(page);
 
-  await page.goto('/work?tab=operational');
+  await page.goto('/work');
   await expectHydrated(page);
   await page
     .getByRole('link', { name: 'Close out corrective actions from the June audit' })

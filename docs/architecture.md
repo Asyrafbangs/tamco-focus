@@ -33,3 +33,16 @@ The anon key is safe to expose because it has no useful access without a valid s
 ## Operational jobs
 
 `worker:routines` calls the idempotent occurrence-generation procedure through the local service role. `worker:weekly` calculates the reporting window, renders summaries from canonical records, inserts the unique period delivery, claims it atomically, and records delivery or bounded retry state. `worker:tick` runs both and is suitable for a local scheduler.
+
+## Execution and Goal boundaries
+
+Tasks are the single shared execution engine. Native work has no source link; a future specialist
+module may populate the generic source triple while continuing to use the same Task lifecycle. A
+terminal Task deactivates its actionable projections but never deletes its Barrier, notification,
+meeting or audit history. Shared work is a view over checklist assignment, not a second Task.
+
+Goals are performance agreements, not Tasks. A performance period contains one employee plan; one
+monthly or quarterly session header owns the per-Goal snapshots for that employee and period. Goal
+support deliberately enters the existing Barrier/request engine. Completion and cancellation remain
+separate terminal transactions. The future ESH domain and a generic management module are outside
+this repository boundary.

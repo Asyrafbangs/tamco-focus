@@ -107,6 +107,19 @@ export interface TaskOverview {
   ownerName: string;
   ownerEmployeeId: string;
 
+  /**
+   * v40 — who directed this work, when it was not self-initiated. Displayed as
+   * "Assigned by Izzul". Deliberately never an ordering input: an overdue
+   * safety action outranks an ordinary manager-assigned task (v40 section 4).
+   */
+  assignedById: string | null;
+  assignedByName: string | null;
+  /** Shared by the independent tasks created from one multi-person assignment. */
+  assignmentBatchId: string | null;
+  /** v40 section 12 — the deterministic rule that chose this work class. */
+  classificationRuleCode: string | null;
+  classificationRuleText: string | null;
+
   routineTemplateId: string | null;
   occurrenceDate: string | null;
 
@@ -198,6 +211,18 @@ export const FOCUS_BUCKET_LABELS: Record<FocusBucket, string> = {
   self_development: 'Self-Development Plan',
 };
 
+/**
+ * The short form, for sentences (v48 §15).
+ *
+ * "Amer is at 6/5 Operational" reads; "6/5 Operational Actions" does not. The
+ * full labels above remain the ones used for headings and pickers.
+ */
+export const FOCUS_BUCKET_WORD: Record<FocusBucket, string> = {
+  major: 'Major',
+  operational: 'Operational',
+  self_development: 'Development',
+};
+
 export const WORK_CLASS_LABELS: Record<WorkClass, string> = {
   quick_action: 'Quick Action',
   major_project: 'Major Project',
@@ -209,7 +234,10 @@ export const WORK_CLASS_LABELS: Record<WorkClass, string> = {
 
 /** Section 5 — `backlog` is presented to users as Available Work. */
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  backlog: 'Available Work',
+  // v41 section 17 — `backlog` is persisted; "Available" is what people read.
+  // The label matches the Focus tab exactly so the same state is never called
+  // two different things on two screens.
+  backlog: 'Available',
   active: 'Active',
   paused: 'Paused',
   completed: 'Completed',

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { RecordRow, StatusBadge, WorkspaceTabs } from '@/components/ui/ParityPrimitives';
 import { requireProfile } from '@/lib/supabase/server';
 import { getCompletionRecords, type RecordFilters } from '@/server/queries';
+import { taskDrawerHref } from '@/domain/navigation';
 
 const formatDate = (value: string | null) =>
   value
@@ -188,7 +189,7 @@ export default async function RecordsPage({
           records.map(({ task, submittedAt, decidedAt, decision, decisionNote }) => (
             <RecordRow
               key={task.id}
-              href={`/work?task=${task.id}`}
+              href={taskDrawerHref(task.id, '/more/records')}
               title={task.title}
               reference={`${task.ownerEmployeeId} · ${task.workClass.replaceAll('_', ' ')}`}
               owner={task.ownerName}

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 export function Modal({
   open,
@@ -17,10 +18,43 @@ export function Modal({
   className?: string;
   children: ReactNode;
 }) {
-  const [mounted, setMounted] = useState(open);
+  /*
+   * Always false on the first render, even when the modal is already open.
+   *
+   * The server cannot render a portal, so `typeof document === 'undefined'`
+   * makes it emit nothing. Seeding this from `open` made the client's
+   * hydration pass emit the portal instead, and React answered a mismatched
+   * tree by regenerating it — silently discarding and remounting the drawer
+   * underneath whoever had just arrived on a `?action=` link.
+   *
+   * The effect below mounts it on the next frame, which is also what makes the
+   * open transition play instead of appearing fully formed.
+   */
+  const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
+
+  /*
+   * v41 section 3 — the reason the Capture title box used to eat your typing.
+   *
+   * Callers pass `onClose` as an inline arrow, so its identity changes on every
+   * render. The effect below both moves focus into the dialog and locks body
+   * scrolling, and it used to list `onClose` as a dependency — so every single
+   * keystroke re-ran it and pulled focus off the input the person was typing
+   * into. The field kept the first character and dropped the rest.
+   *
+   * Holding the callback in a ref lets the effect depend only on `visible`,
+   * which is what it is actually about: focus moves when the dialog appears,
+   * once, and not again while somebody is using it.
+   */
+  const onCloseRef = useRef(onClose);
+  // Written in an effect rather than during render: a ref assigned mid-render
+  // is a side effect in a place React is free to re-run or discard.
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+  const requestClose = useCallback(() => onCloseRef.current(), []);
 
   useEffect(() => {
     if (open) {
@@ -51,7 +85,8 @@ export function Modal({
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onClose();
+        event.stopImmediatePropagation();
+        requestClose();
         return;
       }
       if (event.key !== 'Tab' || !dialogRef.current) return;
@@ -71,15 +106,15 @@ export function Modal({
         first.focus();
       }
     }
-    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keydown', onKeyDown, true);
     return () => {
       document.body.style.overflow = previousOverflow;
-      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('keydown', onKeyDown, true);
     };
-  }, [onClose, visible]);
+  }, [requestClose, visible]);
 
-  if (!mounted) return null;
-  return (
+  if (!mounted || typeof document === 'undefined') return null;
+  return createPortal(
     <div className="modal-layer" data-open={visible}>
       <button
         type="button"
@@ -97,6 +132,7 @@ export function Modal({
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

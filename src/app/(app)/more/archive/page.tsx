@@ -1,5 +1,6 @@
 import { RowPrimaryLink } from '@/components/ui/ParityPrimitives';
 import { getCompletionRecords } from '@/server/queries';
+import { taskDrawerHref } from '@/domain/navigation';
 
 export default async function ArchivePage({
   searchParams,
@@ -34,7 +35,10 @@ export default async function ArchivePage({
             <div>
               <span className="flag amber">Cancelled</span>
               <h2>
-                <RowPrimaryLink href={`/work?task=${task.id}`} ariaLabel={`Open ${task.title}`}>
+                <RowPrimaryLink
+                  href={taskDrawerHref(task.id, '/more/archive')}
+                  ariaLabel={`Open ${task.title}`}
+                >
                   {task.title}
                 </RowPrimaryLink>
               </h2>

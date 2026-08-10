@@ -425,7 +425,8 @@ export async function setVisibilityAction(
   const state = resultState(data as RpcResult, 'Visibility rules saved and audited.');
   if (state.ok) {
     revalidatePath('/more/admin/visibility');
-    revalidatePath('/team');
+    // Visibility decides who appears in My Team, which now lives inside Work.
+    revalidatePath('/work');
   }
   return state;
 }

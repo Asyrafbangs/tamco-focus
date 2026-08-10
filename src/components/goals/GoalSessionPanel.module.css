@@ -1,0 +1,137 @@
+.panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.planSummary,
+.sessionCard {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.planSummary > div,
+.sessionCard > div {
+  display: grid;
+  gap: 3px;
+}
+
+.planSummary span,
+.sessionCard span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.sessionGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.sessionCard {
+  min-height: 64px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.message {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+}
+
+.success {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.error {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.sessionForm,
+.goalItems {
+  display: grid;
+  gap: 12px;
+}
+
+.sessionForm {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 0;
+  max-height: min(760px, calc(100dvh - 40px));
+  overflow: hidden;
+  padding: 0;
+}
+
+.sessionBody {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.goalItems {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.goalItem {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.8fr) minmax(260px, 1.5fr);
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+
+.goalItem legend {
+  max-width: 90%;
+  padding-inline: 5px;
+  font-weight: 750;
+}
+
+.supportToggle {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 8px;
+  align-items: center;
+  font-weight: 650;
+}
+
+.supportFields {
+  display: none;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1.5fr) minmax(180px, 0.8fr);
+  gap: 10px;
+}
+
+.goalItem:has(.supportToggle input:checked) .supportFields {
+  display: grid;
+}
+
+@media (max-width: 760px) {
+  .sessionGrid,
+  .goalItem,
+  .supportFields {
+    grid-template-columns: 1fr;
+  }
+
+  .planSummary,
+  .sessionCard {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

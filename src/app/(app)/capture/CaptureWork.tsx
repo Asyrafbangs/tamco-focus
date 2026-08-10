@@ -9,6 +9,7 @@ import {
   type CaptureRecommendation,
 } from '@/domain/classification';
 import type { CaptureDestination, CaptureTiming } from '@/domain/types';
+import { assignWork } from '@/server/actions/assignment-actions';
 import {
   answerCaptureQuestion,
   confirmCapture,
@@ -17,18 +18,37 @@ import {
 } from '@/server/actions/capture-actions';
 import { Modal } from '@/components/ui/Modal';
 
-interface ParentOption {
+/**
+ * Capture Work (section 8; revised for v40 sections 8, 12, 13).
+ *
+ * Two v40 changes are visible here:
+ *
+ *   Collaborative Contribution is gone. A contribution is not something a
+ *   person captures — it arises when somebody assigns them a checklist item on
+ *   a task that already exists, and it shows up in their Shared view. Offering
+ *   it at capture time asked employees to understand an implementation concept
+ *   and invited a second parent task for a result somebody else already owns.
+ *
+ *   The urgent safety route is now genuinely explicit. It used to be decorative:
+ *   pressing it only prefilled the description, while the real trigger was a
+ *   keyword list scanning the title. Now pressing it is what raises the
+ *   controlled-action question, and nothing in the wording can raise it.
+ */
+export interface AssignablePerson {
   id: string;
-  title: string;
-  ownerName: string;
+  fullName: string;
+  employeeId: string;
 }
 
 export function CaptureWork({
-  parentOptions,
   modal = false,
+  assignablePeople = [],
+  viewerName = 'Me',
 }: {
-  parentOptions: ParentOption[];
   modal?: boolean;
+  /** Non-empty only for a manager or administrator. */
+  assignablePeople?: AssignablePerson[];
+  viewerName?: string;
 }) {
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -37,7 +57,6 @@ export function CaptureWork({
   const [captureId, setCaptureId] = useState<string | null>(null);
   const [recommendation, setRecommendation] = useState<CaptureRecommendation | null>(null);
   const [destination, setDestination] = useState<CaptureDestination | null>(null);
-  const [parentTaskId, setParentTaskId] = useState('');
   const [timing, setTiming] = useState<CaptureTiming>('today');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -46,6 +65,67 @@ export function CaptureWork({
   const [showTypes, setShowTypes] = useState(false);
   const [urgentCapture, setUrgentCapture] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /*
+   * v41 section 4 — ownership is decided HERE, once.
+   *
+   * An employee capturing work owns it; asking them to pick themselves from a
+   * list is a question with one answer, so there is no picker. A manager is
+   * often capturing on somebody else's behalf, so they get a Primary owner
+   * selector defaulting to themselves.
+   *
+   * This replaces v40's separate "assign this to someone else" flow. Deciding
+   * who owns a result and describing the result are the same moment of
+   * thought, and splitting them into two workflows made the manager state the
+   * same intention twice.
+   */
+  const canAssign = assignablePeople.length > 0;
+  const [primaryOwnerId, setPrimaryOwnerId] = useState('');
+  const [assigning, setAssigning] = useState(false);
+  const [assignWorkClass, setAssignWorkClass] = useState<
+    'operational_action' | 'major_project' | 'self_development'
+  >('operational_action');
+  const [assignUrgency, setAssignUrgency] = useState<'low' | 'normal' | 'high' | 'critical'>(
+    'normal',
+  );
+  const [assignOwnerIds, setAssignOwnerIds] = useState<string[]>([]);
+  const [assignReviewDate, setAssignReviewDate] = useState('');
+
+  function toggleOwner(id: string) {
+    setAssignOwnerIds((current) =>
+      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+    );
+  }
+
+  function submitAssignment() {
+    if (!title.trim()) {
+      setError('Give the work a title before assigning it.');
+      return;
+    }
+    if (assignOwnerIds.length === 0) {
+      setError('Choose at least one person to assign this to.');
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const result = await assignWork({
+        title: title.trim(),
+        description: description.trim() || undefined,
+        workClass: assignWorkClass,
+        ownerIds: assignOwnerIds,
+        urgency: assignUrgency,
+        dueDate: timing === 'choose_date' && chosenDate ? chosenDate : undefined,
+        reviewDate: assignReviewDate || undefined,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      router.push('/work?scope=team');
+      router.refresh();
+    });
+  }
 
   function addFiles(incoming: FileList | File[]) {
     setFiles((current) => [...current, ...Array.from(incoming)].slice(0, 8));
@@ -67,10 +147,10 @@ export function CaptureWork({
       setCaptureId(result.captureId);
       setRecommendation(result.recommendation);
       setDestination(result.recommendation.destination);
+      // The urgent route is the only thing that can raise the controlled-action
+      // question, and the person chose it before submitting.
       setStage(
-        result.recommendation.urgencyQuestion || result.recommendation.followUpQuestion
-          ? 'question'
-          : 'recommendation',
+        urgentCapture || result.recommendation.followUpQuestion ? 'question' : 'recommendation',
       );
     });
   }
@@ -86,26 +166,51 @@ export function CaptureWork({
       }
       setRecommendation(result.recommendation);
       setDestination(result.recommendation.destination);
-      setStage(
-        result.recommendation.urgencyQuestion || result.recommendation.followUpQuestion
-          ? 'question'
-          : 'recommendation',
-      );
+      setStage(result.recommendation.followUpQuestion ? 'question' : 'recommendation');
     });
   }
 
   function createWork() {
     if (!captureId || !destination) return;
-    if (destination === 'collaborative_contribution' && !parentTaskId) {
-      setError('Choose the existing task this contribution supports.');
+    setError(null);
+
+    // A manager who named somebody else as Primary Owner is assigning, and
+    // assigned work waits in that person's Available list rather than starting
+    // (v41 section 13). The capture draft is discarded because the assignment
+    // procedure is the one that creates the task.
+    if (primaryOwnerId && canAssign) {
+      const workClass =
+        destination === 'major_project_request'
+          ? ('major_project' as const)
+          : destination === 'self_development_plan'
+            ? ('self_development' as const)
+            : ('operational_action' as const);
+
+      startTransition(async () => {
+        const assigned = await assignWork({
+          title: title.trim(),
+          description: description.trim() || undefined,
+          workClass,
+          ownerIds: [primaryOwnerId],
+          urgency: assignUrgency,
+          dueDate: timing === 'choose_date' && chosenDate ? chosenDate : undefined,
+          reviewDate: assignReviewDate || undefined,
+          idempotencyKey: crypto.randomUUID(),
+        });
+        if (!assigned.ok) {
+          setError(assigned.message);
+          return;
+        }
+        await discardCaptureDraft({ captureId });
+        router.push('/work?scope=team');
+        router.refresh();
+      });
       return;
     }
-    setError(null);
     startTransition(async () => {
       const result = await confirmCapture({
         captureId,
         destination,
-        parentTaskId: parentTaskId || null,
         idempotencyKey: crypto.randomUUID(),
       });
       if (!result.ok) {
@@ -118,11 +223,17 @@ export function CaptureWork({
         operational_available_work: '/work?tab=available',
         routine_template_request: '/today',
         self_development_plan: '/work?tab=available',
+        // Retained for records captured before v40 removed this destination.
         collaborative_contribution: '/work?tab=shared',
         major_project_request: '/today',
+        // Mandatory work is Active immediately, so it belongs on My Day.
         mandatory_operational_action: '/today',
       };
-      router.push(destinationRoute[destination]);
+      router.push(
+        destination === 'major_project_request' && result.proposal_id
+          ? `/work?proposal=${result.proposal_id}`
+          : destinationRoute[destination],
+      );
       router.refresh();
     });
   }
@@ -143,8 +254,10 @@ export function CaptureWork({
     });
   }
 
-  const question = recommendation?.urgencyQuestion ?? recommendation?.followUpQuestion;
-  const questionKind = recommendation?.urgencyQuestion ? 'urgency' : 'followup';
+  const question = urgentCapture
+    ? 'Does this need immediate controlled action because of an active safety risk, legal requirement, or compliance deadline?'
+    : recommendation?.followUpQuestion;
+  const questionKind: 'urgency' | 'followup' = urgentCapture ? 'urgency' : 'followup';
 
   const content = (
     <section className="capture-shell card" aria-live="polite">
@@ -192,6 +305,28 @@ export function CaptureWork({
             ))}
           </fieldset>
 
+          {canAssign && (
+            <div className="field">
+              <label htmlFor="capture-primary-owner">Primary owner</label>
+              <select
+                id="capture-primary-owner"
+                value={primaryOwnerId}
+                onChange={(event) => setPrimaryOwnerId(event.target.value)}
+              >
+                <option value="">Me — {viewerName.split(' ')[0]}</option>
+                {assignablePeople.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.fullName}
+                  </option>
+                ))}
+              </select>
+              <small>
+                One task has one Primary Owner. Collaboration is assigned later through checklist
+                steps.
+              </small>
+            </div>
+          )}
+
           {timing === 'choose_date' && (
             <div className="field">
               <label htmlFor="capture-date">Target date</label>
@@ -219,26 +354,137 @@ export function CaptureWork({
                 maxLength={4000}
               />
             </div>
+
+            {canAssign && (
+              <section className="assign-panel">
+                <label className="assign-toggle">
+                  <input
+                    type="checkbox"
+                    checked={assigning}
+                    onChange={(event) => setAssigning(event.target.checked)}
+                  />
+                  <span>
+                    <strong>Assign this to someone else</strong>
+                    <small>
+                      You choose the type, urgency, owner and review date. The work waits in their
+                      Available list until they activate it — it does not start on their behalf.
+                    </small>
+                  </span>
+                </label>
+
+                {assigning && (
+                  <div className="assign-fields">
+                    <div className="field">
+                      <label htmlFor="assign-work-class">Work type</label>
+                      <select
+                        id="assign-work-class"
+                        value={assignWorkClass}
+                        onChange={(event) =>
+                          setAssignWorkClass(event.target.value as typeof assignWorkClass)
+                        }
+                      >
+                        <option value="operational_action">Operational Action</option>
+                        <option value="major_project">Major Project</option>
+                        <option value="self_development">Self-Development</option>
+                      </select>
+                    </div>
+
+                    <div className="field">
+                      <label htmlFor="assign-urgency">Urgency</label>
+                      <select
+                        id="assign-urgency"
+                        value={assignUrgency}
+                        onChange={(event) =>
+                          setAssignUrgency(event.target.value as typeof assignUrgency)
+                        }
+                      >
+                        <option value="low">Low</option>
+                        <option value="normal">Normal</option>
+                        <option value="high">High</option>
+                        <option value="critical">Critical</option>
+                      </select>
+                    </div>
+
+                    <div className="field">
+                      <label htmlFor="assign-review">Review by</label>
+                      <input
+                        id="assign-review"
+                        type="date"
+                        value={assignReviewDate}
+                        onChange={(event) => setAssignReviewDate(event.target.value)}
+                      />
+                    </div>
+
+                    <fieldset className="field full assign-people">
+                      <legend>Assign to</legend>
+                      <p className="assign-hint">
+                        Choosing several people creates a separate accountable task for each of
+                        them, sharing one assignment reference. Use it when every person owes the
+                        complete result themselves — not when one result is owed once.
+                      </p>
+                      {assignablePeople.map((person) => (
+                        <label key={person.id} className="assign-person">
+                          <input
+                            type="checkbox"
+                            checked={assignOwnerIds.includes(person.id)}
+                            onChange={() => toggleOwner(person.id)}
+                          />
+                          <span>
+                            {person.fullName} <small>{person.employeeId}</small>
+                          </span>
+                        </label>
+                      ))}
+                    </fieldset>
+
+                    <div className="capture-actions full">
+                      <button
+                        type="button"
+                        className="btn primary"
+                        disabled={pending}
+                        aria-busy={pending}
+                        onClick={submitAssignment}
+                      >
+                        {pending
+                          ? 'Assigning…'
+                          : assignOwnerIds.length > 1
+                            ? `Assign to ${assignOwnerIds.length} people`
+                            : 'Assign work'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
           </details>
 
+          {/*
+            v40 section 13 — the ONLY route to mandatory classification. No word
+            in the title reaches it: "replace PPE signage" is ordinary work
+            unless the person says otherwise here.
+          */}
           <div className="capture-secondary-row">
-            <span>Need a controlled response?</span>
+            {/* v42 section L — "controlled response" is governance vocabulary.
+                People reading it have to stop and work out what it means, which
+                is the last thing to ask of somebody reporting a hazard. */}
+            <span>Urgent safety or compliance issue?</span>
             <button
               type="button"
               className="capture-urgent-link"
               aria-pressed={urgentCapture}
-              onClick={() => {
-                setUrgentCapture(true);
-                setDescription((current) => current || 'Urgent safety or compliance work.');
-              }}
+              onClick={() => setUrgentCapture((current) => !current)}
             >
-              ! Report urgent safety or compliance work
+              ! Report urgent issue
             </button>
           </div>
           {urgentCapture && (
             <div className="notice warning" role="status">
               <strong>Urgent route selected</strong>
-              <p>One controlled-action question will be asked before the work is classified.</p>
+              <p>
+                Use this when immediate action or management awareness is needed because of an
+                active safety risk, legal requirement or urgent compliance deadline. You will be
+                asked one question before this is classified; answering no returns it to the
+                ordinary flow.
+              </p>
             </div>
           )}
 
@@ -290,7 +536,7 @@ export function CaptureWork({
           )}
 
           <div className="capture-actions">
-            <button className="btn primary" disabled={pending}>
+            <button className="btn primary" disabled={pending} aria-busy={pending}>
               {pending ? 'Saving…' : 'Add Work'}
             </button>
           </div>
@@ -306,6 +552,7 @@ export function CaptureWork({
             <button
               className="capture-answer"
               disabled={pending}
+              aria-busy={pending}
               onClick={() => answer(questionKind, false)}
             >
               <strong>No</strong>
@@ -314,6 +561,7 @@ export function CaptureWork({
             <button
               className="capture-answer"
               disabled={pending}
+              aria-busy={pending}
               onClick={() => answer(questionKind, true)}
             >
               <strong>Yes</strong>
@@ -345,26 +593,16 @@ export function CaptureWork({
               <dt>Record</dt>
               <dd>Creator, origin, final type, and timestamp are audited.</dd>
             </div>
-          </dl>
-
-          {destination === 'collaborative_contribution' && (
-            <div className="field">
-              <label htmlFor="parent-task">Link to existing task</label>
-              <select
-                id="parent-task"
-                value={parentTaskId}
-                onChange={(event) => setParentTaskId(event.target.value)}
-                required
-              >
-                <option value="">Choose work owned by someone else</option>
-                {parentOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.title} — {option.ownerName}
-                  </option>
-                ))}
-              </select>
+            {/* v40 section 12 — the rule is named, so the audit trail can later
+                answer "why was this Operational?" without implying that
+                anything read meaning into the sentence. */}
+            <div>
+              <dt>Rule</dt>
+              <dd>
+                {recommendation.ruleText} <span className="muted">({recommendation.ruleCode})</span>
+              </dd>
             </div>
-          )}
+          </dl>
 
           <button
             type="button"
@@ -389,10 +627,15 @@ export function CaptureWork({
           )}
 
           <div className="capture-actions">
-            <button className="btn" disabled={pending} onClick={editDetails}>
+            <button className="btn" disabled={pending} aria-busy={pending} onClick={editDetails}>
               Edit details
             </button>
-            <button className="btn primary" disabled={pending} onClick={createWork}>
+            <button
+              className="btn primary"
+              disabled={pending}
+              aria-busy={pending}
+              onClick={createWork}
+            >
               {pending ? 'Creating…' : 'Confirm & Create'}
             </button>
           </div>

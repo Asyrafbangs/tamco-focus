@@ -1,9 +1,21 @@
 import Link from 'next/link';
 
 import { CalendarItem } from '@/components/ui/ParityPrimitives';
+import { taskDrawerHref } from '@/domain/navigation';
+import { barrierHref } from '@/domain/barriers';
 import { formatDue, localDateString } from '@/domain/duration';
 import { requireProfile } from '@/lib/supabase/server';
-import { getPlanEvents, type PlanEvent } from '@/server/queries';
+import {
+  getMeetingQueue,
+  getPlanEvents,
+  getTeamDirectory,
+  getTeamLoad,
+  getUserNames,
+  type PlanEvent,
+  type PlanScope,
+} from '@/server/queries';
+
+import { MeetingQueuePanel } from './MeetingQueuePanel';
 
 /**
  * Monthly Plan (section 17).
@@ -18,6 +30,16 @@ import { getPlanEvents, type PlanEvent } from '@/server/queries';
  * Section 17.4 asks for a date-grouped agenda on mobile rather than a squeezed
  * grid. One markup tree serves both: the CSS turns each day into a card and
  * hides empty days below 700px.
+ *
+ * A manager or an administrator can switch the calendar between their own work
+ * and the reporting line their visibility settings cover (sections 3.4 and 18).
+ * Team is their default, because the reason to open a shared calendar is to see
+ * where the team's dates collide, and an empty month is a misleading answer
+ * when the people they are responsible for have commitments in it. The scope is
+ * a filter on an already-authorised query, never a widening of authority:
+ * `plan_events` is a `security_invoker` view, so the same RLS that governs
+ * `tasks` decides which rows exist. Dropping the owner filter asks the database
+ * the question; it does not answer it.
  */
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -48,16 +70,22 @@ const EVENT_LABELS: Record<PlanEvent['eventKind'], string> = {
   overdue: 'Overdue',
   routine: 'Routine',
   review: 'Review by',
+  // v47 §26 — a booked discussion sits on the same grid as the work it is
+  // about, because it is a commitment in the same day.
+  discussion: 'Meeting',
 };
 
 export default async function PlanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; scope?: string }>;
 }) {
   const profile = await requireProfile();
   const params = await searchParams;
   const timeZone = profile.timezone ?? 'Asia/Kuala_Lumpur';
+
+  const canSeeTeam = profile.role === 'manager' || profile.role === 'administrator';
+  const scope: PlanScope = !canSeeTeam ? 'mine' : params.scope === 'mine' ? 'mine' : 'team';
 
   const { year, month } = resolveMonth(params.month, timeZone);
 
@@ -66,7 +94,41 @@ export default async function PlanPage({
   const rangeStart = new Date(Date.UTC(year, month, 1) - 86_400_000);
   const rangeEnd = new Date(Date.UTC(year, month + 1, 1) + 86_400_000);
 
-  const events = await getPlanEvents(profile.id, rangeStart, rangeEnd);
+  const [events, team, meetingQueue] = await Promise.all([
+    getPlanEvents(profile.id, rangeStart, rangeEnd, scope),
+    // Names for other people's items. `team_load_summary` is filtered by the
+    // same visibility rules, so it can never name somebody whose work the
+    // calendar was not already allowed to show.
+    scope === 'team' ? getTeamLoad(profile.id) : Promise.resolve([]),
+    // The queue is not scoped by the calendar filter: a topic waiting to be
+    // discussed is waiting whichever way the calendar happens to be filtered.
+    getMeetingQueue(),
+  ]);
+
+  const ownerNames = new Map(team.map((person) => [person.userId, person.fullName]));
+
+  /*
+   * §23 — who else can be pulled into a discussion.
+   *
+   * The two people the request is about are added by the procedure itself, so
+   * this list is only for the third person somebody occasionally needs. It
+   * reuses the same directory the assignment picker uses rather than inventing
+   * a second idea of "who I may invite".
+   */
+  const schedulingPeople = (await getTeamDirectory()).filter((person) => person.id !== profile.id);
+
+  // Shared work reaches this calendar because the viewer contributes to it, and
+  // its owner may be somebody `team_load_summary` never covers — a peer rather
+  // than a report. Resolve the remaining names directly; RLS returns only the
+  // profiles this person may already see.
+  const unnamed = [
+    ...new Set(
+      events
+        .map((event) => event.primaryOwnerId)
+        .filter((ownerId) => ownerId !== profile.id && !ownerNames.has(ownerId)),
+    ),
+  ];
+  for (const [id, name] of await getUserNames(unnamed)) ownerNames.set(id, name);
 
   // Group by the LOCAL date each event falls on, so a commitment appears on the
   // day people would say it is due.
@@ -96,27 +158,70 @@ export default async function PlanPage({
     date.startsWith(monthKey(year, month)),
   ).length;
 
+  const scopeSuffix = scope === 'mine' ? '&scope=mine' : '';
+  const scopeHref = (next: PlanScope) =>
+    `/plan?month=${monthKey(year, month)}${next === 'mine' ? '&scope=mine' : ''}`;
+
   return (
     <>
       <div className="pagehead">
         <div>
           <p className="eyebrow">Plan</p>
           <h1>Monthly Plan</h1>
-          <p>Due and planned work across the month. Selecting an item opens it.</p>
+          <p>
+            {scope === 'team'
+              ? 'Due and planned work across your team for the month. Selecting an item opens it.'
+              : 'Your dates for the month, including work shared with you. Selecting an item opens it.'}
+          </p>
+        </div>
+        {/*
+          v47 §16 — the queue lives beside the calendar it feeds, and beside the
+          scope control it shares a row with. It is not a sidebar destination:
+          most weeks it is empty, and a permanent empty page teaches people to
+          stop looking.
+        */}
+        <div className="plan-head-actions">
+          <MeetingQueuePanel items={meetingQueue} people={schedulingPeople} timeZone={timeZone} />
+          {canSeeTeam && (
+            <nav className="team-focus-filter" aria-label="Calendar scope">
+              <Link
+                href={scopeHref('team')}
+                className={scope === 'team' ? 'active' : ''}
+                aria-current={scope === 'team' ? 'page' : undefined}
+              >
+                My team
+              </Link>
+              <Link
+                href={scopeHref('mine')}
+                className={scope === 'mine' ? 'active' : ''}
+                aria-current={scope === 'mine' ? 'page' : undefined}
+              >
+                Only me
+              </Link>
+            </nav>
+          )}
         </div>
       </div>
 
       <div className="plan-head">
         <div className="row">
-          <Link href={`/plan?month=${previous}`} className="btn small" aria-label="Previous month">
+          <Link
+            href={`/plan?month=${previous}${scopeSuffix}`}
+            className="btn small"
+            aria-label="Previous month"
+          >
             ←
           </Link>
           <strong style={{ fontSize: 16 }}>{monthLabel}</strong>
-          <Link href={`/plan?month=${next}`} className="btn small" aria-label="Next month">
+          <Link
+            href={`/plan?month=${next}${scopeSuffix}`}
+            className="btn small"
+            aria-label="Next month"
+          >
             →
           </Link>
         </div>
-        <Link href="/plan" className="btn small ghost">
+        <Link href={scope === 'mine' ? '/plan?scope=mine' : '/plan'} className="btn small ghost">
           This month
         </Link>
       </div>
@@ -139,14 +244,24 @@ export default async function PlanPage({
       {totalInMonth === 0 ? (
         /* Section 27.2 — what is empty, why, and the next useful action. */
         <div className="card empty-state">
-          <h3>Nothing scheduled in {monthLabel}</h3>
+          <h3>
+            Nothing scheduled in {monthLabel}
+            {scope === 'team' ? ' for you or your team' : ''}
+          </h3>
           <p>
             Due dates, review deadlines, and routine occurrences appear here once work carries a
             date. Work with no date yet stays in Available Work until you give it one.
           </p>
-          <Link href="/work" className="btn">
-            Go to Work
-          </Link>
+          <div className="row">
+            <Link href="/work" className="btn">
+              Go to Work
+            </Link>
+            {canSeeTeam && scope === 'mine' && (
+              <Link href={scopeHref('team')} className="btn ghost">
+                Include my team
+              </Link>
+            )}
+          </div>
         </div>
       ) : (
         <div className="calendar" role="grid" aria-label={`Commitments in ${monthLabel}`}>
@@ -189,15 +304,33 @@ export default async function PlanPage({
                   {isToday && <span className="visually-hidden"> (today)</span>}
                 </div>
 
-                {dayEvents.map((event) => (
-                  <CalendarItem
-                    key={`${event.taskId}-${event.eventKind}-${event.occursAt}`}
-                    href={`/work?task=${event.taskId}`}
-                    kind={event.eventKind}
-                    title={`${EVENT_LABELS[event.eventKind]}: ${event.title}`}
-                    accessibleSuffix={`${event.title} — ${EVENT_LABELS[event.eventKind]} ${formatDue(event.occursAt, event.dueIsDateOnly, timeZone)}`}
-                  />
-                ))}
+                {dayEvents.map((event) => {
+                  // Whose item this is only matters when it is not the viewer's.
+                  const owner =
+                    event.primaryOwnerId === profile.id
+                      ? undefined
+                      : (ownerNames.get(event.primaryOwnerId) ?? 'Shared with you');
+
+                  return (
+                    <CalendarItem
+                      key={`${event.eventId ?? event.taskId}-${event.eventKind}-${event.occursAt}`}
+                      /*
+                       * §42 — a discussion links to the request it exists to
+                       * settle, not to the task in general. Somebody clicking a
+                       * meeting wants the thing they are meeting about.
+                       */
+                      href={
+                        event.eventKind === 'discussion' && event.taskId && event.barrierId
+                          ? barrierHref(event.taskId, event.barrierId)
+                          : taskDrawerHref(event.taskId, '/plan')
+                      }
+                      kind={event.eventKind}
+                      title={`${EVENT_LABELS[event.eventKind]}: ${event.title}`}
+                      owner={owner}
+                      accessibleSuffix={`${event.title} — ${EVENT_LABELS[event.eventKind]} ${formatDue(event.occursAt, event.dueIsDateOnly, timeZone)}${owner ? `, owned by ${owner}` : ''}`}
+                    />
+                  );
+                })}
               </div>
             );
           })}

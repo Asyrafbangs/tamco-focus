@@ -195,7 +195,13 @@ export function TaskRowActions({
       {canOfferMoveOut(status) && (
         // Section 7.5 — a quiet secondary action, never styled as destructive
         // and never called Cancel or Delete.
-        <button type="button" className="btn small ghost" onClick={runMoveOut} disabled={pending}>
+        <button
+          type="button"
+          className="btn small ghost"
+          onClick={runMoveOut}
+          disabled={pending}
+          aria-busy={pending}
+        >
           Move out
         </button>
       )}
@@ -281,6 +287,7 @@ export function TaskRowActions({
                 className="btn primary"
                 onClick={submitReason}
                 disabled={pending}
+                aria-busy={pending}
               >
                 Activate anyway
               </button>

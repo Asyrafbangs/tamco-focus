@@ -75,6 +75,120 @@
   color: var(--text);
 }
 
+.measureList {
+  margin-top: 13px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+}
+
+.measureRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  min-height: 57px;
+  padding: 9px 1px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.measureRow strong,
+.measureRow span {
+  display: block;
+}
+
+.measureRow strong {
+  font-size: 10.5px;
+}
+
+.measureRow span {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 8.8px;
+  line-height: 1.45;
+}
+
+/* Structured v50 fields remain in storage for history, but v51 presents the
+   agreed natural-language statement and date without exposing measure types. */
+.measureRow > div:first-child > span {
+  display: none;
+}
+
+.measureDue {
+  color: var(--muted);
+  font-size: 8.8px;
+}
+
+.measureActual {
+  color: var(--text) !important;
+  font-size: 9px !important;
+}
+
+.measureProgress {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.leanMeasureEditor {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.terminalDisclosure {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.terminalDisclosure > summary {
+  cursor: pointer;
+  padding: 11px 13px;
+  font-weight: 700;
+}
+
+.terminalDisclosure > form {
+  border-top: 1px solid var(--line);
+  padding: 13px;
+}
+
+.leanMeasureInput {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) minmax(150px, 190px) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.leanMeasureInput > span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  margin-bottom: 7px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--blue-bg);
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.measureProgress b {
+  font-size: 9.5px;
+  text-align: right;
+}
+
+.measureProgress :global(.progress-indicator) {
+  margin: 0;
+}
+
 .moreFields {
   padding-top: 10px;
   border-top: 1px solid var(--line-soft);
@@ -226,6 +340,50 @@
   border-bottom: 1px solid var(--line-soft);
 }
 
+.cadencePreview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  gap: 1px;
+  align-items: stretch;
+  margin-top: 13px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--line-soft);
+}
+
+.cadencePreview > div {
+  padding: 11px 12px;
+  background: var(--surface-2);
+}
+
+.cadencePreview span,
+.cadencePreview strong,
+.cadencePreview small {
+  display: block;
+}
+
+.cadencePreview span,
+.cadencePreview small {
+  color: var(--muted);
+  font-size: 8.7px;
+}
+
+.cadencePreview strong {
+  margin-top: 3px;
+  font-size: 10.5px;
+}
+
+.cadencePreview small {
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.cadencePreview > button {
+  align-self: center;
+  margin: 10px;
+}
+
 .outcome span,
 .outcome strong {
   display: block;
@@ -320,6 +478,7 @@
 
 .milestoneHeader {
   align-items: center;
+  flex-wrap: wrap;
   margin-bottom: 10px;
 }
 
@@ -571,4 +730,34 @@
     grid-template-columns: 1fr;
     gap: 3px;
   }
+
+  .measureRow {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .measureProgress,
+  .measureDue {
+    grid-row: auto;
+    grid-column: 1;
+  }
+
+  .leanMeasureInput {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+
+  .leanMeasureInput > :not(:first-child) {
+    grid-column: 2;
+  }
+
+  .cadencePreview {
+    grid-template-columns: 1fr;
+  }
+}
+
+.editorHint {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  max-width: 46ch;
 }

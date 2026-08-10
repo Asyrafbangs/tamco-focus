@@ -59,6 +59,7 @@ export function AttachmentPicker({
         required={required}
         disabled={disabled}
         accept={accept}
+        aria-label={`${label} native file input`}
         onChange={(event) => {
           const selected = Array.from(event.currentTarget.files ?? []);
           const oversized = selected.find((file) => file.size > maxBytes);
@@ -71,10 +72,15 @@ export function AttachmentPicker({
           setFiles(selected);
         }}
       />
-      <label className="btn small attachment-picker-button" htmlFor={id} aria-disabled={disabled}>
-        <span aria-hidden="true">＋</span>
+      <button
+        type="button"
+        className="btn small attachment-picker-button"
+        disabled={disabled}
+        onClick={() => inputRef.current?.click()}
+      >
+        <span aria-hidden="true">+</span>
         {label}
-      </label>
+      </button>
       {hint && <span className="attachment-picker-hint">{hint}</span>}
       {error && (
         <span className="attachment-picker-error" role="alert">

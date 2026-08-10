@@ -98,10 +98,45 @@ const GATES = [
     args: [bin.vitest, 'run', '--project', 'integration'],
     needsDatabase: true,
   },
+  /*
+   * The end-to-end suite has to start from the seed, not from whatever the
+   * integration suite happened to leave behind.
+   *
+   * Integration arranges and mutates dozens of fixtures — extra tasks,
+   * completed checklist items, resolved barriers. E2E then asserts against
+   * lists whose contents it did not create, so a different test failed on
+   * almost every run and each looked like a fresh bug. It was one cause:
+   * shared, unpredictable state.
+   *
+   * A reset here costs about fifteen seconds and buys a deterministic suite.
+   */
+  {
+    name: 'Reset before end-to-end',
+    command: 'node',
+    args: ['scripts/supabase-cli.mjs', 'db', 'reset'],
+    needsDatabase: true,
+  },
   {
     name: 'End-to-end tests',
     command: 'node',
     args: ['scripts/run-e2e.mjs'],
+    needsDatabase: true,
+  },
+  /*
+   * The integration and end-to-end suites arrange their own fixtures, and they
+   * cannot tidy up after themselves: deleting a task cascades into
+   * `audit_events`, where DELETE is revoked from every role and the append-only
+   * trigger would refuse it. Retained history is a product requirement
+   * (MASTER_PRODUCT_SPEC.md section 21.3), not an obstacle to work around.
+   *
+   * So the run ends where it started — on the seed. Without this, the machine
+   * is left holding rows like "Integration fixture 6ad646b0" alongside the real
+   * fixtures, and whoever opens the app next cannot tell which is which.
+   */
+  {
+    name: 'Restore seed data',
+    command: 'node',
+    args: ['scripts/supabase-cli.mjs', 'db', 'reset'],
     needsDatabase: true,
   },
 ];

@@ -34,3 +34,27 @@ Capture staging records the title, timing, optional files, one approved follow-u
 ## Worker contracts
 
 `claim_email_delivery` atomically claims queued/failed work and recovers abandoned claims after fifteen minutes. The routine worker calls `generate_routine_occurrences` through the service role. Both commands are local-only in this stage.
+
+## v53 lifecycle contracts
+
+- `cancel_task` deactivates terminal projections and enforces manager-only Mandatory cancellation.
+- `reassign_task` retains state and returns `active_count`, `recommended_target`, and
+  `workload_review_needed` rather than rejecting an over-target reassignment.
+- `decide_major_project_proposal` accepts Agree, Request changes, or Decline;
+  `resubmit_major_project_proposal` returns an owner revision to Pending.
+- `submit_goal_monthly_session` and `complete_goal_quarterly_session` require one item per Active Goal
+  in the employee/period and own their exactly-once aggregate header.
+- `finalize_goal_plan` requires exactly 100% formal allocation.
+- `revise_lean_goal_version` requires an Active-revision reason;
+  `save_goal_candidate_version` remains for Draft/Discussion edits.
+- `complete_goal` requires every success-measure actual result and a final summary. `cancel_goal`
+  requires a reason. `close_goal` still exists in the database and maps to cancellation, but no
+  action calls it: v53 §17 keeps the two endings apart, so there is no generic "close" in the
+  product.
+- `raise_goal_support_request`, `post_barrier_response`, and `resolve_barrier` reuse the shared
+  request lifecycle for Goal support and preserve Response versus Resolution.
+- Personal attention reads `action_requests_overview`, not `barriers`. The view resolves a request's
+  subject — Task or Goal — in one query; reading the table and looking the subject up by `task_id`
+  is what made a single Goal request blank every heading on the screen.
+- The superseded v33 Goal authoring and per-Goal cadence procedures have no application caller. They
+  are listed, with what replaced each one, in `docs/execution-goal-lifecycle-v52-impact-map.md`.

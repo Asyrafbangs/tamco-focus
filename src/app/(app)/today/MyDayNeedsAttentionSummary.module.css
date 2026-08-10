@@ -1,0 +1,306 @@
+.queue {
+  overflow: hidden;
+  padding: 16px;
+  border-left: 3px solid var(--red);
+  margin-bottom: 12px;
+}
+
+.clear {
+  border-left-color: var(--green);
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px 16px;
+  margin-bottom: 10px;
+}
+
+.header > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.header h2,
+.header p {
+  margin: 0;
+}
+
+.header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.clear .header h2 {
+  color: var(--green);
+}
+
+.header p {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.count {
+  display: inline-grid;
+  min-width: 20px;
+  height: 20px;
+  place-items: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--red-bg);
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.viewAll {
+  flex: 0 0 auto;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 28px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.viewAll:hover {
+  text-decoration: underline;
+}
+
+.viewAll:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 9px 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  min-height: 106px;
+  padding: 14px 15px;
+  background: var(--surface);
+}
+
+.row + .row {
+  border-top: 1px solid var(--line-soft);
+}
+
+.severityDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.severityDot[data-tone='critical'] {
+  background: var(--red);
+}
+
+.severityDot[data-tone='high'] {
+  background: var(--amber);
+}
+
+.marker {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.marker svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.marker[data-tone='critical'] {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.marker[data-tone='high'] {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+.copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.copy h3,
+.copy p {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.copy h3 {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 5px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge[data-tone='critical'] {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.badge[data-tone='high'] {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+.request {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.avatar {
+  display: inline-grid;
+  width: 19px;
+  height: 19px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--blue-bg);
+  color: var(--blue);
+  font-size: 8px;
+  font-weight: 750;
+}
+
+.requester {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 5px;
+}
+
+.requesterName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overdue {
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--red) 45%, transparent);
+  border-radius: 999px;
+  background: var(--red-bg);
+  color: var(--red);
+  font-weight: 650;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 86px;
+  min-height: 36px;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .queue {
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+
+  .row {
+    grid-template-columns: 8px 42px minmax(0, 1fr);
+    gap: 9px;
+    padding: 12px;
+  }
+
+  .marker {
+    width: 42px;
+    height: 42px;
+  }
+
+  .marker svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .action {
+    grid-column: 3;
+    justify-self: start;
+    margin-top: 3px;
+  }
+
+  .meta {
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+
+  .requester {
+    flex: 1 1 auto;
+  }
+
+  .meta > span:not(.requester) {
+    flex: 0 0 auto;
+  }
+}

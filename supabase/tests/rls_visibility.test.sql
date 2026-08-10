@@ -16,7 +16,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(36);
+select plan(50);
 
 -- ---------------------------------------------------------------------------
 -- Fixture identities (supabase/seed.sql)
@@ -290,12 +290,14 @@ select is(
   'the same viewer does not receive update capability');
 
 select is(
-  (select public.post_goal_update(
-    'f0c06000-0000-4000-a000-000000000002', 1, 30,
-    'Attempted update by a view-only participant.', null, false, null, '[]'::jsonb,
+  (select public.raise_goal_support_request(
+    'f0c06000-0000-4000-a000-000000000002',
+    'Attempted write by a view-only participant.',
+    'Should never be recorded.',
+    null,
     'rls-goal-view-only-update') ->> 'code'),
   'not_authorised',
-  'a view-only participant cannot update another employee''s Goal');
+  'a view-only participant cannot write against another employee''s Goal');
 
 select throws_ok(
   $$ update public.goals
@@ -306,19 +308,82 @@ select throws_ok(
   'clients cannot bypass Goal procedures with a direct update');
 
 select is(
-  (select public.post_goal_update(
-    'f0c06000-0000-4000-a000-000000000001', 1, 25,
-    'Validated the prototype workflow with the first Operations user.',
-    'Schedule two more user tests.', false, null, '[]'::jsonb,
-    'rls-goal-owner-update') ->> 'code'),
-  'goal_update_posted',
-  'a Goal owner can post their own lean overall update');
+  (select public.raise_goal_support_request(
+    'f0c06000-0000-4000-a000-000000000001',
+    'The prototype needs two more Operations users before the next review.',
+    'Please release two Operations users for testing this month.',
+    null,
+    'rls-goal-owner-request') ->> 'code'),
+  'goal_support_requested',
+  'a Goal owner can raise a request against their own Goal');
+
+select is(
+  (select public.create_lean_goal(
+    pg_temp.uid('amer'),
+    'Prepare one shared lean Goal expectation',
+    current_date + 180,
+    10,
+    '[{"description":"Demonstrate the agreed result in natural language."}]'::jsonb,
+    null, null, null, null, null, 'performance', '[]'::jsonb, 'draft',
+    'rls-lean-goal-self-draft') ->> 'code'),
+  'goal_draft_saved',
+  'an employee can prepare one self-owned lean Goal Draft with zero milestones');
+
+select is(
+  (select public.create_lean_goal(
+    pg_temp.uid('izzah'),
+    'Attempt a Goal for another employee',
+    current_date + 180,
+    10,
+    '[{"description":"This must not be stored."}]'::jsonb,
+    null, null, null, null, null, 'performance', '[]'::jsonb, 'discussion',
+    'rls-lean-goal-unrelated-owner') ->> 'code'),
+  'not_authorised',
+  'Goal visibility does not let an employee author another employee Goal');
 
 select isnt_empty(
   $$ select id from public.audit_events
       where goal_id = 'f0c06000-0000-4000-a000-000000000001'
-        and event_type = 'goal_update_posted' $$,
-  'the owner update writes immutable Goal audit history');
+        and event_type = 'goal_support_requested' $$,
+  'the owner request writes immutable Goal audit history');
+
+select isnt_empty(
+  $$ select id from public.goal_success_measures
+      where goal_version_id = 'f0c06100-0000-4000-a000-000000000001' $$,
+  'a Goal owner can read the structured success measures for their Goal');
+
+select isnt_empty(
+  $$ select id from public.goal_plan_overview
+      where employee_id = 'f0c05000-0000-4000-a000-000000000004' $$,
+  'an employee can read their own performance-period Goal plan');
+
+select throws_ok(
+  $$ insert into public.goal_checkin_sessions (
+       employee_id, performance_period_id, session_kind, status,
+       period_year, period_month, submitted_by, submitted_at
+     ) values (
+       'f0c05000-0000-4000-a000-000000000004',
+       (select performance_period_id from public.goals
+         where id = 'f0c06000-0000-4000-a000-000000000001'),
+       'monthly', 'submitted', 2026, 11,
+       'f0c05000-0000-4000-a000-000000000004', now()
+     ) $$,
+  '42501',
+  null,
+  'employees cannot bypass the employee-level Goal session procedure with a direct insert');
+
+select throws_ok(
+  $$ insert into public.goal_check_ins (
+       goal_id, goal_version_id, checkin_type, period_start, period_end,
+       period_year, period_month
+     ) values (
+       'f0c06000-0000-4000-a000-000000000001',
+       'f0c06100-0000-4000-a000-000000000001',
+       'monthly', '2026-08-01', '2026-08-31', 2026, 8
+     ) $$,
+  '42501',
+  null,
+  'authenticated owners cannot bypass the monthly Goal procedure with a direct insert');
 
 select pg_temp.reset_role();
 
@@ -326,14 +391,39 @@ select pg_temp.act_as(pg_temp.uid('izzul'));
 
 select is(
   (select count(*)::int from public.goals
-    where owner_id in (pg_temp.uid('amer'), pg_temp.uid('izzah'))),
+    where id in (
+      'f0c06000-0000-4000-a000-000000000001',
+      'f0c06000-0000-4000-a000-000000000002'
+    )),
   2,
-  'a manager can view Goals for both direct reports');
+  'a manager can view the seeded Goals for both direct reports');
 
 select is(
   (select public.get_goal_capabilities('f0c06000-0000-4000-a000-000000000001') ->> 'can_agree'),
   'true',
   'the authorised manager can agree a structural Goal version');
+
+select is(
+  (select public.create_lean_goal(
+    pg_temp.uid('izzah'),
+    'Manager-prepared shared Goal expectation',
+    current_date + 180,
+    10,
+    '[{"description":"Complete the agreed result by the Goal target date."}]'::jsonb,
+    null, null, null, null, null, 'performance', '[]'::jsonb, 'discussion',
+    'rls-lean-goal-manager-discussion') ->> 'code'),
+  'goal_saved_for_discussion',
+  'an authorised manager can prepare the same subordinate Goal record for discussion');
+
+select is(
+  (select public.get_goal_capabilities('f0c06000-0000-4000-a000-000000000001') ->> 'can_submit_monthly'),
+  'false',
+  'the manager cannot author the employee monthly Goal check-in');
+
+select isnt_empty(
+  $$ select id from public.goal_plan_overview
+      where employee_id = 'f0c05000-0000-4000-a000-000000000004' $$,
+  'an authorised manager can read a direct report Goal plan');
 
 select pg_temp.reset_role();
 
@@ -344,10 +434,58 @@ select is_empty(
       where id = 'f0c06000-0000-4000-a000-000000000001' $$,
   'a person with no team visibility cannot read another employee''s Goal');
 
+select is_empty(
+  $$ select m.id from public.goal_success_measures m
+      join public.goal_versions v on v.id = m.goal_version_id
+      where v.goal_id = 'f0c06000-0000-4000-a000-000000000001' $$,
+  'Goal success-measure RLS follows Goal visibility for an unrelated employee');
+
+select is_empty(
+  $$ select id from public.goal_plan_overview
+      where employee_id = 'f0c05000-0000-4000-a000-000000000004' $$,
+  'an unrelated employee cannot read another employee Goal plan');
+
 select pg_temp.reset_role();
 
 -- ---------------------------------------------------------------------------
--- 9. A deactivated account loses access even holding a valid token.
+-- 9. Task commitments remain procedure-owned and auditable.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as(pg_temp.uid('amer'));
+
+select is(
+  (select public.change_task_due_date(
+    'f0c05300-0000-4000-a000-000000000002', 1,
+    '2026-08-10 23:59:59.999+08'::timestamptz, true, null,
+    'rls-viewer-due-change') ->> 'code'),
+  'not_authorised',
+  'a view-only participant cannot change another person''s due commitment');
+
+select pg_temp.reset_role();
+select pg_temp.act_as(pg_temp.uid('izzah'));
+
+select is(
+  (select public.change_task_due_date(
+    'f0c05300-0000-4000-a000-000000000002',
+    (select version from public.tasks where id = 'f0c05300-0000-4000-a000-000000000002'),
+    '2026-08-10 23:59:59.999+08'::timestamptz, true,
+    'Waiting for supplier confirmation', 'rls-owner-due-change') ->> 'code'),
+  'task_due_date_changed',
+  'the task owner can change the due commitment through the guarded operation');
+
+select isnt_empty(
+  $$ select id from public.audit_events
+      where task_id = 'f0c05300-0000-4000-a000-000000000002'
+        and event_type = 'task_due_date_changed'
+        and detail ->> 'previous_due_at' is not null
+        and detail ->> 'new_due_at' is not null
+        and detail ->> 'reason' = 'Waiting for supplier confirmation' $$,
+  'a due-date change preserves its previous date, new date, and optional reason');
+
+select pg_temp.reset_role();
+
+-- ---------------------------------------------------------------------------
+-- 10. A deactivated account loses access even holding a valid token.
 -- ---------------------------------------------------------------------------
 
 select public.deactivate_user(pg_temp.uid('lim'), true);
@@ -365,7 +503,7 @@ select is_empty(
 select pg_temp.reset_role();
 
 -- ---------------------------------------------------------------------------
--- 10. Attachments follow the authorisation of the task that owns them.
+-- 11. Attachments follow the authorisation of the task that owns them.
 -- ---------------------------------------------------------------------------
 
 select pg_temp.act_as(pg_temp.uid('lim'));

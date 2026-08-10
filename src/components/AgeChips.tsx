@@ -1,5 +1,6 @@
 import { ageChips } from '@/domain/duration';
 import type { TaskOverview } from '@/domain/types';
+import type { ReactNode } from 'react';
 
 /**
  * Compact task-age indicators (section 31B.6).
@@ -12,10 +13,12 @@ export function AgeChips({
   task,
   staleThresholdDays,
   now,
+  trailingAction,
 }: {
   task: TaskOverview;
   staleThresholdDays?: number;
   now?: Date;
+  trailingAction?: ReactNode;
 }) {
   const chips = ageChips(task, { staleThresholdDays, now });
 
@@ -28,12 +31,26 @@ export function AgeChips({
 
   return (
     <div className="age-row">
-      {chips.map((chip) => (
-        <span key={chip.label} className={`flag ${toneClass[chip.tone]}`} title={chip.explanation}>
-          {chip.label}
-          <span className="visually-hidden">. {chip.explanation}</span>
-        </span>
-      ))}
+      {chips.map((chip, index) => {
+        const indicator = (
+          <span className={`flag ${toneClass[chip.tone]}`} title={chip.explanation}>
+            {chip.label}
+            <span className="visually-hidden">. {chip.explanation}</span>
+          </span>
+        );
+
+        return index === chips.length - 1 && trailingAction ? (
+          <span key={chip.label} className="age-row-tail">
+            {indicator}
+            {trailingAction}
+          </span>
+        ) : (
+          <span key={chip.label} className="age-row-item">
+            {indicator}
+          </span>
+        );
+      })}
+      {chips.length === 0 && trailingAction}
     </div>
   );
 }

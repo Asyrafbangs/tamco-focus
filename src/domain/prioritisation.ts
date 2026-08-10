@@ -235,7 +235,15 @@ export type AttentionKind =
   | 'missing_evidence'
   | 'paused_review_passed'
   | 'overdue_routine'
-  | 'completion_review_overdue';
+  | 'completion_review_overdue'
+  /**
+   * v40 section 5 — Available work that genuinely needs a decision today.
+   * Nobody should have to open Available every morning to discover that their
+   * manager asked for something reviewable this afternoon. This is exception
+   * visibility, not a mirror of the list: ordinary Available work never
+   * qualifies, and My Day stays silent about it.
+   */
+  | 'available_needs_decision';
 
 export interface AttentionItem {
   kind: AttentionKind;
@@ -279,6 +287,40 @@ export function needsAttention(
             ? `Overdue by ${days} day${days === 1 ? '' : 's'}.`
             : 'Past its due time today.',
       });
+    }
+
+    // Available work only surfaces here when something about it is exceptional.
+    // Being manager-assigned is NOT one of those things (v40 section 4): the
+    // manager expresses importance through urgency, due date and review-by, and
+    // those are what this tests.
+    if (task.status === 'backlog' && !task.isOverdue) {
+      const reviewDue =
+        task.reviewAt !== null && new Date(task.reviewAt).getTime() <= now.getTime();
+      const dueSoon =
+        task.dueAt !== null &&
+        new Date(task.dueAt).getTime() - now.getTime() <= 2 * 86_400_000 &&
+        new Date(task.dueAt).getTime() >= now.getTime();
+      const pressing =
+        task.isMandatory || task.urgency === 'critical' || task.urgency === 'high' || reviewDue;
+
+      if (pressing || dueSoon) {
+        const because = task.isMandatory
+          ? 'Mandatory work waiting to start.'
+          : reviewDue
+            ? 'Review date has arrived and it has not been started.'
+            : task.urgency === 'critical' || task.urgency === 'high'
+              ? `Marked ${task.urgency} urgency and not started.`
+              : 'Due within two days and not started.';
+
+        items.push({
+          kind: 'available_needs_decision',
+          taskId: task.id,
+          title: task.title,
+          message: task.assignedByName
+            ? `${because} Assigned by ${task.assignedByName.split(' ')[0]}.`
+            : because,
+        });
+      }
     }
 
     if (task.openBarrierCount > 0) {
@@ -340,4 +382,49 @@ export function comingUp(
     })
     .sort((a, b) => new Date(a.dueAt!).getTime() - new Date(b.dueAt!).getTime())
     .slice(0, maxItems);
+}
+
+/**
+ * Ordering for the Available list (v40 section 4).
+ *
+ * The rule this encodes is as much about what does NOT sort as what does.
+ * `assignedById` is absent on purpose: a manager having created the work is
+ * provenance, not importance. A manager who needs something treated urgently
+ * says so through the controls that already exist — urgency, due date, review
+ * by — and those are what rank it. Otherwise "my manager sent it" quietly
+ * outranks an overdue safety action, which is precisely backwards.
+ *
+ * Rank order:
+ *   1. Critical or mandatory
+ *   2. Overdue
+ *   3. Review-by today or passed
+ *   4. High urgency
+ *   5. Nearest due date
+ *   6. Everything else
+ */
+export function availableOrder(
+  tasks: readonly TaskOverview[],
+  now: Date = new Date(),
+): TaskOverview[] {
+  const rank = (task: TaskOverview): number => {
+    if (task.isMandatory || task.urgency === 'critical') return 0;
+    if (task.isOverdue) return 1;
+    if (task.reviewAt && new Date(task.reviewAt).getTime() <= now.getTime()) return 2;
+    if (task.urgency === 'high') return 3;
+    if (task.dueAt) return 4;
+    return 5;
+  };
+
+  return [...tasks].sort((left, right) => {
+    const byRank = rank(left) - rank(right);
+    if (byRank !== 0) return byRank;
+
+    // Within a rank, the nearest commitment first. Undated work sorts last
+    // rather than sorting as though it were due at the epoch.
+    const leftDue = left.dueAt ? new Date(left.dueAt).getTime() : Number.POSITIVE_INFINITY;
+    const rightDue = right.dueAt ? new Date(right.dueAt).getTime() : Number.POSITIVE_INFINITY;
+    if (leftDue !== rightDue) return leftDue - rightDue;
+
+    return left.title.localeCompare(right.title);
+  });
 }

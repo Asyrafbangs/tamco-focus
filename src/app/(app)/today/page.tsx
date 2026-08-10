@@ -1,10 +1,16 @@
 import Link from 'next/link';
 
-import { AgeChips } from '@/components/AgeChips';
 import { RowPrimaryLink } from '@/components/ui/ParityPrimitives';
-import { formatDue } from '@/domain/duration';
+import { taskDrawerHref } from '@/domain/navigation';
+import { formatDue, overdueAgeMs } from '@/domain/duration';
 import { goalExceptionMessage } from '@/domain/goals';
-import { comingUp, needsAttention, startHere, todayList } from '@/domain/prioritisation';
+import {
+  comingUp,
+  needsAttention,
+  startHere,
+  todayList,
+  type AttentionItem,
+} from '@/domain/prioritisation';
 import { TASK_STATUS_LABELS, WORK_CLASS_LABELS } from '@/domain/types';
 import { requireProfile } from '@/lib/supabase/server';
 import {
@@ -12,12 +18,15 @@ import {
   getDisplaySettings,
   getFocusSummary,
   getHandoffReadyTaskIds,
+  getMyAttention,
   getMyTasks,
-  getCollaborativeParentOptions,
 } from '@/server/queries';
 import { getGoalExceptions, getMyGoals } from '@/server/goal-queries';
+import { getAssignablePeople } from '@/server/actions/assignment-actions';
+
 import { CaptureWork } from '../capture/CaptureWork';
 
+import { MyDayNeedsAttentionSummary } from './MyDayNeedsAttentionSummary';
 import { WhyThis } from './WhyThis';
 
 /**
@@ -25,7 +34,59 @@ import { WhyThis } from './WhyThis';
  *
  * A decision page, not a system summary. It answers three questions: what
  * requires attention, what should I do next, and what is coming soon.
+ *
+ * Each region answers exactly one of those, and nothing appears twice. The
+ * Start Here recommendation is deliberately absent from Today, and anything
+ * already listed under Coming Up is absent from Today as well: repeating a
+ * commitment does not make it more likely to be done, it only makes the page
+ * longer to read.
  */
+
+/**
+ * Summarises the exceptions by kind — "1 overdue · 1 barrier needs a decision"
+ * — rather than showing only the first one's message.
+ *
+ * A banner that reports the count but explains just one item forces the reader
+ * to open the list to discover what the others are, which is the opposite of
+ * what an exception banner is for (section 9.3).
+ */
+function attentionSummary(items: readonly AttentionItem[]): string {
+  const phrases: Partial<Record<AttentionItem['kind'], (count: number) => string>> = {
+    overdue: (count) => `${count} overdue`,
+    overdue_routine: (count) => `${count} overdue routine`,
+    open_barrier: (count) => `${count} barrier${count === 1 ? '' : 's'} need a decision`,
+    urgent_mandatory: (count) => `${count} mandatory action${count === 1 ? '' : 's'}`,
+    missing_evidence: (count) => `${count} awaiting evidence`,
+    paused_review_passed: (count) => `${count} paused past review`,
+    completion_review_overdue: (count) => `${count} completion review${count === 1 ? '' : 's'} due`,
+    available_needs_decision: (count) =>
+      `${count} waiting in Available need${count === 1 ? 's' : ''} a decision`,
+  };
+
+  const counts = new Map<AttentionItem['kind'], number>();
+  for (const item of items) counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1);
+
+  const parts: string[] = [];
+  for (const [kind, count] of counts) {
+    const phrase = phrases[kind];
+    if (phrase)
+      parts.push(count === 1 ? phrase(count).replace(/ need a /, ' needs a ') : phrase(count));
+  }
+
+  return parts.join(' · ');
+}
+
+/** "Due 3 Aug 2026 · 4 days overdue", or just the due date when it is not. */
+function dueLine(
+  task: { dueAt: string | null; dueIsDateOnly: boolean; isOverdue: boolean },
+  timeZone: string | undefined,
+  now: Date,
+): string {
+  const due = formatDue(task.dueAt, task.dueIsDateOnly, timeZone);
+  if (!task.isOverdue) return due;
+  const days = Math.floor(overdueAgeMs(task as never, now) / 86_400_000);
+  return days >= 1 ? `${due} · ${days} day${days === 1 ? '' : 's'} overdue` : `${due} · overdue`;
+}
 export default async function TodayPage({
   searchParams,
 }: {
@@ -42,7 +103,8 @@ export default async function TodayPage({
     settings,
     goalExceptions,
     myGoals,
-    parentOptions,
+    assignablePeople,
+    actionRequests,
   ] = await Promise.all([
     getMyTasks(profile.id),
     getFocusSummary(profile.id),
@@ -51,7 +113,10 @@ export default async function TodayPage({
     getDisplaySettings(),
     getGoalExceptions(profile.id),
     getMyGoals(profile.id),
-    params.capture === '1' ? getCollaborativeParentOptions(profile.id) : Promise.resolve([]),
+    // Empty for anyone who is not a manager, so the assignment panel does not
+    // exist for them rather than appearing and then refusing.
+    params.capture === '1' ? getAssignablePeople() : Promise.resolve([]),
+    getMyAttention(profile.id),
   ]);
 
   const context = {
@@ -62,30 +127,49 @@ export default async function TodayPage({
     blockingCounts,
   };
 
+  const now = new Date();
+
   const attention = needsAttention(tasks, context);
   const recommendation = startHere(tasks, context);
-  const today = todayList(tasks, context, settings.todayListMaxItems);
   const upcoming = comingUp(tasks, context, 3);
+
+  // Today is the next useful work, so it excludes what the page already shows:
+  // the Start Here recommendation above it and the commitments under Coming Up
+  // below it. Three items keeps it scannable (section 9.6).
+  const alreadyShown = new Set<string>([
+    ...(recommendation ? [recommendation.task.id] : []),
+    ...upcoming.map((task) => task.id),
+  ]);
+  const today = todayList(tasks, context, settings.todayListMaxItems + alreadyShown.size)
+    .filter((entry) => !alreadyShown.has(entry.task.id))
+    .slice(0, 3);
 
   const activeCount = tasks.filter((task) => task.status === 'active').length;
   const availableCount = tasks.filter((task) => task.status === 'backlog').length;
   const overdueCount = tasks.filter((task) => task.isOverdue).length;
   const staleCount = tasks.filter((task) => task.isStale).length;
   const overTargetBuckets = focus.filter((bucket) => bucket.isOverTarget);
-  const goalWeight = myGoals.reduce((total, goal) => total + goal.weightPercent, 0);
+  const activeGoals = myGoals.filter((goal) => goal.status === 'active');
+  const goalWeight = activeGoals.reduce((total, goal) => total + goal.weightPercent, 0);
   const weightedGoalProgress = goalWeight
     ? Math.round(
-        myGoals.reduce((total, goal) => total + goal.reportedProgress * goal.weightPercent, 0) /
+        activeGoals.reduce((total, goal) => total + goal.derivedProgress * goal.weightPercent, 0) /
           goalWeight,
       )
     : 0;
+  const quarterlyComingUp = activeGoals.filter((goal) => {
+    if (!goal.isQuarterlyCheckinDue) return false;
+    const due = new Date(`${goal.nextQuarterlyCheckinDate}T12:00:00Z`).getTime();
+    const days = (due - now.getTime()) / 86_400_000;
+    return days >= 0 && days <= settings.upcomingWindowDays;
+  });
 
   const todayLabel = new Intl.DateTimeFormat('en-GB', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     timeZone: profile.timezone ?? 'Asia/Kuala_Lumpur',
-  }).format(new Date());
+  }).format(now);
 
   return (
     <>
@@ -95,10 +179,9 @@ export default async function TodayPage({
           <h1>{profile.full_name.split(' ')[0]} · My Day</h1>
           <p>{todayLabel} · What needs attention, what to do next, and what is coming soon.</p>
         </div>
+        {/* Monthly Plan is reachable from Coming up, where it is in context.
+            Two routes to the same page from one screen is navigation noise. */}
         <div className="actions">
-          <Link href="/plan" className="btn">
-            Monthly Plan
-          </Link>
           <Link href="/work" className="btn">
             Open My Focus
           </Link>
@@ -120,14 +203,41 @@ export default async function TodayPage({
               <strong>
                 {attention.length} item{attention.length === 1 ? '' : 's'} need attention
               </strong>
-              <span>{attention[0]!.message}</span>
+              <span>{attentionSummary(attention) || attention[0]!.message}</span>
             </div>
           </div>
           <Link href="/work" className="btn small">
-            Review
+            Review {attention.length} item{attention.length === 1 ? '' : 's'}
           </Link>
         </div>
       )}
+
+      {/*
+        v46 sections 7, 10, 26 — the action queue.
+
+        Distinct from the exception banner above it, and the distinction is the
+        point: that banner is about this person's own work slipping, this is
+        about somebody else waiting on them. It is not a second task list, so
+        every row names the request, who is asking, which work it concerns, and
+        the act itself — "Provide decision", never "Open".
+
+        It is derived from the barrier, so reading the notification does not
+        clear it (section 18). Only answering does.
+      */}
+      {/*
+        v49 §1, §9 — a summary, not the backlog.
+
+        Needs Attention has to stay useful at fifty items, and a card that grows
+        with the count is a card that pushes the rest of My Day off the screen
+        and stops being scannable at exactly the moment it matters most. My Day
+        answers "what should I act on first"; the full list answers "show me
+        everything", and lives where lists live.
+      */}
+      <MyDayNeedsAttentionSummary
+        items={actionRequests}
+        now={now}
+        timeZone={profile.timezone ?? 'Asia/Kuala_Lumpur'}
+      />
 
       <div className="today-grid">
         {/* Section 9.2 — one Start Here recommendation, with a Why this?
@@ -144,38 +254,38 @@ export default async function TodayPage({
             <>
               <h2>
                 <RowPrimaryLink
-                  href={`/work?task=${recommendation.task.id}`}
+                  href={taskDrawerHref(recommendation.task.id, '/today')}
                   ariaLabel={`Open ${recommendation.task.title}`}
                 >
                   {recommendation.task.title}
                 </RowPrimaryLink>
               </h2>
-              <p>{recommendation.task.nextAction ?? 'Open the task to decide the next step.'}</p>
+              {/* Labelled, because an unlabelled sentence under a title reads
+                  as description rather than as the thing to go and do. */}
+              <div className="start-next-action">
+                <p className="eyebrow">Next action</p>
+                <p>{recommendation.task.nextAction ?? 'Open the task to decide the next step.'}</p>
+              </div>
 
+              {/* Work type, state, and the commitment date. Open-for and
+                  in-state ages are task-age analytics; they belong on the task,
+                  not on the one thing someone is being asked to do next. */}
               <div className="start-meta">
+                <span className="pill">{WORK_CLASS_LABELS[recommendation.task.workClass]}</span>
                 <span className={`status ${recommendation.task.status}`}>
                   {TASK_STATUS_LABELS[recommendation.task.status]}
                 </span>
-                <span className="pill">{WORK_CLASS_LABELS[recommendation.task.workClass]}</span>
-                <span className="pill">
-                  {formatDue(
-                    recommendation.task.dueAt,
-                    recommendation.task.dueIsDateOnly,
-                    profile.timezone ?? undefined,
-                  )}
+                <span className={`pill${recommendation.task.isOverdue ? ' overdue' : ''}`}>
+                  {dueLine(recommendation.task, profile.timezone ?? undefined, now)}
                 </span>
               </div>
 
-              <div style={{ marginTop: 12 }}>
-                <AgeChips
-                  task={recommendation.task}
-                  staleThresholdDays={settings.staleThresholdDays}
-                />
-              </div>
-
               <div className="actions" style={{ marginTop: 14 }}>
-                <Link href={`/work?task=${recommendation.task.id}`} className="btn primary">
-                  Open
+                <Link
+                  href={taskDrawerHref(recommendation.task.id, '/today')}
+                  className="btn primary"
+                >
+                  Open task
                 </Link>
                 <WhyThis explanation={recommendation.why} />
               </div>
@@ -211,7 +321,7 @@ export default async function TodayPage({
             today.map((entry) => (
               <Link
                 key={entry.task.id}
-                href={`/work?task=${entry.task.id}`}
+                href={taskDrawerHref(entry.task.id, '/today')}
                 className="today-item interactive-row"
                 style={{ textDecoration: 'none', color: 'inherit', display: 'grid' }}
               >
@@ -290,20 +400,29 @@ export default async function TodayPage({
         ))}
       </div>
 
-      {myGoals.length > 0 && (
+      {/*
+        Exception-based, per the approved Goal integration: a goal strip that
+        says nothing needs attention is a row of pixels reporting the absence of
+        news. When no check-in is due, My Day stays silent about Goals.
+      */}
+      {goalExceptions.length > 0 && (
         <section
           className={`goal-quick-strip${goalExceptions.length > 0 ? ' attention' : ''}`}
           aria-label="Goal progress"
         >
           <div className="goal-quick-strip-copy">
             <strong>
-              {myGoals.length} goal{myGoals.length === 1 ? '' : 's'} · {weightedGoalProgress}%
-              weighted progress
+              {/* A manager can hold goal exceptions for goals they do not own,
+                  and "0 goals · 0% weighted progress" is a nonsense headline in
+                  that case. Describe what needs attention instead. */}
+              {activeGoals.length > 0
+                ? `${activeGoals.length} goal${activeGoals.length === 1 ? '' : 's'} · ${weightedGoalProgress}% weighted progress`
+                : `${goalExceptions.length} goal check-in${goalExceptions.length === 1 ? '' : 's'} need attention`}
             </strong>
             <span>
               {goalExceptions[0]
                 ? `${goalExceptions[0].title} · ${goalExceptionMessage(goalExceptions[0])}`
-                : 'No Goal check-in needs attention now.'}
+                : 'A goal check-in needs attention.'}
             </span>
           </div>
           <Link
@@ -329,12 +448,12 @@ export default async function TodayPage({
           </Link>
         </div>
 
-        {upcoming.length > 0 ? (
+        {upcoming.length > 0 || quarterlyComingUp.length > 0 ? (
           <div className="coming-grid">
             {upcoming.map((task) => (
               <Link
                 key={task.id}
-                href={`/work?task=${task.id}`}
+                href={taskDrawerHref(task.id, '/today')}
                 className="coming-item interactive-row"
                 style={{ textDecoration: 'none', color: 'inherit' }}
               >
@@ -342,6 +461,24 @@ export default async function TodayPage({
                 <span>
                   {formatDue(task.dueAt, task.dueIsDateOnly, profile.timezone ?? undefined)} ·{' '}
                   {WORK_CLASS_LABELS[task.workClass]}
+                </span>
+              </Link>
+            ))}
+            {quarterlyComingUp.map((goal) => (
+              <Link
+                key={`goal-${goal.id}`}
+                href={`/goals?goal=${goal.id}&action=update`}
+                className="coming-item interactive-row"
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                <strong>{goal.title}</strong>
+                <span>
+                  Quarterly discussion by{' '}
+                  {formatDue(
+                    `${goal.nextQuarterlyCheckinDate}T12:00:00Z`,
+                    true,
+                    profile.timezone ?? undefined,
+                  )}
                 </span>
               </Link>
             ))}
@@ -355,7 +492,9 @@ export default async function TodayPage({
           </div>
         )}
       </section>
-      {params.capture === '1' && <CaptureWork parentOptions={parentOptions} modal />}
+      {params.capture === '1' && (
+        <CaptureWork modal assignablePeople={assignablePeople} viewerName={profile.full_name} />
+      )}
     </>
   );
 }

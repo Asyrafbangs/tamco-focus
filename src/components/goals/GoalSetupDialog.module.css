@@ -1,21 +1,108 @@
-.formalWeight {
+.modal {
+  overflow: hidden !important;
+}
+
+.form {
+  --goal-editor-gap: 14px;
+}
+
+.fields {
+  gap: var(--goal-editor-gap);
+}
+
+.builder {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.measureList {
+  display: grid;
+  gap: 8px;
+}
+
+.measure,
+.milestone {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.milestone {
+  grid-template-columns: 24px minmax(180px, 0.8fr) minmax(220px, 1.2fr) auto;
+}
+
+.number {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--blue-bg);
+  color: var(--blue);
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.measureActions {
   display: flex;
+  gap: 4px;
+}
+
+.optionalDate {
+  grid-column: 2 / -1;
+  max-width: 220px;
+}
+
+.weightInput {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 12px;
+}
+
+.weightInput input {
+  border-radius: 8px 0 0 8px;
+}
+
+.weightInput span {
+  display: grid;
+  height: 38px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-left: 0;
+  border-radius: 0 8px 8px 0;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.formalWeight {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--green) 28%, var(--line));
   border-radius: 10px;
+  background: var(--line-soft);
+}
+
+.formalWeight > div {
+  padding: 10px 12px;
   background: var(--green-bg);
 }
 
-.formalWeight strong,
-.formalWeight span {
-  display: block;
-}
-
+.formalWeight span,
 .formalWeight strong {
-  font-size: 10.5px;
+  display: block;
 }
 
 .formalWeight span {
@@ -23,18 +110,78 @@
   font-size: 9px;
 }
 
+.formalWeight strong {
+  margin-top: 3px;
+  font-size: 12px;
+}
+
+.formalWeight p {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 9px 12px;
+  background: var(--red-bg);
+  color: var(--red);
+  font-size: 9.5px;
+}
+
 .error {
-  border-color: color-mix(in srgb, var(--red) 28%, var(--line));
+  border-color: color-mix(in srgb, var(--red) 35%, var(--line));
+}
+
+.error > div {
   background: var(--red-bg);
 }
 
-.error strong {
-  color: var(--red);
+.disclosure {
+  padding: 11px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
 }
 
-@media (max-width: 560px) {
+.disclosure > summary {
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.disclosureFields {
+  margin-top: 12px;
+}
+
+.alignmentWeight {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 9.5px;
+}
+
+.alignmentWeight strong {
+  color: var(--green);
+}
+
+@media (max-width: 700px) {
+  .measure,
+  .milestone {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .measureActions,
+  .measure > button,
+  .milestone > button,
+  .optionalDate {
+    grid-column: 2;
+  }
+
+  .measureActions {
+    flex-wrap: wrap;
+  }
+
   .formalWeight {
-    align-items: flex-start;
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 }

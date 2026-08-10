@@ -18,7 +18,12 @@ async function signIn(page: Page, email = 'izzah@tamco.local') {
 
 async function attachViewport(page: Page, testInfo: TestInfo, name: string) {
   await testInfo.attach(`${name}-${testInfo.project.name}`, {
-    body: await page.screenshot({ animations: 'disabled', fullPage: false }),
+    // `caret: 'initial'` rather than Playwright's default. The default hides the
+    // text caret by writing `style="caret-color: transparent"` onto the focused
+    // element, which React then sees as a server/client attribute mismatch on
+    // the next hydration and logs as an error. A screenshot helper must not
+    // alter the page it is documenting.
+    body: await page.screenshot({ animations: 'disabled', caret: 'initial', fullPage: false }),
     contentType: 'image/png',
   });
 }
@@ -49,16 +54,39 @@ test('main employee surfaces retain prototype structure at every required viewpo
   await attachViewport(page, testInfo, 'today');
   await expectNoDocumentOverflow(page, '/today');
 
-  for (const tab of ['major', 'operational', 'self_development', 'shared', 'available']) {
-    await page.goto(`/work?tab=${tab}`);
-    await expect(page.locator('.focus-tabs a.active')).toHaveAttribute('href', `/work?tab=${tab}`);
+  // v40 section 1 — Focus navigates by STATE. Major / Operational /
+  // Self-Development are still work classes and still drive the 1 / 5 / 1
+  // capacity strip, but they are no longer tabs.
+  await page.goto('/work');
+  await expect(page.locator('.capacity-strip')).toBeVisible();
+  await expect(page.locator('.capacity-strip')).toContainText('Operational');
+  for (const tab of ['active', 'available', 'shared']) {
+    await page.goto(tab === 'active' ? '/work' : `/work?tab=${tab}`);
+    await expect(page.locator('.focus-tabs a.active')).toHaveAttribute(
+      'href',
+      tab === 'active' ? '/work' : `/work?tab=${tab}`,
+    );
     await expect(page.locator('.focus-panel')).toBeVisible();
     await attachViewport(page, testInfo, `work-${tab}`);
     await expectNoDocumentOverflow(page, `/work?tab=${tab}`);
   }
 
+  /*
+   * v43 section 6 — Routine lives inside the SAME Work shell as Focus. The
+   * heading, the Capture entry point and the Focus/Routine selector are shared,
+   * so this asserts the shell rather than a Routine-specific heading: the whole
+   * requirement is that switching does not feel like another application.
+   */
   await page.goto('/work/routine');
-  await expect(page.getByRole('heading', { name: 'Routine' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'My Work' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Capture work' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Workspace' })).toBeVisible();
+
+  // But Routine keeps its own occurrence lifecycle, never Focus vocabulary.
+  await expect(page.getByRole('link', { name: /Due now \/ this week/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Upcoming/ })).toBeVisible();
+  await expect(page.locator('.focus-panel')).not.toContainText('Available Work');
+
   await attachViewport(page, testInfo, 'routine');
   await expectNoDocumentOverflow(page, '/work/routine');
 
@@ -99,15 +127,58 @@ test('main employee surfaces retain prototype structure at every required viewpo
   expect(consoleErrors).toEqual([]);
 });
 
-test('manager Team view uses compact RLS-authorised workload rows', async ({ page }, testInfo) => {
+/**
+ * v53 §22 — the old `/team` page is gone, and its links are not.
+ *
+ * The screen a manager needs is Work → My Team, and the depth behind it is the
+ * Team Member drawer there (covered by `team-context-v48.spec.ts`). What this
+ * has to prove is that the retired route still lands somebody in the right
+ * place rather than on a 404 that reads as "your team view was deleted" — and
+ * that what they land on is the real thing, not an empty shell.
+ */
+test('the retired Team route lands on Work → My Team', async ({ page }, testInfo) => {
   await signIn(page, 'izzul@tamco.local');
+
   await page.goto('/team');
-  await expect(page.getByRole('heading', { name: 'Team Focus' })).toBeVisible();
-  await expect(page.locator('.member-card').first()).toBeVisible();
-  await expect(page.locator('.member-focus-grid').first()).toBeVisible();
-  await expect(page.locator('.member-task-row').first()).toBeVisible();
+  await expect(page).toHaveURL(/\/work\?scope=team$/);
+  await expect(page.getByRole('heading', { name: 'My Team' })).toBeVisible();
+  await expect(page.getByTestId('my-team-person-row').first()).toBeVisible();
+
   await attachViewport(page, testInfo, 'team');
-  await expectNoDocumentOverflow(page, '/team');
+  await expectNoDocumentOverflow(page, '/work?scope=team&filter=attention');
+});
+
+test('Monthly Plan shows a manager the reporting line their settings cover', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'Scope behaviour is viewport independent.');
+
+  // A manager opens the calendar to see where the team's dates collide, so Team
+  // is their default. The rows come from `plan_events`, a security_invoker view
+  // — RLS decides what exists, the scope only filters it.
+  await signIn(page, 'izzul@tamco.local');
+  await page.goto('/plan');
+  await expect(page.getByRole('link', { name: 'My team' })).toHaveClass(/active/);
+
+  const owned = page.locator('.cal-item-owner');
+  await expect(owned.first()).toBeVisible();
+  const names = await owned.allInnerTexts();
+  expect(names.every((name) => name.trim() !== 'Izzul Asyraf')).toBe(true);
+
+  // Narrowing to their own work must not silently keep the team's items.
+  await page.getByRole('link', { name: 'Only me' }).click();
+  await expect(page.getByRole('link', { name: 'Only me' })).toHaveClass(/active/);
+  await expect(page.locator('.cal-item-owner')).toHaveCount(0);
+
+  // An employee has no reporting line, so the control is absent rather than
+  // present and empty.
+  await page.context().clearCookies();
+  await signIn(page, 'izzah@tamco.local');
+  await page.goto('/plan');
+  await expect(page.getByRole('navigation', { name: 'Calendar scope' })).toHaveCount(0);
+  await expect(page.locator('.cal-item').first()).toBeVisible();
+  const sharedOwnerNames = await page.locator('.cal-item-owner').allInnerTexts();
+  expect(sharedOwnerNames.every((name) => name.trim() !== 'Izzah Nurul')).toBe(true);
 });
 
 test('rows, nested actions, drawers, checklist evidence, tabs and calendar are independent', async ({
@@ -116,7 +187,7 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
   test.skip(testInfo.project.name !== 'desktop', 'Interaction mutation/restore runs once.');
   await signIn(page);
 
-  await page.goto('/work?tab=operational');
+  await page.goto('/work');
   await expectHydrated(page);
   const firstRow = page.locator('.task-row').first();
   await expect(firstRow).toBeVisible();
@@ -140,18 +211,45 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
   await page.keyboard.press('Enter');
   await expect(drawer).toBeVisible();
   await drawer.getByRole('tab', { name: /Checklist/ }).click();
-  const requiredItem = drawer.locator('.checklist-item').filter({ hasText: 'Evidence required' });
-  await expect(requiredItem.getByRole('button', { name: 'Complete' })).toBeDisabled();
+  const requiredItem = drawer.locator('.task-checklist-row').filter({
+    hasText: 'Evidence required',
+  });
+  await requiredItem.getByRole('button', { name: 'Complete with evidence' }).click();
+  const evidenceDialog = page.getByRole('dialog', { name: 'Complete with evidence' });
+  await expect(evidenceDialog).toBeVisible();
   const chooserPromise = page.waitForEvent('filechooser');
-  await requiredItem.locator('label.attachment-picker-button').click();
+  await evidenceDialog
+    .getByRole('button', { name: 'Choose file / photo / screenshot', exact: true })
+    .click();
   const chooser = await chooserPromise;
-  expect(chooser.isMultiple()).toBe(true);
+  expect(chooser.isMultiple()).toBe(false);
+  await page.keyboard.press('Escape');
+  await expect(evidenceDialog).toHaveCount(0);
 
-  const optionalItem = drawer.locator('.checklist-item').filter({ hasText: 'Evidence optional' });
-  await optionalItem.getByRole('button', { name: 'Complete' }).click();
-  await expect(optionalItem.getByRole('button', { name: 'Reopen' })).toBeVisible();
-  await optionalItem.getByRole('button', { name: 'Reopen' }).click();
-  await expect(optionalItem.getByRole('button', { name: 'Complete' })).toBeVisible();
+  const optionalItem = drawer.locator('.task-checklist-row').filter({
+    hasText: 'Evidence optional',
+  });
+  if (await optionalItem.getByRole('button', { name: 'Undo' }).isVisible()) {
+    await optionalItem.getByRole('button', { name: 'Undo' }).click();
+  }
+
+  // v42 section E — the circle and the Complete button are one action. `exact`
+  // matters now that the circle's accessible name also begins with "Complete".
+  const completeButton = optionalItem.getByRole('button', { name: 'Complete', exact: true });
+  const completeCircle = optionalItem.locator('.checklist-state-button');
+
+  await completeButton.click();
+  await expect(optionalItem.getByRole('button', { name: 'Undo' })).toBeVisible();
+  await optionalItem.getByRole('button', { name: 'Undo' }).click();
+  await expect(completeButton).toBeVisible();
+
+  // The circle must complete the same item, not merely exist.
+  await expect(completeCircle).toBeVisible();
+  await completeCircle.click();
+  await expect(optionalItem.getByRole('button', { name: 'Undo' })).toBeVisible();
+  await optionalItem.getByRole('button', { name: 'Undo' }).click();
+  await expect(completeButton).toBeVisible();
+
   await page.keyboard.press('Escape');
 
   await page.goto('/work?tab=available');
@@ -167,8 +265,10 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
     await expect(reasonModal).toBeHidden();
   } else {
     await expect(undo).toBeVisible();
-    await undo.focus();
-    await page.keyboard.press('Enter');
+    // One action rather than focus() then a separate keyboard press. Activating
+    // work triggers a router refresh, so the button can remount between the two
+    // steps; `press` retries focus and key together and cannot land in the gap.
+    await undo.press('Enter');
   }
 
   await page.goto('/plan');
@@ -212,7 +312,7 @@ test('mobile navigation and full-width drawer retain keyboard-sized controls', a
   await signIn(page);
   await expect(page.locator('.rail')).toBeHidden();
   await expect(page.locator('.mobile-nav')).toBeVisible();
-  await page.goto('/work?tab=operational');
+  await page.goto('/work');
   await expectHydrated(page);
   await page.locator('.task-row').first().locator('.row-primary-link').click();
   const drawer = page.locator('.task-detail');

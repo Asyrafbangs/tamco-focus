@@ -16,6 +16,10 @@ export default defineConfig([
     'src/lib/database.types.ts',
     'desktop/**',
     'mobile/**',
+    // Vendored agent skills installed with `npx skills add`. Third-party code,
+    // linted upstream and not ours to change — same reasoning as the
+    // prototypes above.
+    '.claude/skills/**',
   ]),
   {
     rules: {

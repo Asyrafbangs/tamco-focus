@@ -40,3 +40,22 @@ Supporting records are `task_collaborators`, `task_relations`, `task_checklist_i
 `task_overview` supplies the shared task record and overdue/stale predicates. `focus_summary`, `team_load_summary`, and `plan_events` provide purpose-specific reads. All use `security_invoker`, so they preserve the caller's RLS context.
 
 Generated TypeScript definitions in `src/lib/database.types.ts` must match the reset local schema; `npm run db:types:check` enforces this.
+
+## v53 execution and Goal sessions
+
+- `tasks.source_module`, `source_entity_type`, and `source_entity_id` are an all-or-none generic
+  external-source reference. Native Focus work keeps all three null.
+- `barriers` may belong to exactly one Task or Goal and carries `source_active`; Meeting Queue items
+  carry the same terminal-source marker. Source deactivation preserves history and differs from
+  resolution.
+- `work_proposals` is optimistic-concurrency controlled and supports Pending, Changes requested,
+  Approved and Declined Major Project decisions.
+- `performance_periods` and `employee_goal_plans` define formal allocation. Plan finalisation is
+  exactly 100%; cancellation changes the plan to Reallocation required.
+- `goal_checkin_sessions` is the employee/month or employee/quarter header;
+  `goal_checkin_session_items` stores one snapshot per Active Goal and links to the compatible
+  per-Goal check-in history.
+- Goal success measures store `actual_result`, actor and timestamp at completion. Goal cancellation
+  stores its own actor/time/reason and never reuses completion fields.
+- `goal_plan_overview`, `goal_session_overview`, and `action_requests_overview` are
+  security-invoker read models.

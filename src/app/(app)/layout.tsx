@@ -1,9 +1,10 @@
 import { redirect } from 'next/navigation';
 
 import { MobileNavigation, NavigationRail } from '@/components/Navigation';
+import { NotificationBell } from '@/components/NotificationBell';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { getCurrentProfile } from '@/lib/supabase/server';
-import { getActionRequiredCount } from '@/server/queries';
+import { getActionRequiredCount, getNotifications } from '@/server/queries';
 import type { AppRole } from '@/domain/types';
 
 import { SignOutButton } from './SignOutButton';
@@ -23,7 +24,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!profile) redirect('/sign-in');
 
   const role = profile.role as AppRole;
-  const actionRequiredCount = await getActionRequiredCount(profile.id);
+  const [actionRequiredCount, notifications] = await Promise.all([
+    getActionRequiredCount(profile.id),
+    getNotifications(profile.id),
+  ]);
 
   const initials = profile.full_name
     .split(' ')
@@ -61,6 +65,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
           <div className="top-right">
             <span className="signed-in-name">{profile.full_name}</span>
+            {/* v42 section M — one bell, in the existing top bar, counting only
+                what is waiting on this person. */}
+            <NotificationBell
+              notifications={notifications}
+              unreadActionable={actionRequiredCount}
+            />
             <ThemeToggle />
             <div className="avatar" aria-hidden="true">
               {initials}

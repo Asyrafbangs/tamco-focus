@@ -1,9 +1,14 @@
 export type GoalStatus =
   'draft' | 'pending_discussion' | 'active' | 'completed' | 'closed' | 'cancelled';
 
-export type GoalHealth = 'on_track' | 'need_attention' | 'support_requested' | 'completed';
+export type GoalHealth =
+  'on_track' | 'at_risk' | 'off_track' | 'need_attention' | 'support_requested' | 'completed';
 export type GoalVersionStatus = 'pending' | 'active' | 'superseded' | 'rejected';
 export type GoalCategory = 'performance' | 'improvement' | 'development';
+export type GoalMeasureType = 'number' | 'percentage' | 'qualitative';
+export type GoalMeasureState = 'not_started' | 'progressing' | 'achieved' | 'exceeded';
+export type GoalCheckinType = 'monthly' | 'quarterly' | 'year_end';
+export type GoalCheckinStatus = 'draft' | 'submitted' | 'agreed' | 'finalized';
 
 export interface GoalMilestoneProgress {
   weightPercent: number;
@@ -54,6 +59,21 @@ export interface GoalOverview {
   completedAt: string | null;
   closedAt: string | null;
   createdAt: string;
+  successMeasureCount: number;
+  measureProgress: number;
+  nextMonthlyCheckinDate: string;
+  isMonthlyCheckinDue: boolean;
+  lastMonthlyCheckinAt: string | null;
+  lastMonthlyCheckinStatus: GoalHealth | null;
+  nextQuarterlyCheckinDate: string;
+  isQuarterlyCheckinDue: boolean;
+  quarterlyRequiresManagerAction: boolean;
+  managerNeedsAttention: boolean;
+  managerAttentionReason: string | null;
+  currentQuarterlyCheckinId: string | null;
+  currentQuarterlyStatus: GoalCheckinStatus | null;
+  latestYearEndResult: string | null;
+  latestYearEndStatus: GoalCheckinStatus | null;
 }
 
 export interface GoalTeamSummary {
@@ -66,6 +86,8 @@ export interface GoalTeamSummary {
   checkinDueCount: number;
   weightedProgress: number;
   lastGoalUpdateAt: string | null;
+  quarterlyActionCount: number;
+  quarterlyDueCount: number;
 }
 
 export const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
@@ -79,25 +101,25 @@ export const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
 
 export const GOAL_HEALTH_LABELS: Record<GoalHealth, string> = {
   on_track: 'On track',
+  at_risk: 'At risk',
+  off_track: 'Off track',
   need_attention: 'Needs attention',
   support_requested: 'Support requested',
   completed: 'Completed',
 };
 
-export const GOAL_LIFECYCLE_VIEWS = ['active', 'discussion', 'completed', 'all'] as const;
+export const GOAL_LIFECYCLE_VIEWS = ['active', 'draft', 'completed'] as const;
 export type GoalLifecycleView = (typeof GOAL_LIFECYCLE_VIEWS)[number];
 
 export const GOAL_LIFECYCLE_LABELS: Record<GoalLifecycleView, string> = {
   active: 'Active',
-  discussion: 'For discussion',
+  draft: 'Draft',
   completed: 'Completed',
-  all: 'All',
 };
 
 export function matchesGoalLifecycle(status: GoalStatus, view: GoalLifecycleView): boolean {
-  if (view === 'all') return status !== 'cancelled';
   if (view === 'active') return status === 'active';
-  if (view === 'discussion') return status === 'draft' || status === 'pending_discussion';
+  if (view === 'draft') return status === 'draft' || status === 'pending_discussion';
   return status === 'completed' || status === 'closed';
 }
 
@@ -131,14 +153,17 @@ export function canActivateGoalWeight(
 
 export function goalDisplayHealth(
   goal: GoalOverview,
-): 'On track' | 'Needs attention' | 'Update due' | 'Completed' {
+): 'On track' | 'At risk' | 'Off track' | 'Needs attention' | 'Update due' | 'Completed' {
   if (goal.status === 'completed' || goal.status === 'closed' || goal.health === 'completed') {
     return 'Completed';
   }
-  if (goal.isCheckinDue || goal.isUpdateRequested) return 'Update due';
-  if (goal.health === 'need_attention' || goal.health === 'support_requested') {
+  if (goal.openSupportCount > 0 || goal.health === 'support_requested') {
     return 'Needs attention';
   }
+  if (goal.health === 'off_track') return 'Off track';
+  if (goal.health === 'at_risk') return 'At risk';
+  if (goal.health === 'need_attention') return 'Needs attention';
+  if (goal.isCheckinDue || goal.isUpdateRequested) return 'Update due';
   return 'On track';
 }
 
@@ -168,8 +193,8 @@ export interface GoalMilestoneDraft {
 }
 
 export function validateGoalMilestones(milestones: readonly GoalMilestoneDraft[]): string | null {
-  if (milestones.length < 1 || milestones.length > 10) {
-    return 'Define between one and ten milestones.';
+  if (milestones.length > 5) {
+    return 'Add no more than five optional milestones.';
   }
   if (
     milestones.some(
@@ -187,6 +212,7 @@ export function validateGoalMilestones(milestones: readonly GoalMilestoneDraft[]
     return 'Provide every milestone weight or leave every weight blank.';
   }
   if (
+    supplied.length > 0 &&
     supplied.length === milestones.length &&
     supplied.reduce((total, milestone) => total + Number(milestone.weightPercent), 0) !== 100
   ) {
@@ -203,20 +229,108 @@ export function goalProgressDifference(reported: number, derived: number): numbe
 export function isMeaningfulGoalException(goal: GoalOverview): boolean {
   return (
     goal.status === 'active' &&
-    (goal.isCheckinDue ||
-      goal.isUpdateRequested ||
-      goal.openSupportCount > 0 ||
-      goal.needsAttention ||
-      goal.isTargetApproaching ||
-      goal.hasRecentMilestoneCompletion)
+    (goal.isMonthlyCheckinDue || goal.isUpdateRequested || goal.managerNeedsAttention)
   );
 }
 
 export function goalExceptionMessage(goal: GoalOverview): string {
   if (goal.openSupportCount > 0) return 'Support is requested';
   if (goal.isUpdateRequested) return 'Your manager requested an update';
-  if (goal.isCheckinDue) return 'Check-in is due';
-  if (goal.isTargetApproaching) return 'Target date is approaching';
-  if (goal.hasRecentMilestoneCompletion) return 'A milestone was recently completed';
-  return goal.attentionReason ?? 'Needs attention';
+  if (goal.quarterlyRequiresManagerAction) return 'Quarterly discussion is ready';
+  if (goal.isMonthlyCheckinDue) return 'Monthly check-in is due';
+  return goal.managerAttentionReason ?? goal.attentionReason ?? 'Needs attention';
+}
+
+export interface StructuredGoalSuccessMeasureDraft {
+  label: string;
+  measureType: GoalMeasureType;
+  targetNumeric?: number | null;
+  currentNumeric?: number | null;
+  unit?: string | null;
+  period?: string | null;
+  targetText?: string | null;
+}
+
+export interface LeanGoalSuccessMeasureDraft {
+  description: string;
+  optionalTargetDate?: string | null;
+}
+
+export type GoalSuccessMeasureDraft =
+  StructuredGoalSuccessMeasureDraft | LeanGoalSuccessMeasureDraft;
+
+export function validateGoalSuccessMeasures(
+  measures: readonly GoalSuccessMeasureDraft[],
+): string | null {
+  if (measures.length < 1 || measures.length > 10) {
+    return 'Add between one and ten success measures.';
+  }
+  for (const measure of measures) {
+    if ('description' in measure) {
+      if (!measure.description.trim()) return 'Every success measure needs a clear result.';
+      if (
+        measure.optionalTargetDate != null &&
+        !/^\d{4}-\d{2}-\d{2}$/.test(measure.optionalTargetDate)
+      ) {
+        return 'A different success-measure due date must be a valid date.';
+      }
+      continue;
+    }
+    if (!measure.label.trim()) return 'Every success measure needs a clear result.';
+    if (measure.measureType === 'qualitative') {
+      if (!(measure.targetText?.trim() || measure.label.trim())) {
+        return 'Qualitative measures need a clear target state.';
+      }
+      continue;
+    }
+    if (measure.targetNumeric == null || measure.targetNumeric <= 0) {
+      return 'Numeric measures need a target greater than zero.';
+    }
+    if (
+      measure.measureType === 'percentage' &&
+      (measure.targetNumeric > 100 ||
+        (measure.currentNumeric != null &&
+          (measure.currentNumeric < 0 || measure.currentNumeric > 100)))
+    ) {
+      return 'Percentage measures must stay between zero and 100.';
+    }
+  }
+  return null;
+}
+
+export function goalMeasureProgress(measure: {
+  measureType: GoalMeasureType;
+  targetNumeric: number | null;
+  currentNumeric: number | null;
+  currentState: GoalMeasureState | null;
+}): number {
+  if (measure.measureType === 'qualitative') {
+    if (measure.currentState === 'achieved' || measure.currentState === 'exceeded') return 100;
+    return measure.currentState === 'progressing' ? 50 : 0;
+  }
+  if (measure.measureType === 'percentage') {
+    return Math.round(Math.min(100, Math.max(0, measure.currentNumeric ?? 0)));
+  }
+  if (!measure.targetNumeric || measure.targetNumeric <= 0) return 0;
+  return Math.round(
+    Math.min(100, Math.max(0, ((measure.currentNumeric ?? 0) / measure.targetNumeric) * 100)),
+  );
+}
+
+export function goalOverallMeasureProgress(
+  measures: readonly Parameters<typeof goalMeasureProgress>[0][],
+): number {
+  if (!measures.length) return 0;
+  return Math.round(
+    measures.reduce((total, measure) => total + goalMeasureProgress(measure), 0) / measures.length,
+  );
+}
+
+export function goalMonthEnd(value: Date): Date {
+  return new Date(value.getFullYear(), value.getMonth() + 1, 0);
+}
+
+export function goalQuarterEnd(value: Date): Date {
+  const quarterEndMonth = Math.floor(value.getMonth() / 3) * 3 + 3;
+  return new Date(value.getFullYear(), quarterEndMonth, 0);
 }

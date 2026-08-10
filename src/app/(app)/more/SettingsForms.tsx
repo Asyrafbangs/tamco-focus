@@ -250,7 +250,7 @@ export function PersonalSettingsForm({
         </fieldset>
       )}
       <ActionStatus state={state} />
-      <button className="btn primary" type="submit" disabled={pending}>
+      <button className="btn primary" type="submit" disabled={pending} aria-busy={pending}>
         {pending ? 'Saving…' : 'Save my settings'}
       </button>
     </form>
@@ -290,7 +290,7 @@ export function SettingsPolicyRow({
       </div>
       <div className="setting-control">
         {settingInput(setting.key, setting.value)}
-        <button className="btn small" type="submit" disabled={pending}>
+        <button className="btn small" type="submit" disabled={pending} aria-busy={pending}>
           {pending ? 'Saving…' : 'Save'}
         </button>
       </div>
@@ -377,7 +377,7 @@ export function UserCreateForm({ directory }: { directory: DirectoryData }) {
         </label>
       </div>
       <ActionStatus state={state} />
-      <button className="btn primary" type="submit" disabled={pending}>
+      <button className="btn primary" type="submit" disabled={pending} aria-busy={pending}>
         {pending ? 'Creating…' : 'Create user'}
       </button>
     </form>
@@ -455,7 +455,7 @@ export function UserEditForm({
         </label>
       </div>
       <ActionStatus state={state} />
-      <button className="btn primary" type="submit" disabled={pending}>
+      <button className="btn primary" type="submit" disabled={pending} aria-busy={pending}>
         {pending ? 'Saving…' : 'Save user'}
       </button>
     </form>
@@ -475,7 +475,7 @@ export function UserStatusForm({ user }: { user: DirectoryUser }) {
           name="intent"
           value={user.status === 'active' ? 'deactivate' : 'reactivate'}
         />
-        <button className="btn" type="submit" disabled={pending}>
+        <button className="btn" type="submit" disabled={pending} aria-busy={pending}>
           {user.status === 'active' ? 'Deactivate account' : 'Reactivate account'}
         </button>
       </form>
@@ -484,7 +484,7 @@ export function UserStatusForm({ user }: { user: DirectoryUser }) {
           <input type="hidden" name="userId" value={user.id} />
           <input type="hidden" name="intent" value="deactivate_with_open_work" />
           <p>{state.message}</p>
-          <button className="btn" type="submit" disabled={pending}>
+          <button className="btn" type="submit" disabled={pending} aria-busy={pending}>
             Confirm controlled exception
           </button>
         </form>
@@ -501,7 +501,7 @@ export function UserStatusForm({ user }: { user: DirectoryUser }) {
           <input name="employeeIdConfirmation" placeholder={`Type ${user.employeeId}`} />
         </label>
         <p className="form-hint">The database rejects deletion whenever retained history exists.</p>
-        <button className="btn danger" type="submit" disabled={pending}>
+        <button className="btn danger" type="submit" disabled={pending} aria-busy={pending}>
           Permanently delete history-free account
         </button>
       </form>
@@ -650,7 +650,7 @@ export function VisibilityForm({
         )}
       </section>
       <ActionStatus state={state} />
-      <button className="btn primary" type="submit" disabled={pending}>
+      <button className="btn primary" type="submit" disabled={pending} aria-busy={pending}>
         {pending ? 'Saving…' : 'Save visibility rules'}
       </button>
     </form>

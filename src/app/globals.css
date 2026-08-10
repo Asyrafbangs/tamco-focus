@@ -173,7 +173,7 @@
   margin: 0 0 16px;
 }
 .task-metadata-chip,
-.task-metadata-strip > .age-row .flag {
+.task-metadata-strip .age-row .flag {
   min-height: 30px;
   display: inline-flex;
   align-items: center;
@@ -194,9 +194,22 @@
   font-weight: 600;
 }
 .task-metadata-strip > .age-row {
-  display: contents;
+  flex: 0 0 auto;
+  max-width: 100%;
+  gap: 8px;
 }
-.task-metadata-strip > .age-row .flag::before,
+.age-row-item,
+.age-row-tail {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+/* The information control explains the final age indicator. Keeping that pair
+   atomic prevents an orphaned information button when the chip strip wraps. */
+.age-row-tail {
+  gap: 8px;
+}
+.task-metadata-strip .age-row .flag::before,
 .metadata-dot {
   width: 8px;
   height: 8px;
@@ -205,17 +218,17 @@
   background: var(--blue);
   content: '';
 }
-.task-metadata-strip > .age-row .flag.red::before,
+.task-metadata-strip .age-row .flag.red::before,
 .metadata-dot.cancelled,
 .metadata-dot.urgency-critical {
   background: var(--red);
 }
-.task-metadata-strip > .age-row .flag.amber::before,
+.task-metadata-strip .age-row .flag.amber::before,
 .metadata-dot.paused,
 .metadata-dot.urgency-high {
   background: var(--amber);
 }
-.task-metadata-strip > .age-row .flag.neutral::before,
+.task-metadata-strip .age-row .flag.neutral::before,
 .metadata-dot.backlog,
 .metadata-dot.urgency-low {
   background: var(--muted);
@@ -472,7 +485,7 @@
     max-width: 210px;
   }
   .task-metadata-chip,
-  .task-metadata-strip > .age-row .flag {
+  .task-metadata-strip .age-row .flag {
     padding-inline: 9px;
   }
   .update-composer-footer {
@@ -668,9 +681,36 @@
   font-size: 13px;
 }
 .task-age-explanation-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.5;
+}
+.modal-layer .modal.task-age-modal {
+  display: flex;
+  width: min(560px, 100%);
+  max-width: 100%;
+  max-height: min(760px, calc(100dvh - 40px));
+  flex-direction: column;
+  overflow: hidden;
+}
+.task-age-modal .modal-head,
+.task-age-modal .modal-foot {
+  flex: 0 0 auto;
+}
+.task-age-modal .modal-body {
+  min-width: 0;
+  min-height: 0;
+  padding: 0 20px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.task-age-modal .modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 20px 18px;
+  border-top: 1px solid var(--line);
 }
 .next-action-section {
   border-color: color-mix(in srgb, var(--blue) 30%, var(--line));
@@ -974,12 +1014,40 @@
     margin-top: 12px;
   }
   .task-age-info {
+    position: relative;
     width: 28px;
     height: 28px;
+  }
+  /* A 28px circle keeps the chip strip compact, but the touch area still has to
+     reach the 44px the rest of the mobile build uses. The pseudo-element grows
+     the target without growing the layout. */
+  .task-age-info::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+    content: '';
   }
   .task-age-explanation-row {
     grid-template-columns: 1fr;
     gap: 3px;
+  }
+  .modal-layer {
+    padding: 14px;
+  }
+  .modal-layer .modal.task-age-modal {
+    max-height: calc(100dvh - 28px);
+  }
+  .task-age-modal .modal-head {
+    padding: 16px 16px 13px;
+  }
+  .task-age-modal .modal-body {
+    padding-inline: 16px;
+  }
+  .task-age-modal .modal-foot {
+    padding: 12px 16px 16px;
   }
   .detail-two-column {
     grid-template-columns: 1fr;
@@ -1081,9 +1149,25 @@
   gap: 10px;
   padding: 10px;
 }
+/*
+ * `min-width: 0` is load-bearing, not cosmetic.
+ *
+ * Grid items default to `min-width: auto`, which means they refuse to shrink
+ * below their content's min-content width. A group holding an unbreakable
+ * label — "Delivery history", "Recent weekly emails" — therefore grew wider
+ * than `.settings-menu` and escaped its 10px padding by 56px, so the rows sat
+ * hard against and past the panel edge.
+ *
+ * The `0` restores the shrink the grid was already asking for. It changes no
+ * spacing value; it lets the declared padding actually hold.
+ */
 .settings-menu-group {
   display: grid;
+  min-width: 0;
   gap: 3px;
+}
+.settings-menu-group > * {
+  min-width: 0;
 }
 .settings-menu-label {
   padding: 5px 7px 3px;
@@ -1466,7 +1550,6 @@
   padding-block: 11px;
 }
 .task-row.interactive-row:hover .title-link strong,
-.member-task-row.interactive-row:hover .row-primary-link strong,
 .record-row.interactive-row:hover .row-primary-link strong {
   color: var(--blue);
 }
@@ -1489,6 +1572,21 @@
   text-decoration: none;
   filter: saturate(1.08);
 }
+/* Whose commitment this is, on the team calendar. Kept quieter than the title
+   so the day still reads as a list of work, not a list of people. */
+/* Empty states are centred, so a pair of actions has to centre with them. */
+.empty-state .row {
+  justify-content: center;
+}
+.cal-item-owner {
+  display: block;
+  overflow: hidden;
+  font-size: 8.5px;
+  font-weight: 600;
+  opacity: 0.78;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 @media (max-width: 720px) {
   .task-detail {
@@ -1502,128 +1600,6 @@
   gap: 12px;
   margin-top: 14px;
 }
-.member-card {
-  overflow: hidden;
-  padding: 14px;
-}
-.member-head,
-.member-id {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.member-head {
-  justify-content: space-between;
-}
-.member-id > div:last-child > strong {
-  font-size: 13px;
-}
-.member-focus-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 9px;
-  margin-top: 12px;
-}
-.member-focus-column {
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-2);
-}
-.member-focus-column > header {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 9px 10px 7px;
-  font-size: 10px;
-}
-.member-focus-column > header span {
-  color: var(--muted);
-  white-space: nowrap;
-}
-.member-focus-column > .progress-indicator {
-  padding: 0 10px 8px;
-}
-.member-task-list {
-  border-top: 1px solid var(--line-soft);
-  background: var(--surface);
-}
-.member-task-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 3px 8px;
-  min-height: 58px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--line-soft);
-}
-.member-task-row:last-child {
-  border-bottom: 0;
-}
-.member-task-row strong {
-  display: block;
-  overflow: hidden;
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.member-task-row > span {
-  color: var(--muted);
-  font-size: 9px;
-}
-.member-task-row .age-row {
-  grid-column: 1 / -1;
-}
-.member-task-row .age-row .flag {
-  padding: 2px 5px;
-  font-size: 8px;
-}
-.member-task-empty {
-  display: block;
-  min-height: 46px;
-  padding: 14px 10px;
-  color: var(--muted);
-  font-size: 9px;
-}
-.member-loads {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 9px;
-}
-.loadbox {
-  padding: 9px 10px;
-  border: 1px solid var(--line-soft);
-  border-radius: 9px;
-  background: var(--surface-2);
-}
-.loadbox .top {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 10px;
-  font-weight: 650;
-}
-
-@media (max-width: 900px) {
-  .member-focus-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 600px) {
-  .member-head {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .member-head > .row {
-    justify-content: flex-start !important;
-  }
-  .member-loads {
-    grid-template-columns: 1fr;
-  }
-}
-
 /* Section 25.7 — Day and Night modes with equivalent contrast and identical
    status meaning. */
 :root[data-theme='dark'] {
@@ -3094,9 +3070,122 @@ button {
   border-color: transparent;
   background: transparent;
 }
-.btn[disabled] {
-  opacity: 0.48;
+/* ------------------------------------------------------------------------ */
+/* Disabled — one treatment, every control                                    */
+/*                                                                            */
+/* Two problems this fixes.                                                   */
+/*                                                                            */
+/* Only `.btn` had a disabled style. A `<select>` or `<input>` disabled during */
+/* a pending action looked exactly like an editable one, so people typed into  */
+/* a field that silently discarded the keystrokes. There are 66 `disabled`     */
+/* bindings in the app and a `<fieldset disabled>` wrapping a whole settings   */
+/* form; all of them were invisible.                                          */
+/*                                                                            */
+/* And `opacity: 0.48` is not a disabled state, it is a contrast bug wearing   */
+/* one: it drags label text to roughly 2:1, below AA, so the control becomes   */
+/* unreadable rather than unavailable. Real muted tokens keep the text legible */
+/* while making clearly it cannot be used.                                    */
+/* ------------------------------------------------------------------------ */
+
+.btn[disabled],
+.btn:disabled,
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled,
+fieldset:disabled .field input,
+fieldset:disabled .field select,
+fieldset:disabled .field textarea {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--muted);
   cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* A disabled primary action must stop reading as the thing to press. */
+.btn.primary[disabled],
+.btn.primary:disabled,
+.btn.danger[disabled],
+.btn.danger:disabled {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+/* ------------------------------------------------------------------------ */
+/* Busy is not disabled                                                       */
+/*                                                                            */
+/* 36 of 49 action buttons set `disabled={pending}` and nothing else, so a     */
+/* button mid-save looked identical to one that cannot be used. Standardising  */
+/* the disabled treatment above sharpened that: it now clearly reads           */
+/* "unavailable" when the truth is "working".                                  */
+/*                                                                            */
+/* `aria-busy` is the existing platform vocabulary for this and it carries to  */
+/* assistive technology for free, so the fix is one attribute alongside the    */
+/* disabled binding rather than 36 bespoke pending labels. The control keeps   */
+/* its own colour — it is still the primary action, just not ready yet — and   */
+/* a moving hairline says the work is in flight.                               */
+/* ------------------------------------------------------------------------ */
+
+.btn[aria-busy='true'],
+button[aria-busy='true'] {
+  position: relative;
+  overflow: hidden;
+  cursor: progress;
+}
+
+/* Restores the enabled colours the disabled rule above would otherwise win. */
+.btn[aria-busy='true']:disabled {
+  border-color: inherit;
+  background: inherit;
+  color: inherit;
+}
+.btn.primary[aria-busy='true']:disabled {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: #fff;
+}
+.btn.danger[aria-busy='true']:disabled {
+  border-color: var(--red);
+  background: var(--red);
+  color: #fff;
+}
+
+.btn[aria-busy='true']::after,
+button[aria-busy='true']::after {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.55;
+  content: '';
+  animation: busy-sweep 900ms linear infinite;
+}
+
+@keyframes busy-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Checkboxes and radios keep their control shape; only the affordance goes. */
+input[type='checkbox']:disabled,
+input[type='radio']:disabled {
+  background: var(--surface-2);
+  cursor: not-allowed;
+}
+
+/* The label of a disabled control is disabled too, or the row lies about
+   which parts are still editable. */
+fieldset:disabled label,
+.field:has(input:disabled) > label,
+.field:has(select:disabled) > label,
+.field:has(textarea:disabled) > label {
+  color: var(--muted);
 }
 
 .card {
@@ -3231,8 +3320,27 @@ button {
 
 .today-grid {
   display: grid;
-  grid-template-columns: minmax(330px, 0.85fr) minmax(0, 1.35fr);
+  align-items: stretch;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+.start-next-action {
+  margin: 10px 0 12px;
+  padding-left: 11px;
+  border-left: 3px solid var(--blue);
+}
+.start-next-action .eyebrow {
+  margin: 0 0 3px;
+}
+.start-next-action p {
+  margin: 0;
+  font-size: 12px;
+}
+.start-meta .pill.overdue {
+  border-color: color-mix(in srgb, var(--red) 30%, var(--line));
+  background: var(--red-bg);
+  color: var(--red);
+  font-weight: 600;
 }
 .start-card {
   padding: 18px;
@@ -3640,6 +3748,15 @@ button {
   background: var(--red-bg);
   color: var(--red);
 }
+/*
+ * v47 §26 — a booked discussion. Blue because it is the one entry on this grid
+ * that is an appointment rather than a deadline: nothing is late, something is
+ * arranged.
+ */
+.cal-item.discussion {
+  background: var(--blue-bg);
+  color: var(--blue);
+}
 
 .plan-legend {
   display: flex;
@@ -3648,6 +3765,775 @@ button {
   margin-top: 12px;
   font-size: 11px;
   color: var(--muted);
+}
+
+/* ------------------------------------------------------------------------ */
+/* Team Focus — exception-first manager list (v36/v37)                       */
+/* Values taken from the approved prototype.                                 */
+/* ------------------------------------------------------------------------ */
+
+.team-focus-summary {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+  margin-bottom: 11px;
+}
+.team-focus-summary .metric {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.team-focus-summary .metric b {
+  font-size: 13px;
+  color: var(--text);
+}
+.team-focus-summary .metric.bad b {
+  color: var(--red);
+}
+
+.team-focus-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.team-focus-filter {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.team-focus-filter a {
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+  min-height: var(--control-h);
+  display: inline-flex;
+  align-items: center;
+}
+.team-focus-filter a.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 2px 6px rgba(13, 35, 66, 0.08);
+}
+.team-focus-sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+/* Once hydrated the select navigates on change, matching the prototype, so the
+   no-JavaScript fallback button is redundant. */
+html[data-app-hydrated='true'] .team-focus-sort-apply {
+  display: none;
+}
+.team-focus-sort select {
+  height: var(--control-h);
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+}
+
+.team-focus-list {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.team-focus-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1.45fr) minmax(210px, 0.9fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 13px 14px;
+  border-top: 1px solid var(--line-soft);
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.14s;
+}
+.team-focus-row:first-of-type {
+  border-top: 0;
+}
+.team-focus-row:hover {
+  background: var(--surface-2);
+}
+/* Severity is an inset bar, so the row keeps its full width and the signal is
+   never the only cue — the chips below spell it out. */
+.team-focus-row.attention {
+  box-shadow: inset 3px 0 0 var(--amber);
+}
+.team-focus-row.critical {
+  box-shadow: inset 3px 0 0 var(--red);
+}
+.team-focus-row .avatar {
+  margin: 0;
+  width: 36px;
+  height: 36px;
+  font-size: 11px;
+}
+.team-focus-row strong {
+  display: block;
+  font-weight: 600;
+}
+.team-focus-row .sub {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 2px;
+}
+.team-focus-right {
+  text-align: right;
+}
+.team-focus-chevron {
+  font-size: 17px;
+  color: var(--muted);
+}
+.team-focus-capacity {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.team-cap {
+  font-size: 9.5px;
+  color: var(--muted);
+}
+.team-cap b {
+  color: var(--text);
+  font-size: 9.5px;
+}
+.team-cap.over {
+  color: var(--red);
+}
+.team-cap.over b {
+  color: var(--red);
+}
+.team-attention-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  font-size: 9px;
+  color: var(--muted);
+  margin-right: 6px;
+}
+.team-attention-chip.bad {
+  background: var(--red-bg);
+  border-color: color-mix(in srgb, var(--red) 25%, var(--line));
+  color: var(--red);
+}
+.team-attention-chip.warn {
+  background: var(--amber-bg);
+  border-color: color-mix(in srgb, var(--amber) 25%, var(--line));
+  color: var(--amber);
+}
+.team-focus-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 700px) {
+  .team-focus-row {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+  /* The trailing summary column stacks under the name rather than squeezing. */
+  .team-focus-right {
+    grid-column: 2 / -1;
+    text-align: left;
+  }
+}
+
+/* Team Focus — member detail drawer (prototype `.team-member-*`). */
+
+.team-member-drawer {
+  width: min(640px, 100%);
+}
+.team-member-headline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.team-member-headline .avatar {
+  margin: 0;
+  width: 34px;
+  height: 34px;
+  font-size: 11px;
+}
+.team-member-summary {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+}
+.team-member-attention {
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.team-member-attention-head {
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.team-member-attention-head strong {
+  font-size: 12px;
+}
+.team-member-attention-head span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.team-manager-action {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 12px;
+  border-top: 1px solid var(--line-soft);
+}
+.team-manager-action:first-of-type {
+  border-top: 0;
+}
+.team-manager-action-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--amber-bg);
+  color: var(--amber);
+  font-size: 10px;
+  font-weight: 700;
+}
+.team-manager-action-icon.bad {
+  background: var(--red-bg);
+  color: var(--red);
+}
+.team-manager-action strong {
+  display: block;
+  font-size: 12px;
+}
+.team-manager-action span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 2px;
+}
+.team-current-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.team-current-row:first-of-type {
+  border-top: 0;
+}
+/* The whole title is the link, but it should read as a row title rather than a
+   raw hyperlink — the rest of the app treats links inside rows the same way. */
+.team-current-row a {
+  color: inherit;
+  text-decoration: none;
+}
+.team-current-row a:hover strong,
+.team-current-row a:focus-visible strong {
+  color: var(--blue);
+  text-decoration: underline;
+}
+.team-current-row strong {
+  display: block;
+  font-size: 12px;
+}
+.team-current-row-next {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 3px;
+}
+.team-current-row-right {
+  text-align: right;
+  font-size: 10px;
+  color: var(--muted);
+}
+.team-current-row-right b {
+  display: block;
+  color: var(--text);
+  font-size: 12px;
+}
+.team-secondary-card {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+.team-secondary-card strong {
+  display: block;
+  font-size: 12px;
+}
+.team-secondary-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 3px;
+}
+.team-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 8px;
+}
+.team-section-head h3 {
+  margin: 0;
+  font-size: 12px;
+}
+.team-section-head span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Focus capacity strip (v40 section 1)                                      */
+/*                                                                           */
+/* Reports the 1 / 5 / 1 model without being somewhere to click. Quiet by     */
+/* design: it is orientation, not navigation.                                 */
+/* ------------------------------------------------------------------------ */
+
+.capacity-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 12px 0 8px;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+.capacity-strip b {
+  color: var(--text);
+  font-weight: 650;
+}
+.capacity-strip .over,
+.capacity-strip .over b {
+  color: var(--red);
+}
+.focus-tab-meaning {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Manager assignment panel (v40 section 3)                                  */
+/* ------------------------------------------------------------------------ */
+
+.assign-panel {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.assign-toggle {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+.assign-toggle input {
+  margin-top: 3px;
+  flex: 0 0 auto;
+}
+.assign-toggle strong {
+  display: block;
+  font-size: 12px;
+}
+.assign-toggle small {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+.assign-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 11px;
+  margin-top: 13px;
+  padding-top: 13px;
+  border-top: 1px solid var(--line);
+}
+.assign-fields .full,
+.assign-people {
+  grid-column: 1 / -1;
+}
+.assign-people {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 10px;
+  background: var(--surface);
+}
+.assign-people legend {
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: 650;
+}
+.assign-hint {
+  margin: 0 0 9px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+}
+.assign-person {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 32px;
+  cursor: pointer;
+  font-size: 11.5px;
+}
+.assign-person small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+/* Quick Action drawer (v40 section 10) — small on purpose. */
+.quick-action-drawer .task-detail-scroll {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+.quick-action-facts {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.quick-action-primary .btn {
+  width: 100%;
+  justify-content: center;
+}
+.quick-action-secondary {
+  border-top: 1px solid var(--line-soft);
+  padding-top: 12px;
+}
+.quick-action-secondary > summary {
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--blue);
+}
+.quick-action-secondary > p {
+  margin: 9px 0 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Checklist "+ Add step" and its progressive disclosure (v41 section 8). */
+.task-checklist-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.checklist-more-options > summary {
+  cursor: pointer;
+  color: var(--blue);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 6px 0;
+}
+.checklist-more-options[open] {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+.checklist-more-options .field {
+  margin-top: 10px;
+}
+.available-note {
+  color: var(--muted);
+  font-style: normal;
+}
+
+/* The checklist circle is a real control (v42 section E), not decoration. */
+.checklist-state-button {
+  padding: 0;
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color var(--motion-fast) var(--motion-easing),
+    background var(--motion-fast) var(--motion-easing);
+}
+.checklist-state-button:hover:not(:disabled),
+.checklist-state-button:focus-visible {
+  border-color: var(--blue);
+  background: var(--blue-bg);
+}
+.checklist-state-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ------------------------------------------------------------------------ */
+/* Notification bell (v42 sections M, N, P)                                  */
+/* ------------------------------------------------------------------------ */
+
+.notification-bell {
+  position: relative;
+}
+.notification-bell-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  font-size: 15px;
+  cursor: pointer;
+}
+.notification-bell-button:hover,
+.notification-bell-button:focus-visible {
+  border-color: var(--blue);
+}
+.notification-bell-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--red);
+  color: #fff;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+}
+.notification-panel {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  z-index: 140;
+  width: min(360px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 18px 44px rgba(13, 35, 66, 0.18);
+  overflow: hidden;
+}
+.notification-panel > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 13px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.notification-panel > header strong {
+  display: block;
+  font-size: 12.5px;
+}
+.notification-panel > header span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.notification-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 340px;
+  overflow-y: auto;
+}
+.notification-panel li + li {
+  border-top: 1px solid var(--line-soft);
+}
+.notification-panel li > button {
+  display: block;
+  width: 100%;
+  padding: 11px 13px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.notification-panel li > button:hover,
+.notification-panel li > button:focus-visible {
+  background: var(--surface-2);
+}
+.notification-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+}
+.notification-dot {
+  color: var(--blue);
+  font-size: 8px;
+  margin-right: 5px;
+  vertical-align: 2px;
+}
+.notification-body {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+.notification-panel li.read .notification-title {
+  font-weight: 500;
+  color: var(--muted);
+}
+.notification-empty {
+  margin: 0;
+  padding: 18px 14px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.notification-panel > footer {
+  padding: 9px 13px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-2);
+  font-size: 11px;
+}
+
+@media (max-width: 720px) {
+  .notification-bell-button {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+.update-composer-note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+/* Structured barrier detail (v44 sections 17, 21). */
+.barrier-question {
+  margin: 9px 0 0;
+}
+.barrier-question > strong {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.barrier-question > span {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+}
+.barrier-responses {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+.barrier-responses p {
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+.barrier-response-form {
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line-soft);
+}
+.barrier-response-form label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.barrier-response-form textarea {
+  width: 100%;
+}
+.barrier-response-form .actions {
+  align-items: center;
+  margin-top: 8px;
+}
+.barrier-response-form small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+/* Request-type chips (v45 §23) — four options shown, not hidden in a menu. */
+.request-type-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.request-type-chip {
+  position: relative;
+  cursor: pointer;
+}
+.request-type-chip input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.request-type-chip span {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-h);
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+}
+.request-type-chip input:checked + span {
+  border-color: var(--blue);
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+.request-type-chip input:focus-visible + span {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -3838,9 +4724,6 @@ button {
   .day {
     min-height: 90px;
   }
-  .today-grid {
-    grid-template-columns: 1fr;
-  }
   .coming-grid {
     grid-template-columns: 1fr;
   }
@@ -3848,15 +4731,29 @@ button {
     border-right: 0;
     border-bottom: 1px solid var(--line-soft);
   }
+  /*
+   * Three visible children below 900px — person, attention, action — so the
+   * grid needs three columns. With two, the action wrapped onto a second row
+   * in the first column: a button flush against the left edge, under a row
+   * that had doubled in height. Browser zoom lands a 1440px window in this
+   * band, which is how it reached somebody's screen.
+   */
   .task-row {
-    grid-template-columns: minmax(0, 1fr) 150px;
+    grid-template-columns: minmax(0, 1fr) 150px auto;
   }
   .task-row .hide-narrow {
     display: none;
   }
+  .task-row .row-action {
+    grid-column: 3;
+  }
 }
 
 @media (max-width: 700px) {
+  .today-grid {
+    grid-template-columns: 1fr;
+  }
+
   .rail {
     display: none;
   }
@@ -4536,6 +5433,14 @@ button {
 }
 .goal-structure-editor {
   margin-top: 14px;
+  min-width: 0;
+}
+/* Open, the editor is a full-width form rather than a button beside a heading. */
+.goal-structure-editor:has(> form) {
+  flex: 1 0 100%;
+}
+.goal-structure-editor > form {
+  max-width: 100%;
 }
 .goal-structure-editor > .card {
   margin-top: 10px;
@@ -4691,6 +5596,33 @@ button {
   padding: 18px 20px 14px;
   border-bottom: 1px solid var(--line);
 }
+/*
+ * The siblings `.modal-head` never had.
+ *
+ * Two naming conventions grew side by side — `.modalhead/.modalbody/.modalfoot`
+ * and the hyphenated `.modal-head/.modal-body/.modal-foot`. Only the head of
+ * the hyphenated set was ever written, so four modals in the task drawer (the
+ * barrier request, the due-date editor, the evidence dialog and the task-age
+ * help) rendered their body and footer with NO padding: every field, rule and
+ * button sat hard against the modal border.
+ *
+ * The values match `.modal-head` above so a modal reads as one box rather than
+ * a padded header stuck on an unpadded sheet. The footer keeps a top rule for
+ * the same reason the header keeps a bottom one — the actions are separated
+ * from the content, not floating in it.
+ */
+.modal-body {
+  padding: 16px 20px;
+}
+.modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px 18px;
+  border-top: 1px solid var(--line);
+}
+
 /* The title and its supporting sentence are separate inline elements with no
    whitespace between them; stack them so they do not read as one run-on. */
 .modal-head > div {
@@ -4767,7 +5699,7 @@ button {
 }
 .goal-milestone-edit {
   display: grid;
-  grid-template-columns: 28px minmax(160px, 0.85fr) minmax(220px, 1.3fr) 82px auto;
+  grid-template-columns: 28px minmax(120px, 0.9fr) minmax(160px, 1.2fr) auto;
   align-items: end;
   gap: 8px;
   margin-bottom: 8px;
@@ -4777,7 +5709,7 @@ button {
   background: var(--surface-2);
 }
 .goal-milestone-edit.compact {
-  grid-template-columns: 28px minmax(120px, 0.8fr) minmax(160px, 1.2fr) 70px auto;
+  grid-template-columns: 28px minmax(100px, 0.9fr) minmax(140px, 1.2fr) auto;
 }
 .goal-milestone-number {
   display: grid;
@@ -4940,6 +5872,1481 @@ button {
   }
   .team-goal-summary span {
     font-size: 9px;
+  }
+}
+
+/* ------------------------------------------------------------------------ */
+/* Task detail clarity v38                                                  */
+/* ------------------------------------------------------------------------ */
+
+.task-detail-drawer .barrier-callout {
+  border-color: var(--line);
+  background: var(--surface-2);
+  box-shadow: none;
+}
+.task-detail-drawer .barrier-callout.active {
+  border-color: color-mix(in srgb, var(--red) 45%, var(--line));
+  background: var(--red-bg);
+  box-shadow: inset 3px 0 var(--red);
+}
+.task-detail-drawer .barrier-button {
+  border-color: color-mix(in srgb, var(--red) 35%, var(--line));
+  background: var(--surface);
+  color: var(--red);
+}
+.task-detail-drawer .barrier-button:hover {
+  border-color: var(--red);
+  background: var(--red-bg);
+}
+
+.task-information-line {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0;
+  margin: 0 0 17px;
+  padding: 8px 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 10.5px;
+  line-height: 1;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+.task-detail-drawer .task-detail-scroll[data-tab='overview'] .task-information-line,
+.task-detail-drawer .task-detail-scroll[data-tab='overview'] .checklist-preview-row {
+  display: flex;
+}
+.task-information-line::-webkit-scrollbar {
+  display: none;
+}
+.task-information-segment {
+  display: inline-flex;
+  min-height: 22px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+.task-information-segment + .task-information-segment::before {
+  margin: 0 6px;
+  color: color-mix(in srgb, var(--text) 35%, var(--line));
+  content: '·';
+}
+.task-information-segment.overdue {
+  color: var(--red);
+  font-weight: 650;
+}
+.task-information-line .task-metadata-progress {
+  width: 42px;
+}
+.task-due-edit {
+  min-height: 28px;
+  margin: -4px 0 -4px 2px;
+  padding: 4px 3px;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+}
+.task-due-edit:hover {
+  text-decoration: underline;
+}
+.task-due-edit:focus-visible {
+  border-radius: 4px;
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.task-information-line .task-age-info {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  flex: 0 0 24px;
+  margin-left: 5px;
+  border-color: color-mix(in srgb, var(--blue) 45%, var(--line));
+}
+.task-information-separator {
+  margin-left: 6px;
+  color: color-mix(in srgb, var(--text) 35%, var(--line));
+}
+
+.task-detail-drawer .next-action-section > .eyebrow {
+  margin: 0 0 8px;
+}
+.task-detail-drawer .next-action-view {
+  min-height: 66px;
+  padding: 11px 13px;
+}
+.task-detail-drawer .next-action-copy span {
+  margin-top: 5px;
+  color: var(--muted);
+}
+.checklist-preview-row {
+  display: flex;
+  width: 100%;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: -4px 0 18px;
+  padding: 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background-color var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing);
+}
+.checklist-preview-row:hover {
+  border-color: color-mix(in srgb, var(--blue) 32%, var(--line));
+  background: var(--blue-bg);
+}
+.checklist-preview-row:active {
+  transform: translateY(1px);
+}
+.checklist-preview-row:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.checklist-preview-row > span:first-child {
+  display: grid;
+  gap: 4px;
+}
+.checklist-preview-row strong {
+  font-size: 11px;
+}
+.checklist-preview-row small {
+  color: var(--muted);
+  font-size: 9.5px;
+}
+.checklist-preview-row > span:last-child {
+  color: var(--muted);
+  font-size: 22px;
+}
+
+.current-next-action-block {
+  margin: 0 0 16px;
+  padding: 11px 12px;
+  border: 1px solid color-mix(in srgb, var(--blue) 35%, var(--line));
+  border-radius: 10px;
+  background: var(--blue-bg);
+}
+.current-next-action-block > .eyebrow {
+  margin: 0 0 7px;
+  color: var(--blue);
+  font-size: 9px;
+}
+.current-next-action-row {
+  display: grid;
+  grid-template-columns: 23px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.current-next-action-row strong {
+  min-width: 0;
+  font-size: 11.5px;
+}
+.task-checklist-heading-row {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 0 9px;
+  border-bottom: 1px solid var(--line);
+}
+.task-checklist-heading-row h3 {
+  margin: 0 0 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.task-checklist-heading-row p,
+.task-checklist-heading-row > span {
+  margin: 0;
+  color: var(--muted);
+  font-size: 9.5px;
+}
+.task-checklist-heading-row > span {
+  flex: 0 0 auto;
+}
+.task-checklist-list {
+  display: grid;
+}
+.task-checklist-row {
+  display: grid;
+  min-height: 56px;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.task-checklist-row .checklist-state,
+.current-next-action-row .checklist-state {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--text) 28%, var(--line));
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 700;
+}
+.task-checklist-row.completed .checklist-state {
+  border-color: var(--green);
+  background: var(--green);
+  color: white;
+}
+.task-checklist-row.waiting {
+  opacity: 0.7;
+}
+.task-checklist-row .checklist-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.task-checklist-row .checklist-copy strong {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.task-checklist-row .checklist-copy span {
+  color: var(--muted);
+  font-size: 9px;
+}
+.task-checklist-row.completed .checklist-copy strong {
+  text-decoration: line-through;
+  text-decoration-color: var(--muted);
+}
+.task-checklist-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.task-checklist-actions .btn {
+  white-space: nowrap;
+}
+.task-checklist-actions .btn.primary {
+  min-width: 0;
+}
+
+/*
+ * v45 Part B — the per-step overflow menu.
+ *
+ * Anchored to its own trigger rather than the row, so it opens under the ⋯ the
+ * person actually pressed. `right: 0` keeps it inside the drawer: a menu
+ * hanging off the right edge of a 420px panel is unreachable, and the drawer
+ * clips rather than scrolls.
+ */
+/*
+ * v46 sections 5, 39-42 — the barrier exception line.
+ *
+ * Two states, and they must not look alike: red is "this is yours to answer",
+ * amber is "you are waiting on somebody". The wording carries the difference
+ * too, because colour alone is not a message.
+ */
+.barrier-exception {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+.barrier-exception.owed {
+  border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
+  background: var(--red-bg);
+}
+.barrier-exception.waiting {
+  border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
+  background: var(--amber-bg);
+}
+.barrier-exception-copy {
+  display: grid;
+  flex: 1 1 220px;
+  min-width: 0;
+  gap: 2px;
+}
+.barrier-exception-copy strong {
+  font-size: 11px;
+}
+.barrier-exception.owed .barrier-exception-copy strong {
+  color: var(--red);
+}
+.barrier-exception.waiting .barrier-exception-copy strong {
+  color: var(--amber);
+}
+.barrier-exception-copy p {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 10px;
+}
+.barrier-exception .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/*
+ * Sections 10-11 — the requested action, first.
+ *
+ * Given the weight of a card because it is the reason the person is on this
+ * screen. Everything the task normally leads with waits below it.
+ */
+.barrier-action-panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--red);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.barrier-action-eyebrow {
+  color: var(--red);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.barrier-action-question {
+  display: grid;
+  gap: 2px;
+}
+.barrier-action-question strong {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.barrier-action-question span {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.barrier-action-meta {
+  color: var(--muted);
+  font-size: 9px;
+}
+.barrier-action-form {
+  display: grid;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line-soft);
+}
+.barrier-action-form label {
+  font-size: 10px;
+  font-weight: 600;
+}
+.barrier-action-form textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  resize: vertical;
+}
+.barrier-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.barrier-action-queued {
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 600;
+}
+.barrier-action-form small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+/*
+ * v46 sections 7, 10, 26 — My Day's action queue.
+ *
+ * Deliberately quieter than a task card and shorter than a list: it is a
+ * queue of things to answer, and it should read as finishable. The red
+ * accent marks it as somebody else's blocked work, not a routine chore.
+ */
+/*
+ * `.card` in this stylesheet carries the border and the radius and no padding
+ * at all — each card class sets its own, the way `.start-card` does. Omitting
+ * it here put the heading, the rows and the separators flat against the border.
+ */
+.action-queue {
+  padding: 18px;
+  border-left: 3px solid var(--red);
+}
+/*
+ * v49 §23 — the header wraps rather than compressing.
+ *
+ * "Needs Attention 12" and "View all 12 →" sit on one line when there is room
+ * and stack when there is not; forcing them into a row at 390px squeezes the
+ * link into an unreadable strip.
+ */
+.action-queue-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 10px;
+}
+.action-queue-head > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.action-queue-viewall {
+  flex: 0 0 auto;
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.action-queue-viewall:hover,
+.action-queue-viewall:focus-visible {
+  text-decoration: underline;
+}
+
+/* §31, §34 — nothing owed reads as good news, not as a fault. */
+.action-queue.clear {
+  border-left-color: var(--green);
+}
+.action-queue.clear .action-queue-head h2 {
+  color: var(--green);
+}
+.action-queue-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.action-queue-count {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--red-bg);
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 700;
+}
+.action-queue-head p {
+  color: var(--muted);
+  font-size: 10px;
+}
+.action-queue-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/*
+ * v48 — the attention card, and the pattern every list card here should follow.
+ *
+ * The rule this encodes: a list row shows a bounded preview of user text, the
+ * detail view shows all of it. The previous card built its heading by joining
+ * the action type to the whole request, so the largest text on the screen was
+ * as long as whatever sentence somebody typed — three paragraphs stretching
+ * across the page instead of three scannable rows.
+ *
+ *   grid, minmax(0, 1fr) auto   text owns the width, the control keeps its own
+ *                               column and never competes for it
+ *   min-width: 0                grid and flex children default to min-content
+ *                               and overflow instead of wrapping
+ *   overflow-wrap: anywhere     an unbroken 60-character part number breaks
+ *   line-clamp: 2               the preview is bounded without the data being
+ *                               truncated anywhere
+ *   no fixed height             the card grows; nothing is ever clipped
+ */
+.attention-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px 16px;
+  height: auto;
+  padding: 12px 0;
+}
+.attention-card-main {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.attention-card-type {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.attention-card-type.critical {
+  color: var(--red);
+}
+.attention-card-type.high {
+  color: var(--amber);
+}
+.attention-card-type.normal {
+  color: var(--muted);
+}
+.attention-card-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentcolor;
+}
+.attention-card-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.attention-card-request {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.attention-card-meta {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 9px;
+}
+.attention-card-action {
+  grid-column: 2;
+  grid-row: 1;
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 28px;
+  white-space: nowrap;
+}
+
+/*
+ * Narrow, or zoomed. At 150% the reported width is two-thirds smaller, so the
+ * same query covers a phone and a magnified desktop — both are "not much room",
+ * and neither may clip or scroll sideways.
+ */
+@media (max-width: 640px) {
+  .attention-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .attention-card-action {
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
+    text-align: center;
+  }
+}
+
+.action-queue-list > li + li {
+  border-top: 1px solid var(--line-soft);
+}
+
+/*
+ * The same wrapping rules for the barrier exception banner, which carries the
+ * same unpredictable text.
+ */
+.barrier-exception {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 0;
+}
+.barrier-exception-copy strong,
+.barrier-exception-copy p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
+}
+.barrier-exception .btn {
+  flex: 0 0 auto;
+  max-width: 100%;
+  height: auto;
+  min-height: 28px;
+  white-space: normal;
+}
+@media (max-width: 560px) {
+  .barrier-exception {
+    align-items: flex-start;
+  }
+  .barrier-exception .btn {
+    width: 100%;
+  }
+}
+
+/*
+ * v46 sections 5, 39-42 — the barrier exception line.
+ *
+ * Two states, and they must not look alike: red is "this is yours to answer",
+ * amber is "you are waiting on somebody". The wording carries the difference
+ * too, because colour alone is not a message.
+ */
+.barrier-exception {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+.barrier-exception.owed {
+  border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
+  background: var(--red-bg);
+}
+.barrier-exception.waiting {
+  border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
+  background: var(--amber-bg);
+}
+.barrier-exception-copy {
+  display: grid;
+  flex: 1 1 220px;
+  min-width: 0;
+  gap: 2px;
+}
+.barrier-exception-copy strong {
+  font-size: 11px;
+}
+.barrier-exception.owed .barrier-exception-copy strong {
+  color: var(--red);
+}
+.barrier-exception.waiting .barrier-exception-copy strong {
+  color: var(--amber);
+}
+.barrier-exception-copy p {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 10px;
+}
+.barrier-exception .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/*
+ * Sections 10-11 — the requested action, first.
+ *
+ * Given the weight of a card because it is the reason the person is on this
+ * screen. Everything the task normally leads with waits below it.
+ */
+.barrier-action-panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--red);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.barrier-action-eyebrow {
+  color: var(--red);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.barrier-action-question {
+  display: grid;
+  gap: 2px;
+}
+.barrier-action-question strong {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.barrier-action-question span {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.barrier-action-meta {
+  color: var(--muted);
+  font-size: 9px;
+}
+.barrier-action-form {
+  display: grid;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line-soft);
+}
+.barrier-action-form label {
+  font-size: 10px;
+  font-weight: 600;
+}
+.barrier-action-form textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  resize: vertical;
+}
+.barrier-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.barrier-action-queued {
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 600;
+}
+.barrier-action-form small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+/*
+ * v46 sections 7, 10, 26 — My Day's action queue.
+ *
+ * Deliberately quieter than a task card and shorter than a list: it is a
+ * queue of things to answer, and it should read as finishable. The red
+ * accent marks it as somebody else's blocked work, not a routine chore.
+ */
+/*
+ * `.card` in this stylesheet carries the border and the radius and no padding
+ * at all — each card class sets its own, the way `.start-card` does. Omitting
+ * it here put the heading, the rows and the separators flat against the border.
+ */
+.action-queue {
+  padding: 18px;
+  border-left: 3px solid var(--red);
+}
+.action-queue-head {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+.action-queue-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.action-queue-count {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--red-bg);
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 700;
+}
+.action-queue-head p {
+  color: var(--muted);
+  font-size: 10px;
+}
+.action-queue-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/*
+ * v46 sections 5, 39-42 — the barrier exception line.
+ *
+ * Two states, and they must not look alike: red is "this is yours to answer",
+ * amber is "you are waiting on somebody". The wording carries the difference
+ * too, because colour alone is not a message.
+ */
+.barrier-exception {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+.barrier-exception.owed {
+  border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
+  background: var(--red-bg);
+}
+.barrier-exception.waiting {
+  border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
+  background: var(--amber-bg);
+}
+.barrier-exception-copy {
+  display: grid;
+  flex: 1 1 220px;
+  min-width: 0;
+  gap: 2px;
+}
+.barrier-exception-copy strong {
+  font-size: 11px;
+}
+.barrier-exception.owed .barrier-exception-copy strong {
+  color: var(--red);
+}
+.barrier-exception.waiting .barrier-exception-copy strong {
+  color: var(--amber);
+}
+.barrier-exception-copy p {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 10px;
+}
+.barrier-exception .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/*
+ * Sections 10-11 — the requested action, first.
+ *
+ * Given the weight of a card because it is the reason the person is on this
+ * screen. Everything the task normally leads with waits below it.
+ */
+.barrier-action-panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--red);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.barrier-action-eyebrow {
+  color: var(--red);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.barrier-action-question {
+  display: grid;
+  gap: 2px;
+}
+.barrier-action-question strong {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.barrier-action-question span {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.barrier-action-meta {
+  color: var(--muted);
+  font-size: 9px;
+}
+.barrier-action-form {
+  display: grid;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line-soft);
+}
+.barrier-action-form label {
+  font-size: 10px;
+  font-weight: 600;
+}
+.barrier-action-form textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  resize: vertical;
+}
+.barrier-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.barrier-action-queued {
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 600;
+}
+.barrier-action-form small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+/*
+ * v46 sections 7, 10, 26 — My Day's action queue.
+ *
+ * Deliberately quieter than a task card and shorter than a list: it is a
+ * queue of things to answer, and it should read as finishable. The red
+ * accent marks it as somebody else's blocked work, not a routine chore.
+ */
+/*
+ * `.card` in this stylesheet carries the border and the radius and no padding
+ * at all — each card class sets its own, the way `.start-card` does. Omitting
+ * it here put the heading, the rows and the separators flat against the border.
+ */
+.action-queue {
+  padding: 18px;
+  border-left: 3px solid var(--red);
+}
+.action-queue-head {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+.action-queue-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.action-queue-count {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--red-bg);
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 700;
+}
+.action-queue-head p {
+  color: var(--muted);
+  font-size: 10px;
+}
+.action-queue-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/*
+ * v48 — the attention card, and the pattern every list card here should follow.
+ *
+ * The rule this encodes: a list row shows a bounded preview of user text, the
+ * detail view shows all of it. The previous card built its heading by joining
+ * the action type to the whole request, so the largest text on the screen was
+ * as long as whatever sentence somebody typed — three paragraphs stretching
+ * across the page instead of three scannable rows.
+ *
+ *   grid, minmax(0, 1fr) auto   text owns the width, the control keeps its own
+ *                               column and never competes for it
+ *   min-width: 0                grid and flex children default to min-content
+ *                               and overflow instead of wrapping
+ *   overflow-wrap: anywhere     an unbroken 60-character part number breaks
+ *   line-clamp: 2               the preview is bounded without the data being
+ *                               truncated anywhere
+ *   no fixed height             the card grows; nothing is ever clipped
+ */
+.attention-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px 16px;
+  height: auto;
+  padding: 12px 0;
+}
+.attention-card-main {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.attention-card-type {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.attention-card-type.critical {
+  color: var(--red);
+}
+.attention-card-type.attention {
+  color: var(--amber);
+}
+.attention-card-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentcolor;
+}
+.attention-card-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.attention-card-request {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.attention-card-meta {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 9px;
+}
+.attention-card-action {
+  grid-column: 2;
+  grid-row: 1;
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 28px;
+  white-space: nowrap;
+}
+
+/*
+ * Narrow, or zoomed. At 150% the reported width is two-thirds smaller, so the
+ * same query covers a phone and a magnified desktop — both are "not much room",
+ * and neither may clip or scroll sideways.
+ */
+@media (max-width: 640px) {
+  .attention-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .attention-card-action {
+    grid-column: 1;
+    grid-row: auto;
+    width: 100%;
+    text-align: center;
+  }
+}
+
+.action-queue-list > li + li {
+  border-top: 1px solid var(--line-soft);
+}
+
+/*
+ * The same wrapping rules for the barrier exception banner, which carries the
+ * same unpredictable text.
+ */
+.barrier-exception {
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 0;
+}
+.barrier-exception-copy strong,
+.barrier-exception-copy p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
+}
+.barrier-exception .btn {
+  flex: 0 0 auto;
+  max-width: 100%;
+  height: auto;
+  min-height: 28px;
+  white-space: normal;
+}
+@media (max-width: 560px) {
+  .barrier-exception {
+    align-items: flex-start;
+  }
+  .barrier-exception .btn {
+    width: 100%;
+  }
+}
+
+/*
+ * v46 sections 5, 39-42 — the barrier exception line.
+ *
+ * Two states, and they must not look alike: red is "this is yours to answer",
+ * amber is "you are waiting on somebody". The wording carries the difference
+ * too, because colour alone is not a message.
+ */
+.barrier-exception {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+.barrier-exception.owed {
+  border: 1px solid color-mix(in srgb, var(--red) 35%, transparent);
+  background: var(--red-bg);
+}
+.barrier-exception.waiting {
+  border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
+  background: var(--amber-bg);
+}
+.barrier-exception-copy {
+  display: grid;
+  flex: 1 1 220px;
+  min-width: 0;
+  gap: 2px;
+}
+.barrier-exception-copy strong {
+  font-size: 11px;
+}
+.barrier-exception.owed .barrier-exception-copy strong {
+  color: var(--red);
+}
+.barrier-exception.waiting .barrier-exception-copy strong {
+  color: var(--amber);
+}
+.barrier-exception-copy p {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: 10px;
+}
+.barrier-exception .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/*
+ * Sections 10-11 — the requested action, first.
+ *
+ * Given the weight of a card because it is the reason the person is on this
+ * screen. Everything the task normally leads with waits below it.
+ */
+.barrier-action-panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--red);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.barrier-action-eyebrow {
+  color: var(--red);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.barrier-action-question {
+  display: grid;
+  gap: 2px;
+}
+.barrier-action-question strong {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.barrier-action-question span {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.barrier-action-meta {
+  color: var(--muted);
+  font-size: 9px;
+}
+.barrier-action-form {
+  display: grid;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line-soft);
+}
+.barrier-action-form label {
+  font-size: 10px;
+  font-weight: 600;
+}
+.barrier-action-form textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+  resize: vertical;
+}
+.barrier-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.barrier-action-queued {
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 600;
+}
+.barrier-action-form small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+/*
+ * v46 sections 7, 10, 26 — My Day's action queue.
+ *
+ * Deliberately quieter than a task card and shorter than a list: it is a
+ * queue of things to answer, and it should read as finishable. The red
+ * accent marks it as somebody else's blocked work, not a routine chore.
+ */
+/*
+ * `.card` in this stylesheet carries the border and the radius and no padding
+ * at all — each card class sets its own, the way `.start-card` does. Omitting
+ * it here put the heading, the rows and the separators flat against the border.
+ */
+.action-queue {
+  padding: 18px;
+  border-left: 3px solid var(--red);
+}
+.action-queue-head {
+  display: grid;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+.action-queue-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.action-queue-count {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--red-bg);
+  color: var(--red);
+  font-size: 10px;
+  font-weight: 700;
+}
+.action-queue-head p {
+  color: var(--muted);
+  font-size: 10px;
+}
+.action-queue-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/*
+ * v45 sections 33 and 45 — the requester's standing.
+ *
+ * Two states, distinguished by colour AND by wording, because a person who
+ * cannot separate amber from green still has to be able to tell "somebody owes
+ * you an answer" from "you have your answer and are still blocked".
+ */
+.barrier-status-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.barrier-status-line.pending {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+.barrier-status-line.answered {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.step-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+.step-menu-trigger {
+  min-width: 0;
+  padding: 0 8px;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 1px;
+}
+.step-menu-list {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  right: 0;
+  display: grid;
+  min-width: 150px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 28px rgb(15 23 42 / 18%);
+}
+.step-menu-list button {
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+}
+.step-menu-list button:hover,
+.step-menu-list button:focus-visible {
+  background: var(--surface-2);
+}
+.step-menu-list .step-menu-danger {
+  color: var(--red);
+}
+
+.modal-layer .modal.task-due-modal,
+.modal-layer .modal.checklist-evidence-modal {
+  width: min(480px, 100%);
+}
+.due-date-form,
+.compact-evidence-form {
+  display: grid;
+  gap: 14px;
+}
+.due-current-value {
+  display: grid;
+  gap: 4px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+.due-current-value span,
+.optional-label {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+.compact-evidence-form .attachment-picker {
+  display: grid;
+  gap: 8px;
+  padding: 13px;
+  border: 1px dashed color-mix(in srgb, var(--text) 28%, var(--line));
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.compact-evidence-form .attachment-picker-button {
+  justify-self: start;
+}
+
+.task-activity-list {
+  border-top: 1px solid var(--line);
+}
+.task-activity-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, auto);
+  gap: 18px;
+  padding: 11px 1px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.task-activity-main {
+  min-width: 0;
+}
+.task-activity-main strong {
+  font-size: 10.5px;
+}
+.task-activity-main p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.task-activity-meta {
+  display: grid;
+  align-content: start;
+  justify-items: end;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 9px;
+  text-align: right;
+}
+.task-activity-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 7px;
+}
+.task-activity-files a {
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 9px;
+}
+
+@media (max-width: 560px) {
+  .task-information-line {
+    margin-inline: -1px;
+  }
+  .task-checklist-heading-row {
+    align-items: start;
+  }
+  .task-checklist-row {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+  .task-checklist-actions {
+    grid-column: 2;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  .task-activity-entry {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .task-activity-meta {
+    display: flex;
+    justify-content: flex-start;
+    gap: 6px;
+    text-align: left;
+  }
+  .task-activity-meta time::before {
+    margin-right: 6px;
+    content: '·';
   }
 }
 
@@ -5524,5 +7931,420 @@ button {
   }
   .task-detail-head-meta span:last-child {
     display: none;
+  }
+}
+
+/*
+ * v47 §16-17 — the Meeting Queue control and drawer.
+ *
+ * The trigger sits in the page head beside the scope filter, quiet until it
+ * has something in it. The count is the whole point of putting it there: a
+ * manager should see that three topics are waiting without opening anything.
+ */
+.plan-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.meeting-queue-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.meeting-queue-count {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--blue-bg);
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 700;
+}
+.meeting-queue-body {
+  display: grid;
+  gap: 10px;
+}
+.meeting-queue-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.meeting-queue-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.meeting-queue-copy {
+  display: grid;
+  flex: 1 1 240px;
+  min-width: 0;
+  gap: 2px;
+}
+.meeting-queue-copy strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.meeting-queue-copy span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 10px;
+}
+.meeting-queue-copy .meeting-queue-scheduled {
+  color: var(--blue);
+  font-weight: 600;
+}
+.meeting-queue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+@media (max-width: 560px) {
+  .meeting-queue-actions {
+    width: 100%;
+  }
+}
+
+/*
+ * §30 — a request with a discussion booked is still outstanding, and should
+ * look outstanding but not urgent. Red says "nobody has touched this"; amber
+ * says "this is in hand, on a date". The card sets its own tone from the same
+ * fact, so nothing extra is needed here.
+ */
+
+/*
+ * v48 §35-44 — Team Member Detail, and the workload review it can open.
+ *
+ * Same wrapping discipline as every other card here: names, task titles and
+ * update text are all user-written, so nothing assumes a length.
+ */
+.team-member-link {
+  color: inherit;
+  text-decoration: none;
+}
+.team-member-link:hover,
+.team-member-link:focus-visible {
+  text-decoration: underline;
+}
+.team-member-focus {
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.member-attention-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.member-attention-row > div {
+  display: grid;
+  flex: 1 1 200px;
+  min-width: 0;
+  gap: 2px;
+}
+.member-attention-row strong,
+.member-attention-row p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.member-attention-row p {
+  color: var(--muted);
+  font-size: 10px;
+}
+.tone-red {
+  color: var(--red);
+}
+.tone-amber {
+  color: var(--amber);
+}
+.member-work-list,
+.member-update-list {
+  display: grid;
+  gap: 2px;
+}
+.member-work-row {
+  display: grid;
+  gap: 2px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft);
+  color: inherit;
+  text-decoration: none;
+}
+.member-work-row:hover,
+.member-work-row:focus-visible {
+  background: var(--surface-2);
+}
+.member-work-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.member-work-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 10px;
+}
+.member-work-next {
+  color: var(--blue) !important;
+}
+.member-update {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 11px;
+}
+.member-update .muted {
+  font-size: 9px;
+}
+.member-other-workload > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.workload-review {
+  display: grid;
+  gap: 12px;
+}
+.workload-review-question {
+  font-size: 11px;
+}
+.workload-review-list {
+  display: grid;
+  gap: 4px;
+}
+.workload-review-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.workload-review-item strong {
+  min-width: 0;
+  flex: 1 1 200px;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.workload-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* v49 §11-13 — the full attention list. */
+.attention-list {
+  padding: 18px;
+}
+.attention-list-head h2 {
+  font-size: 13px;
+}
+.attention-list-head p {
+  color: var(--muted);
+  font-size: 10px;
+}
+.attention-list-filters,
+.attention-list-sort {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.attention-list-filters a,
+.attention-list-sort a {
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 10px;
+  text-decoration: none;
+}
+.attention-list-filters a.active,
+.attention-list-sort a.active {
+  border-color: var(--blue);
+  background: var(--blue-bg);
+  color: var(--blue);
+  font-weight: 600;
+}
+.attention-list-filters a span {
+  opacity: 0.7;
+}
+.attention-list .action-queue-list {
+  margin-top: 10px;
+}
+
+/*
+ * v49 §1-3 — the whole row opens the record.
+ *
+ * The link is stretched over the row, so anywhere in the white space is the
+ * target. Everything already interactive in the row is lifted above it and
+ * keeps working, which is why this needs no click handling at all.
+ */
+.task-row.row-openable {
+  position: relative;
+  cursor: pointer;
+}
+.row-cover-link {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  border-radius: inherit;
+}
+.task-row.row-openable:hover {
+  background: var(--surface-2);
+}
+.task-row.row-openable:has(.row-cover-link:focus-visible) {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+/* Anything actionable sits above the overlay and performs its own action. */
+.task-row.row-openable a:not(.row-cover-link),
+.task-row.row-openable button {
+  position: relative;
+  z-index: 2;
+}
+
+.team-member-link {
+  font-weight: 600;
+}
+
+/* v52 — the lifecycle forms inside More task actions. */
+.detail-lifecycle-form {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+.detail-lifecycle-form label {
+  font-size: 10px;
+  font-weight: 600;
+}
+.detail-lifecycle-form textarea,
+.detail-lifecycle-form select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 11px;
+}
+.detail-lifecycle-form .btn {
+  justify-self: start;
+}
+
+/* v52 — findings recorded against a routine occurrence. */
+.finding-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.finding-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.finding-row > div {
+  display: grid;
+  flex: 1 1 200px;
+  min-width: 0;
+  gap: 3px;
+  justify-items: start;
+}
+.finding-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.finding-row span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+/* Lean Major Project discussion workflow. */
+.proposal-inbox {
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.proposal-inbox > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.proposal-inbox > header h2 {
+  margin: 2px 0 3px;
+  font-size: 15px;
+}
+.proposal-inbox > header p:last-child {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+.proposal-inbox.compact > header {
+  padding-block: 10px;
+}
+.proposal-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 58px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.proposal-row:last-child {
+  border-bottom: 0;
+}
+.proposal-row > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.proposal-row > .btn {
+  position: relative;
+  z-index: 2;
+  flex: none;
+}
+
+@media (max-width: 620px) {
+  .proposal-row {
+    align-items: flex-start;
+    padding-inline: 12px;
+  }
+  .proposal-inbox > header {
+    padding-inline: 12px;
   }
 }

@@ -69,8 +69,44 @@ export function RowPrimaryLink({
   );
 }
 
-export function TaskRow({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <article className={`task-row interactive-row ${className}`.trim()}>{children}</article>;
+/**
+ * A row, optionally openable as a whole (v49 §1-5).
+ *
+ * When `href` is given the entire row becomes the target, via a link stretched
+ * across it rather than a click handler on the article. That matters for three
+ * reasons: the keyboard gets Tab and Enter for free, middle-click and "open in
+ * new tab" behave like links because it is one, and the buttons already in the
+ * row sit above the overlay and keep their own actions — no `stopPropagation`,
+ * and no interactive element nested inside another.
+ *
+ * The alternative, `role="button"` with a keydown handler on the container,
+ * requires re-implementing all of that and nests the row's real buttons inside
+ * a control, which assistive technology reads as one confused thing.
+ */
+export function TaskRow({
+  children,
+  className = '',
+  href,
+  openLabel,
+}: {
+  children: ReactNode;
+  className?: string;
+  href?: string;
+  /** What the row opens, for anybody who cannot see the row. */
+  openLabel?: string;
+}) {
+  return (
+    <article
+      className={`task-row interactive-row ${href ? 'row-openable ' : ''}${className}`.trim()}
+    >
+      {href && (
+        <Link href={href} className="row-cover-link">
+          <span className="visually-hidden">{openLabel ?? 'Open'}</span>
+        </Link>
+      )}
+      {children}
+    </article>
+  );
 }
 
 export function RoutineRow({ children }: { children: ReactNode }) {
@@ -211,16 +247,24 @@ export function CalendarItem({
   href,
   title,
   kind,
+  owner,
   accessibleSuffix,
 }: {
   href: string;
   title: string;
-  kind: 'due' | 'overdue' | 'routine' | 'review';
+  kind: 'due' | 'overdue' | 'routine' | 'review' | 'discussion';
+  /** Shown only when the item belongs to someone other than the viewer. */
+  owner?: string;
   accessibleSuffix?: string;
 }) {
   return (
-    <Link href={href} className={`cal-item ${kind}`} title={title}>
+    <Link href={href} className={`cal-item ${kind}`} title={owner ? `${title} — ${owner}` : title}>
       <span aria-hidden="true">{title}</span>
+      {owner && (
+        <span className="cal-item-owner" aria-hidden="true">
+          {owner}
+        </span>
+      )}
       <span className="visually-hidden">{accessibleSuffix ?? title}</span>
     </Link>
   );

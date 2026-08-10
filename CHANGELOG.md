@@ -1,5 +1,388 @@
 # TAMCO Focus — Change Log
 
+## v53 closed-loop execution and Goal sessions — 10 August 2026
+
+- Closed Task completion/cancellation across focus, Barrier, notification, Meeting Queue and Shared
+  projections while retaining audit history; made Mandatory cancellation manager-only.
+- Kept reassignment state-stable, recalculated both owners and surfaced non-blocking workload review.
+- Added the lean Major Project discussion flow with Agree, Request changes, Decline and owner
+  resubmission; agreement creates Available work for owner activation.
+- Added module-neutral Task source links without any ESH-specific schema or parallel execution model.
+- Added performance periods, employee Goal plans, exactly-once monthly and quarterly all-Goal
+  sessions, department-only self-governance and exact-100 plan finalisation.
+- Reused the Barrier/request engine for Goal support and preserved Response versus Resolution.
+- Split Goal completion from cancellation, required actual results and final summary for completion,
+  retained cancellation reason/allocation deficit, and required audited reasons for Active revision.
+- Removed fabricated overall Goal percentage presentation from Goal rows, detail and weekly summaries.
+- Added RLS, integration and Playwright coverage for the new lifecycle boundaries.
+
+### Request-engine defects found while verifying the above — 11 August 2026
+
+- Fixed the attention read model, which resolved every request's subject through `task_id`. A
+  request raised against a Goal has none, so a single one of them failed the whole lookup: every
+  card on My Day and the attention list, Task requests included, lost its heading and rendered
+  "Work", and the Goal request's own control pointed at `/work?task=null`. Requests are now read
+  through `action_requests_overview`, which resolves either subject in one query, and a Goal request
+  opens its Goal.
+- Fixed Goal support notifications, which carried `entity_type = 'barrier'` with no task and so fell
+  through every branch of the link resolver to My Day. The bell said somebody needed you on a Goal
+  and then took you nowhere near it.
+- Excluded requests whose source has gone terminal from personal attention, matching the cleanup the
+  cancellation path already performs.
+- Ranked a Goal support request with the other requests instead of letting it fall to `awareness`
+  and sit below every notice on the list.
+- Removed the `aria-label` from the Goal drawer's Sessions control, which said "Open employee-level
+  Goal session history" and so did not contain its own visible word (WCAG 2.5.3). Renamed the second
+  control in the check-in summary to "View sessions": two buttons reading "Sessions" in one dialog
+  cannot be told apart out of context.
+
+### Legacy cleanup — 11 August 2026
+
+- Retired the `/team` page. It survived as "compatibility and depth", but the depth moved into the
+  Team Member drawer inside Work and the page became a second implementation of the same three
+  questions over its own copies of the same queries. `/team` now 308s to `/work?scope=team`, so
+  every existing link, notification and bookmark still resolves.
+- Removed the superseded per-Goal cadence entry points — `postGoalUpdate`,
+  `postGoalMonthlyCheckin`, `saveGoalQuarterlyCheckin` and `saveGoalYearEndResult` — which each
+  drove one Goal through its own month, quarter or year end. Sections 11 and 14 replaced them with
+  one employee session covering every Active Goal.
+- Removed `closeGoal`. One verb for two different endings left the record unable to say afterwards
+  whether a Goal had run its course or stopped being relevant (section 17).
+- Removed the `recordAttachmentView` action. Opening evidence is recorded by the route that serves
+  the bytes; this was a second door onto the same write that no screen used.
+- Dropped the superseded Goal procedures behind those actions: the v33 authoring stack
+  (`create_goal`, `create_goal_v33_internal`, `create_goal_with_measures`, `propose_goal_version`,
+  `agree_goal_version`, `agree_goal_version_v33_internal`), `post_goal_update`, the per-Goal cadence
+  (`post_goal_monthly_checkin`, `save_goal_quarterly_checkin`, `save_goal_year_end_result`) and
+  `close_goal`. Each was `security definer` and granted to `authenticated`, so each was a second
+  reachable way to write into the Goal engine — one that creates monthly records the session model
+  cannot see, agrees versions outside the lean flow, or ends a Goal without saying which kind of
+  ending it was.
+- Moved the integration suites that were their only remaining callers onto the replacements, so the
+  rules survive the procedures: creation authority, the 100% allocation guard, milestone
+  independence, revision rollback, session authority, risk as visibility rather than manager action,
+  and cancellation still needing its reason. Four tests were retired rather than migrated, because
+  what they asserted no longer exists.
+- Withdrew two earlier removal candidates after re-checking: `post_task_update_v34_internal` and
+  `post_goal_milestone_update` are both called from SQL, not from the application, and are alive.
+
+The behaviour changes approved in v42, v43 and v44 are recorded in
+`MASTER_PRODUCT_SPEC.md` section 33 and `PRODUCTION_LOGIC.md` section 40, which
+are the authoritative account of them.
+
+## v51 lean Goal agreement experience — 10 August 2026
+
+- Replaced the technical Goal setup form with a two-step Expectation / Alignment agreement flow:
+  plain-language success statements, one Goal date, visible allocation guidance, optional context,
+  agreed approach, optional support and zero-to-five deliberately added milestones.
+- Enabled employees to create and refine their own Draft / For Discussion Goal while preserving
+  manager-only activation. My Team creation locks the selected subordinate and no longer asks for
+  the employee a second time.
+- Kept one Goal/version model. Pre-activation edits replace the pending version transactionally;
+  Active structural changes use Revise goal and remain audited pending manager agreement.
+- Added compatible natural success-statement and optional-date columns, lean security-definer RPCs,
+  reporting-line/role/allocation checks, RLS coverage and regenerated database types. No duplicate
+  Goal, measure, cadence or evidence system was introduced.
+- Renamed the active reading view to Success, added cadence context, simplified monthly and
+  quarterly wording, and retained exception-only manager visibility.
+- Added domain, integration, RLS and end-to-end coverage for self authoring, subordinate authoring,
+  zero milestones, hidden technical fields, same-record edits and manager-only activation.
+
+## v50 Goal lifecycle — 10 August 2026
+
+- Added version-owned structured qualitative, numeric and percentage success measures with
+  deterministic measure-derived overall progress and immutable value history.
+- Kept Goal setup as two logical steps while making employee, result, measures, target, weight and
+  two-to-five milestones explicit; the existing formal 100% guard remains authoritative.
+- Rebuilt Active Goal detail around Progress, Check-in, Milestones and History, including optional
+  evidence and linked work without converting either into Goal progress.
+- Added idempotent monthly owner check-ins, explicit No material change, quiet On track behavior,
+  and exact manager exceptions only for risk, Off track or requested support.
+- Kept manager-requested updates owner-facing: requesting one no longer overwrites employee health
+  or creates a false action in the requesting manager's My Team queue.
+- Added quarterly employee summary plus manager Agree & continue and a traceable, refinable,
+  manager-finalized year-end Result.
+- Added deterministic calendar schedules, owner My Day cadence, quarterly Coming up entries and
+  genuine Goal actions in My Team.
+- Added additive migrations, RLS/select-only lifecycle tables, transactional RPCs, derived views,
+  generated types and unit/integration coverage. Existing non-Goal behavior is unchanged.
+
+## My Day attention cap amendment — 10 August 2026
+
+- Reduced the bounded Needs Attention summary from three rows to two. The total
+  badge remains truthful and View all appears when additional requests are
+  waiting, opening Work → My Team → Needs Attention.
+- Rebuilt the summary rows with separate severity dots, request-type icons,
+  requester avatars and overdue treatment; restored a 12px section gap and kept
+  Start Here / Today as equal desktop columns at the approved 864px viewport.
+
+
+## v49 attention UI repair — 10 August 2026
+
+- Separated My Day's request-first attention summary from My Team's person-first
+  manager rows; they share semantic action resolution but no presentation row.
+- Replaced the generic task-row overlay on My Team with a dedicated five-column,
+  whole-row keyboard target and independent nested action buttons.
+- Removed `person` from exact task, routine and barrier action routes, preventing
+  Team Member Detail from mounting before the requested action panel.
+- Added one validated resolver requiring `sourceType`, `sourceId`, and `ctaType`;
+  incomplete targets no longer render a dead CTA.
+- Corrected overdue routines to resolve to the exact occurrence instead of being
+  captured as generic overdue work or opening a routine landing page.
+- Restored My Day to compact content-height rows with scoped text
+  resilience and sent View all to Work → My Team → Needs Attention.
+- Added action-isolation, pointer/keyboard, exact-target, viewport, zoom-pressure,
+  stress-content, and resolver validation coverage.
+
+
+## v49 — 10 August 2026
+
+- Made My Day's Needs Attention a summary rather than a backlog. It shows the
+  top three by priority at that revision, a real count, "N require action now · M more waiting",
+  and a link to the full list. It previously grew with the count, so at twelve
+  requests it pushed the rest of the day off the screen and became the thing it
+  existed to prevent.
+- Ranked the three deterministically instead of taking whichever arrived last,
+  so a week-old blocked decision is not buried under three questions asked this
+  morning. Age breaks ties within a severity band and never promotes across
+  one, so nothing can sit at the bottom for ever.
+- Stopped hardcoding "3 require action now". With one request it said three
+  things needed you, which is a small lie that costs the whole panel its
+  credibility.
+- Added the full attention list under Work, with type filters, sort, and oldest
+  first by default — a priority-sorted backlog quietly ages its least severe
+  items into invisibility.
+- Initially sent "View all" to the person's own full list. The later approved
+  attention UI repair above supersedes that destination with My Team → Needs
+  Attention. The later amendment above reduces the My Day bound to two rows.
+- Gave nothing-to-do its own calm state: "You're all clear", no red border, no
+  "View all 0".
+- Separated exception from action required. An overdue routine is abnormal and
+  worth seeing; it is not a question anybody asked the manager. Labelling both
+  "Needs you" is how "Needs you" stops meaning anything.
+- Removed "Review with them". It could have meant open the task, message the
+  person, change the date, or arrange a meeting — nobody could predict which,
+  so it named none of them. Every manager action now names its operation:
+  Open task, Open routine, Provide decision, Review workload.
+- Removed "Proposal to review", which counted rows in `work_proposals`, offered
+  "Review proposal" and opened `/more/records`. There is no proposal review
+  workflow — no procedure decides one, no screen shows what is proposed, no
+  control approves it — so the manager arrived at a records page and had to ask
+  what they were reviewing. The honest fix was to stop showing it, not to
+  invent the workflow.
+- Initially made the whole team row open through a stretched link. The later
+  approved repair above supersedes that implementation for My Team because its
+  nested action buttons require an independent non-link row target.
+- Replaced "Nothing needs you" with "No action needed from you", and left rows
+  in that state alone rather than inventing something to fill the column.
+
+
+## v48 — 9 August 2026
+
+- Stopped treating mandatory work as manager attention. The rule was
+  `isMandatory → Needs Attention`, with the CTA "Review controlled action",
+  which landed on an ordinary task where no review existed. Safety work that
+  could not wait was being reported as an unanswered question, and a queue that
+  cries wolf stops being read. Mandatory work running normally is now
+  information, visible under Everyone.
+- Made mandatory work reach the manager only when something else is also true:
+  it pushed the person over their focus target, it carries a barrier addressed
+  to them, or it is genuinely overdue. Each case states its own reason and
+  offers its own action.
+- Added the workload review the "Review workload" CTA now promises: the numbers
+  that moved, the person's current commitments, and two real choices —
+  accept the overload as a recorded decision, or move a non-mandatory item back
+  to Available. The system does not pick, and mandatory work is never the
+  candidate.
+- Added a validity gate on manager attention. An item may only appear if it can
+  say why it is there, what to do and where — anything else is dropped and
+  logged. Every branch believed it complied; the one that did not was the one
+  that shipped.
+- Rebuilt the My Day attention card. It used to build its heading by joining the
+  action type to the entire request, so the largest text on the screen was as
+  long as whatever somebody typed — three paragraphs across the page instead of
+  three scannable rows. It now leads with the action type as a small label, the
+  task title as a stable heading, and a two-line preview of the request; the
+  full text lives in the barrier panel, where it always did.
+- Made the card resilient by construction rather than by luck: a grid where the
+  text and the control own separate columns, `min-width: 0` so children may
+  shrink, wrapping that breaks an unbroken 80-character reference, no fixed
+  height, and a single column below the breakpoint. Tested with a 200-character
+  request, an unbreakable token, a long task title, five widths and two zoom
+  levels.
+- Moved severity onto the item. A container that is entirely red says nothing
+  about which row is worse; a request with a discussion booked is amber, not an
+  emergency.
+- Made team member names open a Team Member Detail drawer over My Team: focus
+  capacity, what needs the manager, what the person is working on, what has
+  meaningfully changed, and a collapsed count of everything else. Zero Active
+  work is stated plainly — it is a fact, not a fault.
+- Fixed contextual navigation. Closing the Task Detail drawer pushed a hardcoded
+  `/work`, so a manager who opened a team member's task from My Team was
+  returned to My Work — a different person's workspace, with the filter and the
+  selected person gone. Each drawer is now a search parameter, and closing one
+  removes only its own, so every layer beneath is preserved because nothing had
+  to remember it.
+- Fixed the manager row's default action, which pointed at `/team?view=all` — a
+  page that discarded My Team entirely. It opens the person.
+
+
+## v47 — 9 August 2026
+
+- Completed the barrier workflow: a request can now be answered straight away,
+  or deferred to a discussion that is queued, scheduled onto the existing
+  Monthly Plan, and opened again from the calendar entry when the meeting
+  happens. None of those steps answers the request; only answering does.
+- Fixed "View request", which scrolled to a section the collapsed drawer hides
+  with `display: none` — a visible control that did nothing at all. It now
+  opens the drawer and brings the request itself into view.
+- Renamed it to "View response" once an answer exists, so the control describes
+  what the reader is about to see.
+- Put every route to a barrier through one function. Notification, My Day, My
+  Team, the task banner, the Meeting Queue and the calendar entry all build the
+  same link now; previously each computed its own and they had begun to differ.
+- Moved the request-type vocabulary into `src/domain/barriers.ts`. The wording
+  had been copied into five places and already disagreed — "Provide approval"
+  in one list, "Approve" in another.
+- Extracted `BarrierDetailPanel`, so the record renders once wherever it is
+  shown, and `BarrierActionPanel` remains the only place a response is written.
+- Added the Meeting Queue to Monthly Plan as a drawer beside the scope filter,
+  not a sidebar module: it is empty most weeks, and a permanent empty page
+  teaches people to stop looking at it.
+- Added scheduling. A discussion becomes a real event on the calendar the
+  application already had — `plan_events` gained a `discussion` kind rather
+  than a second calendar appearing beside the first — linked to both the task
+  and the request, with the two people concerned invited by default.
+- Kept queueing and scheduling separate. A manager usually knows a topic needs
+  discussing before knowing when, and collapsing the two would force them to
+  invent a date to record the need.
+- Kept a scheduled request on My Day. Booking a discussion lowers the urgency
+  from red to amber and says when it will be talked about; it does not clear
+  the obligation, because the answer is still owed.
+- Made the action cards survive content nobody has written yet: long requests,
+  long names, unbroken reference strings, 150% zoom and mobile widths. The row
+  wraps and the button moves below the text instead of crossing the border.
+  Applied to the shared card patterns rather than the one sentence that
+  exposed the problem.
+- Fixed two defects in this work before they shipped: an RLS policy pair that
+  referenced each other and made the calendar unreadable
+  (`42P17 infinite recursion`), and a scheduling query whose local variable
+  shadowed a column so `where event_id = event_id` matched every row.
+- Left Outlook alone. The event table carries the columns a future sync would
+  need and populates none of them; no credentials, no OAuth, no Graph calls.
+
+
+## v46 — 9 August 2026
+
+- Made a barrier request actionable where it arrives. A notification, a My Day
+  row and a My Team row now open the same task with the same request expanded
+  and the response box already focused. Previously all three opened an ordinary
+  task drawer and left the manager to find the barrier, work out what was being
+  asked, and scroll to a form.
+- Kept it inside Task Detail. No barrier workspace, no fourth tab, no second
+  record: most work has no barrier, and an exception that claims permanent
+  navigation makes every task look like it might have one.
+- Added My Day → Needs Attention, an action queue derived from the barrier
+  itself. Each row states the request, who asked, the work it concerns, and the
+  act — "Provide decision", never "Open".
+- Held the line between Shared and Needs Attention. Shared means a checklist
+  contribution somebody assigned you; Needs Attention means somebody is waiting
+  on your decision. A barrier creates no Shared row and no checklist item, and
+  assigning a step creates no attention request. Both directions are tested,
+  because the failure mode is gradual: Shared quietly becomes "anything another
+  person wants from me" and stops answering the one question it exists for.
+- Made the barrier surface depend on the viewer. The owner sees who they are
+  waiting for; the person asked sees that it is theirs to answer, whether they
+  arrived from a notification or opened the task themselves.
+- Stopped offering "Raise barrier" beside an open barrier, which invited a
+  second request about the problem already on screen.
+- Moved "Add to Meeting Queue" from the employee's request form to the
+  manager's response panel. It had been asking the employee to predict whether
+  their manager would rather handle the problem in writing or in a meeting.
+  Adding twice reports the existing agenda item instead of duplicating it.
+- Deleted the second barrier response form. There is now one, so the
+  transaction rules cannot drift between two copies.
+- Fixed idempotency keys under genuine concurrency. The mechanism read the
+  operation log, ran the work, then wrote the log entry — so two requests
+  arriving together both did the work and only the log was deduplicated. A
+  double-clicked "Send decision" wrote two responses, two audit events and two
+  notifications while reporting success. Operations now serialise on the key
+  before deciding whether the work is needed; this affects every idempotent
+  procedure, not only barriers.
+- Fixed the drawer stealing focus from the control a person was sent to use.
+  Focus is now decided in one place, and the content says where it belongs.
+- Made the end-to-end gate's port configurable, so it can run beside a
+  development server instead of demanding the port back.
+
+
+## v45 — 9 August 2026
+
+- Opened checklist assignment to any active team member. Eligibility was owner
+  plus collaborators plus whoever the viewer could see through the reporting
+  line, which meant an ordinary employee could hand a step to their manager and
+  almost nobody else. Collaboration is not a hierarchy: "whose work may I read"
+  and "who may I work with" are different questions, and only the first belongs
+  to the reporting line.
+- Added `team_directory`, a names-only projection of active colleagues. Opening
+  assignment without it would have produced a picker containing two or three
+  people and steps attributed to "Team member", because the underlying row
+  policy on `user_profiles` is scoped to your own reporting line. The view
+  carries a name and an employee ID and nothing else; every other column stays
+  behind the policy, which is unchanged.
+- Fixed Shared contributions disappearing across the reporting line. The
+  projection inner-joined `user_profiles` for the owner's name, so when the
+  policy hid the owner it did not hide the name — it removed the whole
+  contribution from the assignee's list, silently. It is now a left join
+  against the directory.
+- Made checklist steps editable and removable, with the title, assignee, due
+  date, evidence rule and prerequisite in one drawer behind a per-row overflow
+  menu. Each save records only the fields that actually moved.
+- Separated restructuring from contributing. A contributor may complete the
+  step they were given; changing what a step *is* requires edit rights on the
+  work. The rule lives in a `BEFORE UPDATE` trigger rather than the RPC,
+  because the RLS policy legitimately allows a contributor to update the row
+  and the RPC is not the only way in.
+- Refused the removals that lose something silently: a completed step, a step
+  with evidence attached, and a step another step is waiting for. Reassigning
+  or removing a step tells the person who had it.
+- Split "the manager has answered" from "the work is unblocked". A barrier now
+  carries `action_pending` beside `status`: replying clears the obligation and
+  leaves the barrier open, so a manager's queue empties when they have answered
+  while the record still says the work is blocked. Nothing resumes on its own.
+- Recorded which answer an approval received. "Approve" and "Request changes"
+  were writing identical rows, so a week later the record could not say whether
+  the work had been cleared to proceed.
+- Replaced the barrier escalation field and the Meeting Queue checkbox with
+  four request-type chips, and made the manager's control name the act:
+  Send decision, Approve / Request changes, or Respond.
+- Redirected `/team-focus` to `/work?scope=team`. The screen became a scope
+  rather than a destination; old links now land on it instead of a 404.
+
+
+## v41 — 8 August 2026
+
+- Fixed the Capture title box losing every character after the first. `Modal` listed the caller's `onClose` arrow as an effect dependency, so each keystroke re-ran the effect and pulled focus back into the dialog. Covered by an acceptance test that types a full phrase and asserts the value, the focus, the caret position and the DOM identity of the input.
+- Moved Primary Owner selection into Capture. An employee owns what they capture, so there is no picker; a manager gets a Primary owner selector defaulting to themselves. This replaces v40's separate assignment flow — deciding who owns a result and describing the result are one moment of thought.
+- Rebuilt Shared as a projection over checklist items rather than a task list. `shared_contributions` selects the original rows, so completing a contribution updates the record the primary owner is looking at. No Shared copy exists to disagree with it.
+- Added contribution readiness: Waiting for owner to start, Waiting for prerequisite, Ready, Completed. A contribution assigned to somebody else stays Waiting until the owner activates the parent, so a contributor cannot start work the owner has not committed to. Readiness recalculates from a trigger on the parent's state, which covers activate, pause, resume and conversion in one place.
+- Removed fabricated Next actions. v40 wrote "Review and activate when ready" into `next_action` for everything landing in Available, which read as the owner's decision when it was interface guidance. Available now states what Available means and offers Activate; a genuine recorded Next action still shows, and an absent one says "No next action recorded".
+- Exposed `+ Add step` directly in the Checklist view, asking only what needs to be done and who owes it, with evidence, a separate due date and a prerequisite behind More options. Steps can be added while the parent is still Available: planning what work involves is what you do before deciding to carry it.
+- Gave Routine its own occurrence vocabulary — Upcoming, Due today, Overdue, Completed — instead of borrowing the focus-state label "Available Work" for occurrences nobody activates.
+- Renamed the `backlog` display label from "Available Work" to "Available" so the state is called the same thing on every screen.
+
+
+
+## v38 — 7 August 2026
+
+- Replaced the task drawer's competing metadata pills with one quiet information line; detailed task ages remain available through the information control.
+- Added authorised, optimistic, idempotent due-date editing with immutable previous/new/actor/time/reason history and readable Recent activity entries.
+- Focused the Next Action card on the action, compact due context, Mark done, and Edit, and added a whole-row checklist preview.
+- Pinned Current Next Action separately from the permanent Task checklist so it is never counted as another checklist item.
+- Simplified evidence rules to No evidence required, Evidence optional, and Complete with evidence; required attachment and completion now commit atomically.
+- Enforced checklist-derived task progress for existing and future checklist tasks and preserved checklist reopen history.
+- Rebuilt Recent activity from immutable audit events and made the no-barrier state neutral while reserving red/pink treatment for open barriers.
+- Added duration unit coverage, due/evidence integration coverage, RLS assertions, desktop/mobile E2E interactions, and the v38 impact map.
+
 
 ## v37 — 7 August 2026
 

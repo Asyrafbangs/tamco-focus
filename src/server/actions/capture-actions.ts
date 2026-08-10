@@ -281,7 +281,7 @@ export async function confirmCapture(input: {
     destination?: CaptureDestination;
   }>;
   if (result.ok) {
-    for (const path of ['/today', '/work', '/plan', '/team']) revalidatePath(path);
+    for (const path of ['/today', '/work', '/plan']) revalidatePath(path);
   }
   return result;
 }

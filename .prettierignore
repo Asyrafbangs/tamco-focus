@@ -29,3 +29,9 @@ CLAUDE.md
 # SQL is formatted by hand to keep migration diffs readable.
 supabase/migrations/
 supabase/tests/
+
+# Vendored agent skills installed with `npx skills add`. Third-party sources,
+# kept byte-identical to upstream for the same reason as the Product Owner's
+# prototypes above: reformatting them would make a future diff show our
+# whitespace rather than their changes.
+.claude/skills/

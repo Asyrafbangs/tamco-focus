@@ -25,6 +25,10 @@ const milestoneSchema = z.object({
   weight_percent: z.number().int().min(1).max(100).nullish(),
   progress_percent: progress.default(0),
 });
+const successMeasureSchema = z.object({
+  description: z.string().trim().min(1).max(1000),
+  optionalTargetDate: dateOnly.nullish(),
+});
 
 type RpcResult = { ok: boolean; code: string; message?: string; [key: string]: unknown };
 
@@ -43,7 +47,7 @@ async function formalWeightGuard({
     .from('goals')
     .select('id,weight_percent')
     .eq('owner_id', ownerId)
-    .eq('status', 'active');
+    .in('status', ['active', 'completed']);
   if (excludeGoalId) query = query.neq('id', excludeGoalId);
   const { data, error } = await query.limit(100);
   if (error) {
@@ -62,14 +66,14 @@ async function formalWeightGuard({
   return {
     ok: false,
     code: 'invalid_target',
-    message: `Active Goal weight would become ${activeWeight + proposedWeight}%. Reduce the weight or save the Goal for discussion.`,
+    message: `This Goal would bring the allocation to ${activeWeight + proposedWeight}%. Adjust the weight before activation.`,
   };
 }
 
 async function callGoalProcedure(
   name: string,
   args: Record<string, unknown>,
-  paths: readonly string[] = ['/goals', '/today', '/team'],
+  paths: readonly string[] = ['/goals', '/today'],
 ): Promise<OperationResult> {
   await requireProfile();
   const supabase = await createSupabaseServerClient();
@@ -99,17 +103,17 @@ export interface GoalMilestoneInput {
 const createSchema = z.object({
   ownerId: uuid,
   expectedResult: z.string().trim().min(1).max(500),
-  successMeasure: z.string().trim().min(1).max(2000),
+  successMeasures: z.array(successMeasureSchema).min(1).max(10),
   targetDate: dateOnly,
   employeeApproach: optionalText(),
   supportAgreed: optionalText(),
   dependencies: optionalText(),
   baseline: optionalText(),
   purpose: optionalText(),
-  weightPercent: z.number().int().min(0).max(100).default(0),
+  weightPercent: z.number().int().min(1).max(100),
   category: z.enum(['performance', 'improvement', 'development']).default('performance'),
-  milestones: z.array(milestoneSchema).min(1).max(10),
-  activate: z.boolean().default(false),
+  milestones: z.array(milestoneSchema).max(5),
+  submissionMode: z.enum(['draft', 'discussion', 'active']).default('discussion'),
   idempotencyKey,
 });
 
@@ -119,30 +123,33 @@ export async function createGoal(input: z.input<typeof createSchema>): Promise<O
     return {
       ok: false,
       code: 'validation_failed',
-      message: 'Add an employee, clear result, success measure, target date, and milestones.',
+      message: 'Add a clear result, success measures, target date and formal weight.',
     };
   }
-  if (parsed.data.activate) {
+  if (parsed.data.submissionMode === 'active') {
     const blocked = await formalWeightGuard({
       ownerId: parsed.data.ownerId,
       proposedWeight: parsed.data.weightPercent,
     });
     if (blocked) return blocked;
   }
-  return callGoalProcedure('create_goal', {
+  return callGoalProcedure('create_lean_goal', {
     p_owner_id: parsed.data.ownerId,
     p_expected_result: parsed.data.expectedResult,
-    p_success_measure: parsed.data.successMeasure,
     p_target_date: parsed.data.targetDate,
-    p_employee_approach: parsed.data.employeeApproach || null,
-    p_support_agreed: parsed.data.supportAgreed || null,
+    p_agreed_approach: parsed.data.employeeApproach || null,
+    p_support_needed: parsed.data.supportAgreed || null,
     p_dependencies: parsed.data.dependencies || null,
     p_baseline: parsed.data.baseline || null,
     p_purpose: parsed.data.purpose || null,
     p_weight_percent: parsed.data.weightPercent,
+    p_measures: parsed.data.successMeasures.map((measure) => ({
+      description: measure.description,
+      optional_target_date: measure.optionalTargetDate || null,
+    })),
     p_category: parsed.data.category,
     p_milestones: parsed.data.milestones,
-    p_activate: parsed.data.activate,
+    p_submission_mode: parsed.data.submissionMode,
     p_idempotency_key: parsed.data.idempotencyKey,
   });
 }
@@ -194,58 +201,20 @@ async function cleanupGoalFiles(paths: string[]) {
   if (error) console.error(`[cleanupGoalFiles] ${error.message}`);
 }
 
-export async function postGoalUpdate(formData: FormData): Promise<OperationResult> {
-  await requireProfile();
-  const parsed = z
-    .object({
-      goalId: uuid,
-      expectedVersion: z.coerce.number().int().positive(),
-      progress,
-      whatChanged: z.string().trim().min(1).max(4000),
-      nextStep: optionalText(),
-      supportRequested: z.enum(['true', 'false']).default('false'),
-      supportDetails: optionalText(),
-      idempotencyKey,
-    })
-    .safeParse({
-      goalId: formData.get('goalId'),
-      expectedVersion: formData.get('expectedVersion'),
-      progress: formData.get('progress'),
-      whatChanged: formData.get('whatChanged'),
-      nextStep: formData.get('nextStep') || null,
-      supportRequested: formData.get('supportRequested') === 'on' ? 'true' : 'false',
-      supportDetails: formData.get('supportDetails') || null,
-      idempotencyKey: formData.get('idempotencyKey'),
-    });
-  if (!parsed.success || (parsed.data.supportRequested === 'true' && !parsed.data.supportDetails)) {
-    return {
-      ok: false,
-      code: 'validation_failed',
-      message:
-        'Choose a five-percent progress value, record what changed, and describe support if requested.',
-    };
-  }
-  const files = formData
-    .getAll('files')
-    .filter((value): value is File => value instanceof File && value.size > 0);
-  const uploaded = await uploadGoalFiles(parsed.data.goalId, files);
-  if (typeof uploaded === 'string') {
-    return { ok: false, code: 'validation_failed', message: uploaded };
-  }
-  const result = await callGoalProcedure('post_goal_update', {
-    p_goal_id: parsed.data.goalId,
-    p_expected_version: parsed.data.expectedVersion,
-    p_progress: parsed.data.progress,
-    p_what_changed: parsed.data.whatChanged,
-    p_next_step: parsed.data.nextStep || null,
-    p_support_requested: parsed.data.supportRequested === 'true',
-    p_support_details: parsed.data.supportDetails || null,
-    p_attachments: uploaded.attachments,
-    p_idempotency_key: parsed.data.idempotencyKey,
-  });
-  if (!result.ok) await cleanupGoalFiles(uploaded.paths);
-  return result;
-}
+/*
+ * v53 section 22 - the per-Goal cadence entry points are gone.
+ *
+ * `postGoalUpdate`, `postGoalMonthlyCheckin`, `saveGoalQuarterlyCheckin` and
+ * `saveGoalYearEndResult` each drove one Goal through its own month, quarter
+ * or year end. Section 11 replaced that with one employee session covering
+ * every Active Goal at once, and section 17 replaced the year-end finalise
+ * with an explicit Complete. Nothing called these any more; leaving them
+ * would have left a second way to record a month that the session engine
+ * could not see.
+ *
+ * `submitGoalMonthlySession`, `completeGoalQuarterlySession` and
+ * `completeGoal` below are the live paths.
+ */
 
 export async function postGoalMilestoneUpdate(formData: FormData): Promise<OperationResult> {
   await requireProfile();
@@ -328,7 +297,7 @@ const proposalSchema = z.object({
   goalId: uuid,
   expectedVersion: z.number().int().positive(),
   expectedResult: z.string().trim().min(1).max(500),
-  successMeasure: z.string().trim().min(1).max(2000),
+  successMeasures: z.array(successMeasureSchema).min(1).max(10),
   targetDate: dateOnly,
   employeeApproach: optionalText(),
   supportAgreed: optionalText(),
@@ -336,7 +305,9 @@ const proposalSchema = z.object({
   baseline: optionalText(),
   purpose: optionalText(),
   weightPercent: z.number().int().min(0).max(100),
-  milestones: z.array(milestoneSchema).min(1).max(10),
+  milestones: z.array(milestoneSchema).max(5),
+  submissionMode: z.enum(['draft', 'discussion']).default('discussion'),
+  revisionReason: optionalText(2000),
   idempotencyKey,
 });
 
@@ -346,24 +317,56 @@ export async function proposeGoalVersion(input: z.input<typeof proposalSchema>) 
     return {
       ok: false as const,
       code: 'validation_failed' as const,
-      message: 'Complete the agreed result and every milestone before saving changes.',
+      message: 'Complete the result, success measures, target date and formal weight.',
     };
   }
-  return callGoalProcedure('propose_goal_version', {
+  const supabase = await createSupabaseServerClient();
+  const { data: goal, error } = await supabase
+    .from('goals')
+    .select('status')
+    .eq('id', parsed.data.goalId)
+    .maybeSingle();
+  if (error || !goal) {
+    return {
+      ok: false as const,
+      code: 'not_found' as const,
+      message: 'This Goal no longer exists.',
+    };
+  }
+  if (goal.status === 'active' && !parsed.data.revisionReason) {
+    return {
+      ok: false as const,
+      code: 'reason_required' as const,
+      message: 'Record why the Active Goal agreement is changing.',
+    };
+  }
+  const sharedArgs = {
     p_goal_id: parsed.data.goalId,
     p_expected_version: parsed.data.expectedVersion,
     p_expected_result: parsed.data.expectedResult,
-    p_success_measure: parsed.data.successMeasure,
     p_target_date: parsed.data.targetDate,
-    p_employee_approach: parsed.data.employeeApproach || null,
-    p_support_agreed: parsed.data.supportAgreed || null,
+    p_agreed_approach: parsed.data.employeeApproach || null,
+    p_support_needed: parsed.data.supportAgreed || null,
     p_dependencies: parsed.data.dependencies || null,
     p_baseline: parsed.data.baseline || null,
     p_purpose: parsed.data.purpose || null,
     p_weight_percent: parsed.data.weightPercent,
+    p_measures: parsed.data.successMeasures.map((measure) => ({
+      description: measure.description,
+      optional_target_date: measure.optionalTargetDate || null,
+    })),
     p_milestones: parsed.data.milestones,
     p_idempotency_key: parsed.data.idempotencyKey,
-  });
+  };
+  return goal.status === 'active'
+    ? callGoalProcedure('revise_lean_goal_version', {
+        ...sharedArgs,
+        p_revision_reason: parsed.data.revisionReason,
+      })
+    : callGoalProcedure('save_goal_candidate_version', {
+        ...sharedArgs,
+        p_submission_mode: parsed.data.submissionMode,
+      });
 }
 
 export async function agreeGoalVersion(input: {
@@ -400,7 +403,7 @@ export async function agreeGoalVersion(input: {
     });
     if (blocked) return blocked;
   }
-  return callGoalProcedure('agree_goal_version', {
+  return callGoalProcedure('agree_lean_goal_version', {
     p_goal_id: parsed.data.goalId,
     p_pending_version_id: parsed.data.pendingVersionId,
     p_expected_version: parsed.data.expectedVersion,
@@ -488,7 +491,213 @@ export async function linkGoalWork(input: {
   });
 }
 
-export async function closeGoal(input: {
+/*
+ * v53 section 17 — there is no generic "close a Goal" any more.
+ *
+ * `closeGoal` asked one question, "why is this being closed", and used it for
+ * two different endings. A Goal that ran its course and a Goal that stopped
+ * being relevant are not the same fact, and a single verb made the record
+ * unable to tell them apart afterwards. `completeGoal` and `cancelGoal` below
+ * ask what each ending actually needs.
+ */
+
+const sessionHealth = z.enum(['on_track', 'at_risk', 'off_track', 'no_material_change']);
+
+export async function submitGoalMonthlySession(input: {
+  employeeId: string;
+  performancePeriodId: string;
+  periodYear: number;
+  periodMonth: number;
+  items: Array<{
+    goalId: string;
+    health: z.infer<typeof sessionHealth>;
+    updateText?: string | null;
+    supportRequested?: boolean;
+    supportDetails?: string | null;
+    actionRequiredFrom?: string | null;
+  }>;
+  idempotencyKey: string;
+}) {
+  const parsed = z
+    .object({
+      employeeId: uuid,
+      performancePeriodId: uuid,
+      periodYear: z.number().int().min(2000).max(2200),
+      periodMonth: z.number().int().min(1).max(12),
+      items: z
+        .array(
+          z.object({
+            goalId: uuid,
+            health: sessionHealth,
+            updateText: optionalText(4000),
+            supportRequested: z.boolean().default(false),
+            supportDetails: optionalText(4000),
+            actionRequiredFrom: uuid.nullish(),
+          }),
+        )
+        .min(1),
+      idempotencyKey,
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      code: 'validation_failed' as const,
+      message: 'Review every Active Goal before completing the month.',
+    };
+  }
+  for (const item of parsed.data.items) {
+    if (['at_risk', 'off_track'].includes(item.health) && !item.updateText) {
+      return {
+        ok: false as const,
+        code: 'validation_failed' as const,
+        message: 'Explain each Goal marked At risk or Off track.',
+      };
+    }
+    if (item.supportRequested && (!item.supportDetails || !item.actionRequiredFrom)) {
+      return {
+        ok: false as const,
+        code: 'validation_failed' as const,
+        message: 'Describe the support needed and choose who needs to act.',
+      };
+    }
+  }
+  return callGoalProcedure('submit_goal_monthly_session', {
+    p_employee_id: parsed.data.employeeId,
+    p_performance_period_id: parsed.data.performancePeriodId,
+    p_period_year: parsed.data.periodYear,
+    p_period_month: parsed.data.periodMonth,
+    p_items: parsed.data.items.map((item) => ({
+      goal_id: item.goalId,
+      health: item.health,
+      update_text: item.updateText || null,
+      support_requested: item.supportRequested,
+      support_details: item.supportDetails || null,
+      action_required_from: item.actionRequiredFrom || null,
+    })),
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+}
+
+export async function completeGoalQuarterlySession(input: {
+  employeeId: string;
+  performancePeriodId: string;
+  periodYear: number;
+  periodQuarter: number;
+  summary?: string | null;
+  items: Array<{
+    goalId: string;
+    health: z.infer<typeof sessionHealth>;
+    attentionText?: string | null;
+    supportAdjustment?: string | null;
+  }>;
+  idempotencyKey: string;
+}) {
+  const parsed = z
+    .object({
+      employeeId: uuid,
+      performancePeriodId: uuid,
+      periodYear: z.number().int().min(2000).max(2200),
+      periodQuarter: z.number().int().min(1).max(4),
+      summary: optionalText(4000),
+      items: z
+        .array(
+          z.object({
+            goalId: uuid,
+            health: sessionHealth,
+            attentionText: optionalText(4000),
+            supportAdjustment: optionalText(4000),
+          }),
+        )
+        .min(1),
+      idempotencyKey,
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      code: 'validation_failed' as const,
+      message: 'Review every Active Goal before completing the quarter.',
+    };
+  }
+  return callGoalProcedure('complete_goal_quarterly_session', {
+    p_employee_id: parsed.data.employeeId,
+    p_performance_period_id: parsed.data.performancePeriodId,
+    p_period_year: parsed.data.periodYear,
+    p_period_quarter: parsed.data.periodQuarter,
+    p_items: parsed.data.items.map((item) => ({
+      goal_id: item.goalId,
+      health: item.health,
+      attention_text: item.attentionText || null,
+      support_adjustment: item.supportAdjustment || null,
+    })),
+    p_summary: parsed.data.summary || null,
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+}
+
+export async function finalizeGoalPlan(input: {
+  employeeId: string;
+  performancePeriodId: string;
+  expectedVersion: number;
+  idempotencyKey: string;
+}) {
+  const parsed = z
+    .object({
+      employeeId: uuid,
+      performancePeriodId: uuid,
+      expectedVersion: z.number().int().positive(),
+      idempotencyKey,
+    })
+    .safeParse(input);
+  if (!parsed.success)
+    return { ok: false as const, code: 'validation_failed' as const, message: 'Invalid plan.' };
+  return callGoalProcedure('finalize_goal_plan', {
+    p_employee_id: parsed.data.employeeId,
+    p_performance_period_id: parsed.data.performancePeriodId,
+    p_expected_version: parsed.data.expectedVersion,
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+}
+
+export async function completeGoal(input: {
+  goalId: string;
+  expectedVersion: number;
+  finalResultSummary: string;
+  measureResults: Array<{ measureId: string; actualResult: string }>;
+  idempotencyKey: string;
+}) {
+  const parsed = z
+    .object({
+      goalId: uuid,
+      expectedVersion: z.number().int().positive(),
+      finalResultSummary: z.string().trim().min(1).max(4000),
+      measureResults: z
+        .array(z.object({ measureId: uuid, actualResult: z.string().trim().min(1).max(4000) }))
+        .min(1),
+      idempotencyKey,
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      code: 'validation_failed' as const,
+      message: 'Record the final result and an actual result for every success measure.',
+    };
+  }
+  return callGoalProcedure('complete_goal', {
+    p_goal_id: parsed.data.goalId,
+    p_expected_version: parsed.data.expectedVersion,
+    p_final_result_summary: parsed.data.finalResultSummary,
+    p_measure_results: parsed.data.measureResults.map((measure) => ({
+      measure_id: measure.measureId,
+      actual_result: measure.actualResult,
+    })),
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+}
+
+export async function cancelGoal(input: {
   goalId: string;
   expectedVersion: number;
   reason: string;
@@ -502,13 +711,14 @@ export async function closeGoal(input: {
       idempotencyKey,
     })
     .safeParse(input);
-  if (!parsed.success)
+  if (!parsed.success) {
     return {
       ok: false as const,
       code: 'validation_failed' as const,
-      message: 'Record why this Goal is being closed.',
+      message: 'Record why this Goal no longer applies.',
     };
-  return callGoalProcedure('close_goal', {
+  }
+  return callGoalProcedure('cancel_goal', {
     p_goal_id: parsed.data.goalId,
     p_expected_version: parsed.data.expectedVersion,
     p_reason: parsed.data.reason,

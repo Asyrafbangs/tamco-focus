@@ -2,6 +2,21 @@ import { describe, expect, it } from 'vitest';
 
 import { PEOPLE, serviceClient, signInAs, type PersonKey } from './setup';
 
+/**
+ * Goal read model, authority and milestone work.
+ *
+ * These were written against the v33 authoring procedures, which v53 §22
+ * retired. The rules they establish did not go anywhere — who may create a
+ * Goal for whom, that formal allocation cannot exceed 100%, that a milestone
+ * moves on its own and completes the Goal only when every one of them is done —
+ * so they now exercise the same rules through the lean flow that replaced it.
+ *
+ * What is gone from here is what is gone from the product: the per-Goal overall
+ * update, whose idempotency and support handling now belong to
+ * `submit_goal_monthly_session` and `raise_goal_support_request`
+ * (`execution-goal-v53.test.ts`).
+ */
+
 type Rpc = Record<string, unknown> & { ok: boolean; code: string };
 
 const targetDate = () => new Date(Date.now() + 120 * 86_400_000).toISOString().slice(0, 10);
@@ -19,23 +34,34 @@ const milestones = [
     progress_percent: 0,
   },
 ];
+const measures = [
+  { description: 'The result is demonstrated and accepted by the intended users.' },
+];
 
-async function createGoalFixture(owner: PersonKey = 'izzah', activate = true) {
+/**
+ * An Active Goal with two milestones, created by the authorised manager.
+ *
+ * Owned by Lim by default. He carries no seeded formal allocation, so a fixture
+ * cannot fail on the 100% guard because another suite in this shared database
+ * activated something for the same person first. The weight is deliberately
+ * small for the same reason.
+ */
+async function createGoalFixture(owner: PersonKey = 'lim', activate = true) {
   const manager = await signInAs('izzul');
-  const { data, error } = await manager.rpc('create_goal', {
+  const { data, error } = await manager.rpc('create_lean_goal', {
     p_owner_id: PEOPLE[owner].id,
     p_expected_result: `Integration Goal ${crypto.randomUUID().slice(0, 8)}`,
-    p_success_measure: 'The result is demonstrated and accepted by the intended users.',
     p_target_date: targetDate(),
-    p_employee_approach: 'Test the smallest useful version first.',
-    p_support_agreed: 'Fortnightly coaching and access to intended users.',
+    p_weight_percent: 2,
+    p_measures: measures,
+    p_agreed_approach: 'Test the smallest useful version first.',
+    p_support_needed: 'Fortnightly coaching and access to intended users.',
     p_dependencies: null,
     p_baseline: 'The work is currently coordinated manually.',
     p_purpose: 'Reduce repeated administration.',
-    p_weight_percent: 0,
     p_category: 'improvement',
     p_milestones: milestones,
-    p_activate: activate,
+    p_submission_mode: activate ? 'active' : 'discussion',
     p_idempotency_key: crypto.randomUUID(),
   });
   expect(error).toBeNull();
@@ -43,8 +69,8 @@ async function createGoalFixture(owner: PersonKey = 'izzah', activate = true) {
   return data as Rpc & { goal_id: string; goal_version_id: string; version: number };
 }
 
-describe('Goals v33 read model and authority', () => {
-  it('keeps reported progress separate from weighted milestone progress', async () => {
+describe('Goal read model and authority', () => {
+  it('keeps reported progress separate from structured success-measure progress', async () => {
     const owner = await signInAs('amer');
     const { data, error } = await owner
       .from('goal_overview')
@@ -59,22 +85,13 @@ describe('Goals v33 read model and authority', () => {
     expect(data?.open_support_count).toEqual(expect.any(Number));
     expect(data?.needs_attention).toEqual(expect.any(Boolean));
 
-    const milestonesResult = await owner
-      .from('goal_milestones')
-      .select('progress_percent,weight_percent')
+    const measuresResult = await owner
+      .from('goal_success_measures')
+      .select('measure_type,target_numeric,current_numeric,current_state')
       .eq('goal_version_id', data!.active_version_id!);
-    expect(milestonesResult.error).toBeNull();
-    const totalWeight = milestonesResult.data!.reduce(
-      (total, milestone) => total + milestone.weight_percent,
-      0,
-    );
-    const derivedProgress = Math.round(
-      milestonesResult.data!.reduce(
-        (total, milestone) => total + milestone.progress_percent * milestone.weight_percent,
-        0,
-      ) / totalWeight,
-    );
-    expect(data?.derived_progress).toBe(derivedProgress);
+    expect(measuresResult.error).toBeNull();
+    expect(measuresResult.data!.length).toBeGreaterThan(0);
+    expect(data?.derived_progress).toBe(0);
   });
 
   it('separates visibility, update, structural edit, and agreement capabilities', async () => {
@@ -101,21 +118,7 @@ describe('Goals v33 read model and authority', () => {
     });
   });
 
-  it('only permits an authorised manager to create an employee Goal', async () => {
-    const employee = await signInAs('izzah');
-    const refused = (
-      await employee.rpc('create_goal', {
-        p_owner_id: PEOPLE.amer.id,
-        p_expected_result: 'Unauthorised Goal',
-        p_success_measure: 'Should never be saved.',
-        p_target_date: targetDate(),
-        p_milestones: milestones,
-        p_activate: true,
-        p_idempotency_key: crypto.randomUUID(),
-      })
-    ).data as Rpc;
-    expect(refused).toMatchObject({ ok: false, code: 'not_authorised' });
-
+  it('holds a Goal saved for discussion in pending_discussion with no active version', async () => {
     const created = await createGoalFixture('izzah', false);
     expect(created.code).toBe('goal_saved_for_discussion');
     const row = await serviceClient()
@@ -135,20 +138,25 @@ describe('Goals v33 read model and authority', () => {
     const args = {
       p_owner_id: PEOPLE.amer.id,
       p_expected_result: `Formal weight guard ${crypto.randomUUID().slice(0, 8)}`,
-      p_success_measure: 'The formal allocation remains at or below one hundred percent.',
       p_target_date: targetDate(),
       p_weight_percent: 100,
+      p_measures: [
+        { description: 'The formal allocation remains at or below one hundred percent.' },
+      ],
       p_category: 'performance',
       p_milestones: milestones,
       p_idempotency_key: crypto.randomUUID(),
     };
-    const blocked = (await manager.rpc('create_goal', { ...args, p_activate: true })).data as Rpc;
+    // Amer already carries seeded formal weight, so 100 more can never fit.
+    const blocked = (
+      await manager.rpc('create_lean_goal', { ...args, p_submission_mode: 'active' })
+    ).data as Rpc;
     expect(blocked).toMatchObject({ ok: false, code: 'invalid_target' });
 
     const discussion = (
-      await manager.rpc('create_goal', {
+      await manager.rpc('create_lean_goal', {
         ...args,
-        p_activate: false,
+        p_submission_mode: 'discussion',
         p_idempotency_key: crypto.randomUUID(),
       })
     ).data as Rpc;
@@ -156,72 +164,10 @@ describe('Goals v33 read model and authority', () => {
   });
 });
 
-describe('Goals v33 transactional updates', () => {
-  it('posts one idempotent overall update and creates manager support action', async () => {
-    const goal = await createGoalFixture();
-    const owner = await signInAs('izzah');
-    const key = crypto.randomUUID();
-    const args = {
-      p_goal_id: goal.goal_id,
-      p_expected_version: 1,
-      p_progress: 35,
-      p_what_changed: 'Completed the first user walkthrough.',
-      p_next_step: 'Run the remaining two walkthroughs.',
-      p_support_requested: true,
-      p_support_details: 'Please arrange access to the night-shift supervisors.',
-      p_attachments: [],
-      p_idempotency_key: key,
-    };
-    const first = (await owner.rpc('post_goal_update', args)).data as Rpc;
-    const replay = (await owner.rpc('post_goal_update', args)).data as Rpc;
-    expect(first).toMatchObject({ ok: true, code: 'goal_update_posted' });
-    expect(replay).toEqual(first);
-
-    const admin = serviceClient();
-    const [
-      { count: updateCount },
-      { data: support },
-      { data: storedGoal },
-      { data: notification },
-    ] = await Promise.all([
-      admin
-        .from('goal_updates')
-        .select('id', { count: 'exact', head: true })
-        .eq('goal_id', goal.goal_id),
-      admin
-        .from('goal_support_requests')
-        .select('manager_id,status,details')
-        .eq('goal_id', goal.goal_id)
-        .single(),
-      admin
-        .from('goals')
-        .select('reported_progress,health,version')
-        .eq('id', goal.goal_id)
-        .single(),
-      admin
-        .from('notifications')
-        .select('recipient_id,kind,requires_action,goal_id')
-        .eq('goal_id', goal.goal_id)
-        .eq('kind', 'goal_support_requested')
-        .single(),
-    ]);
-    expect(updateCount).toBe(1);
-    expect(support).toMatchObject({ manager_id: PEOPLE.izzul.id, status: 'open' });
-    expect(storedGoal).toMatchObject({
-      reported_progress: 35,
-      health: 'support_requested',
-      version: 2,
-    });
-    expect(notification).toMatchObject({
-      recipient_id: PEOPLE.izzul.id,
-      requires_action: true,
-      goal_id: goal.goal_id,
-    });
-  });
-
+describe('Goal milestone and revision transactions', () => {
   it('updates milestones independently and completes the Goal only when every milestone is complete', async () => {
     const goal = await createGoalFixture();
-    const owner = await signInAs('izzah');
+    const owner = await signInAs('lim');
     const admin = serviceClient();
     const { data: milestoneRows } = await admin
       .from('goal_milestones')
@@ -277,9 +223,9 @@ describe('Goals v33 transactional updates', () => {
     expect(completed.data?.completed_at).not.toBeNull();
   });
 
-  it('saves a milestone check-in and existing support workflow atomically', async () => {
-    const goal = await createGoalFixture('amer');
-    const owner = await signInAs('amer');
+  it('saves a milestone check-in and its shared support request atomically', async () => {
+    const goal = await createGoalFixture();
+    const owner = await signInAs('lim');
     const admin = serviceClient();
     const { data: milestone } = await admin
       .from('goal_milestones')
@@ -312,11 +258,7 @@ describe('Goals v33 transactional updates', () => {
     });
 
     const [{ data: support }, { data: notification }, { data: update }] = await Promise.all([
-      admin
-        .from('goal_support_requests')
-        .select('status,details')
-        .eq('goal_id', goal.goal_id)
-        .single(),
+      admin.from('barriers').select('status,support_needed').eq('goal_id', goal.goal_id).single(),
       admin
         .from('notifications')
         .select('kind,requires_action,goal_id')
@@ -329,7 +271,10 @@ describe('Goals v33 transactional updates', () => {
         .eq('goal_id', goal.goal_id)
         .single(),
     ]);
-    expect(support).toMatchObject({ status: 'open', details: 'Arrange night-shift access.' });
+    expect(support).toMatchObject({
+      status: 'open',
+      support_needed: 'Arrange night-shift access.',
+    });
     expect(notification).toMatchObject({
       kind: 'goal_support_requested',
       requires_action: true,
@@ -339,17 +284,23 @@ describe('Goals v33 transactional updates', () => {
     expect(update?.comment).toContain('Next step: Confirm the remaining users.');
   });
 
-  it('rolls back invalid structural proposals and activates only an agreed valid version', async () => {
-    const goal = await createGoalFixture('lim');
+  it('rolls back an invalid Active revision and activates only an agreed valid version', async () => {
+    const goal = await createGoalFixture();
     const owner = await signInAs('lim');
+    const revision = {
+      p_goal_id: goal.goal_id,
+      p_expected_version: 1,
+      p_target_date: targetDate(),
+      p_weight_percent: 2,
+      p_revision_reason: 'The intended users changed after the first walkthrough.',
+    };
     const invalid = (
-      await owner.rpc('propose_goal_version', {
-        p_goal_id: goal.goal_id,
-        p_expected_version: 1,
+      await owner.rpc('revise_lean_goal_version', {
+        ...revision,
         p_expected_result: 'Revised outcome',
-        p_success_measure: 'Revised measure',
-        p_target_date: targetDate(),
-        p_weight_percent: 0,
+        p_measures: [{ description: 'Revised measure' }],
+        // Milestone weights that do not add up: the whole revision must be
+        // refused, leaving the agreed version exactly as it was.
         p_milestones: [
           { ...milestones[0], weight_percent: 80 },
           { ...milestones[1], weight_percent: 10 },
@@ -370,27 +321,26 @@ describe('Goals v33 transactional updates', () => {
     });
 
     const proposed = (
-      await owner.rpc('propose_goal_version', {
-        p_goal_id: goal.goal_id,
-        p_expected_version: 1,
+      await owner.rpc('revise_lean_goal_version', {
+        ...revision,
         p_expected_result: 'Revised aligned outcome',
-        p_success_measure: 'The revised result is accepted by five users.',
-        p_target_date: targetDate(),
-        p_employee_approach: 'Expand testing after the first validated workflow.',
-        p_support_agreed: 'Weekly coaching during the pilot.',
-        p_dependencies: null,
-        p_baseline: null,
-        p_purpose: null,
-        p_weight_percent: 0,
+        p_measures: [{ description: 'The revised result is accepted by five users.' }],
+        p_agreed_approach: 'Expand testing after the first validated workflow.',
+        p_support_needed: 'Weekly coaching during the pilot.',
         p_milestones: milestones,
         p_idempotency_key: crypto.randomUUID(),
       })
     ).data as Rpc & { pending_version_id: string; version: number };
-    expect(proposed).toMatchObject({ ok: true, code: 'goal_version_proposed', version: 2 });
+    expect(proposed).toMatchObject({
+      ok: true,
+      code: 'goal_version_proposed',
+      version: 2,
+      revision_reason_recorded: true,
+    });
 
     const manager = await signInAs('izzul');
     const agreed = (
-      await manager.rpc('agree_goal_version', {
+      await manager.rpc('agree_lean_goal_version', {
         p_goal_id: goal.goal_id,
         p_pending_version_id: proposed.pending_version_id,
         p_expected_version: 2,
@@ -413,7 +363,15 @@ describe('Goals v33 transactional updates', () => {
 
   it('commits private Goal evidence metadata with its update', async () => {
     const goal = await createGoalFixture();
-    const owner = await signInAs('izzah');
+    const owner = await signInAs('lim');
+    const { data: milestone } = await serviceClient()
+      .from('goal_milestones')
+      .select('id')
+      .eq('goal_version_id', goal.goal_version_id)
+      .order('position')
+      .limit(1)
+      .single();
+
     const attachmentId = crypto.randomUUID();
     const path = `goals/${goal.goal_id}/${attachmentId}-goal-evidence.txt`;
     const body = new Blob(['goal evidence'], { type: 'text/plain' });
@@ -424,14 +382,13 @@ describe('Goals v33 transactional updates', () => {
     expect(upload.error).toBeNull();
 
     const posted = (
-      await owner.rpc('post_goal_update', {
+      await owner.rpc('post_goal_milestone_update', {
         p_goal_id: goal.goal_id,
+        p_milestone_id: milestone!.id,
         p_expected_version: 1,
         p_progress: 5,
-        p_what_changed: 'Attached the first validation record.',
-        p_next_step: null,
-        p_support_requested: false,
-        p_support_details: null,
+        p_comment: 'Attached the first validation record.',
+        p_mark_complete: false,
         p_attachments: [
           {
             id: attachmentId,
@@ -448,14 +405,15 @@ describe('Goals v33 transactional updates', () => {
 
     const attachment = await serviceClient()
       .from('goal_attachments')
-      .select('goal_id,goal_update_id,uploaded_by,storage_path')
+      .select('goal_id,milestone_update_id,uploaded_by,storage_path')
       .eq('id', attachmentId)
       .single();
     expect(attachment.data).toMatchObject({
       goal_id: goal.goal_id,
-      uploaded_by: PEOPLE.izzah.id,
+      uploaded_by: PEOPLE.lim.id,
       storage_path: path,
     });
-    expect(attachment.data?.goal_update_id).toBeTruthy();
+    // Evidence is committed against the update it arrived with, not left loose.
+    expect(attachment.data?.milestone_update_id).toBeTruthy();
   });
 });

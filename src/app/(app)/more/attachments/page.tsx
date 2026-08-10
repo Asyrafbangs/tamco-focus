@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { RowPrimaryLink } from '@/components/ui/ParityPrimitives';
 import { getAttachmentLibrary } from '@/server/queries';
+import { taskDrawerHref } from '@/domain/navigation';
 
 const bytes = (value: number) =>
   value < 1024
@@ -69,7 +70,7 @@ export default async function AttachmentsPage({
                   </small>
                 </td>
                 <td>
-                  <Link href={`/work?task=${item.taskId}`} data-row-action>
+                  <Link href={taskDrawerHref(item.taskId, '/more/attachments')} data-row-action>
                     {item.taskTitle}
                   </Link>
                 </td>

@@ -5,28 +5,48 @@ import {
   FOLLOW_UP_QUESTION,
   requiresGovernanceReview,
   SELECTABLE_DESTINATIONS,
-  URGENCY_QUESTION,
 } from '@/domain/classification';
 
-describe('urgent wording (section 8.6)', () => {
-  it('never classifies as mandatory from keywords alone', () => {
+describe('urgent wording (section 8.6, v40 section 13)', () => {
+  it('does not react to safety wording at all', () => {
+    // v40 section 13 uses this exact example. "PPE" is a noun about a topic,
+    // not a claim about urgency, and reading urgency out of it is the hidden
+    // inference the product must not make.
     const result = classifyCapture({
-      title: 'PPE stock is low and there is a safety risk on line 2',
+      title: 'replace PPE signage',
       timing: 'today',
+      requiresFollowUp: false,
     });
 
-    expect(result.destination).not.toBe('mandatory_operational_action');
-    expect(result.urgencyQuestion).toBe(URGENCY_QUESTION);
+    expect(result.destination).toBe('quick_action');
+    expect(result.urgencyQuestion).toBeNull();
+    expect(result.ruleCode).toBe('same_day_no_followup');
   });
 
-  it('asks one clear question when urgent wording appears', () => {
+  it('never raises the urgency question from wording, however alarming', () => {
+    for (const title of [
+      'Chemical spill near the loading bay',
+      'PPE stock is low and there is a safety risk on line 2',
+      'Fire extinguisher inspection overdue',
+      'Compliance audit finding to close',
+    ]) {
+      const result = classifyCapture({ title, timing: 'today' });
+      expect(result.destination).not.toBe('mandatory_operational_action');
+      expect(result.urgencyQuestion).toBeNull();
+    }
+  });
+
+  it('reaches mandatory only from an explicit yes', () => {
+    // The explicit "Report urgent safety or compliance work" path. Note the
+    // title says nothing urgent — the ANSWER is what decides.
     const result = classifyCapture({
-      title: 'Chemical spill near the loading bay',
+      title: 'Move the pallet stack away from the panel',
       timing: 'today',
+      needsImmediateControlledAction: true,
     });
 
-    expect(result.urgencyQuestion).toContain('immediate controlled action');
-    expect(result.urgencyQuestion).toContain('active safety risk');
+    expect(result.destination).toBe('mandatory_operational_action');
+    expect(result.ruleCode).toBe('explicit_urgent_confirmed');
   });
 
   it('continues ordinary classification when the answer is no', () => {
@@ -125,15 +145,17 @@ describe('ordinary classification (section 8.4)', () => {
     expect(result.destination).toBe('major_project_request');
   });
 
-  it('recognises a contribution to someone else’s work', () => {
-    const result = classifyCapture({
-      title: 'Help Amer with the evacuation drill briefing',
-      timing: 'this_week',
-      needsImmediateControlledAction: false,
-    });
-
-    expect(result.destination).toBe('collaborative_contribution');
-    expect(result.capacityEffect).toBe('Does not use a separate focus target.');
+  it('never recommends the removed Collaborative Contribution destination', () => {
+    // v40 section 8 — contribution is created by assigning a checklist item on
+    // an existing task, not by classifying work at capture time.
+    for (const title of [
+      'help Amer with the contractor review',
+      'assist with the annual PPE forecast',
+      'contribute to the BR2 firefighting upgrade',
+    ]) {
+      const result = classifyCapture({ title, timing: 'this_week' });
+      expect(result.destination).not.toBe('collaborative_contribution');
+    }
   });
 
   it('defaults multi-day work to Operational Available Work', () => {
@@ -168,8 +190,49 @@ describe('Change type list (section 8.6)', () => {
     expect(SELECTABLE_DESTINATIONS).not.toContain('mandatory_operational_action');
   });
 
-  it('offers the other six destinations', () => {
-    expect(SELECTABLE_DESTINATIONS).toHaveLength(6);
+  it('offers five destinations, with mandatory and collaborative both absent', () => {
+    expect(SELECTABLE_DESTINATIONS).toHaveLength(5);
+    expect(SELECTABLE_DESTINATIONS).not.toContain('mandatory_operational_action');
+    expect(SELECTABLE_DESTINATIONS).not.toContain('collaborative_contribution');
+  });
+
+  it('names the rule behind every recommendation', () => {
+    // v40 section 12 — the audit trail has to be able to answer "why was this
+    // created as Operational?" with a rule rather than an implication that
+    // something understood the sentence.
+    const cases = [
+      {
+        input: { title: 'Weekly line walk', timing: 'this_week' as const },
+        code: 'recurring_schedule',
+      },
+      {
+        input: { title: 'Finish the NEBOSH revision questions', timing: 'no_date' as const },
+        code: 'self_development_topic',
+      },
+      {
+        input: { title: 'Roll out the new permit system company-wide', timing: 'no_date' as const },
+        code: 'major_programme_scope',
+      },
+      {
+        input: {
+          title: 'Draft the contractor briefing',
+          timing: 'today' as const,
+          requiresFollowUp: true,
+        },
+        code: 'continued_followup_yes',
+      },
+      {
+        input: { title: 'Order more gloves', timing: 'this_week' as const },
+        code: 'multi_day_default',
+      },
+    ];
+
+    for (const { input, code } of cases) {
+      const result = classifyCapture(input);
+      expect(result.ruleCode).toBe(code);
+      expect(result.ruleText.length).toBeGreaterThan(0);
+      expect(result.ruleText).toBe(result.reason);
+    }
   });
 });
 

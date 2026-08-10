@@ -3,9 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   ageChips,
   currentStateAgeMs,
+  dueInputValue,
   endOfLocalDay,
   formatCompactDuration,
   formatDue,
+  formatDueShort,
+  localDateTimeToInstant,
   localDateString,
   openAgeMs,
   overdueAgeMs,
@@ -65,6 +68,23 @@ describe('local day helpers', () => {
   it('reports the local calendar date', () => {
     // 23:00 UTC is already the next day in Kuala Lumpur.
     expect(localDateString(new Date('2026-08-11T23:00:00Z'), KL)).toBe('2026-08-12');
+  });
+});
+
+describe('editable due values', () => {
+  it('converts an organisation-local time to one absolute commitment', () => {
+    expect(localDateTimeToInstant('2026-08-12T12:00', KL).toISOString()).toBe(
+      '2026-08-12T04:00:00.000Z',
+    );
+  });
+
+  it('round-trips date-only and timed values for native controls', () => {
+    expect(dueInputValue('2026-08-12T15:59:59.999Z', true, KL)).toBe('2026-08-12');
+    expect(dueInputValue('2026-08-12T04:00:00.000Z', false, KL)).toBe('2026-08-12T12:00');
+  });
+
+  it('rejects ambiguous date-time text', () => {
+    expect(() => localDateTimeToInstant('12/08/2026 12:00', KL)).toThrow(RangeError);
   });
 });
 
@@ -201,5 +221,10 @@ describe('due date presentation', () => {
 
   it('says so plainly when there is no date', () => {
     expect(formatDue(null, true, KL)).toBe('No date yet');
+  });
+
+  it('renders compact Next Action due context', () => {
+    expect(formatDueShort('2026-08-12T15:59:59.999Z', true, KL)).toBe('12 Aug');
+    expect(formatDueShort('2026-08-12T04:00:00.000Z', false, KL)).toBe('12 Aug, 12:00');
   });
 });

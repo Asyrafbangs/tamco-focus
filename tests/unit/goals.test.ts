@@ -10,14 +10,14 @@ import {
   milestoneDerivedProgress,
 } from '@/domain/goals';
 
-describe('Goal v34 lifecycle and formal weighting', () => {
-  it('maps discussion and completed states into their approved views', () => {
+describe('Goal lifecycle and formal weighting', () => {
+  it('maps the lean Draft and Completed filters without exposing legacy states', () => {
     expect(matchesGoalLifecycle('active', 'active')).toBe(true);
-    expect(matchesGoalLifecycle('draft', 'discussion')).toBe(true);
-    expect(matchesGoalLifecycle('pending_discussion', 'discussion')).toBe(true);
+    expect(matchesGoalLifecycle('draft', 'draft')).toBe(true);
+    expect(matchesGoalLifecycle('pending_discussion', 'draft')).toBe(true);
     expect(matchesGoalLifecycle('completed', 'completed')).toBe(true);
     expect(matchesGoalLifecycle('closed', 'completed')).toBe(true);
-    expect(matchesGoalLifecycle('cancelled', 'all')).toBe(false);
+    expect(matchesGoalLifecycle('cancelled', 'completed')).toBe(false);
   });
 
   it('counts only active Goals in the formal allocation', () => {
@@ -109,11 +109,17 @@ describe('Goal milestone structure', () => {
   });
 
   it('rejects blank definitions and non-step progress', () => {
-    expect(validateGoalMilestones([{ ...milestone, completionDefinition: ' ' }])).toMatch(
-      /definition of done/i,
-    );
-    expect(validateGoalMilestones([{ ...milestone, progressPercent: 12 }])).toMatch(
-      /five-percent/i,
-    );
+    expect(
+      validateGoalMilestones([
+        { ...milestone, completionDefinition: ' ' },
+        { ...milestone, title: 'Record lessons' },
+      ]),
+    ).toMatch(/definition of done/i);
+    expect(
+      validateGoalMilestones([
+        { ...milestone, progressPercent: 12 },
+        { ...milestone, title: 'Record lessons' },
+      ]),
+    ).toMatch(/five-percent/i);
   });
 });

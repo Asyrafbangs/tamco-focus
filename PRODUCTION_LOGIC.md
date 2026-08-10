@@ -1,6 +1,6 @@
 # TAMCO Focus — Production Logic
 
-**Current implementation baseline:** v37 synchronized baseline — v34 Goals + v36 Next action + v36 Team Focus  
+**Current implementation baseline:** v49 attention summary and exact-action UI repair — v37 baseline plus v38 audited due dates and atomic checklist evidence and the v40 to v49 revisions in section 40
 **Purpose:** Implementation reference for backend, database, API, audit, permissions, UI state, and acceptance testing.  
 **Maintenance rule:** Every approved workflow change must update this file and `MASTER_PRODUCT_SPEC.md` in the same revision. Updated specifications and prototypes supplied later must be processed through `CHANGE_INTAKE_PROTOCOL.md`.
 
@@ -535,3 +535,569 @@ Return duration values and accessible labels from a shared domain/service layer 
 3. This revision introduces no new task state, permission, focus-target rule, goal calculation rule, notification rule, or backend workflow beyond the latest approved v34/v36 logic.
 4. Where older text conflicts with the latest prototype, use: dedicated Goals workspace; Plan as Calendar; **Next action** in task detail; **Team Focus** as the manager exception-first workspace.
 5. UI synchronization must not be implemented by replacing real production data with prototype fixtures. Prototype data is reference/demo data only.
+
+
+## V38 — Task-detail transaction and presentation logic
+
+1. The compact task information line is presentation only. Status, urgency, overdue, progress, and age values continue to come from canonical task timestamps and the task overview read model. Open and current-state ages move behind the information control without changing their calculation.
+2. `change_task_due_date` is the only task-detail due mutation. It authenticates an active account, locks the task, checks `focus.can_edit_task`, rejects terminal tasks and stale versions, applies date-only/date-time semantics in the organisation timezone, updates the meaningful-work timestamp and version, and writes `task_due_date_changed` in the same transaction.
+3. A due audit payload contains `previous_due_at`, `previous_due_is_date_only`, `new_due_at`, `new_due_is_date_only`, and optional `reason`; actor and `occurred_at` remain authoritative audit columns. An unchanged value is a successful no-op and does not write an event.
+4. The current Next Action remains `tasks.next_action`. It is rendered as a pinned Checklist section but never inserted into `task_checklist_items` and never contributes to checklist progress.
+5. A task with permanent checklist items derives `progress_percent` as integer `(completed * 100) / total`. A database trigger maintains the value after checklist insertion, deletion, or state change, and the migration backfills existing tasks. Completion and reopen operations remain authoritative and versioned.
+6. An ordinary checklist completion uses `complete_checklist_item`. An evidence-required completion uses `complete_checklist_item_with_evidence`: verify caller contribution authority and exact private-storage ownership, insert the evidence update and attachment metadata, complete the item, derive progress, update task version/meaningful time, and write update, attachment, and checklist audit events in one transaction.
+7. If storage upload succeeds but the evidence-completion RPC fails, the Server Action removes only the exact newly uploaded object paths. Existing attachments are never deleted by that cleanup.
+8. Recent activity is a presentation over immutable `audit_events`, `task_updates`, and `attachments`. Human-readable labels do not replace event types or edit history.
+9. No-barrier presentation is neutral. The red/pink state is selected only when an open `barriers` row exists; this does not change barrier workflow, notification, pause, or escalation logic.
+
+---
+
+## 40. v40 to v49 — implemented behaviour
+
+This section records what changed between v40 and v49 and, where it matters, why
+the obvious alternative was rejected. It is the reference for anyone reading the
+code and wondering whether a decision was deliberate.
+
+### Navigation is state, not work class (v40 §1, v43 §1–2)
+
+Focus navigates by `Active | Available | Shared`. Major Project, Operational
+Action and Self-Development remain `work_class` values and still drive the
+1 / 5 / 1 capacity model; they are reported in a quiet capacity strip and shown
+on each row. They are not navigation, because asking somebody to pick
+"Operational Actions" to find what they are carrying makes them navigate the
+data model instead of their day.
+
+`My Work | My Team` is a separate control above that, because scope (whose work)
+and state (my relationship to it) are different dimensions. v42 placed My Team
+beside the state tabs; v43 corrected it.
+
+### Available carries no fabricated next action (v41 §11)
+
+v40 wrote `Review and activate when ready` into `next_action` for everything
+landing in Available. That reads as the owner's decision and is not one. A
+trigger now clears the known system placeholders on `backlog` rows whatever
+path created them; a genuine next action typed by a person is untouched.
+
+### Shared is a projection (v41 §9, §23; v44 Part A)
+
+`shared_contributions` selects the original `task_checklist_items` rows where
+`assigned_to <> parent.primary_owner_id`. There is no Shared task and no Shared
+copy — completing a contribution updates the record the primary owner is looking
+at, so the two can never disagree.
+
+Readiness follows the parent: a contribution stays `waiting` until the owner
+activates the work, so a contributor cannot start what the owner has not
+committed to. The gate applies only to contributions, never to the owner's own
+steps — gating those would contradict planning work while it is still Available.
+
+### Notifications are handoffs, not an audit mirror (v42 §M–P, v44 Part A/B)
+
+`notifications` carries `entity_type` / `entity_id` so a notification opens the
+exact record: a checklist item inside its parent task, a barrier with its
+section focused. The bell counts unread AND actionable only.
+
+Both handoff notifications are written by database triggers in the same
+transaction as the change that caused them. A committed assignment with no
+notification record is not a successful handoff, and writing it here makes it
+impossible to commit one without the other. Delivery may be retried from the
+row; the row cannot be lost.
+
+### A barrier names who must act (v44 §14)
+
+`barriers.action_required_from` and `action_type` were added because the model
+recorded what was blocked and what support was needed, but not who was being
+asked. "Somebody should decide this" reaches nobody's list.
+
+`action_type` is metadata that chooses the manager's primary control — Provide
+decision, Provide approval, Respond — and is explicitly not five workflows.
+
+A response is not a resolution. `barrier_responses` is a separate table so that
+replying can never accidentally close a barrier: "I will confirm by 3pm" removes
+no blocker.
+
+Authorisation deserves a note. `focus.can_view_user` answers "may I see this
+person's work", which runs downwards — a manager sees their reports. Asking runs
+the other way, and the commonest barrier in the product is an employee asking
+their own manager for a decision. The recipient check therefore tests the
+reporting line explicitly in both directions; visibility alone would have
+blocked the main case.
+
+### Needs Attention explains itself (v44 §19–20)
+
+`getTeamAttention` returns, per person, a reason, the required action and a deep
+link to the exact record, ranked by what costs most to ignore. Anything that
+cannot supply all three does not appear as actionable. Manager views query the
+authoritative records — tasks, barriers, routines, focus counts — and copy none
+of them.
+
+### Classification is deterministic and auditable (v40 §12–13)
+
+Safety wording no longer influences classification at all. `replace PPE signage`
+is ordinary work; mandatory classification is reachable only through the explicit
+urgent path where a person answers the question themselves.
+`classification_rule_code` and `classification_rule_text` are stored on the task
+so the audit trail answers "why was this Operational?" with the rule that fired.
+
+
+### Collaboration is not the reporting line (v45 §1–6)
+
+Assignment eligibility is "an active team member", full stop. The previous rule
+— primary owner, plus collaborators, plus whoever the viewer could see through
+`focus.can_view_user` — reads as a security boundary but is not one: the insert
+policy on `task_checklist_items` already requires edit rights on the task, so
+the picker was never what authorised anything. All it did was decide who could
+be *offered*, and for an ordinary employee that was their manager and
+themselves. Izzah could not ask Fadli to do a step, which is most of what a
+checklist is for.
+
+Opening the picker exposed a second problem. `user_profiles` is readable only
+for yourself, your reports and your own manager, so a team-wide picker read
+through it would have returned three rows, and a step handed over by a peer
+would have rendered as "Team member". `public.team_directory` answers the other
+question — who is here, and what are they called — as a three-column,
+active-only projection that deliberately does not use `security_invoker`. The
+row policy is untouched; nothing about whose *work* you may read has changed.
+
+The same inner join was silently deleting data from the Shared list.
+`shared_contributions` joined `user_profiles` for the owner's name, and under
+`security_invoker` a hidden owner did not blank the name — it dropped the whole
+contribution row. Work assigned across the reporting line simply never appeared,
+with nothing anywhere reporting an error. It is now a left join against the
+directory, and the readiness copy names the owner: "Waiting for Izzah to start
+this work" answers the question "Waiting" only raised.
+
+### A step can be corrected, but not by everyone (v45 §16–24)
+
+`update_checklist_step` takes the whole step rather than a patch, because the
+edit drawer shows the whole step; a null due date therefore means cleared, with
+no second flag per field for callers to get wrong. It diffs against the stored
+row and records only the fields that moved, so `checklist_item_updated` stays
+readable — an event listing every field on every save is one nobody reviews.
+
+The authority split is the part worth explaining. Completing a step is the
+assignee's right and the RLS policy grants them `UPDATE` on the row to do it.
+That same grant would let them rewrite the action, the assignee and the
+prerequisite, and a policy cannot prevent it: `USING` sees the old row and
+`WITH CHECK` sees the new one, never both, so "you may update this row but not
+those columns" is inexpressible. `focus.guard_checklist_structure` is a
+`BEFORE UPDATE` trigger, which is the only mechanism that sees both rows and
+covers every route into the table rather than just the RPC. It exempts
+`auth.uid() is null` so migrations and seeding still work.
+
+Removal refuses wherever something would vanish without being noticed: a
+completed step, a step holding evidence, and a step another step depends on —
+`on delete set null` would otherwise release every waiting step and tell nobody
+their prerequisite had evaporated. Prerequisite edits walk the dependency chain
+first, because two steps waiting on each other are both permanently unstartable
+and no downstream screen would explain why.
+
+### Answering is not unblocking (v45 §37–47)
+
+One column, `status`, was doing two jobs. A manager who supplied the decision
+they were asked for stayed on Needs Attention until somebody closed the barrier,
+which cannot happen until the contractor turns up days later; their queue filled
+with work they had already done. Closing the barrier on reply is the opposite
+error — the decision is given, the shutdown is still unapproved, and the record
+would claim the work was unblocked.
+
+`action_pending` answers "does this person still owe an answer"; `status`
+answers "is the work still blocked". A reply clears the first and leaves the
+second alone. Needs Attention reads `action_pending`, and resolving clears both
+through a trigger, since a removed blocker leaves nobody owing anything. The
+requester sees which state they are in — waiting on a named person, or holding
+an answer and still blocked — because those decide whether they chase somebody
+today, and neither is "resolved".
+
+`barrier_response_kind` exists because an approval has two answers. With one
+button, storing prose alone was honest: a decision is whatever the manager
+wrote. Two buttons writing identical rows would lose the answer entirely. The
+kind carries the verdict, the message still carries the reasoning, and a
+verdict on a request that never asked for approval is refused rather than
+recorded as one.
+
+### The request is the first thing on the screen (v46 §10, §41, §56)
+
+A manager arriving from a notification knew only that something wanted them.
+They landed on an ordinary task drawer, which leads with status, due date and
+next action — none of which is the reason they are there. The barrier was
+several sections down, and the response form below that.
+
+Task Detail now takes an attention target: a task, plus the barrier that is
+waiting, plus the fact that the person was sent here to act. `BarrierActionPanel`
+renders above everything else with the request stated in the order it is asked —
+what is blocking the work, what it costs, what this person specifically needs
+from you — and the response control already focused.
+
+Attention mode is verified, not trusted. A link whose barrier has since been
+answered or resolved falls back to the ordinary task rather than presenting a
+form for an action nobody needs. Legacy notifications that recorded only a task
+resolve the recipient's own outstanding request, and only when there is exactly
+one; guessing between two would put the wrong decision in front of somebody.
+
+There is one response form in the application. The barrier history lower down
+deliberately has none, because two forms are two copies of the submit rules.
+
+### Shared and Needs Attention answer different questions (v46 §1-3, §14)
+
+Shared is "somebody assigned me a piece of work to perform". Needs Attention is
+"somebody is waiting for me to decide something". Both are lists of things other
+people want, which is exactly why the boundary needs defending: the pressure is
+always to put one more kind of exception into Shared, and each addition is
+individually reasonable. Several additions later, Shared means "anything anyone
+wants from me" and answers nothing.
+
+So the tests assert both directions — a barrier creates no Shared row and no
+checklist item; assigning a step creates no attention request — and the Shared
+projection remains defined purely as checklist contributions.
+
+Needs Attention is derived, never stored. A `needs_attention` table would be a
+second copy of a fact the barrier already holds, and the two would disagree the
+first time a write half-succeeded. `getMyAttention` is the single derivation;
+My Team's barrier row and the notification deep link both route through the same
+helpers, so the three surfaces cannot drift into three definitions of "waiting
+on you".
+
+Reading is not acting. Attention is derived from `action_pending`, never from
+`notification.read_at` — opening the notification and closing the drawer leaves
+the request exactly where it was.
+
+### Idempotency under genuine concurrency (v46 §31)
+
+Worth recording because the mechanism looked correct and was not.
+`replay_operation` read the operation log, the procedure did its work, and
+`remember_operation` wrote the log entry last with `on conflict do nothing`. Two
+requests carrying the same key at the same time — which is what a double-click
+is — both read an empty log, both did the work, and only the log entry was
+deduplicated. The second caller received the first caller's result and looked
+successful, while the database held two responses, two audit events and two
+notifications.
+
+`replay_operation` now takes a transaction-scoped advisory lock on the actor and
+key before reading. The second transaction waits, then finds the finished result
+and replays it. It is placed there rather than in each procedure because every
+idempotent procedure already calls it first, so all of them are fixed at once
+instead of each remembering a lock of its own.
+
+### Focus belongs to one owner (v46 §41)
+
+`SideDrawer` focuses its panel on open so a keyboard user starts inside the
+dialog. The action panel wanted the caret in its response box, and lost every
+time: parent effects run after child effects, so the drawer's focus call always
+came last. Rather than have two components take focus from each other, the
+drawer now looks for a `data-initial-focus` element inside its content and
+honours it. The content says where the caret belongs; the drawer still decides
+when.
+
+### One way in, because six ways had already drifted (v47 §1-2, §7-8)
+
+Six surfaces could open a barrier and each computed its own destination and its
+own wording. They had already diverged — one list said "Provide approval" where
+another said "Approve", and "View request" scrolled to a heading rather than
+opening the request. `src/domain/barriers.ts` now owns both questions: what a
+request type is called, and where its control goes. Neither is a property of the
+screen showing it.
+
+The wording is chosen from the `requested_action_type` the employee selected
+when they asked. Reading their prose to infer what they meant would be
+second-guessing an answer already given.
+
+"View request" is a case worth recording, because it was invisible in exactly
+the way that matters. It scrolled to the Barriers section, which the collapsed
+drawer hides with `display: none` as deliberate progressive disclosure. The
+control was present, enabled, and did nothing — the one outcome a visible
+control may never have. It now opens the drawer, brings that barrier into view
+and focuses it, and says "View response" once an answer exists, because by then
+the reader is going there to read an answer.
+
+### Queued and scheduled are different facts (v47 §18, §28-31)
+
+A manager usually knows a topic needs discussing before knowing when. Making
+"Add to Meeting Queue" require a date would force them to invent one to record
+the need, so the queue item carries a status and the date arrives later, if at
+all.
+
+Neither step answers anything. `action_pending` is untouched by queueing and by
+scheduling, so the request stays on Needs Attention throughout — the row changes
+from red to amber and gains "Scheduled for discussion", which is a change of
+urgency, not of obligation. Removing it when a meeting is booked would let a
+date in a diary discharge a decision nobody has made.
+
+The queue lives inside Monthly Plan rather than the sidebar. Most weeks it is
+empty, and a permanent destination that is usually empty teaches people to stop
+opening it.
+
+### A discussion is an entry on the calendar that exists (v47 §24-26)
+
+`plan_events` derived every entry from a task's own dates. A discussion has no
+task date to derive from, so `calendar_events` holds it and the view unions it
+in as a `discussion` kind. That is one calendar with one more kind of entry, not
+a second calendar beside the first — which is what hanging a date off the queue
+item and teaching Plan to read two sources would have produced.
+
+Two defects in this work are worth recording because both were silent:
+
+`42P17 infinite recursion detected in policy` — the events policy asked whether
+the reader was a participant by selecting from the participants table, whose own
+policy asked whether the reader could see the event. Each needed the other
+evaluated first. Cross-table questions in policies are asked through a
+`security definer` helper for exactly this reason; these two now are.
+
+`where event_id = event_id` — the local variable holding the new event's id
+shared its name with the column, so the comparison resolved column-to-column,
+matched every row, and would have notified every participant of every
+discussion. Renaming the variable is the whole fix; the lesson is that a plpgsql
+variable sharing a column name is silently wrong rather than an error.
+
+### Cards have to survive text nobody has written yet (v47 §9-11)
+
+The Needs Attention row overflowed because it was one flex line with a fixed
+height, and a barrier request is free prose: it can be two hundred characters,
+and it can contain a part number with no spaces in it. Fixing the sentence that
+exposed it would have left the next sentence to find it again.
+
+The rules are general and applied to the shared card patterns: `min-width: 0` so
+flex and grid children may shrink below min-content instead of overflowing,
+`overflow-wrap: anywhere` so an unbroken string breaks, `height: auto` so
+nothing is clipped, and a wrap at narrow widths so the action takes its own
+line. The test asserts what a person would notice — no horizontal scrollbar, and
+the button still inside its own card — at desktop, tablet and phone widths.
+
+### Mandatory is a reason to start, not a reason to escalate (v48 §9-19, §28)
+
+The rule was one line — `isMandatory → Needs Attention` — and it failed the
+manager-attention invariant on every count. It could not say why the manager was
+looking at it, what they were meant to do, or where. "Review controlled action"
+opened an ordinary task with no manager control on it, so the honest answer to
+"what now?" was "nothing".
+
+That is worse than a missing feature. A queue containing items that need no
+action trains people to skim it, and the next item — the one that genuinely
+needed them — gets skimmed too.
+
+Mandatory now means what it says: this work could not wait for normal
+prioritisation. It has already been decided. It becomes the manager's problem
+only when a second condition holds, and each is handled on its own terms with
+its own words: over target (workload review), a barrier addressed to them (the
+barrier's own action), or overdue past the existing threshold.
+
+`getTeamAttention` also gained a gate. Every branch that builds a candidate
+believed it was producing something actionable, and the one that was not is the
+one that reached production, so validity is now checked centrally: no reason, no
+action label or no destination means the item is dropped and logged rather than
+rendered.
+
+### Workload review asks the question that is actually open (v48 §20-24)
+
+Not "was Amer right to start this safety task?" — the system decided that, and
+asking again would put an approval in front of work that could not wait. The
+open question is what gives way now that the numbers have moved.
+
+Both answers are legitimate, so accepting the overload is a recorded decision
+rather than what happens when the manager closes the panel. Moving something out
+uses `move_task_to_available`, not `pause_task`: paused means blocked, and this
+work is not blocked — it is simply not what should be carried this week. Using
+the wrong one would write a stop reason onto a record that never had one.
+
+### Layers, not destinations (v48 §1-8)
+
+Closing the Task Detail drawer pushed `/work`. Opened from My Team, that
+returned the manager to My Work — not a wrong tab, a different person's
+workspace, with the filter and the selected person both gone.
+
+The mistake was letting the deepest layer decide where "back" is. It cannot
+know: the same drawer is reached from My Work, My Team, a person, My Day, Shared
+and the calendar. Each layer is now a search parameter and closing one removes
+only its own, so everything underneath survives because nothing had to remember
+it. The state lives in the address, which also means a refresh, a bookmark and a
+shared link all restore the same view.
+
+The manager row's default action had the same shape of bug — `/team?view=all` —
+and now opens the person drawer, one layer up from the list.
+
+### A list card cannot be designed around its demo data (v48 §1-13, §26)
+
+The attention card built its heading by concatenating the action type with the
+whole request. With the seeded fixture that read fine. With a real barrier —
+free prose, two hundred characters, sometimes a part number with no spaces in it
+— the most prominent text on the screen became however long somebody's sentence
+happened to be, and three rows became three paragraphs.
+
+The structure is the fix, not the wrapping rules: action type as a small label,
+the task title as the heading (stable, and the thing a manager can place), the
+request as a bounded preview, then who and when, then the action. The complete
+text was always in the barrier panel and stays there — nothing is truncated in
+the data, only in the view.
+
+The mechanics matter and are worth stating because they are the ones that get
+omitted: a grid so the text and the control own separate columns; `min-width: 0`
+because grid and flex children default to min-content and overflow rather than
+wrap; `overflow-wrap: anywhere` so an unbroken token breaks; no fixed height; a
+single column below the breakpoint. The regression test uses deliberately
+hostile content at five widths and two zoom levels, because a card verified only
+against short demo text is a card that has not been verified.
+
+### A summary that grows is not a summary (v49 §1, §9, §40)
+
+Needs Attention rendered every outstanding request. At three that was a list; at
+twelve it pushed Start Here, Today and Coming up off the screen, and the panel
+became the backlog it existed to triage. The approved 10 August amendment caps
+My Day at two and says how many are behind them.
+
+Which two matters as much as how many. `attentionPriority` is a table, not a
+heuristic: reason code gives a band, a booked discussion costs a little, an
+exception never outranks something owed, and age only breaks ties inside a band.
+Sorting by arrival would have buried a week-old blocked decision under three
+questions asked this morning; sorting by severity alone lets the least severe
+request age quietly for ever, which is why the full list defaults to oldest.
+
+The approved repair sends "View all" to Work → My Team → Needs Attention. My
+Day remains a bounded, request-first summary; My Team remains a person-first
+manager scan. They share ranking and exact-action resolution, but not a row
+component or visual hierarchy.
+
+### Exception is not the same as owed (v49 §10-12, §55-57)
+
+An overdue routine is abnormal and worth a manager's eye. It is not a question
+anybody asked them, and the previous CTA — "Review with them" — invented a
+manager workflow that does not exist. Read it and try to predict what appears
+next: open the task, message the person, change the date, arrange a meeting? It
+named none of them, so it could not be wrong, which is the same as not being
+useful.
+
+Every item now carries `kind`, and the row says "Exception" or "Needs you"
+accordingly. Buttons name their operation wherever the object is known: Open
+task, Open routine, Provide decision, Review workload.
+
+"Proposal to review" was worse, and is gone. It counted `work_proposals` rows,
+offered "Review proposal" and opened `/more/records`. There is no proposal review
+workflow in the product: nothing decides one, no screen shows what is being
+proposed, no control approves or rejects it. The manager arrived at a records
+page and had to ask what they were reviewing. Removing it was the honest fix;
+inventing an approval workflow to justify a label would have been the expensive
+one. If a real proposal object gains a real decision surface, it returns with
+its own source type and its own destination.
+
+### My Team rows and exact actions are separate interactions (v49 repair)
+
+The regression came from reusing the generic task-row presentation for a person
+row. Its absolute stretched-link overlay coupled two different operations: open
+the team member and act on one attention source. The action URL also carried the
+`person` layer, so an exact barrier response mounted Team Member Detail first.
+
+My Team now has its own five-column grid: Person, Working on, Needs you, Latest,
+Action. The row is a focusable `div` with button semantics and explicit Enter /
+Space handling because it contains a real child button. The child action stops
+propagation and navigates through the shared resolver. Exact task, routine and
+barrier actions retain only the team-attention return context; they do not add
+the person layer. Rows without manager action open the person through their
+plain Open control.
+
+The resolver requires `sourceType`, `sourceId`, and `ctaType`, plus task identity
+for a barrier. A source/CTA mismatch or incomplete identity is logged during
+development and excluded from actionable rendering. This is the validity gate;
+presentation components do not infer action types from prose or assemble their
+own deep links.
+
+## v50 — Goal lifecycle transactions and derived read model
+
+This section supersedes v34 Goal calculation and generic-update cadence where they conflict.
+
+1. `goal_success_measures` is version-owned. Numeric progress is clamped `current / target`;
+   percentage progress is the current percentage; qualitative states map Not started=0,
+   Progressing=50, Achieved/Exceeded=100. Overall measure progress is the rounded arithmetic
+   mean. A zero numeric target is invalid, avoiding meaningless `0 → 0` displays.
+2. `create_goal_with_measures` validates one to ten structured measures, two to five milestones,
+   required 1–100 formal weight and the existing active-weight guard. It delegates lifecycle
+   creation to the established Goal transaction, then adds measures in the same transaction.
+3. Monthly, quarterly and year-end rows use server-derived period keys. Partial unique indexes
+   enforce one monthly row per Goal/month, one quarterly row per Goal/quarter and one year-end
+   row per Goal/year. Advisory locks and idempotency keys prevent concurrent duplicates.
+4. `post_goal_monthly_checkin` is owner-only and active-Goal-only. Measure history, Goal update,
+   evidence metadata, optional support, Goal health, audit and notification changes commit or
+   roll back together. No material change stores an explicit historical record without inventing
+   progress. Only At risk, Off track or explicit support notifies the manager as action required.
+5. `save_goal_quarterly_checkin` separates role authority: the owner submits the employee summary;
+   an authorised manager records discussion and agreed actions through Agree & continue. It does
+   not approve or reject the employee and creates no separate task.
+6. `save_goal_year_end_result` builds a server-side source snapshot from measures, cadence,
+   milestones, evidence and support. Owners/managers may refine the draft; only Goal agreement
+   authority can finalize it. The final wording and its source snapshot are retained together.
+7. New lifecycle tables expose authenticated `SELECT` only through Goal visibility RLS. Direct
+   authenticated insert/update/delete is revoked. Security-definer RPCs re-check active account,
+   exact Goal role, lifecycle state and optimistic version on every write.
+8. `goal_overview` keeps its established columns and adds owner cadence, quarterly manager action,
+   success-measure progress and year-end state. `manager_needs_attention` excludes normal monthly
+   due dates, manager-requested owner updates, approaching targets and recent milestone completion.
+   `request_goal_update` preserves the employee-reported health and sets only the owner-facing
+   request timestamp. `goal_lifecycle_history` combines immutable Goal audit events and evidence
+   for chronological rendering.
+
+## v51 — Lean Goal authoring and agreement transactions
+
+This section narrows the v50 authoring experience without replacing its data model or cadence.
+
+1. A lean success measure is a version-owned natural-language `description` with an optional
+   measure-specific target date. Existing typed measure columns remain intact for historical
+   versions and deterministic progress. New statements use the same `goal_success_measures` rows;
+   no parallel measure or Goal table exists.
+2. `create_lean_goal` authenticates the actor, resolves the employee/manager relationship and locks
+   the owner's formal allocation before writing. An employee may create only their own Draft or For
+   Discussion Goal. An authorised manager may create for a direct report and may activate only when
+   the resulting formal Active weight is at most 100%.
+3. `save_lean_goal_version` locks the Goal, verifies the caller and optimistic version, and writes a
+   replacement pending version in the same Goal record. Draft/For Discussion edits and Active
+   revisions therefore preserve identity and audit history rather than creating duplicate Goals.
+   An employee cannot change formal weight on an Active Goal revision.
+4. `agree_lean_goal_version` is manager-only. It locks the Goal and allocation, validates the pending
+   version and weight, activates that version, supersedes the former Active version when applicable,
+   records agreement/audit data and emits the existing notification in one transaction.
+5. Natural success statements are required and bounded; one Goal has one to ten. A statement-level
+   date is optional and the Goal target date remains authoritative otherwise. Milestones are zero to
+   five and are inserted only when the user explicitly supplied them.
+6. The setup client may choose Draft, For Discussion or manager activation, but it does not encode
+   role or transition policy. SQL RPCs remain the authority for ownership, reporting-line checks,
+   state changes, allocation and audit. Direct authenticated writes remain revoked and RLS remains
+   authoritative for reads.
+7. Monthly and quarterly operations continue to use the v50 tables and period keys. The lean UI
+   treats natural statements as narrative success criteria; it does not invent numeric progress.
+   Existing typed measures continue their approved calculation, and exception-only manager
+   visibility is unchanged.
+## v53 — closed-loop Task execution and employee-level Goal sessions
+
+This section is authoritative over earlier conflicting per-Goal cadence, proposal, terminal Goal and
+derived-progress rules. The future ESH finding/action system remains outside the application.
+
+1. `complete_task` and `cancel_task` lock the Task and call one terminal-projection cleanup helper.
+   Focus is released; open source requests keep their history but set `source_active=false` and
+   `action_pending=false`; related action notifications clear `requires_action`; unscheduled queue
+   topics become removed. The request status is not rewritten to Resolved.
+2. `cancel_task` permits the owner or authorised manager for ordinary work. For Mandatory work it
+   permits only an authorised manager. Clients use `get_task_capabilities.can_cancel`; they do not
+   reconstruct the rule.
+3. `reassign_task` retains status, changes the primary owner, recalculates focus and returns the new
+   Active count, configured target and `workload_review_needed`. Exceeding target does not roll the
+   assignment back. `shared_contributions` is recalculated transactionally by its view predicate.
+4. Major Project decisions lock and version the proposal. Request changes and Decline require a
+   note. Agree creates a backlog Major Project owned by the proposer; it never activates it. A
+   resubmission clears the earlier decision fields and returns to Pending.
+5. Native Tasks have all generic source fields null. Externally sourced Tasks have all three fields;
+   the all-or-none constraint prevents ambiguous links. No foreign key crosses into a source module.
+6. A monthly Goal session validates the complete item array before inserting its header. It must
+   contain each Active Goal in the employee/period exactly once. Risk requires text. Explicit support
+   requires details and a real active recipient other than the actor. Normal health creates no
+   actionable manager notification.
+7. A quarterly Goal session similarly contains the entire Active set exactly once and is written in
+   one manager transaction. The current health, optional attention and optional support adjustment
+   are snapshots, not Goal approval. `department_only` permits a manager/administrator to complete a
+   self-review; no reporting-line row is fabricated.
+8. `finalize_goal_plan` serializes on the employee plan, checks optimistic version and sums formal
+   Active allocation. The result must equal 100. Cancellation changes the plan to
+   `reallocation_required`; completion retains its agreed weight as historical allocation.
+9. `revise_lean_goal_version` is the only Active structural revision entry point. It requires a
+   reason and records before/after/reason/actor/time. Draft and discussion edits continue through the
+   candidate-version operation.
+10. `complete_goal` requires one nonblank actual result per Active success measure plus a final
+    summary. `cancel_goal` requires a reason. Both are terminal and deactivate requests, but they are
+    never aliases in the UI. `close_goal` remains only a compatibility wrapper to cancellation.
+11. The UI never presents averaged qualitative states or mixed success measures as overall Goal
+    achievement. Exact numeric actual-versus-target values may be shown per measure; overall health,
+    formal weight and milestone progress remain separate concepts.

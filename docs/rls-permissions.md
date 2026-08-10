@@ -37,4 +37,18 @@ Clients cannot insert, update, or delete audit events. Security-definer procedur
 
 ## Verification
 
-`supabase/tests/rls_visibility.test.sql` proves 36 properties including anonymous Goal denial, own Goal access, view-without-update/edit/agreement, direct-table mutation denial, authorised manager agreement, audit creation, deactivated-token denial, append-only history, and private attachment behaviour. `npm run db:test` and the integration suite run against real local Postgres and Auth.
+`supabase/tests/rls_visibility.test.sql` proves 50 properties including anonymous Goal denial, own Goal access, view-without-update/edit/agreement, direct-table mutation denial, authorised manager agreement, aggregate plan/session visibility, audit creation, deactivated-token denial, append-only history, and private attachment behaviour. `npm run db:test` and the integration suite run against real local Postgres and Auth.
+
+## v53 authority additions
+
+Task capabilities now expose terminal cancellation separately from generic edit authority, so a
+Mandatory owner never sees a control that SQL must refuse. Request visibility follows either its
+Task or Goal source plus the named actor/recipient; terminal source markers remove actionability but
+do not widen access. Proposal decision authority belongs to the proposer’s authorised manager, while
+only the proposer may resubmit requested changes.
+
+Employees may read their own Goal plan/sessions and submit their own monthly aggregate only through
+the procedure. Authorised managers may read direct-report plans and complete quarterly sessions;
+under `department_only`, manager/administrator self-review is permitted without a fake reporting
+line. Lifecycle tables remain direct-write denied to authenticated clients. Goal completion uses
+agreement authority; cancellation allows the owner or authorised manager.

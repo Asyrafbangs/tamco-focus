@@ -3,12 +3,12 @@ import Link from 'next/link';
 import { GoalDetailDrawer } from '@/components/goals/GoalDetailDrawer';
 import { GoalRow } from '@/components/goals/GoalRow';
 import { GoalSetupDialog } from '@/components/goals/GoalSetupDialog';
+import { GoalSessionPanel } from '@/components/goals/GoalSessionPanel';
 import { EmptyState, StatusBadge, WorkspaceTabs } from '@/components/ui/ParityPrimitives';
 import {
   GOAL_LIFECYCLE_LABELS,
   GOAL_LIFECYCLE_VIEWS,
   formalGoalWeightSummary,
-  goalDisplayHealth,
   matchesGoalLifecycle,
   type GoalLifecycleView,
   type GoalOverview,
@@ -16,11 +16,15 @@ import {
 import { requireProfile } from '@/lib/supabase/server';
 import {
   getGoalActiveWeights,
+  getCurrentGoalPlan,
   getGoalDetail,
   getGoalEmployeeOptions,
+  getGoalSessions,
+  getGoalSupportPeople,
   getGoalsForOwner,
   getMyGoals,
   getTeamGoalSummary,
+  type GoalPlanOverview,
 } from '@/server/goal-queries';
 import { getWorkableTasks } from '@/server/queries';
 
@@ -29,24 +33,30 @@ import styles from './goals.module.css';
 const LIFECYCLE_EMPTY: Record<GoalLifecycleView, string> = {
   active:
     'No goal has been agreed and activated yet. Goals saved for discussion are under For discussion.',
-  discussion:
-    'Nothing is awaiting agreement. Goals saved for discussion appear here until they are agreed and activated.',
+  draft: 'No Draft or For Discussion Goal is waiting. Start a Goal and save it before activation.',
   completed: 'No goal has been completed or closed yet.',
-  all: 'No goals exist in any state.',
 };
 
-function weightedDerivedProgress(goals: readonly GoalOverview[]): number {
-  const active = goals.filter((goal) => goal.status === 'active');
-  const totalWeight = active.reduce((total, goal) => total + goal.weightPercent, 0);
-  if (totalWeight === 0) return 0;
-  return Math.round(
-    active.reduce((total, goal) => total + goal.derivedProgress * goal.weightPercent, 0) /
-      totalWeight,
-  );
-}
-
-function FormalWeight({ goals }: { goals: readonly GoalOverview[] }) {
-  const summary = formalGoalWeightSummary(goals);
+function FormalWeight({
+  goals,
+  plan,
+}: {
+  goals: readonly GoalOverview[];
+  plan?: GoalPlanOverview | null;
+}) {
+  const summary = plan
+    ? {
+        allocated: plan.formalWeight,
+        remaining: Math.max(0, 100 - plan.formalWeight),
+        over: Math.max(0, plan.formalWeight - 100),
+        state:
+          plan.formalWeight === 100
+            ? ('complete' as const)
+            : plan.formalWeight > 100
+              ? ('over' as const)
+              : ('under' as const),
+      }
+    : formalGoalWeightSummary(goals);
   return (
     <div
       className={`${styles.formalWeight} ${styles[summary.state]}`}
@@ -81,13 +91,16 @@ export default async function GoalsPage({
   const params = await searchParams;
   const canManage = profile.role === 'manager' || profile.role === 'administrator';
 
-  const [myGoals, teamSummary, employees, activeWeights, visibleWork] = await Promise.all([
-    getMyGoals(profile.id),
-    canManage ? getTeamGoalSummary(profile.id) : Promise.resolve([]),
-    canManage ? getGoalEmployeeOptions(profile.id) : Promise.resolve([]),
-    canManage ? getGoalActiveWeights() : Promise.resolve<Record<string, number>>({}),
-    getWorkableTasks(),
-  ]);
+  const [myGoals, teamSummary, employees, activeWeights, visibleWork, myPlan, supportPeople] =
+    await Promise.all([
+      getMyGoals(profile.id),
+      canManage ? getTeamGoalSummary(profile.id) : Promise.resolve([]),
+      canManage ? getGoalEmployeeOptions(profile.id) : Promise.resolve([]),
+      canManage ? getGoalActiveWeights() : Promise.resolve<Record<string, number>>({}),
+      getWorkableTasks(),
+      getCurrentGoalPlan(profile.id),
+      getGoalSupportPeople(profile.id),
+    ]);
 
   const teamPeople = employees.map((employee) => {
     const summary = teamSummary.find((item) => item.userId === employee.id);
@@ -102,6 +115,8 @@ export default async function GoalsPage({
         checkinDueCount: 0,
         weightedProgress: 0,
         lastGoalUpdateAt: null,
+        quarterlyActionCount: 0,
+        quarterlyDueCount: 0,
       }
     );
   });
@@ -113,15 +128,23 @@ export default async function GoalsPage({
           ?.userId ??
         teamPeople.find((person) => person.activeGoalCount > 0)?.userId ??
         teamPeople[0]?.userId);
-  const teamGoals = selectedPersonId ? await getGoalsForOwner(selectedPersonId) : [];
+  const [teamGoals, teamPlan] = selectedPersonId
+    ? await Promise.all([getGoalsForOwner(selectedPersonId), getCurrentGoalPlan(selectedPersonId)])
+    : [[], null];
   const selectedPerson = teamPeople.find((person) => person.userId === selectedPersonId);
   const goalDetail = params.goal ? await getGoalDetail(params.goal) : null;
   const rows = view === 'team' ? teamGoals : myGoals;
+  const currentPlan = view === 'team' ? teamPlan : myPlan;
+  const goalSessions = await getGoalSessions(
+    view === 'team' ? (selectedPersonId ?? profile.id) : profile.id,
+    currentPlan?.performancePeriodId ?? null,
+  );
 
+  const requestedLifecycle = params.lifecycle === 'discussion' ? 'draft' : params.lifecycle;
   const lifecycle: GoalLifecycleView = GOAL_LIFECYCLE_VIEWS.includes(
-    params.lifecycle as GoalLifecycleView,
+    requestedLifecycle as GoalLifecycleView,
   )
-    ? (params.lifecycle as GoalLifecycleView)
+    ? (requestedLifecycle as GoalLifecycleView)
     : 'active';
 
   const visibleRows = rows.filter((goal) => matchesGoalLifecycle(goal.status, lifecycle));
@@ -139,14 +162,28 @@ export default async function GoalsPage({
     return search ? `/goals?${search}` : '/goals';
   };
   const activeRows = rows.filter((goal) => goal.status === 'active');
-  const weightedProgress = weightedDerivedProgress(rows);
+  const planActiveRows = currentPlan
+    ? activeRows.filter(
+        (goal) => goal.targetDate >= currentPlan.startsOn && goal.targetDate <= currentPlan.endsOn,
+      )
+    : activeRows;
   const attentionCount = activeRows.filter(
-    (goal) => goal.health === 'need_attention' || goal.health === 'support_requested',
+    (goal) =>
+      goal.health === 'need_attention' ||
+      goal.health === 'support_requested' ||
+      goal.health === 'at_risk' ||
+      goal.health === 'off_track',
   ).length;
   const updateDueCount = activeRows.filter(
     (goal) => goal.isCheckinDue || goal.isUpdateRequested,
   ).length;
-  const formalWeight = formalGoalWeightSummary(rows).allocated;
+  const formalWeight = currentPlan?.formalWeight ?? formalGoalWeightSummary(rows).allocated;
+  const selfOwner = {
+    id: profile.id,
+    fullName: profile.full_name,
+    employeeId: profile.employee_id,
+    activeWeight: myPlan?.formalWeight ?? formalGoalWeightSummary(myGoals).allocated,
+  };
   const ownerInitials = profile.full_name
     .trim()
     .split(/\s+/)
@@ -154,7 +191,6 @@ export default async function GoalsPage({
     .map((part) => part[0])
     .join('')
     .toUpperCase();
-  const checkinGoal = activeRows.find((goal) => goalDisplayHealth(goal) !== 'On track');
   const closeHref = lifecycleHref(lifecycle);
   const goalHref = (goalId: string) => {
     const query = new URLSearchParams(closeHref.split('?')[1] ?? '');
@@ -179,14 +215,7 @@ export default async function GoalsPage({
           </p>
         </div>
         <div className="actions">
-          {canManage && (
-            <GoalSetupDialog
-              employees={employees.map((employee) => ({
-                ...employee,
-                activeWeight: activeWeights[employee.id] ?? 0,
-              }))}
-            />
-          )}
+          {view === 'my' && <GoalSetupDialog owner={selfOwner} triggerLabel="+ New goal" />}
         </div>
       </div>
 
@@ -194,15 +223,15 @@ export default async function GoalsPage({
         <div>
           <strong>Goals stay visible without becoming another daily task list.</strong>
           <span>
-            Use quick updates for overall progress. Use milestones when a specific agreed result
-            changes.
+            Use monthly check-ins to update success measures. Use milestones only for meaningful
+            checkpoints.
           </span>
         </div>
         <details>
           <summary className="btn small">How it works</summary>
           <p>
-            Agree the outcome and milestones together, post concise updates, and connect delivery
-            work only when it helps explain progress.
+            Agree the outcome in natural language. Monthly check-ins stay informational unless risk
+            or support needs manager attention.
           </p>
         </details>
       </section>
@@ -215,7 +244,7 @@ export default async function GoalsPage({
             ? [
                 {
                   href: '/goals?view=team',
-                  label: 'Team Goals',
+                  label: 'My Team',
                   active: view === 'team',
                   attention: teamPeople.some(
                     (person) => person.attentionCount > 0 || person.supportRequestCount > 0,
@@ -248,7 +277,7 @@ export default async function GoalsPage({
             </div>
             <div className="goal-summary-inline" aria-label="Goal summary">
               <div>
-                <b>{weightedProgress}%</b>Weighted progress
+                <b>{formalWeight}%</b>Formal weight
               </div>
               <div className={attentionCount > 0 ? 'attention' : undefined}>
                 <b>{attentionCount}</b>Need attention
@@ -259,8 +288,20 @@ export default async function GoalsPage({
             </div>
           </header>
 
+          <GoalSessionPanel
+            ownerId={profile.id}
+            activeGoals={planActiveRows}
+            plan={myPlan}
+            sessions={goalSessions}
+            supportPeople={supportPeople}
+            canSubmitMonthly
+            canReviewQuarterly={canManage}
+            canFinalizePlan={canManage}
+            now={renderTime.toISOString()}
+          />
+
           <div className={`goal-list-panel ${styles.goalListPanel}`}>
-            <FormalWeight goals={rows} />
+            <FormalWeight goals={rows} plan={myPlan} />
             <WorkspaceTabs
               label="Goal lifecycle"
               items={[
@@ -271,10 +312,10 @@ export default async function GoalsPage({
                   count: lifecycleCount('active'),
                 },
                 {
-                  href: lifecycleHref('discussion'),
-                  label: 'For discussion',
-                  active: lifecycle === 'discussion',
-                  count: lifecycleCount('discussion'),
+                  href: lifecycleHref('draft'),
+                  label: 'Draft',
+                  active: lifecycle === 'draft',
+                  count: lifecycleCount('draft'),
                 },
                 {
                   href: lifecycleHref('completed'),
@@ -282,26 +323,8 @@ export default async function GoalsPage({
                   active: lifecycle === 'completed',
                   count: lifecycleCount('completed'),
                 },
-                {
-                  href: lifecycleHref('all'),
-                  label: 'All',
-                  active: lifecycle === 'all',
-                  count: rows.length,
-                },
               ]}
             />
-
-            {lifecycle === 'active' && checkinGoal && (
-              <div className={styles.checkinStrip}>
-                <div>
-                  <strong>Check-in needed &middot; {checkinGoal.title}</strong>
-                  <span>Record what changed or request support.</span>
-                </div>
-                <Link href={`${goalHref(checkinGoal.id)}&action=update`} className="btn small">
-                  Update
-                </Link>
-              </div>
-            )}
 
             {visibleRows.length ? (
               <div className="goal-list">
@@ -326,8 +349,8 @@ export default async function GoalsPage({
                   /* Section 27.2 — when a filter is hiding the goals rather than
                    there being none, the next useful action is to widen it. */
                   rows.length > 0 ? (
-                    <Link href={lifecycleHref('all')} className="btn">
-                      Show all Goals
+                    <Link href={lifecycleHref('active')} className="btn">
+                      Show Active Goals
                     </Link>
                   ) : canManage ? undefined : (
                     <Link href="/today" className="btn">
@@ -396,14 +419,25 @@ export default async function GoalsPage({
                     <h2 id="team-person-goals">{selectedPerson.fullName}</h2>
                     <p>{selectedPerson.employeeId} · Coaching and alignment</p>
                   </div>
+                  <GoalSetupDialog
+                    owner={{
+                      id: selectedPerson.userId,
+                      fullName: selectedPerson.fullName,
+                      employeeId: selectedPerson.employeeId,
+                      activeWeight: activeWeights[selectedPerson.userId] ?? 0,
+                    }}
+                    canActivate
+                    triggerLabel="+ Add goal"
+                    returnView="team"
+                  />
                   <div className="team-goal-summary">
                     <div>
                       <strong>{selectedPerson.activeGoalCount}</strong>
                       <span>Active</span>
                     </div>
                     <div>
-                      <strong>{weightedProgress}%</strong>
-                      <span>Weighted progress</span>
+                      <strong>{formalWeight}%</strong>
+                      <span>Formal weight</span>
                     </div>
                     <div>
                       <strong>{selectedPerson.attentionCount}</strong>
@@ -411,14 +445,25 @@ export default async function GoalsPage({
                     </div>
                   </div>
                 </header>
-                <FormalWeight goals={teamGoals} />
+                <GoalSessionPanel
+                  ownerId={selectedPerson.userId}
+                  activeGoals={planActiveRows}
+                  plan={teamPlan}
+                  sessions={goalSessions}
+                  supportPeople={supportPeople}
+                  canSubmitMonthly={false}
+                  canReviewQuarterly={canManage}
+                  canFinalizePlan={canManage}
+                  now={renderTime.toISOString()}
+                />
+                <FormalWeight goals={teamGoals} plan={teamPlan} />
                 <WorkspaceTabs
                   label="Goal lifecycle"
                   items={GOAL_LIFECYCLE_VIEWS.map((item) => ({
                     href: lifecycleHref(item),
                     label: GOAL_LIFECYCLE_LABELS[item],
                     active: lifecycle === item,
-                    count: item === 'all' ? rows.length : lifecycleCount(item),
+                    count: lifecycleCount(item),
                   }))}
                 />
                 {visibleRows.length ? (

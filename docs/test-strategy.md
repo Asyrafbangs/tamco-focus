@@ -40,3 +40,13 @@ npm run verify
 Seed users and records are explicit local fixtures. Integration setup resets the database once because audit retention correctly prevents ad-hoc cleanup of historical records. Test identities, passwords, and content must never be copied to a hosted environment.
 
 The canonical v33 fixture is Safety Digitalisation with five milestones and deliberately divergent progress (20% reported, 19% derived). A second coaching Goal exercises manager summaries. `npm run db:seed:goals` is an idempotent, non-destructive local backfill for databases seeded before v33; it does not replace the canonical reset-and-seed gate.
+
+## v53 critical properties
+
+`execution-goal-v53.test.ts` runs against real Auth/Postgres and covers Task terminal projection
+cleanup, Mandatory authority, state-stable reassignment, Shared recalculation, generic source
+constraints, proposal discussion, aggregate monthly/quarterly uniqueness, pre-write session
+validation, manager self-governance, exact plan finalisation, shared Goal support, Response versus
+Resolution, terminal Goal outcomes and audited Active revision. The pgTAP suite adds plan/session
+read and direct-write denial. Playwright verifies the aggregate Goal session UI, truthful measure
+presentation, Major Project decision drawer, responsive containment and accessibility.

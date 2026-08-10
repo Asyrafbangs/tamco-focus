@@ -17,6 +17,8 @@
 .rowAction {
   position: relative;
   z-index: 2;
+  display: flex;
+  gap: 6px;
   opacity: 0;
   transform: translateX(3px);
   transition:

@@ -26,7 +26,11 @@ const DESTINATIONS: Destination[] = [
   { href: '/work', label: 'Work', icon: '◎' },
   { href: '/goals', label: 'Goals', icon: '◇' },
   { href: '/plan', label: 'Plan', icon: '▦' },
-  { href: '/team', label: 'Team', icon: '♙', managerOnly: true },
+  // v43 section 3 — no separate Team destination. Team Focus lives inside Work
+  // as the My Team scope, so a manager has one Work workspace rather than two
+  // places that both list the same tasks. v53 section 22 retired the old
+  // `/team` page itself; the route now redirects here so existing links and
+  // bookmarks still land on the screen that answers them.
   { href: '/more', label: 'More', icon: '•••' },
 ];
 

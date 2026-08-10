@@ -18,6 +18,12 @@ export function makeTask(overrides: Partial<TaskOverview> = {}): TaskOverview {
     focusBucket: 'operational',
     origin: 'self_initiated',
     urgency: 'normal',
+
+    assignedById: null,
+    assignedByName: null,
+    assignmentBatchId: null,
+    classificationRuleCode: null,
+    classificationRuleText: null,
     isMandatory: false,
 
     progressPercent: 0,

@@ -1,0 +1,223 @@
+import { expect, test, type Page } from '@playwright/test';
+
+const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
+
+async function signInAsManager(page: Page) {
+  await page.context().clearCookies();
+  await page.goto('/sign-in');
+  await page.getByLabel('Email address').fill('izzul@tamco.local');
+  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/today$/);
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+}
+
+/**
+ * Closes the topmost drawer the way a person does.
+ *
+ * Via the Close button rather than the backdrop: on a phone the panel fills the
+ * screen, so there is no backdrop left to click — which is exactly why the
+ * button exists.
+ */
+async function closeTopDrawer(page: Page) {
+  const layers = page.locator('.task-detail-layer');
+  await expect(layers.last()).toHaveAttribute('data-open', 'true');
+  // Scoped to the dialog: the backdrop carries the same accessible name and,
+  // on a phone, sits underneath the panel where nobody can reach it.
+  await layers
+    .last()
+    .getByRole('dialog')
+    .getByRole('button', { name: /^Close/ })
+    .click();
+}
+
+/**
+ * v48 §67-69 — a drawer returns you to where you opened it.
+ *
+ * The Task Detail drawer used to close to a hardcoded `/work`, so a manager who
+ * opened a team member's task from My Team landed in My Work: not the wrong
+ * tab, a different person's workspace, with the filter and the person they had
+ * selected both gone.
+ */
+test('closing a drawer returns one layer, to the context it was opened from', async ({ page }) => {
+  await signInAsManager(page);
+
+  // --- Everyone → task → back to Everyone ------------------------------------
+  await page.goto('/work?scope=team');
+  const firstRow = page.getByTestId('my-team-person-row').first();
+  await expect(firstRow).toBeVisible();
+
+  const firstBox = (await firstRow.boundingBox())!;
+  await page.mouse.click(firstBox.x + 20, firstBox.y + firstBox.height / 2);
+
+  const personDrawer = page.locator('.team-member-drawer');
+  await expect(personDrawer).toBeVisible();
+  await expect(page).toHaveURL(new RegExp('person='));
+  const personHref = page.url();
+
+  // --- Person → task ---------------------------------------------------------
+  const taskRow = personDrawer.locator('.member-work-row').first();
+  if (await taskRow.count()) {
+    await taskRow.click();
+    await expect(page.locator('.task-detail-drawer')).toBeVisible();
+    // Both layers are mounted: the person is still underneath.
+    await expect(page.locator('.task-detail-layer')).toHaveCount(2);
+
+    // §69 — closing the task reveals the person, not the list.
+    await closeTopDrawer(page);
+    await expect(page.locator('.task-detail-drawer')).toHaveCount(0);
+    await expect(page.locator('.team-member-drawer')).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`person=`));
+    await expect(page).not.toHaveURL(/task=/);
+  }
+
+  // §69 — closing the person reveals My Team, still in team scope.
+  await closeTopDrawer(page);
+  await expect(page.locator('.team-member-drawer')).toHaveCount(0);
+  await expect(page).toHaveURL(/scope=team/);
+  await expect(page).not.toHaveURL(/person=/);
+  expect(personHref).toContain('scope=team');
+});
+
+/**
+ * §68 — the same, from the Needs Attention filter, which is the case where
+ * losing the context costs the most: the manager was part-way through a list of
+ * things needing them.
+ */
+test('the Needs Attention filter survives opening and closing a task', async ({ page }) => {
+  await signInAsManager(page);
+  await page.goto('/work?scope=team&filter=attention');
+
+  const action = page
+    .getByTestId('my-team-person-row')
+    .first()
+    .locator('[data-cell="action"] button');
+  await expect(action).toBeVisible();
+
+  await action.click();
+  await expect(page.locator('.task-detail-layer').first()).toBeVisible();
+  await expect(page.locator('.team-member-drawer')).toHaveCount(0);
+
+  await closeTopDrawer(page);
+  await expect(page).toHaveURL(/scope=team/);
+  await expect(page).not.toHaveURL(/[?&]task=/);
+});
+
+/**
+ * §34, §73 — the name is the obvious target and it has to work.
+ */
+test('a team member name opens their detail without leaving My Team', async ({ page }) => {
+  await signInAsManager(page);
+  await page.goto('/work?scope=team');
+
+  const row = page.getByTestId('my-team-person-row').first();
+  await row.locator('[data-cell="person"] strong').click();
+
+  const drawer = page.locator('.team-member-drawer');
+  await expect(drawer).toBeVisible();
+  // §35 — a drawer, not a page: My Team is still rendered underneath.
+  await expect(page.locator('.focus-panel')).toBeVisible();
+
+  // §74 — the sections that answer the manager's three questions.
+  await expect(drawer.getByRole('heading', { name: 'Needs your attention' })).toBeVisible();
+  await expect(drawer.getByRole('heading', { name: 'Working on now' })).toBeVisible();
+  await expect(drawer.getByRole('heading', { name: 'Recent meaningful updates' })).toBeVisible();
+  await expect(drawer.locator('.team-member-focus')).toContainText('/');
+});
+
+/**
+ * §78 — the validity gate, seen from the outside.
+ *
+ * Mandatory work that is simply being done must not appear as something the
+ * manager has to act on, and no CTA anywhere may say "Review controlled
+ * action" — the label that could not say what it wanted.
+ */
+test('mandatory work running normally is not manager attention', async ({ page }) => {
+  await signInAsManager(page);
+  await page.goto('/work?scope=team&filter=attention');
+
+  await expect(page.getByText('Review controlled action')).toHaveCount(0);
+  await expect(page.getByText('Controlled work', { exact: true })).toHaveCount(0);
+
+  // §52 — whatever does appear must name an action, not a status.
+  const actions = page.locator('[data-testid="my-team-person-row"] [data-cell="action"] button');
+  const count = await actions.count();
+  for (let index = 0; index < count; index += 1) {
+    const label = (await actions.nth(index).textContent())?.trim() ?? '';
+    expect(label.length, 'every manager row must offer a named action').toBeGreaterThan(0);
+    expect(label).not.toBe('Review controlled action');
+  }
+});
+
+/**
+ * v49 — the row stays one compact line, with its action on the right.
+ *
+ * The row is a four-column grid that drops columns as the window narrows. When
+ * the column count fell below the number of visible children, the action
+ * wrapped onto a second grid row in the first column: a button flush against
+ * the left edge, under a row that had grown half as tall again. Browser zoom
+ * puts a large window into that band, which is how it reached a real screen
+ * while every functional test still passed.
+ */
+test('the team row contains every cell without overlap at each viewport and zoom pressure', async ({
+  page,
+}) => {
+  await signInAsManager(page);
+  await page.goto('/work?scope=team');
+
+  const row = page.getByTestId('my-team-person-row').first();
+  await expect(row).toBeVisible();
+
+  const cases = [
+    ['1440', 1440],
+    ['1280', 1280],
+    ['1024', 1024],
+    ['768', 768],
+    ['430', 430],
+    ['390', 390],
+    ['125% zoom pressure', 1152],
+    ['150% zoom pressure', 960],
+  ] as const;
+
+  for (const [label, width] of cases) {
+    await page.setViewportSize({ width, height: 900 });
+
+    const report = await row.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      const action = element.querySelector('[data-cell="action"]')!.getBoundingClientRect();
+      const textCells = [...element.querySelectorAll('[data-cell]:not([data-cell="action"])')];
+      return {
+        height: Math.round(box.height),
+        rightGap: Math.round(box.right - action.right),
+        actionInside:
+          action.left >= box.left - 1 &&
+          action.right <= box.right + 1 &&
+          action.top >= box.top - 1 &&
+          action.bottom <= box.bottom + 1,
+        overlap: textCells.some((cell) => {
+          const text = cell.getBoundingClientRect();
+          return !(
+            text.right <= action.left + 1 ||
+            text.left >= action.right - 1 ||
+            text.bottom <= action.top + 1 ||
+            text.top >= action.bottom - 1
+          );
+        }),
+        clipped: element.scrollHeight > element.clientHeight + 1,
+      };
+    });
+
+    const pageScrolls = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+    );
+
+    expect(pageScrolls, `horizontal page scroll at ${label}`).toBe(false);
+    expect(report.actionInside, `action escaped its row at ${label}`).toBe(true);
+    expect(report.overlap, `action overlaps row text at ${label}`).toBe(false);
+    expect(report.clipped, `row clips content at ${label}`).toBe(false);
+    expect(report.rightGap, `action drifted from the right edge at ${label}`).toBeLessThan(30);
+    expect(report.height, `row is excessively tall at ${label}`).toBeLessThan(
+      width <= 640 ? 230 : 140,
+    );
+  }
+});

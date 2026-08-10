@@ -1,5 +1,6 @@
 import { RowPrimaryLink } from '@/components/ui/ParityPrimitives';
 import { getAuditHistory } from '@/server/queries';
+import { taskDrawerHref } from '@/domain/navigation';
 
 export default async function AuditPage({
   searchParams,
@@ -39,12 +40,18 @@ export default async function AuditPage({
               </div>
               <p>
                 {event.actorName}
-                {event.taskTitle && (
+                {/*
+                  Guarded on the id as well as the title. An audit event can
+                  name work that no longer has a task row, and the link was
+                  built from `taskId` while the condition tested `taskTitle` —
+                  so those rendered as `/work?task=null` and opened nothing.
+                */}
+                {event.taskId && event.taskTitle && (
                   <>
                     {' '}
                     ·{' '}
                     <RowPrimaryLink
-                      href={`/work?task=${event.taskId}`}
+                      href={taskDrawerHref(event.taskId, '/more/audit')}
                       ariaLabel={`Open ${event.taskTitle}`}
                     >
                       {event.taskTitle}

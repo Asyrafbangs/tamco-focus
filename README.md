@@ -1,5 +1,35 @@
-# TAMCO Focus v37 — Synchronized Prototype & Production Reference
+# TAMCO Focus v38 — Task-detail clarity on the synchronized production baseline
 
+
+## Current baseline — v44
+
+The implementation baseline is **v44 handoff loops**. Everything from v40 to v44
+is recorded in `MASTER_PRODUCT_SPEC.md` section 33, with the engineering
+rationale in `PRODUCTION_LOGIC.md` section 40.
+
+In one paragraph: Focus navigates by state (Active / Available / Shared) with
+`My Work | My Team` as a separate scope; work classes remain classes, not tabs.
+Collaboration happens through checklist items, and Shared is a projection of
+those same rows rather than a second task. A barrier names who must act.
+Assignment and barrier handoffs notify the person receiving them, in the same
+transaction as the change, and those notifications open the exact record.
+
+Run `node scripts/verify.mjs` for the full gate suite.
+
+## Current execution and Goal experience — v53
+
+The Task engine now closes completion, cancellation and reassignment without leaving stale Barrier,
+notification, Meeting Queue, focus or Shared projections. Major Project proposals use one lean
+discussion flow: Agree creates Available work, while the owner still chooses activation. Generic
+source links are module-neutral; no future ESH domain has been introduced.
+
+Goals retain one versioned agreement record, but cadence is employee-level: one monthly session and
+one quarterly session cover every Active Goal in the performance period. Plans may be built
+gradually and finalize only at exactly 100%. Active revisions require an audited reason; completion
+records the actual result for every success measure; cancellation records a reason and leaves the
+allocation deficit visible. Health, actual-versus-target results and milestone execution are shown
+separately, without a fabricated overall Goal percentage. Older v34/v50/v51 text below is historical
+context where it does not conflict with this v53 section.
 
 ## v37 canonical reference
 
@@ -13,6 +43,8 @@ This revision is synchronized to the Product Owner's uploaded `index(20260807-07
 - Definition of done: `BUILD_ACCEPTANCE_GATES.md`
 
 The mobile build uses the same example data and JavaScript behaviour as desktop; only the composition is forced into the approved phone layout.
+
+The Product Owner's later task-detail screenshots and change brief supersede the v37 prototype only for task Overview, Checklist, evidence completion, due editing, Recent activity, and no-barrier presentation. All unrelated v37 reference behaviour remains approved.
 
 ## Purpose
 
@@ -111,3 +143,16 @@ This package includes every v34 Goal improvement and adds the approved task Next
 ## v36 review focus
 
 Open the application as **Izzul — Manager** and choose **Team**. Review the new Team Focus list, switch between Needs attention and Everyone, change sorting, then open a team member. The detail drawer demonstrates the exception-first manager workflow while preserving the v34 Goals and v35 Next Action changes.
+
+
+## v38 task-detail review path
+
+Sign in as `izzah@tamco.local` and open **Work → Operational Actions → Close out corrective actions from the June audit**.
+
+1. Overview shows one quiet status/urgency/due/overdue/progress/checklist line; select the information control for detailed ages.
+2. Select **Edit due**, review the current commitment, and verify the optional-reason change flow and readable Recent activity entry.
+3. Use the compact Next Action card and the whole-row checklist preview.
+4. In Checklist, confirm Current Next Action is pinned above the three permanent items and is not counted in `0 of 3 complete`.
+5. Compare No evidence required, Evidence optional, and Complete with evidence actions. The required flow asks once for a file/photo/screenshot and optional completion note.
+6. In Updates, verify due, Next Action, checklist, reopen, evidence, update, and progress changes show actor and timestamp.
+7. Open a task with a real barrier to compare its red/pink alert with the normal neutral **Need help?** row.

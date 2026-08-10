@@ -194,3 +194,148 @@ The build is not complete until every applicable gate passes.
 - [ ] Team manager workspace is **Team Focus** and defaults to exception-first scanning.
 - [ ] No business logic, permission rule, RLS rule, notification rule, focus-target rule, or production data is silently changed merely to match prototype appearance.
 - [ ] Updated Master Product Specification, Production Logic, Change Log, README, desktop index and mobile index all describe the same baseline.
+
+
+## V38 task-detail clarity acceptance gates
+
+- [ ] Overview renders one quiet information line; Open and current-state ages are not permanent pills and remain available through the accessible information control.
+- [ ] The information line and age modal do not overflow at desktop, tablet, 600 px narrow regression, or 390 × 844 mobile viewports.
+- [ ] **Edit due** shows current commitment, new date/date-time, optional reason, Cancel, and Save.
+- [ ] Due changes require edit authority and optimistic version agreement, preserve previous/new values plus actor/time/reason, and appear under Recent activity.
+- [ ] Next Action shows only the action, compact due/overdue context, Mark done, and Edit in the normal view.
+- [ ] Overview checklist preview is a whole-row keyboard-operable control and reports completed/total plus outstanding required evidence.
+- [ ] Current Next Action is pinned separately from **Task checklist** and is excluded from checklist count and progress.
+- [ ] No-evidence, optional-evidence, and required-evidence rows expose only their approved actions; no row displays Add required evidence + Upload + Complete together.
+- [ ] **Complete with evidence** uses a styled hidden-native-input flow and atomically timestamps evidence metadata and checklist completion.
+- [ ] Checklist completion/reopening derives task progress, and existing checklist tasks cannot retain a conflicting manual percentage.
+- [ ] Recent activity renders readable due, Next Action, checklist, reopen, evidence, update, and progress history with actor and timestamp.
+- [ ] No-barrier state is neutral; red/pink treatment is reserved for an actual open barrier.
+- [ ] Targeted unit, integration, RLS, E2E, accessibility, generated-type, production-build, and smoke checks pass without altering hosted services.
+
+## v40 to v44 acceptance gates
+
+Run with `node scripts/verify.mjs`. Every gate below is covered by an automated
+check unless marked otherwise.
+
+- [ ] Focus navigates by Active / Available / Shared; work classes appear on rows
+      and in the capacity strip, never as tabs.
+- [ ] `My Work | My Team` is a scope control, separate from the state tabs.
+- [ ] Routine uses Due now / this week, Upcoming, Completed inside the same Work
+      shell, and `.focus-panel` never renders "Available Work".
+- [ ] Activating work changes `status` only; `work_class` is unchanged.
+- [ ] Manager-assigned work lands in `backlog`, never `active`.
+- [ ] Available rows carry no system-authored next action.
+- [ ] Shared lists the original checklist items; no duplicate task is created.
+- [ ] A contribution assigned while the parent is Available reads
+      "Waiting for owner to start" and does not appear Ready.
+- [ ] Assigning a contribution notifies the assignee exactly once, with parent
+      context and a link that opens the exact item.
+- [ ] The waiting-to-ready transition notifies once, and only on transition.
+- [ ] Raising a barrier records who must act, and notifies that person.
+- [ ] Posting a barrier response does not resolve the barrier.
+- [ ] Resolving a barrier requires a recorded outcome.
+- [ ] Every Needs Attention row supplies a reason, a required action and a deep
+      link; rows that cannot are not shown as actionable.
+- [ ] The Update composer contains only What changed and attachments.
+- [ ] Posting an update never modifies `next_action`.
+- [ ] The Capture title input is never remounted while typing.
+- [ ] Safety wording alone never produces mandatory classification.
+- [ ] Every task created through Capture stores its classification rule.
+- [ ] The end-to-end suite runs from a freshly seeded database.
+
+## v49 attention UI repair acceptance gates
+
+- [ ] My Day renders no more than two compact attention rows and the panel does
+      not push Start Here / Today out of the initial desktop composition.
+- [ ] Needs Attention has a distinct severity dot, request-type icon, requester
+      identity and independent CTA, followed by a 12px gap before equal-height
+      Start Here / Today columns at the 864px desktop reference viewport.
+- [ ] My Day View all opens Work → My Team → Needs Attention.
+- [ ] My Day and My Team do not share a presentation-row component.
+- [ ] My Team renders the stable Person / Working on / Needs you / Latest /
+      Action hierarchy without horizontal page overflow.
+- [ ] Clicking a person name, row whitespace, Enter, or Space opens Team Member
+      Detail.
+- [ ] Clicking a nested manager action does not activate the parent person row.
+- [ ] Barrier actions open the exact barrier and response field without mounting
+      Team Member Detail first.
+- [ ] Open routine opens the exact overdue occurrence; a routine is never
+      labelled as generic overdue work.
+- [ ] A visible action has validated `sourceType`, `sourceId`, and `ctaType`, plus
+      task/barrier identity where required; invalid identity renders no dead CTA.
+- [ ] Long task/request/person/reference text remains contained at 1440, 1280,
+      1024, 768, 430, and 390 px and at 125% / 150% zoom pressure.
+
+## v50 Goal lifecycle acceptance gates
+
+- [ ] Goal setup records structured qualitative/numeric/percentage success measures, required
+      target date and 1–100 weight, optional context, and two to five milestones in two steps.
+- [ ] Active Goal detail uses Progress / Check-in / Milestones / History, presents measures before
+      overall percentage and never treats linked work as Goal progress.
+- [ ] One owner monthly check-in per Goal/month is idempotent; No material change is valid; normal
+      On track creates no manager action.
+- [ ] At risk, Off track and explicit support create an exact manager Goal action with no duplicate
+      task, approval or generic person destination.
+- [ ] One quarterly record per Goal/quarter supports employee summary followed by manager
+      Agree & continue with discussion and agreed actions.
+- [ ] Month/quarter dates are derived deterministically; My Day shows owner cadence and Coming up;
+      My Team shows only genuine Goal exceptions.
+- [ ] Year-end Result retains a traceable source snapshot and only authorised Goal agreement roles
+      can finalize it.
+- [ ] Success-measure, monthly, quarterly, evidence and Result activity is timestamped and visible
+      in chronological History.
+- [ ] Direct authenticated writes to Goal lifecycle tables fail; viewer/owner/manager boundaries
+      and idempotency pass integration and database policy tests.
+
+## v51 lean Goal acceptance gates
+
+- [ ] Goals exposes one record model through **My Goals** and manager-only **My Team**; it does not
+      create a second employee/manager Goal type or duplicate a Goal when its pending version changes.
+- [ ] Employees can create and edit only their own Draft / For Discussion Goals; managers can create
+      for the selected subordinate and only an authorised manager can Agree & activate.
+- [ ] A self-entry or selected-person entry does not ask for Employee again. A generic manager entry,
+      if offered, uses the same Goal operation and explicit owner selector.
+- [ ] Expectation asks for expected result, natural-language success statements, one target date and
+      formal weight. Measure Type, Target State and Period are absent; optional per-measure date and
+      category/baseline/purpose are disclosed only on request.
+- [ ] Alignment asks for agreed approach and optional support, hides dependencies/risks under More
+      details, starts with no milestone rows, and accepts zero to five explicitly added milestones.
+- [ ] Weight guidance displays current Active weight, weight after activation and remaining or over
+      allocation; the authoritative transaction rejects any Active formal total above 100%.
+- [ ] The visible lifecycle is Draft → For Discussion → Active → Completed. An Active structural
+      change is labelled Revise goal, remains pending and is audited until manager agreement.
+- [ ] Active Goal detail leads with Success and shows cadence, milestones/latest check-in and
+      agreement/history without presenting the setup form as the normal reading experience.
+- [ ] Monthly check-in remains short and supports On track / At risk / Off track, a concise update or
+      No material change, optional support and evidence; normal On track creates no manager action.
+- [ ] Quarterly review captures what is working, blockers, support/adjustment and overall status;
+      manager attention remains exception-only.
+- [ ] Additive migration, generated types, unit, integration, RLS, E2E, accessibility, responsive,
+      dark-theme, production build and smoke checks all pass locally.
+## v53 execution and Goal lifecycle acceptance gates
+
+- [ ] Ordinary Task cancellation works for owner/authorised manager; Mandatory cancellation is
+      manager-only; reason, actor and time are retained.
+- [ ] Task completion/cancellation release focus and make source requests, notifications and Meeting
+      Queue topics non-actionable without deleting history or falsely resolving a request.
+- [ ] Reassignment retains Available/Active state, recalculates both owners, derives Shared from
+      checklist ownership and reports workload review when the new owner is over target.
+- [ ] Response remains distinct from resolution, and terminal sources never remain in Needs Attention.
+- [ ] Major Project proposal Agree / Request changes / Decline and owner resubmission are versioned;
+      Agree creates Available work and never activates it.
+- [ ] Generic Task source fields are all-null or all-present; no ESH-specific schema or parallel Task
+      lifecycle exists.
+- [ ] A monthly employee session validates and records every Active Goal exactly once; normal health
+      is informational, risk is explained, and explicit support uses the shared request engine.
+- [ ] A quarterly employee session reviews every Active Goal exactly once, supports department-only
+      manager self-review, and never invents a superior.
+- [ ] Performance-period plans build gradually and finalize only at exactly 100%; cancellation leaves
+      an explicit reallocation deficit and never redistributes weight.
+- [ ] Active Goal revision records before, after, reason, actor and time while the active agreement
+      remains effective until agreement.
+- [ ] Goal completion records every actual success-measure result plus final summary; cancellation is
+      separate and records why the Goal no longer applies.
+- [ ] Goal list, detail and weekly summary show formal weight, health, actual/target and milestones as
+      separate facts; no fabricated overall Goal percentage remains visible.
+- [ ] RLS, integration, end-to-end, responsive, accessibility, generated-type, production build and
+      smoke gates pass against a fresh local database reset.

@@ -210,7 +210,8 @@ describe('meaningful Goal email inclusion (v33)', () => {
     });
 
     expect(text).toContain('Goal progress and check-ins');
-    expect(text).toContain('Progressed Goal — 20% overall');
+    expect(text).toContain('Progressed Goal — on track; updated this week');
+    expect(text).not.toContain('% overall');
     expect(text).not.toContain('Quiet Goal');
   });
 

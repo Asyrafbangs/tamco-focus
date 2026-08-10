@@ -2,25 +2,28 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker';
 import { Modal } from '@/components/ui/Modal';
 import { SideDrawer } from '@/components/ui/SideDrawer';
 import { ActivityRow, ProgressIndicator, StatusBadge } from '@/components/ui/ParityPrimitives';
 import { GOAL_STATUS_LABELS, goalDisplayHealth } from '@/domain/goals';
+import { GoalLifecycleCheckIn } from '@/components/goals/GoalLifecycleCheckIn';
 import type { OperationResult } from '@/domain/types';
 import {
   agreeGoalVersion,
+  cancelGoal,
+  completeGoal,
   linkGoalWork,
   postGoalMilestoneUpdate,
-  postGoalUpdate,
   proposeGoalVersion,
   requestGoalUpdate,
   resolveGoalSupport,
   type GoalMilestoneInput,
 } from '@/server/actions/goal-actions';
 import type { GoalDetail, GoalMilestone } from '@/server/goal-queries';
+import { resolveBarrier } from '@/server/actions/task-actions';
 
 import styles from './GoalDetailDrawer.module.css';
 
@@ -351,7 +354,7 @@ function MilestoneUpdateForm({
             <button type="button" className="btn" onClick={() => setOpen(false)} disabled={busy}>
               Cancel
             </button>
-            <button type="submit" className="btn primary" disabled={busy}>
+            <button type="submit" className="btn primary" disabled={busy} aria-busy={busy}>
               Save update
             </button>
           </footer>
@@ -365,16 +368,19 @@ function GoalVersionEditor({
   detail,
   pending,
   finish,
+  open,
+  setOpen,
 }: {
   detail: GoalDetail;
   pending: boolean;
   finish: (result: OperationResult, success: string) => boolean;
+  open: boolean;
+  setOpen: (next: boolean) => void;
 }) {
-  const active = detail.activeVersion;
-  const [open, setOpen] = useState(false);
+  const editableVersion = detail.pendingVersion ?? detail.activeVersion;
   const [milestones, setMilestones] = useState<GoalMilestoneInput[]>(
     () =>
-      active?.milestones.map((milestone) => ({
+      editableVersion?.milestones.map((milestone) => ({
         source_milestone_id: milestone.id,
         title: milestone.title,
         completion_definition: milestone.completionDefinition,
@@ -382,8 +388,15 @@ function GoalVersionEditor({
         progress_percent: milestone.progressPercent,
       })) ?? [],
   );
+  const [successMeasures, setSuccessMeasures] = useState(
+    () =>
+      editableVersion?.successMeasures.map((measure) => ({
+        description: measure.description,
+        optionalTargetDate: measure.optionalTargetDate,
+      })) ?? [],
+  );
   const [, startTransition] = useTransition();
-  if (!active || detail.goal.pendingVersionId) return null;
+  if (!editableVersion) return null;
 
   function move(index: number, direction: -1 | 1) {
     const destination = index + direction;
@@ -397,13 +410,21 @@ function GoalVersionEditor({
 
   return (
     <section className="goal-structure-editor">
-      <button type="button" className="btn small" onClick={() => setOpen((value) => !value)}>
-        {open
-          ? 'Cancel editing'
-          : detail.capabilities.canAgree
-            ? 'Edit milestones'
-            : 'Suggest change'}
+      <button type="button" className="btn small" onClick={() => setOpen(!open)}>
+        {open ? 'Cancel editing' : detail.goal.status === 'active' ? 'Revise goal' : 'Edit draft'}
       </button>
+      {/*
+        Section 15.4 — an employee may change their own goal, but the change
+        does not take effect until their manager agrees it. Saying so before
+        they start writing is fairer than telling them afterwards.
+      */}
+      {!open && (
+        <p className={styles.editorHint}>
+          {detail.goal.status === 'active'
+            ? 'The current agreement stays active until the manager agrees this audited revision.'
+            : 'You and your manager edit the same Goal record before activation.'}
+        </p>
+      )}
       {open && (
         <form
           className="detail-form card inset"
@@ -411,12 +432,16 @@ function GoalVersionEditor({
             event.preventDefault();
             const form = event.currentTarget;
             const data = new FormData(form);
+            const submissionMode =
+              (event.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'draft'
+                ? 'draft'
+                : 'discussion';
             startTransition(async () => {
               const result = await proposeGoalVersion({
                 goalId: detail.goal.id,
                 expectedVersion: detail.goal.version,
                 expectedResult: String(data.get('expectedResult')),
-                successMeasure: String(data.get('successMeasure')),
+                successMeasures,
                 targetDate: String(data.get('targetDate')),
                 employeeApproach: String(data.get('employeeApproach') ?? '') || null,
                 supportAgreed: String(data.get('supportAgreed') ?? '') || null,
@@ -425,6 +450,8 @@ function GoalVersionEditor({
                 purpose: String(data.get('purpose') ?? '') || null,
                 weightPercent: Number(data.get('weightPercent') || 0),
                 milestones,
+                submissionMode,
+                revisionReason: String(data.get('revisionReason') ?? '') || null,
                 idempotencyKey: idempotencyKey(),
               });
               if (finish(result, 'Changes saved as a new version for discussion.')) setOpen(false);
@@ -432,39 +459,125 @@ function GoalVersionEditor({
           }}
         >
           <div className="notice">
-            <strong>Current agreement stays active</strong>
+            <strong>
+              {detail.goal.status === 'active'
+                ? 'Current agreement stays active'
+                : 'One shared Goal'}
+            </strong>
             <p>
-              These structural changes create a new version. Normal progress continues against the
-              agreed version until a manager agrees the changes.
+              {detail.goal.status === 'active'
+                ? 'This revision is recorded as a new version and takes effect only after manager agreement.'
+                : 'Both people work on this same Draft or For Discussion record. No duplicate Goal is created.'}
             </p>
           </div>
+          {detail.goal.status === 'active' && (
+            <div className="field">
+              <label htmlFor={`goal-revision-reason-${detail.goal.id}`}>
+                Why is the agreement changing?
+              </label>
+              <textarea
+                id={`goal-revision-reason-${detail.goal.id}`}
+                name="revisionReason"
+                rows={2}
+                maxLength={2000}
+                required
+                placeholder="Record the reason for this audited revision."
+              />
+            </div>
+          )}
           <div className="field">
             <label htmlFor="edit-goal-result">Expected result</label>
             <input
               id="edit-goal-result"
               name="expectedResult"
-              defaultValue={active.expectedResult}
+              defaultValue={editableVersion.expectedResult}
               required
               maxLength={500}
             />
           </div>
-          <div className="field">
-            <label htmlFor="edit-goal-measure">Success measure</label>
-            <textarea
-              id="edit-goal-measure"
-              name="successMeasure"
-              defaultValue={active.successMeasure}
-              required
-              rows={3}
-            />
-          </div>
+          <section className={styles.leanMeasureEditor} aria-labelledby="edit-goal-measures">
+            <div className="sectionhead">
+              <div>
+                <h3 id="edit-goal-measures">How will success be measured?</h3>
+                <p>Use the natural result statements you would discuss together.</p>
+              </div>
+              <button
+                type="button"
+                className="btn small"
+                disabled={successMeasures.length >= 10}
+                onClick={() =>
+                  setSuccessMeasures((current) => [
+                    ...current,
+                    { description: '', optionalTargetDate: null },
+                  ])
+                }
+              >
+                + Add measure
+              </button>
+            </div>
+            {successMeasures.map((measure, index) => (
+              <div className={styles.leanMeasureInput} key={index}>
+                <span>{index + 1}</span>
+                <div className="field">
+                  <label className="sr-only" htmlFor={`edit-goal-measure-${index}`}>
+                    Success measure {index + 1}
+                  </label>
+                  <input
+                    id={`edit-goal-measure-${index}`}
+                    value={measure.description}
+                    required
+                    maxLength={1000}
+                    onChange={(event) =>
+                      setSuccessMeasures((current) =>
+                        current.map((item, itemIndex) =>
+                          itemIndex === index ? { ...item, description: event.target.value } : item,
+                        ),
+                      )
+                    }
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor={`edit-goal-measure-date-${index}`}>
+                    Different due date <span className="sub">Optional</span>
+                  </label>
+                  <input
+                    id={`edit-goal-measure-date-${index}`}
+                    type="date"
+                    value={measure.optionalTargetDate ?? ''}
+                    onChange={(event) =>
+                      setSuccessMeasures((current) =>
+                        current.map((item, itemIndex) =>
+                          itemIndex === index
+                            ? { ...item, optionalTargetDate: event.target.value || null }
+                            : item,
+                        ),
+                      )
+                    }
+                  />
+                </div>
+                {successMeasures.length > 1 && (
+                  <button
+                    type="button"
+                    className="btn small ghost"
+                    onClick={() =>
+                      setSuccessMeasures((current) =>
+                        current.filter((_, itemIndex) => itemIndex !== index),
+                      )
+                    }
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            ))}
+          </section>
           <div className="field">
             <label htmlFor="edit-goal-date">Target date</label>
             <input
               id="edit-goal-date"
               name="targetDate"
               type="date"
-              defaultValue={active.targetDate}
+              defaultValue={editableVersion.targetDate}
               required
             />
           </div>
@@ -476,36 +589,37 @@ function GoalVersionEditor({
               type="number"
               min={0}
               max={100}
-              defaultValue={active.weightPercent}
+              defaultValue={editableVersion.weightPercent}
+              readOnly={detail.goal.status === 'active' && !detail.capabilities.canAgree}
             />
           </div>
           <details>
             <summary>Supporting context</summary>
             <div className="detail-form">
               <div className="field">
-                <label htmlFor="edit-goal-approach">Employee approach</label>
+                <label htmlFor="edit-goal-approach">Agreed approach</label>
                 <textarea
                   id="edit-goal-approach"
                   name="employeeApproach"
-                  defaultValue={active.employeeApproach ?? ''}
+                  defaultValue={editableVersion.employeeApproach ?? ''}
                   rows={2}
                 />
               </div>
               <div className="field">
-                <label htmlFor="edit-goal-support">Support agreed</label>
+                <label htmlFor="edit-goal-support">Support needed · Optional</label>
                 <textarea
                   id="edit-goal-support"
                   name="supportAgreed"
-                  defaultValue={active.supportAgreed ?? ''}
+                  defaultValue={editableVersion.supportAgreed ?? ''}
                   rows={2}
                 />
               </div>
               <div className="field">
-                <label htmlFor="edit-goal-dependencies">Dependencies</label>
+                <label htmlFor="edit-goal-dependencies">Dependencies / risks · Optional</label>
                 <textarea
                   id="edit-goal-dependencies"
                   name="dependencies"
-                  defaultValue={active.dependencies ?? ''}
+                  defaultValue={editableVersion.dependencies ?? ''}
                   rows={2}
                 />
               </div>
@@ -514,7 +628,7 @@ function GoalVersionEditor({
                 <textarea
                   id="edit-goal-baseline"
                   name="baseline"
-                  defaultValue={active.baseline ?? ''}
+                  defaultValue={editableVersion.baseline ?? ''}
                   rows={2}
                 />
               </div>
@@ -523,7 +637,7 @@ function GoalVersionEditor({
                 <textarea
                   id="edit-goal-purpose"
                   name="purpose"
-                  defaultValue={active.purpose ?? ''}
+                  defaultValue={editableVersion.purpose ?? ''}
                   rows={2}
                 />
               </div>
@@ -531,13 +645,13 @@ function GoalVersionEditor({
           </details>
           <div className="sectionhead">
             <div>
-              <h3>Milestones</h3>
-              <p>Changing structure creates a versioned alignment record.</p>
+              <h3>Milestones · Optional</h3>
+              <p>Add checkpoints only when they make the Goal easier to manage.</p>
             </div>
             <button
               type="button"
               className="btn small"
-              disabled={milestones.length >= 10}
+              disabled={milestones.length >= 5}
               onClick={() =>
                 setMilestones((current) => [
                   ...current,
@@ -592,30 +706,6 @@ function GoalVersionEditor({
                   }
                 />
               </div>
-              <div className="field compact-field">
-                <label htmlFor={`edit-ms-weight-${index}`}>Weight</label>
-                <input
-                  id={`edit-ms-weight-${index}`}
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={milestone.weight_percent ?? ''}
-                  onChange={(event) =>
-                    setMilestones((current) =>
-                      current.map((item, itemIndex) =>
-                        itemIndex === index
-                          ? {
-                              ...item,
-                              weight_percent: event.target.value
-                                ? Number(event.target.value)
-                                : null,
-                            }
-                          : item,
-                      ),
-                    )
-                  }
-                />
-              </div>
               <div className="milestone-reorder">
                 <button
                   type="button"
@@ -635,7 +725,7 @@ function GoalVersionEditor({
                 >
                   ↓
                 </button>
-                {milestones.length > 1 && (
+                {
                   <button
                     type="button"
                     className="btn small ghost"
@@ -647,13 +737,26 @@ function GoalVersionEditor({
                   >
                     Remove
                   </button>
-                )}
+                }
               </div>
             </div>
           ))}
-          <button type="submit" className="btn primary" disabled={pending}>
-            Save for discussion
-          </button>
+          <div className="modal-actions">
+            {detail.goal.status !== 'active' && (
+              <button type="submit" className="btn" value="draft" disabled={pending}>
+                Save draft
+              </button>
+            )}
+            <button
+              type="submit"
+              className="btn primary"
+              value="discussion"
+              disabled={pending}
+              aria-busy={pending}
+            >
+              {detail.goal.status === 'active' ? 'Save revision' : 'Save for discussion'}
+            </button>
+          </div>
         </form>
       )}
     </section>
@@ -707,7 +810,7 @@ function GoalWorkLinkControl({
             ))}
           </select>
         </div>
-        <button className="btn primary" disabled={pending}>
+        <button className="btn primary" disabled={pending} aria-busy={pending}>
           Link work
         </button>
       </form>
@@ -729,16 +832,34 @@ export function GoalDetailDrawer({
   workOptions: WorkOption[];
 }) {
   const router = useRouter();
-  const hasOpenMilestone = Boolean(
-    detail.activeVersion?.milestones.some((milestone) => milestone.progressPercent < 100),
+  const [activeTab, setActiveTab] = useState<'success' | 'checkin' | 'milestones' | 'history'>(
+    initialAction === 'edit' ? 'milestones' : initialAction === 'update' ? 'checkin' : 'success',
   );
-  const [activeTab, setActiveTab] = useState<'overview' | 'milestones' | 'updates' | 'evidence'>(
-    initialAction === 'update' && hasOpenMilestone ? 'milestones' : 'overview',
-  );
-  const [updateOpen, setUpdateOpen] = useState(initialAction === 'update' && !hasOpenMilestone);
-  const [milestoneOpenRequest, setMilestoneOpenRequest] = useState(
-    initialAction === 'update' && hasOpenMilestone ? 1 : 0,
-  );
+  const [milestoneOpenRequest, setMilestoneOpenRequest] = useState(0);
+  // Editing the goal itself lives on the milestones tab, because the milestones
+  // are the part people actually change. Arriving with `action=edit` opens it
+  // directly rather than making someone hunt for it.
+  const [structureOpen, setStructureOpen] = useState(initialAction === 'edit');
+
+  /*
+   * `?action=update` is a one-shot instruction: open this when I arrive. It is
+   * not state, and leaving it in the URL made it behave like state.
+   *
+   * Completing a milestone moves it into the collapsed "done" group, which
+   * re-orders the list and remounts the check-in form. On remount the form
+   * re-read `action=update` and reopened itself — so saving appeared to do
+   * nothing, even though the milestone had been saved. Consuming the parameter
+   * once, as soon as it has been acted on, means a later re-render cannot
+   * replay it.
+   */
+  useEffect(() => {
+    if (!initialAction) return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('action')) return;
+    url.searchParams.delete('action');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+  }, [initialAction]);
+
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
 
@@ -758,8 +879,8 @@ export function GoalDetailDrawer({
    * "completed" is simply 100% progress.
    */
   const allMilestones = useMemo(
-    () => detail.activeVersion?.milestones ?? [],
-    [detail.activeVersion],
+    () => (detail.activeVersion ?? detail.pendingVersion)?.milestones ?? [],
+    [detail.activeVersion, detail.pendingVersion],
   );
   const completedMilestones = useMemo(
     () => allMilestones.filter((milestone) => milestone.progressPercent === 100),
@@ -770,6 +891,22 @@ export function GoalDetailDrawer({
     [allMilestones],
   );
   const currentMilestone = openMilestones[0] ?? allMilestones.at(-1) ?? null;
+  const displayVersion = detail.activeVersion ?? detail.pendingVersion;
+  const latestMonthly = detail.checkIns.find((checkIn) => checkIn.checkinType === 'monthly');
+
+  /*
+   * Which milestone the `?action=update` request was actually for, captured
+   * once at mount.
+   *
+   * It used to be delivered by position — "whichever is first" — and position
+   * is not stable. Completing a milestone moves it into the collapsed "done"
+   * group, so the next one shifts into first place, remounts holding a request
+   * meant for its predecessor, and reopens the dialog the person just closed.
+   * Saving therefore looked like it had failed, when it had in fact succeeded.
+   *
+   * Binding the request to an id means re-ordering cannot misdeliver it.
+   */
+  const [requestedMilestoneId] = useState<string | null>(() => currentMilestone?.id ?? null);
 
   const timeline = useMemo(
     () =>
@@ -802,13 +939,7 @@ export function GoalDetailDrawer({
   const availableWorkOptions = workOptions.filter((option) => !linkedIds.has(option.id));
 
   function openPrimaryUpdate() {
-    if (!hasOpenMilestone) {
-      setActiveTab('overview');
-      setUpdateOpen(true);
-      return;
-    }
-    setActiveTab('milestones');
-    setMilestoneOpenRequest((current) => current + 1);
+    setActiveTab('checkin');
   }
 
   return (
@@ -831,21 +962,50 @@ export function GoalDetailDrawer({
         </>
       }
       actions={
-        detail.capabilities.canUpdate && detail.goal.status === 'active' ? (
-          <button type="button" className="btn small primary" onClick={openPrimaryUpdate}>
-            Update
-          </button>
-        ) : null
+        <>
+          {/*
+            A pending version is already awaiting agreement, so a second edit
+            would race it. The state is named rather than the button silently
+            missing.
+          */}
+          {detail.capabilities.canEditStructure &&
+            (detail.goal.status === 'active' && detail.goal.pendingVersionId ? (
+              <span className="flag amber">Change awaiting agreement</span>
+            ) : (
+              <button
+                type="button"
+                className="btn small"
+                onClick={() => {
+                  setActiveTab('milestones');
+                  setStructureOpen(true);
+                }}
+              >
+                {detail.goal.status === 'active' ? 'Revise goal' : 'Edit draft'}
+              </button>
+            ))}
+          {/*
+            No aria-label on the control below. It read "Open employee-level
+            Goal session history", which does not contain the visible word — so
+            the accessible name and the label disagreed (WCAG 2.5.3), and
+            anybody driving this by voice could not say "Sessions" and have it
+            work.
+          */}
+          {detail.capabilities.canUpdate && detail.goal.status === 'active' && (
+            <button type="button" className="btn small primary" onClick={openPrimaryUpdate}>
+              Sessions
+            </button>
+          )}
+        </>
       }
     >
       <div className="task-detail-scroll goal-detail-scroll">
         <nav className="drawer-tabs" aria-label="Goal details" role="tablist">
           {(
             [
-              ['overview', 'Overview'],
+              ['success', 'Success'],
+              ['checkin', 'Sessions'],
               ['milestones', 'Milestones'],
-              ['updates', 'Updates'],
-              ['evidence', 'Evidence & work'],
+              ['history', 'History'],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -868,7 +1028,7 @@ export function GoalDetailDrawer({
           </div>
         )}
 
-        {activeTab === 'overview' && (
+        {activeTab === 'success' && (
           <>
             {detail.goal.pendingVersionId && detail.pendingVersion && (
               <section className="goal-pending-version">
@@ -876,8 +1036,9 @@ export function GoalDetailDrawer({
                   <StatusBadge tone="purple">Changes awaiting agreement</StatusBadge>
                   <h3>Version {detail.pendingVersion.versionNumber} is ready for discussion</h3>
                   <p>
-                    The active agreement remains version {detail.goal.activeVersionNumber}. Review
-                    the revised result, target, and milestones before agreeing.
+                    {detail.goal.activeVersionNumber
+                      ? `The active agreement remains version ${detail.goal.activeVersionNumber}. Review the revised result, target and optional milestones before agreeing.`
+                      : 'Review the result, success measures, target and formal weight before activation.'}
                   </p>
                 </div>
                 {detail.capabilities.canAgree && (
@@ -885,6 +1046,7 @@ export function GoalDetailDrawer({
                     type="button"
                     className="btn primary"
                     disabled={pending}
+                    aria-busy={pending}
                     onClick={() =>
                       startTransition(async () => {
                         finish(
@@ -894,34 +1056,73 @@ export function GoalDetailDrawer({
                             expectedVersion: detail.goal.version,
                             idempotencyKey: idempotencyKey(),
                           }),
-                          'The revised Goal is now active.',
+                          detail.goal.activeVersionId
+                            ? 'The revised Goal is now active.'
+                            : 'The Goal is agreed and active.',
                         );
                       })
                     }
                   >
-                    Agree changes
+                    {detail.goal.activeVersionId ? 'Agree revision' : 'Agree & activate'}
                   </button>
                 )}
               </section>
             )}
 
             <p className={styles.progressSource}>
-              <strong>Milestone-based progress:</strong> the overall percentage is calculated from
-              the agreed milestone weights.
+              <strong>Success comes first.</strong> These agreed result statements define what
+              achievement means; milestones are optional checkpoints.
             </p>
+
+            <section className={styles.measureList} aria-labelledby="goal-success-measures">
+              <div className={styles.milestoneHeader}>
+                <div>
+                  <h3 id="goal-success-measures">Success measures</h3>
+                  <p>Actual results stay against agreed targets without inventing a percentage.</p>
+                </div>
+                <span className="flag blue">
+                  {displayVersion?.successMeasures.length ?? 0} agreed
+                </span>
+              </div>
+              {displayVersion?.successMeasures.map((measure) => (
+                <article className={styles.measureRow} key={measure.id}>
+                  <div>
+                    <strong>{measure.description}</strong>
+                    <span>
+                      {measure.measureType === 'qualitative'
+                        ? `${measure.currentState?.replaceAll('_', ' ') ?? 'not started'} → ${measure.targetText}`
+                        : `${measure.currentNumeric ?? 0}${measure.unit ? ` ${measure.unit}` : ''} of ${measure.targetNumeric}${measure.unit ? ` ${measure.unit}` : ''}`}
+                      {measure.period ? ` · ${measure.period}` : ''}
+                    </span>
+                  </div>
+                  <small className={styles.measureDue}>
+                    {measure.optionalTargetDate
+                      ? `Due ${formatDate(measure.optionalTargetDate, timeZone)}`
+                      : `Uses Goal target date · ${formatDate(detail.goal.targetDate, timeZone)}`}
+                  </small>
+                  <span className={styles.measureActual}>
+                    {measure.actualResult
+                      ? `Actual result: ${measure.actualResult}`
+                      : 'Actual result will be recorded at completion.'}
+                  </span>
+                </article>
+              ))}
+            </section>
 
             <section className={`goal-progress-hero ${styles.progressHero}`}>
               <div className={styles.goalHeroCard}>
                 <div className={styles.goalHeroTop}>
                   <div>
-                    <strong>{detail.goal.derivedProgress}%</strong>
-                    <span>Overall progress</span>
+                    <strong>{goalDisplayHealth(detail.goal)}</strong>
+                    <span>Current health · reported through employee-level sessions</span>
                   </div>
                   <StatusBadge
                     tone={
-                      detail.goal.health === 'support_requested'
+                      detail.goal.health === 'support_requested' ||
+                      detail.goal.health === 'off_track'
                         ? 'red'
-                        : detail.goal.health === 'need_attention'
+                        : detail.goal.health === 'need_attention' ||
+                            detail.goal.health === 'at_risk'
                           ? 'amber'
                           : 'green'
                     }
@@ -929,7 +1130,6 @@ export function GoalDetailDrawer({
                     {goalDisplayHealth(detail.goal)}
                   </StatusBadge>
                 </div>
-                <ProgressIndicator value={detail.goal.derivedProgress} />
                 <div className={styles.goalHeroMeta}>
                   <span>
                     <b>Target</b> {formatDate(detail.goal.targetDate, timeZone)}
@@ -944,100 +1144,40 @@ export function GoalDetailDrawer({
               </div>
             </section>
 
-            {detail.capabilities.canUpdate && (
-              <Modal
-                open={updateOpen}
-                title={`Update ${detail.goal.title}`}
-                onClose={() => setUpdateOpen(false)}
-              >
-                <header className="modalhead">
-                  <div>
-                    <p className="eyebrow">Goal check-in</p>
-                    <h2>General goal note</h2>
-                    <p>{detail.goal.title}</p>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn small ghost"
-                    onClick={() => setUpdateOpen(false)}
-                    aria-label="Close Goal update"
-                  >
-                    ×
+            {detail.goal.status === 'active' && (
+              <section className={styles.cadencePreview} aria-label="Goal check-in summary">
+                <div>
+                  <span>Monthly check-in</span>
+                  <strong>
+                    {detail.goal.isMonthlyCheckinDue
+                      ? `Due ${formatDate(detail.goal.nextMonthlyCheckinDate, timeZone)}`
+                      : 'Recorded for this month'}
+                  </strong>
+                  {latestMonthly && (
+                    <small>
+                      {latestMonthly.noMaterialChange
+                        ? 'No material change'
+                        : (latestMonthly.employeeSummary ?? 'Check-in recorded')}
+                    </small>
+                  )}
+                </div>
+                <div>
+                  <span>Next quarterly discussion</span>
+                  <strong>{formatDate(detail.goal.nextQuarterlyCheckinDate, timeZone)}</strong>
+                  <small>Review progress, blockers and support together.</small>
+                </div>
+                {detail.capabilities.canUpdate && (
+                  /* Named apart from the header control: two buttons reading
+                     "Sessions" in one dialog is ambiguous out of context. */
+                  <button type="button" className="btn small" onClick={openPrimaryUpdate}>
+                    View sessions
                   </button>
-                </header>
-                <form
-                  className="goal-quick-update modalbody"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    const form = event.currentTarget;
-                    const data = new FormData(form);
-                    data.set('goalId', detail.goal.id);
-                    data.set('expectedVersion', String(detail.goal.version));
-                    data.set('progress', String(detail.goal.derivedProgress));
-                    data.set('idempotencyKey', idempotencyKey());
-                    startTransition(async () => {
-                      const result = await postGoalUpdate(data);
-                      if (finish(result, 'Goal note saved.')) {
-                        form.reset();
-                        setUpdateOpen(false);
-                      }
-                    });
-                  }}
-                >
-                  <input type="hidden" name="progress" value={detail.goal.derivedProgress} />
-                  <div className="field">
-                    <label htmlFor={`goal-changed-${detail.goal.id}`}>What changed?</label>
-                    <textarea
-                      id={`goal-changed-${detail.goal.id}`}
-                      name="whatChanged"
-                      required
-                      rows={3}
-                      maxLength={4000}
-                    />
-                  </div>
-                  <div className="field">
-                    <label htmlFor={`goal-next-${detail.goal.id}`}>
-                      Next step <span className="sub">Optional</span>
-                    </label>
-                    <textarea
-                      id={`goal-next-${detail.goal.id}`}
-                      name="nextStep"
-                      rows={2}
-                      maxLength={4000}
-                    />
-                  </div>
-                  <label className="check-row">
-                    <input
-                      type="checkbox"
-                      name="supportRequested"
-                      onChange={(event) => {
-                        const details = event.currentTarget.form?.elements.namedItem(
-                          'supportDetails',
-                        ) as HTMLTextAreaElement | null;
-                        if (details) details.required = event.currentTarget.checked;
-                      }}
-                    />{' '}
-                    I need support
-                  </label>
-                  <div className="field">
-                    <label htmlFor={`goal-support-${detail.goal.id}`}>Support needed</label>
-                    <textarea
-                      id={`goal-support-${detail.goal.id}`}
-                      name="supportDetails"
-                      rows={2}
-                      maxLength={4000}
-                    />
-                  </div>
-                  <AttachmentPicker label="Add evidence" hint="Optional · files remain private" />
-                  <button className="btn primary" disabled={pending}>
-                    Save note
-                  </button>
-                </form>
-              </Modal>
+                )}
+              </section>
             )}
 
             {detail.supportRequests
-              .filter((support) => support.status !== 'resolved')
+              .filter((support) => support.status !== 'resolved' && support.sourceActive)
               .map((support) => (
                 <section className="goal-support-callout" key={support.id}>
                   <div>
@@ -1056,11 +1196,16 @@ export function GoalDetailDrawer({
                         );
                         startTransition(async () => {
                           finish(
-                            await resolveGoalSupport({
-                              supportRequestId: support.id,
-                              resolutionNote: note,
-                              idempotencyKey: idempotencyKey(),
-                            }),
+                            support.sourceKind === 'action_request'
+                              ? await resolveBarrier({
+                                  barrierId: support.id,
+                                  resolutionNote: note,
+                                })
+                              : await resolveGoalSupport({
+                                  supportRequestId: support.id,
+                                  resolutionNote: note,
+                                  idempotencyKey: idempotencyKey(),
+                                }),
                             'Support request resolved.',
                           );
                         });
@@ -1075,7 +1220,7 @@ export function GoalDetailDrawer({
                           rows={2}
                         />
                       </div>
-                      <button className="btn small primary" disabled={pending}>
+                      <button className="btn small primary" disabled={pending} aria-busy={pending}>
                         Resolve support
                       </button>
                     </form>
@@ -1114,15 +1259,15 @@ export function GoalDetailDrawer({
 
             <div className={styles.agreementDetails}>
               <details open>
-                <summary>Manager expectation</summary>
+                <summary>Success measures</summary>
                 <p>{detail.goal.successMeasure ?? 'Not recorded'}</p>
               </details>
               <details>
-                <summary>Employee approach</summary>
+                <summary>Agreed approach</summary>
                 <p>{detail.goal.employeeApproach ?? 'Not recorded'}</p>
               </details>
               <details>
-                <summary>Support agreed</summary>
+                <summary>Support needed</summary>
                 <p>{detail.goal.supportAgreed ?? 'Not recorded'}</p>
               </details>
               <details>
@@ -1142,6 +1287,7 @@ export function GoalDetailDrawer({
                   type="button"
                   className="btn small"
                   disabled={pending}
+                  aria-busy={pending}
                   onClick={() =>
                     startTransition(async () => {
                       finish(
@@ -1162,6 +1308,10 @@ export function GoalDetailDrawer({
           </>
         )}
 
+        {activeTab === 'checkin' && (
+          <GoalLifecycleCheckIn detail={detail} timeZone={timeZone} finish={finish} />
+        )}
+
         {activeTab === 'milestones' && (
           <section className="goal-milestone-list">
             <div className={styles.milestoneHeader}>
@@ -1170,7 +1320,14 @@ export function GoalDetailDrawer({
                 <p>Update the result, comment and evidence through one short check-in.</p>
               </div>
               {detail.capabilities.canEditStructure && (
-                <GoalVersionEditor detail={detail} pending={pending} finish={finish} />
+                <GoalVersionEditor
+                  key={detail.pendingVersion?.id ?? detail.activeVersion?.id}
+                  detail={detail}
+                  pending={pending}
+                  finish={finish}
+                  open={structureOpen}
+                  setOpen={setStructureOpen}
+                />
               )}
             </div>
             {/*
@@ -1195,7 +1352,7 @@ export function GoalDetailDrawer({
                     goalId={detail.goal.id}
                     goalVersion={detail.goal.version}
                     milestone={milestone}
-                    onGeneralNote={() => setUpdateOpen(true)}
+                    onGeneralNote={() => setActiveTab('checkin')}
                     pending={pending}
                     finish={finish}
                   />
@@ -1210,8 +1367,8 @@ export function GoalDetailDrawer({
                 goalVersion={detail.goal.version}
                 milestone={milestone}
                 current={index === 0}
-                openRequest={index === 0 ? milestoneOpenRequest : 0}
-                onGeneralNote={() => setUpdateOpen(true)}
+                openRequest={milestone.id === requestedMilestoneId ? milestoneOpenRequest : 0}
+                onGeneralNote={() => setActiveTab('checkin')}
                 pending={pending}
                 finish={finish}
               />
@@ -1220,22 +1377,22 @@ export function GoalDetailDrawer({
             {allMilestones.length === 0 && (
               <div className="empty-state">
                 <h3>No agreed milestones</h3>
-                <p>This Goal is still waiting for alignment.</p>
+                <p>No staged checkpoints were needed for this Goal.</p>
               </div>
             )}
           </section>
         )}
 
-        {activeTab === 'updates' && (
+        {activeTab === 'history' && (
           <section className="goal-update-list">
             <div className="sectionhead">
               <div>
-                <h3>Meaningful updates</h3>
-                <p>Short check-ins only when progress, risk or support changes.</p>
+                <h3>Goal history</h3>
+                <p>Check-ins, decisions, evidence, measure changes and milestones in time order.</p>
               </div>
               {detail.capabilities.canUpdate && (
                 <button type="button" className="btn small primary" onClick={openPrimaryUpdate}>
-                  + Update
+                  Check in
                 </button>
               )}
             </div>
@@ -1282,7 +1439,7 @@ export function GoalDetailDrawer({
                 {detail.activity.map((item) => (
                   <ActivityRow
                     key={item.id}
-                    title={eventLabel(item.eventType)}
+                    title={String(item.detail.title ?? eventLabel(item.eventType))}
                     actor={item.actorName}
                     timestamp={formatMoment(item.occurredAt, timeZone)}
                   />
@@ -1292,7 +1449,7 @@ export function GoalDetailDrawer({
           </section>
         )}
 
-        {activeTab === 'evidence' && (
+        {activeTab === 'history' && (
           <section className="goal-evidence-work">
             <div className="sectionhead">
               <div>
@@ -1371,6 +1528,129 @@ export function GoalDetailDrawer({
             ) : (
               <p className={styles.compactEmpty}>No linked work.</p>
             )}
+          </section>
+        )}
+
+        {/*
+          v52 — closing a Goal, which nothing could do.
+
+          `close_goal` has existed since v33 and is still the only procedure
+          that writes a terminal Goal status; the v50/v51 lean-goal work added
+          authoring and check-ins but no ending. So a Goal, once agreed, stayed
+          active for ever — including through the year it was written for.
+
+          It is the agreeing manager's act, matching `focus.can_agree_goal`,
+          and it requires a reason: a Goal that stopped mattering and one that
+          was delivered are different outcomes, and the record should say which.
+        */}
+        {detail.capabilities.canCompleteGoal && detail.activeVersion && (
+          <section className="detail-section">
+            <details className={styles.terminalDisclosure}>
+              <summary>Complete this Goal</summary>
+              <form
+                className="detail-lifecycle-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const form = event.currentTarget;
+                  const data = new FormData(form);
+                  startTransition(async () => {
+                    if (
+                      finish(
+                        await completeGoal({
+                          goalId: detail.goal.id,
+                          expectedVersion: detail.goal.version,
+                          finalResultSummary: String(data.get('finalResultSummary') ?? ''),
+                          measureResults: detail.activeVersion!.successMeasures.map((measure) => ({
+                            measureId: measure.id,
+                            actualResult: String(data.get(`measure-${measure.id}`) ?? ''),
+                          })),
+                          idempotencyKey: idempotencyKey(),
+                        }),
+                        'Goal completed with the actual results preserved.',
+                      )
+                    ) {
+                      form.reset();
+                    }
+                  });
+                }}
+              >
+                <p className="sub">
+                  Record what was achieved against every agreed success measure. Completion is
+                  separate from cancellation.
+                </p>
+                {detail.activeVersion.successMeasures.map((measure) => (
+                  <div className="field" key={measure.id}>
+                    <label htmlFor={`goal-result-${measure.id}`}>{measure.description}</label>
+                    <textarea
+                      id={`goal-result-${measure.id}`}
+                      name={`measure-${measure.id}`}
+                      rows={2}
+                      required
+                      defaultValue={measure.actualResult ?? ''}
+                      placeholder="What was actually achieved?"
+                    />
+                  </div>
+                ))}
+                <div className="field">
+                  <label htmlFor={`goal-final-summary-${detail.goal.id}`}>
+                    Final result summary
+                  </label>
+                  <textarea
+                    id={`goal-final-summary-${detail.goal.id}`}
+                    name="finalResultSummary"
+                    rows={3}
+                    required
+                  />
+                </div>
+                <button className="btn small primary" disabled={pending} aria-busy={pending}>
+                  Complete Goal
+                </button>
+              </form>
+            </details>
+          </section>
+        )}
+
+        {detail.capabilities.canCancelGoal && (
+          <section className="detail-section">
+            <details className={styles.terminalDisclosure}>
+              <summary>Cancel this Goal</summary>
+              <form
+                className="detail-lifecycle-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const form = event.currentTarget;
+                  const reason = String(new FormData(form).get('cancelReason') ?? '');
+                  startTransition(async () => {
+                    if (
+                      finish(
+                        await cancelGoal({
+                          goalId: detail.goal.id,
+                          expectedVersion: detail.goal.version,
+                          reason,
+                          idempotencyKey: idempotencyKey(),
+                        }),
+                        'Goal cancelled. Its reason and allocation gap remain visible.',
+                      )
+                    ) {
+                      form.reset();
+                    }
+                  });
+                }}
+              >
+                <label htmlFor={`cancel-goal-${detail.goal.id}`}>
+                  Why does this Goal no longer apply?
+                </label>
+                <textarea
+                  id={`cancel-goal-${detail.goal.id}`}
+                  name="cancelReason"
+                  rows={2}
+                  required
+                />
+                <button className="btn small" disabled={pending} aria-busy={pending}>
+                  Cancel Goal
+                </button>
+              </form>
+            </details>
           </section>
         )}
       </div>

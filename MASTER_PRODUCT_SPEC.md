@@ -1,7 +1,7 @@
 # TAMCO Focus — Master Product Specification
 
 **Document status:** Authoritative product source of truth  
-**Baseline:** v37 synchronized baseline — v34 Goals + v36 Next action + v36 Team Focus  
+**Baseline:** v49 attention summary and exact-action UI repair — v37 synchronized baseline plus v38 audited due commitments and checklist-derived progress, and the v40 to v49 revisions recorded in section 33
 **Product name:** TAMCO Focus  
 **Document owner:** Product Owner / EHS Manager  
 **Prepared:** 7 August 2026  
@@ -896,7 +896,7 @@ Example:
 
 Raise Barrier is visible near the top of task detail.
 
-Use a light red treatment when no barrier exists and a stronger alert treatment when a barrier is open.
+Use a quiet neutral support row when no barrier exists. Reserve red/pink alert treatment for an actual open barrier.
 
 Include an information control explaining when to raise one.
 
@@ -2113,13 +2113,40 @@ Completed milestones are collapsed by default. The current milestone is prominen
 Every Active task may carry one concise **Next action**: the smallest concrete action that will move the task forward. The interface must never show generic placeholder text such as “Continue next action.” When no action has been recorded, show **No next action recorded** with a clear Set next action control.
 
 ### Update paths
-The owner may update the Next action directly from the task Overview or through the **What happens next?** field when posting a progress update. The current Next action may also appear as the next actionable checklist item. Marking the Next action done does not complete the task; it clears the immediate action and prompts the owner to set the next practical action.
+The owner may update the Next action directly from the task Overview or through the **What happens next?** field when posting a progress update. In Checklist, the current Next action is pinned separately from the permanent task checklist and is never counted in checklist progress. Marking the Next action done does not complete the task; it clears the immediate action and prompts the owner to set the next practical action.
 
 ### Task-age explanation
 Open age, current-state age, overdue age, and stale/no-update age remain compact indicators. Their calculation explanation must be hidden behind an accessible information control beside the indicators. The explanation must not appear inside the Next action card.
 
 ### Reuse
 A meaningful Next action may be reused by My Day, Start Here, task lists, handovers, manager views, stale-work review, and weekly email summaries.
+
+
+## V38 — Task-detail clarity and trustworthy commitments
+
+### Quiet task information
+Task Overview uses one compact information line for status, urgency, due commitment, overdue age when applicable, progress, checklist count, and a single information control. Open age and current-state age remain calculated and accessible through that information control; they do not permanently compete with the work itself.
+
+### Due-date change history
+An authorised task editor may select **Edit due**, review the current due commitment, choose a new date or date-time, and optionally record a reason. Saving never overwrites history: the immutable event records the previous commitment, new commitment, actor, timestamp, date-only/date-time semantics, and optional reason. Recent activity presents that change in readable before/after form.
+
+### Focused Next Action and checklist preview
+The normal Overview card contains the Next Action, compact due/overdue context, Mark done, and Edit. Explanatory teaching copy is omitted from the normal working view. A whole-row checklist preview shows completed/total progress and the number of outstanding evidence-required items, and opens the Checklist tab.
+
+### Permanent checklist and evidence rules
+The Current Next Action is pinned separately and excluded from the permanent checklist count. Permanent checklist rows use one clear rule and action:
+
+- **No evidence required** → Complete.
+- **Evidence optional** → Evidence and Complete remain independent.
+- **Evidence required** → Complete with evidence opens one compact file/photo/screenshot and optional completion-note step.
+
+For required evidence, attachment metadata and checklist completion receive the same transaction timestamp. Reopening writes a new history event and never erases the original completion.
+
+### Progress authority
+When at least one permanent checklist item exists, completed items divided by total permanent items is the only task-progress source. The Current Next Action is not part of the denominator. Insertions, removals, completion, reopening, and existing-data backfill must not leave a manual percentage that disagrees with the checklist.
+
+### Recent activity and barrier treatment
+Recent activity gives readable, actor-and-time-stamped entries for due changes, Next Action changes/completion, checklist completion/reopening, evidence attachment, and resulting progress. A task without an open barrier uses a neutral **Need help?** row; stronger red/pink treatment is reserved for a recorded open barrier.
 
 
 ## V36 — Team Focus manager workspace
@@ -2139,3 +2166,312 @@ Selecting a person opens a right-side detail drawer on desktop and full-width de
 
 ### Information discipline
 Normal task age stays visually quiet. Ageing becomes prominent only when overdue, stale, unusually old, or long-paused. Low-value activity counts such as raw work-created-this-week should not appear in the default manager scan unless an unusual volume creates a management implication.
+
+---
+
+## 33. v40 to v49 — approved behaviour changes
+
+Recorded here so the specification matches the implementation. Full engineering
+rationale is in `PRODUCTION_LOGIC.md` section 40.
+
+**Navigation (v40, v43).** Focus navigates by state: Active, Available, Shared.
+Major Project, Operational Action and Self-Development remain work classes and
+capacity categories, shown on rows and in a capacity strip, never as tabs.
+`My Work | My Team` is a separate scope control above them. Routine keeps its own
+occurrence lifecycle — Due now / this week, Upcoming, Completed — inside the same
+Work shell, and never borrows Focus vocabulary.
+
+**Ownership (v41).** Primary Owner is chosen at Capture: implicitly for an
+employee, explicitly by a manager. One result has exactly one Primary Owner.
+
+**Collaboration (v41, v44, v45).** Collaboration happens through checklist items.
+Assigning a step to somebody else creates a Shared contribution — a projection of
+that same row, never a second task. The assignee is notified on assignment and
+again when the contribution becomes Ready, and never twice for the same state.
+Any active team member may be assigned a step: collaboration is not bounded by
+the reporting line, and eligibility is never `role = manager OR user = primary
+owner`. Names of active colleagues are readable by everyone for this purpose;
+whose work may be *read* is still decided by the reporting line.
+
+**Checklist steps are editable (v45).** A step's title, assignee, due date,
+evidence rule and prerequisite can be corrected after it is written, and every
+field change is recorded. Restructuring is edit authority, never contribute
+authority: the assignee completes their step, the owner or their manager decides
+what the step is. A completed step is a record and cannot be rewritten or
+removed — it is reopened first. A step is not removed while it holds evidence or
+while another step waits for it.
+
+**Available and Active (v41).** Available answers "should I start carrying
+this?" and offers Activate. Active answers "what do I do next?" and carries the
+Next action. No next action is ever fabricated for work nobody has started.
+
+**Updates (v43).** An update records what changed. It no longer carries a next
+action, a barrier shortcut, an evidence-only checkbox or a participant selector.
+Evidence-only is inferred from attachments with no text.
+
+**Barrier (v44, v45).** A barrier states what is blocking the work, what kind of
+action is needed, what is needed from the recipient, who must act, and the impact
+if unresolved. Only "work cannot continue" pauses the task. A response is not a
+resolution. Resolution requires a recorded outcome and hands control back to the
+Primary Owner rather than resuming work for them.
+
+Whether the named person still owes an answer is tracked separately from whether
+the work is blocked. Replying clears the obligation — the request leaves that
+person's Needs Attention list — and leaves the barrier open. An approval request
+records which answer it received. Nothing resumes automatically when a barrier is
+answered or resolved.
+
+**Notifications (v42, v44, v46).** Notifications are created only for meaningful
+handoffs and required actions, carry the entity they concern, and open that exact
+record. The bell counts unread and actionable items only. A notification is
+awareness and a deep link, never the place the work lives: reading one does not
+discharge the request it announced.
+
+**Needs Attention (v46).** Something requires this person to act now. It is
+derived from the records themselves — an open barrier, addressed to them, still
+unanswered — and never stored as its own object. It appears on My Day for the
+person who must act and on My Team for the manager whose team is affected;
+these are two views of one request, and answering it clears both.
+
+**Shared and Needs Attention are different (v46).** Shared means a checklist
+contribution somebody assigned you to perform. Needs Attention means somebody is
+waiting on your decision, approval or response. Barriers never enter Shared and
+checklist assignments never create attention requests. Neither list may grow
+into "anything another person wants from me".
+
+**Barrier surfaces (v46).** A barrier lives in its parent Task Detail and
+nowhere else — no barrier workspace, no permanent tab, no second record. Arriving
+from a notification, My Day or My Team opens that same Task Detail with the
+request expanded, the requested action stated first, and the response control
+ready; task context follows underneath. What the barrier shows depends on the
+viewer: who they are waiting for, or that the answer is theirs to give.
+
+**Meeting Queue (v46, v47).** Adding a barrier to the Meeting Queue is the
+responding manager's option, not a field on the employee's request, and it
+reuses the existing queue rather than copying the work. The same barrier is
+never queued twice. The queue lives inside Monthly Plan, never as its own
+navigation entry.
+
+**Discussion instead of an immediate answer (v47).** A request may be deferred
+to a conversation: queued when the need is known, scheduled when a time is. A
+scheduled discussion is an event on the Monthly Plan calendar, linked to both
+the work and the request, and opening it returns to the request. Neither
+queueing nor scheduling answers anything — the requested decision, approval or
+response is still owed, still on Needs Attention, and only the actual response
+clears it.
+
+**Mandatory work (v48).** Mandatory means the work could not wait for normal
+prioritisation. It has already been decided, so there is nothing to approve and
+no approval step stands in front of it. It is not, by itself, manager attention:
+running normally it is information, visible under Everyone. It reaches Needs
+Attention only when something else is true as well — it pushed the person over
+their focus target, it carries a barrier addressed to the manager, or it is
+overdue past the existing intervention threshold — and each of those states its
+own reason and its own action.
+
+**Workload review (v48).** When mandatory work takes somebody over target, the
+open question is not whether the work should have started but what gives way now
+that it has. The manager may accept the overload, which is recorded as a
+decision, or move a non-mandatory item back to Available. The system never
+chooses, and mandatory work is never the item moved.
+
+**Needs Attention is validated (v48).** An item may appear only if it can answer
+why it is there, what the manager should do, and where they would do it. Items
+that cannot are excluded rather than shown, because one meaningless card teaches
+people to skim the whole list.
+
+**Team Member Detail (v48).** A team member's name opens a drawer over My Team
+answering, in order: does this person need me, what are they working on, what has
+meaningfully changed, and how much else are they carrying. It is not an employee
+dashboard and carries no metric nobody would act on. No Active focus is stated
+plainly; it is not an exception.
+
+**Summary surfaces (v49, amended 10 August 2026).** A summary shows what deserves attention first and
+never the whole backlog. My Day shows the two highest-priority items, the true
+count, and a link to Work → My Team → Needs Attention. Ranking is deterministic
+and shared — no surface computes its own order. The My Day request summary and
+the My Team people list may share the semantic attention read model and action
+resolver, but never share a presentation-row component.
+
+**Exception and action required (v49).** Something abnormal a manager should
+know about is not the same as something they personally owe. Overdue work and
+overdue routines are exceptions; a decision, approval, support request, evidence
+review or workload review is an action. The two are labelled and coloured
+differently, and only the second may claim "Needs you".
+
+**Manager actions name their operation (v49).** A control says what pressing it
+will do — Open task, Open routine, Provide decision, Review evidence, Review
+workload — wherever the system knows the object. Vague labels ("Review with
+them", a bare "Review") and generic destinations are not used. An attention item
+whose underlying workflow does not exist is not displayed at all.
+
+**Rows are records (v49).** Where a row represents one thing, the whole row
+opens it, by keyboard as well as pointer. Controls inside the row keep their own
+actions. A My Team person row contains nested action buttons and therefore uses
+an accessible non-element wrapper (`div` with button semantics and keyboard
+activation); each child action stops propagation and opens the exact source
+record without first opening Team Member Detail. Generic task-row link overlays
+are not used for this people-row presentation.
+
+**Attention target validation (v49 repair).** Every actionable item carries an
+explicit `sourceType`, `sourceId`, and `ctaType`. Barrier actions additionally
+carry both task and barrier identity. One resolver validates those fields and
+maps them to the action label and exact destination. Invalid identity produces
+a controlled unavailable state and a development error, never a visible dead
+button. An overdue routine resolves to its exact occurrence and is not allowed
+to be selected first by the generic overdue-task branch.
+
+**Contextual navigation (v48).** A drawer returns the user to the exact list,
+filter and person it was opened from, one layer at a time. Layers are search
+parameters, so closing one removes only its own and everything beneath is
+preserved. No drawer decides that any particular screen is its parent.
+
+**List cards and user text (v48).** A list row shows a bounded, structured
+preview — action type, subject, short preview, who and when, then the action —
+and the detail view holds the complete original. No card composes its heading
+from unbounded user-entered text.
+
+**One way into a barrier (v47).** Every surface that mentions a request —
+notification, My Day, My Team, the task banner, the Meeting Queue, the calendar
+entry — opens the same Task Detail with the same barrier expanded, through one
+shared path. A visible control either performs its stated action or is not
+shown.
+
+**Classification (v40).** Deterministic and auditable. Hidden safety keyword
+classification is removed; mandatory work is reachable only through the explicit
+urgent path. Every classification stores the rule that produced it.
+
+## v50 — Goal lifecycle and performance cadence (10 August 2026)
+
+This section supersedes older Goal-specific progress, update-cadence and manager-attention
+wording. It does not change task, routine, barrier, authentication, visibility or focus rules.
+
+A Goal is an agreed performance or development outcome, not a task list. The recognized
+structure remains **Performance Goal / Objectives (Success Measures) / Result / Weight**.
+Success measures are structured qualitative, numeric or percentage results with a target,
+current value or state, optional unit, reporting period and stable position. Milestones are
+two to five meaningful checkpoints and never replace success measures or supporting work.
+
+Goal setup has two logical steps. **Expectation** records employee, result, structured success
+measures, target date and formal weight, with optional baseline, purpose and category.
+**Alignment** records the employee approach, optional support/dependencies and two to five
+milestones, then saves for discussion or activates within the 100% formal-weight guard.
+
+An Active Goal uses four views: **Progress, Check-in, Milestones, History**. Progress presents
+success measures first and the derived overall percentage second. When measures exist, overall
+progress is the deterministic average of measure progress. Linked work and current milestone
+completion do not change it. Legacy Goals without structured measures retain their approved
+narrative measure and milestone fallback until revised.
+
+The Goal owner submits at most one monthly check-in per Goal and calendar month. It records On
+track, At risk or Off track; a concise summary or valid No material change; optional measure and
+evidence updates; and optional explicit manager support. A normal On track check-in is
+informational and creates no manager action. At risk, Off track and explicit support create an
+exact Goal exception for the manager.
+
+Each calendar quarter has one discussion record. The employee submits a short summary; the
+authorised manager records the discussion, agreed actions and status using **Agree & continue**.
+This is alignment, not approve/reject. Dates come from calendar month/quarter boundaries and are
+not hard-coded per employee. Monthly owner cadence appears on My Day; an approaching quarterly
+discussion appears under Coming up. A manager-requested update is owner work and must not alter
+Goal health or reappear in the manager's own queue. My Team shows only genuine Goal support,
+risk/Off track or a submitted quarterly discussion.
+
+Year-end Result wording is traceable to the structured measures, monthly check-ins, agreed
+quarterly discussions, milestones, evidence and support history. It may be refined before the
+authorised manager finalizes it. History remains immutable and records measure changes, monthly
+submissions, quarterly submission/agreement, evidence and year-end save/finalization with actor
+and timestamp.
+
+## v51 — Lean Goal agreement experience (10 August 2026)
+
+This section supersedes the v50 Goal-authoring interface and terminology where they conflict. It
+does not create another Goal type or record. Existing Goal versions, lifecycle history, evidence,
+permissions, formal-weight rules, monthly cadence, quarterly conversations and year-end records
+remain authoritative.
+
+There is one Goals workspace with **My Goals** and manager-only **My Team**. An employee starts or
+edits their own Draft and may save it **For Discussion**. A manager starts the same Goal record for
+the selected team member, may refine that pending version, and is the only role that can **Agree &
+activate** a formal Goal. The user-facing lifecycle is Draft → For Discussion → Active → Completed.
+
+Goal setup is a short two-step agreement:
+
+1. **Expectation** asks for the expected result, one or more plain-language statements of success,
+   one Goal target date and formal weight. A success statement inherits the Goal target date unless
+   its optional different date is deliberately opened. Category, baseline and purpose sit under
+   **More context**. Measure Type, Target State and Period are not setup fields.
+2. **Alignment** asks for the agreed approach and optional support. Dependencies and risks sit under
+   **More details**. Milestones are optional: zero to five result checkpoints, each with only a
+   result and **Done when**. No empty milestone is generated for the user.
+
+The allocation summary always makes the consequence of a formal weight legible: current active
+weight, weight after activation and remaining or over-allocated weight. An employee never receives
+the manager activation control. Choosing a person in **My Team** fixes the owner before the form is
+opened, so the form does not ask for that employee again.
+
+An Active Goal is read as an agreement, not as its setup wizard. **Success** leads with the agreed
+result and success statements, then monthly cadence and the next quarterly conversation.
+**Check-in**, **Milestones** and **History** remain available. The monthly owner check-in stays lean:
+On track / At risk / Off track, a short update or No material change, optional support and evidence.
+A quarterly manager conversation asks what is working, what is getting in the way, what support or
+adjustment is agreed, and the overall status. Normal On track reporting remains quiet; only genuine
+risk, support and review exceptions reach manager attention.
+
+Pre-activation edits replace the pending version of the same Goal transactionally and retain audit
+history. Structural edits after activation use **Revise goal** and remain pending until authorised
+agreement; they never silently alter the active version. Legacy structured measures remain readable
+and calculable, while newly authored success statements are stored compatibly on the same
+version-owned measure records.
+## v53 — closed-loop execution and employee-level Goal governance (10 August 2026)
+
+This section supersedes earlier Task terminal, Major Project proposal, per-Goal cadence, Goal
+progress and Goal closing wording wherever they conflict. The future ESH finding/action system is
+explicitly excluded. TAMCO Focus owns one shared Task execution engine and one Goal-management
+domain; no management module or parallel task engine is introduced.
+
+### Task execution boundary
+
+- Completion and cancellation are terminal, retained outcomes. Both release focus and make source
+  Barriers, action notifications and unscheduled Meeting Queue topics non-actionable without deleting
+  them or falsely marking them resolved.
+- An owner or authorised manager may cancel ordinary work. Mandatory work may be cancelled only by
+  an authorised manager. The reason, actor and timestamp are immutable history.
+- Reassignment is an authorised manager operation. Available remains Available and Active remains
+  Active. Both owners' focus is recalculated; an over-target result succeeds and explicitly requests
+  workload review. Shared remains a projection of incomplete checklist assignments away from the
+  current primary owner.
+- A response to a request is not resolution. A terminal source makes the request historical and
+  non-actionable. Needs Attention remains derived and names why it exists, what action is required,
+  and where that action occurs; ordinary assignments and routine progress never qualify alone.
+- Major Project proposals use Send for discussion → Agree / Request changes / Decline. Agreement
+  creates one Major Project in Available; only its owner decides when to activate it.
+- Tasks may carry nullable `source_module`, `source_entity_type` and `source_entity_id`. The three
+  values are all present or all absent. A specialist module owns its source record; TAMCO Focus owns
+  execution. No ESH-specific Task columns or domain objects are part of this release.
+
+### Goal plan and cadence
+
+- A performance period owns one employee Goal plan. Draft construction may remain below 100%; plan
+  finalisation is a separate authorised transaction requiring exactly 100% formal allocation.
+- One employee monthly session records one health snapshot for every Active Goal in that period and
+  completes the month exactly once. On track and No material change are informational. At risk and
+  Off track require explanation. Explicit support identifies a person and creates a shared
+  Barrier/request; no approval is created for normal reporting.
+- One employee quarterly session reviews every Active Goal once, records current health, optional
+  attention and optional agreed support adjustment, and completes the quarter once. Under
+  `department_only` governance, an authorised manager may review their own plan; the application
+  never invents a superior. `organization_hierarchy` is a stored future mode, not an active fiction.
+- Governance mode is captured when a Goal becomes Active. Active structural revision records the
+  before snapshot, after snapshot, reason, actor and timestamp while the existing agreement remains
+  active until the pending revision is agreed.
+- Goal completion and cancellation are different outcomes. Completion records an actual result for
+  every agreed success measure and a final result summary. Cancellation records why the agreement no
+  longer applies and leaves the resulting allocation deficit visible; weight is never redistributed
+  automatically.
+- UI and summaries must not invent an overall Goal achievement percentage. They present formal
+  weight, current health, actual versus target success measures, and milestone execution as separate
+  facts.
+- Goal support uses the same Barrier/request engine as Task support, with a Goal source. Legacy Goal
+  support and per-Goal cadence rows remain readable during compatibility migration but no new client
+  flow writes a competing lifecycle.

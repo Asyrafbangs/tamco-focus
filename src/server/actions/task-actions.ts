@@ -3,8 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
-import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
+import { endOfLocalDay, localDateTimeToInstant } from '@/domain/duration';
 import type { OperationResult } from '@/domain/types';
+import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
 import { safeAttachmentFileName, validateAttachmentFiles } from '@/server/attachments';
 
 /**
@@ -72,6 +73,53 @@ async function callProcedure(
   }
 
   return result as OperationResult;
+}
+
+interface UploadedAttachmentMetadata {
+  id: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string;
+  byte_size: number;
+  is_evidence: boolean;
+}
+
+async function uploadTaskFiles(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  taskId: string,
+  files: readonly File[],
+  isEvidence: boolean,
+): Promise<
+  | { ok: true; paths: string[]; attachments: UploadedAttachmentMetadata[] }
+  | { ok: false; message: string }
+> {
+  const paths: string[] = [];
+  const attachments: UploadedAttachmentMetadata[] = [];
+
+  for (const file of files) {
+    const id = crypto.randomUUID();
+    const path = `tasks/${taskId}/${id}-${safeAttachmentFileName(file.name)}`;
+    const { error } = await supabase.storage.from('task-attachments').upload(path, file, {
+      contentType: file.type,
+      upsert: false,
+    });
+    if (error) {
+      if (paths.length) await supabase.storage.from('task-attachments').remove(paths);
+      console.error(`[uploadTaskFiles] ${error.message}`);
+      return { ok: false, message: 'The files could not be saved, so nothing was changed.' };
+    }
+    paths.push(path);
+    attachments.push({
+      id,
+      storage_path: path,
+      file_name: file.name,
+      mime_type: file.type,
+      byte_size: file.size,
+      is_evidence: isEvidence,
+    });
+  }
+
+  return { ok: true, paths, attachments };
 }
 
 // ---------------------------------------------------------------------------
@@ -263,7 +311,7 @@ export async function reassignTask(input: z.input<typeof reassignSchema>) {
       p_new_owner_id: parsed.data.newOwnerId,
       p_idempotency_key: parsed.data.idempotencyKey ?? null,
     },
-    ['/today', '/work', '/team'],
+    ['/today', '/work'],
   );
 }
 
@@ -290,6 +338,69 @@ export async function undoEvent(input: z.input<typeof undoSchema>) {
     p_event_id: parsed.data.eventId,
     p_idempotency_key: parsed.data.idempotencyKey ?? null,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Due commitment (v38)
+// ---------------------------------------------------------------------------
+
+const dueDateCommandSchema = z.object({
+  taskId: uuid,
+  expectedVersion: z.number().int().positive(),
+  dueValue: z.string().min(1).max(32),
+  dueIsDateOnly: z.boolean(),
+  reason: z.string().trim().max(1000).nullish(),
+  idempotencyKey,
+});
+
+export async function changeTaskDueDate(input: z.input<typeof dueDateCommandSchema>): Promise<
+  OperationResult<{
+    version: number;
+    due_at: string;
+    due_is_date_only: boolean;
+    changed: boolean;
+  }>
+> {
+  const parsed = dueDateCommandSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      code: 'validation_failed',
+      message: 'Choose a valid new due date.',
+    };
+  }
+
+  const profile = await requireProfile();
+  let newDue: Date;
+  try {
+    newDue = parsed.data.dueIsDateOnly
+      ? endOfLocalDay(parsed.data.dueValue, profile.timezone)
+      : localDateTimeToInstant(parsed.data.dueValue, profile.timezone);
+  } catch {
+    return {
+      ok: false,
+      code: 'validation_failed',
+      message: 'Choose a valid new due date.',
+    };
+  }
+
+  return (await callProcedure(
+    'change_task_due_date',
+    {
+      p_task_id: parsed.data.taskId,
+      p_expected_version: parsed.data.expectedVersion,
+      p_new_due_at: newDue.toISOString(),
+      p_due_is_date_only: parsed.data.dueIsDateOnly,
+      p_reason: parsed.data.reason || null,
+      p_idempotency_key: parsed.data.idempotencyKey ?? null,
+    },
+    ['/today', '/work', '/plan'],
+  )) as OperationResult<{
+    version: number;
+    due_at: string;
+    due_is_date_only: boolean;
+    changed: boolean;
+  }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -324,6 +435,81 @@ export async function completeChecklistItem(input: z.input<typeof checklistSchem
 
 /** Section 11.4 — reopening creates a reversal event and never erases the
  * original completion event. */
+/** Required evidence metadata and checklist completion commit together. */
+export async function completeChecklistItemWithEvidence(
+  formData: FormData,
+): Promise<OperationResult> {
+  await requireProfile();
+  const parsed = z
+    .object({
+      taskId: uuid,
+      itemId: uuid,
+      completionNote: z.string().trim().max(2000).optional(),
+      idempotencyKey: z.string().min(8).max(128),
+    })
+    .safeParse({
+      taskId: formData.get('taskId'),
+      itemId: formData.get('itemId'),
+      completionNote: formData.get('completionNote') || undefined,
+      idempotencyKey: formData.get('idempotencyKey'),
+    });
+
+  if (!parsed.success) {
+    return { ok: false, code: 'validation_failed', message: 'The evidence details are invalid.' };
+  }
+
+  const files = formData
+    .getAll('files')
+    .filter((value): value is File => value instanceof File && value.size > 0);
+  const fileError = validateAttachmentFiles(files);
+  if (fileError) return { ok: false, code: 'validation_failed', message: fileError };
+  if (files.length === 0) {
+    return {
+      ok: false,
+      code: 'evidence_missing',
+      message: 'Choose a file, photo, or screenshot before completing this step.',
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const uploaded = await uploadTaskFiles(supabase, parsed.data.taskId, files, true);
+  if (!uploaded.ok) {
+    return { ok: false, code: 'unexpected_error', message: uploaded.message };
+  }
+
+  const { data, error } = await supabase.rpc('complete_checklist_item_with_evidence', {
+    p_item_id: parsed.data.itemId,
+    p_attachments: uploaded.attachments,
+    p_completion_note: parsed.data.completionNote ?? null,
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+
+  if (error) {
+    await supabase.storage.from('task-attachments').remove(uploaded.paths);
+    console.error(
+      `[completeChecklistItemWithEvidence] ${error.code ?? 'unknown'}: ${error.message}`,
+    );
+    return {
+      ok: false,
+      code: 'unexpected_error',
+      message: 'The evidence was not recorded and the checklist item was not changed.',
+    };
+  }
+
+  const result = data as OperationResult;
+  if (!result.ok) {
+    const cleanup = await supabase.storage.from('task-attachments').remove(uploaded.paths);
+    if (cleanup.error) {
+      console.error(`[completeChecklistItemWithEvidence:cleanup] ${cleanup.error.message}`);
+    }
+    return result;
+  }
+
+  for (const path of ['/today', '/work']) revalidatePath(path);
+  return result;
+}
+
+/** Reopening writes a reversal event; it never erases the completion event. */
 export async function reopenChecklistItem(input: { itemId: string; reason?: string }) {
   const parsed = z
     .object({ itemId: uuid, reason: z.string().max(1000).optional() })
@@ -386,7 +572,7 @@ export async function setTaskNextAction(
       p_mark_done: parsed.data.markDone,
       p_idempotency_key: parsed.data.idempotencyKey ?? null,
     },
-    ['/today', '/work', '/team'],
+    ['/today', '/work'],
   )) as OperationResult<{ version: number; next_action: string | null }>;
 }
 
@@ -444,42 +630,9 @@ export async function postTaskUpdate(formData: FormData): Promise<OperationResul
     .filter((value) => uuid.safeParse(value).success);
   const isEvidence = parsed.data.evidenceOnly === 'true' || Boolean(parsed.data.checklistItemId);
   const supabase = await createSupabaseServerClient();
-  const uploadedPaths: string[] = [];
-  const attachments: Array<{
-    id: string;
-    storage_path: string;
-    file_name: string;
-    mime_type: string;
-    byte_size: number;
-    is_evidence: boolean;
-  }> = [];
-
-  for (const file of files) {
-    const id = crypto.randomUUID();
-    const path = `tasks/${parsed.data.taskId}/${id}-${safeAttachmentFileName(file.name)}`;
-    const { error } = await supabase.storage.from('task-attachments').upload(path, file, {
-      contentType: file.type,
-      upsert: false,
-    });
-    if (error) {
-      if (uploadedPaths.length)
-        await supabase.storage.from('task-attachments').remove(uploadedPaths);
-      console.error(`[postTaskUpdate:upload] ${error.message}`);
-      return {
-        ok: false,
-        code: 'unexpected_error',
-        message: 'The files could not be saved, so nothing was posted.',
-      };
-    }
-    uploadedPaths.push(path);
-    attachments.push({
-      id,
-      storage_path: path,
-      file_name: file.name,
-      mime_type: file.type,
-      byte_size: file.size,
-      is_evidence: isEvidence,
-    });
+  const uploaded = await uploadTaskFiles(supabase, parsed.data.taskId, files, isEvidence);
+  if (!uploaded.ok) {
+    return { ok: false, code: 'unexpected_error', message: uploaded.message };
   }
 
   const { data, error } = await supabase.rpc('post_task_update', {
@@ -488,13 +641,14 @@ export async function postTaskUpdate(formData: FormData): Promise<OperationResul
     p_is_evidence_only: parsed.data.evidenceOnly === 'true',
     p_checklist_item_id: parsed.data.checklistItemId ?? null,
     p_mention_ids: mentionIds,
-    p_attachments: attachments,
+    p_attachments: uploaded.attachments,
     p_idempotency_key: parsed.data.idempotencyKey,
     p_next_action: parsed.data.nextAction ?? null,
   });
 
   if (error) {
-    if (uploadedPaths.length) await supabase.storage.from('task-attachments').remove(uploadedPaths);
+    if (uploaded.paths.length)
+      await supabase.storage.from('task-attachments').remove(uploaded.paths);
     console.error(`[postTaskUpdate] ${error.code ?? 'unknown'}: ${error.message}`);
     return {
       ok: false,
@@ -504,12 +658,12 @@ export async function postTaskUpdate(formData: FormData): Promise<OperationResul
   }
 
   const result = data as OperationResult;
-  if (!result.ok && uploadedPaths.length) {
-    const cleanup = await supabase.storage.from('task-attachments').remove(uploadedPaths);
+  if (!result.ok && uploaded.paths.length) {
+    const cleanup = await supabase.storage.from('task-attachments').remove(uploaded.paths);
     if (cleanup.error) console.error(`[postTaskUpdate:cleanup] ${cleanup.error.message}`);
   }
   if (result.ok) {
-    for (const path of ['/today', '/work', '/team']) revalidatePath(path);
+    for (const path of ['/today', '/work']) revalidatePath(path);
   }
   return result;
 }
@@ -528,6 +682,10 @@ const barrierSchema = z.object({
     'safety_or_compliance_risk',
     'management_decision_required',
   ]),
+  /** v44 section 14 — decision / approval / support / escalation / other. */
+  actionType: z.enum(['decision', 'approval', 'support', 'escalation', 'other']).default('support'),
+  /** Who must act. Server falls back to the reporting manager when absent. */
+  actionRequiredFrom: z.string().uuid().nullish(),
   addToMeetingQueue: z.boolean().default(false),
   idempotencyKey,
 });
@@ -556,10 +714,15 @@ export async function raiseBarrier(input: z.input<typeof barrierSchema>) {
       p_description: parsed.data.description,
       p_support_needed: parsed.data.supportNeeded,
       p_impact: parsed.data.impact,
+      // v44 section 14 — what kind of action, and who is being asked. Null
+      // recipient still falls back to the reporting manager server-side, so an
+      // older client cannot produce a barrier that reaches nobody.
+      p_action_type: parsed.data.actionType ?? 'support',
+      p_action_required_from: parsed.data.actionRequiredFrom ?? null,
       p_add_to_meeting_queue: parsed.data.addToMeetingQueue,
       p_idempotency_key: parsed.data.idempotencyKey ?? null,
     },
-    ['/today', '/work', '/team'],
+    ['/today', '/work'],
   );
 }
 
@@ -582,7 +745,7 @@ export async function resolveBarrier(input: { barrierId: string; resolutionNote:
       p_barrier_id: parsed.data.barrierId,
       p_resolution_note: parsed.data.resolutionNote,
     },
-    ['/today', '/work', '/team'],
+    ['/today', '/work'],
   );
 }
 
@@ -622,20 +785,15 @@ export async function decideCompletionReview(input: z.input<typeof reviewSchema>
   );
 }
 
-/**
- * Records that a reviewer opened an attachment (section 20.4).
+/*
+ * v53 section 22 — the attachment-view wrapper is gone, not the recording.
  *
- * Called automatically when evidence is opened. There is deliberately no manual
- * "Viewed" checkbox anywhere in the product.
+ * Opening evidence is logged by `record_attachment_view` (section 20.4), and
+ * the only thing that can honestly say an attachment was opened is the route
+ * that serves the bytes: `src/app/api/attachments/[id]/route.ts` calls the
+ * procedure itself. This action was a second door onto the same write that no
+ * screen used — and one a client could have called without opening anything.
  */
-export async function recordAttachmentView(input: { attachmentId: string }) {
-  const parsed = z.object({ attachmentId: uuid }).safeParse(input);
-  if (!parsed.success) {
-    return { ok: false as const, code: 'validation_failed' as const, message: 'Invalid request.' };
-  }
-
-  return callProcedure('record_attachment_view', { p_attachment_id: parsed.data.attachmentId }, []);
-}
 
 // ---------------------------------------------------------------------------
 // Routine findings (section 16.4)
@@ -672,4 +830,392 @@ export async function recordRoutineFinding(input: z.input<typeof findingSchema>)
     p_description: parsed.data.description,
     p_follow_up_owner_id: parsed.data.followUpOwnerId ?? null,
   });
+}
+
+/**
+ * Converts a Quick Action into an Operational Action (v40 section 10).
+ *
+ * The escape hatch that lets Quick Action stay small. When work turns out to
+ * need several days, evidence, collaboration or coordination, it is not a
+ * Quick Action any more, and the answer is to change what it is rather than to
+ * grow the Quick Action interface until it can hold all of that.
+ *
+ * It lands in Available, not Active: taking on sustained work spends a focus
+ * slot, and that decision stays with the person.
+ */
+export async function convertQuickAction(input: {
+  taskId: string;
+  expectedVersion: number;
+  reason?: string | null;
+  idempotencyKey: string;
+}): Promise<OperationResult> {
+  const parsed = z
+    .object({
+      taskId: z.string().uuid(),
+      expectedVersion: z.number().int().positive(),
+      reason: z.string().trim().max(500).nullish(),
+      idempotencyKey: z.string().min(8).max(128),
+    })
+    .safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false, code: 'validation_failed', message: 'Invalid conversion request.' };
+  }
+
+  return callProcedure('convert_quick_action', {
+    p_task_id: parsed.data.taskId,
+    p_expected_version: parsed.data.expectedVersion,
+    p_reason: parsed.data.reason ?? null,
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+}
+
+/**
+ * Adds a checklist step (v41 sections 7, 8, 9).
+ *
+ * Deliberately available while the parent is still in Available: planning what
+ * a piece of work involves is exactly what you do before deciding to carry it,
+ * and requiring activation first would force people to spend a focus slot in
+ * order to think.
+ *
+ * Assigning a step to somebody other than the primary owner is the ONLY way a
+ * Shared contribution comes into existence. No second task is created — Shared
+ * is a projection of this row (section 23).
+ */
+export async function addChecklistStep(input: {
+  taskId: string;
+  action: string;
+  assignedTo?: string | null;
+  evidenceRule?: 'not_required' | 'optional' | 'required';
+  dueDate?: string | null;
+  dependsOnItemId?: string | null;
+}): Promise<OperationResult> {
+  const parsed = z
+    .object({
+      taskId: uuid,
+      action: z.string().trim().min(1).max(300),
+      assignedTo: z.string().uuid().nullish(),
+      evidenceRule: z.enum(['not_required', 'optional', 'required']).default('not_required'),
+      dueDate: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .nullish(),
+      dependsOnItemId: z.string().uuid().nullish(),
+    })
+    .safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false, code: 'validation_failed', message: 'Describe what needs to be done.' };
+  }
+
+  const profile = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  // The default assignee is the primary owner, so an unassigned step never
+  // silently becomes somebody else's Shared contribution.
+  const { data: task } = await supabase
+    .from('tasks')
+    .select('primary_owner_id')
+    .eq('id', parsed.data.taskId)
+    .maybeSingle();
+
+  if (!task) {
+    return { ok: false, code: 'not_found', message: 'That work no longer exists.' };
+  }
+
+  const { data: lastItem } = await supabase
+    .from('task_checklist_items')
+    .select('position')
+    .eq('task_id', parsed.data.taskId)
+    .order('position', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { error } = await supabase.from('task_checklist_items').insert({
+    task_id: parsed.data.taskId,
+    position: Number(lastItem?.position ?? 0) + 1,
+    action: parsed.data.action,
+    assigned_to: parsed.data.assignedTo ?? String(task.primary_owner_id),
+    evidence_rule: parsed.data.evidenceRule,
+    due_at: parsed.data.dueDate
+      ? endOfLocalDay(parsed.data.dueDate, profile.timezone).toISOString()
+      : null,
+    depends_on_item_id: parsed.data.dependsOnItemId ?? null,
+  });
+
+  if (error) {
+    // RLS refuses when the caller may not edit this task, which is the
+    // authority check — this action does not re-implement it.
+    console.error(`[addChecklistStep] ${error.message}`);
+    return {
+      ok: false,
+      code: 'not_authorised',
+      message: 'The step was not added. You may not be able to edit this work.',
+    };
+  }
+
+  for (const path of ['/today', '/work']) revalidatePath(path);
+  return { ok: true, code: 'checklist_step_added' };
+}
+
+/**
+ * Puts a barrier on the meeting agenda (v46 sections 18-19).
+ *
+ * Secondary to responding, never instead of it: a barrier that is only ever
+ * discussed is a barrier nobody answered. The database refuses a second entry
+ * for the same open barrier, so a repeated press reports the existing item.
+ */
+export async function addBarrierToMeetingQueue(input: {
+  barrierId: string;
+  idempotencyKey: string;
+}): Promise<OperationResult> {
+  const parsed = z.object({ barrierId: uuid, idempotencyKey }).safeParse(input);
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      code: 'validation_failed',
+      message: 'That barrier could not be identified.',
+    };
+  }
+
+  return callProcedure(
+    'add_barrier_to_meeting_queue',
+    {
+      p_barrier_id: parsed.data.barrierId,
+      p_idempotency_key: parsed.data.idempotencyKey,
+    },
+    ['/today', '/work', '/more/records'],
+  );
+}
+
+/**
+ * Records that a manager reviewed an over-target workload and accepted it
+ * (v48 Â§23, fixed in v52).
+ *
+ * The panel previously showed a confirmation and persisted nothing, so the
+ * decision existed only until the page was refreshed and the audit trail could
+ * not distinguish an accepted overload from one nobody had looked at.
+ */
+export async function acceptWorkloadReview(input: {
+  personId: string;
+  bucket: 'major' | 'operational' | 'self_development';
+  activeCount: number;
+  recommendedTarget: number;
+  idempotencyKey: string;
+}): Promise<OperationResult> {
+  const parsed = z
+    .object({
+      personId: uuid,
+      bucket: z.enum(['major', 'operational', 'self_development']),
+      activeCount: z.number().int().min(0).max(999),
+      recommendedTarget: z.number().int().min(0).max(999),
+      idempotencyKey,
+    })
+    .safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false, code: 'validation_failed', message: 'That review could not be recorded.' };
+  }
+
+  return callProcedure(
+    'accept_workload_review',
+    {
+      p_person_id: parsed.data.personId,
+      p_bucket: parsed.data.bucket,
+      p_active_count: parsed.data.activeCount,
+      p_recommended_target: parsed.data.recommendedTarget,
+      p_idempotency_key: parsed.data.idempotencyKey,
+    },
+    ['/work', '/today'],
+  );
+}
+
+/**
+ * Schedules a queued discussion (v47 sections 24-25).
+ *
+ * Creates an event on the calendar the application already has. It records a
+ * time, and deliberately nothing else: the manager still owes the answer the
+ * barrier asked for.
+ */
+export async function scheduleMeetingQueueItem(input: {
+  itemId: string;
+  startsAt: string;
+  durationMinutes?: number;
+  participantIds?: string[];
+  idempotencyKey: string;
+}): Promise<OperationResult> {
+  const parsed = z
+    .object({
+      itemId: uuid,
+      // A `datetime-local` value, read in the organisation's zone rather than
+      // the browser's, so two people scheduling from different laptops agree.
+      startsAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/),
+      durationMinutes: z.number().int().min(5).max(480).default(30),
+      participantIds: z.array(z.string().uuid()).max(20).default([]),
+      idempotencyKey,
+    })
+    .safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false, code: 'validation_failed', message: 'Choose a date and time.' };
+  }
+
+  const profile = await requireProfile();
+
+  return callProcedure(
+    'schedule_meeting_queue_item',
+    {
+      p_item_id: parsed.data.itemId,
+      p_starts_at: localDateTimeToInstant(parsed.data.startsAt, profile.timezone).toISOString(),
+      p_duration_minutes: parsed.data.durationMinutes,
+      p_participant_ids: parsed.data.participantIds,
+      p_idempotency_key: parsed.data.idempotencyKey,
+    },
+    ['/today', '/work', '/plan'],
+  );
+}
+
+/** Takes a topic off the agenda (v47 section 17). */
+export async function removeMeetingQueueItem(input: {
+  itemId: string;
+  idempotencyKey: string;
+}): Promise<OperationResult> {
+  const parsed = z.object({ itemId: uuid, idempotencyKey }).safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false, code: 'validation_failed', message: 'That topic could not be identified.' };
+  }
+
+  return callProcedure(
+    'remove_meeting_queue_item',
+    {
+      p_item_id: parsed.data.itemId,
+      p_idempotency_key: parsed.data.idempotencyKey,
+    },
+    ['/today', '/work', '/plan'],
+  );
+}
+
+/**
+ * Edits a checklist step (v45 sections 16-22).
+ *
+ * The whole step is sent, not a patch: the drawer shows every field, so an
+ * absent due date means the person cleared it. The database owns the rules —
+ * who may restructure, what a completed step allows, whether a prerequisite
+ * would deadlock — because a second copy of them here would drift.
+ */
+export async function updateChecklistStep(input: {
+  itemId: string;
+  action: string;
+  assignedTo: string;
+  evidenceRule: 'not_required' | 'optional' | 'required';
+  dueDate?: string | null;
+  dependsOnItemId?: string | null;
+  idempotencyKey: string;
+}): Promise<OperationResult> {
+  const parsed = z
+    .object({
+      itemId: uuid,
+      action: z.string().trim().min(1).max(300),
+      assignedTo: uuid,
+      evidenceRule: z.enum(['not_required', 'optional', 'required']),
+      dueDate: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}$/)
+        .nullish(),
+      dependsOnItemId: z.string().uuid().nullish(),
+      idempotencyKey,
+    })
+    .safeParse(input);
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      code: 'validation_failed',
+      message: 'Describe what needs to be done, and choose who is responsible.',
+    };
+  }
+
+  const profile = await requireProfile();
+
+  return callProcedure('update_checklist_step', {
+    p_item_id: parsed.data.itemId,
+    p_action: parsed.data.action,
+    p_assigned_to: parsed.data.assignedTo,
+    p_evidence_rule: parsed.data.evidenceRule,
+    // A date the person picked is their local end of day, not midnight UTC —
+    // the same conversion Add step uses, so the two cannot disagree.
+    p_due_at: parsed.data.dueDate
+      ? endOfLocalDay(parsed.data.dueDate, profile.timezone).toISOString()
+      : null,
+    p_depends_on_item_id: parsed.data.dependsOnItemId ?? null,
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+}
+
+/**
+ * Removes a checklist step (v45 section 23).
+ *
+ * Refuses in the database when something would be lost silently: a completed
+ * step, attached evidence, or another step waiting on this one.
+ */
+export async function removeChecklistStep(input: {
+  itemId: string;
+  idempotencyKey: string;
+}): Promise<OperationResult> {
+  const parsed = z.object({ itemId: uuid, idempotencyKey }).safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false, code: 'validation_failed', message: 'That step could not be identified.' };
+  }
+
+  return callProcedure('remove_checklist_step', {
+    p_item_id: parsed.data.itemId,
+    p_idempotency_key: parsed.data.idempotencyKey,
+  });
+}
+
+/**
+ * Posts a reply on a barrier (v44 section 16).
+ *
+ * A response is not a resolution. "I will confirm with Operations by 3pm"
+ * changes nothing about whether the work can continue, so this deliberately
+ * cannot close the barrier — only `resolveBarrier` does that, and only once
+ * the blocker is actually gone.
+ */
+export async function postBarrierResponse(input: {
+  barrierId: string;
+  message: string;
+  expectedVersion?: number | null;
+  /** v45 section 41 — an approval answers yes or no; everything else answers. */
+  kind?: 'answer' | 'approved' | 'changes_requested';
+  idempotencyKey: string;
+}): Promise<OperationResult> {
+  const parsed = z
+    .object({
+      barrierId: uuid,
+      message: z.string().trim().min(1).max(2000),
+      expectedVersion: z.number().int().positive().nullish(),
+      kind: z.enum(['answer', 'approved', 'changes_requested']).default('answer'),
+      idempotencyKey,
+    })
+    .safeParse(input);
+
+  if (!parsed.success) {
+    return { ok: false, code: 'validation_failed', message: 'Write a response before sending.' };
+  }
+
+  return callProcedure(
+    'post_barrier_response',
+    {
+      p_barrier_id: parsed.data.barrierId,
+      p_message: parsed.data.message,
+      // Â§52 — refuse to overwrite a barrier somebody else changed meanwhile.
+      p_expected_version: parsed.data.expectedVersion ?? null,
+      p_kind: parsed.data.kind,
+      p_idempotency_key: parsed.data.idempotencyKey,
+    },
+    ['/today', '/work'],
+  );
 }

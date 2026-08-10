@@ -37,7 +37,18 @@ export function SideDrawer({
     document.body.style.overflow = 'hidden';
     const frame = requestAnimationFrame(() => {
       setOpen(true);
-      panelRef.current?.focus();
+      /*
+       * v46 §41 — let the content name where the caret belongs.
+       *
+       * The drawer focuses its own panel so a keyboard user starts inside the
+       * dialog rather than behind it. But when the drawer opens *because*
+       * somebody was asked to act, the useful place is the box they are here
+       * to type in — and a child focusing itself loses this race every time,
+       * since parent effects run last. Deciding it here keeps focus in one
+       * place instead of two components taking it from each other.
+       */
+      const requested = panelRef.current?.querySelector<HTMLElement>('[data-initial-focus]');
+      (requested ?? panelRef.current)?.focus();
     });
     return () => {
       cancelAnimationFrame(frame);

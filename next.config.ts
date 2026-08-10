@@ -44,6 +44,27 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
+
+  /**
+   * v45 section 55 — `/team-focus` was folded into Work as a scope, not a
+   * destination. The route is gone, but links to it are not: they sit in old
+   * notification emails, in bookmarks, and in people's muscle memory. A 308
+   * sends them where the screen actually lives instead of a 404 that reads as
+   * "your team view was deleted".
+   *
+   * v53 §22 — `/team` follows it. It had been kept as "compatibility and
+   * depth", but the depth moved into the Team Member drawer inside Work and
+   * the page became a second implementation of the same three questions,
+   * reading its own copies of the same queries. Two screens answering one
+   * question is how they start to disagree. Only the compatibility is left,
+   * and a redirect is all compatibility needs.
+   */
+  async redirects() {
+    return [
+      { source: '/team-focus', destination: '/work?scope=team', permanent: true },
+      { source: '/team', destination: '/work?scope=team', permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

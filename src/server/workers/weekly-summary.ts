@@ -70,7 +70,8 @@ function goalSummaryLine(goal: GoalRow) {
     goal.has_recent_milestone_completion ? 'milestone completed' : null,
     goal.pending_version_id ? 'changes awaiting agreement' : null,
   ].filter(Boolean);
-  return `${goal.title ?? 'Untitled Goal'} — ${goal.reported_progress ?? 0}% overall${reasons.length ? `; ${reasons.join(', ')}` : '; progressed this week'}`;
+  const health = String(goal.health ?? 'on_track').replaceAll('_', ' ');
+  return `${goal.title ?? 'Untitled Goal'} — ${health}${reasons.length ? `; ${reasons.join(', ')}` : '; updated this week'}`;
 }
 
 /**

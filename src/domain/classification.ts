@@ -17,6 +17,28 @@
  *   * a deterministic fallback exists
  *   * the final type and origin are audited (by `work_captures` + audit events)
  *   * mandatory classification is NEVER based solely on keywords
+ *
+ * v40 changes, and why:
+ *
+ *   Section 13 — safety wording no longer influences classification at all.
+ *   It previously diverted "replace PPE signage" into an urgency question on
+ *   the strength of the word PPE. Reading a topic out of a title and treating
+ *   it as a claim about urgency is exactly the hidden inference the product
+ *   must not make. Mandatory work is now reachable only through the explicit
+ *   "Report urgent safety or compliance work" path, where a person answers the
+ *   question themselves.
+ *
+ *   Section 12 — every recommendation now carries `ruleCode` and `ruleText`.
+ *   Stored on the task, they let the audit trail answer "why was this created
+ *   as Operational?" with the rule that fired rather than an implication that
+ *   something understood the sentence.
+ *
+ *   Section 8 — Collaborative Contribution is gone. Contribution is not a kind
+ *   of work somebody captures; it arises when a checklist item on an existing
+ *   task is assigned to them, and it appears in their Shared view. Asking an
+ *   employee to classify work as collaborative exposed an implementation
+ *   concept and invited a duplicate parent task for a result somebody else
+ *   already owns.
  */
 
 import type { CaptureDestination, CaptureTiming } from './types';
@@ -30,10 +52,29 @@ export interface CaptureInput {
   needsImmediateControlledAction?: boolean | null;
 }
 
+/**
+ * Stable identifiers for the deterministic rules. Stored on the task so the
+ * reason a work class was chosen survives long after the wording of the
+ * sentence shown at capture time has been reworded (section 12).
+ */
+export type ClassificationRuleCode =
+  | 'explicit_urgent_confirmed'
+  | 'recurring_schedule'
+  | 'self_development_topic'
+  | 'major_programme_scope'
+  | 'continued_followup_yes'
+  | 'same_day_no_followup'
+  | 'same_day_pending_answer'
+  | 'multi_day_default';
+
 export interface CaptureRecommendation {
   destination: CaptureDestination;
   /** One sentence, shown on the result screen (section 8.4). */
   reason: string;
+  /** Section 12 — the rule that produced this, for the audit trail. */
+  ruleCode: ClassificationRuleCode;
+  /** The same rule in the words the person saw. */
+  ruleText: string;
   /** Section 8.4 — the capacity effect line. */
   capacityEffect: string;
   /** Section 8.4 — the manager visibility effect line. */
@@ -65,30 +106,11 @@ export const FOLLOW_UP_QUESTION = 'Will this require continued follow-up after t
 // ---------------------------------------------------------------------------
 // Wording signals
 //
-// These detect *topic*, never authority. A safety keyword decides which
-// question to ask, not what the work becomes.
+// These detect *shape* — does this repeat, is it about my own capability, is it
+// a programme — and nothing else. There is deliberately no safety or urgency
+// list here (v40 section 13): urgency is a question a person answers, never
+// something inferred from a noun in a title.
 // ---------------------------------------------------------------------------
-
-const SAFETY_SENSITIVE = [
-  'safety',
-  'ppe',
-  'hazard',
-  'incident',
-  'injury',
-  'accident',
-  'legal',
-  'compliance',
-  'regulatory',
-  'audit finding',
-  'lockout',
-  'tagout',
-  'spill',
-  'fire',
-  'emergency',
-  'evacuat',
-  'toxic',
-  'chemical exposure',
-];
 
 const RECURRING = [
   'every day',
@@ -141,16 +163,6 @@ const MAJOR_PROJECT = [
   'new system',
 ];
 
-const COLLABORATIVE = [
-  'help ',
-  'assist ',
-  'support ',
-  'contribute to',
-  'on behalf of',
-  'together with',
-  'part of the',
-];
-
 function mentions(haystack: string, needles: readonly string[]): boolean {
   return needles.some((needle) => haystack.includes(needle));
 }
@@ -165,6 +177,8 @@ const CAPACITY_EFFECT: Record<CaptureDestination, string> = {
   routine_template_request: 'Routine work does not use a focus target.',
   self_development_plan: 'Uses your Self-Development Plan focus target once activated.',
   collaborative_contribution: 'Does not use a separate focus target.',
+  // Retained for records captured before v40 removed this destination. It is
+  // no longer reachable from Capture Work.
   major_project_request: 'Uses your Major Project focus target once approved and activated.',
   mandatory_operational_action:
     'Activates immediately and may take you over your focus target, which is allowed.',
@@ -192,69 +206,58 @@ export function classifyCapture(input: CaptureInput): CaptureRecommendation {
 
   const build = (
     destination: CaptureDestination,
+    ruleCode: ClassificationRuleCode,
     reason: string,
     followUpQuestion: string | null = null,
-    urgencyQuestion: string | null = null,
   ): CaptureRecommendation => ({
     destination,
     reason,
+    ruleCode,
+    // The audit trail keeps the sentence the person actually read, so a later
+    // rewording of `reason` cannot retroactively change what they were told.
+    ruleText: reason,
     capacityEffect: CAPACITY_EFFECT[destination],
     managerVisibility: MANAGER_VISIBILITY[destination],
     followUpQuestion,
-    urgencyQuestion,
+    // v40 section 13 — nothing in a title can raise this question any more. It
+    // belongs to the explicit safety path, which sets the answer before calling
+    // this function at all.
+    urgencyQuestion: null,
   });
 
-  // Section 8.6 — the ANSWER decides, and it decides on its own. Wording only
-  // determines whether the question gets asked, so this check deliberately sits
-  // above the keyword test: an employee who reports urgent safety work through
-  // the secondary "Report urgent safety or compliance work" action (section 8.2)
-  // must reach mandatory classification even when their wording happens to
-  // contain none of the terms below.
+  // Section 8.6 — the ANSWER decides, and it decides on its own. This is the
+  // only route to mandatory classification: it is reached from the explicit
+  // "Report urgent safety or compliance work" action, where the person answered
+  // the question themselves. No wording anywhere can set it.
   if (input.needsImmediateControlledAction === true) {
     return build(
       'mandatory_operational_action',
+      'explicit_urgent_confirmed',
       'You confirmed this needs immediate controlled action, so it is treated as mandatory work.',
-    );
-  }
-
-  const safetySensitive = mentions(text, SAFETY_SENSITIVE);
-
-  // The question has not been answered yet: ask it, and recommend the ordinary
-  // destination in the meantime so the screen is never blank.
-  if (safetySensitive && input.needsImmediateControlledAction == null) {
-    return build(
-      'operational_available_work',
-      'This mentions safety or compliance, so one question decides how it is handled.',
-      null,
-      URGENCY_QUESTION,
     );
   }
 
   if (mentions(text, RECURRING)) {
     return build(
       'routine_template_request',
-      'This describes work that repeats on a schedule, so it belongs to a routine rather than a one-off task.',
+      'recurring_schedule',
+      'You described work that repeats on a schedule, so it belongs to a routine rather than a one-off task.',
     );
   }
 
   if (mentions(text, SELF_DEVELOPMENT)) {
     return build(
       'self_development_plan',
-      'This describes building your own capability, which belongs in your Self-Development Plan.',
+      'self_development_topic',
+      'You described building your own capability, which belongs in your Self-Development Plan.',
     );
   }
 
   if (mentions(text, MAJOR_PROJECT)) {
     return build(
       'major_project_request',
-      'This looks like a sustained change programme, which needs to be agreed as a Major Project.',
-    );
-  }
-
-  if (mentions(text, COLLABORATIVE)) {
-    return build(
-      'collaborative_contribution',
-      'This reads as a contribution to someone else’s work rather than something you would own outright.',
+      'major_programme_scope',
+      'You described a sustained change programme, which needs to be agreed as a Major Project.',
     );
   }
 
@@ -264,20 +267,23 @@ export function classifyCapture(input: CaptureInput): CaptureRecommendation {
     if (input.requiresFollowUp === true) {
       return build(
         'operational_available_work',
-        'You said this needs follow-up after today, so it is sustained work rather than a Quick Action.',
+        'continued_followup_yes',
+        'You said continued follow-up is needed, so this is sustained work rather than a Quick Action.',
       );
     }
 
     if (input.requiresFollowUp === false) {
       return build(
         'quick_action',
-        'This is due today and needs no follow-up afterwards, so it fits a Quick Action.',
+        'same_day_no_followup',
+        'You said this is due today and needs no follow-up afterwards, so it fits a Quick Action.',
       );
     }
 
     // Section 8.5 — one relevant follow-up question, not the whole model.
     return build(
       'quick_action',
+      'same_day_pending_answer',
       'Due today and small enough to finish in one go.',
       FOLLOW_UP_QUESTION,
     );
@@ -285,23 +291,29 @@ export function classifyCapture(input: CaptureInput): CaptureRecommendation {
 
   return build(
     'operational_available_work',
-    'This needs more than a day, so it becomes Operational Available Work you can activate when ready.',
+    'multi_day_default',
+    'You said this needs more than a day, so it becomes Available Work you can activate when ready.',
   );
 }
 
 /**
  * The destinations offered by "Change type" (section 8.4).
  *
- * Mandatory Operational Action is deliberately absent: section 8.6 states it is
- * not included in the ordinary Change type list and is reachable only by
- * answering the urgency question.
+ * Two deliberate absences:
+ *
+ *   Mandatory Operational Action — section 8.6 keeps it out of the ordinary
+ *   list; it is reachable only by answering the urgency question.
+ *
+ *   Collaborative Contribution — v40 section 8 removes it. A contribution is
+ *   created by assigning a checklist item on an existing task, which puts it in
+ *   that person's Shared view without duplicating the parent or moving primary
+ *   ownership.
  */
 export const SELECTABLE_DESTINATIONS: readonly CaptureDestination[] = [
   'quick_action',
   'operational_available_work',
   'routine_template_request',
   'self_development_plan',
-  'collaborative_contribution',
   'major_project_request',
 ];
 

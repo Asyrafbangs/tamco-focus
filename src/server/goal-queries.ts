@@ -1,6 +1,16 @@
 import 'server-only';
 
-import type { GoalOverview, GoalTeamSummary, GoalVersionStatus } from '@/domain/goals';
+import {
+  goalMeasureProgress,
+  type GoalCheckinStatus,
+  type GoalCheckinType,
+  type GoalHealth,
+  type GoalMeasureState,
+  type GoalMeasureType,
+  type GoalOverview,
+  type GoalTeamSummary,
+  type GoalVersionStatus,
+} from '@/domain/goals';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 type Raw = Record<string, unknown>;
@@ -52,6 +62,31 @@ function mapGoal(row: Raw): GoalOverview {
     completedAt: row.completed_at ? String(row.completed_at) : null,
     closedAt: row.closed_at ? String(row.closed_at) : null,
     createdAt: String(row.created_at),
+    successMeasureCount: Number(row.success_measure_count ?? 0),
+    measureProgress: Number(row.measure_progress ?? 0),
+    nextMonthlyCheckinDate: String(row.next_monthly_checkin_date ?? row.target_date),
+    isMonthlyCheckinDue: Boolean(row.is_monthly_checkin_due),
+    lastMonthlyCheckinAt: row.last_monthly_checkin_at ? String(row.last_monthly_checkin_at) : null,
+    lastMonthlyCheckinStatus: row.last_monthly_checkin_status
+      ? (String(row.last_monthly_checkin_status) as GoalHealth)
+      : null,
+    nextQuarterlyCheckinDate: String(row.next_quarterly_checkin_date ?? row.target_date),
+    isQuarterlyCheckinDue: Boolean(row.is_quarterly_checkin_due),
+    quarterlyRequiresManagerAction: Boolean(row.quarterly_requires_manager_action),
+    managerNeedsAttention: Boolean(row.manager_needs_attention),
+    managerAttentionReason: row.manager_attention_reason
+      ? String(row.manager_attention_reason)
+      : null,
+    currentQuarterlyCheckinId: row.current_quarterly_checkin_id
+      ? String(row.current_quarterly_checkin_id)
+      : null,
+    currentQuarterlyStatus: row.current_quarterly_status
+      ? (String(row.current_quarterly_status) as GoalCheckinStatus)
+      : null,
+    latestYearEndResult: row.latest_year_end_result ? String(row.latest_year_end_result) : null,
+    latestYearEndStatus: row.latest_year_end_status
+      ? (String(row.latest_year_end_status) as GoalCheckinStatus)
+      : null,
   };
 }
 
@@ -102,10 +137,12 @@ export async function getGoalExceptions(userId: string): Promise<GoalOverview[]>
   }
   return (data ?? [])
     .map((row) => mapGoal(row as Raw))
-    .filter(
-      (goal) =>
-        goal.needsAttention || goal.isTargetApproaching || goal.hasRecentMilestoneCompletion,
-    );
+    .filter((goal) => {
+      const ownerAction =
+        goal.ownerId === userId && (goal.isMonthlyCheckinDue || goal.isUpdateRequested);
+      const managerAction = goal.managerId === userId && goal.managerNeedsAttention;
+      return ownerAction || managerAction;
+    });
 }
 
 export async function getTeamGoalSummary(viewerId: string): Promise<GoalTeamSummary[]> {
@@ -130,6 +167,8 @@ export async function getTeamGoalSummary(viewerId: string): Promise<GoalTeamSumm
     checkinDueCount: Number(row.checkin_due_count ?? 0),
     weightedProgress: Number(row.weighted_progress ?? 0),
     lastGoalUpdateAt: row.last_goal_update_at ? String(row.last_goal_update_at) : null,
+    quarterlyActionCount: Number(row.quarterly_action_count ?? 0),
+    quarterlyDueCount: Number(row.quarterly_due_count ?? 0),
   }));
 }
 
@@ -165,6 +204,68 @@ export interface GoalVersionDetail {
   proposedAt: string;
   activatedAt: string | null;
   milestones: GoalMilestone[];
+  successMeasures: GoalSuccessMeasureDetail[];
+}
+
+export interface GoalSuccessMeasureDetail {
+  id: string;
+  goalVersionId: string;
+  sourceMeasureId: string | null;
+  position: number;
+  description: string;
+  optionalTargetDate: string | null;
+  label: string;
+  measureType: GoalMeasureType;
+  targetNumeric: number | null;
+  currentNumeric: number | null;
+  unit: string | null;
+  period: string | null;
+  targetText: string | null;
+  currentState: GoalMeasureState | null;
+  actualResult: string | null;
+  actualRecordedBy: string | null;
+  actualRecordedAt: string | null;
+  progress: number;
+}
+
+export interface GoalSuccessMeasureUpdateDetail {
+  id: string;
+  measureId: string;
+  measureLabel: string;
+  checkInId: string | null;
+  authorName: string;
+  previousNumeric: number | null;
+  newNumeric: number | null;
+  previousState: GoalMeasureState | null;
+  newState: GoalMeasureState | null;
+  note: string | null;
+  createdAt: string;
+}
+
+export interface GoalCheckinDetail {
+  id: string;
+  checkinType: GoalCheckinType;
+  status: GoalCheckinStatus;
+  periodStart: string;
+  periodEnd: string;
+  periodYear: number;
+  periodMonth: number | null;
+  periodQuarter: number | null;
+  progressStatus: GoalHealth | null;
+  noMaterialChange: boolean;
+  employeeSummary: string | null;
+  managerDiscussion: string | null;
+  agreedActions: string | null;
+  supportRequested: boolean;
+  supportDetails: string | null;
+  resultStatement: string | null;
+  sourceSnapshot: Record<string, unknown>;
+  submittedByName: string | null;
+  submittedAt: string | null;
+  managerCompletedByName: string | null;
+  managerCompletedAt: string | null;
+  finalizedByName: string | null;
+  finalizedAt: string | null;
 }
 
 export interface GoalUpdateDetail {
@@ -206,8 +307,12 @@ export interface GoalAttachmentDetail {
 
 export interface GoalSupportDetail {
   id: string;
+  sourceKind: 'legacy_goal_support' | 'action_request';
   details: string;
   status: 'open' | 'acknowledged' | 'resolved';
+  sourceActive: boolean;
+  actionPending: boolean;
+  actionRequiredFromName: string | null;
   requestedByName: string;
   createdAt: string;
   resolvedAt: string | null;
@@ -238,6 +343,12 @@ export interface GoalDetail {
     canUpdate: boolean;
     canEditStructure: boolean;
     canAgree: boolean;
+    canSubmitMonthly: boolean;
+    canPrepareQuarterly: boolean;
+    canCompleteQuarterly: boolean;
+    canSaveYearEnd: boolean;
+    canCompleteGoal: boolean;
+    canCancelGoal: boolean;
   };
   activeVersion: GoalVersionDetail | null;
   pendingVersion: GoalVersionDetail | null;
@@ -247,6 +358,8 @@ export interface GoalDetail {
   supportRequests: GoalSupportDetail[];
   workLinks: GoalWorkLinkDetail[];
   activity: GoalActivityDetail[];
+  checkIns: GoalCheckinDetail[];
+  measureUpdates: GoalSuccessMeasureUpdateDetail[];
 }
 
 export async function getGoalDetail(goalId: string): Promise<GoalDetail | null> {
@@ -265,10 +378,14 @@ export async function getGoalDetail(goalId: string): Promise<GoalDetail | null> 
   const [
     versionsResult,
     milestonesResult,
+    measuresResult,
     updatesResult,
     milestoneUpdatesResult,
+    measureUpdatesResult,
+    checkInsResult,
     attachmentsResult,
     supportResult,
+    actionRequestsResult,
     linksResult,
     activityResult,
   ] = await Promise.all([
@@ -278,6 +395,13 @@ export async function getGoalDetail(goalId: string): Promise<GoalDetail | null> 
     versionIds.length
       ? supabase
           .from('goal_milestones')
+          .select('*')
+          .in('goal_version_id', versionIds)
+          .order('position')
+      : Promise.resolve({ data: [], error: null }),
+    versionIds.length
+      ? supabase
+          .from('goal_success_measures')
           .select('*')
           .in('goal_version_id', versionIds)
           .order('position')
@@ -295,6 +419,18 @@ export async function getGoalDetail(goalId: string): Promise<GoalDetail | null> 
       .order('created_at', { ascending: false })
       .limit(500),
     supabase
+      .from('goal_success_measure_updates')
+      .select('*')
+      .eq('goal_id', goalId)
+      .order('created_at', { ascending: false })
+      .limit(500),
+    supabase
+      .from('goal_check_ins')
+      .select('*')
+      .eq('goal_id', goalId)
+      .order('period_end', { ascending: false })
+      .limit(100),
+    supabase
       .from('goal_attachments')
       .select('*')
       .eq('goal_id', goalId)
@@ -307,14 +443,20 @@ export async function getGoalDetail(goalId: string): Promise<GoalDetail | null> 
       .order('created_at', { ascending: false })
       .limit(100),
     supabase
+      .from('action_requests_overview')
+      .select('*')
+      .eq('goal_id', goalId)
+      .order('raised_at', { ascending: false })
+      .limit(100),
+    supabase
       .from('goal_work_links')
       .select('*')
       .eq('goal_id', goalId)
       .order('created_at', { ascending: false })
       .limit(200),
     supabase
-      .from('audit_events')
-      .select('id,event_type,actor_id,occurred_at,detail')
+      .from('goal_lifecycle_history')
+      .select('id,event_kind,actor_id,actor_name,occurred_at,title,detail')
       .eq('goal_id', goalId)
       .order('occurred_at', { ascending: false })
       .limit(500),
@@ -322,10 +464,14 @@ export async function getGoalDetail(goalId: string): Promise<GoalDetail | null> 
 
   const versions = versionsResult.data ?? [];
   const milestones = milestonesResult.data ?? [];
+  const measures = measuresResult.data ?? [];
   const updates = updatesResult.data ?? [];
   const milestoneUpdates = milestoneUpdatesResult.data ?? [];
+  const measureUpdates = measureUpdatesResult.data ?? [];
+  const checkIns = checkInsResult.data ?? [];
   const attachments = attachmentsResult.data ?? [];
   const supportRequests = supportResult.data ?? [];
+  const actionRequests = actionRequestsResult.data ?? [];
   const workLinks = linksResult.data ?? [];
   const activity = activityResult.data ?? [];
 
@@ -337,6 +483,10 @@ export async function getGoalDetail(goalId: string): Promise<GoalDetail | null> 
     ...milestones.map((row) => row.completed_by).filter((id): id is string => Boolean(id)),
     ...updates.map((row) => row.author_id),
     ...milestoneUpdates.map((row) => row.author_id),
+    ...measureUpdates.map((row) => row.author_id),
+    ...checkIns
+      .flatMap((row) => [row.submitted_by, row.manager_completed_by, row.finalized_by])
+      .filter((id): id is string => Boolean(id)),
     ...attachments.map((row) => row.uploaded_by),
     ...supportRequests.map((row) => row.requested_by),
     ...activity.map((row) => row.actor_id).filter((id): id is string => Boolean(id)),
@@ -354,6 +504,7 @@ export async function getGoalDetail(goalId: string): Promise<GoalDetail | null> 
     (id ? peopleById.get(id) : null) ?? (id === null ? null : 'Team member');
   const tasksById = new Map((linkedTasks ?? []).map((row) => [row.id, row]));
   const milestoneById = new Map(milestones.map((row) => [row.id, row]));
+  const measureById = new Map(measures.map((row) => [row.id, row]));
   const updateById = new Map(updates.map((row) => [row.id, row]));
   const milestoneUpdateById = new Map(milestoneUpdates.map((row) => [row.id, row]));
 
@@ -388,6 +539,36 @@ export async function getGoalDetail(goalId: string): Promise<GoalDetail | null> 
     proposedAt: row.proposed_at,
     activatedAt: row.activated_at,
     milestones: milestones.filter((item) => item.goal_version_id === row.id).map(mapMilestone),
+    successMeasures: measures
+      .filter((item) => item.goal_version_id === row.id)
+      .map((item) => {
+        const measure = {
+          measureType: item.measure_type,
+          targetNumeric: item.target_numeric == null ? null : Number(item.target_numeric),
+          currentNumeric: item.current_numeric == null ? null : Number(item.current_numeric),
+          currentState: item.current_state,
+        };
+        return {
+          id: item.id,
+          goalVersionId: item.goal_version_id,
+          sourceMeasureId: item.source_measure_id,
+          position: item.position,
+          description: item.description ?? item.label,
+          optionalTargetDate: item.optional_target_date,
+          label: item.label,
+          measureType: item.measure_type,
+          targetNumeric: measure.targetNumeric,
+          currentNumeric: measure.currentNumeric,
+          unit: item.unit,
+          period: item.period,
+          targetText: item.target_text,
+          currentState: item.current_state,
+          actualResult: item.actual_result,
+          actualRecordedBy: item.actual_recorded_by,
+          actualRecordedAt: item.actual_recorded_at,
+          progress: goalMeasureProgress(measure),
+        };
+      }),
   }));
 
   const rawCapabilities = (capabilitiesResult.data ?? {}) as Raw;
@@ -398,6 +579,12 @@ export async function getGoalDetail(goalId: string): Promise<GoalDetail | null> 
       canUpdate: Boolean(rawCapabilities.can_update),
       canEditStructure: Boolean(rawCapabilities.can_edit_structure),
       canAgree: Boolean(rawCapabilities.can_agree),
+      canSubmitMonthly: Boolean(rawCapabilities.can_submit_monthly),
+      canPrepareQuarterly: Boolean(rawCapabilities.can_prepare_quarterly),
+      canCompleteQuarterly: Boolean(rawCapabilities.can_complete_quarterly),
+      canSaveYearEnd: Boolean(rawCapabilities.can_save_year_end),
+      canCompleteGoal: Boolean(rawCapabilities.can_complete_goal),
+      canCancelGoal: Boolean(rawCapabilities.can_cancel_goal),
     },
     activeVersion: mappedVersions.find((version) => version.id === goal.activeVersionId) ?? null,
     pendingVersion: mappedVersions.find((version) => version.id === goal.pendingVersionId) ?? null,
@@ -445,15 +632,34 @@ export async function getGoalDetail(goalId: string): Promise<GoalDetail | null> 
             : 'Goal update',
       };
     }),
-    supportRequests: supportRequests.map((row) => ({
-      id: row.id,
-      details: row.details,
-      status: row.status as GoalSupportDetail['status'],
-      requestedByName: personName(row.requested_by) ?? 'Team member',
-      createdAt: row.created_at,
-      resolvedAt: row.resolved_at,
-      resolutionNote: row.resolution_note,
-    })),
+    supportRequests: [
+      ...actionRequests.map((row): GoalSupportDetail => ({
+        id: row.id,
+        sourceKind: 'action_request',
+        details: row.support_needed,
+        status: row.status,
+        sourceActive: row.source_active,
+        actionPending: row.action_pending,
+        actionRequiredFromName: row.action_required_from_name,
+        requestedByName: row.raised_by_name ?? 'Team member',
+        createdAt: row.raised_at,
+        resolvedAt: row.resolved_at,
+        resolutionNote: null,
+      })),
+      ...supportRequests.map((row): GoalSupportDetail => ({
+        id: row.id,
+        sourceKind: 'legacy_goal_support',
+        details: row.details,
+        status: row.status as GoalSupportDetail['status'],
+        sourceActive: true,
+        actionPending: row.status !== 'resolved',
+        actionRequiredFromName: null,
+        requestedByName: personName(row.requested_by) ?? 'Team member',
+        createdAt: row.created_at,
+        resolvedAt: row.resolved_at,
+        resolutionNote: row.resolution_note,
+      })),
+    ].sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
     workLinks: workLinks.flatMap((row) => {
       const task = tasksById.get(row.task_id);
       if (!task) return [];
@@ -472,10 +678,52 @@ export async function getGoalDetail(goalId: string): Promise<GoalDetail | null> 
     }),
     activity: activity.map((row) => ({
       id: row.id,
-      eventType: row.event_type,
-      actorName: row.actor_id ? (personName(row.actor_id) ?? 'Team member') : 'System',
+      eventType: row.event_kind ?? 'goal_activity',
+      actorName:
+        row.actor_name ?? (row.actor_id ? (personName(row.actor_id) ?? 'Team member') : 'System'),
       occurredAt: row.occurred_at,
-      detail: (row.detail as Record<string, unknown>) ?? {},
+      detail: {
+        ...((row.detail as Record<string, unknown>) ?? {}),
+        title: row.title ?? 'Goal activity',
+      },
+    })),
+    checkIns: checkIns.map((row) => ({
+      id: row.id,
+      checkinType: row.checkin_type,
+      status: row.status,
+      periodStart: row.period_start,
+      periodEnd: row.period_end,
+      periodYear: row.period_year,
+      periodMonth: row.period_month,
+      periodQuarter: row.period_quarter,
+      progressStatus: row.progress_status,
+      noMaterialChange: row.no_material_change,
+      employeeSummary: row.employee_summary,
+      managerDiscussion: row.manager_discussion,
+      agreedActions: row.agreed_actions,
+      supportRequested: row.support_requested,
+      supportDetails: row.support_details,
+      resultStatement: row.result_statement,
+      sourceSnapshot: (row.source_snapshot as Record<string, unknown>) ?? {},
+      submittedByName: personName(row.submitted_by),
+      submittedAt: row.submitted_at,
+      managerCompletedByName: personName(row.manager_completed_by),
+      managerCompletedAt: row.manager_completed_at,
+      finalizedByName: personName(row.finalized_by),
+      finalizedAt: row.finalized_at,
+    })),
+    measureUpdates: measureUpdates.map((row) => ({
+      id: row.id,
+      measureId: row.measure_id,
+      measureLabel: measureById.get(row.measure_id)?.label ?? 'Success measure',
+      checkInId: row.check_in_id,
+      authorName: personName(row.author_id) ?? 'Team member',
+      previousNumeric: row.previous_numeric == null ? null : Number(row.previous_numeric),
+      newNumeric: row.new_numeric == null ? null : Number(row.new_numeric),
+      previousState: row.previous_state,
+      newState: row.new_state,
+      note: row.note,
+      createdAt: row.created_at,
     })),
   };
 }
@@ -506,7 +754,7 @@ export async function getGoalActiveWeights(): Promise<Record<string, number>> {
   const { data, error } = await supabase
     .from('goals')
     .select('owner_id,weight_percent')
-    .eq('status', 'active')
+    .in('status', ['active', 'completed'])
     .limit(1000);
   if (error) {
     console.error(`[getGoalActiveWeights] ${error.message}`);
@@ -516,4 +764,135 @@ export async function getGoalActiveWeights(): Promise<Record<string, number>> {
     totals[row.owner_id] = (totals[row.owner_id] ?? 0) + Number(row.weight_percent ?? 0);
     return totals;
   }, {});
+}
+
+export interface GoalPlanOverview {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  performancePeriodId: string;
+  performancePeriodName: string;
+  startsOn: string;
+  endsOn: string;
+  status: 'draft' | 'finalized' | 'reallocation_required';
+  finalizedAt: string | null;
+  version: number;
+  activeGoalCount: number;
+  formalWeight: number;
+  reallocationRequired: number;
+  canFinalize: boolean;
+}
+
+export interface GoalSessionOverview {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  performancePeriodId: string;
+  performancePeriodName: string;
+  sessionKind: 'monthly' | 'quarterly';
+  status: 'draft' | 'submitted' | 'completed';
+  periodYear: number;
+  periodMonth: number | null;
+  periodQuarter: number | null;
+  submittedByName: string | null;
+  submittedAt: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  summary: string | null;
+  version: number;
+  goalCount: number;
+  atRiskCount: number;
+  offTrackCount: number;
+  supportRequestCount: number;
+}
+
+export async function getCurrentGoalPlan(ownerId: string): Promise<GoalPlanOverview | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('goal_plan_overview')
+    .select('*')
+    .eq('employee_id', ownerId)
+    .order('ends_on', { ascending: false })
+    .limit(10);
+  if (error) {
+    console.error(`[getCurrentGoalPlan] ${error.message}`);
+    return null;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const current = (data ?? []).find((row) => row.starts_on <= today && row.ends_on >= today);
+  const selected = current ?? data?.[0];
+  if (!selected) return null;
+  return {
+    id: selected.id,
+    employeeId: selected.employee_id,
+    employeeName: selected.employee_name,
+    performancePeriodId: selected.performance_period_id,
+    performancePeriodName: selected.performance_period_name,
+    startsOn: selected.starts_on,
+    endsOn: selected.ends_on,
+    status: selected.status,
+    finalizedAt: selected.finalized_at,
+    version: selected.version,
+    activeGoalCount: selected.active_goal_count,
+    formalWeight: selected.formal_weight,
+    reallocationRequired: selected.reallocation_required,
+    canFinalize: selected.can_finalize,
+  };
+}
+
+export async function getGoalSessions(
+  ownerId: string,
+  performancePeriodId: string | null,
+): Promise<GoalSessionOverview[]> {
+  if (!performancePeriodId) return [];
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('goal_session_overview')
+    .select('*')
+    .eq('employee_id', ownerId)
+    .eq('performance_period_id', performancePeriodId)
+    .order('period_year', { ascending: false })
+    .order('submitted_at', { ascending: false })
+    .limit(36);
+  if (error) {
+    console.error(`[getGoalSessions] ${error.message}`);
+    return [];
+  }
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    employeeId: row.employee_id,
+    employeeName: row.employee_name,
+    performancePeriodId: row.performance_period_id,
+    performancePeriodName: row.performance_period_name,
+    sessionKind: row.session_kind,
+    status: row.status,
+    periodYear: row.period_year,
+    periodMonth: row.period_month,
+    periodQuarter: row.period_quarter,
+    submittedByName: row.submitted_by_name,
+    submittedAt: row.submitted_at,
+    reviewedByName: row.reviewed_by_name,
+    reviewedAt: row.reviewed_at,
+    summary: row.summary,
+    version: row.version,
+    goalCount: row.goal_count,
+    atRiskCount: row.at_risk_count,
+    offTrackCount: row.off_track_count,
+    supportRequestCount: row.support_request_count,
+  }));
+}
+
+export async function getGoalSupportPeople(viewerId: string) {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('team_directory')
+    .select('id,full_name')
+    .neq('id', viewerId)
+    .order('full_name')
+    .limit(200);
+  if (error) {
+    console.error(`[getGoalSupportPeople] ${error.message}`);
+    return [];
+  }
+  return (data ?? []).map((row) => ({ id: row.id, name: row.full_name }));
 }

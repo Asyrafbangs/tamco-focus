@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-import { ProgressIndicator, RowPrimaryLink, StatusBadge } from '@/components/ui/ParityPrimitives';
+import { RowPrimaryLink, StatusBadge } from '@/components/ui/ParityPrimitives';
 import { GOAL_STATUS_LABELS, goalDisplayHealth, type GoalOverview } from '@/domain/goals';
 
 import styles from './GoalRow.module.css';
@@ -15,8 +15,8 @@ function dateLabel(value: string, timeZone: string) {
 }
 
 function healthTone(health: GoalOverview['health']) {
-  if (health === 'support_requested') return 'red' as const;
-  if (health === 'need_attention') return 'amber' as const;
+  if (health === 'support_requested' || health === 'off_track') return 'red' as const;
+  if (health === 'need_attention' || health === 'at_risk') return 'amber' as const;
   if (health === 'completed') return 'green' as const;
   return 'blue' as const;
 }
@@ -35,7 +35,11 @@ export function GoalRow({
   showOwner?: boolean;
 }) {
   const displayHealth = goalDisplayHealth(goal);
-  const needsAction = displayHealth === 'Needs attention' || displayHealth === 'Update due';
+  const needsAction =
+    displayHealth === 'Needs attention' ||
+    displayHealth === 'Update due' ||
+    displayHealth === 'At risk' ||
+    displayHealth === 'Off track';
 
   return (
     <article
@@ -53,9 +57,7 @@ export function GoalRow({
         </div>
         <span className="sub">
           {showOwner && `${goal.ownerName} · `}
-          {goal.currentMilestoneTitle ??
-            goal.nextMilestoneTitle ??
-            'Milestones ready for discussion'}
+          {goal.successMeasure ?? 'Success measures ready for discussion'}
         </span>
       </div>
 
@@ -73,11 +75,8 @@ export function GoalRow({
       </div>
 
       <div className="goal-row-progress">
-        <ProgressIndicator
-          value={goal.derivedProgress}
-          label={`${goal.derivedProgress}% progress`}
-        />
-        <span className="sub">Calculated from agreed milestones</span>
+        <strong>{goal.successMeasureCount}</strong>
+        <span className="sub">success measure{goal.successMeasureCount === 1 ? '' : 's'}</span>
       </div>
 
       <div className="goal-row-date">
@@ -99,12 +98,18 @@ export function GoalRow({
       </div>
 
       {goal.status === 'active' && (
-        <Link
-          href={`${href}&action=update`}
-          className={`btn small primary row-action ${styles.rowAction}`}
-        >
-          Update
-        </Link>
+        <div className={`row-action ${styles.rowAction}`}>
+          <Link
+            href={`${href}&action=edit`}
+            className="btn small"
+            aria-label={`Revise goal ${goal.title}`}
+          >
+            Revise
+          </Link>
+          <Link href={href} className="btn small primary" aria-label={`Open goal ${goal.title}`}>
+            Open
+          </Link>
+        </div>
       )}
     </article>
   );
