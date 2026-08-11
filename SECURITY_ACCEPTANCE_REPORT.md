@@ -9,43 +9,36 @@ work; nothing here claims to have tested them.
 
 ---
 
-## Go-live blocker
+## Resolved: administration is now separate from management
 
-### The `administrator` role carries business-manager authority — FAIL
+**Was a go-live blocker. Closed 11 August 2026, on Local and Production.**
 
-Sections 17 and 52 require account administration and business management to be
-separate: a System Admin may onboard and offboard people, and must not thereby
-gain the ability to agree an employee's Goal or decide their Barrier.
+`focus.is_admin()` sat as a bare disjunct inside the action predicates, so an
+administrator could agree and cancel employees' Goals, and reassign and cancel
+their work. Sections 17 and 52 require the opposite.
 
-Today they are the same thing. `focus.is_admin()` appears inside the business
-authority predicates, so an administrator can:
+Removed from `can_edit_task`, `can_review_task`, `can_update_goal`,
+`can_agree_goal`, `get_task_capabilities`, `get_goal_capabilities`,
+`cancel_task`, `reassign_task`, `accept_workload_review` and `cancel_goal`.
 
-| Capability                | Where                                                     |
-| ------------------------- | --------------------------------------------------------- |
-| Reassign anyone's work    | `get_task_capabilities` → `can_reassign`, `reassign_task` |
-| Cancel anyone's work      | `get_task_capabilities` → `can_cancel`, `cancel_task`     |
-| Agree and activate a Goal | `focus.can_agree_goal` (20260806000400, 20260810003000)   |
-| Cancel a Goal             | `get_goal_capabilities` → `can_cancel_goal`               |
-| Update any Goal           | `focus.can_update_goal`                                   |
+Kept in `can_view_task`, `can_view_goal` and `can_view_user`: an administrator
+has to see an account to administer it, and seeing is not acting. Account
+lifecycle — provision, deactivate, reactivate, profile correction, visibility —
+remains admin-gated.
 
-This was coherent when the only administrator was a local fixture. It is not
-coherent once a real person holds the role, because it makes the person who
-resets passwords also the person who can close somebody's performance Goal.
+An administrator who is also somebody's manager loses nothing. That authority
+comes from the reporting line, and every `is_manager_or_admin() and
+is_manager_of(...)` clause is untouched.
 
-**Remediation.** Split the predicate rather than the role: keep `focus.is_admin()`
-for account administration, and introduce `focus.has_business_authority_over(user)`
-— manager-of, or the owner themselves — for the Goal and Task authority
-predicates above. An administrator who is _also_ a manager keeps their manager
-authority through the reporting line, which is where it should come from.
+One real behaviour change, stated rather than buried: an administrator
+deactivating an employee can no longer reassign that employee's open work. Their
+manager does.
 
-This is a forward migration plus its tests, and it must land before Phase 12
-creates a Production administrator. It is not done in this change because it
-alters authorisation semantics and deserves its own reviewed commit rather than
-being folded into an infrastructure migration.
-
-**Until it is done, §52 cannot pass and go-live cannot be recommended.**
-
----
+Proved by `admin-authority-v54.test.ts` — four refusals (Goal agreement, task
+cancellation, task reassignment, workload decision) and two retained powers
+(visibility, account lifecycle). Verified on the Production database by
+inspecting the deployed function definitions, not by trusting the migration
+output.
 
 ## Boundaries that hold
 
