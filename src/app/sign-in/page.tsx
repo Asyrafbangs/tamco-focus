@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -106,6 +107,10 @@ export default async function SignInPage({
             Sign in
           </button>
         </form>
+
+        <p style={{ marginTop: 12, marginBottom: 12 }}>
+          <Link href="/forgot-password">Forgot your password?</Link>
+        </p>
 
         <p className="muted" style={{ fontSize: 11, marginBottom: 0 }}>
           Accounts are created by your administrator. If you cannot sign in, ask them to check your

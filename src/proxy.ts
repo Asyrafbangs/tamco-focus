@@ -4,7 +4,7 @@ import { createServerClient } from '@supabase/ssr';
 import { publicEnv } from '@/lib/env';
 
 /** Paths reachable without a session. Everything else requires one. */
-const PUBLIC_PATHS = ['/sign-in', '/auth/callback'];
+const PUBLIC_PATHS = ['/sign-in', '/auth/callback', '/forgot-password'];
 
 /**
  * Endpoints that carry their own authentication and must not be redirected.
