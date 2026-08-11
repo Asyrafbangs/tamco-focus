@@ -20,20 +20,30 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 
 /*
- * Destructive subcommands are gated on positive environment identification
- * (instruction sections 36 and 44).
+ * `db reset` is gated on positive environment identification (sections 36, 44).
  *
- * `db reset` drops and rebuilds; `--linked` and `--db-url` aim the CLI at a
- * remote project. Any of them against Production would destroy real work, and
- * "I was sure it was local" is not a control. The guard runs before the binary
- * is spawned, so there is nothing to interrupt.
+ * It is the only Supabase subcommand that destroys without being asked to: it
+ * drops the database and rebuilds it, and against Production that is somebody's
+ * work gone. "I was sure it was local" is not a control, so the guard runs
+ * before the binary is spawned and there is nothing to interrupt.
+ *
+ * Deliberately narrow. The first version of this refused anything carrying
+ * `--linked` or `--db-url`, on the theory that aiming at a remote project was
+ * itself the danger. That blocked `db dump` — refusing to *back up* Production
+ * is precisely backwards, and on a free plan with no managed backups it would
+ * have removed the only protection there is. Remoteness is not the risk;
+ * dropping things is.
+ *
+ * `db push` and `db query` are not gated either. Both are deliberate operations
+ * a person invokes against a named environment, both are how a release and an
+ * administrative fix actually happen, and both sit behind the approval gates in
+ * `MIGRATION_STATUS.md`. A guard that blocked them would only teach people to
+ * work around the guard.
  */
 const rawArgs = process.argv.slice(2);
-const destructiveCommand =
-  rawArgs[0] === 'db' && ['reset', 'dump'].includes(rawArgs[1] ?? '') && rawArgs[1] === 'reset';
-const aimedAtRemote = rawArgs.some((arg) => arg === '--linked' || arg.startsWith('--db-url'));
+const destroysTheDatabase = rawArgs[0] === 'db' && rawArgs[1] === 'reset';
 
-if (destructiveCommand || aimedAtRemote) {
+if (destroysTheDatabase) {
   config({ path: join(repoRoot, '.env.local'), quiet: true });
   try {
     assertLocal(`run \`supabase ${rawArgs.join(' ')}\``);

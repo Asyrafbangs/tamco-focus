@@ -65,10 +65,30 @@ being folded into an infrastructure migration.
 | Attachments are private                                              | PASS   | `task-attachments` bucket is `public = false`; access is by short-lived signed URL                                         |
 | A retired procedure is genuinely unreachable                         | PASS   | `v52-lifecycles.test.ts` calls `close_goal` and expects the error                                                          |
 | Development fixtures cannot reach a database holding real accounts   | PASS   | SQL guard in `supabase/seed.sql`; four-case script guard tested                                                            |
-| A destructive command cannot run against an unidentified target      | PASS   | `scripts/lib/environment.mjs`; refuses remote-without-declaration, declaration-contradicting-URL, and Production outright  |
+| `db reset` cannot run against anything but local                     | PASS   | Verified against the real Production project on 11 August: refused by name and host                                        |
+| A destructive script cannot run against an unidentified target       | PASS   | `scripts/lib/environment.mjs`; refuses remote-without-declaration and declaration-contradicting-URL, in both directions    |
 | The scheduled-work endpoint refuses unauthenticated callers          | PASS   | `/api/cron` requires `Authorization: Bearer $CRON_SECRET`; 401 otherwise, 503 when unconfigured                            |
 
 ---
+
+## A guard that was too broad
+
+The first version of the CLI guard refused any Supabase command carrying
+`--linked` or `--db-url`, on the theory that aiming at a remote project was
+itself the danger. Taking the first Production backup exposed the mistake: it
+blocked `db dump`. Refusing to _back up_ Production is precisely backwards, and
+on a free plan with no managed backups it would have removed the only protection
+there is.
+
+The guard is now narrow and matches what it claims: `db reset` is the only
+Supabase subcommand that destroys without being asked to, so it is the only one
+gated. `db push`, `db dump` and `db query` are deliberate operations invoked
+against a named environment, and they sit behind the approval gates in
+`MIGRATION_STATUS.md` rather than behind a script check that people would learn
+to route around.
+
+Worth recording because the earlier version of this report claimed the guard
+refused "Production outright". It did not, and now it does not claim to.
 
 ## Not yet tested
 

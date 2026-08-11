@@ -23,7 +23,7 @@
  * Backups are written OUTSIDE the repository so one can never be committed.
  */
 
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -39,19 +39,33 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
  * because guessing a Production connection string is precisely the class of
  * mistake section 36 exists to prevent.
  */
-function connectionString(environment) {
+/**
+ * How to reach the target, preferring the route that needs no password.
+ *
+ * A linked project dumps through the CLI's own access token, so the database
+ * password never has to be typed, stored, or passed to this script. That is
+ * strictly better than a connection string: one less secret in play, and one
+ * less thing to leak into a shell history.
+ *
+ * `SUPABASE_DB_URL` remains the escape hatch for a project that is not the
+ * linked one.
+ */
+function dumpTarget(environment) {
+  const explicit = process.env.SUPABASE_DB_URL;
+  if (explicit) return ['--db-url', explicit];
+
   if (environment === 'local') {
-    return process.env.SUPABASE_DB_URL ?? 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+    return ['--db-url', 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'];
   }
-  const url = process.env.SUPABASE_DB_URL;
-  if (!url) {
+
+  const linked = existsSync(join(repoRoot, 'supabase', '.temp', 'project-ref'));
+  if (!linked) {
     throw new Error(
-      `SUPABASE_DB_URL is required to back up ${environment}. Take it from the Supabase ` +
-        'dashboard (Project settings → Database → Connection string) and pass it in the ' +
-        'environment for this command only. Never commit it.',
+      `Cannot reach ${environment}: no linked project and no SUPABASE_DB_URL. ` +
+        'Run `supabase link --project-ref <ref>` first.',
     );
   }
-  return url;
+  return ['--linked'];
 }
 
 function dump(args, outputFile) {
@@ -67,7 +81,7 @@ function dump(args, outputFile) {
 
 function main() {
   const target = resolveEnvironment();
-  const dbUrl = connectionString(target.environment);
+  const targetArgs = dumpTarget(target.environment);
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const directory = process.env.TAMCO_BACKUP_DIR ?? join(repoRoot, '..', 'tamco-focus-backups');
@@ -78,8 +92,8 @@ function main() {
   const dataFile = `${base}-data.sql`;
 
   console.log(`Backing up ${target.environment} (${target.host})…`);
-  dump(['--db-url', dbUrl], schemaFile);
-  dump(['--db-url', dbUrl, '--data-only'], dataFile);
+  dump(targetArgs, schemaFile);
+  dump([...targetArgs, '--data-only'], dataFile);
 
   console.log(`  schema: ${schemaFile}`);
   console.log(`  data:   ${dataFile}`);
