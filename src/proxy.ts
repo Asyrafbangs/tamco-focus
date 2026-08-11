@@ -7,6 +7,22 @@ import { publicEnv } from '@/lib/env';
 const PUBLIC_PATHS = ['/sign-in', '/auth/callback'];
 
 /**
+ * Endpoints that carry their own authentication and must not be redirected.
+ *
+ * `/api/cron` is called by the platform scheduler, which presents a bearer
+ * secret and holds no session cookie. Sending it to `/sign-in` does not fail
+ * loudly — it returns a 307 the scheduler treats as a response, so routine
+ * generation and the weekly summary would silently never run. That is the exact
+ * failure section 38 is about, and it survived until the first live smoke test.
+ *
+ * This is not a hole. The route refuses anything without
+ * `Authorization: Bearer $CRON_SECRET`, and returns 503 rather than running
+ * unprotected when the secret is unset. Session redirect and secret check are
+ * two different mechanisms; this endpoint uses the second.
+ */
+const SELF_AUTHENTICATING_PATHS = ['/api/cron'];
+
+/**
  * Refreshes the Supabase session on every request and gates the application
  * behind authentication.
  *
@@ -15,6 +31,13 @@ const PUBLIC_PATHS = ['/sign-in', '/auth/callback'];
  * is not entitled to.
  */
 export async function proxy(request: NextRequest) {
+  // Before any Supabase round trip: a scheduler request has no session to
+  // refresh, and asking the auth server about a user that cannot exist only
+  // adds latency to a job that must not be redirected anyway.
+  if (SELF_AUTHENTICATING_PATHS.some((path) => request.nextUrl.pathname.startsWith(path))) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
