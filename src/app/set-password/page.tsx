@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation';
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
+import { SetPasswordForm } from './SetPasswordForm';
+
 /**
  * Where an invited or recovering person chooses their password.
  *
@@ -71,37 +73,7 @@ export default async function SetPasswordPage({
           </div>
         )}
 
-        <form action={setPassword}>
-          <div className="field">
-            <label htmlFor="password">New password</label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              minLength={12}
-              autoComplete="new-password"
-              autoFocus
-            />
-            <small className="muted">At least twelve characters. Length beats complexity.</small>
-          </div>
-
-          <div className="field">
-            <label htmlFor="confirmation">Confirm password</label>
-            <input
-              id="confirmation"
-              name="confirmation"
-              type="password"
-              required
-              minLength={12}
-              autoComplete="new-password"
-            />
-          </div>
-
-          <button type="submit" className="btn primary" style={{ width: '100%' }}>
-            Save password
-          </button>
-        </form>
+        <SetPasswordForm action={setPassword} />
       </main>
     </div>
   );
