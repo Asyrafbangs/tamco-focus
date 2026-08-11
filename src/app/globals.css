@@ -26,6 +26,10 @@
   --navy-2: #17375f;
   --blue: #1668e8;
   --blue-bg: #edf4ff;
+  /* Label colour for solid --blue and --red fills. White clears AA on this
+     theme's accents; the dark theme lightens them and flips this to a dark
+     label rather than restating every rule. */
+  --on-accent: #fff;
   /* Prototype specifies #d92d3f — 4.32:1 on the tinted backgrounds, which
      fails AA. Darkened for the same reason as --muted. */
   --red: #c51f36;
@@ -1616,6 +1620,10 @@
   --blue-bg: #152d4f;
   --red: #ff6b77;
   --red-bg: #3b1d25;
+  /* These accents are lightened for the dark surfaces, which leaves white
+     labels at about 2.7:1 on --blue and 2.6:1 on --red. A dark label reads
+     around 8:1 on both. */
+  --on-accent: #0b1220;
   --amber: #f2b34e;
   --amber-bg: #3c3017;
   --green: #58c78f;
@@ -3049,12 +3057,12 @@ button {
 .btn.primary {
   background: var(--blue);
   border-color: var(--blue);
-  color: #fff;
+  color: var(--on-accent);
 }
 .btn.danger {
   background: var(--red);
   border-color: var(--red);
-  color: #fff;
+  color: var(--on-accent);
 }
 .btn.soft {
   background: var(--blue-bg);
@@ -3144,12 +3152,12 @@ button[aria-busy='true'] {
 .btn.primary[aria-busy='true']:disabled {
   border-color: var(--blue);
   background: var(--blue);
-  color: #fff;
+  color: var(--on-accent);
 }
 .btn.danger[aria-busy='true']:disabled {
   border-color: var(--red);
   background: var(--red);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .btn[aria-busy='true']::after,

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 import { SetPasswordForm, type SetPasswordState } from './SetPasswordForm';
@@ -76,13 +77,20 @@ export default async function SetPasswordPage() {
 
   return (
     <div className={styles.page}>
-      <main className={styles.card}>
-        <h1 className={styles.title}>Change Password</h1>
-        <p className={styles.intro}>
-          Signed in as {user.email}. Set a password and you will not need this link again.
-        </p>
-        <SetPasswordForm action={setPassword} />
-      </main>
+      <div className={styles.shell}>
+        {/* The same control as the in-app top bar, so somebody arriving here
+            before they have ever signed in can still pick a theme. */}
+        <div className={styles.toolbar}>
+          <ThemeToggle />
+        </div>
+        <main className={styles.card}>
+          <h1 className={styles.title}>Change Password</h1>
+          <p className={styles.intro}>
+            Signed in as {user.email}. Set a password and you will not need this link again.
+          </p>
+          <SetPasswordForm action={setPassword} />
+        </main>
+      </div>
     </div>
   );
 }
