@@ -44,7 +44,13 @@ export default async function SignInPage({
       ? 'That email address and password combination was not recognised.'
       : params.error === 'missing'
         ? 'Enter both your email address and your password.'
-        : null;
+        : params.error === 'link'
+          ? // One message for expired, already-used and tampered-with alike.
+            // Telling somebody holding a stolen link which kind they hold is
+            // help they should not get.
+            'That link is no longer valid. Links can only be used once, and expire. ' +
+            'Ask an administrator to send a new invitation, or use Forgot password.'
+          : null;
 
   return (
     <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 16 }}>
