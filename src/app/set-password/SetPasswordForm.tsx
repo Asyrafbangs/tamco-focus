@@ -1,140 +1,188 @@
 'use client';
 
-import { useState } from 'react';
+import { useActionState, useId, useState } from 'react';
 
 import styles from './SetPasswordForm.module.css';
 
+export type SetPasswordState = { ok: boolean; message: string };
+
+export const INITIAL_SET_PASSWORD_STATE: SetPasswordState = { ok: false, message: '' };
+
 const MINIMUM = 12;
-const COMFORTABLE = 16;
 
 /**
- * The password fields, with live feedback.
+ * What the form requires, checked live.
  *
- * Three deliberate departures from a conventional password form:
- *
- * The checklist shows only what the server actually enforces — twelve
- * characters, and the two entries matching. Listing a digit or a symbol would
- * be inventing a rule `setPassword` does not apply, and a checklist that
- * disagrees with the validator teaches people to distrust it.
- *
- * The meter measures length alone, for the reason given on the page itself: a
- * composition rule reliably produces `Password1!`. Rewarding punctuation here
- * would undercut the advice the page is giving two lines above.
- *
- * The submit button is never disabled. `required` and `minLength` on the inputs
- * already refuse a short password without any JavaScript, and the server checks
- * again regardless — so the form keeps working when this component does not
- * load, which a disabled-until-valid button would prevent.
+ * The server enforces the twelve-character minimum and nothing else. These
+ * additional two are a client-side policy: the submit button will not enable
+ * until all three pass, so the checklist stays truthful about what it takes to
+ * submit this form. A stricter client over a laxer server is safe — the server
+ * remains authoritative and rejects anything it considers invalid regardless.
  */
+const RULES = [
+  {
+    id: 'length',
+    label: `At least ${MINIMUM} characters`,
+    test: (value: string) => value.length >= MINIMUM,
+  },
+  { id: 'number', label: 'At least one number', test: (value: string) => /\d/.test(value) },
+  {
+    id: 'special',
+    label: 'At least one special character',
+    test: (value: string) => /[^A-Za-z0-9]/.test(value),
+  },
+] as const;
+
 export function SetPasswordForm({
   action,
 }: {
-  action: (formData: FormData) => void | Promise<void>;
+  action: (state: SetPasswordState, formData: FormData) => Promise<SetPasswordState>;
 }) {
+  const [state, formAction, pending] = useActionState(action, INITIAL_SET_PASSWORD_STATE);
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
-  const [revealed, setRevealed] = useState(false);
 
-  const longEnough = password.length >= MINIMUM;
+  const results = RULES.map((rule) => ({ ...rule, met: rule.test(password) }));
+  const score = results.filter((rule) => rule.met).length;
+  const allMet = score === RULES.length;
+
+  const mismatch = confirmation.length > 0 && password !== confirmation;
   const matches = confirmation.length > 0 && password === confirmation;
+  const submittable = allMet && matches && !pending;
 
-  const tier = password.length === 0 ? 0 : !longEnough ? 1 : password.length < COMFORTABLE ? 2 : 3;
-  const tone = tier === 1 ? 'short' : 'met';
-  const strengthLabel = tier === 1 ? 'Too short' : tier === 2 ? 'Good' : 'Strong';
+  const tone = score <= 1 ? 'weak' : score === 2 ? 'fair' : 'strong';
+  const strengthLabel = score <= 1 ? 'Weak' : score === 2 ? 'Fair' : 'Strong';
+
+  const mismatchId = useId();
 
   return (
-    <form action={action}>
-      <div className="field">
-        <label htmlFor="password">New password</label>
-        <div className={styles.inputWrap}>
-          <input
-            id="password"
-            name="password"
-            type={revealed ? 'text' : 'password'}
-            required
-            minLength={MINIMUM}
-            autoComplete="new-password"
-            autoFocus
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-          <button
-            type="button"
-            className={styles.toggle}
-            onClick={() => setRevealed((value) => !value)}
-            aria-pressed={revealed}
-            aria-controls="password confirmation"
-          >
-            {revealed ? 'Hide' : 'Show'}
-          </button>
+    <form action={formAction} noValidate>
+      {state.message && !state.ok && (
+        <div className="notice error" role="alert">
+          <p>{state.message}</p>
         </div>
+      )}
 
-        {tier > 0 && (
-          <>
-            <div className={styles.meter} aria-hidden="true">
-              {[0, 1, 2].map((index) => (
-                <div
-                  key={index}
-                  className={`${styles.segment} ${index < tier ? styles[tone] : ''}`}
-                />
-              ))}
-            </div>
-            <p className={`${styles.strength} ${styles[tone]}`} role="status">
-              {strengthLabel}
-            </p>
-          </>
-        )}
-      </div>
+      <PasswordField
+        id="password"
+        name="password"
+        label="New Password"
+        value={password}
+        onChange={setPassword}
+        autoFocus
+      />
 
-      <div className="field">
-        <label htmlFor="confirmation">Confirm password</label>
-        <div className={styles.inputWrap}>
-          <input
-            id="confirmation"
-            name="confirmation"
-            type={revealed ? 'text' : 'password'}
-            required
-            minLength={MINIMUM}
-            autoComplete="new-password"
-            value={confirmation}
-            onChange={(event) => setConfirmation(event.target.value)}
-          />
-        </div>
-      </div>
+      {password.length > 0 && (
+        <>
+          <div className={styles.meter}>
+            <div
+              className={`${styles.fill} ${styles[tone]}`}
+              style={{ width: `${(score / RULES.length) * 100}%` }}
+            />
+          </div>
+          <p className={`${styles.strength} ${styles[tone]}`} role="status">
+            {strengthLabel}
+          </p>
+        </>
+      )}
 
-      {/* Below both fields, so neither rule is asked before it can be answered. */}
       <ul className={styles.rules}>
-        <Rule met={longEnough}>At least twelve characters</Rule>
-        <Rule met={matches}>Both entries match</Rule>
+        {results.map((rule) => (
+          <li key={rule.id} className={`${styles.rule} ${rule.met ? styles.met : ''}`}>
+            <span className={styles.icon} aria-hidden="true">
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                <path
+                  d="M1.5 6.5 4.5 9.5 10.5 2.5"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
+            {rule.label}
+            <span className="visually-hidden">{rule.met ? ' — met' : ' — not yet met'}</span>
+          </li>
+        ))}
       </ul>
 
-      <p className={styles.hint}>
-        Length beats complexity. A short phrase you can recall beats a scramble you cannot.
-      </p>
+      <div style={{ height: 22 }} />
 
-      <button type="submit" className="btn primary" style={{ width: '100%' }}>
-        Save password
+      <PasswordField
+        id="confirmation"
+        name="confirmation"
+        label="Confirm New Password"
+        value={confirmation}
+        onChange={setConfirmation}
+        invalid={mismatch}
+        describedBy={mismatch ? mismatchId : undefined}
+      />
+
+      {mismatch && (
+        <p className={styles.mismatch} id={mismatchId} role="alert">
+          Passwords do not match.
+        </p>
+      )}
+
+      <button type="submit" className={styles.submit} disabled={!submittable}>
+        {pending ? 'Updating password…' : 'Update Password'}
       </button>
     </form>
   );
 }
 
-function Rule({ met, children }: { met: boolean; children: React.ReactNode }) {
+function PasswordField({
+  id,
+  name,
+  label,
+  value,
+  onChange,
+  autoFocus,
+  invalid,
+  describedBy,
+}: {
+  id: string;
+  name: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  autoFocus?: boolean;
+  invalid?: boolean;
+  describedBy?: string;
+}) {
+  const [revealed, setRevealed] = useState(false);
+
   return (
-    <li className={`${styles.rule} ${met ? styles.done : ''}`}>
-      <span className={styles.tick} aria-hidden="true">
-        <svg width="9" height="9" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-          <path
-            d="M1.5 6.5 4.5 9.5 10.5 2.5"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </span>
-      {children}
-      <span className="visually-hidden">{met ? ' — met' : ' — not yet met'}</span>
-    </li>
+    <div className={styles.field}>
+      <label className={styles.label} htmlFor={id}>
+        {label}
+      </label>
+      <div className={styles.inputRow}>
+        <input
+          id={id}
+          name={name}
+          className={styles.input}
+          type={revealed ? 'text' : 'password'}
+          required
+          minLength={MINIMUM}
+          autoComplete="new-password"
+          autoFocus={autoFocus}
+          aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <button
+          type="button"
+          className={styles.toggle}
+          onClick={() => setRevealed((current) => !current)}
+          aria-pressed={revealed}
+          aria-controls={id}
+          aria-label={`${revealed ? 'Hide' : 'Show'} ${label.toLowerCase()}`}
+        >
+          {revealed ? 'Hide' : 'Show'}
+        </button>
+      </div>
+    </div>
   );
 }
