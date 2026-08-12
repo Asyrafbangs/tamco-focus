@@ -40,6 +40,27 @@ export interface AssignablePerson {
   employeeId: string;
 }
 
+/**
+ * Turns the single date field back into the timing the rest of the system
+ * already speaks.
+ *
+ * `timing` was never only a due date: `classifyCapture` reads it, and
+ * `timing === 'today'` is the sole route to a Quick Action (section 6.3). Four
+ * buttons were how that value got set, so removing them without deriving it
+ * would have quietly made Quick Action unreachable from Capture.
+ *
+ * Only `today` and `choose_date` are produced. `this_week` is deliberately not,
+ * because `dueAtFor` computes the end of the week for it and would overwrite
+ * the date the person actually picked.
+ */
+export function timingForDate(date: string, today = new Date()): CaptureTiming {
+  if (!date) return 'no_date';
+  const key = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
+    today.getDate(),
+  ).padStart(2, '0')}`;
+  return date === key ? 'today' : 'choose_date';
+}
+
 export function CaptureWork({
   modal = false,
   assignablePeople = [],
@@ -57,10 +78,10 @@ export function CaptureWork({
   const [captureId, setCaptureId] = useState<string | null>(null);
   const [recommendation, setRecommendation] = useState<CaptureRecommendation | null>(null);
   const [destination, setDestination] = useState<CaptureDestination | null>(null);
-  const [timing, setTiming] = useState<CaptureTiming>('today');
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
   const [chosenDate, setChosenDate] = useState('');
+  // Derived, not chosen. See timingForDate.
+  const timing = timingForDate(chosenDate);
   const [files, setFiles] = useState<File[]>([]);
   const [showTypes, setShowTypes] = useState(false);
   const [urgentCapture, setUrgentCapture] = useState(false);
@@ -81,51 +102,14 @@ export function CaptureWork({
    */
   const canAssign = assignablePeople.length > 0;
   const [primaryOwnerId, setPrimaryOwnerId] = useState('');
-  const [assigning, setAssigning] = useState(false);
-  const [assignWorkClass, setAssignWorkClass] = useState<
-    'operational_action' | 'major_project' | 'self_development'
-  >('operational_action');
-  const [assignUrgency, setAssignUrgency] = useState<'low' | 'normal' | 'high' | 'critical'>(
-    'normal',
-  );
-  const [assignOwnerIds, setAssignOwnerIds] = useState<string[]>([]);
-  const [assignReviewDate, setAssignReviewDate] = useState('');
-
-  function toggleOwner(id: string) {
-    setAssignOwnerIds((current) =>
-      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
-    );
-  }
-
-  function submitAssignment() {
-    if (!title.trim()) {
-      setError('Give the work a title before assigning it.');
-      return;
-    }
-    if (assignOwnerIds.length === 0) {
-      setError('Choose at least one person to assign this to.');
-      return;
-    }
-    setError(null);
-    startTransition(async () => {
-      const result = await assignWork({
-        title: title.trim(),
-        description: description.trim() || undefined,
-        workClass: assignWorkClass,
-        ownerIds: assignOwnerIds,
-        urgency: assignUrgency,
-        dueDate: timing === 'choose_date' && chosenDate ? chosenDate : undefined,
-        reviewDate: assignReviewDate || undefined,
-        idempotencyKey: crypto.randomUUID(),
-      });
-      if (!result.ok) {
-        setError(result.message);
-        return;
-      }
-      router.push('/work?scope=team');
-      router.refresh();
-    });
-  }
+  /*
+   * Capture no longer sets urgency or a review date. Both belonged to the
+   * removed multi-assign card, and neither is something the person capturing
+   * the work is being asked. `assignWork` still wants an urgency, so it gets
+   * the same default the card opened with; the review date is left unset and
+   * remains editable from Task Detail.
+   */
+  const CAPTURE_URGENCY = 'normal' as const;
 
   function addFiles(incoming: FileList | File[]) {
     setFiles((current) => [...current, ...Array.from(incoming)].slice(0, 8));
@@ -189,12 +173,10 @@ export function CaptureWork({
       startTransition(async () => {
         const assigned = await assignWork({
           title: title.trim(),
-          description: description.trim() || undefined,
           workClass,
           ownerIds: [primaryOwnerId],
-          urgency: assignUrgency,
-          dueDate: timing === 'choose_date' && chosenDate ? chosenDate : undefined,
-          reviewDate: assignReviewDate || undefined,
+          urgency: CAPTURE_URGENCY,
+          dueDate: chosenDate || undefined,
           idempotencyKey: crypto.randomUUID(),
         });
         if (!assigned.ok) {
@@ -283,27 +265,17 @@ export function CaptureWork({
             />
           </div>
 
-          <fieldset className="capture-when">
-            <legend>When is it needed?</legend>
-            {(
-              [
-                ['today', 'Today'],
-                ['this_week', 'This week'],
-                ['choose_date', 'Choose date'],
-                ['no_date', 'No date yet'],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                className={`capture-choice${timing === value ? ' active' : ''}`}
-                aria-pressed={timing === value}
-                onClick={() => setTiming(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </fieldset>
+          <div className="field">
+            <label htmlFor="capture-date">Due date</label>
+            <input
+              id="capture-date"
+              name="chosenDate"
+              type="date"
+              value={chosenDate}
+              onChange={(event) => setChosenDate(event.target.value)}
+            />
+            <small>Leave this blank if there is no date yet.</small>
+          </div>
 
           {canAssign && (
             <div className="field">
@@ -327,133 +299,58 @@ export function CaptureWork({
             </div>
           )}
 
-          {timing === 'choose_date' && (
-            <div className="field">
-              <label htmlFor="capture-date">Target date</label>
-              <input
-                id="capture-date"
-                name="chosenDate"
-                type="date"
-                value={chosenDate}
-                onChange={(event) => setChosenDate(event.target.value)}
-                required
-              />
-            </div>
-          )}
-
           <details className="capture-details">
             <summary>Add more details</summary>
-            <div className="field">
-              <label htmlFor="capture-description">Useful context</label>
-              <textarea
-                id="capture-description"
-                name="description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                rows={4}
-                maxLength={4000}
+            <p className="capture-detail-heading">Attachments — Optional</p>
+            <div
+              className="capture-dropzone"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                addFiles(event.dataTransfer.files);
+              }}
+              onPaste={(event) => {
+                const pasted = Array.from(event.clipboardData.files);
+                if (pasted.length) addFiles(pasted);
+              }}
+            >
+              <strong>Attach evidence or context</strong>
+              <span>Drop files, paste a screenshot, or choose from this device.</span>
+              <button
+                type="button"
+                className="btn small"
+                onClick={() => fileInput.current?.click()}
+              >
+                Choose files
+              </button>
+              <input
+                ref={fileInput}
+                className="visually-hidden"
+                type="file"
+                aria-label="Attach files"
+                multiple
+                accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/csv,.xlsx,.docx"
+                onChange={(event) => event.target.files && addFiles(event.target.files)}
               />
             </div>
 
-            {canAssign && (
-              <section className="assign-panel">
-                <label className="assign-toggle">
-                  <input
-                    type="checkbox"
-                    checked={assigning}
-                    onChange={(event) => setAssigning(event.target.checked)}
-                  />
-                  <span>
-                    <strong>Assign this to someone else</strong>
-                    <small>
-                      You choose the type, urgency, owner and review date. The work waits in their
-                      Available list until they activate it — it does not start on their behalf.
-                    </small>
-                  </span>
-                </label>
-
-                {assigning && (
-                  <div className="assign-fields">
-                    <div className="field">
-                      <label htmlFor="assign-work-class">Work type</label>
-                      <select
-                        id="assign-work-class"
-                        value={assignWorkClass}
-                        onChange={(event) =>
-                          setAssignWorkClass(event.target.value as typeof assignWorkClass)
-                        }
-                      >
-                        <option value="operational_action">Operational Action</option>
-                        <option value="major_project">Major Project</option>
-                        <option value="self_development">Self-Development</option>
-                      </select>
-                    </div>
-
-                    <div className="field">
-                      <label htmlFor="assign-urgency">Urgency</label>
-                      <select
-                        id="assign-urgency"
-                        value={assignUrgency}
-                        onChange={(event) =>
-                          setAssignUrgency(event.target.value as typeof assignUrgency)
-                        }
-                      >
-                        <option value="low">Low</option>
-                        <option value="normal">Normal</option>
-                        <option value="high">High</option>
-                        <option value="critical">Critical</option>
-                      </select>
-                    </div>
-
-                    <div className="field">
-                      <label htmlFor="assign-review">Review by</label>
-                      <input
-                        id="assign-review"
-                        type="date"
-                        value={assignReviewDate}
-                        onChange={(event) => setAssignReviewDate(event.target.value)}
-                      />
-                    </div>
-
-                    <fieldset className="field full assign-people">
-                      <legend>Assign to</legend>
-                      <p className="assign-hint">
-                        Choosing several people creates a separate accountable task for each of
-                        them, sharing one assignment reference. Use it when every person owes the
-                        complete result themselves — not when one result is owed once.
-                      </p>
-                      {assignablePeople.map((person) => (
-                        <label key={person.id} className="assign-person">
-                          <input
-                            type="checkbox"
-                            checked={assignOwnerIds.includes(person.id)}
-                            onChange={() => toggleOwner(person.id)}
-                          />
-                          <span>
-                            {person.fullName} <small>{person.employeeId}</small>
-                          </span>
-                        </label>
-                      ))}
-                    </fieldset>
-
-                    <div className="capture-actions full">
-                      <button
-                        type="button"
-                        className="btn primary"
-                        disabled={pending}
-                        aria-busy={pending}
-                        onClick={submitAssignment}
-                      >
-                        {pending
-                          ? 'Assigning…'
-                          : assignOwnerIds.length > 1
-                            ? `Assign to ${assignOwnerIds.length} people`
-                            : 'Assign work'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </section>
+            {files.length > 0 && (
+              <ul className="capture-files" aria-label="Selected attachments">
+                {files.map((file, index) => (
+                  <li key={`${file.name}-${file.lastModified}-${index}`}>
+                    <span>{file.name}</span>
+                    <button
+                      type="button"
+                      className="btn small ghost"
+                      onClick={() =>
+                        setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))
+                      }
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </details>
 
@@ -488,56 +385,9 @@ export function CaptureWork({
             </div>
           )}
 
-          <div
-            className="capture-dropzone"
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => {
-              event.preventDefault();
-              addFiles(event.dataTransfer.files);
-            }}
-            onPaste={(event) => {
-              const pasted = Array.from(event.clipboardData.files);
-              if (pasted.length) addFiles(pasted);
-            }}
-          >
-            <strong>Attach evidence or context</strong>
-            <span>Drop files, paste a screenshot, or choose from this device.</span>
-            <button type="button" className="btn small" onClick={() => fileInput.current?.click()}>
-              Choose files
-            </button>
-            <input
-              ref={fileInput}
-              className="visually-hidden"
-              type="file"
-              aria-label="Attach files"
-              multiple
-              accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/csv,.xlsx,.docx"
-              onChange={(event) => event.target.files && addFiles(event.target.files)}
-            />
-          </div>
-
-          {files.length > 0 && (
-            <ul className="capture-files" aria-label="Selected attachments">
-              {files.map((file, index) => (
-                <li key={`${file.name}-${file.lastModified}-${index}`}>
-                  <span>{file.name}</span>
-                  <button
-                    type="button"
-                    className="btn small ghost"
-                    onClick={() =>
-                      setFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))
-                    }
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
           <div className="capture-actions">
             <button className="btn primary" disabled={pending} aria-busy={pending}>
-              {pending ? 'Saving…' : 'Add Work'}
+              {pending ? 'Saving…' : 'Create work'}
             </button>
           </div>
         </form>
