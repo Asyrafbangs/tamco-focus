@@ -16,6 +16,7 @@ import {
   createCaptureDraft,
   discardCaptureDraft,
 } from '@/server/actions/capture-actions';
+import { addChecklistStep } from '@/server/actions/task-actions';
 import { Modal } from '@/components/ui/Modal';
 
 /**
@@ -64,11 +65,20 @@ export function timingForDate(date: string, today = new Date()): CaptureTiming {
 export function CaptureWork({
   modal = false,
   assignablePeople = [],
+  teamDirectory = [],
   viewerName = 'Me',
 }: {
   modal?: boolean;
   /** Non-empty only for a manager or administrator. */
   assignablePeople?: AssignablePerson[];
+  /**
+   * Everybody, for checklist assignment only. This is the `team_directory`
+   * projection — names without work — so an employee can hand a step to a
+   * colleague without being able to read their tasks (v45 sections 1-2). It is
+   * deliberately not `assignablePeople`, which is manager-only and governs who
+   * may own a parent task.
+   */
+  teamDirectory?: Array<{ id: string; name: string }>;
   viewerName?: string;
 }) {
   const router = useRouter();
@@ -110,6 +120,52 @@ export function CaptureWork({
    * remains editable from Task Detail.
    */
   const CAPTURE_URGENCY = 'normal' as const;
+
+  /*
+   * Section G — an optional checklist written before the task exists.
+   *
+   * Only the two fields that make a step meaningful are asked for. Evidence
+   * rule, step due date and prerequisites stay out of Capture and remain
+   * editable from Task Detail, where there is room to think about them.
+   *
+   * An empty `assignedTo` is sent as null rather than resolved here, because
+   * `addChecklistStep` already defaults it to the parent's primary owner. That
+   * keeps one rule in one place, and it is the rule section H depends on: a
+   * step nobody reassigned is the owner's own, so it never becomes a stray
+   * Shared contribution.
+   */
+  const [steps, setSteps] = useState<Array<{ action: string; assignedTo: string }>>([]);
+
+  const ownerLabel =
+    (primaryOwnerId && assignablePeople.find((person) => person.id === primaryOwnerId)?.fullName) ||
+    viewerName;
+
+  function updateStep(index: number, patch: Partial<{ action: string; assignedTo: string }>) {
+    setSteps((current) =>
+      current.map((step, position) => (position === index ? { ...step, ...patch } : step)),
+    );
+  }
+
+  /**
+   * Adds the drafted steps to the task that was just created.
+   *
+   * Sequential on purpose: `addChecklistStep` derives each position from the
+   * current last row, so running these in parallel would race for the same
+   * number and scramble the order the person wrote them in.
+   */
+  async function applyChecklist(taskId: string): Promise<string | null> {
+    for (const step of steps) {
+      const action = step.action.trim();
+      if (!action) continue;
+      const result = await addChecklistStep({
+        taskId,
+        action,
+        assignedTo: step.assignedTo || null,
+      });
+      if (!result.ok) return result.message;
+    }
+    return null;
+  }
 
   function addFiles(incoming: FileList | File[]) {
     setFiles((current) => [...current, ...Array.from(incoming)].slice(0, 8));
@@ -183,6 +239,17 @@ export function CaptureWork({
           setError(assigned.message);
           return;
         }
+        // The task exists from here on. A failing step is reported without
+        // unwinding it — the work is real, and silently discarding it would be
+        // worse than an incomplete checklist the owner can finish by hand.
+        const assignedTaskId = assigned.task_ids?.[0];
+        if (assignedTaskId) {
+          const failure = await applyChecklist(assignedTaskId);
+          if (failure) {
+            setError(`The work was created, but a checklist step was not added: ${failure}`);
+            return;
+          }
+        }
         await discardCaptureDraft({ captureId });
         router.push('/work?scope=team');
         router.refresh();
@@ -198,6 +265,14 @@ export function CaptureWork({
       if (!result.ok) {
         setError(result.message);
         return;
+      }
+
+      if (result.task_id) {
+        const failure = await applyChecklist(result.task_id);
+        if (failure) {
+          setError(`The work was created, but a checklist step was not added: ${failure}`);
+          return;
+        }
       }
 
       const destinationRoute: Record<CaptureDestination, string> = {
@@ -301,6 +376,56 @@ export function CaptureWork({
 
           <details className="capture-details">
             <summary>Add more details</summary>
+            <p className="capture-detail-heading">Checklist — Optional</p>
+            {steps.length > 0 && (
+              <ol className="capture-steps">
+                {steps.map((step, index) => (
+                  <li key={index} className="capture-step">
+                    <div className="field">
+                      <label htmlFor={`capture-step-${index}`}>What needs to be done?</label>
+                      <input
+                        id={`capture-step-${index}`}
+                        value={step.action}
+                        maxLength={300}
+                        onChange={(event) => updateStep(index, { action: event.target.value })}
+                      />
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`capture-step-assignee-${index}`}>Assigned to</label>
+                      <select
+                        id={`capture-step-assignee-${index}`}
+                        value={step.assignedTo}
+                        onChange={(event) => updateStep(index, { assignedTo: event.target.value })}
+                      >
+                        <option value="">{ownerLabel}</option>
+                        {teamDirectory.map((person) => (
+                          <option key={person.id} value={person.id}>
+                            {person.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn small ghost"
+                      onClick={() =>
+                        setSteps((current) => current.filter((_, position) => position !== index))
+                      }
+                    >
+                      Remove step {index + 1}
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            )}
+            <button
+              type="button"
+              className="btn small"
+              onClick={() => setSteps((current) => [...current, { action: '', assignedTo: '' }])}
+            >
+              + Add step
+            </button>
+
             <p className="capture-detail-heading">Attachments — Optional</p>
             <div
               className="capture-dropzone"

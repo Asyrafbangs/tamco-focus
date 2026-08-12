@@ -20,6 +20,7 @@ import {
   getHandoffReadyTaskIds,
   getMyAttention,
   getMyTasks,
+  getTeamDirectory,
 } from '@/server/queries';
 import { getGoalExceptions, getMyGoals } from '@/server/goal-queries';
 import { getAssignablePeople } from '@/server/actions/assignment-actions';
@@ -105,6 +106,7 @@ export default async function TodayPage({
     myGoals,
     assignablePeople,
     actionRequests,
+    teamDirectory,
   ] = await Promise.all([
     getMyTasks(profile.id),
     getFocusSummary(profile.id),
@@ -117,6 +119,9 @@ export default async function TodayPage({
     // exist for them rather than appearing and then refusing.
     params.capture === '1' ? getAssignablePeople() : Promise.resolve([]),
     getMyAttention(profile.id),
+    // Only when Capture is open, for checklist assignment. Loading the
+    // directory on every My Day render would be a query nobody asked for.
+    params.capture === '1' ? getTeamDirectory() : Promise.resolve([]),
   ]);
 
   const context = {
@@ -493,7 +498,12 @@ export default async function TodayPage({
         )}
       </section>
       {params.capture === '1' && (
-        <CaptureWork modal assignablePeople={assignablePeople} viewerName={profile.full_name} />
+        <CaptureWork
+          modal
+          assignablePeople={assignablePeople}
+          teamDirectory={teamDirectory}
+          viewerName={profile.full_name}
+        />
       )}
     </>
   );

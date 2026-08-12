@@ -1708,21 +1708,9 @@ button {
   display: grid;
   gap: 18px;
 }
-.capture-when {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-.capture-when legend {
-  width: 100%;
-  margin-bottom: 5px;
-  font-size: 11px;
-  font-weight: 650;
-}
-.capture-choice,
+/* `.capture-when` and `.capture-choice` went with the four timing buttons the
+   single date picker replaced. `.capture-type` is unrelated and still in use on
+   the recommendation step. */
 .capture-type {
   min-height: 42px;
   padding: 9px 13px;
@@ -1731,11 +1719,53 @@ button {
   background: var(--surface);
   color: var(--text);
 }
-.capture-choice.active,
 .capture-type.active {
   border-color: var(--blue);
   background: var(--blue-bg);
   color: var(--blue);
+}
+/* Capture's progressive disclosure — checklist and attachments. */
+.capture-detail-heading {
+  margin: 16px 0 8px;
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.capture-steps {
+  list-style: decimal;
+  margin: 0 0 10px;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.capture-step {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  background: var(--surface-2);
+}
+/* Two columns where there is room, stacked where there is not (section O). */
+.capture-step .field {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+@media (min-width: 620px) {
+  .capture-step {
+    display: grid;
+    grid-template-columns: 1fr minmax(150px, 0.7fr);
+    gap: 10px;
+    align-items: start;
+  }
+  .capture-step .field {
+    margin-bottom: 0;
+  }
+  .capture-step > button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
 }
 .capture-details summary {
   color: var(--blue);
@@ -1852,11 +1882,19 @@ button {
   .capture-choice {
     flex: 1 1 calc(50% - 8px);
   }
+  /*
+   * Deliberately not sticky.
+   *
+   * It used to be, to keep Create work within thumb reach. That was harmless
+   * while the form was three fields, but the optional checklist makes it tall
+   * enough to scroll, and a bar pinned at bottom:68px then floats over the
+   * content it was sitting after — covering "+ Add step" and the attachments
+   * heading outright. A primary action that hides other controls is a worse
+   * trade than one the person scrolls to, and with the disclosure closed the
+   * form is short enough that it is on screen anyway.
+   */
   .capture-actions {
-    position: sticky;
-    bottom: 68px;
     padding: 10px 0;
-    background: var(--surface);
   }
   .capture-actions .btn {
     flex: 1;
