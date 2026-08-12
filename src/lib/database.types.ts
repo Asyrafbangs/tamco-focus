@@ -7015,6 +7015,16 @@ export type Database = {
         }
         Returns: Json
       }
+      update_task_details: {
+        Args: {
+          p_description?: string
+          p_expected_version: number
+          p_idempotency_key?: string
+          p_task_id: string
+          p_title: string
+        }
+        Returns: Json
+      }
       update_user_profile: {
         Args: {
           p_department_id?: string
@@ -7116,6 +7126,7 @@ export type Database = {
         | "goal_quarterly_session_completed"
         | "goal_cancelled"
         | "goal_plan_finalized"
+        | "task_details_edited"
       barrier_action_type:
         | "decision"
         | "approval"
@@ -7453,6 +7464,7 @@ export const Constants = {
         "goal_quarterly_session_completed",
         "goal_cancelled",
         "goal_plan_finalized",
+        "task_details_edited",
       ],
       barrier_action_type: [
         "decision",

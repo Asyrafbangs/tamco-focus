@@ -28,6 +28,7 @@ import {
 import {
   addBarrierToMeetingQueue,
   cancelTask,
+  updateTaskDetails,
   changeTaskDueDate,
   completeChecklistItem,
   completeChecklistItemWithEvidence,
@@ -110,6 +111,11 @@ export function TaskDetailDrawer({
   const [barrierOpen, setBarrierOpen] = useState(false);
   const [ageInfoOpen, setAgeInfoOpen] = useState(false);
   const [dueEditorOpen, setDueEditorOpen] = useState(false);
+  // Section I. Content only — there is deliberately no owner field here, so
+  // this form cannot move accountability even by mistake. That is Reassign.
+  const [editOpen, setEditOpen] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(task.title);
+  const [descriptionDraft, setDescriptionDraft] = useState(task.description ?? '');
   const [dueDateOnlyDraft, setDueDateOnlyDraft] = useState(task.dueIsDateOnly);
   const [dueDraft, setDueDraft] = useState(dueInputValue(task.dueAt, task.dueIsDateOnly, timeZone));
   const [evidenceDialog, setEvidenceDialog] = useState<{
@@ -662,6 +668,88 @@ export function TaskDetailDrawer({
         </Modal>
 
         <Modal
+          open={editOpen}
+          title="Edit task"
+          className="task-due-modal"
+          onClose={() => setEditOpen(false)}
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              startTransition(async () => {
+                const result = await updateTaskDetails({
+                  taskId: task.id,
+                  expectedVersion: Math.max(taskVersion, task.version),
+                  title: titleDraft.trim(),
+                  description: descriptionDraft.trim() || null,
+                  idempotencyKey: idempotencyKey(),
+                });
+                if (finish(result, 'Task updated and added to Recent activity.')) {
+                  // The procedure returns `unchanged` without bumping the
+                  // version when nothing actually differs, so tracking it
+                  // optimistically has to respect that or the next edit would
+                  // fail a version check that was never really out of date.
+                  setTaskVersion((current) =>
+                    result.ok && result.code !== 'unchanged' ? current + 1 : current,
+                  );
+                  setEditOpen(false);
+                }
+              });
+            }}
+          >
+            <div className="modal-head">
+              <div>
+                <strong>Edit task</strong>
+                <span>Changing who owns this is a separate action.</span>
+              </div>
+              <button
+                type="button"
+                className="btn small"
+                aria-label="Close task editor"
+                onClick={() => setEditOpen(false)}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="field">
+                <label htmlFor={`edit-title-${task.id}`}>Title</label>
+                <input
+                  id={`edit-title-${task.id}`}
+                  value={titleDraft}
+                  maxLength={200}
+                  required
+                  onChange={(event) => setTitleDraft(event.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor={`edit-description-${task.id}`}>Details</label>
+                <textarea
+                  id={`edit-description-${task.id}`}
+                  value={descriptionDraft}
+                  rows={5}
+                  maxLength={4000}
+                  onChange={(event) => setDescriptionDraft(event.target.value)}
+                />
+              </div>
+            </div>
+            <div className="modal-foot">
+              <button type="button" className="btn" onClick={() => setEditOpen(false)}>
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn primary"
+                disabled={pending || titleDraft.trim().length === 0}
+                aria-busy={pending}
+              >
+                {pending ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+
+        <Modal
           open={dueEditorOpen}
           title="Edit due date"
           className="task-due-modal"
@@ -1065,6 +1153,21 @@ export function TaskDetailDrawer({
           >
             i
           </button>
+          {detail.capabilities.canEdit &&
+          task.status !== 'completed' &&
+          task.status !== 'cancelled' ? (
+            <button
+              type="button"
+              className="task-due-edit"
+              onClick={() => {
+                setTitleDraft(task.title);
+                setDescriptionDraft(task.description ?? '');
+                setEditOpen(true);
+              }}
+            >
+              Edit task
+            </button>
+          ) : null}
         </div>
 
         {task.description && (

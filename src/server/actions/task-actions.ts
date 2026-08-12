@@ -290,6 +290,44 @@ export async function cancelTask(input: z.input<typeof cancelSchema>) {
   });
 }
 
+const editSchema = z.object({
+  taskId: uuid,
+  expectedVersion: z.number().int().positive(),
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(4000).nullish(),
+  idempotencyKey,
+});
+
+/**
+ * Edits a task's own content — title and details, and nothing else.
+ *
+ * Ownership is not in the schema, so this cannot move it even by accident.
+ * Changing who is accountable is `reassignTask`, deliberately a separate
+ * action with separate authority (section J).
+ */
+export async function updateTaskDetails(input: z.input<typeof editSchema>) {
+  const parsed = editSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      code: 'validation_failed' as const,
+      message: 'Give the work a title of 200 characters or fewer.',
+    };
+  }
+
+  return callProcedure(
+    'update_task_details',
+    {
+      p_task_id: parsed.data.taskId,
+      p_expected_version: parsed.data.expectedVersion,
+      p_title: parsed.data.title,
+      p_description: parsed.data.description ?? null,
+      p_idempotency_key: parsed.data.idempotencyKey ?? null,
+    },
+    ['/today', '/work'],
+  );
+}
+
 const reassignSchema = z.object({
   taskId: uuid,
   expectedVersion: z.number().int().positive(),
