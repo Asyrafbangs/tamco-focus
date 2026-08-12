@@ -78,6 +78,15 @@ export function NavigationRail({ role, actionRequiredCount = 0, initials }: Navi
               href={destination.href}
               className={`railbtn${active ? ' active' : ''}`}
               aria-current={active ? 'page' : undefined}
+              // Every rail destination sits in the viewport on every page, so
+              // the default prefetch speculatively renders all of them each
+              // time. Measured on My Work: it turned 42 SQL statements into
+              // 107 and added 292ms to the load, to save 52ms on a client
+              // navigation that was already 69ms. These are dynamic,
+              // per-person pages — there is no static shell to fetch cheaply,
+              // so prefetching one runs its whole query set for a page nobody
+              // has asked for yet.
+              prefetch={false}
             >
               <span aria-hidden="true">{destination.icon}</span>
               <span className="label" aria-hidden="true">
@@ -128,6 +137,9 @@ export function MobileNavigation({ role, actionRequiredCount = 0 }: NavigationPr
             href={destination.href}
             className={active ? 'active' : undefined}
             aria-current={active ? 'page' : undefined}
+            // Same reasoning as the rail; on a phone the whole bar is always
+            // on screen, so the effect is if anything larger.
+            prefetch={false}
           >
             <span aria-hidden="true">{destination.icon}</span>
             {destination.label}
