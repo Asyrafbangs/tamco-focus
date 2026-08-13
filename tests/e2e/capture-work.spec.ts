@@ -60,25 +60,42 @@ test('employee captures a Quick Action from desktop and mobile', async ({ page }
   await expect(page.getByRole('heading', { name: 'My Day' })).toBeVisible();
   await expectHydrated(page);
 
-  await page.getByRole('link', { name: 'Capture work' }).click();
+  /*
+   * One screen since the New Work redesign. This test still described the two
+   * page flow it replaced — a "Confirm & Create" step, a "One quick question"
+   * interstitial and a dialog called "Capture work" — none of which exist, so
+   * it was failing against a product that works.
+   *
+   * Quick Action is now reached by answering the follow-up question rather than
+   * by picking today's date, which is the point of the change: a date is a
+   * commitment and was never evidence about how long work takes.
+   */
+  await page.getByRole('link', { name: /New Work/i }).click();
   await expect(page).toHaveURL(/\/today\?capture=1$/);
-  await expect(page.getByRole('dialog', { name: 'Capture work' })).toBeVisible();
+  const dialog = page.getByRole('dialog', { name: 'New Work' });
+  await expect(dialog).toBeVisible();
   await expectAccessible(page);
-  await page.getByLabel('What needs to be done?').fill(title);
-  await page.getByRole('button', { name: 'Add Work' }).click();
+  await dialog.locator('#capture-title').fill(title);
 
-  await expect(page.getByText('One quick question')).toBeVisible();
-  // Scoped to the capture dialog. Unscoped, /^No/ also matched the top bar's
-  // "Notifications, …" button once the bell was added.
-  await page
-    .getByRole('dialog', { name: 'Capture work' })
-    .getByRole('button', { name: /^No/ })
-    .click();
-  await expect(page.getByRole('heading', { name: 'Quick Action' })).toBeVisible();
-  await page.getByRole('button', { name: 'Confirm & Create' }).click();
+  await dialog.getByText('Add details', { exact: true }).click();
+  await dialog.getByText('No — it finishes in one go').click();
+  await expect(dialog.getByText(/Quick Action/)).toBeVisible();
+
+  await dialog.getByRole('button', { name: /^Create work$/ }).click();
 
   await expect(page).toHaveURL(/\/today$/);
-  await expect(page.getByText(title, { exact: true }).first()).toBeVisible();
+
+  /*
+   * Checked on Work, not on My Day.
+   *
+   * The Today section is a ranked shortlist of three — "the next few things
+   * worth your time" — not a list of everything. This test used to pass because
+   * the old flow set a due date of today, which bought the new task a slot.
+   * Asserting there now would make the test a measurement of how busy the
+   * shared fixture database happens to be.
+   */
+  await page.goto('/work');
+  await expect(page.getByText(title, { exact: true })).toBeVisible();
   await expectAccessible(page);
 });
 

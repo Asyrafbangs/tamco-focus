@@ -96,6 +96,20 @@ async function signIn(page: Page, email: string) {
 }
 
 /**
+ * Navigate, then wait for hydration before touching anything.
+ *
+ * A My Team row is opened by a click handler rather than a link, so a click
+ * that lands on the server-rendered markup does nothing and the drawer never
+ * appears. That produced an intermittent failure reading "the team row is not
+ * keyboard-openable", which was never true: the row was simply not listening
+ * yet.
+ */
+async function gotoHydrated(page: Page, url: string) {
+  await page.goto(url);
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+}
+
+/**
  * v49 §1, §40 — the summary stays a summary.
  *
  * The card previously grew with the count, so at twelve requests it pushed the
@@ -216,7 +230,7 @@ test('the whole team row is keyboard-openable and its exact CTA is independent',
 
   try {
     await signIn(page, 'izzul@tamco.local');
-    await page.goto('/work?scope=team');
+    await gotoHydrated(page, '/work?scope=team');
 
     const row = page.getByTestId('my-team-person-row').filter({ hasText: 'Lim Wei Sheng' });
     await expect(row).toBeVisible();
@@ -225,7 +239,7 @@ test('the whole team row is keyboard-openable and its exact CTA is independent',
     await row.getByText('Lim Wei Sheng').click();
     await expect(page.locator('.team-member-drawer')).toBeVisible();
 
-    await page.goto('/work?scope=team');
+    await gotoHydrated(page, '/work?scope=team');
     const blankSpaceRow = page
       .getByTestId('my-team-person-row')
       .filter({ hasText: 'Lim Wei Sheng' });
@@ -236,7 +250,7 @@ test('the whole team row is keyboard-openable and its exact CTA is independent',
 
     // Enter and Space on the focused row use the same person-detail route.
     for (const key of ['Enter', 'Space']) {
-      await page.goto('/work?scope=team');
+      await gotoHydrated(page, '/work?scope=team');
       const keyboardRow = page
         .getByTestId('my-team-person-row')
         .filter({ hasText: 'Lim Wei Sheng' });
@@ -246,14 +260,14 @@ test('the whole team row is keyboard-openable and its exact CTA is independent',
       await expect(page.locator('.team-member-drawer')).toBeVisible();
     }
 
-    await page.goto('/work?scope=team');
+    await gotoHydrated(page, '/work?scope=team');
     const detailRow = page.getByTestId('my-team-person-row').filter({ hasText: 'Lim Wei Sheng' });
     await expect(detailRow).toBeVisible();
     await detailRow.getByRole('button', { name: 'Open detail for Lim Wei Sheng' }).click();
     await expect(page.locator('.team-member-drawer')).toBeVisible();
     await expect(page).toHaveURL(/person=f0c05000-0000-4000-a000-000000000006/);
 
-    await page.goto('/work?scope=team&filter=attention');
+    await gotoHydrated(page, '/work?scope=team&filter=attention');
 
     const attentionRow = page.getByTestId('my-team-person-row').filter({ hasText: marker });
     await expect(attentionRow).toBeVisible();
@@ -273,7 +287,7 @@ test('Open routine targets the exact overdue occurrence without opening the pers
   page,
 }) => {
   await signIn(page, 'izzul@tamco.local');
-  await page.goto('/work?scope=team&filter=attention');
+  await gotoHydrated(page, '/work?scope=team&filter=attention');
 
   const row = page.getByTestId('my-team-person-row').filter({ hasText: 'Daily PPE stock check' });
   await row.getByRole('button', { name: /Open routine/ }).click();
@@ -289,7 +303,7 @@ test('Open routine targets the exact overdue occurrence without opening the pers
  */
 test('no manager action is vague or points at a generic page', async ({ page }) => {
   await signIn(page, 'izzul@tamco.local');
-  await page.goto('/work?scope=team&filter=attention');
+  await gotoHydrated(page, '/work?scope=team&filter=attention');
 
   await expect(page.getByText('Review with them')).toHaveCount(0);
   await expect(page.getByText('Proposal to review')).toHaveCount(0);
@@ -391,7 +405,7 @@ test('My Day and My Team contain hostile text across viewports and zoom pressure
       expect(report.height, `My Day row has a giant blank gap at ${label}`).toBeLessThan(180);
     }
 
-    await page.goto('/work?scope=team&filter=attention');
+    await gotoHydrated(page, '/work?scope=team&filter=attention');
     const teamRow = page.getByTestId('my-team-person-row').filter({ hasText: marker });
     await expect(teamRow).toContainText(longName);
 

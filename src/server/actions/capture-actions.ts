@@ -45,6 +45,13 @@ export async function createCaptureDraft(formData: FormData): Promise<CaptureDra
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/)
         .optional(),
+      /**
+       * Asked only for a Major Project, which is the one capture that goes to
+       * somebody else for a decision. Everything else creates work the person
+       * in front of us already owns, and needs no case made for it.
+       */
+      successMeasure: z.string().trim().max(2000).optional(),
+      expectedMonths: z.coerce.number().int().min(1).max(60).optional(),
     })
     .safeParse({
       title: formData.get('title'),
@@ -52,10 +59,29 @@ export async function createCaptureDraft(formData: FormData): Promise<CaptureDra
       workType: formData.get('workType') || 'normal',
       requiresFollowUp: formData.get('requiresFollowUp') || undefined,
       chosenDate: formData.get('chosenDate') || undefined,
+      successMeasure: formData.get('successMeasure') || undefined,
+      expectedMonths: formData.get('expectedMonths') || undefined,
     });
 
   if (!parsed.success) {
     return { ok: false, code: 'validation_failed', message: 'Add a title before creating work.' };
+  }
+
+  /*
+   * A proposal without a reason cannot be decided on.
+   *
+   * `work_proposals.rationale` is this description, and the review drawer has
+   * nothing else to show. When the description box was removed from New Work
+   * every proposal started reaching its manager as a bare title — approve or
+   * decline, no case either way. The requirement is deliberately narrow: it
+   * applies to the one destination where somebody else has to judge the work.
+   */
+  if (parsed.data.workType === 'major_project' && !parsed.data.description) {
+    return {
+      ok: false,
+      code: 'validation_failed',
+      message: 'Explain why this needs to be a project. Your manager decides from this.',
+    };
   }
 
   const files = formData
@@ -93,6 +119,12 @@ export async function createCaptureDraft(formData: FormData): Promise<CaptureDra
       classification_rule_text: recommendation.ruleText,
       urgency_question_asked: recommendation.urgencyQuestion !== null,
       followup_question: null,
+      // Carried into the proposal payload by `confirm_work_capture`, so the
+      // person deciding sees scope and size next to the reason.
+      success_measure:
+        parsed.data.workType === 'major_project' ? parsed.data.successMeasure || null : null,
+      expected_months:
+        parsed.data.workType === 'major_project' ? (parsed.data.expectedMonths ?? null) : null,
     })
     .select('id')
     .single();

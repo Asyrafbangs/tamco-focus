@@ -82,6 +82,18 @@ export function CaptureWork({
   const [followUp, setFollowUp] = useState<'unset' | 'yes' | 'no'>('unset');
 
   /*
+   * A Major Project is the one capture that leaves the person making it and
+   * goes to somebody else to decide. That decision is made from these three
+   * answers and nothing else, so they are asked here rather than chased later.
+   * They stay hidden for every other work type, which is the whole point of
+   * putting them behind the choice instead of on the front of the form.
+   */
+  const [rationale, setRationale] = useState('');
+  const [successMeasure, setSuccessMeasure] = useState('');
+  const [expectedMonths, setExpectedMonths] = useState('');
+  const isProposal = workType === 'major_project';
+
+  /*
    * v41 section 4 — ownership is decided here, once. An employee capturing
    * work owns it, so there is no picker; a manager is often capturing on
    * somebody else's behalf, so they get one.
@@ -174,6 +186,19 @@ export function CaptureWork({
     form.set('workType', workType);
     if (followUp !== 'unset') form.set('requiresFollowUp', followUp);
     files.forEach((file) => form.append('files', file));
+
+    if (isProposal) {
+      // The server rejects this too. Checking here as well means the person
+      // is told inside the section they are already looking at, rather than
+      // after a round trip that closes the disclosure they typed into.
+      if (!rationale.trim()) {
+        setError('Explain why this needs to be a project. Your manager decides from this.');
+        return;
+      }
+      form.set('description', rationale.trim());
+      if (successMeasure.trim()) form.set('successMeasure', successMeasure.trim());
+      if (expectedMonths.trim()) form.set('expectedMonths', expectedMonths.trim());
+    }
 
     /*
      * Routine leaves this flow entirely.
@@ -496,6 +521,50 @@ export function CaptureWork({
                 ))}
               </select>
             </div>
+
+            {isProposal && (
+              <div className="capture-proposal">
+                <p className="capture-proposal-note">
+                  This goes to your manager to approve, so it needs a case they can decide on.
+                </p>
+                <div className="field">
+                  <label htmlFor="capture-rationale">Why does this need to be a project?</label>
+                  <textarea
+                    id="capture-rationale"
+                    rows={4}
+                    value={rationale}
+                    onChange={(event) => setRationale(event.target.value)}
+                    placeholder="What problem it solves, and why ordinary work will not cover it."
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="capture-success">
+                    What does finished look like? <span className="optional-label">Optional</span>
+                  </label>
+                  <textarea
+                    id="capture-success"
+                    rows={3}
+                    value={successMeasure}
+                    onChange={(event) => setSuccessMeasure(event.target.value)}
+                    placeholder="How you will know it worked."
+                  />
+                </div>
+                <div className="field capture-months">
+                  <label htmlFor="capture-months">
+                    Roughly how many months? <span className="optional-label">Optional</span>
+                  </label>
+                  <input
+                    id="capture-months"
+                    type="number"
+                    min={1}
+                    max={60}
+                    inputMode="numeric"
+                    value={expectedMonths}
+                    onChange={(event) => setExpectedMonths(event.target.value)}
+                  />
+                </div>
+              </div>
+            )}
 
             {/*
               The only question the rules genuinely cannot answer, asked in

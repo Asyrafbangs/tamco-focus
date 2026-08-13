@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { createWork } from './helpers/capture';
+
 const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
 
 async function signIn(page: Page, email: string) {
@@ -38,22 +40,12 @@ test('a decision request is actionable from every entry point', async ({ page },
    * offer Raise barrier at all, which is correct behaviour reported as a test
    * failure.
    */
-  await page.getByRole('link', { name: 'Capture work' }).click();
-  const capture = page.getByRole('dialog', { name: 'Capture work' });
-  await expect(capture).toBeVisible();
-  await capture.getByLabel('What needs to be done?').fill(taskTitle);
-  await capture.getByRole('button', { name: 'Add Work' }).click();
+  // "Continues afterwards" — work that needs following up is ordinary work,
+  // and ordinary work is what a barrier is raised against. A Quick Action is
+  // the wrong subject.
+  await createWork(page, taskTitle, 'continues');
 
-  // The dialog advances a step at a time; asserting each one keeps a click
-  // from being sent at a screen that has not arrived yet.
-  await expect(capture.getByText('One quick question')).toBeVisible();
-  // "Yes" — work that needs following up is ordinary work, and ordinary work
-  // is what a barrier is raised against. A Quick Action is the wrong subject.
-  await capture.getByRole('button', { name: /^Yes/ }).click();
-  await expect(capture.getByText('Recommended destination')).toBeVisible();
-  await capture.getByRole('button', { name: 'Confirm & Create' }).click();
-
-  // Work that needs follow-up lands in Available, and Capture takes you there.
+  // Work that needs follow-up lands in Available.
   await page.goto('/work?tab=available');
   await page.getByRole('link', { name: taskTitle }).click();
 
@@ -129,6 +121,12 @@ test('a decision request is actionable from every entry point', async ({ page },
 
   // --- Izzul answers --------------------------------------------------------
   await page.goto(attentionHref!);
+  // Wait for hydration before typing. Send decision is disabled until React
+  // sees a non-empty response, and a `fill` that lands on the server-rendered
+  // input sets the DOM value without ever reaching React state — so the button
+  // stays disabled and the failure reads as "cannot send a decision" rather
+  // than "typed too early".
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   const openPanel = page.locator('.barrier-action-panel');
   await openPanel.getByLabel('Your decision').fill(`Proceed with the alternative ${runId}.`);
   await openPanel.getByRole('button', { name: 'Send decision' }).click();

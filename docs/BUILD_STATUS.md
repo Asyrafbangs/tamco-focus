@@ -68,17 +68,17 @@ The UI/UX parity enforcement pass is included in that result: all main surfaces 
 | Attachment policy       | 10 MB and fixed MIME allowlist                   |
 | Virus scanning          | Disabled and explicitly not simulated            |
 | Retention               | Seven years, organisation-configurable           |
-| Email provider          | Local SMTP/Inbucket or log transport             |
+| Email provider          | `log`, `inbucket` or a real `smtp` relay         |
 | Routine generation      | Idempotent watermark with a 14-day lead          |
 
 A routine occurrence is represented as a task with `work_class = 'routine_occurrence'`, so it uses the same ownership, checklist, evidence, state, completion, and audit rules without duplicating those domains. npm is the documented package manager because the local guide permits an equivalent package manager when pnpm cannot be enabled.
 
-## Local-only boundary
+## Environment boundary
 
-- Local Supabase is the only configured backend.
-- No hosted Supabase project is linked.
-- No Vercel project was created or deployed.
-- `git remote -v` is empty; no remote was added or pushed.
-- Secrets remain in ignored local environment files only.
+This section described a local-only build. That stopped being true with the cloud migration approved on 11 August 2026, and leaving it in place would have made this file assert the opposite of the deployment it documents.
 
-The approved v33 product slice has no intentionally omitted Goal feature or placeholder page. The remaining local reset gate is an execution-authority constraint, not a product deferral. Future hosted deployment remains a separately authorised stage described in `docs/future-deployment.md`.
+- A hosted Supabase project and a Vercel project both exist; `MIGRATION_STATUS.md` and `DEPLOYMENT.md` hold their state and approval gates.
+- Local Supabase remains the only place fixtures, stress testing and experimentation belong. Production holds real operational data.
+- Secrets remain in ignored local environment files and in the hosting platform's own configuration. None are committed.
+
+The approved v33 product slice has no intentionally omitted Goal feature or placeholder page.

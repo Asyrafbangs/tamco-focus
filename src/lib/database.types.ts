@@ -5942,6 +5942,7 @@ export type Database = {
           description: string | null
           due_at: string | null
           due_is_date_only: boolean
+          expected_months: number | null
           followup_answer: string | null
           followup_question: string | null
           id: string
@@ -5950,6 +5951,7 @@ export type Database = {
           recommended_destination: Database["public"]["Enums"]["capture_destination"]
           resolved_at: string | null
           status: Database["public"]["Enums"]["capture_status"]
+          success_measure: string | null
           timing_choice: string
           title: string
           urgency_question_answer: boolean | null
@@ -5968,6 +5970,7 @@ export type Database = {
           description?: string | null
           due_at?: string | null
           due_is_date_only?: boolean
+          expected_months?: number | null
           followup_answer?: string | null
           followup_question?: string | null
           id?: string
@@ -5976,6 +5979,7 @@ export type Database = {
           recommended_destination: Database["public"]["Enums"]["capture_destination"]
           resolved_at?: string | null
           status?: Database["public"]["Enums"]["capture_status"]
+          success_measure?: string | null
           timing_choice: string
           title: string
           urgency_question_answer?: boolean | null
@@ -5994,6 +5998,7 @@ export type Database = {
           description?: string | null
           due_at?: string | null
           due_is_date_only?: boolean
+          expected_months?: number | null
           followup_answer?: string | null
           followup_question?: string | null
           id?: string
@@ -6002,6 +6007,7 @@ export type Database = {
           recommended_destination?: Database["public"]["Enums"]["capture_destination"]
           resolved_at?: string | null
           status?: Database["public"]["Enums"]["capture_status"]
+          success_measure?: string | null
           timing_choice?: string
           title?: string
           urgency_question_answer?: boolean | null

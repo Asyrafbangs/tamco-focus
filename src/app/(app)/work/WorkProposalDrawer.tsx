@@ -39,6 +39,15 @@ export function WorkProposalDrawer({
     text: string;
   } | null>(null);
 
+  // Read out of the payload rather than added to the proposal query: these are
+  // details of one kind of proposal, not fields every proposal has.
+  const successMeasure =
+    typeof proposal.payload.success_measure === 'string' && proposal.payload.success_measure.trim()
+      ? proposal.payload.success_measure
+      : null;
+  const rawMonths = proposal.payload.expected_months;
+  const expectedMonths = typeof rawMonths === 'number' && rawMonths > 0 ? rawMonths : null;
+
   function finish(result: OperationResult<{ version?: number }>, success: string) {
     if (!result.ok) {
       setMessage({ tone: 'error', text: result.message });
@@ -74,6 +83,24 @@ export function WorkProposalDrawer({
           <p className="eyebrow">Proposed outcome</p>
           <h3>Why this should become a Major Project</h3>
           <p>{proposal.rationale ?? 'No rationale was recorded.'}</p>
+
+          {/*
+            Scope and size, when the proposal carries them. Proposals made
+            before New Work asked for them have neither, and an empty heading
+            reads as a missing answer rather than a question never put — so
+            each appears only if there is something to show.
+          */}
+          {successMeasure && (
+            <>
+              <h3>What finished looks like</h3>
+              <p>{successMeasure}</p>
+            </>
+          )}
+          {expectedMonths !== null && (
+            <p className="proposal-size">
+              Proposed size: about {expectedMonths} {expectedMonths === 1 ? 'month' : 'months'}
+            </p>
+          )}
           {proposal.decisionNote && (
             <div className="notice warning">
               <strong>{statusLabel(proposal.status)}</strong>

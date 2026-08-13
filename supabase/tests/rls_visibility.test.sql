@@ -200,9 +200,36 @@ select isnt_empty(
   format('select id from public.tasks where primary_owner_id = %L', pg_temp.uid('lim')),
   'Lim can view his own work');
 
+/*
+ * What this is actually about: visibility mode `none` grants nothing through
+ * the reporting tree.
+ *
+ * It is NOT "Lim can never see a row Izzah owns". Being given a checklist step,
+ * or being named a collaborator or reviewer, is an explicit grant and is
+ * supposed to make that one task visible (v45 collaboration). Written as a
+ * blanket emptiness check, this passed only against pristine seed data and
+ * failed the moment any suite created a collaboration — reporting a working
+ * feature as a security failure.
+ */
 select is_empty(
-  format('select id from public.tasks where primary_owner_id = %L', pg_temp.uid('izzah')),
-  'Lim, whose mode is none, canNOT view Izzah');
+  format(
+    $q$ select t.id
+          from public.tasks t
+         where t.primary_owner_id = %1$L
+           and t.reviewer_id is distinct from %2$L
+           and not exists (
+                 select 1 from public.task_collaborators c
+                  where c.task_id = t.id and c.user_id = %2$L)
+           and not exists (
+                 select 1 from public.task_checklist_items ci
+                  where ci.task_id = t.id and ci.assigned_to = %2$L)
+           and not exists (
+                 select 1 from public.completion_reviews cr
+                  where cr.task_id = t.id
+                    and %2$L in (cr.reviewer_id, cr.second_reviewer_id)) $q$,
+    pg_temp.uid('izzah'),
+    pg_temp.uid('lim')),
+  'Lim, whose mode is none, canNOT view Izzah work he was never given');
 
 select is_empty(
   format('select id from public.tasks where primary_owner_id = %L', pg_temp.uid('amer')),
@@ -232,13 +259,43 @@ select pg_temp.reset_role();
 
 select pg_temp.act_as(pg_temp.uid('izzah'));
 
+/*
+ * This test brings its own Available task.
+ *
+ * It used to activate whichever `backlog` row it found first, which made it
+ * depend on state it did not create, in two ways. It read the id and the
+ * version in two separate unordered `limit 1` subqueries, so with more than
+ * one candidate they could name different rows and `activate_task` refused as
+ * a version conflict. And activating is a mutation, so a second run — or any
+ * earlier suite that had activated her last Available task — left nothing to
+ * activate at all.
+ *
+ * Both failures read as "an owner cannot activate her own work", which would
+ * be a serious authorisation bug and was never happening. Creating the row
+ * here means the test measures the permission it names and nothing else.
+ */
+select pg_temp.reset_role();
+
+insert into public.tasks (id, title, work_class, origin, status, primary_owner_id, created_by)
+values (
+  '0f0c0000-0000-4000-a000-0000000000a1',
+  'pgTAP fixture — Izzah activates her own work',
+  'operational_action',
+  'self_initiated',
+  'backlog',
+  pg_temp.uid('izzah'),
+  pg_temp.uid('izzah'))
+on conflict (id) do update
+  set status = 'backlog', version = public.tasks.version + 1;
+
+select pg_temp.act_as(pg_temp.uid('izzah'));
+
 select is(
-  (select (public.activate_task(
-     (select id from public.tasks
-       where primary_owner_id = pg_temp.uid('izzah') and status = 'backlog' limit 1),
-     (select version from public.tasks
-       where primary_owner_id = pg_temp.uid('izzah') and status = 'backlog' limit 1),
-     null, null, null) ->> 'ok')),
+  (with target as (
+     select id, version from public.tasks
+      where id = '0f0c0000-0000-4000-a000-0000000000a1')
+   select public.activate_task(target.id, target.version, null, null, null) ->> 'ok'
+     from target),
   'true',
   'Izzah CAN activate her own Available Work');
 

@@ -61,6 +61,6 @@ test.describe('Capture title input stability', () => {
     expect(probe, 'the title input was remounted during typing').toBe('original');
 
     // And the modal around it was not reconstructed either.
-    await expect(page.getByRole('dialog', { name: 'Capture work' })).toHaveCount(1);
+    await expect(page.getByRole('dialog', { name: 'New Work' })).toHaveCount(1);
   });
 });

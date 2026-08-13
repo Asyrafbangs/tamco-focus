@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { createWork } from './helpers/capture';
+
 const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
 
 async function signIn(page: Page, email: string) {
@@ -19,15 +21,7 @@ async function signIn(page: Page, email: string) {
 async function raiseRequest(page: Page, taskTitle: string, request: string) {
   await signIn(page, 'izzah@tamco.local');
 
-  await page.getByRole('link', { name: 'Capture work' }).click();
-  const capture = page.getByRole('dialog', { name: 'Capture work' });
-  await expect(capture).toBeVisible();
-  await capture.getByLabel('What needs to be done?').fill(taskTitle);
-  await capture.getByRole('button', { name: 'Add Work' }).click();
-  await expect(capture.getByText('One quick question')).toBeVisible();
-  await capture.getByRole('button', { name: /^Yes/ }).click();
-  await expect(capture.getByText('Recommended destination')).toBeVisible();
-  await capture.getByRole('button', { name: 'Confirm & Create' }).click();
+  await createWork(page, taskTitle);
 
   await page.goto('/work?tab=available');
   await page.getByRole('link', { name: taskTitle }).click();
@@ -123,6 +117,10 @@ test('a request can be queued, scheduled, and only then answered', async ({ page
 
   // --- The manager answers, and only that clears it --------------------------
   await page.goto(meetingHref!);
+  // Send decision stays disabled until React sees a non-empty response, so a
+  // `fill` on the server-rendered input sets the DOM value and nothing else.
+  // Without this wait the failure reads as "the manager cannot answer".
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   const answerPanel = page.locator('.barrier-action-panel');
   await expect(answerPanel).toBeVisible();
   await answerPanel.getByLabel('Your decision').fill(`Proceed after the shutdown ${runId}.`);
