@@ -14,11 +14,28 @@ import type { BinnedTask } from '@/server/queries';
  * take the audit history with it — which makes Restore the point of the screen
  * rather than a courtesy.
  */
-export function BinList({ tasks }: { tasks: readonly BinnedTask[] }) {
+export function BinList({
+  tasks,
+  failed = false,
+}: {
+  tasks: readonly BinnedTask[];
+  failed?: boolean;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
+
+  // Distinguished from emptiness on purpose: a failed read used to render as
+  // 'The Bin is empty', which told somebody their deleted work was gone.
+  if (failed) {
+    return (
+      <div className="notice error" role="alert">
+        <strong>The Bin could not be loaded</strong>
+        <p>Nothing has been lost. Refresh the page, and tell an administrator if it persists.</p>
+      </div>
+    );
+  }
 
   if (tasks.length === 0) {
     return (

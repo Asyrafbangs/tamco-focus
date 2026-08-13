@@ -190,7 +190,7 @@ export function TaskDetailDrawer({
   ).length;
   const checklistOutstanding = detail.checklist.length - checklistCompleted;
   const readyToComplete =
-    detail.capabilities.canContribute &&
+    detail.capabilities.canComplete &&
     (task.status === 'active' || task.status === 'backlog' || task.status === 'paused') &&
     checklistOutstanding === 0 &&
     requiredEvidenceOutstanding === 0;
@@ -1527,7 +1527,7 @@ export function TaskDetailDrawer({
                       Offered here only while something is still outstanding, so
                       the action is never unreachable.
                     */}
-                    {!readyToComplete && (
+                    {!readyToComplete && detail.capabilities.canComplete && (
                       <button
                         type="button"
                         className="btn small"
@@ -1536,13 +1536,17 @@ export function TaskDetailDrawer({
                         Complete task
                       </button>
                     )}
-                    <button
-                      type="button"
-                      className="btn small danger"
-                      onClick={() => setDeleteOpen(true)}
-                    >
-                      Delete task
-                    </button>
+                    {/* The creator only. Ownership can move; authorship cannot,
+                        and only the author can know a task was a mistake. */}
+                    {detail.capabilities.canDelete && (
+                      <button
+                        type="button"
+                        className="btn small danger"
+                        onClick={() => setDeleteOpen(true)}
+                      >
+                        Delete task
+                      </button>
+                    )}
                   </>
                 )}
 

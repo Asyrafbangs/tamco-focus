@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createTask, serviceClient, signInAs } from './setup';
+import { createTask, PEOPLE, serviceClient, signInAs } from './setup';
 
 type Rpc = Record<string, unknown> & { ok: boolean; code: string };
 
@@ -152,5 +152,82 @@ describe('v57 deleting a task moves it to the Bin', () => {
     ).data as Rpc;
 
     expect(again).toMatchObject({ ok: true, code: 'already_deleted' });
+  });
+});
+
+/**
+ * v58 narrowed both rules. Completing states that the result was delivered, so
+ * it belongs to whoever is accountable for the result. Deleting states the task
+ * should never have existed, which only its author can know.
+ */
+describe('v58 completion and deletion authority', () => {
+  it('lets the owner complete but not delete work somebody else created', async () => {
+    const task = await createTask('amer', { title: 'Owned, not authored' });
+    // Reassign authorship to somebody else without moving ownership.
+    await serviceClient().from('tasks').update({ created_by: PEOPLE.izzah.id }).eq('id', task.id);
+
+    const owner = await signInAs('amer');
+    const refused = (
+      await owner.rpc('delete_task', {
+        p_task_id: task.id,
+        p_expected_version: task.version,
+        p_idempotency_key: crypto.randomUUID(),
+      })
+    ).data as Rpc;
+    expect(refused.ok).toBe(false);
+    expect(refused.code).toBe('not_authorised');
+
+    const { data: caps } = await owner.rpc('get_task_capabilities', { p_task_id: task.id });
+    expect((caps as Record<string, unknown>).can_complete).toBe(true);
+    expect((caps as Record<string, unknown>).can_delete).toBe(false);
+  });
+
+  it('refuses completion by a contributor who only owns a checklist step', async () => {
+    const task = await createTask('amer', { title: 'Contributor cannot close this' });
+    await serviceClient().from('task_checklist_items').insert({
+      task_id: task.id,
+      position: 1,
+      action: 'A step for somebody else',
+      assigned_to: PEOPLE.izzah.id,
+      evidence_rule: 'not_required',
+    });
+
+    const contributor = await signInAs('izzah');
+    const refused = (
+      await contributor.rpc('complete_task', {
+        p_task_id: task.id,
+        p_expected_version: task.version,
+        p_completion_note: null,
+        p_idempotency_key: crypto.randomUUID(),
+      })
+    ).data as Rpc;
+
+    expect(refused.ok).toBe(false);
+    expect(refused.code).toBe('not_authorised');
+
+    const { data: caps } = await contributor.rpc('get_task_capabilities', { p_task_id: task.id });
+    // She can still see and contribute — she just cannot declare it finished.
+    expect((caps as Record<string, unknown>).can_view).toBe(true);
+    expect((caps as Record<string, unknown>).can_contribute).toBe(true);
+    expect((caps as Record<string, unknown>).can_complete).toBe(false);
+  });
+
+  it('lets the creator delete work they no longer own', async () => {
+    const task = await createTask('amer', { title: 'Authored, then handed over' });
+    await serviceClient()
+      .from('tasks')
+      .update({ primary_owner_id: PEOPLE.izzah.id })
+      .eq('id', task.id);
+
+    const creator = await signInAs('amer');
+    const deleted = (
+      await creator.rpc('delete_task', {
+        p_task_id: task.id,
+        p_expected_version: task.version,
+        p_idempotency_key: crypto.randomUUID(),
+      })
+    ).data as Rpc;
+
+    expect(deleted).toMatchObject({ ok: true, code: 'task_deleted' });
   });
 });

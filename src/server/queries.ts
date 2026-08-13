@@ -204,6 +204,10 @@ export interface TaskDetail {
     canContribute: boolean;
     canEdit: boolean;
     canReview: boolean;
+    /** Owner or their manager. Excludes contributors, who finish steps not results. */
+    canComplete: boolean;
+    /** The creator only. Deleting says the task should never have existed. */
+    canDelete: boolean;
     /** v52 — a manager act, never the owner's own (section 3.4). */
     canReassign: boolean;
     canCancel: boolean;
@@ -390,6 +394,8 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
       canContribute: Boolean(rawCapabilities.can_contribute),
       canEdit: Boolean(rawCapabilities.can_edit),
       canReview: Boolean(rawCapabilities.can_review),
+      canComplete: Boolean(rawCapabilities.can_complete),
+      canDelete: Boolean(rawCapabilities.can_delete),
       canReassign: Boolean(rawCapabilities.can_reassign),
       canCancel: Boolean(rawCapabilities.can_cancel),
     },
@@ -782,7 +788,7 @@ export interface BinnedTask {
  * `binned_tasks` is `security_invoker`, so RLS decides the rows; this only
  * orders and shapes them.
  */
-export async function getBinnedTasks(): Promise<BinnedTask[]> {
+export async function getBinnedTasks(): Promise<{ tasks: BinnedTask[]; failed: boolean }> {
   const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase
@@ -792,18 +798,25 @@ export async function getBinnedTasks(): Promise<BinnedTask[]> {
     .limit(200);
 
   if (error) {
+    // Returning an empty list here would render as "The Bin is empty", which
+    // states as fact something we do not know. The caller reports the failure
+    // instead, because telling somebody their deleted work is gone when the
+    // query merely broke is the worst possible answer.
     console.error(`[getBinnedTasks] ${error.message}`);
-    return [];
+    return { tasks: [], failed: true };
   }
 
-  return (data ?? []).map((row) => ({
-    id: String(row.id),
-    title: String(row.title),
-    status: String(row.status),
-    ownerName: String(row.owner_name ?? ''),
-    deletedAt: String(row.deleted_at),
-    deletedByName: row.deleted_by_name ? String(row.deleted_by_name) : null,
-  }));
+  return {
+    failed: false,
+    tasks: (data ?? []).map((row) => ({
+      id: String(row.id),
+      title: String(row.title),
+      status: String(row.status),
+      ownerName: String(row.owner_name ?? ''),
+      deletedAt: String(row.deleted_at),
+      deletedByName: row.deleted_by_name ? String(row.deleted_by_name) : null,
+    })),
+  };
 }
 
 export async function getDirectReportCount(viewerId: string): Promise<number> {
