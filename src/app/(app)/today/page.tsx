@@ -191,7 +191,7 @@ export default async function TodayPage({
             Open My Focus
           </Link>
           <Link href="/today?capture=1" className="btn primary">
-            ＋ Capture Work
+            ＋ New Work
           </Link>
         </div>
       </div>

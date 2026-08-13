@@ -4,12 +4,11 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 import { classifyCapture } from '@/domain/classification';
-import { endOfLocalDay, localDateString } from '@/domain/duration';
-import type { CaptureDestination, CaptureTiming, OperationResult } from '@/domain/types';
+import { endOfLocalDay } from '@/domain/duration';
+import type { CaptureDestination, OperationResult } from '@/domain/types';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
 import { safeAttachmentFileName, validateAttachmentFiles } from '@/server/attachments';
 
-const captureTiming = z.enum(['today', 'this_week', 'choose_date', 'no_date']);
 const captureDestination = z.enum([
   'quick_action',
   'operational_available_work',
@@ -28,31 +27,20 @@ export interface CaptureDraftResult {
   recommendation?: ReturnType<typeof classifyCapture>;
 }
 
-function dueAtFor(
-  timing: CaptureTiming,
-  chosenDate: string | null,
-  timeZone: string,
-): string | null {
-  if (timing === 'no_date') return null;
-  if (timing === 'choose_date') return endOfLocalDay(chosenDate ?? '', timeZone).toISOString();
-
-  const today = localDateString(new Date(), timeZone);
-  if (timing === 'today') return endOfLocalDay(today, timeZone).toISOString();
-
-  const [year, month, day] = today.split('-').map(Number);
-  const date = new Date(Date.UTC(year!, month! - 1, day!));
-  const daysUntilSunday = (7 - date.getUTCDay()) % 7;
-  date.setUTCDate(date.getUTCDate() + daysUntilSunday);
-  return endOfLocalDay(date.toISOString().slice(0, 10), timeZone).toISOString();
-}
-
 export async function createCaptureDraft(formData: FormData): Promise<CaptureDraftResult> {
   const profile = await requireProfile();
   const parsed = z
     .object({
       title: z.string().trim().min(1).max(200),
       description: z.string().trim().max(4000).optional(),
-      timing: captureTiming,
+      /** Chosen from a list. Never read out of the title. */
+      workType: z.enum(['normal', 'routine', 'self_development', 'major_project']),
+      /**
+       * The answer to the follow-up question, or absent. Deliberately NOT
+       * derived from `chosenDate`: a fortnight-away deadline says nothing about
+       * how long the work takes.
+       */
+      requiresFollowUp: z.enum(['yes', 'no']).optional(),
       chosenDate: z
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -61,12 +49,13 @@ export async function createCaptureDraft(formData: FormData): Promise<CaptureDra
     .safeParse({
       title: formData.get('title'),
       description: formData.get('description') || undefined,
-      timing: formData.get('timing'),
+      workType: formData.get('workType') || 'normal',
+      requiresFollowUp: formData.get('requiresFollowUp') || undefined,
       chosenDate: formData.get('chosenDate') || undefined,
     });
 
-  if (!parsed.success || (parsed.data?.timing === 'choose_date' && !parsed.data.chosenDate)) {
-    return { ok: false, code: 'validation_failed', message: 'Add a title and valid timing.' };
+  if (!parsed.success) {
+    return { ok: false, code: 'validation_failed', message: 'Add a title before creating work.' };
   }
 
   const files = formData
@@ -75,11 +64,16 @@ export async function createCaptureDraft(formData: FormData): Promise<CaptureDra
   const fileError = validateAttachmentFiles(files);
   if (fileError) return { ok: false, code: 'validation_failed', message: fileError };
 
-  const classificationText = [parsed.data.title, parsed.data.description]
-    .filter(Boolean)
-    .join(' — ');
-  const recommendation = classifyCapture({ title: classificationText, timing: parsed.data.timing });
-  const dueAt = dueAtFor(parsed.data.timing, parsed.data.chosenDate ?? null, profile.timezone);
+  const recommendation = classifyCapture({
+    workType: parsed.data.workType,
+    requiresFollowUp:
+      parsed.data.requiresFollowUp === undefined ? null : parsed.data.requiresFollowUp === 'yes',
+  });
+  // The date is a commitment, not a signal. It sets when the work is due and
+  // has no bearing on what kind of work it is.
+  const dueAt = parsed.data.chosenDate
+    ? endOfLocalDay(parsed.data.chosenDate, profile.timezone).toISOString()
+    : null;
   const supabase = await createSupabaseServerClient();
   const { data: draft, error } = await supabase
     .from('work_captures')
@@ -87,13 +81,18 @@ export async function createCaptureDraft(formData: FormData): Promise<CaptureDra
       captured_by: profile.id,
       title: parsed.data.title,
       description: parsed.data.description || null,
-      timing_choice: parsed.data.timing,
+      // Retained for records captured before the date stopped driving type.
+      timing_choice: parsed.data.chosenDate ? 'choose_date' : 'no_date',
       due_at: dueAt,
       due_is_date_only: true,
       recommended_destination: recommendation.destination,
-      recommendation_reason: recommendation.reason,
+      recommendation_reason: recommendation.ruleText,
+      // Section 12 — the rule travels with the capture so the task it becomes
+      // can answer 'why was this created as Operational?' long afterwards.
+      classification_rule_code: recommendation.ruleCode,
+      classification_rule_text: recommendation.ruleText,
       urgency_question_asked: recommendation.urgencyQuestion !== null,
-      followup_question: recommendation.followUpQuestion,
+      followup_question: null,
     })
     .select('id')
     .single();
@@ -182,8 +181,10 @@ export async function answerCaptureQuestion(input: {
           ? false
           : null;
   const recommendation = classifyCapture({
-    title: [capture.title, capture.description].filter(Boolean).join(' — '),
-    timing: capture.timing_choice as CaptureTiming,
+    // The stored capture predates chosen work types, so anything reclassified
+    // through this path is ordinary work by definition — the specialised types
+    // are picked up front and never re-derived here.
+    workType: 'normal',
     needsImmediateControlledAction: urgencyAnswer,
     requiresFollowUp: followupAnswer,
   });
@@ -192,10 +193,12 @@ export async function answerCaptureQuestion(input: {
     .from('work_captures')
     .update({
       recommended_destination: recommendation.destination,
-      recommendation_reason: recommendation.reason,
+      recommendation_reason: recommendation.ruleText,
+      classification_rule_code: recommendation.ruleCode,
+      classification_rule_text: recommendation.ruleText,
       urgency_question_asked: capture.urgency_question_asked || parsed.data.question === 'urgency',
       urgency_question_answer: urgencyAnswer,
-      followup_question: recommendation.followUpQuestion,
+      followup_question: null,
       followup_answer: followupAnswer == null ? null : followupAnswer ? 'yes' : 'no',
     })
     .eq('id', capture.id);

@@ -388,7 +388,7 @@ export default async function WorkPage({
         </div>
         <div className="actions">
           <Link href="/capture" className="btn primary">
-            Capture work
+            New Work
           </Link>
         </div>
       </div>
@@ -771,7 +771,7 @@ export default async function WorkPage({
                 href={activeTab === 'available' ? '/capture' : '/work?tab=available'}
                 className="btn"
               >
-                {activeTab === 'available' ? 'Capture work' : 'View Available'}
+                {activeTab === 'available' ? 'New Work' : 'View Available'}
               </Link>
             </div>
           )}

@@ -41,53 +41,72 @@
  *   already owns.
  */
 
-import type { CaptureDestination, CaptureTiming } from './types';
+import type { CaptureDestination } from './types';
+
+/**
+ * What the person said this is, chosen from a list rather than read out of
+ * their sentence.
+ *
+ * `normal` covers the overwhelming majority of work and splits into a Quick
+ * Action or an Operational Action on one explicit question. The other three
+ * are deliberate choices somebody makes when they know they are doing
+ * something out of the ordinary.
+ */
+export type CaptureWorkType = 'normal' | 'routine' | 'self_development' | 'major_project';
 
 export interface CaptureInput {
-  title: string;
-  timing: CaptureTiming;
-  /** Answer to the one follow-up question, when it was asked (section 8.5). */
+  /** Chosen, never inferred. */
+  workType: CaptureWorkType;
+  /**
+   * Answer to "will this need follow-up after the day you start?".
+   *
+   * Only meaningful for `normal` work, and only ever a real answer — this is
+   * not derived from the due date. A task due a fortnight away can still be a
+   * five-minute phone call, and treating a distant date as evidence of a long
+   * job is precisely the inference this module exists to avoid.
+   */
   requiresFollowUp?: boolean | null;
   /** Answer to the explicit urgency question, when it was asked (section 8.6). */
   needsImmediateControlledAction?: boolean | null;
 }
 
 /**
- * Stable identifiers for the deterministic rules. Stored on the task so the
- * reason a work class was chosen survives long after the wording of the
- * sentence shown at capture time has been reworded (section 12).
+ * Why a destination was chosen, kept for the audit trail.
+ *
+ * Stable identifiers, stored on the task, so the reason a work class was chosen
+ * survives long after the sentence shown at capture time has been reworded
+ * (section 12).
+ *
+ * The old codes described inferences that no longer happen —
+ * `recurring_schedule` meant "your title contained the word weekly", and
+ * `multi_day_default` meant "your due date was not today". Both are gone, along
+ * with the inferences. What remains describes a choice somebody made.
  */
 export type ClassificationRuleCode =
   | 'explicit_urgent_confirmed'
-  | 'recurring_schedule'
-  | 'self_development_topic'
-  | 'major_programme_scope'
-  | 'continued_followup_yes'
-  | 'same_day_no_followup'
-  | 'same_day_pending_answer'
-  | 'multi_day_default';
+  | 'chosen_routine'
+  | 'chosen_self_development'
+  | 'chosen_major_project'
+  | 'normal_no_followup'
+  | 'normal_with_followup';
 
 export interface CaptureRecommendation {
   destination: CaptureDestination;
-  /** One sentence, shown on the result screen (section 8.4). */
-  reason: string;
   /** Section 12 — the rule that produced this, for the audit trail. */
   ruleCode: ClassificationRuleCode;
-  /** The same rule in the words the person saw. */
+  /** The same rule in plain words, also for the trail. */
   ruleText: string;
-  /** Section 8.4 — the capacity effect line. */
-  capacityEffect: string;
-  /** Section 8.4 — the manager visibility effect line. */
-  managerVisibility: string;
   /**
-   * The single follow-up question to ask, when the rules cannot classify
-   * confidently (section 8.5). Null when no question is needed.
+   * The one line the person sees before creating: "Operational Action · starts
+   * in Available". Everything else the old result screen showed — capacity
+   * effect, manager visibility, the rule code — was the system explaining its
+   * own architecture to somebody who only wanted to add a task, and it now
+   * lives in the audit trail where it belongs.
    */
-  followUpQuestion: string | null;
+  summary: string;
   /**
-   * Section 8.6 — set when potentially urgent wording was detected. The
-   * interface must ask this question and must NOT classify as mandatory on the
-   * strength of the wording alone.
+   * Section 8.6 — the urgency question, reachable only through the explicit
+   * "Report urgent issue" route. Never raised by wording.
    */
   urgencyQuestion: string | null;
 }
@@ -100,199 +119,109 @@ export const URGENCY_QUESTION =
   'Does this need immediate controlled action because of an active safety risk, ' +
   'legal requirement, or compliance deadline?';
 
-/** The clarifying question from section 8.5. */
-export const FOLLOW_UP_QUESTION = 'Will this require continued follow-up after today?';
+/**
+ * The one question that splits ordinary work (section 8.5).
+ *
+ * Asked explicitly, and only for `normal` work. It replaces the old rule that
+ * read the due date: a task due in a fortnight was classified as multi-day
+ * work and told the person "you said this needs more than a day", which they
+ * had not said. "Call the supplier on Friday" is due Friday and is still a
+ * five-minute job.
+ */
+export const FOLLOW_UP_QUESTION = 'Will this need follow-up after the day you start?';
 
-// ---------------------------------------------------------------------------
-// Wording signals
-//
-// These detect *shape* — does this repeat, is it about my own capability, is it
-// a programme — and nothing else. There is deliberately no safety or urgency
-// list here (v40 section 13): urgency is a question a person answers, never
-// something inferred from a noun in a title.
-// ---------------------------------------------------------------------------
-
-const RECURRING = [
-  'every day',
-  'every week',
-  'every month',
-  'each week',
-  'each month',
-  'each day',
-  'daily',
-  'weekly',
-  'monthly',
-  'quarterly',
-  'recurring',
-  'routine',
-  'regular check',
-  'periodic',
-];
-
-const SELF_DEVELOPMENT = [
-  'training course',
-  'certification',
-  'certificate',
-  'e-learning',
-  'elearning',
-  'self-learning',
-  'study',
-  'revision',
-  'exam',
-  'coaching',
-  'mentoring',
-  'competency',
-  'upskill',
-  'learn ',
-  'course',
-];
-
-const MAJOR_PROJECT = [
-  'programme',
-  'program ',
-  'roll out',
-  'rollout',
-  'implement across',
-  'company-wide',
-  'site-wide',
-  'transformation',
-  'strategy',
-  'strategic',
-  'overhaul',
-  'introduce a',
-  'new system',
-];
-
-function mentions(haystack: string, needles: readonly string[]): boolean {
-  return needles.some((needle) => haystack.includes(needle));
-}
-
-// ---------------------------------------------------------------------------
-// Presentation helpers for the result screen (section 8.4)
-// ---------------------------------------------------------------------------
-
-const CAPACITY_EFFECT: Record<CaptureDestination, string> = {
-  quick_action: 'Does not use a focus target.',
-  operational_available_work: 'Uses an Operational Action focus target once you activate it.',
-  routine_template_request: 'Routine work does not use a focus target.',
-  self_development_plan: 'Uses your Self-Development Plan focus target once activated.',
-  collaborative_contribution: 'Does not use a separate focus target.',
-  // Retained for records captured before v40 removed this destination. It is
-  // no longer reachable from Capture Work.
-  major_project_request: 'Uses your Major Project focus target once approved and activated.',
-  mandatory_operational_action:
-    'Activates immediately and may take you over your focus target, which is allowed.',
-};
-
-const MANAGER_VISIBILITY: Record<CaptureDestination, string> = {
-  quick_action: 'Appears in your manager’s weekly summary, not as an individual alert.',
-  operational_available_work: 'Visible to your manager in Team Focus. No approval needed.',
-  routine_template_request: 'Your manager reviews the routine before occurrences are generated.',
-  self_development_plan: 'Visible to your manager in Team Focus. No approval needed.',
-  collaborative_contribution: 'Visible to the owner of the task you are contributing to.',
-  major_project_request: 'Your manager reviews this proposal before it becomes a project.',
-  mandatory_operational_action: 'Your manager is notified immediately.',
+/**
+ * The line shown under the form before creating, e.g.
+ * "Operational Action · starts in Available".
+ *
+ * Short on purpose. The person is about to press Create work; they need to
+ * know where it lands, not how the capacity model treats it.
+ */
+const SUMMARY: Record<CaptureDestination, string> = {
+  quick_action: 'Quick Action · starts on My Day',
+  operational_available_work: 'Operational Action · starts in Available',
+  routine_template_request: 'Routine · your manager reviews the schedule',
+  self_development_plan: 'Self-Development · starts in Available',
+  collaborative_contribution: 'Contribution',
+  major_project_request: 'Major Project proposal · your manager reviews it',
+  mandatory_operational_action: 'Mandatory · starts immediately',
 };
 
 /**
- * Recommends one destination for captured work.
+ * Chooses a destination from what the person actually told us.
  *
- * Order matters. The urgency question comes first because section 8.6 forbids
- * urgent wording from silently becoming a Mandatory Operational Action; the
- * caller must ask and get an answer before any mandatory outcome is reachable.
+ * Nothing here reads the title. The previous version matched wording lists to
+ * decide that "weekly toolbox talk" was a routine and "roll out the new permit
+ * system" was a major programme. That is the same hidden inference the module
+ * header already rejects for safety wording, applied to three other kinds of
+ * work — and it produced confident rule codes for guesses. Work type is now
+ * chosen from a short list, and the only remaining question is asked out loud.
  */
 export function classifyCapture(input: CaptureInput): CaptureRecommendation {
-  const text = input.title.toLowerCase().trim();
-
   const build = (
     destination: CaptureDestination,
     ruleCode: ClassificationRuleCode,
-    reason: string,
-    followUpQuestion: string | null = null,
+    ruleText: string,
+    urgencyQuestion: string | null = null,
   ): CaptureRecommendation => ({
     destination,
-    reason,
     ruleCode,
-    // The audit trail keeps the sentence the person actually read, so a later
-    // rewording of `reason` cannot retroactively change what they were told.
-    ruleText: reason,
-    capacityEffect: CAPACITY_EFFECT[destination],
-    managerVisibility: MANAGER_VISIBILITY[destination],
-    followUpQuestion,
-    // v40 section 13 — nothing in a title can raise this question any more. It
-    // belongs to the explicit safety path, which sets the answer before calling
-    // this function at all.
-    urgencyQuestion: null,
+    ruleText,
+    summary: SUMMARY[destination],
+    urgencyQuestion,
   });
 
-  // Section 8.6 — the ANSWER decides, and it decides on its own. This is the
-  // only route to mandatory classification: it is reached from the explicit
-  // "Report urgent safety or compliance work" action, where the person answered
-  // the question themselves. No wording anywhere can set it.
+  // First, because section 8.6 forbids any other path to a mandatory outcome.
+  // Reachable only from "Report urgent issue", where a person answered.
   if (input.needsImmediateControlledAction === true) {
     return build(
       'mandatory_operational_action',
       'explicit_urgent_confirmed',
-      'You confirmed this needs immediate controlled action, so it is treated as mandatory work.',
+      'The person confirmed this needs immediate controlled action.',
     );
   }
 
-  if (mentions(text, RECURRING)) {
+  if (input.workType === 'routine') {
     return build(
       'routine_template_request',
-      'recurring_schedule',
-      'You described work that repeats on a schedule, so it belongs to a routine rather than a one-off task.',
+      'chosen_routine',
+      'The person chose Routine as the work type.',
     );
   }
 
-  if (mentions(text, SELF_DEVELOPMENT)) {
+  if (input.workType === 'self_development') {
     return build(
       'self_development_plan',
-      'self_development_topic',
-      'You described building your own capability, which belongs in your Self-Development Plan.',
+      'chosen_self_development',
+      'The person chose Self-Development as the work type.',
     );
   }
 
-  if (mentions(text, MAJOR_PROJECT)) {
+  if (input.workType === 'major_project') {
     return build(
       'major_project_request',
-      'major_programme_scope',
-      'You described a sustained change programme, which needs to be agreed as a Major Project.',
+      'chosen_major_project',
+      'The person chose Major Project proposal as the work type.',
     );
   }
 
-  // Timing is the strongest ordinary signal. Same-day work with no follow-up is
-  // a Quick Action (section 6.3).
-  if (input.timing === 'today') {
-    if (input.requiresFollowUp === true) {
-      return build(
-        'operational_available_work',
-        'continued_followup_yes',
-        'You said continued follow-up is needed, so this is sustained work rather than a Quick Action.',
-      );
-    }
-
-    if (input.requiresFollowUp === false) {
-      return build(
-        'quick_action',
-        'same_day_no_followup',
-        'You said this is due today and needs no follow-up afterwards, so it fits a Quick Action.',
-      );
-    }
-
-    // Section 8.5 — one relevant follow-up question, not the whole model.
+  // Ordinary work. One answered question decides it; an unanswered one leaves
+  // it Operational, which is the safer default because it carries a focus
+  // target and stays visible rather than disappearing into a same-day list.
+  if (input.requiresFollowUp === false) {
     return build(
       'quick_action',
-      'same_day_pending_answer',
-      'Due today and small enough to finish in one go.',
-      FOLLOW_UP_QUESTION,
+      'normal_no_followup',
+      'The person said this needs no follow-up after the day they start.',
     );
   }
 
   return build(
     'operational_available_work',
-    'multi_day_default',
-    'You said this needs more than a day, so it becomes Available Work you can activate when ready.',
+    'normal_with_followup',
+    input.requiresFollowUp === true
+      ? 'The person said this needs follow-up after the day they start.'
+      : 'Ordinary work, with no follow-up answer given.',
   );
 }
 

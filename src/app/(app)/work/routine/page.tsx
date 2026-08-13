@@ -122,7 +122,7 @@ export default async function RoutinePage({
         </div>
         <div className="actions">
           <Link href="/capture" className="btn primary">
-            Capture work
+            New Work
           </Link>
         </div>
       </div>
@@ -295,7 +295,7 @@ export default async function RoutinePage({
               href={occurrences.length === 0 ? '/capture' : '/work/routine?view=upcoming'}
               className="btn"
             >
-              {occurrences.length === 0 ? 'Capture work' : 'See upcoming'}
+              {occurrences.length === 0 ? 'New Work' : 'See upcoming'}
             </Link>
           </div>
         )}

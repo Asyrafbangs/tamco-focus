@@ -5,244 +5,145 @@ import {
   FOLLOW_UP_QUESTION,
   requiresGovernanceReview,
   SELECTABLE_DESTINATIONS,
+  URGENCY_QUESTION,
 } from '@/domain/classification';
 
-describe('urgent wording (section 8.6, v40 section 13)', () => {
-  it('does not react to safety wording at all', () => {
-    // v40 section 13 uses this exact example. "PPE" is a noun about a topic,
-    // not a claim about urgency, and reading urgency out of it is the hidden
-    // inference the product must not make.
-    const result = classifyCapture({
-      title: 'replace PPE signage',
-      timing: 'today',
-      requiresFollowUp: false,
-    });
+/**
+ * The classifier stopped reading titles and due dates.
+ *
+ * Work type is chosen from a list; the one remaining ambiguity for ordinary
+ * work is asked out loud. These tests exist mostly to keep inference from
+ * creeping back in, because every previous version of this module inferred
+ * something from wording and was confident about it.
+ */
+describe('nothing is inferred from the title', () => {
+  const TITLES = [
+    'replace PPE signage',
+    'weekly toolbox talk every Monday',
+    'learn advanced risk assessment',
+    'roll out a new permit-to-work system across both sites',
+    'urgent legal compliance deadline',
+  ];
 
-    expect(result.destination).toBe('quick_action');
-    expect(result.urgencyQuestion).toBeNull();
-    expect(result.ruleCode).toBe('same_day_no_followup');
-  });
-
-  it('never raises the urgency question from wording, however alarming', () => {
-    for (const title of [
-      'Chemical spill near the loading bay',
-      'PPE stock is low and there is a safety risk on line 2',
-      'Fire extinguisher inspection overdue',
-      'Compliance audit finding to close',
-    ]) {
-      const result = classifyCapture({ title, timing: 'today' });
-      expect(result.destination).not.toBe('mandatory_operational_action');
-      expect(result.urgencyQuestion).toBeNull();
+  it('classifies ordinary work the same way whatever the title says', () => {
+    // The old module read these titles and produced routines, development
+    // plans and major programmes from wording alone.
+    for (const title of TITLES) {
+      const result = classifyCapture({ workType: 'normal', requiresFollowUp: true });
+      expect(result.destination).toBe('operational_available_work');
+      expect(result.ruleCode).toBe('normal_with_followup');
+      void title;
     }
   });
 
-  it('reaches mandatory only from an explicit yes', () => {
-    // The explicit "Report urgent safety or compliance work" path. Note the
-    // title says nothing urgent — the ANSWER is what decides.
-    const result = classifyCapture({
-      title: 'Move the pallet stack away from the panel',
-      timing: 'today',
-      needsImmediateControlledAction: true,
-    });
+  it('never reaches a mandatory outcome without an explicit answer', () => {
+    const unanswered = classifyCapture({ workType: 'normal' });
+    expect(unanswered.destination).not.toBe('mandatory_operational_action');
 
-    expect(result.destination).toBe('mandatory_operational_action');
-    expect(result.ruleCode).toBe('explicit_urgent_confirmed');
-  });
-
-  it('continues ordinary classification when the answer is no', () => {
-    const result = classifyCapture({
-      title: 'Update the safety noticeboard',
-      timing: 'this_week',
+    const declined = classifyCapture({
+      workType: 'normal',
       needsImmediateControlledAction: false,
     });
+    expect(declined.destination).not.toBe('mandatory_operational_action');
 
-    expect(result.destination).toBe('operational_available_work');
-    expect(result.urgencyQuestion).toBeNull();
-  });
-
-  it('produces mandatory work only once the answer is yes', () => {
-    const result = classifyCapture({
-      title: 'Isolate the faulty conveyor — burning smell reported',
-      timing: 'today',
+    const confirmed = classifyCapture({
+      workType: 'normal',
       needsImmediateControlledAction: true,
     });
-
-    expect(result.destination).toBe('mandatory_operational_action');
-    expect(result.capacityEffect).toContain('may take you over your focus target');
-  });
-
-  it('honours an explicit yes even when the wording contains no safety terms', () => {
-    // Reached through the "Report urgent safety or compliance work" action in
-    // section 8.2. Gating the mandatory outcome on keyword detection here would
-    // silently downgrade genuinely urgent work.
-    const result = classifyCapture({
-      title: 'Stop the line — something is badly wrong with the press',
-      timing: 'today',
-      needsImmediateControlledAction: true,
-    });
-
-    expect(result.destination).toBe('mandatory_operational_action');
+    expect(confirmed.destination).toBe('mandatory_operational_action');
+    expect(confirmed.ruleCode).toBe('explicit_urgent_confirmed');
   });
 });
 
-describe('ordinary classification (section 8.4)', () => {
-  it('recommends a Quick Action for same-day work with no follow-up', () => {
-    const result = classifyCapture({
-      title: 'Replace the torn label on tank 3',
-      timing: 'today',
-      requiresFollowUp: false,
-    });
-
+describe('ordinary work splits on one answered question', () => {
+  it('is a Quick Action when no follow-up is needed', () => {
+    const result = classifyCapture({ workType: 'normal', requiresFollowUp: false });
     expect(result.destination).toBe('quick_action');
-    expect(result.capacityEffect).toBe('Does not use a focus target.');
+    expect(result.ruleCode).toBe('normal_no_followup');
   });
 
-  it('asks the single follow-up question when same-day intent is ambiguous', () => {
-    const result = classifyCapture({ title: 'Sort out the store room', timing: 'today' });
-
-    expect(result.followUpQuestion).toBe(FOLLOW_UP_QUESTION);
-  });
-
-  it('upgrades to Operational Available Work when follow-up is needed', () => {
-    const result = classifyCapture({
-      title: 'Sort out the store room',
-      timing: 'today',
-      requiresFollowUp: true,
-    });
-
+  it('is an Operational Action when follow-up is needed', () => {
+    const result = classifyCapture({ workType: 'normal', requiresFollowUp: true });
     expect(result.destination).toBe('operational_available_work');
+    expect(result.ruleCode).toBe('normal_with_followup');
   });
 
-  it('recognises recurring work as a routine template request', () => {
-    // "fire" is safety-sensitive wording, so the urgency question is asked
-    // first. Answering "no" resumes ordinary classification, which is where the
-    // recurring signal is read.
-    const result = classifyCapture({
-      title: 'Check fire extinguisher tags every month',
-      timing: 'no_date',
-      needsImmediateControlledAction: false,
-    });
+  it('defaults to Operational when the question was never answered', () => {
+    // The safer default: it carries a focus target and stays visible, rather
+    // than disappearing into a same-day list nobody revisits.
+    const result = classifyCapture({ workType: 'normal' });
+    expect(result.destination).toBe('operational_available_work');
+    expect(result.ruleText).toMatch(/no follow-up answer/i);
+  });
 
+  it('asks a question that does not mention the due date', () => {
+    // The old copy said "you said this needs more than a day" on the strength
+    // of a date the person had picked for entirely different reasons.
+    expect(FOLLOW_UP_QUESTION).toMatch(/after the day you start/i);
+    expect(FOLLOW_UP_QUESTION).not.toMatch(/due/i);
+  });
+});
+
+describe('the other three work types are chosen, not detected', () => {
+  it('routes Routine to a template request', () => {
+    const result = classifyCapture({ workType: 'routine' });
     expect(result.destination).toBe('routine_template_request');
-    expect(result.capacityEffect).toContain('does not use a focus target');
+    expect(result.ruleCode).toBe('chosen_routine');
   });
 
-  it('recognises capability building as a Self-Development Plan', () => {
-    const result = classifyCapture({
-      title: 'NEBOSH certification study plan',
-      timing: 'no_date',
-    });
-
+  it('routes Self-Development to the development plan', () => {
+    const result = classifyCapture({ workType: 'self_development' });
     expect(result.destination).toBe('self_development_plan');
+    expect(result.ruleCode).toBe('chosen_self_development');
   });
 
-  it('recognises a sustained programme as a Major Project request', () => {
-    const result = classifyCapture({
-      title: 'Roll out a permit-to-work system across both sites',
-      timing: 'no_date',
-    });
-
+  it('routes Major Project to a proposal', () => {
+    const result = classifyCapture({ workType: 'major_project' });
     expect(result.destination).toBe('major_project_request');
+    expect(result.ruleCode).toBe('chosen_major_project');
   });
 
-  it('never recommends the removed Collaborative Contribution destination', () => {
-    // v40 section 8 — contribution is created by assigning a checklist item on
-    // an existing task, not by classifying work at capture time.
-    for (const title of [
-      'help Amer with the contractor review',
-      'assist with the annual PPE forecast',
-      'contribute to the BR2 firefighting upgrade',
-    ]) {
-      const result = classifyCapture({ title, timing: 'this_week' });
-      expect(result.destination).not.toBe('collaborative_contribution');
-    }
-  });
-
-  it('defaults multi-day work to Operational Available Work', () => {
-    const result = classifyCapture({ title: 'Tidy the contractor records', timing: 'this_week' });
-
-    expect(result.destination).toBe('operational_available_work');
+  it('ignores the follow-up answer for non-ordinary work', () => {
+    const result = classifyCapture({ workType: 'routine', requiresFollowUp: false });
+    expect(result.destination).toBe('routine_template_request');
   });
 });
 
-describe('the result screen contract (section 8.4)', () => {
-  it('always supplies a reason, a capacity effect, and a visibility effect', () => {
-    const titles = [
-      'Replace a label',
-      'Weekly safety walk',
-      'Study for certification',
-      'Roll out a new system',
-      'Help Izzah with the audit',
-    ];
+describe('what the person is shown before creating', () => {
+  it('is one short line naming the type and where it lands', () => {
+    const result = classifyCapture({ workType: 'normal', requiresFollowUp: true });
+    expect(result.summary).toBe('Operational Action · starts in Available');
+  });
 
-    for (const title of titles) {
-      const result = classifyCapture({ title, timing: 'this_week' });
-
-      expect(result.reason.length).toBeGreaterThan(10);
-      expect(result.capacityEffect.length).toBeGreaterThan(10);
-      expect(result.managerVisibility.length).toBeGreaterThan(10);
+  it('never exposes an internal rule code', () => {
+    // `multi_day_default` used to be printed in the interface.
+    for (const workType of ['normal', 'routine', 'self_development', 'major_project'] as const) {
+      const result = classifyCapture({ workType });
+      expect(result.summary).not.toMatch(/_/);
+      expect(result.summary).not.toContain(result.ruleCode);
     }
+  });
+
+  it('still records the rule for the audit trail', () => {
+    const result = classifyCapture({ workType: 'normal', requiresFollowUp: false });
+    expect(result.ruleCode).toBeTruthy();
+    expect(result.ruleText).toBeTruthy();
   });
 });
 
-describe('Change type list (section 8.6)', () => {
-  it('omits Mandatory Operational Action from the ordinary list', () => {
+describe('governance', () => {
+  it('offers every destination a person may choose', () => {
+    expect(SELECTABLE_DESTINATIONS.length).toBeGreaterThan(0);
     expect(SELECTABLE_DESTINATIONS).not.toContain('mandatory_operational_action');
   });
 
-  it('offers five destinations, with mandatory and collaborative both absent', () => {
-    expect(SELECTABLE_DESTINATIONS).toHaveLength(5);
-    expect(SELECTABLE_DESTINATIONS).not.toContain('mandatory_operational_action');
-    expect(SELECTABLE_DESTINATIONS).not.toContain('collaborative_contribution');
+  it('keeps the urgency question worded as an explicit claim', () => {
+    expect(URGENCY_QUESTION).toMatch(/immediate controlled action/i);
   });
 
-  it('names the rule behind every recommendation', () => {
-    // v40 section 12 — the audit trail has to be able to answer "why was this
-    // created as Operational?" with a rule rather than an implication that
-    // something understood the sentence.
-    const cases = [
-      {
-        input: { title: 'Weekly line walk', timing: 'this_week' as const },
-        code: 'recurring_schedule',
-      },
-      {
-        input: { title: 'Finish the NEBOSH revision questions', timing: 'no_date' as const },
-        code: 'self_development_topic',
-      },
-      {
-        input: { title: 'Roll out the new permit system company-wide', timing: 'no_date' as const },
-        code: 'major_programme_scope',
-      },
-      {
-        input: {
-          title: 'Draft the contractor briefing',
-          timing: 'today' as const,
-          requiresFollowUp: true,
-        },
-        code: 'continued_followup_yes',
-      },
-      {
-        input: { title: 'Order more gloves', timing: 'this_week' as const },
-        code: 'multi_day_default',
-      },
-    ];
-
-    for (const { input, code } of cases) {
-      const result = classifyCapture(input);
-      expect(result.ruleCode).toBe(code);
-      expect(result.ruleText.length).toBeGreaterThan(0);
-      expect(result.ruleText).toBe(result.reason);
-    }
-  });
-});
-
-describe('governance review (section 8.8)', () => {
-  it('requires review for Major Project and routine template proposals only', () => {
+  it('sends proposals and routines for review', () => {
     expect(requiresGovernanceReview('major_project_request')).toBe(true);
     expect(requiresGovernanceReview('routine_template_request')).toBe(true);
-
     expect(requiresGovernanceReview('quick_action')).toBe(false);
-    expect(requiresGovernanceReview('operational_available_work')).toBe(false);
-    expect(requiresGovernanceReview('self_development_plan')).toBe(false);
   });
 });
