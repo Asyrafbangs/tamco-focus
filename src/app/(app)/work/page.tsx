@@ -34,6 +34,7 @@ import {
   getRoutineOccurrences,
   getAssignablePeople,
   getSharedContributions,
+  getBinnedTasks,
   getTaskDetail,
   getMyAttention,
   getDirectReportCount,
@@ -43,6 +44,7 @@ import {
   type SharedContribution,
 } from '@/server/queries';
 
+import { BinList } from './BinList';
 import { TaskDetailDrawer } from './TaskDetailDrawer';
 import { AttentionListView } from './AttentionListView';
 import { MyTeamListHeader, MyTeamPersonRow } from './MyTeamPersonRow';
@@ -71,7 +73,7 @@ import { TaskRowActions } from './TaskRowActions';
  * 1 / 5 / 1 figures without being a place to click.
  */
 
-type TabKey = 'active' | 'available' | 'shared';
+type TabKey = 'active' | 'available' | 'shared' | 'bin';
 
 const SHORT_BUCKET_LABEL: Record<FocusBucket, string> = {
   major: 'Major',
@@ -83,6 +85,7 @@ const TAB_MEANING: Record<TabKey, string> = {
   active: 'Work you are currently carrying.',
   available: 'Valid work waiting for you to activate.',
   shared: "Work where you owe a contribution to somebody else's task.",
+  bin: 'Deleted work. Nothing here counts towards anything; restore it if it was a mistake.',
 };
 
 function tasksForTab(
@@ -245,7 +248,10 @@ export default async function WorkPage({
 
   const requested = params.tab;
   const activeTab: TabKey =
-    requested === 'available' || requested === 'shared' || requested === 'active'
+    requested === 'available' ||
+    requested === 'shared' ||
+    requested === 'active' ||
+    requested === 'bin'
       ? requested
       : 'active';
 
@@ -254,6 +260,7 @@ export default async function WorkPage({
     focus,
     settings,
     sharedContributions,
+    binnedTasks,
     routineOccurrences,
     taskDetail,
     memberDetail,
@@ -269,6 +276,8 @@ export default async function WorkPage({
     // Shared reads the ORIGINAL checklist items, not copies of them
     // (v41 section 23).
     getSharedContributions(profile.id),
+    // Only when the Bin is open: deleted work is not part of anybody's day.
+    params.tab === 'bin' ? getBinnedTasks() : Promise.resolve([]),
     getRoutineOccurrences(profile.id),
     params.task ? getTaskDetail(params.task, profile.id) : Promise.resolve(null),
     // §60 — the id in the URL is a request, not an authorisation. The query is
@@ -291,7 +300,8 @@ export default async function WorkPage({
     params.proposal ? getMajorProjectProposalDetail(params.proposal) : Promise.resolve(null),
   ]);
 
-  const visible = activeTab === 'shared' ? [] : tasksForTab(tasks, activeTab, profile.id);
+  const visible =
+    activeTab === 'shared' || activeTab === 'bin' ? [] : tasksForTab(tasks, activeTab, profile.id);
   const overTarget = focus.filter((bucket) => bucket.isOverTarget);
 
   // Section 9 of v40 — a bare number tells nobody what it counts. Routine is
@@ -322,6 +332,7 @@ export default async function WorkPage({
     active: tasksForTab(tasks, 'active', profile.id).length,
     available: tasksForTab(tasks, 'available', profile.id).length,
     shared: openContributions.length,
+    bin: binnedTasks.length,
   };
 
   // Section 35 — Everyone by default, but people who need something first.
@@ -519,11 +530,18 @@ export default async function WorkPage({
         <>
           <FocusTabs
             label="Focus states"
-            items={(['active', 'available', 'shared'] as TabKey[]).map(
+            items={(['active', 'available', 'shared', 'bin'] as TabKey[]).map(
               (key) =>
                 ({
                   href: key === 'active' ? '/work' : `/work?tab=${key}`,
-                  label: key === 'active' ? 'Active' : key === 'available' ? 'Available' : 'Shared',
+                  label:
+                    key === 'active'
+                      ? 'Active'
+                      : key === 'available'
+                        ? 'Available'
+                        : key === 'shared'
+                          ? 'Shared'
+                          : 'Bin',
                   active: key === activeTab,
                   count: counts[key],
                 }) satisfies TabItem,
@@ -598,7 +616,9 @@ export default async function WorkPage({
 
       {scope === 'mine' && (
         <div className="focus-panel">
-          {activeTab === 'shared' ? (
+          {activeTab === 'bin' ? (
+            <BinList tasks={binnedTasks} />
+          ) : activeTab === 'shared' ? (
             openContributions.length > 0 ? (
               openContributions.map((item) => {
                 const copy = readinessCopy(item);

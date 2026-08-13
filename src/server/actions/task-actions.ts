@@ -290,6 +290,58 @@ export async function cancelTask(input: z.input<typeof cancelSchema>) {
   });
 }
 
+const deleteSchema = z.object({
+  taskId: uuid,
+  expectedVersion: z.number().int().positive(),
+  idempotencyKey,
+});
+
+/**
+ * Moves a task to the Bin.
+ *
+ * Distinct from `cancelTask`, which records a decision not to do real work and
+ * demands a reason. This is for a task that should not have existed — a typo,
+ * a duplicate — where making somebody justify the removal would put noise into
+ * the cancellation record rather than keep it clean.
+ *
+ * Recoverable by design: every table referencing `tasks` cascades on delete,
+ * so a true DELETE would take the audit history with it.
+ */
+export async function deleteTask(input: z.input<typeof deleteSchema>) {
+  const parsed = deleteSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, code: 'validation_failed' as const, message: 'Invalid request.' };
+  }
+
+  return callProcedure(
+    'delete_task',
+    {
+      p_task_id: parsed.data.taskId,
+      p_expected_version: parsed.data.expectedVersion,
+      p_idempotency_key: parsed.data.idempotencyKey ?? null,
+    },
+    ['/today', '/work', '/more/records'],
+  );
+}
+
+const restoreSchema = z.object({ taskId: uuid, idempotencyKey });
+
+export async function restoreTask(input: z.input<typeof restoreSchema>) {
+  const parsed = restoreSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, code: 'validation_failed' as const, message: 'Invalid request.' };
+  }
+
+  return callProcedure(
+    'restore_task',
+    {
+      p_task_id: parsed.data.taskId,
+      p_idempotency_key: parsed.data.idempotencyKey ?? null,
+    },
+    ['/today', '/work', '/more/records'],
+  );
+}
+
 const editSchema = z.object({
   taskId: uuid,
   expectedVersion: z.number().int().positive(),

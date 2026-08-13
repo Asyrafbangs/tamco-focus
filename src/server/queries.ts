@@ -767,6 +767,45 @@ export interface TeamLoadRow {
  * this says whether there is anything to do it to, and the control is worth
  * showing only when both are true.
  */
+export interface BinnedTask {
+  id: string;
+  title: string;
+  status: string;
+  ownerName: string;
+  deletedAt: string;
+  deletedByName: string | null;
+}
+
+/**
+ * What is in the Bin, bounded by what the reader could already see.
+ *
+ * `binned_tasks` is `security_invoker`, so RLS decides the rows; this only
+ * orders and shapes them.
+ */
+export async function getBinnedTasks(): Promise<BinnedTask[]> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from('binned_tasks')
+    .select('id, title, status, owner_name, deleted_at, deleted_by_name')
+    .order('deleted_at', { ascending: false })
+    .limit(200);
+
+  if (error) {
+    console.error(`[getBinnedTasks] ${error.message}`);
+    return [];
+  }
+
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    title: String(row.title),
+    status: String(row.status),
+    ownerName: String(row.owner_name ?? ''),
+    deletedAt: String(row.deleted_at),
+    deletedByName: row.deleted_by_name ? String(row.deleted_by_name) : null,
+  }));
+}
+
 export async function getDirectReportCount(viewerId: string): Promise<number> {
   const supabase = await createSupabaseServerClient();
 

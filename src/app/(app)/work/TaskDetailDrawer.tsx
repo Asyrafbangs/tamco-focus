@@ -28,6 +28,7 @@ import {
 import {
   addBarrierToMeetingQueue,
   cancelTask,
+  deleteTask,
   updateTaskDetails,
   changeTaskDueDate,
   completeChecklistItem,
@@ -114,6 +115,8 @@ export function TaskDetailDrawer({
   // Section I. Content only — there is deliberately no owner field here, so
   // this form cannot move accountability even by mistake. That is Reassign.
   const [editOpen, setEditOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [titleDraft, setTitleDraft] = useState(task.title);
   const [descriptionDraft, setDescriptionDraft] = useState(task.description ?? '');
   const [dueDateOnlyDraft, setDueDateOnlyDraft] = useState(task.dueIsDateOnly);
@@ -176,9 +179,22 @@ export function TaskDetailDrawer({
     attentionBarrierId ?? null,
   );
   const checklistCompleted = detail.checklist.filter((item) => item.state === 'completed').length;
+  /*
+   * Mirrors what `complete_task` will accept, so the control appears exactly
+   * when pressing it would succeed. The procedure refuses on incomplete
+   * checklist steps and on required evidence with no attachment; it accepts
+   * from active, backlog and paused.
+   */
   const requiredEvidenceOutstanding = detail.checklist.filter(
     (item) => item.state !== 'completed' && item.evidenceRule === 'required',
   ).length;
+  const checklistOutstanding = detail.checklist.length - checklistCompleted;
+  const readyToComplete =
+    detail.capabilities.canContribute &&
+    (task.status === 'active' || task.status === 'backlog' || task.status === 'paused') &&
+    checklistOutstanding === 0 &&
+    requiredEvidenceOutstanding === 0;
+
   const taskOverdueMs = overdueAgeMs(task);
   const ageDetails = ageChips(task, { staleThresholdDays });
 
@@ -664,6 +680,117 @@ export function TaskDetailDrawer({
             <button type="button" className="btn primary" onClick={() => setAgeInfoOpen(false)}>
               Understood
             </button>
+          </div>
+        </Modal>
+
+        <Modal
+          open={completeOpen}
+          title="Complete task"
+          className="task-due-modal"
+          onClose={() => setCompleteOpen(false)}
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              const data = new FormData(event.currentTarget);
+              startTransition(async () => {
+                const result = await completeTask({
+                  taskId: task.id,
+                  expectedVersion: Math.max(taskVersion, task.version),
+                  completionNote: String(data.get('completionNote') ?? '') || null,
+                  idempotencyKey: idempotencyKey(),
+                });
+                if (finish(result, 'Completion recorded.')) setCompleteOpen(false);
+              });
+            }}
+          >
+            <div className="modal-head">
+              <div>
+                <strong>Complete task</strong>
+                <span>This records the result and closes the work.</span>
+              </div>
+              <button
+                type="button"
+                className="btn small"
+                aria-label="Close completion form"
+                onClick={() => setCompleteOpen(false)}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="field">
+                <label htmlFor={`complete-note-${task.id}`}>Completion note — optional</label>
+                <textarea id={`complete-note-${task.id}`} name="completionNote" rows={3} />
+              </div>
+            </div>
+            <div className="modal-foot">
+              <button type="button" className="btn" onClick={() => setCompleteOpen(false)}>
+                Not yet
+              </button>
+              <button type="submit" className="btn primary" disabled={pending} aria-busy={pending}>
+                {pending ? 'Completing…' : 'Complete task'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+
+        <Modal
+          open={deleteOpen}
+          title="Delete task"
+          className="task-due-modal"
+          onClose={() => setDeleteOpen(false)}
+        >
+          <div>
+            <div className="modal-head">
+              <div>
+                <strong>Delete this task?</strong>
+                <span>It moves to the Bin, where you can restore it.</span>
+              </div>
+              <button
+                type="button"
+                className="btn small"
+                aria-label="Close delete confirmation"
+                onClick={() => setDeleteOpen(false)}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="notice" role="status">
+                <p>
+                  Use this for work that should not exist — a duplicate, or something captured by
+                  mistake. If the work was real and is not going ahead,{' '}
+                  <strong>cancel it instead</strong> so the reason is recorded.
+                </p>
+              </div>
+              <p className="muted">
+                Its history, checklist and attachments are kept, and nothing is removed permanently.
+              </p>
+            </div>
+            <div className="modal-foot">
+              <button type="button" className="btn" onClick={() => setDeleteOpen(false)}>
+                Keep task
+              </button>
+              <button
+                type="button"
+                className="btn danger"
+                disabled={pending}
+                aria-busy={pending}
+                onClick={() => {
+                  startTransition(async () => {
+                    const result = await deleteTask({
+                      taskId: task.id,
+                      expectedVersion: Math.max(taskVersion, task.version),
+                      idempotencyKey: idempotencyKey(),
+                    });
+                    if (finish(result, 'Moved to the Bin.')) setDeleteOpen(false);
+                  });
+                }}
+              >
+                {pending ? 'Deleting…' : 'Delete task'}
+              </button>
+            </div>
           </div>
         </Modal>
 
@@ -1294,6 +1421,45 @@ export function TaskDetailDrawer({
           </button>
         ) : null}
 
+        {/*
+          Finishing the work is the point of the screen, so it is not a thing
+          to go looking for. It used to live two disclosures deep — More task
+          actions, then Complete — which read as though the task had no way to
+          end. It appears here only when nothing is actually blocking it, so
+          the button never promises something the procedure will refuse.
+
+          Gated on canContribute rather than canEdit because that is what
+          `complete_task` itself checks: a contributor may finish work they do
+          not own.
+        */}
+        {/*
+          The className deliberately omits `detail-section`. That class is what
+          `:not(.expanded) .drawer-panel-overview.detail-section` hides, so
+          carrying it would have put finishing the work behind Expand as well as
+          behind the disclosures — which is the state this is fixing.
+        */}
+        {readyToComplete && (
+          <section className="drawer-panel-overview task-complete-callout">
+            <div>
+              <strong>Everything is done</strong>
+              <span>
+                {detail.checklist.length > 0
+                  ? `All ${detail.checklist.length} checklist steps are complete and no evidence is outstanding.`
+                  : 'There is no checklist outstanding on this work.'}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="btn primary"
+              disabled={pending}
+              aria-busy={pending}
+              onClick={() => setCompleteOpen(true)}
+            >
+              Complete task
+            </button>
+          </section>
+        )}
+
         {detail.capabilities.canEdit && (
           <section className="detail-section task-lifecycle-section drawer-panel-overview">
             <details className="task-actions-details">
@@ -1354,41 +1520,29 @@ export function TaskDetailDrawer({
                         </button>
                       </form>
                     </details>
-                    <details>
-                      <summary>Complete</summary>
-                      <form
-                        className="detail-form"
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          const data = new FormData(event.currentTarget);
-                          startTransition(async () => {
-                            const result = await completeTask({
-                              taskId: task.id,
-                              expectedVersion: task.version,
-                              completionNote: String(data.get('completionNote') ?? '') || null,
-                              idempotencyKey: idempotencyKey(),
-                            });
-                            finish(result, 'Completion recorded.');
-                          });
-                        }}
+                    {/*
+                      Completion lives on the Overview now, surfaced the moment
+                      nothing blocks it. Keeping a second copy here would be two
+                      routes to one operation and one of them would drift.
+                      Offered here only while something is still outstanding, so
+                      the action is never unreachable.
+                    */}
+                    {!readyToComplete && (
+                      <button
+                        type="button"
+                        className="btn small"
+                        onClick={() => setCompleteOpen(true)}
                       >
-                        <div className="field">
-                          <label htmlFor={`complete-note-${task.id}`}>Completion note</label>
-                          <textarea
-                            id={`complete-note-${task.id}`}
-                            name="completionNote"
-                            rows={2}
-                          />
-                        </div>
-                        <button
-                          className="btn small primary"
-                          disabled={pending}
-                          aria-busy={pending}
-                        >
-                          Complete task
-                        </button>
-                      </form>
-                    </details>
+                        Complete task
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn small danger"
+                      onClick={() => setDeleteOpen(true)}
+                    >
+                      Delete task
+                    </button>
                   </>
                 )}
 
