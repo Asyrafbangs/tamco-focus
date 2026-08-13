@@ -89,6 +89,13 @@ export type Database = {
             foreignKeyName: "attachment_views_viewer_id_fkey"
             columns: ["viewer_id"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachment_views_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -204,6 +211,13 @@ export type Database = {
             foreignKeyName: "attachments_uploaded_by_fkey"
             columns: ["uploaded_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -299,6 +313,13 @@ export type Database = {
             foreignKeyName: "audit_events_actor_id_fkey"
             columns: ["actor_id"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -343,6 +364,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "audit_events_subject_user_id_fkey"
+            columns: ["subject_user_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "audit_events_subject_user_id_fkey"
@@ -413,6 +441,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "barrier_responses_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "barrier_responses_author_id_fkey"
@@ -527,6 +562,13 @@ export type Database = {
             foreignKeyName: "barriers_action_required_from_fkey"
             columns: ["action_required_from"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "barriers_action_required_from_fkey"
+            columns: ["action_required_from"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -569,6 +611,13 @@ export type Database = {
             foreignKeyName: "barriers_raised_by_fkey"
             columns: ["raised_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "barriers_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -592,6 +641,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "barriers_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "barriers_resolved_by_fkey"
@@ -657,6 +713,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "calendar_event_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "calendar_event_participants_user_id_fkey"
@@ -759,6 +822,13 @@ export type Database = {
             foreignKeyName: "calendar_events_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -848,6 +918,13 @@ export type Database = {
             foreignKeyName: "completion_reviews_reviewer_id_fkey"
             columns: ["reviewer_id"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "completion_reviews_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -871,6 +948,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "completion_reviews_second_reviewer_id_fkey"
+            columns: ["second_reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "completion_reviews_second_reviewer_id_fkey"
@@ -899,6 +983,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "completion_reviews_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "completion_reviews_submitted_by_fkey"
@@ -980,6 +1071,13 @@ export type Database = {
             foreignKeyName: "delegations_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delegations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -1003,6 +1101,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "delegations_delegate_id_fkey"
+            columns: ["delegate_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "delegations_delegate_id_fkey"
@@ -1031,6 +1136,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "delegations_delegator_id_fkey"
+            columns: ["delegator_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "delegations_delegator_id_fkey"
@@ -1146,6 +1258,13 @@ export type Database = {
             foreignKeyName: "email_deliveries_recipient_id_fkey"
             columns: ["recipient_id"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_deliveries_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -1211,6 +1330,13 @@ export type Database = {
             foreignKeyName: "employee_goal_plans_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_goal_plans_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -1234,6 +1360,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "employee_goal_plans_finalized_by_fkey"
+            columns: ["finalized_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "employee_goal_plans_finalized_by_fkey"
@@ -1311,6 +1444,13 @@ export type Database = {
             foreignKeyName: "focus_targets_changed_by_fkey"
             columns: ["changed_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "focus_targets_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -1373,6 +1513,13 @@ export type Database = {
             foreignKeyName: "goal_agreements_agreed_by_fkey"
             columns: ["agreed_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_agreements_agreed_by_fkey"
+            columns: ["agreed_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -1396,6 +1543,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_agreements_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goal_agreements_employee_id_fkey"
@@ -1445,6 +1599,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_agreements_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goal_agreements_manager_id_fkey"
@@ -1502,6 +1663,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_attachment_views_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goal_attachment_views_viewer_id_fkey"
@@ -1607,6 +1775,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_attachments_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goal_attachments_uploaded_by_fkey"
@@ -1740,6 +1915,13 @@ export type Database = {
             foreignKeyName: "goal_check_ins_finalized_by_fkey"
             columns: ["finalized_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_check_ins_finalized_by_fkey"
+            columns: ["finalized_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -1796,6 +1978,13 @@ export type Database = {
             foreignKeyName: "goal_check_ins_manager_completed_by_fkey"
             columns: ["manager_completed_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_check_ins_manager_completed_by_fkey"
+            columns: ["manager_completed_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -1833,6 +2022,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_check_ins_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goal_check_ins_submitted_by_fkey"
@@ -2019,6 +2215,13 @@ export type Database = {
             foreignKeyName: "goal_checkin_sessions_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_checkin_sessions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -2054,6 +2257,13 @@ export type Database = {
             foreignKeyName: "goal_checkin_sessions_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_checkin_sessions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -2077,6 +2287,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_checkin_sessions_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goal_checkin_sessions_submitted_by_fkey"
@@ -2142,6 +2359,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_milestone_updates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goal_milestone_updates_author_id_fkey"
@@ -2249,6 +2473,13 @@ export type Database = {
             foreignKeyName: "goal_milestones_completed_by_fkey"
             columns: ["completed_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_milestones_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -2323,6 +2554,13 @@ export type Database = {
             foreignKeyName: "goal_participants_added_by_fkey"
             columns: ["added_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_participants_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -2360,6 +2598,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goal_participants_user_id_fkey"
@@ -2437,6 +2682,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_success_measure_updates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goal_success_measure_updates_author_id_fkey"
@@ -2578,6 +2830,13 @@ export type Database = {
             foreignKeyName: "goal_success_measures_actual_recorded_by_fkey"
             columns: ["actual_recorded_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_success_measures_actual_recorded_by_fkey"
+            columns: ["actual_recorded_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -2669,6 +2928,13 @@ export type Database = {
             foreignKeyName: "goal_support_requests_acknowledged_by_fkey"
             columns: ["acknowledged_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -2718,6 +2984,13 @@ export type Database = {
             foreignKeyName: "goal_support_requests_manager_id_fkey"
             columns: ["manager_id"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -2741,6 +3014,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goal_support_requests_requested_by_fkey"
@@ -2769,6 +3049,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_support_requests_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goal_support_requests_resolved_by_fkey"
@@ -2843,6 +3130,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_updates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goal_updates_author_id_fkey"
@@ -2978,6 +3272,13 @@ export type Database = {
             foreignKeyName: "goal_versions_proposed_by_fkey"
             columns: ["proposed_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_versions_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -3043,6 +3344,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_work_links_linked_by_fkey"
+            columns: ["linked_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goal_work_links_linked_by_fkey"
@@ -3211,6 +3519,13 @@ export type Database = {
             foreignKeyName: "goals_cancelled_by_fkey"
             columns: ["cancelled_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -3234,6 +3549,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goals_created_by_fkey"
@@ -3262,6 +3584,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goals_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goals_manager_id_fkey"
@@ -3290,6 +3619,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goals_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goals_owner_id_fkey"
@@ -3398,6 +3734,13 @@ export type Database = {
             foreignKeyName: "meeting_queue_items_added_by_fkey"
             columns: ["added_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_queue_items_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -3440,6 +3783,13 @@ export type Database = {
             foreignKeyName: "meeting_queue_items_decided_by_fkey"
             columns: ["decided_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_queue_items_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -3463,6 +3813,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "meeting_queue_items_decision_owner_id_fkey"
+            columns: ["decision_owner_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "meeting_queue_items_decision_owner_id_fkey"
@@ -3491,6 +3848,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "meeting_queue_items_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "meeting_queue_items_requested_by_fkey"
@@ -3600,6 +3964,13 @@ export type Database = {
             foreignKeyName: "notifications_actor_id_fkey"
             columns: ["actor_id"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -3651,6 +4022,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "notifications_recipient_id_fkey"
@@ -3726,6 +4104,13 @@ export type Database = {
             foreignKeyName: "operation_log_actor_id_fkey"
             columns: ["actor_id"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operation_log_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -3777,6 +4162,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "org_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "org_settings_updated_by_fkey"
@@ -3894,6 +4286,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_findings_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "routine_findings_recorded_by_fkey"
@@ -4017,6 +4416,13 @@ export type Database = {
             foreignKeyName: "routine_templates_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -4040,6 +4446,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_templates_default_owner_id_fkey"
+            columns: ["default_owner_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "routine_templates_default_owner_id_fkey"
@@ -4125,6 +4538,13 @@ export type Database = {
             foreignKeyName: "task_checklist_items_assigned_to_fkey"
             columns: ["assigned_to"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -4148,6 +4568,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "task_checklist_items_completed_by_fkey"
@@ -4234,6 +4661,13 @@ export type Database = {
             foreignKeyName: "task_collaborators_added_by_fkey"
             columns: ["added_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_collaborators_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -4271,6 +4705,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_collaborators_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "task_collaborators_user_id_fkey"
@@ -4327,6 +4768,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_relations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "task_relations_created_by_fkey"
@@ -4411,6 +4859,13 @@ export type Database = {
             foreignKeyName: "task_update_mentions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_update_mentions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -4468,6 +4923,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_updates_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "task_updates_author_id_fkey"
@@ -4671,6 +5133,13 @@ export type Database = {
             foreignKeyName: "tasks_activated_by_fkey"
             columns: ["activated_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_activated_by_fkey"
+            columns: ["activated_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -4694,6 +5163,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tasks_assigned_by_fkey"
@@ -4722,6 +5198,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tasks_created_by_fkey"
@@ -4750,6 +5233,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tasks_primary_owner_id_fkey"
@@ -4778,6 +5268,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tasks_reviewer_id_fkey"
@@ -4844,6 +5341,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_alert_preferences_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "user_alert_preferences_user_id_fkey"
@@ -4969,6 +5473,13 @@ export type Database = {
             foreignKeyName: "user_profiles_reporting_manager_id_fkey"
             columns: ["reporting_manager_id"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_profiles_reporting_manager_id_fkey"
+            columns: ["reporting_manager_id"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -5025,6 +5536,13 @@ export type Database = {
             foreignKeyName: "visibility_grants_granted_by_fkey"
             columns: ["granted_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visibility_grants_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -5048,6 +5566,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "visibility_grants_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "visibility_grants_subject_id_fkey"
@@ -5076,6 +5601,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "visibility_grants_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "visibility_grants_viewer_id_fkey"
@@ -5134,6 +5666,13 @@ export type Database = {
             foreignKeyName: "visibility_policies_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visibility_policies_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -5157,6 +5696,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "visibility_policies_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: true
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "visibility_policies_viewer_id_fkey"
@@ -5313,6 +5859,13 @@ export type Database = {
             foreignKeyName: "work_captures_captured_by_fkey"
             columns: ["captured_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_captures_captured_by_fkey"
+            columns: ["captured_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -5455,6 +6008,13 @@ export type Database = {
             foreignKeyName: "work_proposals_decided_by_fkey"
             columns: ["decided_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_proposals_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -5478,6 +6038,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "work_proposals_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "work_proposals_proposed_by_fkey"
@@ -5540,6 +6107,13 @@ export type Database = {
             foreignKeyName: "barriers_action_required_from_fkey"
             columns: ["action_required_from"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "barriers_action_required_from_fkey"
+            columns: ["action_required_from"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -5577,6 +6151,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "barriers_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "barriers_raised_by_fkey"
@@ -5727,6 +6308,13 @@ export type Database = {
             foreignKeyName: "goals_manager_id_fkey"
             columns: ["manager_id"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_manager_id_fkey"
+            columns: ["manager_id"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -5750,6 +6338,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goals_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goals_owner_id_fkey"
@@ -5785,6 +6380,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_profiles_reporting_manager_id_fkey"
+            columns: ["reporting_manager_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "user_profiles_reporting_manager_id_fkey"
@@ -5839,6 +6441,13 @@ export type Database = {
             foreignKeyName: "employee_goal_plans_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_goal_plans_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -5862,6 +6471,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "employee_goal_plans_finalized_by_fkey"
+            columns: ["finalized_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "employee_goal_plans_finalized_by_fkey"
@@ -5930,6 +6546,13 @@ export type Database = {
             foreignKeyName: "goal_checkin_sessions_employee_id_fkey"
             columns: ["employee_id"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_checkin_sessions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -5965,6 +6588,13 @@ export type Database = {
             foreignKeyName: "goal_checkin_sessions_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_checkin_sessions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -5988,6 +6618,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "goal_checkin_sessions_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "goal_checkin_sessions_submitted_by_fkey"
@@ -6038,6 +6675,13 @@ export type Database = {
             foreignKeyName: "goals_owner_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goals_owner_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -6056,6 +6700,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      person_display: {
+        Row: {
+          employee_id: string | null
+          full_name: string | null
+          id: string | null
+        }
+        Insert: {
+          employee_id?: string | null
+          full_name?: string | null
+          id?: string | null
+        }
+        Update: {
+          employee_id?: string | null
+          full_name?: string | null
+          id?: string | null
+        }
+        Relationships: []
       }
       plan_events: {
         Row: {
@@ -6101,6 +6763,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_assigned_to_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "task_checklist_items_assigned_to_fkey"
@@ -6157,6 +6826,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tasks_primary_owner_id_fkey"
@@ -6243,6 +6919,13 @@ export type Database = {
             foreignKeyName: "tasks_assigned_by_fkey"
             columns: ["assigned_by"]
             isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
             referencedRelation: "team_directory"
             referencedColumns: ["id"]
           },
@@ -6266,6 +6949,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tasks_primary_owner_id_fkey"
@@ -6294,6 +6984,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_reviewer_id_fkey"
+            columns: ["reviewer_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tasks_reviewer_id_fkey"
@@ -6416,6 +7113,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "focus_summary"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_profiles_reporting_manager_id_fkey"
+            columns: ["reporting_manager_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "user_profiles_reporting_manager_id_fkey"

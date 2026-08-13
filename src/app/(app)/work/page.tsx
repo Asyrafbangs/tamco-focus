@@ -36,6 +36,7 @@ import {
   getSharedContributions,
   getTaskDetail,
   getMyAttention,
+  getDirectReportCount,
   getMajorProjectProposalDetail,
   getMajorProjectProposals,
   getTeamMemberDetail,
@@ -214,6 +215,18 @@ export default async function WorkPage({
   const isManager = profile.role === 'manager' || profile.role === 'administrator';
 
   /*
+   * Holding the manager role is permission; having reports is a reason. A
+   * manager with nobody reporting to them was being offered a My Team
+   * workspace that could only ever be empty, which is one more thing to read
+   * and dismiss on every visit.
+   *
+   * The role check stays in front of the count so that no non-manager causes
+   * the extra query.
+   */
+  const directReports = isManager ? await getDirectReportCount(profile.id) : 0;
+  const hasTeam = isManager && directReports > 0;
+
+  /*
    * v43 sections 2 and 3 — two different dimensions, two different controls.
    *
    * My Work / My Team is a SCOPE: whose work am I looking at. Active /
@@ -223,7 +236,7 @@ export default async function WorkPage({
    * team" were a state my own work could be in. It sat one level too deep.
    * Scope is now chosen first, and the state tabs belong to My Work alone.
    */
-  const scope: 'mine' | 'team' = params.scope === 'team' && isManager ? 'team' : 'mine';
+  const scope: 'mine' | 'team' = params.scope === 'team' && hasTeam ? 'team' : 'mine';
   const teamFilter: 'everyone' | 'attention' =
     params.filter === 'attention' ? 'attention' : 'everyone';
 
@@ -261,7 +274,7 @@ export default async function WorkPage({
     // §60 — the id in the URL is a request, not an authorisation. The query is
     // bounded by the same visibility rules the list is, and returns nothing for
     // somebody outside this manager's scope.
-    params.person && isManager
+    params.person && hasTeam
       ? getTeamMemberDetail(profile.id, params.person)
       : Promise.resolve(null),
     personalAttentionView ? getMyAttention(profile.id) : Promise.resolve([]),
@@ -273,7 +286,7 @@ export default async function WorkPage({
     // One query answering all three manager questions. It aggregates the
     // authoritative records — tasks, barriers, routines, focus counts — and
     // copies none of them (v44 sections 18, 32).
-    isManager ? getTeamAttention(profile.id) : Promise.resolve([]),
+    hasTeam ? getTeamAttention(profile.id) : Promise.resolve([]),
     getMajorProjectProposals(),
     params.proposal ? getMajorProjectProposalDetail(params.proposal) : Promise.resolve(null),
   ]);
@@ -369,7 +382,7 @@ export default async function WorkPage({
         </div>
       </div>
 
-      {isManager && (
+      {hasTeam && (
         <WorkspaceTabs
           label="Work scope"
           items={[

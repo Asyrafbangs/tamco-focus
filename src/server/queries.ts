@@ -758,6 +758,34 @@ export interface TeamLoadRow {
  * and an administrator sees everyone, without this query knowing the rule.
  * The caller's own row is excluded: Team Focus is about other people's load.
  */
+/**
+ * How many active people report to this person.
+ *
+ * The My Team scope used to appear for anybody holding the manager role, which
+ * meant a manager with nobody reporting to them was offered a workspace that
+ * could only ever be empty. The role says what somebody is permitted to do;
+ * this says whether there is anything to do it to, and the control is worth
+ * showing only when both are true.
+ */
+export async function getDirectReportCount(viewerId: string): Promise<number> {
+  const supabase = await createSupabaseServerClient();
+
+  const { count, error } = await supabase
+    .from('user_profiles')
+    .select('id', { count: 'exact', head: true })
+    .eq('reporting_manager_id', viewerId)
+    .eq('status', 'active');
+
+  if (error) {
+    // A failure here must not hide a real manager's team, so fall back to
+    // showing the scope rather than silently removing their workspace.
+    console.error(`[getDirectReportCount] ${error.message}`);
+    return 1;
+  }
+
+  return count ?? 0;
+}
+
 export async function getTeamLoad(viewerId: string): Promise<TeamLoadRow[]> {
   const supabase = await createSupabaseServerClient();
 
