@@ -18,9 +18,13 @@ import {
 import { taskDrawerHref } from '@/domain/navigation';
 import { type TaskOverview } from '@/domain/types';
 import { requireProfile } from '@/lib/supabase/server';
+
+import { RoutineManager } from './RoutineManager';
 import {
   getDisplaySettings,
   getFocusSummary,
+  getRoutineTemplates,
+  getTeamDirectory,
   getMyTasks,
   getRoutineOccurrences,
   getTeamLoad,
@@ -50,19 +54,23 @@ type RoutineView = 'due' | 'upcoming' | 'completed';
 export default async function RoutinePage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; new?: string }>;
 }) {
   const profile = await requireProfile();
   const params = await searchParams;
 
   const isManager = profile.role === 'manager' || profile.role === 'administrator';
 
-  const [settings, occurrences, tasks, focus, team] = await Promise.all([
+  const [settings, occurrences, tasks, focus, team, routines, directory] = await Promise.all([
     getDisplaySettings(),
     getRoutineOccurrences(profile.id),
     getMyTasks(profile.id),
     getFocusSummary(profile.id),
     isManager ? getTeamLoad(profile.id) : Promise.resolve([]),
+    // The schedules behind the occurrences. Nothing read this table and nothing
+    // could write it, which is why creating a routine did nothing at all.
+    getRoutineTemplates(),
+    isManager ? getTeamDirectory() : Promise.resolve([]),
   ]);
 
   const timeZone = profile.timezone ?? 'Asia/Kuala_Lumpur';
@@ -165,6 +173,17 @@ export default async function RoutinePage({
       <p className="capacity-strip" role="status">
         Routine work does not use any of your focus targets.
       </p>
+
+      {/* The schedules, above the work they create. */}
+      <section className="routine-manager">
+        <RoutineManager
+          templates={routines.templates}
+          failed={routines.failed}
+          canManageOthers={isManager}
+          people={directory}
+          openWith={params.new ?? null}
+        />
+      </section>
 
       <FocusTabs
         label="Routine occurrences"
@@ -284,7 +303,7 @@ export default async function RoutinePage({
             </h3>
             <p>
               {occurrences.length === 0
-                ? 'Routine occurrences are generated from templates a manager or administrator maintains. If you think something should repeat on a schedule, capture it and choose Routine Template Request.'
+                ? 'Occurrences are created from the routines above. Set one up to have work appear here on a schedule; a routine you set up for yourself starts once your manager activates it.'
                 : view === 'completed'
                   ? 'Occurrences you close appear here, with their evidence and history.'
                   : view === 'upcoming'

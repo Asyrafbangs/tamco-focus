@@ -773,6 +773,70 @@ export interface TeamLoadRow {
  * this says whether there is anything to do it to, and the control is worth
  * showing only when both are true.
  */
+export interface RoutineTemplateRow {
+  id: string;
+  title: string;
+  description: string | null;
+  ownerId: string;
+  ownerName: string;
+  frequency: 'daily' | 'weekly' | 'monthly';
+  intervalCount: number;
+  weekday: number | null;
+  dayOfMonth: number | null;
+  dueTime: string;
+  evidenceRequired: boolean;
+  requiresCompletionReview: boolean;
+  isActive: boolean;
+  occurrenceCount: number;
+  nextOccurrenceDate: string | null;
+}
+
+/**
+ * The routines somebody can see, bounded by the existing SELECT policy: a
+ * manager sees their team's, everybody sees their own.
+ */
+export async function getRoutineTemplates(): Promise<{
+  templates: RoutineTemplateRow[];
+  failed: boolean;
+}> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from('routine_template_overview')
+    .select('*')
+    .order('is_active', { ascending: false })
+    .order('title', { ascending: true })
+    .limit(200);
+
+  if (error) {
+    // Reported rather than shown as "no routines", which would read as a fact
+    // about the team's work instead of a failed query.
+    console.error(`[getRoutineTemplates] ${error.message}`);
+    return { templates: [], failed: true };
+  }
+
+  return {
+    failed: false,
+    templates: (data ?? []).map((row) => ({
+      id: String(row.id),
+      title: String(row.title),
+      description: row.description ? String(row.description) : null,
+      ownerId: String(row.default_owner_id),
+      ownerName: String(row.owner_name ?? ''),
+      frequency: row.frequency as 'daily' | 'weekly' | 'monthly',
+      intervalCount: Number(row.interval_count ?? 1),
+      weekday: row.weekday === null ? null : Number(row.weekday),
+      dayOfMonth: row.day_of_month === null ? null : Number(row.day_of_month),
+      dueTime: String(row.due_time ?? '17:00'),
+      evidenceRequired: Boolean(row.evidence_required),
+      requiresCompletionReview: Boolean(row.requires_completion_review),
+      isActive: Boolean(row.is_active),
+      occurrenceCount: Number(row.occurrence_count ?? 0),
+      nextOccurrenceDate: row.next_occurrence_date ? String(row.next_occurrence_date) : null,
+    })),
+  };
+}
+
 export interface BinnedTask {
   id: string;
   title: string;

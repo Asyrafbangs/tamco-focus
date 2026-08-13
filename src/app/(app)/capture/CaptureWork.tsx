@@ -175,6 +175,22 @@ export function CaptureWork({
     if (followUp !== 'unset') form.set('requiresFollowUp', followUp);
     files.forEach((file) => form.append('files', file));
 
+    /*
+     * Routine leaves this flow entirely.
+     *
+     * It used to go through `confirm_work_capture`, which wrote a
+     * `work_proposals` row of kind `routine_template` — and nothing in the
+     * system could act on that row. No decision procedure, no screen. Choosing
+     * Routine therefore did exactly nothing visible, which is what was
+     * reported. A schedule needs a cadence anyway, and asking for one here
+     * would put recurrence setup in the middle of the quick path, so Routine
+     * sends people to the screen built for it.
+     */
+    if (workType === 'routine') {
+      router.push(`/work/routine?new=${encodeURIComponent(title.trim())}`);
+      return;
+    }
+
     startTransition(async () => {
       const draft = await createCaptureDraft(form);
       if (!draft.ok || !draft.captureId || !draft.recommendation) {

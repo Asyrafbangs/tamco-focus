@@ -4414,6 +4414,13 @@ export type Database = {
             foreignKeyName: "routine_template_items_template_id_fkey"
             columns: ["template_id"]
             isOneToOne: false
+            referencedRelation: "routine_template_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
             referencedRelation: "routine_templates"
             referencedColumns: ["id"]
           },
@@ -5447,6 +5454,13 @@ export type Database = {
             foreignKeyName: "tasks_routine_template_fk"
             columns: ["routine_template_id"]
             isOneToOne: false
+            referencedRelation: "routine_template_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_routine_template_fk"
+            columns: ["routine_template_id"]
+            isOneToOne: false
             referencedRelation: "routine_templates"
             referencedColumns: ["id"]
           },
@@ -6155,6 +6169,13 @@ export type Database = {
             columns: ["created_task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_proposals_created_template_id_fkey"
+            columns: ["created_template_id"]
+            isOneToOne: false
+            referencedRelation: "routine_template_overview"
             referencedColumns: ["id"]
           },
           {
@@ -6997,6 +7018,64 @@ export type Database = {
         }
         Relationships: []
       }
+      routine_template_overview: {
+        Row: {
+          created_at: string | null
+          day_of_month: number | null
+          default_owner_id: string | null
+          description: string | null
+          due_time: string | null
+          evidence_required: boolean | null
+          frequency: Database["public"]["Enums"]["recurrence_frequency"] | null
+          generated_through: string | null
+          id: string | null
+          interval_count: number | null
+          is_active: boolean | null
+          next_occurrence_date: string | null
+          occurrence_count: number | null
+          owner_name: string | null
+          requires_completion_review: boolean | null
+          title: string | null
+          weekday: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_templates_default_owner_id_fkey"
+            columns: ["default_owner_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_templates_default_owner_id_fkey"
+            columns: ["default_owner_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_templates_default_owner_id_fkey"
+            columns: ["default_owner_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_templates_default_owner_id_fkey"
+            columns: ["default_owner_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_templates_default_owner_id_fkey"
+            columns: ["default_owner_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shared_contributions: {
         Row: {
           assignee_id: string | null
@@ -7281,6 +7360,13 @@ export type Database = {
             columns: ["reviewer_id"]
             isOneToOne: false
             referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_routine_template_fk"
+            columns: ["routine_template_id"]
+            isOneToOne: false
+            referencedRelation: "routine_template_overview"
             referencedColumns: ["id"]
           },
           {
@@ -7575,6 +7661,23 @@ export type Database = {
           p_support_needed?: string
           p_target_date: string
           p_weight_percent: number
+        }
+        Returns: Json
+      }
+      create_routine_template: {
+        Args: {
+          p_day_of_month: number
+          p_description: string
+          p_due_time: string
+          p_evidence_required?: boolean
+          p_frequency: Database["public"]["Enums"]["recurrence_frequency"]
+          p_idempotency_key?: string
+          p_interval_count: number
+          p_owner_id: string
+          p_requires_completion_review?: boolean
+          p_start_date: string
+          p_title: string
+          p_weekday: number
         }
         Returns: Json
       }
@@ -7932,6 +8035,14 @@ export type Database = {
         }
         Returns: Json
       }
+      set_routine_template_active: {
+        Args: {
+          p_active: boolean
+          p_idempotency_key?: string
+          p_template_id: string
+        }
+        Returns: Json
+      }
       set_task_next_action: {
         Args: {
           p_expected_version: number
@@ -7998,6 +8109,22 @@ export type Database = {
           p_status_labels_always_visible: boolean
           p_text_size: string
           p_theme_preference: string
+        }
+        Returns: Json
+      }
+      update_routine_template: {
+        Args: {
+          p_day_of_month: number
+          p_description: string
+          p_due_time: string
+          p_evidence_required?: boolean
+          p_frequency: Database["public"]["Enums"]["recurrence_frequency"]
+          p_idempotency_key?: string
+          p_interval_count: number
+          p_requires_completion_review?: boolean
+          p_template_id: string
+          p_title: string
+          p_weekday: number
         }
         Returns: Json
       }
@@ -8115,6 +8242,10 @@ export type Database = {
         | "task_details_edited"
         | "task_deleted"
         | "task_restored"
+        | "routine_template_created"
+        | "routine_template_updated"
+        | "routine_template_activated"
+        | "routine_template_paused"
       barrier_action_type:
         | "decision"
         | "approval"
@@ -8455,6 +8586,10 @@ export const Constants = {
         "task_details_edited",
         "task_deleted",
         "task_restored",
+        "routine_template_created",
+        "routine_template_updated",
+        "routine_template_activated",
+        "routine_template_paused",
       ],
       barrier_action_type: [
         "decision",
