@@ -16,7 +16,7 @@ export interface WeeklyWorkerOptions {
   scheduleDay?: string;
   scheduleHour?: number;
   appBaseUrl?: string;
-  transport?: 'log' | 'inbucket';
+  transport?: 'log' | 'inbucket' | 'smtp';
   send?: (delivery: { to: string; subject: string; html: string; text: string }) => Promise<void>;
 }
 

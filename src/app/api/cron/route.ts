@@ -92,20 +92,34 @@ export async function GET(request: Request) {
    *
    * The worker owns its own schedule — it checks the configured day and hour
    * and does nothing on the other six days — so calling it daily is correct
-   * rather than wasteful. Email transport remains `log` until a provider is
-   * configured; that is recorded honestly rather than faked.
+   * rather than wasteful. The transport comes from `EMAIL_TRANSPORT`: `log`
+   * where no relay is configured, `smtp` where one is, and an error rather
+   * than a silent downgrade if the configuration is half-finished.
    */
   try {
     const { runWeeklySummaryWorker } = await import('@/server/workers/weekly-summary');
+    const { resolveEmailTransport } = await import('@/server/workers/email-transport');
+
+    /*
+     * This is the path that runs in Production, and it used to pass no
+     * transport at all — so the worker fell back to writing messages nowhere
+     * and reporting success. A misconfigured transport now fails the run
+     * loudly instead, because a summary marked sent is never retried.
+     */
+    const transport = resolveEmailTransport();
+    if ('error' in transport) throw new Error(transport.error);
+
     const summary = await runWeeklySummaryWorker(client, {
       now: new Date(),
       timeZone: orgConfig.timeZone,
       appBaseUrl: orgConfig.appBaseUrl,
+      transport: transport.name,
+      send: transport.send,
     });
     results.push({
       worker: 'weekly_summary',
       ok: true,
-      detail: JSON.stringify(summary ?? {}),
+      detail: JSON.stringify({ transport: transport.name, ...(summary ?? {}) }),
     });
   } catch (error) {
     const detail = error instanceof Error ? error.message : 'unknown error';
