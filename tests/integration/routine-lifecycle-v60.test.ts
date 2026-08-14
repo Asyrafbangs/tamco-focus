@@ -12,10 +12,23 @@ type Rpc = Record<string, unknown> & { ok: boolean; code: string };
  * no procedure to act on it. These tests pin the loop that was missing.
  */
 describe('v60 routine lifecycle', () => {
+  /*
+   * v62 widened the recurrence: a weekly routine can name several days, a
+   * monthly one can say "the first Wednesday", yearly is its own frequency
+   * with a month, and a series can be given an end. These defaults keep the
+   * v60 cases expressing exactly what they expressed before.
+   */
   const shape = {
     p_description: null,
     p_owner_id: null,
     p_due_time: '09:00',
+    p_monthly_mode: null,
+    p_nth_weekday: null,
+    p_nth_weekday_dow: null,
+    p_month_of_year: null,
+    p_ends_mode: 'never',
+    p_ends_after_count: null,
+    p_ends_on_date: null,
     p_evidence_required: false,
     p_requires_completion_review: false,
   };
@@ -28,7 +41,8 @@ describe('v60 routine lifecycle', () => {
         p_title: 'Quarterly extinguisher check',
         p_frequency: 'monthly',
         p_interval_count: 3,
-        p_weekday: null,
+        p_weekdays: null,
+        p_monthly_mode: 'day_of_month',
         p_day_of_month: 15,
         p_start_date: new Date().toISOString().slice(0, 10),
         p_idempotency_key: crypto.randomUUID(),
@@ -73,7 +87,7 @@ describe('v60 routine lifecycle', () => {
         p_title: 'Self-started toolbox talk',
         p_frequency: 'weekly',
         p_interval_count: 1,
-        p_weekday: 1,
+        p_weekdays: [1],
         p_day_of_month: null,
         p_start_date: new Date().toISOString().slice(0, 10),
         p_idempotency_key: crypto.randomUUID(),
@@ -115,7 +129,7 @@ describe('v60 routine lifecycle', () => {
         p_title: 'Weekly without a day',
         p_frequency: 'weekly',
         p_interval_count: 1,
-        p_weekday: null,
+        p_weekdays: null,
         p_day_of_month: null,
         p_start_date: null,
         p_idempotency_key: crypto.randomUUID(),
@@ -130,7 +144,7 @@ describe('v60 routine lifecycle', () => {
         p_title: 'Monthly without a date',
         p_frequency: 'monthly',
         p_interval_count: 1,
-        p_weekday: null,
+        p_weekdays: null,
         p_day_of_month: null,
         p_start_date: null,
         p_idempotency_key: crypto.randomUUID(),
@@ -148,7 +162,7 @@ describe('v60 routine lifecycle', () => {
         p_title: 'Daily walkaround',
         p_frequency: 'daily',
         p_interval_count: 1,
-        p_weekday: null,
+        p_weekdays: null,
         p_day_of_month: null,
         p_start_date: new Date().toISOString().slice(0, 10),
         p_idempotency_key: crypto.randomUUID(),
@@ -194,7 +208,7 @@ describe('v60 routine lifecycle', () => {
         p_title: 'Cadence change',
         p_frequency: 'weekly',
         p_interval_count: 1,
-        p_weekday: 3,
+        p_weekdays: [3],
         p_day_of_month: null,
         p_start_date: null,
         p_idempotency_key: crypto.randomUUID(),
@@ -208,9 +222,18 @@ describe('v60 routine lifecycle', () => {
         p_description: null,
         p_frequency: 'monthly',
         p_interval_count: 6,
-        p_weekday: null,
+        p_weekdays: null,
+        p_monthly_mode: 'day_of_month',
         p_day_of_month: 1,
+        p_nth_weekday: null,
+        p_nth_weekday_dow: null,
+        p_month_of_year: null,
         p_due_time: '09:00',
+        // v62: the pattern now carries its own anchor, so an edit states it.
+        p_start_date: new Date().toISOString().slice(0, 10),
+        p_ends_mode: 'never',
+        p_ends_after_count: null,
+        p_ends_on_date: null,
         p_evidence_required: false,
         p_requires_completion_review: false,
         p_idempotency_key: crypto.randomUUID(),
@@ -240,7 +263,7 @@ describe('v60 routine lifecycle', () => {
         p_owner_id: PEOPLE.izzah.id,
         p_frequency: 'daily',
         p_interval_count: 1,
-        p_weekday: null,
+        p_weekdays: null,
         p_day_of_month: null,
         p_start_date: null,
         p_idempotency_key: crypto.randomUUID(),

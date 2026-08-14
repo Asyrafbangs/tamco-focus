@@ -181,6 +181,7 @@ export default async function RoutinePage({
           failed={routines.failed}
           canManageOthers={isManager}
           people={directory}
+          viewerId={profile.id}
           openWith={params.new ?? null}
         />
       </section>

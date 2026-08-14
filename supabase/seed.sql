@@ -189,21 +189,31 @@ select public.set_user_visibility(
 -- Routine templates (section 16).
 -- ---------------------------------------------------------------------------
 
+/*
+ * Started a few days ago, deliberately.
+ *
+ * The fixtures have to include a routine occurrence that is genuinely overdue,
+ * because My Team surfaces one and a test opens it. Anchoring these to today
+ * made that depend on the clock: the daily check falls due at 09:00 local, so
+ * the whole thing passed in the afternoon and failed in the morning — the suite
+ * reported a working feature as broken purely because of the hour it ran.
+ * Backdating the start puts several occurrences in the past at any hour.
+ */
 insert into public.routine_templates (
-  id, title, description, default_owner_id, frequency, interval_count, weekday,
-  due_time, requires_completion_review, evidence_required, created_by
+  id, title, description, default_owner_id, frequency, interval_count, weekday, weekdays,
+  monthly_mode, start_date, due_time, requires_completion_review, evidence_required, created_by
 ) values
   ('f0c05200-0000-4000-a000-000000000001',
    'Weekly workplace safety walk',
    'Structured walk of the production floor with a standard checklist.',
-   'f0c05000-0000-4000-a000-000000000004', 'weekly', 1, 3,
-   '16:00', true, true, 'f0c05000-0000-4000-a000-000000000002'),
+   'f0c05000-0000-4000-a000-000000000004', 'weekly', 1, 3, array[3]::smallint[],
+   null, (current_date - 21), '16:00', true, true, 'f0c05000-0000-4000-a000-000000000002'),
 
   ('f0c05200-0000-4000-a000-000000000002',
    'Daily PPE stock check',
    'Confirm PPE stock levels at the issuing point.',
-   'f0c05000-0000-4000-a000-000000000005', 'daily', 1, null,
-   '09:00', false, false, 'f0c05000-0000-4000-a000-000000000002');
+   'f0c05000-0000-4000-a000-000000000005', 'daily', 1, null, null,
+   null, (current_date - 3), '09:00', false, false, 'f0c05000-0000-4000-a000-000000000002');
 
 insert into public.routine_template_items (template_id, position, action, evidence_rule) values
   ('f0c05200-0000-4000-a000-000000000001', 0, 'Inspect emergency exits and signage', 'not_required'),

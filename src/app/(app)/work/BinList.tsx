@@ -3,8 +3,9 @@
 import { useTransition, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+import { restoreRoutineTemplate } from '@/server/actions/routine-actions';
 import { restoreTask } from '@/server/actions/task-actions';
-import type { BinnedTask } from '@/server/queries';
+import type { BinnedRoutine, BinnedTask } from '@/server/queries';
 
 /**
  * The Bin.
@@ -16,9 +17,12 @@ import type { BinnedTask } from '@/server/queries';
  */
 export function BinList({
   tasks,
+  routines = [],
   failed = false,
 }: {
   tasks: readonly BinnedTask[];
+  /** Deleted schedules. A routine is binned for the same reason a task is. */
+  routines?: readonly BinnedRoutine[];
   failed?: boolean;
 }) {
   const router = useRouter();
@@ -37,11 +41,11 @@ export function BinList({
     );
   }
 
-  if (tasks.length === 0) {
+  if (tasks.length === 0 && routines.length === 0) {
     return (
       <div className="empty-state">
         <strong>The Bin is empty</strong>
-        <p>Work you delete appears here, and can be restored.</p>
+        <p>Work and routines you delete appear here, and can be restored.</p>
       </div>
     );
   }
@@ -94,6 +98,52 @@ export function BinList({
           </li>
         ))}
       </ul>
+
+      {routines.length > 0 && (
+        <>
+          <p className="bin-section-heading">Routines</p>
+          <ul className="bin-list">
+            {routines.map((routine) => (
+              <li key={routine.id} className="bin-row">
+                <div>
+                  <strong>{routine.title}</strong>
+                  <small className="muted">
+                    {routine.recurrence} · {routine.ownerName} ·{' '}
+                    {new Date(routine.deletedAt).toLocaleDateString('en-GB', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </small>
+                </div>
+                <button
+                  type="button"
+                  className="btn small"
+                  disabled={pending && restoring === routine.id}
+                  aria-busy={pending && restoring === routine.id}
+                  onClick={() => {
+                    setError(null);
+                    setRestoring(routine.id);
+                    startTransition(async () => {
+                      const result = await restoreRoutineTemplate({
+                        templateId: routine.id,
+                        idempotencyKey: crypto.randomUUID(),
+                      });
+                      if (!result.ok) {
+                        setError(result.message ?? 'Nothing changed.');
+                        return;
+                      }
+                      router.refresh();
+                    });
+                  }}
+                >
+                  {pending && restoring === routine.id ? 'Restoring…' : 'Restore paused'}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </>
   );
 }

@@ -4,14 +4,23 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
 import {
-  cadenceIdFor,
-  describeCadence,
-  ROUTINE_CADENCES,
+  defaultPattern,
+  describeRecurrence,
+  FREQUENCY_LABELS,
+  MONTH_LABELS,
+  NTH_OPTIONS,
+  patternFromRow,
+  patternToColumns,
+  todayIso,
+  validatePattern,
   WEEKDAY_LABELS,
+  WEEKDAY_SHORT,
   type RecurrenceFrequency,
+  type RecurrencePattern,
 } from '@/domain/routines';
 import {
   createRoutineTemplate,
+  deleteRoutineTemplate,
   setRoutineActive,
   updateRoutineTemplate,
 } from '@/server/actions/routine-actions';
@@ -21,20 +30,31 @@ import { Modal } from '@/components/ui/Modal';
 /**
  * Setting up and controlling routines.
  *
- * The screen that did not exist. Occurrences were listed, and the templates
- * generating them could only be created by seeding the database — so a routine
- * created through New Work produced a proposal nothing could act on, and the
- * person saw nothing happen.
+ * The recurrence editor is modelled on the one people already use in a
+ * calendar client, because a routine is the same idea and inventing a second
+ * vocabulary for it earns nothing. A frequency down the left, its options to
+ * the right, and a range underneath.
  *
- * Cadence is chosen as a phrase and translated once, in `@/domain/routines`.
- * "Quarterly" is monthly with an interval of three, which the recurrence engine
- * always supported and nothing ever offered.
+ * It replaced a list of eight fixed cadences. That list read well and could not
+ * say "the first Wednesday of every month", had no start date, and offered
+ * "Yearly" that was really monthly with an interval of twelve — which is how a
+ * Safety Walk ended up described as "Yearly on the 5th" and first scheduled for
+ * August 2027.
  */
+function formatDate(iso: string): string {
+  return new Date(`${iso}T12:00:00Z`).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 export function RoutineManager({
   templates,
   failed,
   canManageOthers,
   people,
+  viewerId,
   openWith = null,
 }: {
   templates: readonly RoutineTemplateRow[];
@@ -42,6 +62,8 @@ export function RoutineManager({
   /** Managers may set a routine up for somebody else. */
   canManageOthers: boolean;
   people: readonly { id: string; name: string }[];
+  /** Deleting is the creator's to do, so the row needs to know who is looking. */
+  viewerId: string;
   /** A title arriving from New Work, which opens the form ready to fill in. */
   openWith?: string | null;
 }) {
@@ -50,6 +72,7 @@ export function RoutineManager({
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [editing, setEditing] = useState<RoutineTemplateRow | null>(null);
   const [creating, setCreating] = useState(Boolean(openWith));
+  const [confirmDelete, setConfirmDelete] = useState<RoutineTemplateRow | null>(null);
 
   if (failed) {
     return (
@@ -77,6 +100,29 @@ export function RoutineManager({
         text: template.isActive
           ? `${template.title} is paused. No further occurrences will be created.`
           : `${template.title} is active. Occurrences will be created from now on.`,
+      });
+      router.refresh();
+    });
+  }
+
+  function remove(template: RoutineTemplateRow) {
+    setMessage(null);
+    startTransition(async () => {
+      const result = await deleteRoutineTemplate({
+        templateId: template.id,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      setConfirmDelete(null);
+      if (!result.ok) {
+        setMessage({ tone: 'error', text: result.message ?? 'Nothing changed.' });
+        return;
+      }
+      const cleared = result.future_occurrences_cleared ?? 0;
+      setMessage({
+        tone: 'success',
+        text: cleared
+          ? `${template.title} is in the Bin, with ${cleared} occurrence${cleared === 1 ? '' : 's'} that had not started yet.`
+          : `${template.title} is in the Bin. Restore it from there if this was a mistake.`,
       });
       router.refresh();
     });
@@ -113,45 +159,101 @@ export function RoutineManager({
         </div>
       ) : (
         <ul className="routine-template-list">
-          {templates.map((template) => (
-            <li
-              key={template.id}
-              className={`routine-template-row${template.isActive ? '' : ' paused'}`}
-            >
-              <div className="routine-template-main">
-                <strong>{template.title}</strong>
-                <span className="muted">
-                  {describeCadence(template)} · {template.ownerName}
-                  {template.nextOccurrenceDate
-                    ? ` · next ${new Date(template.nextOccurrenceDate).toLocaleDateString('en-GB', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                      })}`
-                    : template.isActive
-                      ? ' · nothing scheduled yet'
-                      : ''}
+          {templates.map((template) => {
+            const pattern = patternFromRow(template);
+            /*
+             * The generated occurrence if there is one, otherwise what the
+             * schedule says. Only showing the generated one is why a routine
+             * due next month read "nothing scheduled yet" — generation runs a
+             * fortnight ahead, so a working schedule and a broken one looked
+             * identical.
+             */
+            const nextDate = template.nextOccurrenceDate ?? template.scheduledNextDate;
+            return (
+              <li
+                key={template.id}
+                className={`routine-template-row${template.isActive ? '' : ' paused'}`}
+              >
+                <div className="routine-template-main">
+                  <strong>{template.title}</strong>
+                  <span className="muted">
+                    {describeRecurrence(pattern)} · {template.ownerName}
+                  </span>
+                  <span className="routine-template-next">
+                    {nextDate
+                      ? `Next: ${formatDate(nextDate)}`
+                      : template.isActive
+                        ? 'This series has finished'
+                        : 'Paused — nothing will be created'}
+                  </span>
+                </div>
+                <span className={`routine-state ${template.isActive ? 'active' : 'paused'}`}>
+                  {template.isActive ? 'Active' : 'Paused'}
                 </span>
-              </div>
-              <span className={`routine-state ${template.isActive ? 'active' : 'paused'}`}>
-                {template.isActive ? 'Active' : 'Paused'}
-              </span>
-              <div className="routine-template-actions">
-                <button type="button" className="btn small" onClick={() => setEditing(template)}>
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="btn small"
-                  disabled={pending}
-                  onClick={() => toggle(template)}
-                >
-                  {template.isActive ? 'Pause' : 'Activate'}
-                </button>
-              </div>
-            </li>
-          ))}
+                <div className="routine-template-actions">
+                  <button type="button" className="btn small" onClick={() => setEditing(template)}>
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="btn small"
+                    disabled={pending}
+                    onClick={() => toggle(template)}
+                  >
+                    {template.isActive ? 'Pause' : 'Activate'}
+                  </button>
+                  {/*
+                    Deleting is for a routine that should not exist, which is
+                    the person who set it up saying so. Anybody else who wants
+                    it to stop wants Pause, and the procedure refuses either way.
+                  */}
+                  {template.createdBy === viewerId && (
+                    <button
+                      type="button"
+                      className="btn small danger"
+                      disabled={pending}
+                      onClick={() => setConfirmDelete(template)}
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
+      )}
+
+      {confirmDelete && (
+        <Modal open title="Delete this routine?" onClose={() => setConfirmDelete(null)}>
+          <header className="modalhead">
+            <div>
+              <p className="eyebrow">Delete routine</p>
+              <h2>{confirmDelete.title}</h2>
+            </div>
+          </header>
+          <div className="modalbody">
+            <p>
+              It moves to the Bin and stops creating work. Occurrences that have already been
+              started or completed stay exactly as they are — only ones nobody has begun are
+              withdrawn.
+            </p>
+            <p className="muted">If you only want it to stop for now, use Pause instead.</p>
+          </div>
+          <footer className="modalfoot">
+            <button type="button" className="btn" onClick={() => setConfirmDelete(null)}>
+              Keep it
+            </button>
+            <button
+              type="button"
+              className="btn danger"
+              disabled={pending}
+              onClick={() => remove(confirmDelete)}
+            >
+              {pending ? 'Deleting…' : 'Delete to Bin'}
+            </button>
+          </footer>
+        </Modal>
       )}
 
       {(creating || editing) && (
@@ -176,6 +278,8 @@ export function RoutineManager({
   );
 }
 
+const FREQUENCIES: readonly RecurrenceFrequency[] = ['daily', 'weekly', 'monthly', 'yearly'];
+
 function RoutineForm({
   initialTitle = null,
   template,
@@ -196,49 +300,74 @@ function RoutineForm({
 
   const [title, setTitle] = useState(template?.title ?? initialTitle ?? '');
   const [description, setDescription] = useState(template?.description ?? '');
-  const [cadenceId, setCadenceId] = useState(template ? cadenceIdFor(template) : 'weekly');
-  const [customFrequency, setCustomFrequency] = useState<RecurrenceFrequency>(
-    template?.frequency ?? 'monthly',
-  );
-  const [customInterval, setCustomInterval] = useState(String(template?.intervalCount ?? 1));
-  const [weekday, setWeekday] = useState(String(template?.weekday ?? 1));
-  const [dayOfMonth, setDayOfMonth] = useState(String(template?.dayOfMonth ?? 1));
   const [dueTime, setDueTime] = useState((template?.dueTime ?? '17:00').slice(0, 5));
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [ownerId, setOwnerId] = useState(template?.ownerId ?? '');
   const [evidenceRequired, setEvidenceRequired] = useState(template?.evidenceRequired ?? false);
   const [requiresReview, setRequiresReview] = useState(template?.requiresCompletionReview ?? false);
 
-  const cadence = ROUTINE_CADENCES.find((entry) => entry.id === cadenceId) ?? ROUTINE_CADENCES[1]!;
-  const isCustom = cadenceId === 'custom';
-  const frequency: RecurrenceFrequency = isCustom ? customFrequency : cadence.frequency;
-  const intervalCount = isCustom ? Number(customInterval) || 1 : cadence.intervalCount;
-  const needs = isCustom
-    ? frequency === 'weekly'
-      ? 'weekday'
-      : frequency === 'monthly'
-        ? 'day_of_month'
-        : 'nothing'
-    : cadence.needs;
+  const [pattern, setPattern] = useState<RecurrencePattern>(() =>
+    template ? patternFromRow(template) : defaultPattern(todayIso()),
+  );
 
-  // The same sentence the list will show once this is saved.
-  const preview = describeCadence({
-    frequency,
-    intervalCount,
-    weekday: needs === 'weekday' ? Number(weekday) : null,
-    dayOfMonth: needs === 'day_of_month' ? Number(dayOfMonth) : null,
-  });
+  function set(patch: Partial<RecurrencePattern>) {
+    setPattern((current) => ({ ...current, ...patch }));
+  }
+
+  function toggleWeekday(day: number) {
+    setPattern((current) => {
+      const has = current.weekdays.includes(day);
+      // Never empty: an empty weekly pattern has no meaning, and silently
+      // accepting one would fail at the server with a message about a field
+      // the person cannot see.
+      if (has && current.weekdays.length === 1) return current;
+      return {
+        ...current,
+        weekdays: has
+          ? current.weekdays.filter((entry) => entry !== day)
+          : [...current.weekdays, day].sort((a, b) => a - b),
+      };
+    });
+  }
+
+  const monthly = pattern.frequency === 'monthly' || pattern.frequency === 'yearly';
+  const unitLabel =
+    pattern.frequency === 'daily'
+      ? 'day'
+      : pattern.frequency === 'weekly'
+        ? 'week'
+        : pattern.frequency === 'monthly'
+          ? 'month'
+          : 'year';
 
   function submit() {
     setError(null);
+    const shapeError = validatePattern(pattern);
+    if (shapeError) {
+      setError(shapeError);
+      return;
+    }
+    if (!title.trim()) {
+      setError('Give the routine a name.');
+      return;
+    }
+
+    const columns = patternToColumns(pattern);
     const shape = {
       title: title.trim(),
       description: description.trim() || null,
-      frequency,
-      intervalCount,
-      weekday: needs === 'weekday' ? Number(weekday) : null,
-      dayOfMonth: needs === 'day_of_month' ? Number(dayOfMonth) : null,
+      frequency: columns.frequency,
+      intervalCount: columns.intervalCount,
+      weekdays: columns.weekdays,
+      monthlyMode: columns.monthlyMode,
+      dayOfMonth: columns.dayOfMonth,
+      nthWeekday: columns.nthWeekday as 1 | 2 | 3 | 4 | -1 | null,
+      nthWeekdayDow: columns.nthWeekdayDow,
+      monthOfYear: columns.monthOfYear,
       dueTime,
+      startDate: columns.startDate,
+      endsMode: columns.endsMode,
+      endsAfterCount: columns.endsAfterCount,
+      endsOnDate: columns.endsOnDate,
       evidenceRequired,
       requiresCompletionReview: requiresReview,
       idempotencyKey: crypto.randomUUID(),
@@ -247,39 +376,40 @@ function RoutineForm({
     startTransition(async () => {
       const result = template
         ? await updateRoutineTemplate({ ...shape, templateId: template.id })
-        : await createRoutineTemplate({
-            ...shape,
-            ownerId: ownerId || null,
-            startDate,
-          });
+        : await createRoutineTemplate({ ...shape, ownerId: ownerId || null });
 
       if (!result.ok) {
         setError(result.message ?? 'Nothing changed.');
         return;
       }
+      const cleared = result.future_occurrences_cleared ?? 0;
       onDone(
-        result.code === 'routine_awaiting_review'
-          ? `${shape.title} is set up and waiting for your manager to activate it.`
-          : template
-            ? `${shape.title} updated. Future occurrences use the new schedule.`
-            : `${shape.title} is active. ${preview}.`,
+        template
+          ? cleared
+            ? `${shape.title} updated. ${cleared} occurrence${cleared === 1 ? '' : 's'} that had not started were rescheduled.`
+            : `${shape.title} updated.`
+          : result.code === 'routine_awaiting_review'
+            ? `${shape.title} is set up and waiting for your manager to activate it.`
+            : `${shape.title} is active. ${describeRecurrence(pattern)}.`,
       );
     });
   }
 
   return (
-    <Modal open title={template ? 'Edit routine' : 'Set up a routine'} onClose={onClose}>
-      <div className="modal-head">
+    <Modal
+      open
+      size="wide"
+      title={template ? 'Edit routine' : 'Set up a routine'}
+      onClose={onClose}
+    >
+      <header className="modalhead">
         <div>
-          <strong>{template ? 'Edit routine' : 'Set up a routine'}</strong>
-          <span>Work is created automatically on this schedule.</span>
+          <p className="eyebrow">Routine</p>
+          <h2>{template ? 'Edit routine' : 'Set up a routine'}</h2>
         </div>
-        <button type="button" className="btn small" aria-label="Close" onClick={onClose}>
-          &times;
-        </button>
-      </div>
+      </header>
 
-      <div className="modal-body">
+      <div className="modalbody routine-form">
         {error && (
           <div className="notice error" role="alert">
             <p>{error}</p>
@@ -287,130 +417,29 @@ function RoutineForm({
         )}
 
         <div className="field">
-          <label htmlFor="routine-title">What repeats?</label>
+          <label htmlFor="routine-title">What is the routine?</label>
           <input
             id="routine-title"
             value={title}
-            maxLength={200}
-            required
             onChange={(event) => setTitle(event.target.value)}
+            placeholder="Monthly Gemba walk"
           />
         </div>
 
         <div className="field">
-          <label htmlFor="routine-description">Details — optional</label>
+          <label htmlFor="routine-description">
+            Notes <span className="optional-label">Optional</span>
+          </label>
           <textarea
             id="routine-description"
-            value={description}
             rows={2}
-            maxLength={4000}
+            value={description}
             onChange={(event) => setDescription(event.target.value)}
+            placeholder="What the person doing it needs to know."
           />
         </div>
 
-        <div className="field">
-          <label htmlFor="routine-cadence">How often?</label>
-          <select
-            id="routine-cadence"
-            value={cadenceId}
-            onChange={(event) => setCadenceId(event.target.value)}
-          >
-            {ROUTINE_CADENCES.map((entry) => (
-              <option key={entry.id} value={entry.id}>
-                {entry.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {isCustom && (
-          <div className="routine-custom">
-            <div className="field">
-              <label htmlFor="routine-interval">Repeat every</label>
-              <input
-                id="routine-interval"
-                type="number"
-                min={1}
-                max={52}
-                value={customInterval}
-                onChange={(event) => setCustomInterval(event.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="routine-unit">Unit</label>
-              <select
-                id="routine-unit"
-                value={customFrequency}
-                onChange={(event) => setCustomFrequency(event.target.value as RecurrenceFrequency)}
-              >
-                <option value="daily">days</option>
-                <option value="weekly">weeks</option>
-                <option value="monthly">months</option>
-              </select>
-            </div>
-          </div>
-        )}
-
-        {needs === 'weekday' && (
-          <div className="field">
-            <label htmlFor="routine-weekday">On which day?</label>
-            <select
-              id="routine-weekday"
-              value={weekday}
-              onChange={(event) => setWeekday(event.target.value)}
-            >
-              {WEEKDAY_LABELS.map((entry) => (
-                <option key={entry.value} value={entry.value}>
-                  {entry.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {needs === 'day_of_month' && (
-          <div className="field">
-            <label htmlFor="routine-dom">On which date?</label>
-            <select
-              id="routine-dom"
-              value={dayOfMonth}
-              onChange={(event) => setDayOfMonth(event.target.value)}
-            >
-              {Array.from({ length: 31 }, (_, index) => index + 1).map((day) => (
-                <option key={day} value={day}>
-                  {day}
-                </option>
-              ))}
-            </select>
-            <small className="muted">
-              A date later than a short month has runs on that month&rsquo;s last day.
-            </small>
-          </div>
-        )}
-
-        <div className="field">
-          <label htmlFor="routine-time">Due by</label>
-          <input
-            id="routine-time"
-            type="time"
-            value={dueTime}
-            onChange={(event) => setDueTime(event.target.value)}
-          />
-        </div>
-
-        {!template && (
-          <div className="field">
-            <label htmlFor="routine-start">Start from</label>
-            <input
-              id="routine-start"
-              type="date"
-              value={startDate}
-              onChange={(event) => setStartDate(event.target.value)}
-            />
-          </div>
-        )}
-
-        {!template && canManageOthers && (
+        {canManageOthers && !template && (
           <div className="field">
             <label htmlFor="routine-owner">Who does it?</label>
             <select
@@ -428,15 +457,266 @@ function RoutineForm({
           </div>
         )}
 
-        <fieldset className="routine-flags">
-          <legend>Each occurrence</legend>
+        {/* ---------------------------------------------------------------- */}
+        <fieldset className="recurrence-block">
+          <legend>Recurrence pattern</legend>
+          <div className="recurrence-grid">
+            <div className="recurrence-frequencies" role="radiogroup" aria-label="How often">
+              {FREQUENCIES.map((option) => (
+                <label key={option} className="recurrence-frequency">
+                  <input
+                    type="radio"
+                    name="routine-frequency"
+                    checked={pattern.frequency === option}
+                    onChange={() => set({ frequency: option })}
+                  />
+                  <span>{FREQUENCY_LABELS[option]}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="recurrence-options">
+              <div className="recurrence-line">
+                <span>Repeat every</span>
+                <input
+                  className="recurrence-number"
+                  type="number"
+                  min={1}
+                  max={99}
+                  aria-label={`Number of ${unitLabel}s between occurrences`}
+                  value={pattern.intervalCount}
+                  onChange={(event) =>
+                    set({ intervalCount: Math.max(1, Number(event.target.value) || 1) })
+                  }
+                />
+                <span>{pattern.intervalCount === 1 ? unitLabel : `${unitLabel}s`}</span>
+              </div>
+
+              {pattern.frequency === 'weekly' && (
+                <div className="recurrence-line recurrence-weekdays">
+                  <span>on</span>
+                  <div className="weekday-toggles">
+                    {WEEKDAY_SHORT.map((label, index) => {
+                      const day = index + 1;
+                      const on = pattern.weekdays.includes(day);
+                      return (
+                        <button
+                          key={label}
+                          type="button"
+                          className={`weekday-toggle${on ? ' on' : ''}`}
+                          aria-pressed={on}
+                          aria-label={WEEKDAY_LABELS[index]}
+                          onClick={() => toggleWeekday(day)}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {monthly && (
+                <div className="recurrence-monthly" role="radiogroup" aria-label="Which day">
+                  <label className="recurrence-line">
+                    <input
+                      type="radio"
+                      name="routine-monthly-mode"
+                      checked={pattern.monthlyMode === 'day_of_month'}
+                      onChange={() => set({ monthlyMode: 'day_of_month' })}
+                    />
+                    <span>Day</span>
+                    <input
+                      className="recurrence-number"
+                      type="number"
+                      min={1}
+                      max={31}
+                      aria-label="Day of the month"
+                      value={pattern.dayOfMonth}
+                      onChange={(event) =>
+                        set({
+                          monthlyMode: 'day_of_month',
+                          dayOfMonth: Math.min(31, Math.max(1, Number(event.target.value) || 1)),
+                        })
+                      }
+                    />
+                    {pattern.frequency === 'yearly' && (
+                      <select
+                        aria-label="Month of the year"
+                        value={pattern.monthOfYear}
+                        onChange={(event) => set({ monthOfYear: Number(event.target.value) })}
+                      >
+                        {MONTH_LABELS.map((label, index) => (
+                          <option key={label} value={index + 1}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </label>
+
+                  <label className="recurrence-line">
+                    <input
+                      type="radio"
+                      name="routine-monthly-mode"
+                      checked={pattern.monthlyMode === 'nth_weekday'}
+                      onChange={() => set({ monthlyMode: 'nth_weekday' })}
+                    />
+                    <span>The</span>
+                    <select
+                      aria-label="Which occurrence in the month"
+                      value={pattern.nthWeekday}
+                      onChange={(event) =>
+                        set({ monthlyMode: 'nth_weekday', nthWeekday: Number(event.target.value) })
+                      }
+                    >
+                      {NTH_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label="Which weekday"
+                      value={pattern.nthWeekdayDow}
+                      onChange={(event) =>
+                        set({
+                          monthlyMode: 'nth_weekday',
+                          nthWeekdayDow: Number(event.target.value),
+                        })
+                      }
+                    >
+                      {WEEKDAY_LABELS.map((label, index) => (
+                        <option key={label} value={index + 1}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                    {pattern.frequency === 'yearly' && (
+                      <>
+                        <span>of</span>
+                        <select
+                          aria-label="Month of the year"
+                          value={pattern.monthOfYear}
+                          onChange={(event) => set({ monthOfYear: Number(event.target.value) })}
+                        >
+                          {MONTH_LABELS.map((label, index) => (
+                            <option key={label} value={index + 1}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    )}
+                  </label>
+                </div>
+              )}
+
+              <div className="recurrence-line">
+                <label htmlFor="routine-time">Due at</label>
+                <input
+                  id="routine-time"
+                  type="time"
+                  value={dueTime}
+                  onChange={(event) => setDueTime(event.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        </fieldset>
+
+        {/* ---------------------------------------------------------------- */}
+        <fieldset className="recurrence-block">
+          <legend>Range of recurrence</legend>
+
+          <div className="recurrence-line">
+            <label htmlFor="routine-start">Start</label>
+            <input
+              id="routine-start"
+              type="date"
+              value={pattern.startDate}
+              onChange={(event) => set({ startDate: event.target.value || todayIso() })}
+            />
+          </div>
+
+          <div className="recurrence-ends" role="radiogroup" aria-label="When it ends">
+            <label className="recurrence-line">
+              <input
+                type="radio"
+                name="routine-ends"
+                checked={pattern.endsMode === 'never'}
+                onChange={() => set({ endsMode: 'never' })}
+              />
+              <span>No end date</span>
+            </label>
+
+            <label className="recurrence-line">
+              <input
+                type="radio"
+                name="routine-ends"
+                checked={pattern.endsMode === 'after'}
+                onChange={() =>
+                  set({ endsMode: 'after', endsAfterCount: pattern.endsAfterCount ?? 10 })
+                }
+              />
+              <span>End after</span>
+              <input
+                className="recurrence-number"
+                type="number"
+                min={1}
+                max={999}
+                aria-label="Number of occurrences"
+                value={pattern.endsAfterCount ?? ''}
+                onChange={(event) =>
+                  set({ endsMode: 'after', endsAfterCount: Number(event.target.value) || null })
+                }
+              />
+              <span>occurrences</span>
+            </label>
+
+            <label className="recurrence-line">
+              <input
+                type="radio"
+                name="routine-ends"
+                checked={pattern.endsMode === 'on_date'}
+                onChange={() => set({ endsMode: 'on_date' })}
+              />
+              <span>End by</span>
+              <input
+                type="date"
+                aria-label="Last date"
+                value={pattern.endsOnDate ?? ''}
+                onChange={(event) =>
+                  set({ endsMode: 'on_date', endsOnDate: event.target.value || null })
+                }
+              />
+            </label>
+          </div>
+        </fieldset>
+
+        {/*
+          The same sentence the list will show. Computed from the same fields
+          the server stores, so what is read here is what will happen.
+        */}
+        <p className="recurrence-preview">
+          <strong>{describeRecurrence(pattern)}</strong>
+          {/*
+            "Runs from", not "Starting". The start date bounds the series; it
+            is not the first occurrence, and for "the first Wednesday of every
+            month" set up mid-month the two are weeks apart. The list row shows
+            the real next date, which the database computes.
+          */}
+          <span>Runs from {formatDate(pattern.startDate)}</span>
+        </p>
+
+        <div className="routine-form-flags">
           <label>
             <input
               type="checkbox"
               checked={evidenceRequired}
               onChange={(event) => setEvidenceRequired(event.target.checked)}
             />
-            <span>Requires evidence before it can be completed</span>
+            <span>Evidence is required to complete each one</span>
           </label>
           <label>
             <input
@@ -444,30 +724,19 @@ function RoutineForm({
               checked={requiresReview}
               onChange={(event) => setRequiresReview(event.target.checked)}
             />
-            <span>Needs a completion review</span>
+            <span>A manager reviews each completion</span>
           </label>
-        </fieldset>
-
-        <p className="routine-preview" role="status">
-          {preview}
-          {dueTime ? `, due by ${dueTime}` : ''}
-        </p>
+        </div>
       </div>
 
-      <div className="modal-foot">
+      <footer className="modalfoot">
         <button type="button" className="btn" onClick={onClose}>
           Cancel
         </button>
-        <button
-          type="button"
-          className="btn primary"
-          disabled={pending || title.trim().length === 0}
-          aria-busy={pending}
-          onClick={submit}
-        >
+        <button type="button" className="btn primary" disabled={pending} onClick={submit}>
           {pending ? 'Saving…' : template ? 'Save changes' : 'Create routine'}
         </button>
-      </div>
+      </footer>
     </Modal>
   );
 }

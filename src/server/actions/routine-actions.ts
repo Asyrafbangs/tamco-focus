@@ -9,43 +9,63 @@ import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/serve
 /**
  * Managing routines.
  *
- * The cadence somebody chooses in the interface is a phrase — "Quarterly", "Every
- * 2 weeks" — and the database stores the four fields
- * `focus.next_occurrence_date` actually reads. `ROUTINE_CADENCES` in
- * `@/domain/routines` is the single place that translation lives, so the words
- * on screen and the dates generated cannot drift apart.
+ * The interface builds a recurrence pattern — frequency, interval, which days,
+ * a start and an end — and these procedures store it in the columns
+ * `focus.next_occurrence_date` reads. `@/domain/routines` owns the translation
+ * in both directions, so the sentence on screen and the dates generated cannot
+ * drift apart.
  */
 
-const frequency = z.enum(['daily', 'weekly', 'monthly']);
+const frequency = z.enum(['daily', 'weekly', 'monthly', 'yearly']);
 
-const shapeSchema = {
+const patternSchema = {
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().max(4000).nullish(),
   frequency,
-  intervalCount: z.number().int().min(1).max(52),
-  weekday: z.number().int().min(1).max(7).nullish(),
+  intervalCount: z.number().int().min(1).max(99),
+  weekdays: z.array(z.number().int().min(1).max(7)).nullish(),
+  monthlyMode: z.enum(['day_of_month', 'nth_weekday']).nullish(),
   dayOfMonth: z.number().int().min(1).max(31).nullish(),
+  /** 1-4, or -1 for the last such weekday in the month. */
+  nthWeekday: z
+    .union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(-1)])
+    .nullish(),
+  nthWeekdayDow: z.number().int().min(1).max(7).nullish(),
+  monthOfYear: z.number().int().min(1).max(12).nullish(),
   dueTime: z
     .string()
     .regex(/^\d{2}:\d{2}$/)
     .default('17:00'),
+  startDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullish(),
+  endsMode: z.enum(['never', 'after', 'on_date']).default('never'),
+  endsAfterCount: z.number().int().min(1).max(999).nullish(),
+  endsOnDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullish(),
   evidenceRequired: z.boolean().default(false),
   requiresCompletionReview: z.boolean().default(false),
 };
 
 const createSchema = z.object({
-  ...shapeSchema,
+  ...patternSchema,
   ownerId: z.string().uuid().nullish(),
-  startDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .nullish(),
+  idempotencyKey: z.string().min(8).max(128).optional(),
+});
+
+const updateSchema = z.object({
+  ...patternSchema,
+  templateId: z.string().uuid(),
   idempotencyKey: z.string().min(8).max(128).optional(),
 });
 
 type RoutineResult = OperationResult<{
   routine_template_id?: string;
   is_active?: boolean;
+  future_occurrences_cleared?: number;
 }>;
 
 async function call(name: string, args: Record<string, unknown>): Promise<RoutineResult> {
@@ -59,67 +79,58 @@ async function call(name: string, args: Record<string, unknown>): Promise<Routin
 
   const result = data as RoutineResult;
   if (result.ok) {
-    for (const path of ['/work/routine', '/work', '/today']) revalidatePath(path);
+    // The Bin and the calendar both read routines now, so neither can be left
+    // showing a schedule that has just changed.
+    for (const path of ['/work/routine', '/work', '/today', '/plan']) revalidatePath(path);
   }
   return result;
+}
+
+/** The pattern arguments both procedures share, in their SQL names. */
+function patternArgs(input: z.infer<typeof createSchema> | z.infer<typeof updateSchema>) {
+  return {
+    p_title: input.title,
+    p_description: input.description ?? null,
+    p_frequency: input.frequency,
+    p_interval_count: input.intervalCount,
+    p_weekdays: input.frequency === 'weekly' ? (input.weekdays ?? []) : null,
+    p_monthly_mode: input.monthlyMode ?? null,
+    p_day_of_month: input.dayOfMonth ?? null,
+    p_nth_weekday: input.nthWeekday ?? null,
+    p_nth_weekday_dow: input.nthWeekdayDow ?? null,
+    p_month_of_year: input.monthOfYear ?? null,
+    p_due_time: input.dueTime,
+    p_start_date: input.startDate ?? null,
+    p_ends_mode: input.endsMode,
+    p_ends_after_count: input.endsAfterCount ?? null,
+    p_ends_on_date: input.endsOnDate ?? null,
+    p_evidence_required: input.evidenceRequired,
+    p_requires_completion_review: input.requiresCompletionReview,
+    p_idempotency_key: input.idempotencyKey ?? null,
+  };
 }
 
 export async function createRoutineTemplate(input: z.input<typeof createSchema>) {
   await requireProfile();
   const parsed = createSchema.safeParse(input);
   if (!parsed.success) {
-    return {
-      ok: false as const,
-      code: 'validation_failed' as const,
-      message: 'Give the routine a name and a valid schedule.',
-    };
+    return { ok: false as const, code: 'validation_failed', message: 'Check the routine details.' };
   }
-
   return call('create_routine_template', {
-    p_title: parsed.data.title,
-    p_description: parsed.data.description ?? null,
+    ...patternArgs(parsed.data),
     p_owner_id: parsed.data.ownerId ?? null,
-    p_frequency: parsed.data.frequency,
-    p_interval_count: parsed.data.intervalCount,
-    p_weekday: parsed.data.weekday ?? null,
-    p_day_of_month: parsed.data.dayOfMonth ?? null,
-    p_due_time: parsed.data.dueTime,
-    p_start_date: parsed.data.startDate ?? null,
-    p_evidence_required: parsed.data.evidenceRequired,
-    p_requires_completion_review: parsed.data.requiresCompletionReview,
-    p_idempotency_key: parsed.data.idempotencyKey ?? null,
   });
 }
-
-const updateSchema = z.object({
-  ...shapeSchema,
-  templateId: z.string().uuid(),
-  idempotencyKey: z.string().min(8).max(128).optional(),
-});
 
 export async function updateRoutineTemplate(input: z.input<typeof updateSchema>) {
   await requireProfile();
   const parsed = updateSchema.safeParse(input);
   if (!parsed.success) {
-    return {
-      ok: false as const,
-      code: 'validation_failed' as const,
-      message: 'Give the routine a name and a valid schedule.',
-    };
+    return { ok: false as const, code: 'validation_failed', message: 'Check the routine details.' };
   }
-
   return call('update_routine_template', {
+    ...patternArgs(parsed.data),
     p_template_id: parsed.data.templateId,
-    p_title: parsed.data.title,
-    p_description: parsed.data.description ?? null,
-    p_frequency: parsed.data.frequency,
-    p_interval_count: parsed.data.intervalCount,
-    p_weekday: parsed.data.weekday ?? null,
-    p_day_of_month: parsed.data.dayOfMonth ?? null,
-    p_due_time: parsed.data.dueTime,
-    p_evidence_required: parsed.data.evidenceRequired,
-    p_requires_completion_review: parsed.data.requiresCompletionReview,
-    p_idempotency_key: parsed.data.idempotencyKey ?? null,
   });
 }
 
@@ -137,12 +148,57 @@ export async function setRoutineActive(input: {
     })
     .safeParse(input);
   if (!parsed.success) {
-    return { ok: false as const, code: 'validation_failed' as const, message: 'Invalid request.' };
+    return { ok: false as const, code: 'validation_failed', message: 'Nothing changed.' };
   }
-
   return call('set_routine_template_active', {
     p_template_id: parsed.data.templateId,
     p_active: parsed.data.active,
+    p_idempotency_key: parsed.data.idempotencyKey ?? null,
+  });
+}
+
+/**
+ * Deleting is for a mistake at creation, which is why it is offered next to
+ * Pause rather than instead of it. Pausing stops a schedule that was right;
+ * deleting removes one that should not exist. The procedure enforces that only
+ * the person who set it up may do the second.
+ */
+export async function deleteRoutineTemplate(input: {
+  templateId: string;
+  idempotencyKey?: string;
+}) {
+  await requireProfile();
+  const parsed = z
+    .object({
+      templateId: z.string().uuid(),
+      idempotencyKey: z.string().min(8).max(128).optional(),
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, code: 'validation_failed', message: 'Nothing changed.' };
+  }
+  return call('delete_routine_template', {
+    p_template_id: parsed.data.templateId,
+    p_idempotency_key: parsed.data.idempotencyKey ?? null,
+  });
+}
+
+export async function restoreRoutineTemplate(input: {
+  templateId: string;
+  idempotencyKey?: string;
+}) {
+  await requireProfile();
+  const parsed = z
+    .object({
+      templateId: z.string().uuid(),
+      idempotencyKey: z.string().min(8).max(128).optional(),
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, code: 'validation_failed', message: 'Nothing changed.' };
+  }
+  return call('restore_routine_template', {
+    p_template_id: parsed.data.templateId,
     p_idempotency_key: parsed.data.idempotencyKey ?? null,
   });
 }

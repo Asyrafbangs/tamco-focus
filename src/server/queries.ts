@@ -2,6 +2,7 @@ import 'server-only';
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { barrierHref } from '@/domain/barriers';
+import { describeRecurrence, patternFromRow } from '@/domain/routines';
 import {
   attentionPriority,
   resolveAttentionAction,
@@ -779,16 +780,36 @@ export interface RoutineTemplateRow {
   description: string | null;
   ownerId: string;
   ownerName: string;
-  frequency: 'daily' | 'weekly' | 'monthly';
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
   intervalCount: number;
   weekday: number | null;
+  weekdays: number[] | null;
+  monthlyMode: string | null;
   dayOfMonth: number | null;
+  nthWeekday: number | null;
+  nthWeekdayDow: number | null;
+  monthOfYear: number | null;
+  startDate: string | null;
+  endsMode: string | null;
+  endsAfterCount: number | null;
+  endsOnDate: string | null;
   dueTime: string;
   evidenceRequired: boolean;
   requiresCompletionReview: boolean;
   isActive: boolean;
+  createdBy: string;
   occurrenceCount: number;
+  /** The soonest occurrence that already exists as a task. */
   nextOccurrenceDate: string | null;
+  /**
+   * What the schedule says is next, whether or not a task exists for it.
+   *
+   * Generation only runs a fortnight ahead, so a routine due next month has
+   * nothing generated and used to read "nothing scheduled yet" — which is what
+   * a broken routine reads like too. The schedule always knows its next date;
+   * this is it.
+   */
+  scheduledNextDate: string | null;
 }
 
 /**
@@ -804,6 +825,8 @@ export async function getRoutineTemplates(): Promise<{
   const { data, error } = await supabase
     .from('routine_template_overview')
     .select('*')
+    // Binned routines live in the Bin, not in the list they were removed from.
+    .is('deleted_at', null)
     .order('is_active', { ascending: false })
     .order('title', { ascending: true })
     .limit(200);
@@ -823,16 +846,89 @@ export async function getRoutineTemplates(): Promise<{
       description: row.description ? String(row.description) : null,
       ownerId: String(row.default_owner_id),
       ownerName: String(row.owner_name ?? ''),
-      frequency: row.frequency as 'daily' | 'weekly' | 'monthly',
+      frequency: row.frequency as RoutineTemplateRow['frequency'],
       intervalCount: Number(row.interval_count ?? 1),
       weekday: row.weekday === null ? null : Number(row.weekday),
+      weekdays: Array.isArray(row.weekdays) ? row.weekdays.map(Number) : null,
+      monthlyMode: row.monthly_mode ? String(row.monthly_mode) : null,
       dayOfMonth: row.day_of_month === null ? null : Number(row.day_of_month),
+      nthWeekday: row.nth_weekday === null ? null : Number(row.nth_weekday),
+      nthWeekdayDow: row.nth_weekday_dow === null ? null : Number(row.nth_weekday_dow),
+      monthOfYear: row.month_of_year === null ? null : Number(row.month_of_year),
+      startDate: row.start_date ? String(row.start_date) : null,
+      endsMode: row.ends_mode ? String(row.ends_mode) : null,
+      endsAfterCount: row.ends_after_count === null ? null : Number(row.ends_after_count),
+      endsOnDate: row.ends_on_date ? String(row.ends_on_date) : null,
       dueTime: String(row.due_time ?? '17:00'),
       evidenceRequired: Boolean(row.evidence_required),
       requiresCompletionReview: Boolean(row.requires_completion_review),
       isActive: Boolean(row.is_active),
+      createdBy: String(row.created_by ?? ''),
       occurrenceCount: Number(row.occurrence_count ?? 0),
       nextOccurrenceDate: row.next_occurrence_date ? String(row.next_occurrence_date) : null,
+      scheduledNextDate: row.scheduled_next_date ? String(row.scheduled_next_date) : null,
+    })),
+  };
+}
+
+export interface BinnedRoutine {
+  id: string;
+  title: string;
+  ownerName: string;
+  recurrence: string;
+  deletedAt: string;
+}
+
+/**
+ * Routines in the Bin.
+ *
+ * A schedule and a task are deleted for the same reason — it should not exist —
+ * so they come back the same way. Kept as its own query rather than folded into
+ * `getBinnedTasks` because restoring one is a different procedure with a
+ * different consequence: a routine returns paused, so nothing is generated
+ * until somebody decides it should be.
+ */
+export async function getBinnedRoutines(): Promise<{
+  routines: BinnedRoutine[];
+  failed: boolean;
+}> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('routine_template_overview')
+    .select('*')
+    .not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error(`[getBinnedRoutines] ${error.message}`);
+    return { routines: [], failed: true };
+  }
+
+  return {
+    failed: false,
+    routines: (data ?? []).map((row) => ({
+      id: String(row.id),
+      title: String(row.title),
+      ownerName: String(row.owner_name ?? ''),
+      recurrence: describeRecurrence(
+        patternFromRow({
+          frequency: String(row.frequency),
+          intervalCount: Number(row.interval_count ?? 1),
+          weekdays: Array.isArray(row.weekdays) ? row.weekdays.map(Number) : null,
+          weekday: row.weekday === null ? null : Number(row.weekday),
+          monthlyMode: row.monthly_mode ? String(row.monthly_mode) : null,
+          dayOfMonth: row.day_of_month === null ? null : Number(row.day_of_month),
+          nthWeekday: row.nth_weekday === null ? null : Number(row.nth_weekday),
+          nthWeekdayDow: row.nth_weekday_dow === null ? null : Number(row.nth_weekday_dow),
+          monthOfYear: row.month_of_year === null ? null : Number(row.month_of_year),
+          startDate: row.start_date ? String(row.start_date) : null,
+          endsMode: row.ends_mode ? String(row.ends_mode) : null,
+          endsAfterCount: row.ends_after_count === null ? null : Number(row.ends_after_count),
+          endsOnDate: row.ends_on_date ? String(row.ends_on_date) : null,
+        }),
+      ),
+      deletedAt: String(row.deleted_at),
     })),
   };
 }

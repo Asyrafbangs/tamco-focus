@@ -8423,6 +8423,17 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   color: var(--muted);
 }
 
+/* Routines are binned for the same reason as work, but restoring one has a
+   different consequence, so they are separated rather than interleaved. */
+.bin-section-heading {
+  margin: 18px 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .bin-list {
   list-style: none;
   margin: 0;
@@ -8651,6 +8662,188 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .routine-template-actions {
   display: flex;
   gap: 6px;
+}
+
+/*
+ * The next date, on its own line rather than tacked onto the cadence.
+ *
+ * It answers the only question a list of schedules is actually asked — "when
+ * does this next happen?" — and it used to be a clause at the end of a longer
+ * sentence, which is where "· nothing scheduled yet" hid.
+ */
+.routine-template-next {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--blue);
+}
+.routine-template-row.paused .routine-template-next {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* ---------------------------------------------------------------------------
+   Recurrence editor.
+
+   Laid out the way a calendar client lays it out, because a routine is the
+   same idea: the frequency down the left, its options to the right of it, and
+   the range underneath. The grid collapses to one column on a narrow screen so
+   the options sit under the frequency they belong to rather than beside it.
+   --------------------------------------------------------------------------- */
+.routine-form {
+  display: grid;
+  gap: 14px;
+}
+
+.recurrence-block {
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.recurrence-block legend {
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.recurrence-grid {
+  display: grid;
+  grid-template-columns: minmax(120px, 160px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.recurrence-frequencies {
+  display: grid;
+  gap: 2px;
+  padding-right: 14px;
+  border-right: 1px solid var(--line);
+}
+.recurrence-frequency {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.recurrence-frequency:hover {
+  background: var(--surface);
+}
+.recurrence-frequency:has(input:checked) {
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+
+.recurrence-options {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.recurrence-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.recurrence-line select,
+.recurrence-line input[type='time'],
+.recurrence-line input[type='date'] {
+  width: auto;
+  min-height: var(--control-h);
+}
+.recurrence-number {
+  width: 68px;
+  text-align: center;
+}
+
+.weekday-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.weekday-toggle {
+  min-width: 44px;
+  min-height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+.weekday-toggle.on {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: var(--on-accent);
+}
+
+.recurrence-monthly,
+.recurrence-ends {
+  display: grid;
+  gap: 8px;
+}
+.recurrence-monthly .recurrence-line,
+.recurrence-ends .recurrence-line {
+  cursor: pointer;
+}
+
+.recurrence-preview {
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--blue);
+  border-radius: var(--radius-sm);
+  background: var(--blue-bg);
+  display: grid;
+  gap: 2px;
+}
+.recurrence-preview strong {
+  font-size: 14px;
+}
+.recurrence-preview span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.routine-form-flags {
+  display: grid;
+  gap: 8px;
+}
+.routine-form-flags label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .recurrence-grid {
+    grid-template-columns: 1fr;
+  }
+  .recurrence-frequencies {
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    padding: 0 0 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .recurrence-frequency {
+    justify-content: center;
+    font-size: 12px;
+  }
 }
 .routine-custom {
   display: grid;

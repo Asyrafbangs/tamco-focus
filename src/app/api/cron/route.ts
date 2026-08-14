@@ -70,9 +70,19 @@ export async function GET(request: Request) {
    * property is what makes a once-daily schedule safe.
    */
   try {
-    const { data, error } = await client.rpc('generate_routine_occurrences', {
-      p_through: new Date().toISOString().slice(0, 10),
-    });
+    /*
+     * No horizon argument.
+     *
+     * This used to pass `p_through: today`, which overrode the procedure's own
+     * default of `current_date + 14` and collapsed the lead to nothing. An
+     * occurrence could then only be created on the morning it was already due:
+     * the Upcoming tab was permanently empty, the calendar showed a routine
+     * for the first time on the day itself, and a schedule set up for next
+     * month read "nothing scheduled yet" right up until it was late.
+     *
+     * The default is the configured lead, so this asks for it by not asking.
+     */
+    const { data, error } = await client.rpc('generate_routine_occurrences', {});
     if (error) throw new Error(error.message);
     results.push({
       worker: 'routine_occurrences',

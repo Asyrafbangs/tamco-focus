@@ -34,6 +34,7 @@ import {
   getRoutineOccurrences,
   getAssignablePeople,
   getSharedContributions,
+  getBinnedRoutines,
   getBinnedTasks,
   getTaskDetail,
   getMyAttention,
@@ -261,6 +262,7 @@ export default async function WorkPage({
     settings,
     sharedContributions,
     binnedTasks,
+    binnedRoutines,
     routineOccurrences,
     taskDetail,
     memberDetail,
@@ -278,6 +280,7 @@ export default async function WorkPage({
     getSharedContributions(profile.id),
     // Only when the Bin is open: deleted work is not part of anybody's day.
     params.tab === 'bin' ? getBinnedTasks() : Promise.resolve({ tasks: [], failed: false }),
+    params.tab === 'bin' ? getBinnedRoutines() : Promise.resolve({ routines: [], failed: false }),
     getRoutineOccurrences(profile.id),
     params.task ? getTaskDetail(params.task, profile.id) : Promise.resolve(null),
     // §60 — the id in the URL is a request, not an authorisation. The query is
@@ -617,7 +620,11 @@ export default async function WorkPage({
       {scope === 'mine' && (
         <div className="focus-panel">
           {activeTab === 'bin' ? (
-            <BinList tasks={binnedTasks.tasks} failed={binnedTasks.failed} />
+            <BinList
+              tasks={binnedTasks.tasks}
+              routines={binnedRoutines.routines}
+              failed={binnedTasks.failed || binnedRoutines.failed}
+            />
           ) : activeTab === 'shared' ? (
             openContributions.length > 0 ? (
               openContributions.map((item) => {

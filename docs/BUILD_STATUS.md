@@ -70,6 +70,7 @@ The UI/UX parity enforcement pass is included in that result: all main surfaces 
 | Retention               | Seven years, organisation-configurable           |
 | Email provider          | `log`, `inbucket` or a real `smtp` relay         |
 | Routine generation      | Idempotent watermark with a 14-day lead          |
+| Routine recurrence      | Anchored to a start date, calendar-client shapes |
 
 A routine occurrence is represented as a task with `work_class = 'routine_occurrence'`, so it uses the same ownership, checklist, evidence, state, completion, and audit rules without duplicating those domains. npm is the documented package manager because the local guide permits an equivalent package manager when pnpm cannot be enabled.
 

@@ -4432,54 +4432,90 @@ export type Database = {
           created_by: string
           day_of_month: number | null
           default_owner_id: string
+          deleted_at: string | null
+          deleted_by: string | null
           description: string | null
           due_time: string
+          ends_after_count: number | null
+          ends_mode: string
+          ends_on_date: string | null
           evidence_required: boolean
           frequency: Database["public"]["Enums"]["recurrence_frequency"]
           generated_through: string | null
           id: string
           interval_count: number
           is_active: boolean
+          month_of_year: number | null
+          monthly_mode: string | null
+          nth_weekday: number | null
+          nth_weekday_dow: number | null
+          occurrences_generated: number
           requires_completion_review: boolean
+          start_date: string | null
           title: string
           updated_at: string
           weekday: number | null
+          weekdays: number[] | null
         }
         Insert: {
           created_at?: string
           created_by: string
           day_of_month?: number | null
           default_owner_id: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           due_time?: string
+          ends_after_count?: number | null
+          ends_mode?: string
+          ends_on_date?: string | null
           evidence_required?: boolean
           frequency: Database["public"]["Enums"]["recurrence_frequency"]
           generated_through?: string | null
           id?: string
           interval_count?: number
           is_active?: boolean
+          month_of_year?: number | null
+          monthly_mode?: string | null
+          nth_weekday?: number | null
+          nth_weekday_dow?: number | null
+          occurrences_generated?: number
           requires_completion_review?: boolean
+          start_date?: string | null
           title: string
           updated_at?: string
           weekday?: number | null
+          weekdays?: number[] | null
         }
         Update: {
           created_at?: string
           created_by?: string
           day_of_month?: number | null
           default_owner_id?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           due_time?: string
+          ends_after_count?: number | null
+          ends_mode?: string
+          ends_on_date?: string | null
           evidence_required?: boolean
           frequency?: Database["public"]["Enums"]["recurrence_frequency"]
           generated_through?: string | null
           id?: string
           interval_count?: number
           is_active?: boolean
+          month_of_year?: number | null
+          monthly_mode?: string | null
+          nth_weekday?: number | null
+          nth_weekday_dow?: number | null
+          occurrences_generated?: number
           requires_completion_review?: boolean
+          start_date?: string | null
           title?: string
           updated_at?: string
           weekday?: number | null
+          weekdays?: number[] | null
         }
         Relationships: [
           {
@@ -4548,6 +4584,41 @@ export type Database = {
           {
             foreignKeyName: "routine_templates_default_owner_id_fkey"
             columns: ["default_owner_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_templates_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_templates_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_templates_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_templates_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_templates_deleted_by_fkey"
+            columns: ["deleted_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
             referencedColumns: ["id"]
@@ -7027,24 +7098,72 @@ export type Database = {
       routine_template_overview: {
         Row: {
           created_at: string | null
+          created_by: string | null
           day_of_month: number | null
           default_owner_id: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           description: string | null
           due_time: string | null
+          ends_after_count: number | null
+          ends_mode: string | null
+          ends_on_date: string | null
           evidence_required: boolean | null
           frequency: Database["public"]["Enums"]["recurrence_frequency"] | null
           generated_through: string | null
           id: string | null
           interval_count: number | null
           is_active: boolean | null
+          month_of_year: number | null
+          monthly_mode: string | null
           next_occurrence_date: string | null
+          nth_weekday: number | null
+          nth_weekday_dow: number | null
           occurrence_count: number | null
           owner_name: string | null
           requires_completion_review: boolean | null
+          scheduled_next_date: string | null
+          start_date: string | null
           title: string | null
           weekday: number | null
+          weekdays: number[] | null
         }
         Relationships: [
+          {
+            foreignKeyName: "routine_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "routine_templates_default_owner_id_fkey"
             columns: ["default_owner_id"]
@@ -7076,6 +7195,41 @@ export type Database = {
           {
             foreignKeyName: "routine_templates_default_owner_id_fkey"
             columns: ["default_owner_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_templates_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_templates_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_templates_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_templates_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_templates_deleted_by_fkey"
+            columns: ["deleted_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
             referencedColumns: ["id"]
@@ -7675,15 +7829,22 @@ export type Database = {
           p_day_of_month: number
           p_description: string
           p_due_time: string
+          p_ends_after_count?: number
+          p_ends_mode?: string
+          p_ends_on_date?: string
           p_evidence_required?: boolean
           p_frequency: Database["public"]["Enums"]["recurrence_frequency"]
           p_idempotency_key?: string
           p_interval_count: number
+          p_month_of_year: number
+          p_monthly_mode: string
+          p_nth_weekday: number
+          p_nth_weekday_dow: number
           p_owner_id: string
           p_requires_completion_review?: boolean
           p_start_date: string
           p_title: string
-          p_weekday: number
+          p_weekdays: number[]
         }
         Returns: Json
       }
@@ -7708,6 +7869,10 @@ export type Database = {
           p_note?: string
           p_proposal_id: string
         }
+        Returns: Json
+      }
+      delete_routine_template: {
+        Args: { p_idempotency_key?: string; p_template_id: string }
         Returns: Json
       }
       delete_task: {
@@ -7950,6 +8115,10 @@ export type Database = {
         }
         Returns: Json
       }
+      restore_routine_template: {
+        Args: { p_idempotency_key?: string; p_template_id: string }
+        Returns: Json
+      }
       restore_task: {
         Args: { p_idempotency_key?: string; p_task_id: string }
         Returns: Json
@@ -8123,14 +8292,22 @@ export type Database = {
           p_day_of_month: number
           p_description: string
           p_due_time: string
+          p_ends_after_count?: number
+          p_ends_mode?: string
+          p_ends_on_date?: string
           p_evidence_required?: boolean
           p_frequency: Database["public"]["Enums"]["recurrence_frequency"]
           p_idempotency_key?: string
           p_interval_count: number
+          p_month_of_year: number
+          p_monthly_mode: string
+          p_nth_weekday: number
+          p_nth_weekday_dow: number
           p_requires_completion_review?: boolean
+          p_start_date: string
           p_template_id: string
           p_title: string
-          p_weekday: number
+          p_weekdays: number[]
         }
         Returns: Json
       }
@@ -8252,6 +8429,8 @@ export type Database = {
         | "routine_template_updated"
         | "routine_template_activated"
         | "routine_template_paused"
+        | "routine_template_deleted"
+        | "routine_template_restored"
       barrier_action_type:
         | "decision"
         | "approval"
@@ -8353,7 +8532,7 @@ export type Database = {
         | "rejected"
         | "changes_requested"
         | "declined"
-      recurrence_frequency: "daily" | "weekly" | "monthly"
+      recurrence_frequency: "daily" | "weekly" | "monthly" | "yearly"
       relation_type: "before" | "after" | "related"
       review_decision: "accepted" | "changes_requested"
       review_status: "pending" | "decided" | "not_required"
@@ -8596,6 +8775,8 @@ export const Constants = {
         "routine_template_updated",
         "routine_template_activated",
         "routine_template_paused",
+        "routine_template_deleted",
+        "routine_template_restored",
       ],
       barrier_action_type: [
         "decision",
@@ -8708,7 +8889,7 @@ export const Constants = {
         "changes_requested",
         "declined",
       ],
-      recurrence_frequency: ["daily", "weekly", "monthly"],
+      recurrence_frequency: ["daily", "weekly", "monthly", "yearly"],
       relation_type: ["before", "after", "related"],
       review_decision: ["accepted", "changes_requested"],
       review_status: ["pending", "decided", "not_required"],
