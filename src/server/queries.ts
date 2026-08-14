@@ -888,14 +888,19 @@ export interface BinnedRoutine {
  * different consequence: a routine returns paused, so nothing is generated
  * until somebody decides it should be.
  */
-export async function getBinnedRoutines(): Promise<{
+export async function getBinnedRoutines(viewerId: string): Promise<{
   routines: BinnedRoutine[];
   failed: boolean;
 }> {
   const supabase = await createSupabaseServerClient();
+  // Scoped to the deleter for the same reason as tasks, and more urgently:
+  // `routine_templates_select` grants every manager sight of every routine in
+  // the organisation, so an unscoped Bin would show one manager the schedules
+  // another had just removed.
   const { data, error } = await supabase
     .from('routine_template_overview')
     .select('*')
+    .eq('deleted_by', viewerId)
     .not('deleted_at', 'is', null)
     .order('deleted_at', { ascending: false })
     .limit(100);
@@ -948,12 +953,24 @@ export interface BinnedTask {
  * `binned_tasks` is `security_invoker`, so RLS decides the rows; this only
  * orders and shapes them.
  */
-export async function getBinnedTasks(): Promise<{ tasks: BinnedTask[]; failed: boolean }> {
+export async function getBinnedTasks(
+  viewerId: string,
+): Promise<{ tasks: BinnedTask[]; failed: boolean }> {
   const supabase = await createSupabaseServerClient();
 
+  /*
+   * Only what this person deleted.
+   *
+   * `binned_tasks` is bounded by `focus.can_view_task`, which for a manager
+   * covers their entire reporting line — so without this the Bin became a
+   * shared list of everybody's deleted work rather than a way back from your
+   * own mistake. Deleting is already restricted to the creator, so the person
+   * who put something here is the only one who needs it back.
+   */
   const { data, error } = await supabase
     .from('binned_tasks')
     .select('id, title, status, owner_name, deleted_at, deleted_by_name')
+    .eq('deleted_by', viewerId)
     .order('deleted_at', { ascending: false })
     .limit(200);
 

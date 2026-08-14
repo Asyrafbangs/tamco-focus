@@ -624,6 +624,32 @@
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
+
+/* Deletion is set apart and stated plainly rather than folded into "More task
+   actions" — it was hidden in there, under a status branch, and so was never
+   found. Quiet, not alarming: it is recoverable. */
+.task-delete-section {
+  margin-top: 16px;
+  padding: 17px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--red);
+  border-radius: var(--radius);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.task-delete-section strong {
+  display: block;
+  font-size: 14px;
+}
+.task-delete-section p {
+  margin: 4px 0 0;
+  max-width: 46ch;
+  font-size: 12px;
+}
 .detail-section h3 {
   margin: 0 0 7px;
   font-size: 15px;

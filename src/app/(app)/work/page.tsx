@@ -279,8 +279,8 @@ export default async function WorkPage({
     // (v41 section 23).
     getSharedContributions(profile.id),
     // Only when the Bin is open: deleted work is not part of anybody's day.
-    params.tab === 'bin' ? getBinnedTasks() : Promise.resolve({ tasks: [], failed: false }),
-    params.tab === 'bin' ? getBinnedRoutines() : Promise.resolve({ routines: [], failed: false }),
+    params.tab === 'bin' ? getBinnedTasks(profile.id) : Promise.resolve({ tasks: [], failed: false }),
+    params.tab === 'bin' ? getBinnedRoutines(profile.id) : Promise.resolve({ routines: [], failed: false }),
     getRoutineOccurrences(profile.id),
     params.task ? getTaskDetail(params.task, profile.id) : Promise.resolve(null),
     // §60 — the id in the URL is a request, not an authorisation. The query is

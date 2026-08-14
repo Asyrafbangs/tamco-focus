@@ -1536,17 +1536,6 @@ export function TaskDetailDrawer({
                         Complete task
                       </button>
                     )}
-                    {/* The creator only. Ownership can move; authorship cannot,
-                        and only the author can know a task was a mistake. */}
-                    {detail.capabilities.canDelete && (
-                      <button
-                        type="button"
-                        className="btn small danger"
-                        onClick={() => setDeleteOpen(true)}
-                      >
-                        Delete task
-                      </button>
-                    )}
                   </>
                 )}
 
@@ -1704,6 +1693,48 @@ export function TaskDetailDrawer({
                   )}
               </div>
             </details>
+          </section>
+        )}
+
+        {/*
+          Delete, on its own and always reachable.
+
+          This button used to live inside the "More task actions" disclosure,
+          nested inside a `task.status === 'active'` branch, inside a section
+          gated on `canEdit`. Every one of those was wrong for what deletion
+          is. Work is created as `backlog`, so a task captured by mistake — the
+          only thing Delete is for — could not be deleted until it had first
+          been activated, which is to say started. In Production the Bin had
+          therefore never received a single row: not because deleting failed,
+          but because nobody was ever offered it.
+
+          `can_delete` is already the right rule and the server has always
+          enforced it: the creator, on work that is neither completed nor
+          already binned, whatever state it is in. This just stops hiding it.
+
+          The section is deliberately NOT `detail-section`: combined with
+          `drawer-panel-overview` that class is hidden until the drawer is
+          expanded, which would bury the control all over again. The
+          `drawer-panel-overview` class stays so it belongs to the Overview tab.
+        */}
+        {detail.capabilities.canDelete && (
+          <section className="task-delete-section drawer-panel-overview">
+            <div>
+              <strong>Delete this work</strong>
+              <p className="muted">
+                For work that should never have been created. It moves to the Bin and can be
+                restored. To stop work that was right to create but should not go ahead, cancel it
+                instead.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="btn small danger"
+              disabled={pending}
+              onClick={() => setDeleteOpen(true)}
+            >
+              Delete task
+            </button>
           </section>
         )}
 
