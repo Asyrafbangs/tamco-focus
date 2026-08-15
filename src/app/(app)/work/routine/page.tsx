@@ -23,6 +23,7 @@ import { RoutineManager } from './RoutineManager';
 import {
   getDisplaySettings,
   getFocusSummary,
+  getBinnedRoutines,
   getRoutineTemplates,
   getTeamDirectory,
   getMyTasks,
@@ -61,17 +62,20 @@ export default async function RoutinePage({
 
   const isManager = profile.role === 'manager' || profile.role === 'administrator';
 
-  const [settings, occurrences, tasks, focus, team, routines, directory] = await Promise.all([
-    getDisplaySettings(),
-    getRoutineOccurrences(profile.id),
-    getMyTasks(profile.id),
-    getFocusSummary(profile.id),
-    isManager ? getTeamLoad(profile.id) : Promise.resolve([]),
-    // The schedules behind the occurrences. Nothing read this table and nothing
-    // could write it, which is why creating a routine did nothing at all.
-    getRoutineTemplates(),
-    isManager ? getTeamDirectory() : Promise.resolve([]),
-  ]);
+  const [settings, occurrences, tasks, focus, team, routines, directory, binnedRoutines] =
+    await Promise.all([
+      getDisplaySettings(),
+      getRoutineOccurrences(profile.id),
+      getMyTasks(profile.id),
+      getFocusSummary(profile.id),
+      isManager ? getTeamLoad(profile.id) : Promise.resolve([]),
+      // The schedules behind the occurrences. Nothing read this table and
+      // nothing could write it, which is why creating a routine did nothing.
+      getRoutineTemplates(),
+      isManager ? getTeamDirectory() : Promise.resolve([]),
+      // Deleted schedules belong beside the schedules, not in the Focus Bin.
+      getBinnedRoutines(profile.id),
+    ]);
 
   const timeZone = profile.timezone ?? 'Asia/Kuala_Lumpur';
   const today = localDateString(new Date(), timeZone);
@@ -182,6 +186,8 @@ export default async function RoutinePage({
           canManageOthers={isManager}
           people={directory}
           viewerId={profile.id}
+          binned={binnedRoutines.routines}
+          binnedFailed={binnedRoutines.failed}
           openWith={params.new ?? null}
         />
       </section>

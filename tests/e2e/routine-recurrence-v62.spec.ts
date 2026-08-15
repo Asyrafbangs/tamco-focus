@@ -132,13 +132,25 @@ test.describe('v62 routine recurrence', () => {
 
     await expect(page.locator('.routine-template-row', { hasText: title })).toHaveCount(0);
 
-    await page.goto('/work?tab=bin');
-    await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
-    const binRow = page.locator('.bin-row', { hasText: title });
+    /*
+     * Restored from the Routine page, not the Focus Bin.
+     *
+     * A deleted routine was briefly listed under Work → Bin, which put a
+     * schedule inside the module for operational work — and that tab's count
+     * did not include it either, so the badge said 2 beside four rows.
+     */
+    const bin = page.locator('.routine-bin');
+    await expect(bin).toBeVisible();
+    await bin.locator('summary').click();
+    const binRow = page.locator('.routine-bin-row', { hasText: title });
     await expect(binRow).toBeVisible();
 
     // Restored paused, so nothing is generated until somebody decides.
     await binRow.getByRole('button', { name: 'Restore paused' }).click();
+    // Wait for the server action to confirm before navigating: a `goto` fired
+    // while the transition is still in flight abandons it, and the routine then
+    // never comes back — which reads as "restore does not work".
+    await expect(page.getByText(/is back, and paused/i)).toBeVisible();
     await openRoutines(page);
     const restored = page.locator('.routine-template-row', { hasText: title });
     await expect(restored).toBeVisible();

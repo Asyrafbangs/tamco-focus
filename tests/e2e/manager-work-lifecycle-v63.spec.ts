@@ -60,6 +60,21 @@ test.describe('v63 manager work lifecycle', () => {
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
     await expect(page.getByText('The Bin is empty')).toHaveCount(0);
     await expect(page.locator('.bin-row', { hasText: title })).toBeVisible();
+
+    /*
+     * The badge counts from anywhere, not only from the Bin.
+     *
+     * It used to be read off the list, which was fetched only when the Bin tab
+     * was already open — so it showed 0 on Active, Available and Shared, and
+     * became correct the moment you clicked the thing it was supposed to be
+     * telling you about.
+     */
+    const binTab = page.getByRole('link', { name: /^Bin/ });
+    const onBin = (await binTab.textContent())?.replace(/\D/g, '');
+    await page.goto('/work');
+    await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+    await expect(page.getByRole('link', { name: /^Bin/ })).toHaveText(new RegExp(`${onBin}$`));
+    expect(Number(onBin)).toBeGreaterThan(0);
   });
 
   test('one manager does not see what another manager binned', async ({ page }, testInfo) => {

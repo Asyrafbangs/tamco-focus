@@ -114,6 +114,10 @@ test('a decision request is actionable from every entry point', async ({ page },
 
   // §58 — My Team offers the identical destination, not a second interface.
   await page.goto('/work?scope=team&filter=attention');
+  // The team row's action is a click handler, not a link, so a click before
+  // hydration does nothing at all and the URL never changes — which reads as
+  // "My Team offers a different destination" when it offers the same one.
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   const teamAction = page.getByRole('button', { name: /Provide decision/ }).first();
   await teamAction.click();
   await expect(page).toHaveURL(/attention=barrier/);

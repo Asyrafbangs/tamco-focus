@@ -7492,6 +7492,80 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   line-height: 1.45;
 }
 
+/* Deleted routines sit with the routines, folded away until wanted. */
+.routine-bin {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.routine-bin > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+}
+.routine-bin > summary small {
+  font-weight: 500;
+  color: var(--muted);
+}
+.routine-bin-list {
+  margin: 0;
+  padding: 0 14px 12px;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+.routine-bin-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.routine-bin-row strong {
+  display: block;
+  font-size: 13px;
+}
+.routine-bin-row small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+}
+
+/* A once-a-month action, folded to one line the rest of the time. */
+.goal-session-disclosure {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.goal-session-disclosure > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+}
+.goal-session-disclosure > summary small {
+  font-weight: 500;
+  color: var(--muted);
+}
+.goal-session-disclosure[open] > summary {
+  border-bottom: 1px solid var(--line);
+}
+
 .goals-page-intro {
   position: relative;
   display: flex;

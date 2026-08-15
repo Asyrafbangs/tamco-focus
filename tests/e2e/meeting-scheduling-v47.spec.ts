@@ -78,6 +78,10 @@ test('a request can be queued, scheduled, and only then answered', async ({ page
 
   // --- Plan → Meeting Queue → Schedule ---------------------------------------
   await page.goto('/plan');
+  // The Meeting Queue opens from a button, so a click before hydration does
+  // nothing and the dialog never appears — which reads as "the queue will not
+  // open" rather than "clicked too early".
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   const trigger = page.getByRole('button', { name: /Meeting Queue/ });
   await expect(trigger).toBeVisible();
   await trigger.click();

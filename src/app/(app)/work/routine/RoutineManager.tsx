@@ -21,10 +21,11 @@ import {
 import {
   createRoutineTemplate,
   deleteRoutineTemplate,
+  restoreRoutineTemplate,
   setRoutineActive,
   updateRoutineTemplate,
 } from '@/server/actions/routine-actions';
-import type { RoutineTemplateRow } from '@/server/queries';
+import type { BinnedRoutine, RoutineTemplateRow } from '@/server/queries';
 import { Modal } from '@/components/ui/Modal';
 
 /**
@@ -55,6 +56,8 @@ export function RoutineManager({
   canManageOthers,
   people,
   viewerId,
+  binned = [],
+  binnedFailed = false,
   openWith = null,
 }: {
   templates: readonly RoutineTemplateRow[];
@@ -64,6 +67,9 @@ export function RoutineManager({
   people: readonly { id: string; name: string }[];
   /** Deleting is the creator's to do, so the row needs to know who is looking. */
   viewerId: string;
+  /** Routines this person deleted. Kept here rather than in the Focus Bin. */
+  binned?: readonly BinnedRoutine[];
+  binnedFailed?: boolean;
   /** A title arriving from New Work, which opens the form ready to fill in. */
   openWith?: string | null;
 }) {
@@ -100,6 +106,25 @@ export function RoutineManager({
         text: template.isActive
           ? `${template.title} is paused. No further occurrences will be created.`
           : `${template.title} is active. Occurrences will be created from now on.`,
+      });
+      router.refresh();
+    });
+  }
+
+  function restore(routine: BinnedRoutine) {
+    setMessage(null);
+    startTransition(async () => {
+      const result = await restoreRoutineTemplate({
+        templateId: routine.id,
+        idempotencyKey: crypto.randomUUID(),
+      });
+      if (!result.ok) {
+        setMessage({ tone: 'error', text: result.message ?? 'Nothing changed.' });
+        return;
+      }
+      setMessage({
+        tone: 'success',
+        text: `${routine.title} is back, and paused. Activate it when you want it running again.`,
       });
       router.refresh();
     });
@@ -222,6 +247,55 @@ export function RoutineManager({
             );
           })}
         </ul>
+      )}
+
+      {/*
+        Deleted routines, with the routines.
+
+        They were briefly listed in the Focus Bin, which put a schedule inside
+        the module for operational work and read as a mistake — a routine is not
+        Focus work, and the count on that tab did not include them either. A
+        thing is restored from where it lived.
+      */}
+      {binnedFailed ? (
+        <div className="notice error" role="alert">
+          <strong>Deleted routines could not be loaded</strong>
+          <p>Nothing has been lost. Refresh the page, and tell an administrator if it persists.</p>
+        </div>
+      ) : (
+        binned.length > 0 && (
+          <details className="routine-bin">
+            <summary>
+              <span>Deleted routines</span>
+              <small>{binned.length} in the Bin &middot; restore one if it was a mistake</small>
+            </summary>
+            <ul className="routine-bin-list">
+              {binned.map((routine) => (
+                <li key={routine.id} className="routine-bin-row">
+                  <div>
+                    <strong>{routine.title}</strong>
+                    <small className="muted">
+                      {routine.recurrence} &middot; {routine.ownerName} &middot;{' '}
+                      {new Date(routine.deletedAt).toLocaleDateString('en-GB', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </small>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn small"
+                    disabled={pending}
+                    onClick={() => restore(routine)}
+                  >
+                    Restore paused
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )
       )}
 
       {confirmDelete && (

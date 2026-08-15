@@ -34,7 +34,7 @@ import {
   getRoutineOccurrences,
   getAssignablePeople,
   getSharedContributions,
-  getBinnedRoutines,
+  getBinnedTaskCount,
   getBinnedTasks,
   getTaskDetail,
   getMyAttention,
@@ -262,7 +262,7 @@ export default async function WorkPage({
     settings,
     sharedContributions,
     binnedTasks,
-    binnedRoutines,
+    binnedCount,
     routineOccurrences,
     taskDetail,
     memberDetail,
@@ -279,8 +279,14 @@ export default async function WorkPage({
     // (v41 section 23).
     getSharedContributions(profile.id),
     // Only when the Bin is open: deleted work is not part of anybody's day.
-    params.tab === 'bin' ? getBinnedTasks(profile.id) : Promise.resolve({ tasks: [], failed: false }),
-    params.tab === 'bin' ? getBinnedRoutines(profile.id) : Promise.resolve({ routines: [], failed: false }),
+    params.tab === 'bin'
+      ? getBinnedTasks(profile.id)
+      : Promise.resolve({ tasks: [], failed: false }),
+    // The count, always. It used to come from the list above, which is fetched
+    // only when the Bin is already open — so the badge read 0 on every other
+    // tab and became correct only once you had clicked it. A badge that is
+    // right only after you look is worse than none at all.
+    getBinnedTaskCount(profile.id),
     getRoutineOccurrences(profile.id),
     params.task ? getTaskDetail(params.task, profile.id) : Promise.resolve(null),
     // §60 — the id in the URL is a request, not an authorisation. The query is
@@ -335,7 +341,7 @@ export default async function WorkPage({
     active: tasksForTab(tasks, 'active', profile.id).length,
     available: tasksForTab(tasks, 'available', profile.id).length,
     shared: openContributions.length,
-    bin: binnedTasks.tasks.length,
+    bin: binnedCount,
   };
 
   // Section 35 — Everyone by default, but people who need something first.
@@ -620,11 +626,7 @@ export default async function WorkPage({
       {scope === 'mine' && (
         <div className="focus-panel">
           {activeTab === 'bin' ? (
-            <BinList
-              tasks={binnedTasks.tasks}
-              routines={binnedRoutines.routines}
-              failed={binnedTasks.failed || binnedRoutines.failed}
-            />
+            <BinList tasks={binnedTasks.tasks} failed={binnedTasks.failed} />
           ) : activeTab === 'shared' ? (
             openContributions.length > 0 ? (
               openContributions.map((item) => {

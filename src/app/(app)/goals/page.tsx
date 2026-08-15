@@ -219,41 +219,47 @@ export default async function GoalsPage({
         </div>
       </div>
 
+      {/*
+        The guidance moved inside the disclosure that already existed to hold
+        it. As a permanent banner it cost about 55px at the top of every visit,
+        and combined with the summary, the session panel and two rows of tabs it
+        pushed the first goal to roughly 690px down a 768px laptop screen — so
+        the page about goals showed almost no goals, and reading the list meant
+        zooming out. It is the same words, read once rather than every time.
+      */}
       <section className="goals-page-intro">
-        <div>
-          <strong>Goals stay visible without becoming another daily task list.</strong>
-          <span>
-            Use monthly check-ins to update success measures. Use milestones only for meaningful
-            checkpoints.
-          </span>
-        </div>
         <details>
-          <summary className="btn small">How it works</summary>
+          <summary className="btn small">How goals work</summary>
           <p>
-            Agree the outcome in natural language. Monthly check-ins stay informational unless risk
-            or support needs manager attention.
+            <strong>Goals stay visible without becoming another daily task list.</strong> Use
+            monthly check-ins to update success measures, and milestones only for meaningful
+            checkpoints. Agree the outcome in natural language. Monthly check-ins stay informational
+            unless risk or support needs manager attention.
           </p>
         </details>
       </section>
 
-      <WorkspaceTabs
-        label="Goal workspace"
-        items={[
-          { href: '/goals', label: 'My Goals', active: view === 'my' },
-          ...(canManage
-            ? [
-                {
-                  href: '/goals?view=team',
-                  label: 'My Team',
-                  active: view === 'team',
-                  attention: teamPeople.some(
-                    (person) => person.attentionCount > 0 || person.supportRequestCount > 0,
-                  ),
-                },
-              ]
-            : []),
-        ]}
-      />
+      {/*
+        Only shown when there is somewhere else to go. Somebody with no reports
+        has one tab, "My Goals", which selects the page they are already on —
+        a whole row of vertical space spent restating the heading above it.
+      */}
+      {canManage && (
+        <WorkspaceTabs
+          label="Goal workspace"
+          items={[
+            { href: '/goals', label: 'My Goals', active: view === 'my' },
+            {
+              href: '/goals?view=team',
+              label: 'My Team',
+              active: view === 'team',
+              attention: teamPeople.some(
+                (person) => person.attentionCount > 0 || person.supportRequestCount > 0,
+              ),
+            },
+          ]}
+        />
+      )}
 
       {view === 'my' ? (
         <section className={styles.personalWorkspace} aria-labelledby="my-goal-list">
@@ -287,20 +293,14 @@ export default async function GoalsPage({
               </div>
             </div>
           </header>
-
-          <GoalSessionPanel
-            ownerId={profile.id}
-            activeGoals={planActiveRows}
-            plan={myPlan}
-            sessions={goalSessions}
-            supportPeople={supportPeople}
-            canSubmitMonthly
-            canReviewQuarterly={canManage}
-            canFinalizePlan={canManage}
-            now={renderTime.toISOString()}
-          />
-
           <div className={`goal-list-panel ${styles.goalListPanel}`}>
+            {/*
+              The weight bar sits with the tabs rather than on its own band.
+              "30% formal weight" was being stated four times before the first
+              goal — in this heading, in the summary chips, in the session
+              panel's allocation line, and again here on a full-width strip of
+              its own. One statement, kept where the list it governs begins.
+            */}
             <FormalWeight goals={rows} plan={myPlan} />
             <WorkspaceTabs
               label="Goal lifecycle"
@@ -367,6 +367,43 @@ export default async function GoalsPage({
               </EmptyState>
             )}
           </div>
+
+          {/*
+            The performance period and the monthly check-in, folded away unless
+            something is actually due.
+
+            It is a once-a-month action that occupied about 180px ABOVE the
+            list on every visit. Together with the intro banner, the summary and
+            two rows of tabs it pushed the first goal to roughly 690px down a
+            768px laptop screen: a page called Goals that showed almost no
+            goals, and could only be read by zooming out.
+
+            So it moved below the list and stays shut. The summary line carries
+            the position — allocation, and whether a check-in is due — so
+            nothing is hidden, only made proportionate to how often it is used.
+          */}
+          <details className="goal-session-disclosure">
+            <summary>
+              <span>Performance period and monthly check-in</span>
+              <small>
+                {formalWeight}% formal weight allocated
+                {updateDueCount > 0
+                  ? ` · ${updateDueCount} check-in${updateDueCount === 1 ? '' : 's'} due`
+                  : ' · nothing due'}
+              </small>
+            </summary>
+            <GoalSessionPanel
+              ownerId={profile.id}
+              activeGoals={planActiveRows}
+              plan={myPlan}
+              sessions={goalSessions}
+              supportPeople={supportPeople}
+              canSubmitMonthly
+              canReviewQuarterly={canManage}
+              canFinalizePlan={canManage}
+              now={renderTime.toISOString()}
+            />
+          </details>
         </section>
       ) : (
         <div className="team-goals-layout">

@@ -13,6 +13,19 @@ async function signInAsManager(page: Page) {
 }
 
 /**
+ * Navigate, then wait for hydration before touching anything.
+ *
+ * A My Team row is opened by a click handler rather than a link, so a click
+ * that lands on the server-rendered markup does nothing and the drawer never
+ * appears — which reads as "the drawer will not open" when the row simply was
+ * not listening yet.
+ */
+async function gotoHydrated(page: Page, url: string) {
+  await page.goto(url);
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+}
+
+/**
  * Closes the topmost drawer the way a person does.
  *
  * Via the Close button rather than the backdrop: on a phone the panel fills the
@@ -43,7 +56,7 @@ test('closing a drawer returns one layer, to the context it was opened from', as
   await signInAsManager(page);
 
   // --- Everyone → task → back to Everyone ------------------------------------
-  await page.goto('/work?scope=team');
+  await gotoHydrated(page, '/work?scope=team');
   const firstRow = page.getByTestId('my-team-person-row').first();
   await expect(firstRow).toBeVisible();
 
@@ -86,7 +99,7 @@ test('closing a drawer returns one layer, to the context it was opened from', as
  */
 test('the Needs Attention filter survives opening and closing a task', async ({ page }) => {
   await signInAsManager(page);
-  await page.goto('/work?scope=team&filter=attention');
+  await gotoHydrated(page, '/work?scope=team&filter=attention');
 
   const action = page
     .getByTestId('my-team-person-row')
@@ -108,7 +121,7 @@ test('the Needs Attention filter survives opening and closing a task', async ({ 
  */
 test('a team member name opens their detail without leaving My Team', async ({ page }) => {
   await signInAsManager(page);
-  await page.goto('/work?scope=team');
+  await gotoHydrated(page, '/work?scope=team');
 
   const row = page.getByTestId('my-team-person-row').first();
   await row.locator('[data-cell="person"] strong').click();
@@ -134,7 +147,7 @@ test('a team member name opens their detail without leaving My Team', async ({ p
  */
 test('mandatory work running normally is not manager attention', async ({ page }) => {
   await signInAsManager(page);
-  await page.goto('/work?scope=team&filter=attention');
+  await gotoHydrated(page, '/work?scope=team&filter=attention');
 
   await expect(page.getByText('Review controlled action')).toHaveCount(0);
   await expect(page.getByText('Controlled work', { exact: true })).toHaveCount(0);
@@ -163,7 +176,7 @@ test('the team row contains every cell without overlap at each viewport and zoom
   page,
 }) => {
   await signInAsManager(page);
-  await page.goto('/work?scope=team');
+  await gotoHydrated(page, '/work?scope=team');
 
   const row = page.getByTestId('my-team-person-row').first();
   await expect(row).toBeVisible();

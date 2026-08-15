@@ -953,6 +953,29 @@ export interface BinnedTask {
  * `binned_tasks` is `security_invoker`, so RLS decides the rows; this only
  * orders and shapes them.
  */
+/**
+ * How many items are in this person's Bin, without loading them.
+ *
+ * The tab badge read 0 everywhere except on the Bin itself, because the list
+ * was only fetched when that tab was already open — so the one number whose
+ * job is to tell you whether it is worth opening was wrong until you opened
+ * it. A HEAD count keeps the badge honest without paying for rows nobody is
+ * about to render.
+ */
+export async function getBinnedTaskCount(viewerId: string): Promise<number> {
+  const supabase = await createSupabaseServerClient();
+  const { count, error } = await supabase
+    .from('binned_tasks')
+    .select('id', { count: 'exact', head: true })
+    .eq('deleted_by', viewerId);
+
+  if (error) {
+    console.error(`[getBinnedTaskCount] ${error.message}`);
+    return 0;
+  }
+  return count ?? 0;
+}
+
 export async function getBinnedTasks(
   viewerId: string,
 ): Promise<{ tasks: BinnedTask[]; failed: boolean }> {

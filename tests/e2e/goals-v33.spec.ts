@@ -31,12 +31,18 @@ test('Goals is a dedicated accessible workspace with whole-row drawer interactio
   await expect(
     page.getByText(/Agreed outcomes, visible progress, actionable milestones/),
   ).toBeVisible();
-  await expect(
-    page.getByRole('navigation', { name: 'Goal workspace' }).getByRole('link', {
-      name: 'My Goals',
-      exact: true,
-    }),
-  ).toBeVisible();
+  /*
+   * No workspace tablist for somebody without reports.
+   *
+   * It held a single tab, "My Goals", which selects the page it is already on —
+   * a full row of vertical space restating the heading above it. Together with
+   * the intro banner and the session panel it pushed the first goal to roughly
+   * 690px down a 768px laptop screen, so the page about goals showed almost no
+   * goals. A manager still gets the tablist, because they have somewhere to go;
+   * that is asserted in the team test below.
+   */
+  await expect(page.getByRole('navigation', { name: 'Goal workspace' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Goals', exact: true })).toBeVisible();
   await expect(
     page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: /Goals/ }),
   ).toBeVisible();
@@ -157,6 +163,16 @@ test('owner completes one monthly employee session without creating an approval'
   test.skip(testInfo.project.name !== 'desktop', 'The monthly mutation runs once.');
   await signIn(page, 'amer@tamco.local');
   await page.goto('/goals');
+
+  /*
+   * The performance period now sits below the goals, folded shut.
+   *
+   * It is a once-a-month action that was occupying about 180px above the list
+   * on every single visit, which is most of why the first goal sat near the
+   * bottom of a laptop screen. The summary line still states the position, so
+   * opening it is one click rather than a hunt.
+   */
+  await page.locator('.goal-session-disclosure > summary').click();
 
   const panel = page.getByRole('region', { name: /Performance Period|Goal plan/ });
   await expect(panel.getByText('Monthly Goal session')).toBeVisible();
