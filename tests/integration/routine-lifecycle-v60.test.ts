@@ -44,7 +44,17 @@ describe('v60 routine lifecycle', () => {
         p_weekdays: null,
         p_monthly_mode: 'day_of_month',
         p_day_of_month: 15,
-        p_start_date: new Date().toISOString().slice(0, 10),
+        /*
+         * A fixed start, not "today".
+         *
+         * Anchored to today this test asserted the first occurrence was less
+         * than 32 days away, which held only while the suite ran before the
+         * 15th of the month. Run on the 16th, "day 15 of every 3 months"
+         * starting today correctly lands three months out — the same answer a
+         * calendar client gives — and a correct product failed a calendar-
+         * dependent assertion.
+         */
+        p_start_date: '2026-03-01',
         p_idempotency_key: crypto.randomUUID(),
       })
     ).data as Rpc;
@@ -73,10 +83,19 @@ describe('v60 routine lifecycle', () => {
       (second.getFullYear() - first.getFullYear()) * 12 + (second.getMonth() - first.getMonth());
     expect(monthsApart).toBe(3);
 
-    // The bug that made a quarterly routine look broken: anchoring naively put
-    // the first occurrence a whole quarter away, so nothing happened for months.
-    const daysUntilFirst = (first.getTime() - Date.now()) / 86_400_000;
-    expect(daysUntilFirst).toBeLessThan(32);
+    /*
+     * The bug that made a quarterly routine look broken: the old rule advanced
+     * a whole period before it looked, so a routine anchored on 1 March skipped
+     * 15 March and started in June. The first occurrence belongs in the
+     * starting month whenever that month's day has not yet passed.
+     */
+    expect(dates[0]).toBe('2026-03-15');
+    expect(dates.slice(0, 4)).toEqual([
+      '2026-03-15',
+      '2026-06-15',
+      '2026-09-15',
+      '2026-12-15',
+    ]);
   });
 
   it('holds a routine somebody sets up for themselves until a manager activates it', async () => {

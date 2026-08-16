@@ -35,6 +35,8 @@ import {
   getAssignablePeople,
   getSharedContributions,
   getBinnedTaskCount,
+  getTeamAvailableWork,
+  getTeamAvailableCount,
   getBinnedTasks,
   getTaskDetail,
   getMyAttention,
@@ -241,8 +243,12 @@ export default async function WorkPage({
    * Scope is now chosen first, and the state tabs belong to My Work alone.
    */
   const scope: 'mine' | 'team' = params.scope === 'team' && hasTeam ? 'team' : 'mine';
-  const teamFilter: 'everyone' | 'attention' =
-    params.filter === 'attention' ? 'attention' : 'everyone';
+  const teamFilter: 'everyone' | 'attention' | 'available' =
+    params.filter === 'attention'
+      ? 'attention'
+      : params.filter === 'available'
+        ? 'available'
+        : 'everyone';
 
   // `?filter=attention` outside team scope means "my own full list".
   const personalAttentionView = params.filter === 'attention' && params.scope !== 'team';
@@ -271,6 +277,8 @@ export default async function WorkPage({
     team,
     proposals,
     proposalDetail,
+    teamAvailable,
+    teamAvailableCount,
   ] = await Promise.all([
     getMyTasks(profile.id),
     getFocusSummary(profile.id),
@@ -307,6 +315,13 @@ export default async function WorkPage({
     hasTeam ? getTeamAttention(profile.id) : Promise.resolve([]),
     getMajorProjectProposals(),
     params.proposal ? getMajorProjectProposalDetail(params.proposal) : Promise.resolve(null),
+    // What everybody the viewer can see already has waiting. Only when asked
+    // for: it is a manager's planning view, not part of anybody's own day.
+    scope === 'team' && teamFilter === 'available'
+      ? getTeamAvailableWork(profile.id)
+      : Promise.resolve({ groups: [], failed: false }),
+    // The badge, always — see the Bin, which read 0 until you opened it.
+    hasTeam ? getTeamAvailableCount(profile.id) : Promise.resolve(0),
   ]);
 
   const visible =
@@ -575,6 +590,16 @@ export default async function WorkPage({
               count: teamNeedingAttention.length,
               attention: teamNeedingAttention.length > 0,
             },
+            {
+              // What is already waiting on each person. A manager could see
+              // that somebody had five Available items and not what any of
+              // them were, so the question asked before handing out more work
+              // had no answer in the product.
+              href: '/work?scope=team&filter=available',
+              label: 'Available work',
+              active: teamFilter === 'available',
+              count: teamAvailableCount,
+            },
           ]}
         />
       )}
@@ -594,7 +619,55 @@ export default async function WorkPage({
         </div>
       ))}
 
-      {scope === 'team' && (
+      {scope === 'team' && teamFilter === 'available' && (
+        <div className="focus-panel">
+          <p className="focus-tab-meaning">
+            Work waiting to be picked up, grouped by the person who owns it. Your own Available work
+            stays under My Work.
+          </p>
+          {teamAvailable.failed ? (
+            <div className="notice error" role="alert">
+              <strong>Team Available work could not be loaded</strong>
+              <p>
+                Refresh the page, and tell an administrator if it persists. This is not a statement
+                that nobody has anything waiting.
+              </p>
+            </div>
+          ) : teamAvailable.groups.length === 0 ? (
+            <div className="empty-state">
+              <h3>Nobody has Available work waiting</h3>
+              <p>Everything visible to you has been activated, completed or not yet created.</p>
+            </div>
+          ) : (
+            teamAvailable.groups.map((group) => (
+              <section key={group.ownerId} className="team-available-group">
+                <header>
+                  <strong>{group.ownerName}</strong>
+                  <span className="muted">{group.tasks.length} waiting</span>
+                  <Link href={`/work?scope=team&filter=available&person=${group.ownerId}`}>
+                    Open person
+                  </Link>
+                </header>
+                <ul className="team-available-list">
+                  {group.tasks.map((task) => (
+                    <li key={task.id} className="team-available-row">
+                      <RowPrimaryLink href={`/work?scope=team&filter=available&task=${task.id}`}>
+                        {task.title}
+                      </RowPrimaryLink>
+                      <span className="muted">
+                        {WORK_CLASS_LABELS[task.workClass]}
+                        {task.dueAt ? ` · ${formatDue(task.dueAt, task.dueIsDateOnly)}` : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))
+          )}
+        </div>
+      )}
+
+      {scope === 'team' && teamFilter !== 'available' && (
         <div className="focus-panel">
           {teamRows.length > 0 ? (
             <>

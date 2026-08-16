@@ -7492,6 +7492,58 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   line-height: 1.45;
 }
 
+/* Team Available work, grouped by the person who owns it. One card per
+   person so the question "what is already on them?" is answered by looking,
+   not by counting rows and matching names. */
+.team-available-group {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.team-available-group > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.team-available-group > header strong {
+  font-size: 13px;
+}
+.team-available-group > header .muted {
+  font-size: 12px;
+}
+.team-available-group > header a {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 650;
+}
+.team-available-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.team-available-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 13px;
+}
+.team-available-row:first-child {
+  border-top: 0;
+}
+.team-available-row .muted {
+  font-size: 11px;
+}
+
 /* Deleted routines sit with the routines, folded away until wanted. */
 .routine-bin {
   margin-top: 12px;

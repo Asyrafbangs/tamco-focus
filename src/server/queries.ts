@@ -101,6 +101,94 @@ export async function getWorkableTasks(): Promise<TaskOverview[]> {
   return (data ?? []).map(toTaskOverview);
 }
 
+/**
+ * How much Available work is waiting across the team, without loading it.
+ *
+ * Counted on every load rather than only when the tab is open. The Bin badge
+ * was built the other way and read 0 everywhere until you clicked it, which is
+ * the failure mode a badge exists to prevent.
+ */
+export async function getTeamAvailableCount(viewerId: string): Promise<number> {
+  const supabase = await createSupabaseServerClient();
+  const { count, error } = await supabase
+    .from('task_overview')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'backlog')
+    .neq('primary_owner_id', viewerId)
+    .neq('work_class', 'routine_occurrence');
+
+  if (error) {
+    console.error(`[getTeamAvailableCount] ${error.message}`);
+    return 0;
+  }
+  return count ?? 0;
+}
+
+/** One person's Available work, for the team view. */
+export interface TeamAvailableGroup {
+  ownerId: string;
+  ownerName: string;
+  tasks: TaskOverview[];
+}
+
+/**
+ * Available work across everybody the caller may see, grouped by owner.
+ *
+ * A manager could see that a report had five Available items, but not what any
+ * of them were — the number was on the My Team row and the list behind it was
+ * `getMyTasks`, which is filtered to the caller. So the one question a manager
+ * asks before assigning anything else ("what is already waiting on them?") had
+ * no answer in the product.
+ *
+ * Bounded entirely by RLS: `task_overview` is `security_invoker`, so this
+ * returns exactly the work the caller was already entitled to see and nothing
+ * more. The caller's own Available work is excluded because My Work → Available
+ * is where that lives; repeating it here would double-count the totals.
+ */
+export async function getTeamAvailableWork(
+  viewerId: string,
+): Promise<{ groups: TeamAvailableGroup[]; failed: boolean }> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from('task_overview')
+    .select('*')
+    .eq('status', 'backlog')
+    .neq('primary_owner_id', viewerId)
+    .order('due_at', { ascending: true, nullsFirst: false })
+    .limit(500);
+
+  if (error) {
+    // Reported, never rendered as "nobody has anything waiting" — that is a
+    // claim about the team, and a failed query does not support it.
+    console.error(`[getTeamAvailableWork] ${error.message}`);
+    return { groups: [], failed: true };
+  }
+
+  const rows = (data ?? []).filter((row) => row.work_class !== 'routine_occurrence');
+  const names = await getUserNames([...new Set(rows.map((row) => String(row.primary_owner_id)))]);
+
+  const byOwner = new Map<string, TeamAvailableGroup>();
+  for (const row of rows) {
+    const ownerId = String(row.primary_owner_id);
+    let group = byOwner.get(ownerId);
+    if (!group) {
+      group = { ownerId, ownerName: names.get(ownerId) ?? 'Team member', tasks: [] };
+      byOwner.set(ownerId, group);
+    }
+    group.tasks.push(toTaskOverview(row as Record<string, unknown>));
+  }
+
+  // Busiest first: the person a manager most needs to think about before
+  // handing out anything else.
+  return {
+    failed: false,
+    groups: [...byOwner.values()].sort(
+      (a, b) => b.tasks.length - a.tasks.length || a.ownerName.localeCompare(b.ownerName),
+    ),
+  };
+}
+
 /** The caller's own workable tasks, for My Day and the focus tabs. */
 export async function getMyTasks(userId: string): Promise<TaskOverview[]> {
   const supabase = await createSupabaseServerClient();
