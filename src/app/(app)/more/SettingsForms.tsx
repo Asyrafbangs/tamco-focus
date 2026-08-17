@@ -313,7 +313,19 @@ export function UserCreateForm({ directory }: { directory: DirectoryData }) {
         </label>
         <label>
           <span>Employee ID</span>
-          <input name="employeeId" required pattern="[A-Za-z0-9][A-Za-z0-9-]{2,31}" />
+          {/*
+            The dash is escaped. Unescaped it made the whole pattern fail to
+            compile — browsers compile `pattern` with the `v` flag, where a
+            bare `-` inside a class is reserved — so Chrome logged a SyntaxError
+            on every render and silently dropped the constraint. The field
+            looked validated and accepted anything.
+          */}
+          <input
+            name="employeeId"
+            required
+            pattern="[A-Za-z0-9][A-Za-z0-9\-]{2,31}"
+            title="3 to 32 letters, digits or dashes, starting with a letter or digit."
+          />
         </label>
         <label>
           <span>Email address</span>

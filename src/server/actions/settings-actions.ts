@@ -425,6 +425,9 @@ export async function setVisibilityAction(
   const state = resultState(data as RpcResult, 'Visibility rules saved and audited.');
   if (state.ok) {
     revalidatePath('/more/admin/visibility');
+    // The same editor is on the person's own page in the User directory, so
+    // saving from there has to refresh there too.
+    revalidatePath('/more/admin/users');
     // Visibility decides who appears in My Team, which now lives inside Work.
     revalidatePath('/work');
   }

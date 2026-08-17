@@ -1107,6 +1107,53 @@ export async function getBinnedTasks(
   };
 }
 
+/**
+ * How many people this viewer may see, other than themselves.
+ *
+ * My Team used to be gated on the manager role plus a direct-report count, so
+ * an explicit visibility grant bought the recipient nothing: an administrator
+ * could tick "Amer may view Izzah and Ajmal", the rule would take effect in
+ * every RLS check, and Amer would still have no screen on which to look at
+ * them. Granting sight of somebody and giving nowhere to see them is not a
+ * setting, it is a dead end.
+ *
+ * `user_profiles` SELECT is bounded by `focus.can_view_user`, so this count is
+ * the visibility rule itself rather than a second opinion about it — reporting
+ * line, administrator scope and explicit grants all included, by construction.
+ */
+export async function getVisiblePeopleCount(
+  viewerId: string,
+  reportingManagerId: string | null,
+): Promise<number> {
+  const supabase = await createSupabaseServerClient();
+
+  /*
+   * The viewer's own manager is excluded deliberately.
+   *
+   * `user_profiles_select` permits three things: your own row,
+   * `focus.can_view_user(id)`, and your reporting manager's row — that last
+   * one so the interface can name the person you report to. It is a licence to
+   * read a name, not to see their work. Counting it as "somebody I can see"
+   * gave every employee a My Team containing their own manager, which is both
+   * wrong and unusable.
+   */
+  let request = supabase
+    .from('user_profiles')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'active')
+    .neq('id', viewerId);
+  if (reportingManagerId) request = request.neq('id', reportingManagerId);
+
+  const { count, error } = await request;
+
+  if (error) {
+    // Never hide a real team because a count failed.
+    console.error(`[getVisiblePeopleCount] ${error.message}`);
+    return 1;
+  }
+  return count ?? 0;
+}
+
 export async function getDirectReportCount(viewerId: string): Promise<number> {
   const supabase = await createSupabaseServerClient();
 

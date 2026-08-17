@@ -40,7 +40,7 @@ import {
   getBinnedTasks,
   getTaskDetail,
   getMyAttention,
-  getDirectReportCount,
+  getVisiblePeopleCount,
   getMajorProjectProposalDetail,
   getMajorProjectProposals,
   getTeamMemberDetail,
@@ -229,8 +229,17 @@ export default async function WorkPage({
    * The role check stays in front of the count so that no non-manager causes
    * the extra query.
    */
-  const directReports = isManager ? await getDirectReportCount(profile.id) : 0;
-  const hasTeam = isManager && directReports > 0;
+  const visiblePeople = await getVisiblePeopleCount(
+    profile.id,
+    profile.reporting_manager_id ?? null,
+  );
+  /*
+   * My Team exists when there is somebody else to look at, which is what
+   * visibility decides — not the job title and not the reporting tree. Gated
+   * on `isManager && directReports > 0`, an explicit grant gave the recipient
+   * no screen to use it on.
+   */
+  const hasTeam = visiblePeople > 0;
 
   /*
    * v43 sections 2 and 3 — two different dimensions, two different controls.

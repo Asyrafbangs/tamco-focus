@@ -2,9 +2,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { requireProfile } from '@/lib/supabase/server';
-import { getDirectoryData } from '@/server/queries';
+import { getDirectoryData, getVisibilityData } from '@/server/queries';
 
-import { UserCreateForm, UserEditForm, UserStatusForm } from '../../SettingsForms';
+import { UserCreateForm, UserEditForm, UserStatusForm, VisibilityForm } from '../../SettingsForms';
 
 export default async function UsersPage({
   searchParams,
@@ -30,6 +30,18 @@ export default async function UsersPage({
   );
   const selected = directory.users.find((user) => user.id === params.user) ?? null;
   const creating = params.create === '1';
+
+  /*
+   * Who this person may see, on this person's own page.
+   *
+   * The rule already existed and so did the editor, but it lived on a separate
+   * Visibility rules screen keyed by "viewer" — so setting up "Amer can see
+   * Izzah and Ajmal" meant leaving the person you were looking at, finding
+   * them again in a second list, and knowing that the admin vocabulary for
+   * "Amer" is "viewer". It is the same question as their role and their
+   * manager, so it is asked in the same place.
+   */
+  const visibility = selected ? await getVisibilityData(selected.id) : null;
 
   return (
     <>
@@ -114,6 +126,28 @@ export default async function UsersPage({
                 </div>
               </div>
               <UserEditForm user={selected} directory={directory} />
+
+              {visibility && (
+                <section className="admin-visibility-section">
+                  <div className="section-heading">
+                    <div>
+                      <p className="eyebrow">Visibility</p>
+                      <h3>What {selected.fullName.split(' ')[0]} can see</h3>
+                      <p>
+                        Reporting line and job title decide nothing here. Tick the people this
+                        person may view, on top of whichever scope you choose.
+                      </p>
+                    </div>
+                  </div>
+                  <VisibilityForm
+                    viewer={selected}
+                    users={directory.users}
+                    initialMode={visibility.mode}
+                    initialSubjectIds={visibility.selectedSubjectIds}
+                  />
+                </section>
+              )}
+
               <UserStatusForm user={selected} />
             </>
           ) : (
