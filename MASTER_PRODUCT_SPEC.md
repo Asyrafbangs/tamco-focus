@@ -2472,6 +2472,9 @@ domain; no management module or parallel task engine is introduced.
 - UI and summaries must not invent an overall Goal achievement percentage. They present formal
   weight, current health, actual versus target success measures, and milestone execution as separate
   facts.
+- Goal support uses the same Barrier/request engine as Task support, with a Goal source. Legacy Goal
+  support and per-Goal cadence rows remain readable during compatibility migration but no new client
+  flow writes a competing lifecycle.
 
 ## v70 — Team member workload details (18 August 2026)
 
@@ -2495,9 +2498,6 @@ exactly what is absent. A person supplied in the URL is intersected with the sam
 as Everyone, Needs attention, Available work, and Team Member Detail before any item is returned.
 Record-level collaboration/participation never widens Team-person visibility. Existing Task, Goal,
 routine-occurrence, and Team RLS remain authoritative; this change requires no data migration.
-- Goal support uses the same Barrier/request engine as Task support, with a Goal source. Legacy Goal
-  support and per-Goal cadence rows remain readable during compatibility migration but no new client
-  flow writes a competing lifecycle.
 
 ## V69 — Team visibility and read-performance repair
 
