@@ -121,4 +121,31 @@ test.describe('v66 administrator user directory', () => {
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
     await expect(page.getByText('Izzah', { exact: false }).first()).toBeVisible();
   });
+
+  test('switching person replaces the whole detail pane', async ({ page }) => {
+    /*
+     * The bug behind "it saves and then reverts", "visibility shows the same"
+     * and "I do not know the actual state".
+     *
+     * Every field in the pane is uncontrolled — `defaultValue` on the inputs,
+     * `useState(initial…)` in the visibility editor — and those apply on mount.
+     * Selecting a second person reconciled the pane child by child, so the
+     * heading changed to the new name while the fields kept the previous
+     * person's values. Saving then wrote what was on screen, which belonged to
+     * somebody else.
+     */
+    await signIn(page, 'admin@tamco.local');
+    await openUser(page, 'Lim');
+    await expect(page.locator('.detail-pane input[name="fullName"]')).toHaveValue(/Lim/);
+
+    await page.locator('.master-list a', { hasText: 'Izzah' }).first().click();
+    await expect(page.locator('.detail-pane h2')).toHaveText(/Izzah/);
+
+    // Exactly one form, showing the person whose row is highlighted.
+    await expect(page.locator('.detail-pane input[name="fullName"]')).toHaveCount(1);
+    await expect(page.locator('.detail-pane input[name="fullName"]')).toHaveValue(/Izzah/);
+    await expect(page.locator('.admin-visibility-section h3').first()).toHaveText(
+      /What Izzah can see/,
+    );
+  });
 });

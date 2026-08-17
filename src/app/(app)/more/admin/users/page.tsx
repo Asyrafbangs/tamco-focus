@@ -100,7 +100,7 @@ export default async function UsersPage({
             ))}
           </div>
         </section>
-        <section className="detail-pane">
+        <section className="detail-pane" key={creating ? 'create' : (selected?.id ?? 'none')}>
           {creating ? (
             <>
               <div className="section-heading">
@@ -125,7 +125,19 @@ export default async function UsersPage({
                   </p>
                 </div>
               </div>
-              <UserEditForm user={selected} directory={directory} />
+              {/*
+                Keyed by the person.
+
+                Every field here is uncontrolled — `defaultValue` on the inputs,
+                `useState(initial…)` inside the visibility editor — and those
+                apply on mount only. Without a key React reuses the same form
+                instance when the selected user changes, so clicking a second
+                person left the first person's name, manager and ticks on
+                screen. Saving then wrote what was displayed, which belonged to
+                somebody else. The key forces a remount, so the pane always
+                shows the person whose row is highlighted.
+              */}
+              <UserEditForm key={selected.id} user={selected} directory={directory} />
 
               {visibility && (
                 <section className="admin-visibility-section">
@@ -140,6 +152,7 @@ export default async function UsersPage({
                     </div>
                   </div>
                   <VisibilityForm
+                    key={selected.id}
                     viewer={selected}
                     users={directory.users}
                     initialMode={visibility.mode}
@@ -148,7 +161,7 @@ export default async function UsersPage({
                 </section>
               )}
 
-              <UserStatusForm user={selected} />
+              <UserStatusForm key={selected.id} user={selected} />
             </>
           ) : (
             <div className="empty-state">

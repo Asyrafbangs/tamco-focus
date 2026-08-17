@@ -277,12 +277,47 @@ export async function updateUserAction(
   const service = createSupabaseServiceRoleClient();
   const oldEmail = String(current.email);
   if (oldEmail.toLowerCase() !== parsed.data.email.toLowerCase()) {
+    /*
+     * Check the address is free before touching the auth record.
+     *
+     * The order used to be the other way round, which meant the common
+     * mistake — typing an address somebody already has — was answered by
+     * GoTrue rather than by us. Its duplicate-email failure arrives as an
+     * `AuthRetryableFetchError` whose `message` is the literal string "{}",
+     * and that was passed straight through, so the administrator was told
+     * "Could not save: {}" and had to guess. Asking first means the sentence
+     * comes from `update_user_profile`, which knows how to say it, and the
+     * auth record is never changed for a save that cannot succeed.
+     */
+    const { data: clash } = await service
+      .from('user_profiles')
+      .select('id')
+      .ilike('email', parsed.data.email)
+      .neq('id', parsed.data.userId)
+      .maybeSingle();
+    if (clash) {
+      return {
+        ok: false,
+        code: 'email_taken',
+        message: 'That email address is already in use by another account.',
+      };
+    }
+
     const authUpdate = await service.auth.admin.updateUserById(parsed.data.userId, {
       email: parsed.data.email.toLowerCase(),
       email_confirm: true,
     });
-    if (authUpdate.error)
-      return { ok: false, code: 'auth_update_failed', message: authUpdate.error.message };
+    if (authUpdate.error) {
+      // Logged raw, reported readably. The provider's message is sometimes not
+      // a sentence at all, and an administrator cannot act on "{}".
+      console.error(`[updateUser:auth] ${authUpdate.error.name}: ${authUpdate.error.message}`);
+      return {
+        ok: false,
+        code: 'auth_update_failed',
+        message:
+          'The sign-in address could not be changed. Nothing else was saved. Try again, and tell an administrator if it persists.',
+      };
+    }
   }
 
   const { data, error } = await caller.rpc('update_user_profile', {

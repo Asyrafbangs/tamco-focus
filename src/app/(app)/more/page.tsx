@@ -98,13 +98,20 @@ export default async function MorePage() {
             </div>
           </div>
           <div className="settings-link-grid">
+            {/*
+              One card, not two. Visibility rules was a second screen doing the
+              same job from the other end: it listed the same people and edited
+              the same policy, but keyed by "viewer", so setting up "Amer may
+              see Izzah" meant leaving the person you were looking at and
+              finding them again under a different word. The editor now sits on
+              each person's own page, where their role and manager already are.
+            */}
             <Link href="/more/admin/users" className="settings-link-card interactive-row">
               <strong>User directory</strong>
-              <span>Create, maintain, deactivate, reactivate, or safely remove accounts.</span>
-            </Link>
-            <Link href="/more/admin/visibility" className="settings-link-card interactive-row">
-              <strong>Visibility rules</strong>
-              <span>Preview and save view-only access under default-deny RLS.</span>
+              <span>
+                Create and maintain accounts, set who reports to whom, and choose who each person
+                can see.
+              </span>
             </Link>
           </div>
         </section>

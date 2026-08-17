@@ -87,18 +87,23 @@ test('administrator provisions and safely deletes a history-free local user', as
   await expectAccessible(page);
 });
 
-test('administrator previews effective RLS visibility before saving', async ({ page }) => {
+test('the old Visibility rules path lands on the person it described', async ({ page }) => {
+  /*
+   * Visibility rules used to be its own screen, editing the same policy from
+   * the other end — "who is the viewer?" first. The editor now sits on each
+   * person's page in the User directory, so the old path redirects there
+   * rather than 404ing a bookmark, carrying the viewer through as the
+   * selected user.
+   */
   await signIn(page, 'admin@tamco.local');
   await page.goto('/more/admin/visibility');
-  await expect(page.getByRole('heading', { name: 'Visibility rules' })).toBeVisible();
-  await page.getByRole('link', { name: /Amer Hakim/ }).click();
-  await expect(page.getByRole('heading', { name: 'Amer Hakim' })).toBeVisible();
-  await page.getByLabel(/Direct reports \+ selected people/).check();
-  await page.getByLabel(/Izzah/).check();
-  await expect(page.getByRole('heading', { name: 'Effective-access preview' })).toBeVisible();
-  await expect(page.locator('.effective-preview').getByText(/Izzah Nurul/)).toBeVisible();
-  await page.getByLabel('Reason for change').fill('Browser verification of approved team scope');
-  await page.getByRole('button', { name: 'Save visibility rules' }).click();
-  await expect(page.getByText('Visibility rules saved and audited.')).toBeVisible();
+  await expect(page).toHaveURL(/\/more\/admin\/users/);
+  await expect(page.getByRole('heading', { name: 'User directory' })).toBeVisible();
+
+  // And the More menu offers one door to this, not two.
+  await page.goto('/more');
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+  await expect(page.getByRole('link', { name: /Visibility rules/ })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /User directory/ })).toBeVisible();
   await expectAccessible(page);
 });
