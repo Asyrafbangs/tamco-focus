@@ -116,7 +116,16 @@ function toTeamAttentionTask(row: Record<string, unknown>): TeamAttentionTask {
 }
 
 type TeamMemberTask = TeamAttentionTask &
-  Pick<TaskOverview, 'progressPercent' | 'dueAt' | 'dueIsDateOnly' | 'version'>;
+  Pick<
+    TaskOverview,
+    | 'progressPercent'
+    | 'dueAt'
+    | 'dueIsDateOnly'
+    | 'version'
+    | 'occurrenceDate'
+    | 'checklistTotal'
+    | 'checklistCompleted'
+  >;
 
 function toTeamMemberTask(row: Record<string, unknown>): TeamMemberTask {
   return {
@@ -125,6 +134,9 @@ function toTeamMemberTask(row: Record<string, unknown>): TeamMemberTask {
     dueAt: row.due_at ? String(row.due_at) : null,
     dueIsDateOnly: Boolean(row.due_is_date_only),
     version: Number(row.version ?? 1),
+    occurrenceDate: row.occurrence_date ? String(row.occurrence_date) : null,
+    checklistTotal: Number(row.checklist_total ?? 0),
+    checklistCompleted: Number(row.checklist_completed ?? 0),
   };
 }
 
@@ -2308,7 +2320,39 @@ export interface TeamMemberDetail {
     version: number;
   }>;
   recentUpdates: Array<{ id: string; at: string; taskTitle: string; summary: string }>;
-  otherWorkload: { availableCount: number; routineDueCount: number; goalCount: number };
+  otherWorkload: {
+    available: Array<{
+      id: string;
+      title: string;
+      workClass: TaskOverview['workClass'];
+      dueAt: string | null;
+      dueIsDateOnly: boolean;
+      isOverdue: boolean;
+    }>;
+    routines: Array<{
+      id: string;
+      title: string;
+      status: TaskOverview['status'];
+      occurrenceDate: string | null;
+      dueAt: string | null;
+      dueIsDateOnly: boolean;
+      isOverdue: boolean;
+      progressPercent: number;
+      checklistTotal: number;
+      checklistCompleted: number;
+    }>;
+    goals: Array<{
+      id: string;
+      title: string;
+      status: 'draft' | 'pending_discussion' | 'active';
+      health:
+        'on_track' | 'at_risk' | 'off_track' | 'need_attention' | 'support_requested' | 'completed';
+      targetDate: string;
+      weightPercent: number;
+      successMeasureCount: number;
+      currentMilestoneTitle: string | null;
+    }>;
+  };
 }
 
 export async function getTeamMemberDetail(
@@ -2323,21 +2367,31 @@ export async function getTeamMemberDetail(
    * returns nothing, because `team_load_summary` and `task_overview` are both
    * filtered by the same visibility rules the list uses.
    */
-  const [team, attentionRows, focusRows, tasksResult, goalsResult] = await Promise.all([
-    getTeamLoad(viewerId),
+  const team = await getTeamLoad(viewerId);
+  const person = team.find((row) => row.userId === personId);
+  if (!person) return null;
+
+  const [attentionRows, focusRows, tasksResult, goalsResult] = await Promise.all([
     getTeamAttention(viewerId),
     getTeamFocusSummary(),
     supabase
       .from('task_overview')
       .select(
-        'id,title,next_action,status,work_class,focus_bucket,is_mandatory,primary_owner_id,last_meaningful_update_at,due_at,due_is_date_only,progress_percent,version,is_overdue,is_stale',
+        'id,title,next_action,status,work_class,focus_bucket,is_mandatory,primary_owner_id,last_meaningful_update_at,due_at,due_is_date_only,progress_percent,version,is_overdue,is_stale,occurrence_date,checklist_total,checklist_completed',
       )
       .eq('primary_owner_id', personId)
       .in('status', ['backlog', 'active', 'paused'])
       .order('last_meaningful_update_at', { ascending: false })
       .limit(200),
-    // Counted, not listed: Goals have their own workspace, and this is context.
-    supabase.from('goals').select('id', { count: 'exact', head: true }).eq('owner_id', personId),
+    supabase
+      .from('goal_overview')
+      .select(
+        'id,title,status,health,target_date,weight_percent,success_measure_count,current_milestone_title',
+      )
+      .eq('owner_id', personId)
+      .in('status', ['draft', 'pending_discussion', 'active'])
+      .order('target_date', { ascending: true })
+      .limit(100),
   ]);
 
   if (tasksResult.error) {
@@ -2349,13 +2403,25 @@ export async function getTeamMemberDetail(
     throw new Error('TEAM_MEMBER_UNAVAILABLE');
   }
 
-  const person = team.find((row) => row.userId === personId);
-  if (!person) return null;
-
   const tasks = (tasksResult.data ?? []).map((row) =>
     toTeamMemberTask(row as Record<string, unknown>),
   );
-  const active = tasks.filter((task) => task.status === 'active');
+  const active = tasks.filter(
+    (task) => task.status === 'active' && task.workClass !== 'routine_occurrence',
+  );
+  const available = tasks.filter(
+    (task) => task.status === 'backlog' && task.workClass !== 'routine_occurrence',
+  );
+  const routines = tasks
+    // This number has always meant overdue occurrences in the Team summary.
+    // Name and list the exact records instead of making zero read as "this
+    // person has no routines" or mixing future work into an overdue count.
+    .filter((task) => task.workClass === 'routine_occurrence' && task.isOverdue)
+    .sort((left, right) =>
+      (left.occurrenceDate ?? left.dueAt ?? '').localeCompare(
+        right.occurrenceDate ?? right.dueAt ?? '',
+      ),
+    );
 
   // §43 — meaningful changes, from the records people actually wrote. Opening
   // a tab is not a change.
@@ -2406,9 +2472,38 @@ export async function getTeamMemberDetail(
       summary: String(update.body),
     })),
     otherWorkload: {
-      availableCount: person.availableWorkCount,
-      routineDueCount: person.routinesOverdue,
-      goalCount: goalsResult.count ?? 0,
+      available: available.map((task) => ({
+        id: task.id,
+        title: task.title,
+        workClass: task.workClass,
+        dueAt: task.dueAt,
+        dueIsDateOnly: task.dueIsDateOnly,
+        isOverdue: task.isOverdue,
+      })),
+      routines: routines.map((task) => ({
+        id: task.id,
+        title: task.title,
+        status: task.status,
+        occurrenceDate: task.occurrenceDate,
+        dueAt: task.dueAt,
+        dueIsDateOnly: task.dueIsDateOnly,
+        isOverdue: task.isOverdue,
+        progressPercent: task.progressPercent,
+        checklistTotal: task.checklistTotal,
+        checklistCompleted: task.checklistCompleted,
+      })),
+      goals: (goalsResult.data ?? []).map((goal) => ({
+        id: String(goal.id),
+        title: String(goal.title),
+        status: goal.status as TeamMemberDetail['otherWorkload']['goals'][number]['status'],
+        health: goal.health as TeamMemberDetail['otherWorkload']['goals'][number]['health'],
+        targetDate: String(goal.target_date),
+        weightPercent: Number(goal.weight_percent ?? 0),
+        successMeasureCount: Number(goal.success_measure_count ?? 0),
+        currentMilestoneTitle: goal.current_milestone_title
+          ? String(goal.current_milestone_title)
+          : null,
+      })),
     },
   };
 }

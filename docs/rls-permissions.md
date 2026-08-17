@@ -49,6 +49,12 @@ configured people, and `none` receives only the caller's own projection (which a
 lists exclude). The local server-only service role retains its established read-model access and
 never reaches browser code.
 
+Team Member Detail may project named Available Tasks, overdue routine occurrence Tasks, and current
+Goals only after the requested person is found in that same roster. The underlying security-invoker
+Task and Goal policies still filter every record. Collaboration with one Task or participation in
+one Goal is record access, not permission to obtain the owner's Team profile or other workload.
+The v70 rows are view links only and do not grant lifecycle or management authority.
+
 ## v53 authority additions
 
 Task capabilities now expose terminal cancellation separately from generic edit authority, so a

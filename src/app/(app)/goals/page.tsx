@@ -13,6 +13,7 @@ import {
   type GoalLifecycleView,
   type GoalOverview,
 } from '@/domain/goals';
+import { safeReturnPath } from '@/domain/navigation';
 import { requireProfile } from '@/lib/supabase/server';
 import {
   getGoalActiveWeights,
@@ -84,6 +85,8 @@ export default async function GoalsPage({
     goal?: string;
     action?: string;
     lifecycle?: string;
+    /** A validated layer beneath Goal Detail, such as a selected Team member. */
+    from?: string;
   }>;
 }) {
   const profile = await requireProfile();
@@ -191,10 +194,13 @@ export default async function GoalsPage({
     .map((part) => part[0])
     .join('')
     .toUpperCase();
-  const closeHref = lifecycleHref(lifecycle);
+  const listHref = lifecycleHref(lifecycle);
+  const returnHref = params.from ? safeReturnPath(params.from, '') : '';
+  const closeHref = returnHref || listHref;
   const goalHref = (goalId: string) => {
-    const query = new URLSearchParams(closeHref.split('?')[1] ?? '');
+    const query = new URLSearchParams(listHref.split('?')[1] ?? '');
     query.set('goal', goalId);
+    if (returnHref) query.set('from', returnHref);
     return `/goals?${query.toString()}`;
   };
   const personHref = (personId: string) => {

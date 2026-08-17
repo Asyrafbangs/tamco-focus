@@ -353,3 +353,22 @@ check unless marked otherwise.
       Team task queries do not load unrendered checklist/evidence/attachment aggregates.
 - [ ] pgTAP, integration, E2E, lint, typecheck, production build and smoke gates pass after a fresh
       local reset.
+
+## v70 Team member workload detail acceptance gates
+
+- [ ] Expanding Other workload renders named Available, overdue routine-occurrence, and current
+      Goal rows; the former generic paragraph is absent.
+- [ ] Each category count equals the number of rendered records and each zero category has a
+      truthful, specific empty state.
+- [ ] Available and routine rows open the exact Task Detail by whole-row pointer or keyboard action;
+      Close restores the same Team person and filter one layer below.
+- [ ] Goal rows open the exact Goal Detail and Close follows only a validated internal return path
+      to the same Team person/filter.
+- [ ] Goal context keeps lifecycle, health, target, formal weight, success measures and milestone
+      execution separate; it renders no fabricated overall Goal achievement percentage.
+- [ ] Direct `person` parameters and record-level collaboration/participation cannot expose a
+      person or workload outside the authorised Team roster.
+- [ ] The disclosure target, focus state, text wrapping and scrolling pass at desktop and 390 px
+      mobile widths with no horizontal page overflow.
+- [ ] No migration, generated-type, RLS, authentication, action-authority, workflow, notification,
+      audit, Storage, or production-data behaviour changes.

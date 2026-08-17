@@ -60,3 +60,11 @@ validation, manager self-governance, exact plan finalisation, shared Goal suppor
 Resolution, terminal Goal outcomes and audited Active revision. The pgTAP suite adds plan/session
 read and direct-write denial. Playwright verifies the aggregate Goal session UI, truthful measure
 presentation, Major Project decision drawer, responsive containment and accessibility.
+
+## v70 Team member workload detail coverage
+
+`team-member-workload-v70.spec.ts` uses the canonical Izzah fixtures to verify that the disclosure
+renders a named Available Task, overdue routine occurrences, and a current Goal; displayed counts
+match the rendered lists; keyboard and pointer selection open exact records; Task and Goal Close
+restore the person layer; and the 390 px project has no horizontal overflow. A direct unauthorised
+person parameter is also tested to ensure neither the person nor their record titles are rendered.

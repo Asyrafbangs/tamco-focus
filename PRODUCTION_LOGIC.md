@@ -1102,6 +1102,26 @@ derived-progress rules. The future ESH finding/action system remains outside the
     achievement. Exact numeric actual-versus-target values may be shown per measure; overall health,
     formal weight and milestone progress remain separate concepts.
 
+## 43. v70 Team member workload detail projection
+
+1. Resolve the requested person through the request-cached, RLS-bound Team roster. If the person is
+   absent, return no drawer and do not treat a visible shared record as Team-person authority.
+2. After roster validation, read that owner's workable Tasks once. Partition the result into Active
+   non-routine work, non-routine backlog Available work, and overdue routine occurrences. Do not run
+   a query per rendered row or read routine templates, whose management visibility is a different
+   permission boundary.
+3. Read only current Goal lifecycle rows and only the fields rendered. Goal query failure fails the
+   Team detail read; it must not be presented as a truthful zero.
+4. Derive disclosure totals from their arrays. “Overdue routines” means open occurrence Tasks with
+   `work_class = routine_occurrence` and authoritative `is_overdue`; it does not mean templates,
+   completed history, or future schedule.
+5. Task and occurrence links append `task` to the selected-person Work URL. Closing Task Detail
+   removes only the Task layer. Goal links carry the same Work URL as `from`; Goal Detail validates
+   it with `safeReturnPath` before using it, so Close restores the person/filter and cannot redirect
+   outside the application.
+6. Detail rows expose no new mutations. Any controls inside the opened record continue to be
+   derived from server/database capabilities, never from Team visibility alone.
+
 ## V69 — Team visibility and query rules
 
 1. Derive the Team roster from active profiles satisfying `focus.can_view_user`. Do not infer Team

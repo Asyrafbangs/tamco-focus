@@ -16,6 +16,13 @@ transaction as the change, and those notifications open the exact record.
 
 Run `node scripts/verify.mjs` for the full gate suite.
 
+## v70 Team member workload review path
+
+Open **Work → My Team**, select a person, then expand **Other workload**. Available work, overdue
+routine occurrences, and current Goals are listed by name with compact context. Select any row to
+open the exact record; closing it returns to the same person and Team filter. The lists remain
+read-only context—record actions still depend on the existing Task/Goal capabilities and RLS.
+
 ## Current execution and Goal experience — v53
 
 The Task engine now closes completion, cancellation and reassignment without leaving stale Barrier,
