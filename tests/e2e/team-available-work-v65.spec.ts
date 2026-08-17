@@ -69,4 +69,33 @@ test.describe('v65 team Available work', () => {
     await expect(page.getByRole('navigation', { name: 'Team filter' })).toHaveCount(0);
     await expect(page.locator('.team-available-group')).toHaveCount(0);
   });
+
+  test('the rows do not swallow the controls around them', async ({ page }) => {
+    /*
+     * `.row-primary-link::after` is `position: absolute; inset: 0`, resolved
+     * against the nearest positioned ancestor. The rows here had none, so every
+     * row's click overlay stretched across the whole panel: "Open person"
+     * opened whichever task happened to be painted last, and the filter tabs
+     * stopped responding entirely once this tab had been visited.
+     */
+    await signIn(page, 'izzul@tamco.local');
+    await page.goto('/work?scope=team&filter=available');
+    await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+
+    const group = page.locator('.team-available-group').first();
+    const owner = (await group.locator('header strong').innerText()).trim();
+
+    await group.getByRole('link', { name: 'Open person' }).click();
+    // The person, not a task that merely sits under the same overlay.
+    await expect(page.locator('.team-member-drawer')).toBeVisible();
+    await expect(page.locator('.team-member-drawer h2')).toHaveText(owner);
+    await expect(page.locator('.task-detail-drawer')).toHaveCount(0);
+
+    // And the sibling tabs still navigate.
+    await page.goto('/work?scope=team&filter=available');
+    await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+    await page.getByRole('link', { name: /^Everyone/ }).click();
+    await expect(page).toHaveURL(/scope=team$/);
+    await expect(page.getByTestId('my-team-person-row').first()).toBeVisible();
+  });
 });

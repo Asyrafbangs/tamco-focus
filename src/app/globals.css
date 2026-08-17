@@ -7528,6 +7528,16 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   list-style: none;
 }
 .team-available-row {
+  /*
+   * Positioned so the row's own click overlay stays inside it.
+   *
+   * `.row-primary-link::after` is `position: absolute; inset: 0`, which
+   * resolves against the nearest positioned ancestor. Without this the overlay
+   * stretched across the whole panel: every row covered the group header and
+   * the filter tabs, so "Open person" opened whichever task was painted last
+   * and the Everyone tab did nothing at all.
+   */
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
