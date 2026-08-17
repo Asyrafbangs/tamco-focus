@@ -16,7 +16,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(50);
+select plan(58);
 
 -- ---------------------------------------------------------------------------
 -- Fixture identities (supabase/seed.sql)
@@ -139,6 +139,15 @@ select isnt_empty(
   format('select id from public.tasks where primary_owner_id = %L', pg_temp.uid('amer')),
   'Amer can always view his own work');
 
+select is(
+  (select count(*)::integer from public.team_load_summary),
+  3,
+  'Amer Team projection contains only himself and the two explicitly granted people');
+
+select is_empty(
+  format('select user_id from public.team_load_summary where user_id = %L', pg_temp.uid('izzul')),
+  'Amer reporting-manager attribution does not expose Izzul workload in Team');
+
 -- ---------------------------------------------------------------------------
 -- 3. View access does NOT confer edit, activation, or reassignment.
 --
@@ -235,6 +244,15 @@ select is_empty(
   format('select id from public.tasks where primary_owner_id = %L', pg_temp.uid('amer')),
   'Lim canNOT view Amer');
 
+select is(
+  (select count(*)::integer from public.team_load_summary),
+  1,
+  'Lim Team projection contains only Lim when visibility mode is none');
+
+select is_empty(
+  format('select user_id from public.focus_summary where user_id = %L', pg_temp.uid('izzul')),
+  'Lim reporting-manager attribution does not expose Izzul focus information');
+
 select pg_temp.reset_role();
 
 -- ---------------------------------------------------------------------------
@@ -250,6 +268,28 @@ select isnt_empty(
 select isnt_empty(
   format('select id from public.tasks where primary_owner_id = %L', pg_temp.uid('lim')),
   'Izzul can view every direct report, including Lim');
+
+select is(
+  (select count(*)::integer from public.team_load_summary),
+  6,
+  'Izzul Team projection contains himself and all five active direct reports');
+
+select is_empty(
+  format('select user_id from public.team_load_summary where user_id = %L', pg_temp.uid('admin')),
+  'manager visibility does not silently include an unrelated administrator');
+
+select pg_temp.reset_role();
+
+select pg_temp.act_as(pg_temp.uid('admin'));
+
+select is(
+  (select count(*)::integer from public.team_load_summary),
+  (select count(*)::integer from public.user_profiles where status = 'active'),
+  'administrator Team projection contains every active user');
+
+select isnt_empty(
+  format('select user_id from public.team_load_summary where user_id = %L', pg_temp.uid('izzul')),
+  'administrator Team projection includes Izzul');
 
 select pg_temp.reset_role();
 

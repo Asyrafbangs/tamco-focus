@@ -8945,7 +8945,9 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   font-weight: 650;
   color: var(--muted);
   cursor: pointer;
-  transition: background var(--motion-fast), color var(--motion-fast);
+  transition:
+    background var(--motion-fast),
+    color var(--motion-fast);
 }
 .weekday-toggle.on {
   background: var(--blue);

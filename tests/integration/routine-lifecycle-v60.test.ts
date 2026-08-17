@@ -90,12 +90,7 @@ describe('v60 routine lifecycle', () => {
      * starting month whenever that month's day has not yet passed.
      */
     expect(dates[0]).toBe('2026-03-15');
-    expect(dates.slice(0, 4)).toEqual([
-      '2026-03-15',
-      '2026-06-15',
-      '2026-09-15',
-      '2026-12-15',
-    ]);
+    expect(dates.slice(0, 4)).toEqual(['2026-03-15', '2026-06-15', '2026-09-15', '2026-12-15']);
   });
 
   it('holds a routine somebody sets up for themselves until a manager activates it', async () => {

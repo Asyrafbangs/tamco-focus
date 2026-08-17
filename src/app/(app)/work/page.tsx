@@ -329,8 +329,9 @@ export default async function WorkPage({
     scope === 'team' && teamFilter === 'available'
       ? getTeamAvailableWork(profile.id)
       : Promise.resolve({ groups: [], failed: false }),
-    // The badge, always — see the Bin, which read 0 until you opened it.
-    hasTeam ? getTeamAvailableCount(profile.id) : Promise.resolve(0),
+    // This badge only exists inside Team scope. Loading it in My Work added a
+    // count request whose result was never rendered.
+    scope === 'team' ? getTeamAvailableCount(profile.id) : Promise.resolve(0),
   ]);
 
   const visible =

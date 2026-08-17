@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { cache } from 'react';
+
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { barrierHref } from '@/domain/barriers';
 import { describeRecurrence, patternFromRow } from '@/domain/routines';
@@ -82,6 +84,50 @@ function toTaskOverview(row: Record<string, unknown>): TaskOverview {
   };
 }
 
+type TeamAttentionTask = Pick<
+  TaskOverview,
+  | 'id'
+  | 'title'
+  | 'nextAction'
+  | 'status'
+  | 'workClass'
+  | 'focusBucket'
+  | 'isMandatory'
+  | 'primaryOwnerId'
+  | 'lastMeaningfulUpdateAt'
+  | 'isOverdue'
+  | 'isStale'
+>;
+
+function toTeamAttentionTask(row: Record<string, unknown>): TeamAttentionTask {
+  return {
+    id: String(row.id),
+    title: String(row.title),
+    nextAction: row.next_action ? String(row.next_action) : null,
+    status: row.status as TaskOverview['status'],
+    workClass: row.work_class as TaskOverview['workClass'],
+    focusBucket: (row.focus_bucket as FocusBucket | null) ?? null,
+    isMandatory: Boolean(row.is_mandatory),
+    primaryOwnerId: String(row.primary_owner_id),
+    lastMeaningfulUpdateAt: String(row.last_meaningful_update_at),
+    isOverdue: Boolean(row.is_overdue),
+    isStale: Boolean(row.is_stale),
+  };
+}
+
+type TeamMemberTask = TeamAttentionTask &
+  Pick<TaskOverview, 'progressPercent' | 'dueAt' | 'dueIsDateOnly' | 'version'>;
+
+function toTeamMemberTask(row: Record<string, unknown>): TeamMemberTask {
+  return {
+    ...toTeamAttentionTask(row),
+    progressPercent: Number(row.progress_percent ?? 0),
+    dueAt: row.due_at ? String(row.due_at) : null,
+    dueIsDateOnly: Boolean(row.due_is_date_only),
+    version: Number(row.version ?? 1),
+  };
+}
+
 /** Everything the caller may see that is still workable. */
 export async function getWorkableTasks(): Promise<TaskOverview[]> {
   const supabase = await createSupabaseServerClient();
@@ -109,12 +155,19 @@ export async function getWorkableTasks(): Promise<TaskOverview[]> {
  * the failure mode a badge exists to prevent.
  */
 export async function getTeamAvailableCount(viewerId: string): Promise<number> {
+  const team = await getTeamLoad(viewerId);
+  const ownerIds = team.map((person) => person.userId);
+  if (ownerIds.length === 0) return 0;
+
   const supabase = await createSupabaseServerClient();
   const { count, error } = await supabase
     .from('task_overview')
     .select('id', { count: 'exact', head: true })
     .eq('status', 'backlog')
-    .neq('primary_owner_id', viewerId)
+    // Task RLS also permits individual collaborations. My Team is a people
+    // scope, so an unrelated peer must not enter it merely because one of
+    // their tasks was shared with the viewer.
+    .in('primary_owner_id', ownerIds)
     .neq('work_class', 'routine_occurrence');
 
   if (error) {
@@ -128,7 +181,13 @@ export async function getTeamAvailableCount(viewerId: string): Promise<number> {
 export interface TeamAvailableGroup {
   ownerId: string;
   ownerName: string;
-  tasks: TaskOverview[];
+  tasks: Array<{
+    id: string;
+    title: string;
+    workClass: TaskOverview['workClass'];
+    dueAt: string | null;
+    dueIsDateOnly: boolean;
+  }>;
 }
 
 /**
@@ -148,13 +207,21 @@ export interface TeamAvailableGroup {
 export async function getTeamAvailableWork(
   viewerId: string,
 ): Promise<{ groups: TeamAvailableGroup[]; failed: boolean }> {
+  const team = await getTeamLoad(viewerId);
+  const ownerNames = new Map(team.map((person) => [person.userId, person.fullName]));
+  const ownerIds = [...ownerNames.keys()];
+  if (ownerIds.length === 0) return { groups: [], failed: false };
+
   const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase
     .from('task_overview')
-    .select('*')
+    // Team Available renders five fields. Selecting the full projection also
+    // calculated checklist, evidence, attachment and collaborator aggregates
+    // for every row, then discarded them.
+    .select('id,title,work_class,primary_owner_id,due_at,due_is_date_only')
     .eq('status', 'backlog')
-    .neq('primary_owner_id', viewerId)
+    .in('primary_owner_id', ownerIds)
     .order('due_at', { ascending: true, nullsFirst: false })
     .limit(500);
 
@@ -166,17 +233,22 @@ export async function getTeamAvailableWork(
   }
 
   const rows = (data ?? []).filter((row) => row.work_class !== 'routine_occurrence');
-  const names = await getUserNames([...new Set(rows.map((row) => String(row.primary_owner_id)))]);
 
   const byOwner = new Map<string, TeamAvailableGroup>();
   for (const row of rows) {
     const ownerId = String(row.primary_owner_id);
     let group = byOwner.get(ownerId);
     if (!group) {
-      group = { ownerId, ownerName: names.get(ownerId) ?? 'Team member', tasks: [] };
+      group = { ownerId, ownerName: ownerNames.get(ownerId) ?? 'Team member', tasks: [] };
       byOwner.set(ownerId, group);
     }
-    group.tasks.push(toTaskOverview(row as Record<string, unknown>));
+    group.tasks.push({
+      id: String(row.id),
+      title: String(row.title),
+      workClass: row.work_class as TaskOverview['workClass'],
+      dueAt: row.due_at ? String(row.due_at) : null,
+      dueIsDateOnly: Boolean(row.due_is_date_only),
+    });
   }
 
   // Busiest first: the person a manager most needs to think about before
@@ -1173,7 +1245,7 @@ export async function getDirectReportCount(viewerId: string): Promise<number> {
   return count ?? 0;
 }
 
-export async function getTeamLoad(viewerId: string): Promise<TeamLoadRow[]> {
+async function getTeamLoadUncached(viewerId: string): Promise<TeamLoadRow[]> {
   const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase
@@ -1204,6 +1276,13 @@ export async function getTeamLoad(viewerId: string): Promise<TeamLoadRow[]> {
     decisionsPending: Number(row.decisions_pending ?? 0),
   }));
 }
+
+/**
+ * The Work page and Team Member drawer share this roster during one server
+ * render. React cache is request-scoped, so the duplicate callers share the
+ * same RLS-bound result without data crossing users or requests.
+ */
+export const getTeamLoad = cache(getTeamLoadUncached);
 
 export interface MeetingQueueRow {
   id: string;
@@ -1336,14 +1415,14 @@ export async function getMeetingQueue(): Promise<MeetingQueueRow[]> {
 }
 
 /** Focus counts against targets for everyone the caller may see. */
-export async function getTeamFocusSummary(): Promise<FocusSummary[]> {
+async function getTeamFocusSummaryUncached(): Promise<FocusSummary[]> {
   const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase.from('focus_summary').select('*').limit(600);
 
   if (error) {
     console.error(`[getTeamFocusSummary] ${error.message}`);
-    return [];
+    throw new Error('TEAM_FOCUS_UNAVAILABLE');
   }
 
   return (data ?? []).map((row) => ({
@@ -1355,6 +1434,8 @@ export async function getTeamFocusSummary(): Promise<FocusSummary[]> {
     overTargetSince: (row.over_target_since as string) ?? null,
   }));
 }
+
+export const getTeamFocusSummary = cache(getTeamFocusSummaryUncached);
 
 /** Active workload rows for people already authorised by task_overview RLS. */
 export async function getVisibleTeamTasks(viewerId: string): Promise<TaskOverview[]> {
@@ -2248,7 +2329,9 @@ export async function getTeamMemberDetail(
     getTeamFocusSummary(),
     supabase
       .from('task_overview')
-      .select('*')
+      .select(
+        'id,title,next_action,status,work_class,focus_bucket,is_mandatory,primary_owner_id,last_meaningful_update_at,due_at,due_is_date_only,progress_percent,version,is_overdue,is_stale',
+      )
       .eq('primary_owner_id', personId)
       .in('status', ['backlog', 'active', 'paused'])
       .order('last_meaningful_update_at', { ascending: false })
@@ -2257,23 +2340,43 @@ export async function getTeamMemberDetail(
     supabase.from('goals').select('id', { count: 'exact', head: true }).eq('owner_id', personId),
   ]);
 
+  if (tasksResult.error) {
+    console.error(`[getTeamMemberDetail:tasks] ${tasksResult.error.message}`);
+    throw new Error('TEAM_MEMBER_UNAVAILABLE');
+  }
+  if (goalsResult.error) {
+    console.error(`[getTeamMemberDetail:goals] ${goalsResult.error.message}`);
+    throw new Error('TEAM_MEMBER_UNAVAILABLE');
+  }
+
   const person = team.find((row) => row.userId === personId);
   if (!person) return null;
 
-  const tasks = (tasksResult.data ?? []).map(toTaskOverview);
+  const tasks = (tasksResult.data ?? []).map((row) =>
+    toTeamMemberTask(row as Record<string, unknown>),
+  );
   const active = tasks.filter((task) => task.status === 'active');
 
   // §43 — meaningful changes, from the records people actually wrote. Opening
   // a tab is not a change.
-  const { data: updates } = await supabase
-    .from('task_updates')
-    .select('id, task_id, body, created_at')
-    .in(
-      'task_id',
-      tasks.map((task) => task.id),
-    )
-    .order('created_at', { ascending: false })
-    .limit(5);
+  const updatesResult =
+    tasks.length > 0
+      ? await supabase
+          .from('task_updates')
+          .select('id, task_id, body, created_at')
+          .in(
+            'task_id',
+            tasks.map((task) => task.id),
+          )
+          .order('created_at', { ascending: false })
+          .limit(5)
+      : { data: [], error: null };
+
+  if (updatesResult.error) {
+    console.error(`[getTeamMemberDetail:updates] ${updatesResult.error.message}`);
+    throw new Error('TEAM_MEMBER_UNAVAILABLE');
+  }
+  const updates = updatesResult.data ?? [];
 
   const titles = new Map(tasks.map((task) => [task.id, task.title]));
   const row = attentionRows.find((candidate) => candidate.userId === personId);
@@ -2296,7 +2399,7 @@ export async function getTeamMemberDetail(
       nextAction: task.nextAction,
       version: task.version,
     })),
-    recentUpdates: (updates ?? []).map((update) => ({
+    recentUpdates: updates.map((update) => ({
       id: String(update.id),
       at: String(update.created_at),
       taskTitle: titles.get(String(update.task_id)) ?? 'Work',
@@ -2316,7 +2419,7 @@ export async function getTeamMemberDetail(
  * adding the person layer, so clicking an action never opens Team Member Detail
  * before the requested record.
  */
-export async function getTeamAttention(viewerId: string): Promise<TeamAttentionRow[]> {
+async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttentionRow[]> {
   const supabase = await createSupabaseServerClient();
 
   const [team, focus, tasksResult, barriersResult, goalsResult, goalSupportResult] =
@@ -2325,7 +2428,13 @@ export async function getTeamAttention(viewerId: string): Promise<TeamAttentionR
       getTeamFocusSummary(),
       supabase
         .from('task_overview')
-        .select('*')
+        // Attention uses identity, state, owner and ageing only. The full view
+        // also computes checklist/evidence/attachment aggregates for every
+        // task, which made a 500-row Team read spend seconds on data it never
+        // rendered.
+        .select(
+          'id,title,next_action,status,work_class,focus_bucket,is_mandatory,primary_owner_id,last_meaningful_update_at,is_overdue,is_stale',
+        )
         .neq('primary_owner_id', viewerId)
         .in('status', ['backlog', 'active', 'paused'])
         .order('last_meaningful_update_at', { ascending: false })
@@ -2360,9 +2469,57 @@ export async function getTeamAttention(viewerId: string): Promise<TeamAttentionR
         .limit(100),
     ]);
 
-  const tasks = (tasksResult.data ?? []).map(toTaskOverview);
+  const failed = [
+    ['tasks', tasksResult.error],
+    ['barriers', barriersResult.error],
+    ['goals', goalsResult.error],
+    ['goal support', goalSupportResult.error],
+  ].find((entry) => entry[1]);
+  if (failed) {
+    const error = failed[1] as { message: string };
+    console.error(`[getTeamAttention:${failed[0]}] ${error.message}`);
+    throw new Error('TEAM_ATTENTION_UNAVAILABLE');
+  }
+
+  const tasks = (tasksResult.data ?? []).map((row) =>
+    toTeamAttentionTask(row as Record<string, unknown>),
+  );
   const barriers = barriersResult.data ?? [];
   const goals = goalsResult.data ?? [];
+
+  // The old derivation scanned every task, focus bucket, barrier and Goal for
+  // every person. Index once by owner so Team remains linear as either side
+  // grows, and preserve source ordering inside each bucket.
+  const tasksByOwner = new Map<string, TeamAttentionTask[]>();
+  const taskOwner = new Map<string, string>();
+  for (const task of tasks) {
+    taskOwner.set(task.id, task.primaryOwnerId);
+    const bucket = tasksByOwner.get(task.primaryOwnerId);
+    if (bucket) bucket.push(task);
+    else tasksByOwner.set(task.primaryOwnerId, [task]);
+  }
+
+  const focusByUser = new Map<string, FocusSummary[]>();
+  for (const bucket of focus) {
+    const existing = focusByUser.get(bucket.userId);
+    if (existing) existing.push(bucket);
+    else focusByUser.set(bucket.userId, [bucket]);
+  }
+
+  const barrierByOwner = new Map<string, (typeof barriers)[number]>();
+  for (const barrier of barriers) {
+    const ownerId = taskOwner.get(String(barrier.task_id));
+    if (ownerId && !barrierByOwner.has(ownerId)) barrierByOwner.set(ownerId, barrier);
+  }
+
+  const goalsByOwner = new Map<string, typeof goals>();
+  for (const goal of goals) {
+    const ownerId = String(goal.owner_id);
+    const existing = goalsByOwner.get(ownerId);
+    if (existing) existing.push(goal);
+    else goalsByOwner.set(ownerId, [goal]);
+  }
+
   const goalSupportByGoal = new Map<string, string>();
   for (const request of goalSupportResult.data ?? []) {
     const goalId = String(request.goal_id);
@@ -2374,27 +2531,23 @@ export async function getTeamAttention(viewerId: string): Promise<TeamAttentionR
   }
 
   return team.map((person) => {
-    const theirs = tasks.filter((task) => task.primaryOwnerId === person.userId);
+    const theirs = tasksByOwner.get(person.userId) ?? [];
     const active = theirs.filter((task) => task.status === 'active');
-    const buckets = focus.filter((bucket) => bucket.userId === person.userId);
+    const buckets = focusByUser.get(person.userId) ?? [];
     const overTarget = buckets.find((bucket) => bucket.isOverTarget);
 
-    const theirBarrier = barriers.find((barrier) =>
-      theirs.some((task) => task.id === barrier.task_id),
-    );
-    const theirGoal = goals
-      .filter((goal) => goal.owner_id === person.userId)
-      .sort((left, right) => {
-        const rank = (goal: (typeof goals)[number]) => {
-          if (goalSupportByGoal.has(String(goal.id)) || goal.health === 'support_requested') {
-            return 0;
-          }
-          if (goal.quarterly_requires_manager_action) return 1;
-          if (goal.health === 'off_track') return 2;
-          return 3;
-        };
-        return rank(left) - rank(right);
-      })[0];
+    const theirBarrier = barrierByOwner.get(person.userId);
+    const theirGoal = (goalsByOwner.get(person.userId) ?? []).sort((left, right) => {
+      const rank = (goal: (typeof goals)[number]) => {
+        if (goalSupportByGoal.has(String(goal.id)) || goal.health === 'support_requested') {
+          return 0;
+        }
+        if (goal.quarterly_requires_manager_action) return 1;
+        if (goal.health === 'off_track') return 2;
+        return 3;
+      };
+      return rank(left) - rank(right);
+    })[0];
 
     // Ordered by what costs most to ignore (section 32), and each branch
     // carries all three of reason / action / destination together — so a row
@@ -2658,6 +2811,8 @@ export async function getTeamAttention(viewerId: string): Promise<TeamAttentionR
     };
   });
 }
+
+export const getTeamAttention = cache(getTeamAttentionUncached);
 
 export type WorkProposalStatus =
   'pending' | 'changes_requested' | 'approved' | 'declined' | 'rejected';

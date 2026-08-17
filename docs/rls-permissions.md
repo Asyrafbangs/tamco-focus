@@ -37,7 +37,17 @@ Clients cannot insert, update, or delete audit events. Security-definer procedur
 
 ## Verification
 
-`supabase/tests/rls_visibility.test.sql` proves 50 properties including anonymous Goal denial, own Goal access, view-without-update/edit/agreement, direct-table mutation denial, authorised manager agreement, aggregate plan/session visibility, audit creation, deactivated-token denial, append-only history, and private attachment behaviour. `npm run db:test` and the integration suite run against real local Postgres and Auth.
+`supabase/tests/rls_visibility.test.sql` proves 58 properties including anonymous Goal denial, own Goal access, view-without-update/edit/agreement, direct-table mutation denial, authorised manager agreement, aggregate plan/session visibility, audit creation, deactivated-token denial, append-only history, private attachment behaviour, and the administrator/manager/explicit/none Team projection matrix. `npm run db:test` and the integration suite run against real local Postgres and Auth.
+
+## Team projection boundary (v69)
+
+`user_profiles_select` may expose the viewer's reporting manager so the application can name that
+relationship. `team_load_summary` and `focus_summary` additionally require
+`focus.can_view_user(profile.id)` for authenticated callers; name attribution is not workload
+visibility. Administrators receive all active profiles, reporting/explicit scopes receive their
+configured people, and `none` receives only the caller's own projection (which application Team
+lists exclude). The local server-only service role retains its established read-model access and
+never reaches browser code.
 
 ## v53 authority additions
 

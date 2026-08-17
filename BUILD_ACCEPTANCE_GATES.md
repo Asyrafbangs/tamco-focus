@@ -339,3 +339,17 @@ check unless marked otherwise.
       separate facts; no fabricated overall Goal percentage remains visible.
 - [ ] RLS, integration, end-to-end, responsive, accessibility, generated-type, production build and
       smoke gates pass against a fresh local database reset.
+
+## v69 Team visibility and performance acceptance gates
+
+- [ ] An administrator sees every other active user in My Team, including Izzul.
+- [ ] A manager sees the configured reporting tree plus explicit additions and no unrelated users.
+- [ ] `specific_only` and `none` rules are reflected consistently in roster, counts and drawers.
+- [ ] Reporting-manager name attribution does not expose that manager's workload or focus summary.
+- [ ] Task-level collaboration does not promote an unauthorised owner into Team Available work.
+- [ ] Whole person rows, exact nested actions, filters, drawer close, Escape and focus restoration
+      work on desktop and mobile without horizontal overflow.
+- [ ] Team workload/focus aggregation is set-based, duplicate server reads are request-memoized and
+      Team task queries do not load unrendered checklist/evidence/attachment aggregates.
+- [ ] pgTAP, integration, E2E, lint, typecheck, production build and smoke gates pass after a fresh
+      local reset.

@@ -47,7 +47,11 @@ test('Next action is editable and completable, and an update never changes it', 
    */
   await page.goto('/work');
   const taskLink = page.getByRole('link', { name: TASK_TITLE });
-  if ((await taskLink.count()) === 0) {
+  const foundInActive = await taskLink
+    .waitFor({ state: 'visible', timeout: 10_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!foundInActive) {
     await page.goto('/work?tab=available');
   }
   await expect(taskLink).toBeVisible();

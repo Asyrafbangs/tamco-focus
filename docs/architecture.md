@@ -30,6 +30,13 @@ The anon key is safe to expose because it has no useful access without a valid s
 5. The procedure locks relevant rows, rechecks authority, applies the change, writes audit/notifications, and returns a stable result code.
 6. The action revalidates affected routes.
 
+Team read models add one deliberate distinction: `user_profiles_select` may expose a reporting
+manager for attribution, while Team projections require `focus.can_view_user` for workload access.
+`team_load_summary` and `focus_summary` aggregate canonical rows set-wise. Repeated roster/focus/
+attention calls made by one Server Component render share request-scoped `React.cache` results;
+nothing is cached across users or requests. Team task queries select only the columns their list or
+drawer renders.
+
 ## Operational jobs
 
 `worker:routines` calls the idempotent occurrence-generation procedure through the local service role. `worker:weekly` calculates the reporting window, renders summaries from canonical records, inserts the unique period delivery, claims it atomically, and records delivery or bounded retry state. `worker:tick` runs both and is suitable for a local scheduler.
