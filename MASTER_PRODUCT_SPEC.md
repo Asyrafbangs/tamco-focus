@@ -2475,3 +2475,20 @@ domain; no management module or parallel task engine is introduced.
 - Goal support uses the same Barrier/request engine as Task support, with a Goal source. Legacy Goal
   support and per-Goal cadence rows remain readable during compatibility migration but no new client
   flow writes a competing lifecycle.
+
+## V69 — Team visibility and read-performance repair
+
+1. My Team contains the viewer's own authorised people scope only: administrators see every other
+   active user; configured reporting trees and explicit grants are enforced exactly; `none` exposes
+   nobody. Reading a reporting manager's name for attribution is not permission to read that
+   person's workload.
+2. Task-level collaboration grants access to that task, not to the owner's Team profile. Team
+   Available work therefore intersects task access with the authorised people roster.
+3. The same roster boundary governs Everyone, Needs attention, Available work, Team Member Detail
+   and Team focus summaries. A URL parameter or frontend filter never widens it.
+4. View access remains separate from management authority. This repair does not grant activation,
+   reassignment, approval, completion, Goal coaching or other business actions.
+5. Team workload and focus projections aggregate canonical rows set-wise. Server reads shared by a
+   page and its drawer are memoized only within the current request, never across users or requests.
+6. Team task reads select only fields the Team surface renders. Authoritative query failure is an
+   error state and must never be described as an empty team or as “nothing needs attention.”

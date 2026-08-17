@@ -1,5 +1,25 @@
 # TAMCO Focus — Change Log
 
+## v69 Team visibility and performance repair — 17 August 2026
+
+- Made `focus.can_view_user` the explicit boundary for Team workload and focus projections, so the
+  reporting-manager profile exposed for attribution cannot leak into My Team.
+- Verified that administrators receive every active user in Team, including Izzul, while manager,
+  explicit-only and no-visibility scopes remain restricted.
+- Intersected Team Available work with the authorised people roster. Sharing one task no longer
+  promotes its otherwise-unrelated owner into My Team.
+- Replaced per-person correlated workload/focus counts with set-based aggregates and changed Team
+  attention derivation from repeated full-array scans to owner-indexed lookups.
+- Added request-scoped memoization for roster, focus and attention reads, removed a redundant owner
+  lookup and stopped loading the Available badge outside Team scope.
+- Narrowed Team task projections to the fields those screens render. With a 500-row retained test
+  workload, the attention query fell from roughly 2.4 seconds to roughly 0.3 seconds locally.
+- Changed authoritative Team reads to fail through the route error boundary instead of presenting a
+  query failure as a truthful empty state.
+- Added pgTAP, real-Supabase integration and desktop/mobile Playwright coverage for the complete
+  permission matrix, Izzul visibility, keyboard drawer navigation, focus restoration and
+  collaboration isolation.
+
 ## v53 closed-loop execution and Goal sessions — 10 August 2026
 
 - Closed Task completion/cancellation across focus, Barrier, notification, Meeting Queue and Shared

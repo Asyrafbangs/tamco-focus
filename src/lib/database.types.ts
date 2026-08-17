@@ -7581,40 +7581,6 @@ export type Database = {
           stale_count: number | null
           user_id: string | null
         }
-        Insert: {
-          available_work_count?: never
-          decisions_pending?: never
-          department_id?: string | null
-          employee_id?: string | null
-          full_name?: string | null
-          open_barrier_count?: never
-          operational_created_this_week?: never
-          overdue_count?: never
-          quick_actions_created_this_week?: never
-          reporting_manager_id?: string | null
-          routines_completed_this_week?: never
-          routines_overdue?: never
-          routines_this_week?: never
-          stale_count?: never
-          user_id?: string | null
-        }
-        Update: {
-          available_work_count?: never
-          decisions_pending?: never
-          department_id?: string | null
-          employee_id?: string | null
-          full_name?: string | null
-          open_barrier_count?: never
-          operational_created_this_week?: never
-          overdue_count?: never
-          quick_actions_created_this_week?: never
-          reporting_manager_id?: string | null
-          routines_completed_this_week?: never
-          routines_overdue?: never
-          routines_this_week?: never
-          stale_count?: never
-          user_id?: string | null
-        }
         Relationships: [
           {
             foreignKeyName: "user_profiles_department_id_fkey"

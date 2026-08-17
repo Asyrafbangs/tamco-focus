@@ -53,6 +53,11 @@ const values = {
   NEXT_PUBLIC_SUPABASE_URL: readStatus('API_URL'),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: readStatus('ANON_KEY'),
   SUPABASE_SERVICE_ROLE_KEY: readStatus('SERVICE_ROLE_KEY'),
+  // `supabase/seed.sql` creates the local-only Auth fixtures with this
+  // password. Keep the ignored `.env.local` in sync so CI and a fresh local
+  // setup do not interpret the intentionally blank `.env.example` value as
+  // an explicit empty password.
+  SEED_USER_PASSWORD: process.env.SEED_USER_PASSWORD?.trim() || 'LocalFocus123!',
 };
 
 const missing = Object.entries(values)

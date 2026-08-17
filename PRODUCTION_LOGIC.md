@@ -1101,3 +1101,24 @@ derived-progress rules. The future ESH finding/action system remains outside the
 11. The UI never presents averaged qualitative states or mixed success measures as overall Goal
     achievement. Exact numeric actual-versus-target values may be shown per measure; overall health,
     formal weight and milestone progress remain separate concepts.
+
+## V69 — Team visibility and query rules
+
+1. Derive the Team roster from active profiles satisfying `focus.can_view_user`. Do not infer Team
+   permission from every row readable through `user_profiles_select`; that broader policy also
+   exposes the viewer's reporting manager for name attribution.
+2. Exclude the viewer's own row after the authoritative projection. Administrators receive all
+   other active profiles. Managers and explicit viewers receive only the configured effective
+   scope. `none` produces no Team rows.
+3. Before grouping Available work, intersect task owners with the Team roster. A collaborator may
+   read a shared task without receiving person-level Team visibility.
+4. Aggregate workload and focus counts in grouped scans and join them to the roster. Do not execute
+   one count subquery per metric per person.
+5. Build task, focus, barrier and Goal owner indexes once when deriving attention. Do not repeatedly
+   scan the full result set for every person.
+6. Memoize repeated Team server reads only for the current React server request. RLS remains the
+   authority on every new request and visibility changes revalidate Work.
+7. Select the minimal Team task projection. Checklist, evidence, attachment and collaborator
+   aggregates are loaded only on surfaces that render them.
+8. Propagate authoritative Team read failures to the existing error boundary. Never convert a
+   permission/query failure to an empty roster or false all-clear message.

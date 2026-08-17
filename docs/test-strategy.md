@@ -41,6 +41,16 @@ Seed users and records are explicit local fixtures. Integration setup resets the
 
 The canonical v33 fixture is Safety Digitalisation with five milestones and deliberately divergent progress (20% reported, 19% derived). A second coaching Goal exercises manager summaries. `npm run db:seed:goals` is an idempotent, non-destructive local backfill for databases seeded before v33; it does not replace the canonical reset-and-seed gate.
 
+## v69 Team regression coverage
+
+The pgTAP suite asserts the Team workload/focus projection under administrator, manager,
+explicit-only and no-visibility identities. `team-visibility-v69.test.ts` repeats the boundary
+through real Auth/PostgREST clients and proves an administrator rule change takes effect
+immediately. `team-visibility-v69.spec.ts` verifies the rendered administrator roster includes
+Izzul, keyboard/Escape/focus-return behavior works, responsive layouts do not overflow, and a
+shared task does not promote its unauthorised owner into Team Available work. Existing Team context,
+attention, Available work and User Directory specs remain regression gates.
+
 ## v53 critical properties
 
 `execution-goal-v53.test.ts` runs against real Auth/Postgres and covers Task terminal projection
