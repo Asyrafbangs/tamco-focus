@@ -196,7 +196,7 @@ export function TeamMemberDrawer({
                 <span>{detail.otherWorkload.routines.length}</span>
               </header>
               {detail.otherWorkload.routines.length === 0 ? (
-                <p className="muted member-other-empty">No open routine occurrences.</p>
+                <p className="muted member-other-empty">No overdue routine occurrences.</p>
               ) : (
                 <div className="member-other-list">
                   {detail.otherWorkload.routines.map((routine) => {

@@ -68,3 +68,5 @@ renders a named Available Task, overdue routine occurrences, and a current Goal;
 match the rendered lists; keyboard and pointer selection open exact records; Task and Goal Close
 restore the person layer; and the 390 px project has no horizontal overflow. A direct unauthorised
 person parameter is also tested to ensure neither the person nor their record titles are rendered.
+Unit coverage rejects absolute, protocol-relative, and backslash-normalised external return paths
+before Goal Detail can use them for layered Close navigation.
