@@ -48,11 +48,41 @@ await assertPortFree();
 // Needed for the auth readiness probe below. Without it the probe would find
 // no anon key, skip itself, and quietly restore the race it exists to close.
 config({ path: join(repoRoot, '.env.local'), quiet: true });
-const server = spawn(process.execPath, ['scripts/start-e2e-server.mjs'], {
+
+const nextCli = join(repoRoot, 'node_modules', 'next', 'dist', 'bin', 'next');
+const serverEnvironment = {
+  ...process.env,
+  NODE_ENV: 'production',
+  NEXT_DIST_DIR: '.next-e2e',
+  E2E_PORT: String(port),
+};
+
+/**
+ * Browser acceptance runs against an isolated production build.
+ *
+ * The previous runner kept a Next development compiler alive for the full
+ * desktop/mobile suite. On GitHub's runner that compiler retained enough
+ * module state to exhaust the Node heap after most tests had passed, which
+ * killed the web server and turned every remaining test into
+ * ERR_CONNECTION_REFUSED. Building first releases the compiler process before
+ * Playwright starts, and `next start` exercises the same production artifact
+ * model used by the smoke and deployment gates.
+ */
+execFileSync(process.execPath, [nextCli, 'build'], {
   cwd: repoRoot,
-  env: { ...process.env, NEXT_DIST_DIR: '.next-e2e', E2E_PORT: String(port) },
-  stdio: ['ignore', 'ignore', 'inherit'],
+  env: serverEnvironment,
+  stdio: 'inherit',
 });
+
+const server = spawn(
+  process.execPath,
+  [nextCli, 'start', '--hostname', '127.0.0.1', '--port', String(port)],
+  {
+    cwd: repoRoot,
+    env: serverEnvironment,
+    stdio: ['ignore', 'inherit', 'inherit'],
+  },
+);
 
 /**
  * Waits for Supabase Auth, not just the application server.

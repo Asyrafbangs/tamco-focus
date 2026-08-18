@@ -5,8 +5,8 @@ const usesExternalServer = process.env.PLAYWRIGHT_EXTERNAL_SERVER === '1';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  // Deterministic runs: no `.only` in CI, retry once to absorb dev-server
-  // cold starts, and never silently pass a flaky spec.
+  // Deterministic runs: no `.only` in CI, retry once to absorb transient
+  // browser/server timing, and never silently pass a flaky spec.
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,

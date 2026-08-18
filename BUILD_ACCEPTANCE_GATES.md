@@ -372,3 +372,5 @@ check unless marked otherwise.
       mobile widths with no horizontal page overflow.
 - [ ] No migration, generated-type, RLS, authentication, action-authority, workflow, notification,
       audit, Storage, or production-data behaviour changes.
+- [ ] The on-demand E2E workflow completes against its isolated production build without a
+      long-lived development compiler or application-server heap exhaustion.

@@ -70,3 +70,8 @@ restore the person layer; and the 390 px project has no horizontal overflow. A d
 person parameter is also tested to ensure neither the person nor their record titles are rendered.
 Unit coverage rejects absolute, protocol-relative, and backslash-normalised external return paths
 before Goal Detail can use them for layered Close navigation.
+
+The E2E gate builds its own `.next-e2e` production output and serves it with `next start`. It does
+not keep the development compiler alive across the desktop/mobile suite; this prevents CI heap
+growth from killing the application server and verifies the same production artifact model used by
+the deployment gate.

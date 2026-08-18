@@ -16,6 +16,8 @@
   introduced.
 - Added deterministic desktop/mobile Playwright coverage for exact record navigation, layered
   return, keyboard activation, responsive containment, count/list parity, and direct-URL denial.
+- Corrected the CI E2E runner to build and serve an isolated production artifact; the former
+  long-lived development compiler exhausted the GitHub runner heap late in the mobile suite.
 
 ## v69 Team visibility and performance repair — 17 August 2026
 
