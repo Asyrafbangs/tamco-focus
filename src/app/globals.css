@@ -8324,8 +8324,116 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   font-size: 9px;
 }
 .member-other-workload > summary {
+  box-sizing: border-box;
+  min-height: 44px;
+  margin: -8px 0;
+  padding: 10px 0;
   cursor: pointer;
   color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  transition: color var(--motion-fast) var(--motion-easing);
+}
+.member-other-workload > summary:hover {
+  color: var(--text);
+}
+.member-other-workload > summary:focus-visible {
+  border-radius: 4px;
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.member-other-workload[open] > summary {
+  margin-bottom: 2px;
+}
+.member-other-sections {
+  display: grid;
+  gap: 14px;
+}
+.member-other-sections > section {
+  min-width: 0;
+}
+.member-other-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.member-other-heading h4 {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+.member-other-heading > span {
+  display: inline-flex;
+  min-width: 20px;
+  min-height: 20px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+.member-other-list {
+  display: grid;
+  gap: 3px;
+}
+.member-other-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+  transition:
+    background-color var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing);
+}
+.member-other-row:hover {
+  border-color: var(--line-soft);
+  background: var(--surface-2);
+}
+.member-other-row:active {
+  transform: translateY(1px);
+}
+.member-other-row:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.member-other-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.member-other-copy strong,
+.member-other-copy > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.member-other-copy strong {
+  font-size: 11px;
+}
+.member-other-copy > span {
+  color: var(--muted);
+  font-size: 9.5px;
+}
+.member-other-chevron {
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+}
+.member-other-empty {
+  margin: 0;
+  padding: 6px 9px;
   font-size: 10px;
 }
 

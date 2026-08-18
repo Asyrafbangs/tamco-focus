@@ -31,5 +31,6 @@
 | Major Project proposal detail                        | New Work proposal fields and the review drawer               | v61 capture columns carried into the proposal payload                     | v61 integration and E2E                                | Implemented and verified |
 | Calendar-style recurrence and routine deletion       | Outlook-shaped recurrence dialog, Bin section for routines   | v62 anchored recurrence, nth-weekday, series end, soft delete/restore     | 12 unit, 9 integration, 3 E2E across viewports         | Implemented and verified |
 | Team Available work grouped by owner                 | My Team → Available work, one card per person                | Task RLS intersected with authoritative Team roster                       | v65/v69 E2E on desktop and mobile                      | Implemented and verified |
+| Team member named workload detail                    | My Team → person drawer → Other workload                     | Authorised Team roster plus Task/Goal security-invoker RLS                | v70 desktop/mobile layered-navigation E2E              | Implemented and verified |
 
 The approved v33 application modules are mapped above. Detailed workflow contracts remain in `MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`, and the handoff documents in this directory.

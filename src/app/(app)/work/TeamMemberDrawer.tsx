@@ -3,8 +3,9 @@
 import Link from 'next/link';
 
 import { SideDrawer } from '@/components/ui/SideDrawer';
-import { formatDue } from '@/domain/duration';
-import { FOCUS_BUCKET_WORD } from '@/domain/types';
+import { formatDue, ROUTINE_OCCURRENCE_LABELS, routineOccurrenceState } from '@/domain/duration';
+import { GOAL_HEALTH_LABELS, GOAL_STATUS_LABELS } from '@/domain/goals';
+import { FOCUS_BUCKET_WORD, WORK_CLASS_LABELS } from '@/domain/types';
 import type { TeamMemberDetail } from '@/server/queries';
 
 function agoWords(iso: string, now: Date): string {
@@ -50,6 +51,15 @@ export function TeamMemberDrawer({
 }) {
   const taskHref = (taskId: string) =>
     `${taskHrefBase}${taskHrefBase.includes('?') ? '&' : '?'}task=${taskId}`;
+  const goalHref = (goalId: string) => {
+    const query = new URLSearchParams({
+      view: 'team',
+      person: detail.person.id,
+      goal: goalId,
+      from: taskHrefBase,
+    });
+    return `/goals?${query.toString()}`;
+  };
   const focusSummary = detail.focus
     .map((bucket) => {
       const word = FOCUS_BUCKET_WORD[bucket.bucket] ?? bucket.bucket;
@@ -144,16 +154,117 @@ export function TeamMemberDrawer({
           )}
         </section>
 
-        {/* §44 — context, collapsed. The drawer does not become a task list. */}
         <details className="detail-section member-other-workload">
           <summary>
-            Other workload · Available {detail.otherWorkload.availableCount} · Routine{' '}
-            {detail.otherWorkload.routineDueCount} · Goals {detail.otherWorkload.goalCount}
+            Other workload · Available {detail.otherWorkload.available.length} · Overdue routines{' '}
+            {detail.otherWorkload.routines.length} · Goals {detail.otherWorkload.goals.length}
           </summary>
-          <p className="muted">
-            Available work and routines are theirs to schedule. They appear here for context, not as
-            something to action.
-          </p>
+
+          <div className="member-other-sections">
+            <section aria-labelledby="member-available-heading">
+              <header className="member-other-heading">
+                <h4 id="member-available-heading">Available work</h4>
+                <span>{detail.otherWorkload.available.length}</span>
+              </header>
+              {detail.otherWorkload.available.length === 0 ? (
+                <p className="muted member-other-empty">No Available work.</p>
+              ) : (
+                <div className="member-other-list">
+                  {detail.otherWorkload.available.map((task) => (
+                    <Link key={task.id} href={taskHref(task.id)} className="member-other-row">
+                      <span className="member-other-copy">
+                        <strong>{task.title}</strong>
+                        <span>
+                          {WORK_CLASS_LABELS[task.workClass]}
+                          {task.dueAt
+                            ? ` · ${task.isOverdue ? 'Overdue' : 'Due'} ${formatDue(task.dueAt, task.dueIsDateOnly, timeZone)}`
+                            : ' · No due date'}
+                        </span>
+                      </span>
+                      <span className="member-other-chevron" aria-hidden="true">
+                        ›
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section aria-labelledby="member-routines-heading">
+              <header className="member-other-heading">
+                <h4 id="member-routines-heading">Overdue routine occurrences</h4>
+                <span>{detail.otherWorkload.routines.length}</span>
+              </header>
+              {detail.otherWorkload.routines.length === 0 ? (
+                <p className="muted member-other-empty">No overdue routine occurrences.</p>
+              ) : (
+                <div className="member-other-list">
+                  {detail.otherWorkload.routines.map((routine) => {
+                    const state = routineOccurrenceState(routine, timeZone, now);
+                    return (
+                      <Link
+                        key={routine.id}
+                        href={taskHref(routine.id)}
+                        className="member-other-row"
+                      >
+                        <span className="member-other-copy">
+                          <strong>{routine.title}</strong>
+                          <span>
+                            {ROUTINE_OCCURRENCE_LABELS[state]}{' '}
+                            {formatDue(
+                              routine.dueAt ?? routine.occurrenceDate,
+                              routine.dueAt ? routine.dueIsDateOnly : true,
+                              timeZone,
+                            )}
+                            {' · '}
+                            {routine.checklistTotal > 0
+                              ? `${routine.checklistCompleted}/${routine.checklistTotal} checklist`
+                              : `${routine.progressPercent}% complete`}
+                          </span>
+                        </span>
+                        <span className="member-other-chevron" aria-hidden="true">
+                          ›
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            <section aria-labelledby="member-goals-heading">
+              <header className="member-other-heading">
+                <h4 id="member-goals-heading">Goals</h4>
+                <span>{detail.otherWorkload.goals.length}</span>
+              </header>
+              {detail.otherWorkload.goals.length === 0 ? (
+                <p className="muted member-other-empty">No current goals.</p>
+              ) : (
+                <div className="member-other-list">
+                  {detail.otherWorkload.goals.map((goal) => (
+                    <Link key={goal.id} href={goalHref(goal.id)} className="member-other-row">
+                      <span className="member-other-copy">
+                        <strong>{goal.title}</strong>
+                        <span>
+                          {GOAL_STATUS_LABELS[goal.status]}
+                          {goal.status === 'active' ? ` · ${GOAL_HEALTH_LABELS[goal.health]}` : ''}
+                          {' · '}Target {formatDue(goal.targetDate, true, timeZone)} ·{' '}
+                          {goal.weightPercent}% formal weight · {goal.successMeasureCount} success{' '}
+                          measure{goal.successMeasureCount === 1 ? '' : 's'}
+                        </span>
+                        {goal.currentMilestoneTitle && (
+                          <span>Current milestone: {goal.currentMilestoneTitle}</span>
+                        )}
+                      </span>
+                      <span className="member-other-chevron" aria-hidden="true">
+                        ›
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
         </details>
       </div>
     </SideDrawer>

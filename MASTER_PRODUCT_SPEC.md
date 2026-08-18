@@ -2476,6 +2476,29 @@ domain; no management module or parallel task engine is introduced.
   support and per-Goal cadence rows remain readable during compatibility migration but no new client
   flow writes a competing lifecycle.
 
+## v70 — Team member workload details (18 August 2026)
+
+The Team Member drawer remains an exception-first view, but **Other workload** is no longer a count
+with a generic explanation. Its disclosure contains three named lists:
+
+1. **Available work** — visible non-routine backlog Tasks, with class and due/overdue context.
+2. **Overdue routine occurrences** — the exact open occurrence Tasks behind the Team routine count,
+   with due date/time and checklist progress.
+3. **Goals** — current Draft, For Discussion, and Active Goals, with lifecycle, Active health, target
+   date, formal weight, success-measure count, and current milestone where one exists.
+
+Every row represents one record and is therefore one semantic whole-row link, operable by pointer
+and keyboard with a visible focus state. Task and routine rows open Task Detail above the selected
+person and close back one layer. Goal rows open exact Goal Detail and Close returns through a
+validated internal path to the same Team member/filter. These rows provide context only: they do
+not add Activate, schedule, complete, revise, coach, or management authority.
+
+The header total for each category is derived from the rendered item array. A zero category states
+exactly what is absent. A person supplied in the URL is intersected with the same authorised roster
+as Everyone, Needs attention, Available work, and Team Member Detail before any item is returned.
+Record-level collaboration/participation never widens Team-person visibility. Existing Task, Goal,
+routine-occurrence, and Team RLS remain authoritative; this change requires no data migration.
+
 ## V69 — Team visibility and read-performance repair
 
 1. My Team contains the viewer's own authorised people scope only: administrators see every other

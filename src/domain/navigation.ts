@@ -84,6 +84,14 @@ export function taskDrawerHref(taskId: string, from: string): string {
  */
 export function safeReturnPath(from: string | undefined, fallback: string): string {
   if (!from) return fallback;
-  if (!from.startsWith('/') || from.startsWith('//')) return fallback;
-  return from;
+  if (!from.startsWith('/') || from.startsWith('//') || from.includes('\\')) return fallback;
+
+  try {
+    const internalOrigin = 'https://tamco-focus.invalid';
+    const target = new URL(from, internalOrigin);
+    if (target.origin !== internalOrigin) return fallback;
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return fallback;
+  }
 }

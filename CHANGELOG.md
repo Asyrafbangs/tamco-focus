@@ -1,5 +1,24 @@
 # TAMCO Focus — Change Log
 
+## v70 Team member workload details — 18 August 2026
+
+- Replaced the Team Member drawer's count-only Other workload paragraph with named, compact lists
+  of Available tasks, overdue routine occurrences, and current Goals.
+- Made every workload row a native whole-row link to the exact Task, routine occurrence, or Goal
+  detail, with keyboard focus, mobile-sized disclosure target, wrapping metadata, and explicit
+  empty states.
+- Corrected ambiguous counts: routine context now explicitly means overdue occurrences, Goal
+  context excludes terminal Goals, and every displayed total is derived from its rendered list.
+- Preserved the selected Team member and filter when a Goal opens by carrying a validated internal
+  return path; external and protocol-relative return targets remain rejected.
+- Kept the authorised Team roster, Task/Goal RLS, and existing action capabilities authoritative;
+  no database, migration, permission, workflow, notification, audit, or production-data change was
+  introduced.
+- Added deterministic desktop/mobile Playwright coverage for exact record navigation, layered
+  return, keyboard activation, responsive containment, count/list parity, and direct-URL denial.
+- Corrected the CI E2E runner to build and serve an isolated production artifact; the former
+  long-lived development compiler exhausted the GitHub runner heap late in the mobile suite.
+
 ## v69 Team visibility and performance repair — 17 August 2026
 
 - Made `focus.can_view_user` the explicit boundary for Team workload and focus projections, so the
