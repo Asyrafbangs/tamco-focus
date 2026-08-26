@@ -183,6 +183,27 @@ export async function deleteRoutineTemplate(input: {
   });
 }
 
+/**
+ * Emptying one routine out of the Bin, for good. Refused unless it is already
+ * binned, so the reversible step always happens first.
+ */
+export async function purgeRoutineTemplate(input: { templateId: string; idempotencyKey?: string }) {
+  await requireProfile();
+  const parsed = z
+    .object({
+      templateId: z.string().uuid(),
+      idempotencyKey: z.string().min(8).max(128).optional(),
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, code: 'validation_failed', message: 'Nothing changed.' };
+  }
+  return call('purge_routine_template', {
+    p_template_id: parsed.data.templateId,
+    p_idempotency_key: parsed.data.idempotencyKey ?? null,
+  });
+}
+
 export async function restoreRoutineTemplate(input: {
   templateId: string;
   idempotencyKey?: string;

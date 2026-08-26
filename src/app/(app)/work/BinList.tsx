@@ -3,16 +3,24 @@
 import { useTransition, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { restoreTask } from '@/server/actions/task-actions';
+import { Modal } from '@/components/ui/Modal';
+import { purgeTask, restoreTask } from '@/server/actions/task-actions';
 import type { BinnedTask } from '@/server/queries';
 
 /**
  * The Bin.
  *
- * Deleted work, and the way back out of it. Deletion here is recoverable by
- * design — every table referencing `tasks` cascades, so a real DELETE would
- * take the audit history with it — which makes Restore the point of the screen
- * rather than a courtesy.
+ * Deleted work, the way back out of it, and the way to finish the job.
+ *
+ * Deletion here is recoverable by design — every table referencing `tasks`
+ * cascades, so a real DELETE would take the audit history with it — which is
+ * why Restore is the point of the screen. But the Bin only ever filled up: one
+ * account reached twenty-one rows of the same few titles, none of which would
+ * ever be restored, and there was no way to clear them.
+ *
+ * Permanent deletion therefore means gone from the application and recorded in
+ * the database, which is the honest version of the promise. It is confirmed
+ * first, because unlike everything else on this screen it cannot be undone.
  */
 export function BinList({
   tasks,
@@ -25,6 +33,7 @@ export function BinList({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [confirmPurge, setConfirmPurge] = useState<BinnedTask | null>(null);
 
   // Distinguished from emptiness on purpose: a failed read used to render as
   // 'The Bin is empty', which told somebody their deleted work was gone.
@@ -71,32 +80,95 @@ export function BinList({
                 })}
               </small>
             </div>
+            <div className="bin-row-actions">
+              <button
+                type="button"
+                className="btn small"
+                disabled={pending && restoring === task.id}
+                aria-busy={pending && restoring === task.id}
+                onClick={() => {
+                  setError(null);
+                  setRestoring(task.id);
+                  startTransition(async () => {
+                    const result = await restoreTask({
+                      taskId: task.id,
+                      idempotencyKey: crypto.randomUUID(),
+                    });
+                    if (!result.ok) {
+                      setError(result.message);
+                      return;
+                    }
+                    router.refresh();
+                  });
+                }}
+              >
+                {pending && restoring === task.id ? 'Restoring…' : 'Restore'}
+              </button>
+              <button
+                type="button"
+                className="btn small danger"
+                disabled={pending}
+                onClick={() => {
+                  setError(null);
+                  setConfirmPurge(task);
+                }}
+              >
+                Delete permanently
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {confirmPurge && (
+        <Modal open title="Delete permanently?" onClose={() => setConfirmPurge(null)}>
+          <header className="modalhead">
+            <div>
+              <p className="eyebrow">Permanent</p>
+              <h2>{confirmPurge.title}</h2>
+            </div>
+          </header>
+          <div className="modalbody">
+            <p>
+              This removes it from the application for good. It will not appear in the Bin, in any
+              list, or in search, and it cannot be restored.
+            </p>
+            <p className="muted">
+              The database keeps a record that this work existed and was deleted, along with who
+              deleted it and when. That history is not removable — it is what the audit trail is
+              for.
+            </p>
+          </div>
+          <footer className="modalfoot">
+            <button type="button" className="btn" onClick={() => setConfirmPurge(null)}>
+              Keep it in the Bin
+            </button>
             <button
               type="button"
-              className="btn small"
-              disabled={pending && restoring === task.id}
-              aria-busy={pending && restoring === task.id}
+              className="btn danger"
+              disabled={pending}
+              aria-busy={pending}
               onClick={() => {
+                const target = confirmPurge;
                 setError(null);
-                setRestoring(task.id);
                 startTransition(async () => {
-                  const result = await restoreTask({
-                    taskId: task.id,
+                  const result = await purgeTask({
+                    taskId: target.id,
                     idempotencyKey: crypto.randomUUID(),
                   });
+                  setConfirmPurge(null);
                   if (!result.ok) {
-                    setError(result.message);
+                    setError(result.message ?? 'Nothing changed.');
                     return;
                   }
                   router.refresh();
                 });
               }}
             >
-              {pending && restoring === task.id ? 'Restoring…' : 'Restore'}
+              {pending ? 'Deleting…' : 'Delete permanently'}
             </button>
-          </li>
-        ))}
-      </ul>
+          </footer>
+        </Modal>
+      )}
     </>
   );
 }

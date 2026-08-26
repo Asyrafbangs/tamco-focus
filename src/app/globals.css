@@ -9194,3 +9194,13 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .notice.completion-blockers {
   background: var(--amber-bg);
 }
+
+/* Restore and Delete permanently sit together, with the irreversible one
+   second so the recoverable choice is the one nearest the hand. */
+.bin-row-actions,
+.routine-bin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}

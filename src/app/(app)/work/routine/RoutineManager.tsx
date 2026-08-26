@@ -21,6 +21,7 @@ import {
 import {
   createRoutineTemplate,
   deleteRoutineTemplate,
+  purgeRoutineTemplate,
   restoreRoutineTemplate,
   setRoutineActive,
   updateRoutineTemplate,
@@ -79,6 +80,7 @@ export function RoutineManager({
   const [editing, setEditing] = useState<RoutineTemplateRow | null>(null);
   const [creating, setCreating] = useState(Boolean(openWith));
   const [confirmDelete, setConfirmDelete] = useState<RoutineTemplateRow | null>(null);
+  const [confirmPurge, setConfirmPurge] = useState<BinnedRoutine | null>(null);
 
   if (failed) {
     return (
@@ -283,19 +285,84 @@ export function RoutineManager({
                       })}
                     </small>
                   </div>
-                  <button
-                    type="button"
-                    className="btn small"
-                    disabled={pending}
-                    onClick={() => restore(routine)}
-                  >
-                    Restore paused
-                  </button>
+                  <div className="routine-bin-actions">
+                    <button
+                      type="button"
+                      className="btn small"
+                      disabled={pending}
+                      onClick={() => restore(routine)}
+                    >
+                      Restore paused
+                    </button>
+                    <button
+                      type="button"
+                      className="btn small danger"
+                      disabled={pending}
+                      onClick={() => setConfirmPurge(routine)}
+                    >
+                      Delete permanently
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
           </details>
         )
+      )}
+
+      {confirmPurge && (
+        <Modal open title="Delete permanently?" onClose={() => setConfirmPurge(null)}>
+          <header className="modalhead">
+            <div>
+              <p className="eyebrow">Permanent</p>
+              <h2>{confirmPurge.title}</h2>
+            </div>
+          </header>
+          <div className="modalbody">
+            <p>
+              This removes the schedule from the application for good. It will not appear in the Bin
+              or anywhere else, and it cannot be restored. Occurrences it already created are
+              untouched.
+            </p>
+            <p className="muted">
+              The database keeps a record that this routine existed and was deleted, with who
+              deleted it and when. That history is not removable.
+            </p>
+          </div>
+          <footer className="modalfoot">
+            <button type="button" className="btn" onClick={() => setConfirmPurge(null)}>
+              Keep it in the Bin
+            </button>
+            <button
+              type="button"
+              className="btn danger"
+              disabled={pending}
+              aria-busy={pending}
+              onClick={() => {
+                const target = confirmPurge;
+                setMessage(null);
+                startTransition(async () => {
+                  const result = await purgeRoutineTemplate({
+                    templateId: target.id,
+                    idempotencyKey: crypto.randomUUID(),
+                  });
+                  setConfirmPurge(null);
+                  if (!result.ok) {
+                    setMessage({ tone: 'error', text: result.message ?? 'Nothing changed.' });
+                    return;
+                  }
+                  setMessage({
+                    tone: 'success',
+                    text: `${target.title} has been permanently deleted.`,
+                  });
+                  router.refresh();
+                });
+              }}
+            >
+              {pending ? 'Deleting…' : 'Delete permanently'}
+            </button>
+          </footer>
+        </Modal>
       )}
 
       {confirmDelete && (

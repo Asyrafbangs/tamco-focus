@@ -1074,6 +1074,8 @@ export async function getBinnedRoutines(viewerId: string): Promise<{
     .select('*')
     .eq('deleted_by', viewerId)
     .not('deleted_at', 'is', null)
+    // Emptied out of the Bin: retained in the database, gone from the app.
+    .is('purged_at', null)
     .order('deleted_at', { ascending: false })
     .limit(100);
 

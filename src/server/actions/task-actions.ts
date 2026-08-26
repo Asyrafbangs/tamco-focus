@@ -342,6 +342,29 @@ export async function restoreTask(input: z.input<typeof restoreSchema>) {
   );
 }
 
+/**
+ * Emptying one task out of the Bin, for good.
+ *
+ * Separate from `restoreTask` and deliberately not reachable from a live task:
+ * the procedure refuses anything that is not already binned, so deleting — the
+ * step that can be undone — always comes first.
+ */
+export async function purgeTask(input: z.input<typeof restoreSchema>) {
+  const parsed = restoreSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, code: 'validation_failed' as const, message: 'Invalid request.' };
+  }
+
+  return callProcedure(
+    'purge_task',
+    {
+      p_task_id: parsed.data.taskId,
+      p_idempotency_key: parsed.data.idempotencyKey ?? null,
+    },
+    ['/today', '/work', '/more/records'],
+  );
+}
+
 const editSchema = z.object({
   taskId: uuid,
   expectedVersion: z.number().int().positive(),
