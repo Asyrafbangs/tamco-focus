@@ -70,6 +70,31 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
 
+  /*
+   * An emailed token arriving anywhere goes to the callback that can spend it.
+   *
+   * Supabase ignores a `redirect_to` that is not on the project's allow-list
+   * and falls back to the Site URL, so a recovery link built with the wrong
+   * origin lands on `/` carrying a valid `token_hash`. The holder has no
+   * session yet — that is the entire point of a recovery link — so this proxy
+   * redirected them to sign-in and dropped the token on the way. Forwarding it
+   * has to happen here rather than in the page, because the page never ran.
+   *
+   * Nothing is trusted by doing this: `/auth/callback` still verifies the
+   * token, and an expired, spent or forged one is refused there exactly as
+   * before.
+   */
+  const emailedToken = request.nextUrl.searchParams.get('token_hash');
+  const emailedType = request.nextUrl.searchParams.get('type');
+  if (!user && emailedToken && emailedType && !pathname.startsWith('/auth/callback')) {
+    const callback = request.nextUrl.clone();
+    callback.pathname = '/auth/callback';
+    callback.search = '';
+    callback.searchParams.set('token_hash', emailedToken);
+    callback.searchParams.set('type', emailedType);
+    return NextResponse.redirect(callback);
+  }
+
   if (!user && !isPublic) {
     const signIn = request.nextUrl.clone();
     signIn.pathname = '/sign-in';
