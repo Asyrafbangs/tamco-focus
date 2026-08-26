@@ -1,10 +1,38 @@
 import AxeBuilder from '@axe-core/playwright';
+import { createClient } from '@supabase/supabase-js';
+import { config } from 'dotenv';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 
+config({ path: '.env.local', quiet: true });
+
 const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
+const IZZAH = 'f0c05000-0000-4000-a000-000000000004';
+
+function serviceClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+}
 
 async function expectHydrated(page: Page) {
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+}
+
+async function completeActivationPromptIfNeeded(page: Page) {
+  const reasonModal = page.getByRole('dialog', { name: 'Over focus target' });
+  const undo = page.getByRole('button', { name: 'Undo' });
+  await expect
+    .poll(async () => (await reasonModal.isVisible()) || (await undo.isVisible()))
+    .toBe(true);
+
+  if (!(await reasonModal.isVisible())) return;
+  await reasonModal
+    .getByLabel('Why is this additional focus needed now?')
+    .selectOption('urgent_deadline');
+  await reasonModal.getByRole('button', { name: 'Activate anyway' }).click();
+  await expect(reasonModal).toHaveCount(0);
 }
 
 async function signIn(page: Page, email = 'izzah@tamco.local') {
@@ -189,7 +217,9 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
 
   await page.goto('/work');
   await expectHydrated(page);
-  const firstRow = page.locator('.task-row').first();
+  const firstRow = page.locator('.task-row', {
+    hasText: 'Close out corrective actions from the June audit',
+  });
   await expect(firstRow).toBeVisible();
   const rowHref = await firstRow.locator('.row-primary-link').getAttribute('href');
   const box = await firstRow.boundingBox();
@@ -252,24 +282,65 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
 
   await page.keyboard.press('Escape');
 
+  // This interaction mutates state, so it owns a disposable fixture instead of
+  // borrowing the seeded Available-work row used by later Team tests. A missed
+  // transient Undo toast previously left that shared row Active and caused the
+  // rest of the sequential E2E run to fail for the wrong reason.
+  const service = serviceClient();
+  const activationTitle = `UI parity activation ${testInfo.project.name} ${Date.now()}`;
+  const { error: activationTaskError } = await service.from('tasks').insert({
+    title: activationTitle,
+    status: 'backlog',
+    work_class: 'operational_action',
+    focus_bucket: 'operational',
+    origin: 'self_initiated',
+    urgency: 'normal',
+    primary_owner_id: IZZAH,
+    created_by: IZZAH,
+  });
+  if (activationTaskError) throw activationTaskError;
+
   await page.goto('/work?tab=available');
   await expectHydrated(page);
-  const availableRow = page.locator('.task-row').first();
+  const availableRow = page.locator('.task-row', { hasText: activationTitle });
   await expect(availableRow).toBeVisible();
   await availableRow.getByRole('button', { name: 'Activate' }).click();
+  await completeActivationPromptIfNeeded(page);
   await expect(page.locator('.task-detail')).toHaveCount(0);
-  const reasonModal = page.getByRole('dialog', { name: 'Over focus target' });
-  const undo = page.getByRole('button', { name: 'Undo' });
-  if (await reasonModal.isVisible()) {
-    await page.keyboard.press('Escape');
-    await expect(reasonModal).toBeHidden();
-  } else {
-    await expect(undo).toBeVisible();
-    // One action rather than focus() then a separate keyboard press. Activating
-    // work triggers a router refresh, so the button can remount between the two
-    // steps; `press` retries focus and key together and cannot land in the gap.
-    await undo.press('Enter');
-  }
+  await expect(availableRow).toHaveCount(0);
+
+  // The Work-level feedback host survives the row's removal, so Undo remains
+  // keyboard-accessible and restores the exact task. The next verification
+  // reset removes this unique audited fixture; append-only history means a
+  // physical in-test delete would be deliberately rejected.
+  const activationUndo = page.getByRole('button', { name: 'Undo' });
+  await expect(activationUndo).toBeVisible();
+  await expect(activationUndo).toBeFocused();
+  await activationUndo.press('Enter');
+  await expect(availableRow).toBeVisible();
+  await expect(availableRow.getByRole('button', { name: 'Activate' })).toBeFocused();
+
+  // The same feedback stays inside an open modal drawer. Its focus trap must
+  // include Undo; closing the drawer while the window is live re-parents the
+  // control to Work, where Undo restores the row and its original action.
+  await availableRow.getByRole('link', { name: `Open ${activationTitle}`, exact: true }).click();
+  const activationDrawer = page.locator('.task-detail');
+  await expect(activationDrawer).toBeVisible();
+  await activationDrawer.getByRole('button', { name: 'Expand' }).click();
+  await activationDrawer.getByText('More task actions', { exact: true }).click();
+  await activationDrawer.getByRole('button', { name: 'Activate' }).click();
+  await completeActivationPromptIfNeeded(page);
+  const drawerUndo = activationDrawer.getByRole('button', { name: 'Undo' });
+  await expect(drawerUndo).toBeVisible();
+  await expect(drawerUndo).toBeFocused();
+  await activationDrawer.getByRole('button', { name: 'Close task detail' }).click();
+  await expect(activationDrawer).toHaveCount(0);
+  const relocatedUndo = page.getByRole('button', { name: 'Undo' });
+  await expect(relocatedUndo).toBeVisible();
+  await expect(relocatedUndo).toBeFocused();
+  await relocatedUndo.press('Enter');
+  await expect(availableRow).toBeVisible();
+  await expect(availableRow.getByRole('button', { name: 'Activate' })).toBeFocused();
 
   await page.goto('/plan');
   await expectHydrated(page);

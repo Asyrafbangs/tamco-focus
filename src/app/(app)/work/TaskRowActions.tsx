@@ -1,11 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 
 import { Modal } from '@/components/ui/Modal';
-import { Toast } from '@/components/ui/ParityPrimitives';
-import { activateTask, moveTaskToAvailable, undoEvent } from '@/server/actions/task-actions';
+import { activateTask, moveTaskToAvailable } from '@/server/actions/task-actions';
 import {
   ACTIVATION_REASON_OPTIONS,
   canOfferActivate,
@@ -13,6 +12,8 @@ import {
   validateActivationReason,
 } from '@/domain/focus';
 import type { ActivationReason, FocusBucket, TaskStatus } from '@/domain/types';
+
+import { useTaskActionFeedback, type TaskActionFeedbackOrigin } from './TaskActionFeedback';
 
 /**
  * Activate / Move out, with the over-target question and Undo.
@@ -63,6 +64,8 @@ export function TaskRowActions({
   openHref,
 }: TaskRowActionsProps) {
   const [pending, startTransition] = useTransition();
+  const { offerUndo } = useTaskActionFeedback();
+  const actions = useRef<HTMLDivElement>(null);
 
   const [prompt, setPrompt] = useState<OverTargetPrompt | null>(null);
   const [reasonCode, setReasonCode] = useState<ActivationReason | null>(null);
@@ -70,19 +73,18 @@ export function TaskRowActions({
   const [reasonError, setReasonError] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
-  const [undo, setUndo] = useState<{ eventId: string; label: string } | null>(null);
 
-  function offerUndo(eventId: string | undefined, label: string) {
-    if (!eventId) return;
-
-    setUndo({ eventId, label });
-    // Section 7.3 — approximately ten seconds. The server enforces its own
-    // slightly wider window so a click at 9.8s does not fail on latency.
-    window.setTimeout(() => setUndo(null), 10_000);
+  function feedbackOrigin(action: TaskActionFeedbackOrigin['action']): TaskActionFeedbackOrigin {
+    return {
+      action,
+      taskId,
+      dialog: actions.current?.closest<HTMLElement>('[role="dialog"][aria-modal="true"]') ?? null,
+    };
   }
 
   function runActivate(code: ActivationReason | null, note: string | null) {
     setError(null);
+    const origin = feedbackOrigin('activate');
 
     startTransition(async () => {
       const result = await activateTask({
@@ -100,6 +102,8 @@ export function TaskRowActions({
         offerUndo(
           (result as { audit_event_id?: string }).audit_event_id,
           `"${title}" is now active.`,
+          isMandatory,
+          origin,
         );
         return;
       }
@@ -140,6 +144,7 @@ export function TaskRowActions({
 
   function runMoveOut() {
     setError(null);
+    const origin = feedbackOrigin('move-out');
 
     startTransition(async () => {
       const result = await moveTaskToAvailable({
@@ -152,6 +157,8 @@ export function TaskRowActions({
         offerUndo(
           (result as { audit_event_id?: string }).audit_event_id,
           `"${title}" moved to Available Work.`,
+          isMandatory,
+          origin,
         );
         return;
       }
@@ -160,22 +167,8 @@ export function TaskRowActions({
     });
   }
 
-  function runUndo() {
-    if (!undo) return;
-
-    startTransition(async () => {
-      const result = await undoEvent({
-        eventId: undo.eventId,
-        idempotencyKey: newIdempotencyKey(),
-      });
-
-      setUndo(null);
-      if (!result.ok) setError(result.message);
-    });
-  }
-
   return (
-    <div className="row-actions">
+    <div ref={actions} className="row-actions">
       {openHref && (
         <Link href={openHref} className="btn small">
           Open
@@ -187,6 +180,9 @@ export function TaskRowActions({
           className="btn small primary"
           onClick={() => runActivate(null, null)}
           disabled={pending}
+          aria-busy={pending}
+          data-task-feedback-action="activate"
+          data-task-feedback-id={taskId}
         >
           {pending ? 'Working…' : 'Activate'}
         </button>
@@ -201,6 +197,8 @@ export function TaskRowActions({
           onClick={runMoveOut}
           disabled={pending}
           aria-busy={pending}
+          data-task-feedback-action="move-out"
+          data-task-feedback-id={taskId}
         >
           Move out
         </button>
@@ -295,15 +293,6 @@ export function TaskRowActions({
           </>
         )}
       </Modal>
-
-      {/* Section 7.3 / 7.5 — roughly ten seconds of Undo. Undo writes a
-          reversal event; it never deletes history. */}
-      {undo && (
-        <Toast actionLabel="Undo" onAction={runUndo}>
-          {undo.label}
-          {isMandatory && ' Mandatory work activates regardless of the target.'}
-        </Toast>
-      )}
     </div>
   );
 }

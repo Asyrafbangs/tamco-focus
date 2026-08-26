@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, ReactNode, Ref } from 'react';
 
 type Tone = 'neutral' | 'blue' | 'green' | 'amber' | 'red' | 'purple';
 
@@ -332,16 +332,28 @@ export function Toast({
   children,
   actionLabel,
   onAction,
+  actionDisabled = false,
+  actionBusy = false,
+  actionRef,
 }: {
   children: ReactNode;
   actionLabel?: string;
   onAction?: () => void;
+  actionDisabled?: boolean;
+  actionBusy?: boolean;
+  actionRef?: Ref<HTMLButtonElement>;
 }) {
   return (
     <div className="toast" role="status">
       <span>{children}</span>
       {actionLabel && onAction && (
-        <button type="button" onClick={onAction}>
+        <button
+          ref={actionRef}
+          type="button"
+          onClick={onAction}
+          disabled={actionDisabled}
+          aria-busy={actionBusy || undefined}
+        >
           {actionLabel}
         </button>
       )}
