@@ -18,6 +18,11 @@
   return, keyboard activation, responsive containment, count/list parity, and direct-URL denial.
 - Corrected the CI E2E runner to build and serve an isolated production artifact; the former
   long-lived development compiler exhausted the GitHub runner heap late in the mobile suite.
+- Moved Activate/Move out Undo feedback to the persistent Work-page boundary so a successful
+  status change cannot unmount its own ten-second Undo control; feedback invoked in a task drawer
+  remains inside that modal and returns keyboard focus to the restored action. Added isolated
+  mutation fixtures and explicit Server Action completion waits so one E2E journey cannot corrupt
+  the next.
 
 ## v69 Team visibility and performance repair — 17 August 2026
 

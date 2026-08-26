@@ -48,9 +48,10 @@ import {
 } from '@/server/queries';
 
 import { BinList } from './BinList';
-import { TaskDetailDrawer } from './TaskDetailDrawer';
 import { AttentionListView } from './AttentionListView';
 import { MyTeamListHeader, MyTeamPersonRow } from './MyTeamPersonRow';
+import { TaskActionFeedbackProvider } from './TaskActionFeedback';
+import { TaskDetailDrawer } from './TaskDetailDrawer';
 import { TeamMemberDrawer } from './TeamMemberDrawer';
 import { WorkloadReviewPanel } from './WorkloadReviewPanel';
 import { WorkProposalDrawer } from './WorkProposalDrawer';
@@ -407,8 +408,8 @@ export default async function WorkPage({
       : null;
 
   return (
-    <>
-      <div className="pagehead">
+    <TaskActionFeedbackProvider>
+      <div className="pagehead" data-task-feedback-page-anchor tabIndex={-1}>
         <div>
           <p className="eyebrow">Work</p>
           {/* One Work shell; the heading follows the view rather than the view
@@ -933,7 +934,7 @@ export default async function WorkPage({
           closeHref={scope === 'team' ? '/work?scope=team' : '/work'}
         />
       )}
-    </>
+    </TaskActionFeedbackProvider>
   );
 }
 

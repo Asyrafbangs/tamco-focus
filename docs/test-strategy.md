@@ -37,7 +37,7 @@ npm run verify
 
 ## Fixture policy
 
-Seed users and records are explicit local fixtures. Integration setup resets the database once because audit retention correctly prevents ad-hoc cleanup of historical records. Test identities, passwords, and content must never be copied to a hosted environment.
+Seed users and records are explicit local fixtures. Integration setup resets the database once because audit retention correctly prevents ad-hoc cleanup of historical records. A mutating browser test must create a uniquely named record instead of borrowing a canonical seed record that a later test reads; audited fixtures remain until the next reset, while unaudited read-only fixtures may be deleted in `finally`. Test identities, passwords, and content must never be copied to a hosted environment.
 
 The canonical v33 fixture is Safety Digitalisation with five milestones and deliberately divergent progress (20% reported, 19% derived). A second coaching Goal exercises manager summaries. `npm run db:seed:goals` is an idempotent, non-destructive local backfill for databases seeded before v33; it does not replace the canonical reset-and-seed gate.
 
@@ -63,8 +63,8 @@ presentation, Major Project decision drawer, responsive containment and accessib
 
 ## v70 Team member workload detail coverage
 
-`team-member-workload-v70.spec.ts` uses the canonical Izzah fixtures to verify that the disclosure
-renders a named Available Task, overdue routine occurrences, and a current Goal; displayed counts
+`team-member-workload-v70.spec.ts` creates and removes its own unaudited Izzah Available Task and
+uses canonical routine/Goal fixtures to verify that the disclosure renders named records; displayed counts
 match the rendered lists; keyboard and pointer selection open exact records; Task and Goal Close
 restore the person layer; and the 390 px project has no horizontal overflow. A direct unauthorised
 person parameter is also tested to ensure neither the person nor their record titles are rendered.

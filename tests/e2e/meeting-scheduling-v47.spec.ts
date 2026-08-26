@@ -129,6 +129,12 @@ test('a request can be queued, scheduled, and only then answered', async ({ page
   await expect(answerPanel).toBeVisible();
   await answerPanel.getByLabel('Your decision').fill(`Proceed after the shutdown ${runId}.`);
   await answerPanel.getByRole('button', { name: 'Send decision' }).click();
+  // The response is a Server Action inside a transition. Wait for its visible
+  // success contract before navigating, otherwise a fast test runner can tear
+  // down the RSC stream while the committed response is still refreshing.
+  await expect(
+    page.getByText('Response sent. The barrier stays open.', { exact: true }),
+  ).toBeVisible();
 
   await page.goto('/work?filter=attention');
   await expect(page.locator('.attention-card', { hasText: request })).toHaveCount(0);
