@@ -9161,3 +9161,36 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
     width: 100%;
   }
 }
+
+/* Why something cannot be finished, stated before it is attempted rather than
+   after. Amber, not red: nothing has gone wrong, there is simply work left. */
+.completion-blockers {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--amber);
+  border-radius: var(--radius);
+  background: var(--amber-bg);
+}
+.completion-blockers strong {
+  display: block;
+  font-size: 14px;
+}
+.completion-blockers ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+.completion-blockers p {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.completion-blockers .btn {
+  margin-top: 10px;
+}
+.notice.completion-blockers {
+  background: var(--amber-bg);
+}

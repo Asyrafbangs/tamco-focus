@@ -233,6 +233,26 @@ export function TaskDetailDrawer({
     (item) => item.evidenceRule === 'required' && !attachmentsByChecklist.get(item.id),
   );
   const checklistOutstanding = detail.checklist.length - checklistCompleted;
+
+  /*
+   * Why this cannot be marked done, in words, before anybody presses anything.
+   *
+   * The refusal used to arrive only after the click, as "This work cannot be
+   * completed yet" with nothing named. Somebody looking at a Quick Action with
+   * no checklist on screen had no way to know a checklist existed, let alone
+   * which step was unfinished — the Quick Action panel hides checklists by
+   * design, so the blocking steps were invisible and the work was stuck for
+   * good.
+   */
+  const completionBlockers: string[] = [
+    ...detail.checklist
+      .filter((item) => item.state !== 'completed')
+      .map((item) => `“${item.action}” is not finished`),
+    ...detail.checklist
+      .filter((item) => item.evidenceRule === 'required' && !attachmentsByChecklist.get(item.id))
+      .map((item) => `“${item.action}” needs evidence attached`),
+  ];
+
   const readyToComplete =
     detail.capabilities.canComplete &&
     (task.status === 'active' || task.status === 'backlog' || task.status === 'paused') &&
@@ -465,11 +485,31 @@ export function TaskDetailDrawer({
             <span className="pill">No focus slot</span>
           </div>
 
+          {completionBlockers.length > 0 && (
+            <div className="notice warning completion-blockers" role="status">
+              <strong>This cannot be marked done yet</strong>
+              <ul>
+                {completionBlockers.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+              <p>
+                A Quick Action does not show steps, because it is meant to be a single errand.
+                Convert it to an Operational Action below to work through them, and it can be
+                completed from there.
+              </p>
+            </div>
+          )}
+
           <div className="quick-action-primary">
+            {/* Disabled rather than hidden: the errand still has one obvious
+                action, and removing it would leave the panel looking as though
+                completing were somebody else's job. The reasons are listed
+                immediately above, so the disabled state is explained. */}
             <button
               type="button"
               className="btn primary"
-              disabled={pending}
+              disabled={pending || completionBlockers.length > 0}
               aria-busy={pending}
               onClick={() => {
                 setMessage(null);
@@ -1472,6 +1512,29 @@ export function TaskDetailDrawer({
           carrying it would have put finishing the work behind Expand as well as
           behind the disclosures — which is the state this is fixing.
         */}
+        {/*
+          When it is not ready, say so and say why.
+
+          The Complete callout below appears only when the procedure would
+          accept, which is right — but it used to simply vanish otherwise,
+          leaving no answer to "how do I finish this?". The reasons are the
+          same ones `complete_task` would give, worked out before the click
+          rather than after it.
+        */}
+        {!readyToComplete && detail.capabilities.canComplete && completionBlockers.length > 0 && (
+          <section className="completion-blockers drawer-panel-overview">
+            <strong>Before this can be completed</strong>
+            <ul>
+              {completionBlockers.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+            <button type="button" className="btn small" onClick={() => setActiveTab('checklist')}>
+              Open the checklist
+            </button>
+          </section>
+        )}
+
         {readyToComplete && (
           <section className="drawer-panel-overview task-complete-callout">
             <div>
