@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { orgConfig } from '@/lib/env';
+import { requestOrigin } from '@/lib/env';
 
 /**
  * Password recovery.
@@ -31,8 +31,11 @@ export default async function ForgotPasswordPage({
     if (!email) redirect('/forgot-password');
 
     const supabase = await createSupabaseServerClient();
+    // Taken from this request, not from an environment variable. With
+    // APP_BASE_URL unset the old value was `http://localhost:3000`, so the
+    // link in the email opened nothing on the recipient's machine.
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${orgConfig.appBaseUrl}/auth/callback`,
+      redirectTo: `${await requestOrigin()}/auth/callback`,
     });
 
     // Logged, never shown. A rate-limit refusal and an unknown address must

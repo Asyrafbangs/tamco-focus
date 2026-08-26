@@ -57,3 +57,28 @@ export const orgConfig = {
   weeklySummaryHour: Number(process.env.WEEKLY_SUMMARY_HOUR ?? 8),
   appBaseUrl: process.env.APP_BASE_URL ?? 'http://localhost:3000',
 } as const;
+
+/**
+ * The origin to put in an emailed link, taken from the request that asked.
+ *
+ * `orgConfig.appBaseUrl` reads `APP_BASE_URL` and falls back to localhost. That
+ * fallback is right for a worker with no request, and catastrophic for a
+ * password reset: with the variable unset in the hosting platform, every
+ * recovery email pointed at `http://localhost:3000/auth/callback`, so the link
+ * opened nothing on the recipient's machine. Nobody could tell from the app
+ * that anything was wrong — the mail sent, the token was valid, the address in
+ * it was simply not this website.
+ *
+ * A request knows its own origin, so anything sent in response to one uses that
+ * and cannot be misconfigured. `x-forwarded-*` is set by the platform proxy;
+ * `host` covers running it directly.
+ */
+export async function requestOrigin(): Promise<string> {
+  const { headers } = await import('next/headers');
+  const headerList = await headers();
+  const host = headerList.get('x-forwarded-host') ?? headerList.get('host');
+  if (!host) return orgConfig.appBaseUrl;
+  const protocol =
+    headerList.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https');
+  return `${protocol}://${host}`;
+}

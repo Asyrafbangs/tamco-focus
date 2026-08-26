@@ -43,6 +43,22 @@ enabled = true
 file_size_limit = "12MiB"
 
 [auth]
+# ---------------------------------------------------------------------------
+# LOCAL VALUES ONLY. Do not run `supabase config push` against Production.
+#
+# This file has no [auth.email.smtp] block and sets enable_confirmations =
+# false, both of which are correct for a local stack and wrong for the hosted
+# project. A push would therefore overwrite the Brevo relay with nothing and
+# set the hosted Site URL to localhost — which is precisely the failure it
+# would look like it was fixing: a recovery email whose link points at a
+# machine the recipient does not have.
+#
+# The hosted project's Site URL and Redirect URLs are maintained in the
+# Supabase dashboard. The application no longer depends on them for the reset
+# link's origin — `requestOrigin()` reads it from the request — but Supabase
+# still refuses a `redirect_to` that is not on the allow-list, so the hosted
+# callback URL has to be listed there.
+# ---------------------------------------------------------------------------
 enabled = true
 site_url = "http://localhost:3000"
 additional_redirect_urls = ["http://localhost:3000/auth/callback"]
