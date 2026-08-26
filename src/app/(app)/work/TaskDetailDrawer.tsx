@@ -95,6 +95,30 @@ function formatBytes(bytes: number) {
   return `${(bytes / 1_048_576).toFixed(1)} MB`;
 }
 
+/**
+ * Says which steps are blocking, not merely that something is.
+ *
+ * `complete_task` already returns the outstanding items and the steps whose
+ * required evidence is missing, and the drawer threw that away and printed the
+ * bare sentence. "This work cannot be completed yet" with nothing named is not
+ * a refusal anybody can act on — least of all when the step in question is a
+ * ticked-off one whose attachment was never added, which looks finished.
+ */
+function blockingDetail(result: { message: string; detail?: Record<string, unknown> }): string {
+  const detail = result.detail ?? {};
+  const asNames = (value: unknown): string[] =>
+    Array.isArray(value) ? value.map(String).filter(Boolean) : [];
+
+  const incomplete = asNames(detail.incomplete_items);
+  const missingEvidence = asNames(detail.missing_evidence);
+  if (incomplete.length === 0 && missingEvidence.length === 0) return result.message;
+
+  const parts: string[] = [];
+  if (incomplete.length) parts.push(`still to do: ${incomplete.join(', ')}`);
+  if (missingEvidence.length) parts.push(`needs evidence: ${missingEvidence.join(', ')}`);
+  return `${result.message} ${parts.join('; ')}.`;
+}
+
 export function TaskDetailDrawer({
   detail,
   closeHref,
@@ -185,19 +209,6 @@ export function TaskDetailDrawer({
    * checklist steps and on required evidence with no attachment; it accepts
    * from active, backlog and paused.
    */
-  const requiredEvidenceOutstanding = detail.checklist.filter(
-    (item) => item.state !== 'completed' && item.evidenceRule === 'required',
-  ).length;
-  const checklistOutstanding = detail.checklist.length - checklistCompleted;
-  const readyToComplete =
-    detail.capabilities.canComplete &&
-    (task.status === 'active' || task.status === 'backlog' || task.status === 'paused') &&
-    checklistOutstanding === 0 &&
-    requiredEvidenceOutstanding === 0;
-
-  const taskOverdueMs = overdueAgeMs(task);
-  const ageDetails = ageChips(task, { staleThresholdDays });
-
   const attachmentsByChecklist = new Map<string, number>();
   for (const attachment of detail.attachments) {
     if (attachment.checklistItemId) {
@@ -207,6 +218,29 @@ export function TaskDetailDrawer({
       );
     }
   }
+
+  /*
+   * Required evidence is judged on the attachment, not on the tick.
+   *
+   * This used to count only items that were still open, while `complete_task`
+   * counts every item marked `evidence_rule = 'required'` that carries no
+   * attachment — completed or not. A step ticked off without its evidence
+   * therefore looked finished here and was refused there, so Mark done was
+   * offered, pressed, and answered with a flat "This work cannot be completed
+   * yet" that named nothing.
+   */
+  const evidenceOutstanding = detail.checklist.filter(
+    (item) => item.evidenceRule === 'required' && !attachmentsByChecklist.get(item.id),
+  );
+  const checklistOutstanding = detail.checklist.length - checklistCompleted;
+  const readyToComplete =
+    detail.capabilities.canComplete &&
+    (task.status === 'active' || task.status === 'backlog' || task.status === 'paused') &&
+    checklistOutstanding === 0 &&
+    evidenceOutstanding.length === 0;
+
+  const taskOverdueMs = overdueAgeMs(task);
+  const ageDetails = ageChips(task, { staleThresholdDays });
 
   /**
    * The one place a barrier response is submitted (v46 §29, §52).
@@ -267,7 +301,7 @@ export function TaskDetailDrawer({
       router.refresh();
       return true;
     }
-    setMessage({ tone: 'error', text: result.message });
+    setMessage({ tone: 'error', text: blockingDetail(result) });
     return false;
   }
 
@@ -1410,10 +1444,10 @@ export function TaskDetailDrawer({
                 Checklist · {checklistCompleted}/{detail.checklist.length} completed
               </strong>
               <small>
-                {requiredEvidenceOutstanding > 0
-                  ? `${requiredEvidenceOutstanding} item${
-                      requiredEvidenceOutstanding === 1 ? '' : 's'
-                    } requires evidence`
+                {evidenceOutstanding.length > 0
+                  ? `${evidenceOutstanding.length} item${
+                      evidenceOutstanding.length === 1 ? '' : 's'
+                    } still needs evidence attached`
                   : 'No required evidence outstanding'}
               </small>
             </span>
