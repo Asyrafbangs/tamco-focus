@@ -3,6 +3,8 @@ import type { EmailOtpType } from '@supabase/supabase-js';
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
+import { HashSession } from './HashSession';
+
 /**
  * Where every emailed link lands: invitation, password recovery, email change.
  *
@@ -19,6 +21,14 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
  * button, and the verification happens on the POST that button submits.
  * Scanners follow links; they do not submit forms. The cost is a single extra
  * click for a person who was about to click something anyway.
+ *
+ * The emailed button does not point here directly. It points at Supabase's own
+ * `/auth/v1/verify`, which spends the token there and redirects back with the
+ * outcome in a URL FRAGMENT — `#access_token=…` or `#error=…`. A fragment is
+ * never sent to the server, so a request arriving from a real email carries no
+ * parameters at all. Treating that as a bad link is what made every recovery
+ * attempt fail: the token was fine, this page simply could not see it. When
+ * there is nothing in the query string, the browser is asked to look.
  *
  * Nothing about the failure path is specific. A link that is expired, already
  * used, or tampered with produces one message, because distinguishing them
@@ -58,7 +68,23 @@ export default async function AuthCallbackPage({
   const tokenHash = params.token_hash;
   const type = params.type as EmailOtpType | undefined;
 
-  if (!tokenHash || !type || !HANDLED.includes(type)) {
+  /*
+   * No query string means the tokens are in the fragment, which only the
+   * browser can read. This is the normal path for a link that came from an
+   * email, so it must not be mistaken for a malformed one.
+   */
+  if (!tokenHash) {
+    const next = type === 'email' || type === 'email_change' ? '/today' : '/set-password';
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 16 }}>
+        <main className="card pad" style={{ width: 'min(420px, 100%)' }}>
+          <HashSession next={next} />
+        </main>
+      </div>
+    );
+  }
+
+  if (!type || !HANDLED.includes(type)) {
     redirect('/sign-in?error=link');
   }
 
