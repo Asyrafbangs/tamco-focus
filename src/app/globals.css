@@ -8339,7 +8339,8 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .member-update .muted {
   font-size: 9px;
 }
-.member-other-workload > summary {
+.member-other-workload > summary,
+.member-completed > summary {
   box-sizing: border-box;
   min-height: 44px;
   margin: -8px 0;
@@ -8350,7 +8351,8 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   font-weight: 650;
   transition: color var(--motion-fast) var(--motion-easing);
 }
-.member-other-workload > summary:hover {
+.member-other-workload > summary:hover,
+.member-completed > summary:hover {
   color: var(--text);
 }
 .member-other-workload > summary:focus-visible {

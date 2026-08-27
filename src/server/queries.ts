@@ -2322,6 +2322,19 @@ export interface TeamMemberDetail {
     version: number;
   }>;
   recentUpdates: Array<{ id: string; at: string; taskTitle: string; summary: string }>;
+  /**
+   * What this person finished recently, for a manager reviewing the month.
+   *
+   * Deliberately bounded to a month rather than paginated: the question is
+   * "what did they get done", not "everything they have ever done", and an
+   * unbounded history turns a review into a scroll.
+   */
+  completedRecently: Array<{
+    id: string;
+    title: string;
+    workClass: TaskOverview['workClass'];
+    completedAt: string | null;
+  }>;
   otherWorkload: {
     available: Array<{
       id: string;
@@ -2373,7 +2386,11 @@ export async function getTeamMemberDetail(
   const person = team.find((row) => row.userId === personId);
   if (!person) return null;
 
-  const [attentionRows, focusRows, tasksResult, goalsResult] = await Promise.all([
+  // A month of finished work, counted back from today so the list is never
+  // nearly empty just because the calendar month has only just started.
+  const completedSince = new Date(Date.now() - 31 * 86_400_000).toISOString();
+
+  const [attentionRows, focusRows, tasksResult, goalsResult, completedResult] = await Promise.all([
     getTeamAttention(viewerId),
     getTeamFocusSummary(),
     supabase
@@ -2394,6 +2411,14 @@ export async function getTeamMemberDetail(
       .in('status', ['draft', 'pending_discussion', 'active'])
       .order('target_date', { ascending: true })
       .limit(100),
+    supabase
+      .from('task_overview')
+      .select('id,title,work_class,completed_at')
+      .eq('primary_owner_id', personId)
+      .eq('status', 'completed')
+      .gte('completed_at', completedSince)
+      .order('completed_at', { ascending: false })
+      .limit(100),
   ]);
 
   if (tasksResult.error) {
@@ -2402,6 +2427,10 @@ export async function getTeamMemberDetail(
   }
   if (goalsResult.error) {
     console.error(`[getTeamMemberDetail:goals] ${goalsResult.error.message}`);
+    throw new Error('TEAM_MEMBER_UNAVAILABLE');
+  }
+  if (completedResult.error) {
+    console.error(`[getTeamMemberDetail:completed] ${completedResult.error.message}`);
     throw new Error('TEAM_MEMBER_UNAVAILABLE');
   }
 
@@ -2472,6 +2501,12 @@ export async function getTeamMemberDetail(
       at: String(update.created_at),
       taskTitle: titles.get(String(update.task_id)) ?? 'Work',
       summary: String(update.body),
+    })),
+    completedRecently: (completedResult.data ?? []).map((row) => ({
+      id: String(row.id),
+      title: String(row.title),
+      workClass: row.work_class as TaskOverview['workClass'],
+      completedAt: row.completed_at ? String(row.completed_at) : null,
     })),
     otherWorkload: {
       available: available.map((task) => ({

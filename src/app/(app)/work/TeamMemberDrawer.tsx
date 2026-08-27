@@ -154,6 +154,39 @@ export function TeamMemberDrawer({
           )}
         </section>
 
+        {/*
+          What they finished, for the manager who asked to see it.
+          Bounded to a month on purpose — the question is what got done
+          recently, not an unbounded history to scroll through.
+        */}
+        <details className="detail-section member-completed">
+          <summary>Completed work · last 31 days · {detail.completedRecently.length}</summary>
+          {detail.completedRecently.length === 0 ? (
+            <p className="muted member-other-empty">
+              Nothing completed in the last 31 days. Older work is not shown here.
+            </p>
+          ) : (
+            <div className="member-other-list">
+              {detail.completedRecently.map((task) => (
+                <Link key={task.id} href={taskHref(task.id)} className="member-other-row">
+                  <span className="member-other-copy">
+                    <strong>{task.title}</strong>
+                    <span>
+                      {WORK_CLASS_LABELS[task.workClass]}
+                      {task.completedAt
+                        ? ` · completed ${new Date(task.completedAt).toLocaleDateString('en-GB', {
+                            day: 'numeric',
+                            month: 'short',
+                          })}`
+                        : ''}
+                    </span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </details>
+
         <details className="detail-section member-other-workload">
           <summary>
             Other workload · Available {detail.otherWorkload.available.length} · Overdue routines{' '}
