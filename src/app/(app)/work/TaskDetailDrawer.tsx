@@ -2138,6 +2138,26 @@ export function TaskDetailDrawer({
             updates={detail.updates}
             attachments={detail.attachments}
             timeZone={timeZone}
+            /*
+             * Only when there is a decision waiting and this reader is the one
+             * who makes it. The review panel lives on Overview, so from here
+             * the entry had nothing behind it — a manager could read
+             * "Completion submitted" and have no way to act on it.
+             */
+            onOpenReview={
+              task.reviewStatus === 'pending' && detail.capabilities.canReview
+                ? () => {
+                    setActiveTab('overview');
+                    // After the tab swaps, put the panel in front of them
+                    // rather than leaving it to be hunted for.
+                    requestAnimationFrame(() => {
+                      document
+                        .getElementById(`review-heading`)
+                        ?.scrollIntoView({ block: 'center' });
+                    });
+                  }
+                : undefined
+            }
           />
         </section>
 
@@ -2203,10 +2223,14 @@ export function TaskDetailDrawer({
         </section>
 
         {task.reviewStatus === 'pending' && detail.capabilities.canReview && (
-          <section
-            className="detail-section review-panel drawer-panel-overview"
-            aria-labelledby="review-heading"
-          >
+          /*
+            Deliberately not `detail-section`. Combined with
+            `drawer-panel-overview` that class is hidden until the drawer is
+            expanded — the same rule that once hid Complete and then Delete. A
+            completion waiting on a manager's decision is the last thing that
+            should be behind Expand.
+          */
+          <section className="review-panel drawer-panel-overview" aria-labelledby="review-heading">
             <h3 id="review-heading">Completion review</h3>
             <p>Opening evidence records that it was viewed. It does not accept completion.</p>
             <form

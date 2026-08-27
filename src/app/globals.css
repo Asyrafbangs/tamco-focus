@@ -1004,9 +1004,25 @@
   margin: 8px 0 0;
   padding-left: 18px;
 }
+/* Carries its own box now that it no longer borrows `.detail-section`, which
+   is hidden until the drawer is expanded. A decision somebody is waiting on
+   does not belong behind Expand. */
 .review-panel {
-  border-color: color-mix(in srgb, var(--blue) 35%, var(--line));
+  margin-top: 16px;
+  padding: 17px;
+  border: 1px solid color-mix(in srgb, var(--blue) 35%, var(--line));
+  border-radius: var(--radius);
   background: var(--blue-bg);
+}
+.review-panel h3 {
+  margin: 0 0 7px;
+  font-size: 15px;
+}
+
+/* The action sits with the entry it belongs to, so a manager reading
+   "Completion submitted" can act on it without hunting for another tab. */
+.task-activity-meta .btn {
+  margin-top: 6px;
 }
 .full-history {
   margin-top: 10px;

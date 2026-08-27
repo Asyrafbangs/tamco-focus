@@ -109,11 +109,21 @@ export function TaskActivityHistory({
   updates,
   attachments,
   timeZone,
+  onOpenReview,
 }: {
   activity: TaskDetailActivity[];
   updates: TaskDetailUpdate[];
   attachments: TaskDetailAttachment[];
   timeZone: string;
+  /**
+   * Supplied only when a completion is waiting on this reader's decision.
+   *
+   * "Completion submitted" sat in Recent activity as flat text while the panel
+   * that acts on it lived on another tab, so a manager looking straight at the
+   * thing they had to review had nothing to click and no indication that a
+   * decision was theirs to make.
+   */
+  onOpenReview?: () => void;
 }) {
   const updatesById = new Map(updates.map((update) => [update.id, update]));
   const attachmentByUpdate = new Map<string, TaskDetailAttachment[]>();
@@ -160,6 +170,11 @@ export function TaskActivityHistory({
             <div className="task-activity-meta">
               <span>{event.actorName}</span>
               <time dateTime={event.occurredAt}>{formatMoment(event.occurredAt, timeZone)}</time>
+              {onOpenReview && event.eventType === 'completion_submitted' ? (
+                <button type="button" className="btn small primary" onClick={onOpenReview}>
+                  Review this
+                </button>
+              ) : null}
             </div>
           </article>
         );
