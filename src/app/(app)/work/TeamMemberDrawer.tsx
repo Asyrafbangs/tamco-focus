@@ -49,6 +49,9 @@ export function TeamMemberDrawer({
   timeZone: string;
   now: Date;
 }) {
+  const completedOn = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone });
+
   const taskHref = (taskId: string) =>
     `${taskHrefBase}${taskHrefBase.includes('?') ? '&' : '?'}task=${taskId}`;
   const goalHref = (goalId: string) => {
@@ -162,9 +165,7 @@ export function TeamMemberDrawer({
         <details className="detail-section member-completed">
           <summary>Completed work · last 31 days · {detail.completedRecently.length}</summary>
           {detail.completedRecently.length === 0 ? (
-            <p className="muted member-other-empty">
-              Nothing completed in the last 31 days. Older work is not shown here.
-            </p>
+            <p className="muted">Nothing completed in the last 31 days.</p>
           ) : (
             <div className="member-other-list">
               {detail.completedRecently.map((task) => (
@@ -173,12 +174,7 @@ export function TeamMemberDrawer({
                     <strong>{task.title}</strong>
                     <span>
                       {WORK_CLASS_LABELS[task.workClass]}
-                      {task.completedAt
-                        ? ` · completed ${new Date(task.completedAt).toLocaleDateString('en-GB', {
-                            day: 'numeric',
-                            month: 'short',
-                          })}`
-                        : ''}
+                      {task.completedAt ? ` · completed ${completedOn(task.completedAt)}` : ''}
                     </span>
                   </span>
                 </Link>
