@@ -28,7 +28,6 @@ export function MenuDropdown({
   className,
   panelClassName,
   minWidth = 200,
-  disabled = false,
   children,
 }: {
   label: ReactNode;
@@ -37,7 +36,6 @@ export function MenuDropdown({
   panelClassName?: string;
   /** Floor for the panel width; it still grows to match a wider button. */
   minWidth?: number;
-  disabled?: boolean;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -95,7 +93,6 @@ export function MenuDropdown({
         aria-label={ariaLabel}
         aria-expanded={open}
         aria-haspopup="menu"
-        disabled={disabled}
         onClick={() => setOpen((current) => !current)}
       >
         <span>{label}</span>
@@ -112,12 +109,12 @@ export function MenuDropdown({
             panelClassName ? `menu-dropdown-panel ${panelClassName}` : 'menu-dropdown-panel'
           }
           style={{ top: position.top, right: position.right, minWidth: position.width }}
-          /* A choice inside is a navigation, a submit, or something marked as
-             a choice; either way the menu has done its job and should not
-             still be sitting there afterwards. */
+          /* A choice inside is a navigation or a submit; either way the menu
+             has done its job and should not still be sitting there when the
+             new page paints. */
           onClick={(event) => {
             const target = event.target as HTMLElement;
-            if (target.closest('a, button[type="submit"], [data-menu-close]')) setOpen(false);
+            if (target.closest('a, button[type="submit"]')) setOpen(false);
           }}
         >
           {children}

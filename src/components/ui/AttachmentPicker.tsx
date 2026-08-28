@@ -2,7 +2,6 @@
 
 import { useCallback, useId, useRef, useState } from 'react';
 
-import { FileSourceMenu, type FileSource } from './FileSourceMenu';
 import { AttachmentChip } from './ParityPrimitives';
 import { useFileDropZone } from './useFileDropZone';
 
@@ -97,27 +96,6 @@ export function AttachmentPicker({
    */
   const { dragging } = useFileDropZone({ onFiles: take, anchorRef: rootRef, disabled });
 
-  /*
-   * One input, retargeted.
-   *
-   * Three inputs would post three fields under the same name and make the form
-   * contract depend on which one somebody happened to use. Setting the
-   * attributes on the single named input before opening it keeps what the form
-   * submits identical to what it always submitted.
-   */
-  function openWith(source: FileSource) {
-    const input = inputRef.current;
-    if (!input) return;
-    if (source === 'camera') {
-      input.accept = 'image/*';
-      input.setAttribute('capture', 'environment');
-    } else {
-      input.removeAttribute('capture');
-      input.accept = source === 'photo' ? 'image/*' : accept;
-    }
-    input.click();
-  }
-
   return (
     <div ref={rootRef} className="attachment-picker">
       <input
@@ -140,12 +118,15 @@ export function AttachmentPicker({
           commit(next ?? files);
         }}
       />
-      <FileSourceMenu
-        label={label}
+      <button
+        type="button"
+        className="btn small attachment-picker-button"
         disabled={disabled}
-        className="attachment-picker-menu"
-        onPick={openWith}
-      />
+        onClick={() => inputRef.current?.click()}
+      >
+        <span aria-hidden="true">+</span>
+        {label}
+      </button>
       {hint && <span className="attachment-picker-hint">{hint}</span>}
       {!disabled && (
         <span className="attachment-picker-drophint">

@@ -12,7 +12,6 @@ import {
   createCaptureDraft,
   discardCaptureDraft,
 } from '@/server/actions/capture-actions';
-import { FileSourceMenu } from '@/components/ui/FileSourceMenu';
 import { useFileDropZone } from '@/components/ui/useFileDropZone';
 import { addChecklistStep } from '@/server/actions/task-actions';
 import { Modal } from '@/components/ui/Modal';
@@ -471,27 +470,13 @@ export function CaptureWork({
                   ? 'Drop to attach.'
                   : 'Drop files, paste a screenshot, or choose from this device.'}
               </span>
-              {/* Same three sources as everywhere else that takes a file, so
-                  a phone opens the camera rather than a file browser. */}
-              <FileSourceMenu
-                label="Add files"
-                className="attachment-picker-menu"
-                onPick={(source) => {
-                  const input = fileInput.current;
-                  if (!input) return;
-                  if (source === 'camera') {
-                    input.accept = 'image/*';
-                    input.setAttribute('capture', 'environment');
-                  } else {
-                    input.removeAttribute('capture');
-                    input.accept =
-                      source === 'photo'
-                        ? 'image/*'
-                        : 'image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/csv,.xlsx,.docx';
-                  }
-                  input.click();
-                }}
-              />
+              <button
+                type="button"
+                className="btn small"
+                onClick={() => fileInput.current?.click()}
+              >
+                Choose files
+              </button>
               <input
                 ref={fileInput}
                 className="visually-hidden"

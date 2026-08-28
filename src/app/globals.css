@@ -9916,50 +9916,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 
 /* ------------------------------------------------------------------------ */
-/* v94 - choosing where a file comes from                                    */
-/* ------------------------------------------------------------------------ */
-
-/* Sized like the small button it replaced, so nothing around it shifts. */
-.file-source-menu .menu-dropdown-toggle {
-  min-height: 34px;
-  padding: 7px 12px;
-  font-size: 12px;
-}
-.file-source-menu .menu-dropdown-toggle::before {
-  content: '+';
-  margin-right: 2px;
-  color: var(--muted);
-}
-.file-source-menu .menu-dropdown-toggle:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-/* The options are buttons rather than links, so they need the panel's link
-   styling stated for them. */
-.menu-dropdown-panel > button {
-  display: block;
-  width: 100%;
-  padding: 9px 10px;
-  min-height: 40px;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: 12.5px;
-  line-height: 22px;
-  text-align: left;
-  cursor: pointer;
-}
-.menu-dropdown-panel > button:hover {
-  background: var(--line-soft);
-}
-.menu-dropdown-panel > button:focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: -2px;
-}
-
-/* ------------------------------------------------------------------------ */
 /* v95 - dropping a file onto the thing that takes it                        */
 /* ------------------------------------------------------------------------ */
 

@@ -257,13 +257,10 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
   await requiredItem.getByRole('button', { name: 'Complete with evidence' }).click();
   const evidenceDialog = page.getByRole('dialog', { name: 'Complete with evidence' });
   await expect(evidenceDialog).toBeVisible();
-  // v94 - the button asks where the file is coming from first, so the OS
-  // chooser opens on the choice rather than on the button.
+  const chooserPromise = page.waitForEvent('filechooser');
   await evidenceDialog
     .getByRole('button', { name: 'Choose file / photo / screenshot', exact: true })
     .click();
-  const chooserPromise = page.waitForEvent('filechooser');
-  await page.getByRole('menuitem', { name: 'Choose a file' }).click();
   const chooser = await chooserPromise;
   expect(chooser.isMultiple()).toBe(false);
   await page.keyboard.press('Escape');
