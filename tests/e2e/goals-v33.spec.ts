@@ -123,8 +123,10 @@ test('milestone drawer synchronises progress, saves evidence, requests support, 
   await expect(update.getByText('New 70%', { exact: true })).toBeVisible();
   await update.getByLabel('What changed?').fill('Completed the next validation walkthrough.');
 
-  const chooserPromise = page.waitForEvent('filechooser');
+  // v94 - pick the source, then the OS chooser opens.
   await update.getByRole('button', { name: 'Add evidence', exact: true }).click();
+  const chooserPromise = page.waitForEvent('filechooser');
+  await page.getByRole('menuitem', { name: 'Choose a file' }).click();
   const chooser = await chooserPromise;
   expect(chooser.isMultiple()).toBe(true);
   await chooser.setFiles({
