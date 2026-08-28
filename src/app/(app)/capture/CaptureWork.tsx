@@ -13,6 +13,7 @@ import {
   discardCaptureDraft,
 } from '@/server/actions/capture-actions';
 import { FileSourceMenu } from '@/components/ui/FileSourceMenu';
+import { useFileDropZone } from '@/components/ui/useFileDropZone';
 import { addChecklistStep } from '@/server/actions/task-actions';
 import { Modal } from '@/components/ui/Modal';
 
@@ -129,6 +130,8 @@ export function CaptureWork({
   function addFiles(incoming: FileList | File[]) {
     setFiles((current) => [...current, ...Array.from(incoming)].slice(0, 8));
   }
+
+  const { dragging, dropHandlers } = useFileDropZone({ onFiles: addFiles });
 
   /**
    * Adds drafted steps to the task that was just created. Sequential because
@@ -455,20 +458,20 @@ export function CaptureWork({
             </button>
 
             <p className="capture-detail-heading">Attachments — Optional</p>
+            {/* The zone handled `drop` but showed nothing while a file was
+                over it, and cleared no state on `dragleave` - so there was no
+                way to tell it was a target until after letting go. */}
             <div
-              className="capture-dropzone"
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => {
-                event.preventDefault();
-                addFiles(event.dataTransfer.files);
-              }}
-              onPaste={(event) => {
-                const pasted = Array.from(event.clipboardData.files);
-                if (pasted.length) addFiles(pasted);
-              }}
+              className={`capture-dropzone${dragging ? ' dragging' : ''}`}
+              {...dropHandlers}
+              data-drop-target="true"
             >
               <strong>Attach evidence or context</strong>
-              <span>Drop files, paste a screenshot, or choose from this device.</span>
+              <span>
+                {dragging
+                  ? 'Drop to attach.'
+                  : 'Drop files, paste a screenshot, or choose from this device.'}
+              </span>
               {/* Same three sources as everywhere else that takes a file, so
                   a phone opens the camera rather than a file browser. */}
               <FileSourceMenu

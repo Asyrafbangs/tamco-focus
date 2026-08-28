@@ -1,9 +1,10 @@
 'use client';
 
-import { useId, useRef, useState } from 'react';
+import { useCallback, useId, useRef, useState } from 'react';
 
 import { FileSourceMenu, type FileSource } from './FileSourceMenu';
 import { AttachmentChip } from './ParityPrimitives';
+import { useFileDropZone } from './useFileDropZone';
 
 const DEFAULT_ACCEPT =
   'image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/csv,.xlsx,.docx';
@@ -46,20 +47,55 @@ export function AttachmentPicker({
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  function sync(next: File[]) {
+  /*
+   * The input is the record, the state is the display.
+   *
+   * The form posts `input.files`, so every route in - the OS chooser, a drop,
+   * a paste - has to end up writing that same list rather than keeping its own
+   * on the side.
+   */
+  const commit = useCallback((next: File[]) => {
     const input = inputRef.current;
     if (!input) return;
     const transfer = new DataTransfer();
     for (const file of next) transfer.items.add(file);
     input.files = transfer.files;
     setFiles(next);
-  }
+  }, []);
+
+  const accepted = useCallback(
+    (incoming: File[], held: File[]) => {
+      const oversized = incoming.find((file) => file.size > maxBytes);
+      if (oversized) {
+        setError(`${oversized.name} exceeds the ${Math.floor(maxBytes / 1_048_576)} MB limit.`);
+        return null;
+      }
+      setError(null);
+      if (!multiple) return incoming.slice(0, 1);
+      /*
+       * Added, not replaced. Somebody dropping a second photo after a first
+       * means both, and replacing would discard the first without saying so.
+       */
+      return [...held, ...incoming.filter((file) => !held.some((have) => sameFile(have, file)))];
+    },
+    [maxBytes, multiple],
+  );
+
+  const take = useCallback(
+    (incoming: File[]) => {
+      const next = accepted(incoming, files);
+      if (next) commit(next);
+    },
+    [accepted, commit, files],
+  );
+
+  const { dragging, dropHandlers } = useFileDropZone({ onFiles: take, disabled });
 
   /*
    * One input, retargeted.
    *
-   * Three inputs would mean three fields posted under the same name and a form
-   * contract that depends on which one somebody happened to use. Setting the
+   * Three inputs would post three fields under the same name and make the form
+   * contract depend on which one somebody happened to use. Setting the
    * attributes on the single named input before opening it keeps what the form
    * submits identical to what it always submitted.
    */
@@ -77,7 +113,11 @@ export function AttachmentPicker({
   }
 
   return (
-    <div className="attachment-picker">
+    <div
+      className={`attachment-picker${dragging ? ' dragging' : ''}`}
+      {...dropHandlers}
+      data-drop-target="true"
+    >
       <input
         ref={inputRef}
         id={id}
@@ -92,22 +132,10 @@ export function AttachmentPicker({
         onChange={(event) => {
           const selected = Array.from(event.currentTarget.files ?? []);
           if (selected.length === 0) return;
-          const oversized = selected.find((file) => file.size > maxBytes);
-          if (oversized) {
-            setError(`${oversized.name} exceeds the ${Math.floor(maxBytes / 1_048_576)} MB limit.`);
-            sync(files);
-            return;
-          }
-          setError(null);
-          /*
-           * Added, not replaced. A menu invites a second visit - one photo of
-           * the line, another of the panel - and replacing the list would
-           * silently discard the first each time.
-           */
-          const merged = multiple
-            ? [...files, ...selected.filter((file) => !files.some((held) => sameFile(held, file)))]
-            : selected;
-          sync(merged);
+          const next = accepted(selected, files);
+          // The input already holds the browser's choice, so a rejected batch
+          // has to be written back over it rather than simply not applied.
+          commit(next ?? files);
         }}
       />
       <FileSourceMenu
@@ -117,6 +145,7 @@ export function AttachmentPicker({
         onPick={openWith}
       />
       {hint && <span className="attachment-picker-hint">{hint}</span>}
+      {!disabled && <span className="attachment-picker-drophint">or drop files here</span>}
       {error && (
         <span className="attachment-picker-error" role="alert">
           {error}
@@ -129,10 +158,17 @@ export function AttachmentPicker({
               key={`${file.name}-${file.lastModified}-${index}`}
               name={file.name}
               meta={fileSize(file.size)}
-              onRemove={() => sync(files.filter((_, fileIndex) => fileIndex !== index))}
+              onRemove={() => commit(files.filter((_, fileIndex) => fileIndex !== index))}
             />
           ))}
         </div>
+      )}
+      {/* Only while something is over it: a permanent dashed box would hold
+          the layout open on every screen that can take a file. */}
+      {dragging && (
+        <span className="attachment-picker-dropping" aria-hidden="true">
+          Drop to attach
+        </span>
       )}
     </div>
   );

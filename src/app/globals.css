@@ -9958,3 +9958,53 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   outline: 2px solid var(--blue);
   outline-offset: -2px;
 }
+
+/* ------------------------------------------------------------------------ */
+/* v95 - dropping a file onto the thing that takes it                        */
+/* ------------------------------------------------------------------------ */
+
+/* The picker becomes a target on hover-with-a-file rather than sitting there
+   as a permanent dashed box. A box on every screen that can take a file would
+   hold the layout open for something used occasionally. */
+.attachment-picker {
+  position: relative;
+  border: 1px dashed transparent;
+  border-radius: var(--radius-sm);
+  transition:
+    border-color var(--motion-fast) var(--motion-easing),
+    background-color var(--motion-fast) var(--motion-easing);
+}
+.attachment-picker.dragging {
+  border-color: var(--blue);
+  background: var(--blue-bg);
+}
+.attachment-picker-drophint {
+  color: var(--muted);
+  font-size: 11px;
+}
+/* Covers the row while a file is over it, so the instruction is where the
+   pointer already is. */
+.attachment-picker-dropping {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--blue-bg) 92%, transparent);
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 650;
+  pointer-events: none;
+}
+
+.capture-dropzone {
+  transition:
+    border-color var(--motion-fast) var(--motion-easing),
+    background-color var(--motion-fast) var(--motion-easing);
+}
+.capture-dropzone.dragging {
+  border-color: var(--blue);
+  border-style: solid;
+  background: var(--blue-bg);
+}
