@@ -514,6 +514,29 @@ export interface TaskDetail {
     recordedAt: string;
     createdTaskId: string | null;
   }>;
+  /**
+   * Routine occurrences only.
+   *
+   * The evidence rule belongs to the schedule, decided once by whoever set the
+   * routine up, so the person doing it never has to work out whether this one
+   * needs a photo. `exception` is the latest "not required" record, which is
+   * what turns the drawer from a form into an answer.
+   */
+  routine: {
+    evidenceRequired: boolean;
+    evidenceInstruction: string | null;
+    exception: {
+      id: string;
+      reasonCode: 'no_applicable_work' | 'activity_cancelled' | 'other';
+      reasonNote: string | null;
+      state: 'pending' | 'accepted' | 'returned';
+      raisedByName: string;
+      raisedAt: string;
+      decidedByName: string | null;
+      decidedAt: string | null;
+      decisionNote: string | null;
+    } | null;
+  } | null;
   activity: TaskDetailActivity[];
 }
 
@@ -527,6 +550,7 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
   const [
     taskResult,
     checklistResult,
+    exceptionResult,
     barriersResult,
     updatesResult,
     attachmentsResult,
@@ -536,6 +560,14 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
   ] = await Promise.all([
     supabase.from('task_overview').select('*').eq('id', taskId).maybeSingle(),
     supabase.from('task_checklist_items').select('*').eq('task_id', taskId).order('position'),
+    // Latest first: a returned occurrence can be raised again, and it is the
+    // most recent statement that describes where it stands.
+    supabase
+      .from('routine_occurrence_exceptions')
+      .select('*')
+      .eq('task_id', taskId)
+      .order('raised_at', { ascending: false })
+      .limit(1),
     supabase.from('barriers').select('*').eq('task_id', taskId).order('raised_at', {
       ascending: false,
     }),
@@ -669,6 +701,35 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
   const rawCapabilities = (capabilityResult.data ?? {}) as Record<string, unknown>;
   const overview = toTaskOverview(taskResult.data as Record<string, unknown>);
 
+  let routine: TaskDetail['routine'] = null;
+  if (overview.routineTemplateId) {
+    const { data: template } = await supabase
+      .from('routine_template_overview')
+      .select('evidence_required,evidence_instruction')
+      .eq('id', overview.routineTemplateId)
+      .maybeSingle();
+    const raw = (exceptionResult.data ?? [])[0] as Record<string, unknown> | undefined;
+    routine = {
+      evidenceRequired: Boolean(template?.evidence_required),
+      evidenceInstruction: template?.evidence_instruction
+        ? String(template.evidence_instruction)
+        : null,
+      exception: raw
+        ? {
+            id: String(raw.id),
+            reasonCode: raw.reason_code as 'no_applicable_work' | 'activity_cancelled' | 'other',
+            reasonNote: raw.reason_note ? String(raw.reason_note) : null,
+            state: raw.state as 'pending' | 'accepted' | 'returned',
+            raisedByName: personName(raw.raised_by),
+            raisedAt: String(raw.raised_at),
+            decidedByName: raw.decided_by ? personName(raw.decided_by) : null,
+            decidedAt: raw.decided_at ? String(raw.decided_at) : null,
+            decisionNote: raw.decision_note ? String(raw.decision_note) : null,
+          }
+        : null,
+    };
+  }
+
   return {
     task: overview,
     capabilities: {
@@ -790,6 +851,7 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
       recordedAt: String(row.recorded_at),
       createdTaskId: row.created_task_id ? String(row.created_task_id) : null,
     })),
+    routine,
     activity: (activityResult.data ?? []).map((row) => ({
       id: row.id as string,
       eventType: row.event_type as string,
@@ -807,6 +869,116 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
  * interface. Completed ones from the recent past are included so a person can
  * see what they have already done this week.
  */
+/**
+ * A routine occurrence has two honest outcomes, and this reads both.
+ *
+ * `done` is a completion, with its steps and evidence already recorded.
+ * `not_required` is the other one: the work genuinely did not apply, said once
+ * by the person it belonged to and accepted by their manager. Both belong in
+ * the same history, because "what happened to the September Gemba Walk" is one
+ * question, not two.
+ */
+export interface RoutineOutcome {
+  taskId: string;
+  title: string;
+  occurrenceDate: string | null;
+  outcome: 'done' | 'not_required' | 'awaiting_decision' | 'open';
+  completedAt: string | null;
+  exceptionId: string | null;
+  reasonCode: 'no_applicable_work' | 'activity_cancelled' | 'other' | null;
+  reasonNote: string | null;
+  raisedByName: string | null;
+  decidedByName: string | null;
+  decisionNote: string | null;
+  raisedAt: string | null;
+}
+
+function toRoutineOutcome(row: Record<string, unknown>): RoutineOutcome {
+  return {
+    taskId: String(row.task_id),
+    title: String(row.title),
+    occurrenceDate: row.occurrence_date ? String(row.occurrence_date) : null,
+    outcome: row.outcome as RoutineOutcome['outcome'],
+    completedAt: row.completed_at ? String(row.completed_at) : null,
+    exceptionId: row.exception_id ? String(row.exception_id) : null,
+    reasonCode: (row.reason_code as RoutineOutcome['reasonCode']) ?? null,
+    reasonNote: row.reason_note ? String(row.reason_note) : null,
+    raisedByName: row.raised_by_name ? String(row.raised_by_name) : null,
+    decidedByName: row.decided_by_name ? String(row.decided_by_name) : null,
+    decisionNote: row.decision_note ? String(row.decision_note) : null,
+    raisedAt: row.raised_at ? String(row.raised_at) : null,
+  };
+}
+
+/** One person's finished routine occurrences, both outcomes, newest first. */
+export async function getRoutineOutcomes(
+  userId: string,
+  sinceIso: string,
+  untilIso: string | null,
+): Promise<{ outcomes: RoutineOutcome[]; failed: boolean }> {
+  const supabase = await createSupabaseServerClient();
+  const since = sinceIso.slice(0, 10);
+  let query = supabase
+    .from('routine_occurrence_outcomes')
+    .select('*')
+    .eq('primary_owner_id', userId)
+    .in('outcome', ['done', 'not_required'])
+    .gte('occurrence_date', since);
+  if (untilIso) query = query.lte('occurrence_date', untilIso.slice(0, 10));
+
+  const { data, error } = await query.order('occurrence_date', { ascending: false }).limit(400);
+
+  if (error) {
+    console.error(`[getRoutineOutcomes] ${error.message}`);
+    return { outcomes: [], failed: true };
+  }
+  return { outcomes: (data ?? []).map(toRoutineOutcome), failed: false };
+}
+
+/**
+ * What a manager has been asked to decide.
+ *
+ * Bounded by `focus.visible_user_ids` through the view's `security_invoker`,
+ * so it lists only people this manager can already see. The decision itself is
+ * checked again in the procedure; this is the queue, not the authority.
+ */
+export async function getRoutineExceptionQueue(
+  managerId: string,
+): Promise<{ pending: Array<RoutineOutcome & { ownerName: string }>; failed: boolean }> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('routine_occurrence_outcomes')
+    .select('*')
+    .eq('outcome', 'awaiting_decision')
+    .neq('raised_by', managerId)
+    .order('raised_at', { ascending: true })
+    .limit(100);
+
+  if (error) {
+    console.error(`[getRoutineExceptionQueue] ${error.message}`);
+    return { pending: [], failed: true };
+  }
+  const rows = data ?? [];
+  const ownerIds = Array.from(new Set(rows.map((row) => String(row.primary_owner_id))));
+  const names = new Map<string, string>();
+  if (ownerIds.length) {
+    const { data: people } = await supabase
+      .from('team_directory')
+      .select('id,full_name')
+      .in('id', ownerIds);
+    for (const person of people ?? []) {
+      names.set(String(person.id), String(person.full_name));
+    }
+  }
+  return {
+    pending: rows.map((row) => ({
+      ...toRoutineOutcome(row),
+      ownerName: names.get(String(row.primary_owner_id)) ?? 'Team member',
+    })),
+    failed: false,
+  };
+}
+
 export async function getRoutineOccurrences(
   userId: string,
   leadDays = 14,

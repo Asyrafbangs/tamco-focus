@@ -7,6 +7,7 @@ import { useState, useTransition } from 'react';
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker';
 import { Modal } from '@/components/ui/Modal';
 import { SideDrawer } from '@/components/ui/SideDrawer';
+import { RoutineOutcomePanel } from './RoutineOutcomePanel';
 import {
   ageChips,
   dueInputValue,
@@ -254,6 +255,16 @@ export function TaskDetailDrawer({
    * read what happened.
    */
   const isClosed = task.status === 'completed' || task.status === 'cancelled';
+  /*
+   * A routine occurrence is not a small piece of Focus work.
+   *
+   * Focus work runs for days and accumulates decisions, so it needs updates,
+   * barriers and a next thing to do. An inspection, a site visit or a monthly
+   * check has two honest outcomes - it was done, or it genuinely did not apply
+   * this time - and everything else about it the system already knows. Putting
+   * the general working apparatus on it turns a two-minute job into a form.
+   */
+  const isRoutineOccurrence = Boolean(task.routineTemplateId);
   /*
    * Mirrors what `complete_task` will accept, so the control appears exactly
    * when pressing it would succeed. The procedure refuses on incomplete
@@ -1343,7 +1354,32 @@ export function TaskDetailDrawer({
           </p>
         )}
 
-        {detail.capabilities.canContribute && !isClosed && (
+        {detail.routine && (
+          <RoutineOutcomePanel
+            taskId={task.id}
+            taskVersion={Math.max(taskVersion, task.version)}
+            routine={detail.routine}
+            status={task.status}
+            stepsTotal={detail.checklist.length}
+            stepsCompleted={checklistCompleted}
+            evidenceCount={detail.attachments.filter((file) => file.isEvidence).length}
+            canAct={detail.capabilities.canContribute && !isClosed}
+            canDecide={detail.capabilities.canEdit}
+            readyToComplete={readyToComplete}
+            blockers={completionBlockers}
+            pending={pending}
+            timeZone={timeZone}
+            onAddNote={() => setComposerOpen((current) => !current)}
+            noteOpen={composerOpen}
+            onCompleted={(message) => {
+              setMessage({ tone: 'success', text: message });
+              router.refresh();
+            }}
+            onFailed={(message) => setMessage({ tone: 'error', text: message })}
+          />
+        )}
+
+        {!isRoutineOccurrence && detail.capabilities.canContribute && !isClosed && (
           <div className="task-primary-actions">
             <button
               type="button"
@@ -1566,48 +1602,50 @@ export function TaskDetailDrawer({
           Activity history, where a record belongs, rather than in a feed people
           are meant to read.
         */}
-        <section className="task-accordion">
-          <button
-            type="button"
-            className="task-accordion-summary"
-            aria-expanded={openSection === 'updates'}
-            aria-controls={`task-updates-${task.id}`}
-            onClick={() => toggleSection('updates')}
-          >
-            <span className="task-accordion-copy">
-              <strong>
-                Updates <span className="task-accordion-count">{writtenUpdates.length}</span>
-              </strong>
-              <small>
-                {writtenUpdates[0]
-                  ? `Latest · ${formatClock(writtenUpdates[0].createdAt, timeZone)}`
-                  : 'No updates yet'}
-              </small>
-            </span>
-            <span aria-hidden="true">›</span>
-          </button>
-          {openSection === 'updates' && (
-            <div className="task-accordion-body" id={`task-updates-${task.id}`}>
-              {writtenUpdates.length === 0 ? (
-                <p className="muted">
-                  Nothing written yet. Add an update when there is something to tell people that the
-                  task does not already say by itself.
-                </p>
-              ) : (
-                <div className="task-update-list">
-                  {writtenUpdates.map((update) => (
-                    <article key={update.id} className="task-written-update">
-                      <p>{update.body}</p>
-                      <span className="muted">
-                        {update.authorName} · {formatMoment(update.createdAt, timeZone)}
-                      </span>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+        {(!isRoutineOccurrence || writtenUpdates.length > 0) && (
+          <section className="task-accordion">
+            <button
+              type="button"
+              className="task-accordion-summary"
+              aria-expanded={openSection === 'updates'}
+              aria-controls={`task-updates-${task.id}`}
+              onClick={() => toggleSection('updates')}
+            >
+              <span className="task-accordion-copy">
+                <strong>
+                  Updates <span className="task-accordion-count">{writtenUpdates.length}</span>
+                </strong>
+                <small>
+                  {writtenUpdates[0]
+                    ? `Latest · ${formatClock(writtenUpdates[0].createdAt, timeZone)}`
+                    : 'No updates yet'}
+                </small>
+              </span>
+              <span aria-hidden="true">›</span>
+            </button>
+            {openSection === 'updates' && (
+              <div className="task-accordion-body" id={`task-updates-${task.id}`}>
+                {writtenUpdates.length === 0 ? (
+                  <p className="muted">
+                    Nothing written yet. Add an update when there is something to tell people that
+                    the task does not already say by itself.
+                  </p>
+                ) : (
+                  <div className="task-update-list">
+                    {writtenUpdates.map((update) => (
+                      <article key={update.id} className="task-written-update">
+                        <p>{update.body}</p>
+                        <span className="muted">
+                          {update.authorName} · {formatMoment(update.createdAt, timeZone)}
+                        </span>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+        )}
 
         <section className="task-accordion">
           <button
@@ -1947,7 +1985,8 @@ export function TaskDetailDrawer({
           said when it is pressed rather than kept permanently on screen.
         */}
         <div className="task-detail-footer">
-          {detail.capabilities.canComplete &&
+          {!isRoutineOccurrence &&
+          detail.capabilities.canComplete &&
           task.status !== 'completed' &&
           task.status !== 'cancelled' ? (
             <button

@@ -223,3 +223,84 @@ export async function restoreRoutineTemplate(input: {
     p_idempotency_key: parsed.data.idempotencyKey ?? null,
   });
 }
+
+/**
+ * The second of a routine occurrence's two outcomes.
+ *
+ * "I did it" is `completeTask`, which already exists and already records who,
+ * when, which steps and what evidence. This is the other one: the work
+ * genuinely did not apply this time. It is the only thing about a routine that
+ * the system cannot work out for itself, which is why it is the only thing an
+ * employee is asked to type - and for the common reasons, not even that.
+ */
+export async function markRoutineNotRequired(input: {
+  taskId: string;
+  reasonCode: 'no_applicable_work' | 'activity_cancelled' | 'other';
+  reasonNote?: string | null;
+  idempotencyKey?: string;
+}) {
+  await requireProfile();
+  const parsed = z
+    .object({
+      taskId: z.string().uuid(),
+      reasonCode: z.enum(['no_applicable_work', 'activity_cancelled', 'other']),
+      reasonNote: z.string().trim().max(500).nullish(),
+      idempotencyKey: z.string().min(8).max(128).optional(),
+    })
+    .refine((value) => value.reasonCode !== 'other' || Boolean(value.reasonNote), {
+      message: 'Say briefly why it was not required.',
+      path: ['reasonNote'],
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      code: 'validation_failed',
+      message: parsed.error.issues[0]?.message ?? 'Choose a reason.',
+    };
+  }
+  return call('mark_routine_not_required', {
+    p_task_id: parsed.data.taskId,
+    p_reason_code: parsed.data.reasonCode,
+    p_reason_note: parsed.data.reasonNote ?? null,
+    p_idempotency_key: parsed.data.idempotencyKey ?? null,
+  });
+}
+
+/**
+ * Accept is one click. Returning it costs a sentence, because the person has
+ * to know what still needs doing.
+ */
+export async function decideRoutineException(input: {
+  exceptionId: string;
+  accept: boolean;
+  note?: string | null;
+  idempotencyKey?: string;
+}) {
+  await requireProfile();
+  const parsed = z
+    .object({
+      exceptionId: z.string().uuid(),
+      accept: z.boolean(),
+      note: z.string().trim().max(500).nullish(),
+      idempotencyKey: z.string().min(8).max(128).optional(),
+    })
+    .refine((value) => value.accept || Boolean(value.note), {
+      message: 'Say why it is coming back.',
+      path: ['note'],
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      code: 'validation_failed',
+      message: parsed.error.issues[0]?.message ?? 'Nothing changed.',
+    };
+  }
+  return call('decide_routine_exception', {
+    p_exception_id: parsed.data.exceptionId,
+    p_accept: parsed.data.accept,
+    p_note: parsed.data.note ?? null,
+    p_idempotency_key: parsed.data.idempotencyKey ?? null,
+  });
+}

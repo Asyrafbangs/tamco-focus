@@ -9704,3 +9704,160 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   min-width: 0;
   width: 100%;
 }
+
+/* ------------------------------------------------------------------------ */
+/* v91 - a routine occurrence has two outcomes                               */
+/* ------------------------------------------------------------------------ */
+
+.routine-outcome {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--line-soft);
+}
+.routine-outcome-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.routine-outcome strong {
+  font-size: 12.5px;
+}
+.routine-outcome span {
+  font-size: 11.5px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.routine-outcome .muted {
+  color: var(--muted);
+  font-size: 11px;
+}
+.routine-outcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+/* Quiet on purpose. It is the right answer sometimes, never the first one. */
+.routine-skip,
+.routine-note {
+  color: var(--muted);
+}
+.routine-skip:hover,
+.routine-note:hover {
+  color: var(--text);
+}
+.routine-note {
+  justify-self: start;
+}
+
+.routine-outcome.settled.done {
+  border-color: color-mix(in srgb, var(--green) 35%, var(--line));
+  background: var(--green-bg);
+}
+.routine-outcome.settled.skipped {
+  border-color: var(--line);
+  background: var(--surface);
+}
+.routine-outcome.awaiting {
+  border-color: color-mix(in srgb, var(--amber) 35%, var(--line));
+  background: var(--amber-bg);
+}
+
+.routine-returned {
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--red) 30%, var(--line));
+  border-radius: var(--radius-sm);
+  background: var(--red-bg);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+/* The rule belongs to the schedule, so it states itself rather than asking. */
+.routine-evidence {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px dashed color-mix(in srgb, var(--blue) 40%, var(--line));
+  border-radius: var(--radius-sm);
+  background: var(--blue-bg);
+}
+.routine-evidence span {
+  color: var(--muted);
+}
+
+.routine-reasons {
+  display: grid;
+  gap: 8px;
+}
+.routine-reasons > .btn {
+  justify-content: flex-start;
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+}
+.routine-reason-other {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.routine-reason-other label {
+  display: grid;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.routine-reason-other input {
+  min-width: 0;
+  width: 100%;
+}
+.routine-reason-other .btn {
+  justify-self: start;
+}
+
+/* The manager's queue. Absent entirely when there is nothing to decide, which
+   is the normal state of it. */
+.routine-exception-queue {
+  margin: 14px 0 0;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--amber) 35%, var(--line));
+  border-radius: var(--radius-sm);
+  background: var(--amber-bg);
+}
+.routine-exception-queue h2 {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+}
+.routine-exception-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+}
+.routine-exception-row + .routine-exception-row {
+  border-top: 1px solid color-mix(in srgb, var(--amber) 20%, var(--line));
+}
+.routine-exception-row > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.routine-exception-row strong {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.routine-exception-row span {
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.routine-exception-row .muted {
+  color: var(--muted);
+}
