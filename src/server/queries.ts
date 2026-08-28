@@ -1823,24 +1823,50 @@ export async function getDirectoryData(): Promise<DirectoryData> {
 
 export interface VisibilityData {
   mode: 'specific_only' | 'direct_reports_plus' | 'none';
+  /**
+   * False when nobody has chosen this mode and it is the default for their
+   * role. The distinction matters to the editor: a default has to be shown as
+   * a default, because saving the form is what turns it into a decision.
+   */
+  configured: boolean;
   selectedSubjectIds: string[];
   effective: Array<{ userId: string; fullName: string; employeeId: string; source: string }>;
 }
 
+/**
+ * What one person can see, as the database understands it.
+ *
+ * Read through `get_visibility_state` rather than off the policy table. The
+ * table only records a decision somebody made; it says nothing about the
+ * people nobody has configured, and reading it directly meant treating "no
+ * row" as `specific_only` — which stopped being true for managers at v68 and
+ * left this screen quietly describing the wrong rule. The procedure answers
+ * with the mode actually in force and says whether it was stored or defaulted.
+ */
 export async function getVisibilityData(viewerId: string): Promise<VisibilityData> {
   const supabase = await createSupabaseServerClient();
-  const [policyResult, grantsResult, previewResult] = await Promise.all([
-    supabase.from('visibility_policies').select('mode').eq('viewer_id', viewerId).maybeSingle(),
-    supabase.from('visibility_grants').select('subject_id').eq('viewer_id', viewerId),
+  const [stateResult, previewResult] = await Promise.all([
+    supabase.rpc('get_visibility_state', { p_viewer_id: viewerId }),
     supabase.rpc('preview_effective_visibility', { p_viewer_id: viewerId }),
   ]);
   if (previewResult.error) {
     console.error(`[preview_effective_visibility] ${previewResult.error.message}`);
     throw new Error('VISIBILITY_UNAVAILABLE');
   }
+  const state = stateResult.data as {
+    ok?: boolean;
+    mode?: VisibilityData['mode'];
+    configured?: boolean;
+    subject_ids?: string[];
+  } | null;
+  if (stateResult.error || !state?.ok) {
+    console.error(`[get_visibility_state] ${stateResult.error?.message ?? 'refused'}`);
+    throw new Error('VISIBILITY_UNAVAILABLE');
+  }
   return {
-    mode: (policyResult.data?.mode as VisibilityData['mode'] | undefined) ?? 'specific_only',
-    selectedSubjectIds: (grantsResult.data ?? []).map((row) => row.subject_id as string),
+    mode: state.mode ?? 'specific_only',
+    configured: state.configured === true,
+    selectedSubjectIds: (state.subject_ids ?? []).map(String),
     effective: (previewResult.data ?? []).map(
       (row: { user_id: string; full_name: string; employee_id: string; source: string }) => ({
         userId: row.user_id as string,

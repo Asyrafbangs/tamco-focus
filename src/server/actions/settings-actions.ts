@@ -169,6 +169,14 @@ export async function updateOrgSettingAction(
   return { ok: true, code: 'setting_updated', message: 'Organisation setting saved.' };
 }
 
+/** The words the User directory uses for each role, so a read-back names the
+ * same thing the dropdown does. */
+const ROLE_LABELS = {
+  team_member: 'Team member',
+  manager: 'Manager',
+  administrator: 'Administrator',
+} as const;
+
 const provisionSchema = z.object({
   fullName: z.string().trim().min(1).max(120),
   employeeId: z
@@ -343,8 +351,58 @@ export async function updateUserAction(
     return resultState(result ?? {}, 'User updated.');
   }
 
+  /*
+   * Report what the database now holds, not what was submitted.
+   *
+   * Both were previously indistinguishable on screen. The inputs are
+   * uncontrolled, so they keep whatever was typed whether or not it was
+   * written, and the banner only repeated the request back as "User details
+   * saved." An administrator changing somebody's role had no way to tell a
+   * successful save from one that had not taken, which is exactly the doubt
+   * that made this screen untrustworthy. So the row is read back and the
+   * stored values are named in the message.
+   */
+  const { data: stored } = await caller
+    .from('user_profiles')
+    .select('role,reporting_manager_id')
+    .eq('id', parsed.data.userId)
+    .maybeSingle();
+
   revalidatePath('/more/admin/users');
-  return { ok: true, code: 'user_updated', message: 'User details saved.' };
+
+  if (!stored) {
+    return { ok: true, code: 'user_updated', message: 'User details saved.' };
+  }
+
+  const storedRole = String(stored.role) as keyof typeof ROLE_LABELS;
+  const storedManagerId = (stored.reporting_manager_id as string | null) ?? null;
+  if (storedRole !== parsed.data.role || storedManagerId !== parsed.data.reportingManagerId) {
+    return {
+      ok: false,
+      code: 'not_persisted',
+      message: `The save was accepted but the record still reads ${ROLE_LABELS[storedRole] ?? storedRole}${
+        storedManagerId ? '' : ' with no reporting manager'
+      }. Nothing was changed. Tell an administrator, and do not assume the change took.`,
+    };
+  }
+
+  let managerPhrase = 'no reporting manager';
+  if (storedManagerId) {
+    const { data: manager } = await caller
+      .from('user_profiles')
+      .select('full_name,employee_id')
+      .eq('id', storedManagerId)
+      .maybeSingle();
+    managerPhrase = manager
+      ? `reporting to ${String(manager.full_name)} (${String(manager.employee_id)})`
+      : 'reporting to an account that no longer exists';
+  }
+
+  return {
+    ok: true,
+    code: 'user_updated',
+    message: `Saved. The record now reads ${ROLE_LABELS[storedRole] ?? storedRole}, ${managerPhrase}.`,
+  };
 }
 
 export async function changeUserStatusAction(
@@ -426,6 +484,14 @@ export async function changeUserStatusAction(
   };
 }
 
+/** The words the editor puts on each radio, so the confirmation names the one
+ * that was chosen rather than its database spelling. */
+const MODE_LABELS = {
+  specific_only: 'Specific people only',
+  direct_reports_plus: 'Direct reports + selected people',
+  none: 'No team visibility',
+} as const;
+
 export async function setVisibilityAction(
   _previous: SettingsActionState,
   formData: FormData,
@@ -458,13 +524,29 @@ export async function setVisibilityAction(
     return initialError('Visibility rules could not be saved.');
   }
   const state = resultState(data as RpcResult, 'Visibility rules saved and audited.');
-  if (state.ok) {
-    revalidatePath('/more/admin/visibility');
-    // The same editor is on the person's own page in the User directory, so
-    // saving from there has to refresh there too.
-    revalidatePath('/more/admin/users');
-    // Visibility decides who appears in My Team, which now lives inside Work.
-    revalidatePath('/work');
-  }
-  return state;
+  if (!state.ok) return state;
+
+  revalidatePath('/more/admin/visibility');
+  // The same editor is on the person's own page in the User directory, so
+  // saving from there has to refresh there too.
+  revalidatePath('/more/admin/users');
+  // Visibility decides who appears in My Team, which now lives inside Work.
+  revalidatePath('/work');
+
+  // Say what the rule now reaches, counted by the database rather than by the
+  // form. "Saved" on its own was the complaint: it confirmed the request had
+  // been sent, not that the rule had changed.
+  const { data: preview } = await supabase.rpc('preview_effective_visibility', {
+    p_viewer_id: parsed.data.viewerId,
+  });
+  const reach = Array.isArray(preview) ? Math.max(0, preview.length - 1) : null;
+  return {
+    ...state,
+    message:
+      reach === null
+        ? state.message
+        : `Saved. ${MODE_LABELS[parsed.data.mode]} — ${
+            reach === 0 ? 'own work only' : `own work plus ${reach} people`
+          }.`,
+  };
 }

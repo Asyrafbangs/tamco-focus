@@ -299,6 +299,12 @@ export function SettingsPolicyRow({
   );
 }
 
+const ROLE_WORDS: Record<DirectoryUser['role'], string> = {
+  team_member: 'team member',
+  manager: 'manager',
+  administrator: 'administrator',
+};
+
 const peopleOptions = (users: DirectoryUser[], excludeId?: string) =>
   users.filter((user) => user.status === 'active' && user.id !== excludeId);
 
@@ -437,6 +443,17 @@ export function UserEditForm({
             <option value="manager">Manager</option>
             <option value="administrator">Administrator</option>
           </select>
+          {/*
+            Said out loud because the absence of an effect reads as a failed
+            save. Promoting somebody to Manager on its own changes very little:
+            the powers that matter are attached to the reporting line, and what
+            they can see is decided by the panel below. The one thing the role
+            does decide is the default when no visibility rule has been stored.
+          */}
+          <small className="form-hint">
+            Manager powers follow the reporting line, not the title — they apply to whoever reports
+            to this person. What they can see is set below.
+          </small>
         </label>
         <label>
           <span>Reporting manager</span>
@@ -521,21 +538,41 @@ export function UserStatusForm({ user }: { user: DirectoryUser }) {
   );
 }
 
+/**
+ * Who one person may see.
+ *
+ * Two questions are shown separately on purpose, because conflating them is
+ * what made this screen untrustworthy. "In force now" is the database's own
+ * answer, read back through `preview_effective_visibility` — it is what the
+ * row-level policies will actually do this second. "After you save" is a
+ * projection of the unsaved form, and only appears once something has been
+ * changed. Previously there was one panel, computed in the browser, presented
+ * as though it were the live rule.
+ */
 export function VisibilityForm({
   viewer,
   users,
   initialMode,
   initialSubjectIds,
+  configured,
+  effectiveNow,
 }: {
   viewer: DirectoryUser;
   users: DirectoryUser[];
   initialMode: 'specific_only' | 'direct_reports_plus' | 'none';
   initialSubjectIds: string[];
+  /** False when no policy has been stored and the mode is the role default. */
+  configured: boolean;
+  effectiveNow: Array<{ userId: string; fullName: string; employeeId: string; source: string }>;
 }) {
   const [state, action, pending] = useActionState(setVisibilityAction, INITIAL_STATE);
   const [mode, setMode] = useState(initialMode);
   const [selected, setSelected] = useState(() => new Set(initialSubjectIds));
   const activePeople = users.filter((user) => user.status === 'active' && user.id !== viewer.id);
+  const dirty =
+    mode !== initialMode ||
+    selected.size !== initialSubjectIds.length ||
+    initialSubjectIds.some((id) => !selected.has(id));
   const effective = useMemo(() => {
     if (viewer.role === 'administrator')
       return activePeople.map((user) => ({ user, source: 'administrator scope' }));
@@ -562,6 +599,11 @@ export function VisibilityForm({
   return (
     <form action={action} className="settings-form visibility-form">
       <input type="hidden" name="viewerId" value={viewer.id} />
+      <p className={configured ? 'form-hint' : 'form-hint form-hint-default'}>
+        {configured
+          ? 'This rule was set here. It overrides whatever the role would give.'
+          : `Nobody has set a rule for ${viewer.fullName.split(' ')[0]}. The mode below is the default for a ${ROLE_WORDS[viewer.role]} — saving this form turns it into a fixed rule that the role no longer changes.`}
+      </p>
       <fieldset>
         <legend>Visibility mode</legend>
         <label className="radio-row">
@@ -642,25 +684,50 @@ export function VisibilityForm({
           placeholder="Explain the operational need"
         />
       </label>
-      <section className="effective-preview" aria-live="polite">
-        <h3>Effective-access preview</h3>
+      <section className="effective-preview">
+        <h3>In force now</h3>
         <p>
-          {viewer.fullName} will always see their own work
-          {effective.length ? ` and ${effective.length} authorised people` : ''}.
+          {viewer.fullName} can see their own work
+          {effectiveNow.length > 1
+            ? ` and ${effectiveNow.length - 1} other people`
+            : ' and nobody else'}
+          . This is the database answering, not a preview.
         </p>
-        {effective.length > 0 && (
+        {effectiveNow.length > 0 && (
           <ul>
-            {effective.map(({ user, source }) => (
-              <li key={user.id}>
+            {effectiveNow.map((person) => (
+              <li key={person.userId}>
                 <span>
-                  {user.fullName} · {user.employeeId}
+                  {person.fullName} · {person.employeeId}
                 </span>
-                <small>{source}</small>
+                <small>{person.source}</small>
               </li>
             ))}
           </ul>
         )}
       </section>
+      {dirty && (
+        <section className="effective-preview pending" aria-live="polite">
+          <h3>After you save</h3>
+          <p>
+            {effective.length
+              ? `${viewer.fullName} would see their own work and ${effective.length} other people.`
+              : `${viewer.fullName} would see only their own work.`}
+          </p>
+          {effective.length > 0 && (
+            <ul>
+              {effective.map(({ user, source }) => (
+                <li key={user.id}>
+                  <span>
+                    {user.fullName} · {user.employeeId}
+                  </span>
+                  <small>{source}</small>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
       <ActionStatus state={state} />
       <button className="btn primary" type="submit" disabled={pending} aria-busy={pending}>
         {pending ? 'Saving…' : 'Save visibility rules'}

@@ -157,6 +157,8 @@ export default async function UsersPage({
                     users={directory.users}
                     initialMode={visibility.mode}
                     initialSubjectIds={visibility.selectedSubjectIds}
+                    configured={visibility.configured}
+                    effectiveNow={visibility.effective}
                   />
                 </section>
               )}

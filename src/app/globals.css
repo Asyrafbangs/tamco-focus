@@ -2740,6 +2740,25 @@ button {
 .effective-preview small {
   color: var(--muted);
 }
+/* The unsaved projection, told apart from the live rule by colour rather than
+   by reading the heading. Amber because nothing has been written yet. */
+.effective-preview.pending {
+  margin-top: 10px;
+  background: var(--amber-bg);
+  border-color: color-mix(in srgb, var(--amber) 25%, var(--line));
+}
+.effective-preview.pending li {
+  border-top-color: color-mix(in srgb, var(--amber) 20%, var(--line));
+}
+/* A mode nobody chose. Said in the same colour as the projection, because it
+   is the same kind of statement: this is not yet a decision. */
+.form-hint-default {
+  padding: 8px 10px;
+  background: var(--amber-bg);
+  border: 1px solid color-mix(in srgb, var(--amber) 25%, var(--line));
+  border-radius: var(--radius-sm);
+  color: var(--text);
+}
 
 @media (max-width: 900px) {
   .metric-grid,
