@@ -10031,3 +10031,42 @@ button.attachment-row {
     padding: 10px 13px 16px;
   }
 }
+
+/* What came with an update, on the update. The files used to be reachable only
+   from Activity history, which is the record rather than the reading list. */
+.task-update-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 8px;
+}
+.task-update-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--blue);
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.task-update-file::before {
+  content: '📎';
+  font-size: 10px;
+}
+.task-update-file:hover {
+  border-color: var(--blue);
+  background: var(--blue-bg);
+}
+.task-update-file:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}

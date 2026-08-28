@@ -262,6 +262,21 @@ export function TaskDetailDrawer({
   const writtenUpdates = detail.updates.filter(
     (update) => !update.isEvidenceOnly && update.body && update.body.trim().length > 0,
   );
+  /*
+   * What was attached to each update, beside the words it came with.
+   *
+   * The files were reachable only from Activity history, which is the record
+   * rather than the reading list - so an update posted WITH a photo showed the
+   * sentence and hid the photo, and the one place somebody would look for it
+   * was the one place it was not.
+   */
+  const attachmentsByUpdate = new Map<string, TaskDetailAttachment[]>();
+  for (const file of detail.attachments) {
+    if (!file.updateId) continue;
+    const held = attachmentsByUpdate.get(file.updateId) ?? [];
+    held.push(file);
+    attachmentsByUpdate.set(file.updateId, held);
+  }
   const ownerName =
     detail.participants.find((person) => person.id === task.primaryOwnerId)?.fullName ??
     'Unassigned';
@@ -520,16 +535,7 @@ export function TaskDetailDrawer({
         title={task.title}
         titleId="task-detail-title"
       >
-        {/* The task's own fields are not hidden with CSS but simply not
-          rendered: a file is being read, and everything else on the screen is
-          a different subject. Collapsing brings them back untouched, because
-          nothing about them was unmounted in a way that loses work - the
-          composer and its draft live above this point. */}
-        {viewingFile && (
-          <AttachmentViewer file={viewingFile} onClose={() => setViewingFile(null)} />
-        )}
-
-        <div className="task-detail-scroll" hidden={Boolean(viewingFile)}>
+        <div className="task-detail-scroll">
           {message && (
             <div
               className={`notice ${message.tone === 'error' ? 'error' : 'success'}`}
@@ -698,7 +704,14 @@ export function TaskDetailDrawer({
         )
       }
     >
-      <div className="task-detail-scroll">
+      {/* The task's own fields are not hidden with CSS but simply not
+          rendered: a file is being read, and everything else on the screen is
+          a different subject. Collapsing brings them back untouched - the
+          composer and its draft live above this point, so nothing holding
+          unsaved work is unmounted. */}
+      {viewingFile && <AttachmentViewer file={viewingFile} onClose={() => setViewingFile(null)} />}
+
+      <div className="task-detail-scroll" hidden={Boolean(viewingFile)}>
         {/*
           v46 §5, §38-42 — the barrier surface, and only one of them at a time.
 
@@ -1684,14 +1697,42 @@ export function TaskDetailDrawer({
                   </p>
                 ) : (
                   <div className="task-update-list">
-                    {writtenUpdates.map((update) => (
-                      <article key={update.id} className="task-written-update">
-                        <p>{update.body}</p>
-                        <span className="muted">
-                          {update.authorName} · {formatMoment(update.createdAt, timeZone)}
-                        </span>
-                      </article>
-                    ))}
+                    {writtenUpdates.map((update) => {
+                      const files = attachmentsByUpdate.get(update.id) ?? [];
+                      return (
+                        <article key={update.id} className="task-written-update">
+                          <p>{update.body}</p>
+                          {files.length > 0 && (
+                            <div className="task-update-files">
+                              {files.map((file) =>
+                                canPreview(file.mimeType) ? (
+                                  <button
+                                    key={file.id}
+                                    type="button"
+                                    className="task-update-file"
+                                    onClick={() => setViewingFile(file)}
+                                  >
+                                    {file.fileName}
+                                  </button>
+                                ) : (
+                                  <Link
+                                    key={file.id}
+                                    href={`/api/attachments/${file.id}`}
+                                    target="_blank"
+                                    className="task-update-file"
+                                  >
+                                    {file.fileName}
+                                  </Link>
+                                ),
+                              )}
+                            </div>
+                          )}
+                          <span className="muted">
+                            {update.authorName} · {formatMoment(update.createdAt, timeZone)}
+                          </span>
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
               </div>
