@@ -302,6 +302,15 @@ export interface TaskDetailChecklistItem {
   dueAt: string | null;
   dependsOnItemId: string | null;
   state: 'waiting' | 'ready' | 'completed';
+  /**
+   * Whether this viewer may tick or untick this particular step. Task-wide
+   * contribute authority is not enough: a step is a claim about one named
+   * person's work, so it belongs to them and to whoever assigned it. Mirrors
+   * `focus.can_complete_checklist_item`, which is the authority.
+   */
+  canComplete: boolean;
+  /** Why the step is parked, when it is. Two unrelated rules put it there. */
+  waitingReason: string | null;
   completedByName: string | null;
   completedAt: string | null;
   completionNote: string | null;
@@ -559,9 +568,10 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
     ]),
   );
   const rawCapabilities = (capabilityResult.data ?? {}) as Record<string, unknown>;
+  const overview = toTaskOverview(taskResult.data as Record<string, unknown>);
 
   return {
-    task: toTaskOverview(taskResult.data as Record<string, unknown>),
+    task: overview,
     capabilities: {
       canView: Boolean(rawCapabilities.can_view),
       canContribute: Boolean(rawCapabilities.can_contribute),
@@ -572,19 +582,40 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
       canReassign: Boolean(rawCapabilities.can_reassign),
       canCancel: Boolean(rawCapabilities.can_cancel),
     },
-    checklist: (checklistResult.data ?? []).map((row) => ({
-      id: row.id as string,
-      action: row.action as string,
-      assignedTo: (row.assigned_to as string) ?? null,
-      assignedName: row.assigned_to ? personName(row.assigned_to) : null,
-      evidenceRule: row.evidence_rule as TaskDetailChecklistItem['evidenceRule'],
-      dueAt: (row.due_at as string) ?? null,
-      dependsOnItemId: (row.depends_on_item_id as string) ?? null,
-      state: row.state as TaskDetailChecklistItem['state'],
-      completedByName: row.completed_by ? personName(row.completed_by) : null,
-      completedAt: (row.completed_at as string) ?? null,
-      completionNote: (row.completion_note as string) ?? null,
-    })),
+    checklist: (checklistResult.data ?? []).map((row) => {
+      const assignedTo = (row.assigned_to as string) ?? null;
+      const state = row.state as TaskDetailChecklistItem['state'];
+      /*
+       * The branches are in the order `focus.recalculate_checklist_readiness`
+       * applies them, so the sentence names the rule that actually parked the
+       * step. A contributor told "an earlier step must finish first" when the
+       * truth is "the owner has not started" goes looking for a prerequisite
+       * that does not exist.
+       */
+      const waitingReason =
+        state !== 'waiting'
+          ? null
+          : overview.status !== 'active' && assignedTo && assignedTo !== overview.primaryOwnerId
+            ? `${personName(taskResult.data.primary_owner_id)} has not started this work yet. Your step opens when they activate it.`
+            : row.depends_on_item_id
+              ? 'An earlier step must be completed first.'
+              : 'This step is not ready to be completed yet.';
+      return {
+        id: row.id as string,
+        action: row.action as string,
+        assignedTo,
+        assignedName: assignedTo ? personName(assignedTo) : null,
+        evidenceRule: row.evidence_rule as TaskDetailChecklistItem['evidenceRule'],
+        dueAt: (row.due_at as string) ?? null,
+        dependsOnItemId: (row.depends_on_item_id as string) ?? null,
+        state,
+        canComplete: assignedTo === viewerId || Boolean(rawCapabilities.can_edit),
+        waitingReason,
+        completedByName: row.completed_by ? personName(row.completed_by) : null,
+        completedAt: (row.completed_at as string) ?? null,
+        completionNote: (row.completion_note as string) ?? null,
+      };
+    }),
     updates: updates.map((row) => ({
       id: row.id as string,
       authorName: personName(row.author_id),

@@ -256,7 +256,6 @@ export function TaskChecklistPanel({
   nextAction,
   attachmentsByChecklist,
   canEdit,
-  canContribute,
   pending,
   timeZone,
   onMarkNextDone,
@@ -273,7 +272,6 @@ export function TaskChecklistPanel({
   nextAction: string | null;
   attachmentsByChecklist: Map<string, number>;
   canEdit: boolean;
-  canContribute: boolean;
   pending: boolean;
   timeZone: string;
   onMarkNextDone: () => void;
@@ -329,7 +327,9 @@ export function TaskChecklistPanel({
    * first — so the two can never diverge into different behaviours.
    */
   function completeItem(item: TaskDetailChecklistItem) {
-    if (!canContribute || item.state !== 'ready' || pending) return;
+    // Per step, not per task. Holding one step on a piece of work is not
+    // authority over somebody else's step on the same work.
+    if (!item.canComplete || item.state !== 'ready' || pending) return;
     if (item.evidenceRule === 'required') {
       onEvidence(item, 'complete');
       return;
@@ -546,7 +546,7 @@ export function TaskChecklistPanel({
           const evidenceCount = attachmentsByChecklist.get(item.id) ?? 0;
           return (
             <article key={item.id} className={`task-checklist-row ${item.state}`}>
-              {canContribute && item.state === 'ready' ? (
+              {item.canComplete && item.state === 'ready' ? (
                 <button
                   type="button"
                   className="checklist-state checklist-state-button"
@@ -580,9 +580,22 @@ export function TaskChecklistPanel({
                     {evidenceCount} evidence file{evidenceCount === 1 ? '' : 's'} attached
                   </span>
                 ) : null}
+                {/*
+                  A step with no button needs a sentence. "Waiting" on its own
+                  told the contributor nothing about who or what they were
+                  waiting for, and left them with nothing to do about it.
+                */}
+                {item.waitingReason ? (
+                  <span className="checklist-waiting-reason">{item.waitingReason}</span>
+                ) : null}
+                {item.state === 'ready' && !item.canComplete && item.assignedName ? (
+                  <span className="checklist-waiting-reason">
+                    {item.assignedName} completes this step.
+                  </span>
+                ) : null}
               </div>
               <div className="task-checklist-actions">
-                {canContribute && item.state === 'ready' && item.evidenceRule === 'optional' ? (
+                {item.canComplete && item.state === 'ready' && item.evidenceRule === 'optional' ? (
                   <button
                     type="button"
                     className="btn small ghost"
@@ -593,7 +606,7 @@ export function TaskChecklistPanel({
                     + Evidence
                   </button>
                 ) : null}
-                {canContribute && item.state === 'ready' ? (
+                {item.canComplete && item.state === 'ready' ? (
                   item.evidenceRule === 'required' ? (
                     <button
                       type="button"
@@ -616,7 +629,7 @@ export function TaskChecklistPanel({
                     </button>
                   )
                 ) : null}
-                {canContribute && item.state === 'completed' ? (
+                {item.canComplete && item.state === 'completed' ? (
                   <button
                     type="button"
                     className="btn small ghost checklist-undo"
@@ -627,7 +640,11 @@ export function TaskChecklistPanel({
                     Undo
                   </button>
                 ) : null}
-                {item.state === 'waiting' ? <span className="flag neutral">Waiting</span> : null}
+                {item.state === 'waiting' ? (
+                  <span className="flag neutral" title={item.waitingReason ?? undefined}>
+                    Waiting
+                  </span>
+                ) : null}
                 {/*
                  * v45 Part B — restructuring is edit authority, never
                  * contribute authority. A collaborator completes their step;

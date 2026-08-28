@@ -2030,7 +2030,6 @@ export function TaskDetailDrawer({
           nextAction={nextAction}
           attachmentsByChecklist={attachmentsByChecklist}
           canEdit={detail.capabilities.canEdit}
-          canContribute={detail.capabilities.canContribute}
           pending={pending}
           timeZone={timeZone}
           onMarkNextDone={() => saveNextAction(true)}

@@ -920,6 +920,18 @@
   color: var(--muted);
   font-size: 11px;
 }
+/* The explanation on a step the viewer cannot act on. Set apart from the
+   assignee and evidence lines above it, which are attributes of the step; this
+   one is the reason there is no button.
+
+   Selected through `.checklist-copy > span` deliberately: that rule paints
+   every line in this block muted and would otherwise win on specificity,
+   leaving the sentence looking like one more attribute. The drawer restates
+   its own size, so only the colour is claimed here. */
+.checklist-copy > span.checklist-waiting-reason {
+  margin-top: 2px;
+  color: var(--amber);
+}
 .checklist-evidence {
   margin-top: 8px;
   display: grid;
