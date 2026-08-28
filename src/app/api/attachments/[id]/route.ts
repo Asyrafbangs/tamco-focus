@@ -14,6 +14,11 @@ function canRenderInline(mimeType: string | null) {
   return mimeType === 'application/pdf' || /^image\/(png|jpeg|webp|gif)$/.test(mimeType);
 }
 
+/** Header-safe: a quote or a newline in a filename can forge a header. */
+function headerFilename(name: string) {
+  return name.replace(/["\\\r\n]/g, '_').slice(0, 200);
+}
+
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await requireProfile();
@@ -43,21 +48,48 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     return new Response('Attachment access could not be recorded', { status: 409 });
   }
 
-  /*
-   * `download` is what sets Content-Disposition: attachment on the signed URL,
-   * so the viewer has to ask for a URL without it. Reading a file in the page
-   * is still a view and is still recorded above; only the disposition differs.
-   */
+  const mimeType = (attachment.mime_type as string | null) ?? 'application/octet-stream';
   const wantsInline = new URL(request.url).searchParams.get('inline') === '1';
-  const inline = wantsInline && canRenderInline(attachment.mime_type as string | null);
+
+  if (wantsInline && canRenderInline(mimeType)) {
+    /*
+     * Streamed here rather than redirected to a signed URL.
+     *
+     * A signed URL arrives with whatever `Content-Disposition` the storage
+     * service decides, and in an iframe an `attachment` disposition is not a
+     * download - it is Chrome's grey "Open" placeholder, which is what this
+     * viewer showed. Serving the bytes ourselves means the two headers that
+     * decide whether a PDF renders are set by the code that intends it, and
+     * the file arrives same-origin so no signed URL is left in history.
+     *
+     * These are capped at 10 MB on the way in, so passing them through costs
+     * little and buys certainty.
+     */
+    const { data: blob, error: downloadError } = await supabase.storage
+      .from(attachment.storage_bucket)
+      .download(attachment.storage_path);
+
+    if (downloadError || !blob) return new Response('Not found', { status: 404 });
+
+    return new Response(blob.stream(), {
+      headers: {
+        'Content-Type': mimeType,
+        'Content-Disposition': `inline; filename="${headerFilename(String(attachment.file_name))}"`,
+        'Content-Length': String(blob.size),
+        // The allowlist above already excludes anything that can carry script;
+        // this stops a browser deciding for itself that it is something else.
+        'X-Content-Type-Options': 'nosniff',
+        // Private work. It may sit in this tab and nowhere else.
+        'Cache-Control': 'private, no-store',
+      },
+    });
+  }
 
   const { data: signed, error: signedError } = await supabase.storage
     .from(attachment.storage_bucket)
-    .createSignedUrl(
-      attachment.storage_path,
-      attachmentPolicy.signedUrlTtlSeconds,
-      inline ? {} : { download: attachment.file_name },
-    );
+    .createSignedUrl(attachment.storage_path, attachmentPolicy.signedUrlTtlSeconds, {
+      download: attachment.file_name,
+    });
 
   if (signedError || !signed?.signedUrl) return new Response('Not found', { status: 404 });
 

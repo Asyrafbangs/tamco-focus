@@ -42,7 +42,30 @@ const nextConfig: NextConfig = {
   },
 
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    return [
+      /*
+       * Everything except the attachment route, which needs one header
+       * different and cannot simply be given a second copy of it: two
+       * `X-Frame-Options` values on one response is treated as the stricter
+       * of the two, so the exception has to be carved out here rather than
+       * layered on top.
+       */
+      { source: '/:path((?!api/attachments).*)', headers: securityHeaders },
+      {
+        /*
+         * A file is not a page. `DENY` refuses framing even by our own origin,
+         * which is exactly what the in-drawer viewer does - so a PDF opened in
+         * the app was refused by the browser before it was ever drawn.
+         * `SAMEORIGIN` allows our viewer and nobody else's; the response is a
+         * document with no controls, so there is nothing to clickjack.
+         */
+        source: '/api/attachments/:path*',
+        headers: [
+          ...securityHeaders.filter((header) => header.key !== 'X-Frame-Options'),
+          { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+        ],
+      },
+    ];
   },
 
   /**
