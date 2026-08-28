@@ -9861,3 +9861,56 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .routine-exception-row .muted {
   color: var(--muted);
 }
+
+/* The period in four numbers, none of which anybody typed. */
+.routine-tally {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.routine-tally > div {
+  display: grid;
+  gap: 2px;
+}
+.routine-tally strong {
+  font-size: 18px;
+  line-height: 1.1;
+}
+.routine-tally span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.routine-tally-note {
+  grid-column: 1 / -1;
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* Setting a routine up is a once-a-year job; doing the work is weekly. The
+   configuration folds away so it is not the first thing on screen every time. */
+.routine-manage {
+  margin-top: 22px;
+  border-top: 1px solid var(--line);
+}
+.routine-manage > summary {
+  min-height: 44px;
+  padding: 14px 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.routine-manage > summary:hover {
+  color: var(--text);
+}
+
+@media (max-width: 720px) {
+  .routine-tally {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 13px;
+  }
+}

@@ -910,6 +910,115 @@ function toRoutineOutcome(row: Record<string, unknown>): RoutineOutcome {
   };
 }
 
+/**
+ * What a routine has actually produced, counted rather than typed.
+ *
+ * Every figure here already exists in the occurrence records: how many were
+ * scheduled, how many were done, how many were genuinely not needed, how many
+ * are still outstanding. Nobody enters them, and nobody should - a number a
+ * person types about their own work is a number nobody can rely on at year
+ * end. Counting them instead is what makes the evidence free.
+ */
+export interface RoutineTally {
+  templateId: string | null;
+  title: string;
+  scheduled: number;
+  done: number;
+  notRequired: number;
+  outstanding: number;
+  attachments: number;
+  stepsCompleted: number;
+}
+
+export async function getRoutineTally(
+  userId: string,
+  sinceIso: string,
+): Promise<{ tallies: RoutineTally[]; total: RoutineTally | null; failed: boolean }> {
+  const supabase = await createSupabaseServerClient();
+  const since = sinceIso.slice(0, 10);
+
+  const { data, error } = await supabase
+    .from('routine_occurrence_outcomes')
+    .select('task_id,title,routine_template_id,outcome,occurrence_date')
+    .eq('primary_owner_id', userId)
+    .gte('occurrence_date', since)
+    .limit(1000);
+
+  if (error) {
+    console.error(`[getRoutineTally] ${error.message}`);
+    return { tallies: [], total: null, failed: true };
+  }
+
+  const rows = data ?? [];
+  const taskIds = rows.map((row) => String(row.task_id));
+
+  // Counted from the records, so "96 attachments" is the number of files that
+  // exist rather than a claim about them.
+  const [attachments, steps] = await Promise.all([
+    taskIds.length
+      ? supabase.from('attachments').select('task_id').in('task_id', taskIds).limit(2000)
+      : Promise.resolve({ data: [] as Array<{ task_id: unknown }> }),
+    taskIds.length
+      ? supabase
+          .from('task_checklist_items')
+          .select('task_id')
+          .in('task_id', taskIds)
+          .eq('state', 'completed')
+          .limit(4000)
+      : Promise.resolve({ data: [] as Array<{ task_id: unknown }> }),
+  ]);
+
+  const countBy = (list: Array<{ task_id: unknown }> | null) => {
+    const map = new Map<string, number>();
+    for (const row of list ?? []) {
+      const key = String(row.task_id);
+      map.set(key, (map.get(key) ?? 0) + 1);
+    }
+    return map;
+  };
+  const attachmentsByTask = countBy(attachments.data);
+  const stepsByTask = countBy(steps.data);
+
+  const blank = (templateId: string | null, title: string): RoutineTally => ({
+    templateId,
+    title,
+    scheduled: 0,
+    done: 0,
+    notRequired: 0,
+    outstanding: 0,
+    attachments: 0,
+    stepsCompleted: 0,
+  });
+
+  const byTemplate = new Map<string, RoutineTally>();
+  const total = blank(null, 'All routines');
+
+  for (const row of rows) {
+    const key = row.routine_template_id ? String(row.routine_template_id) : 'unscheduled';
+    const tally =
+      byTemplate.get(key) ?? blank(key === 'unscheduled' ? null : key, String(row.title));
+    const taskId = String(row.task_id);
+    const files = attachmentsByTask.get(taskId) ?? 0;
+    const stepsDone = stepsByTask.get(taskId) ?? 0;
+
+    for (const target of [tally, total]) {
+      target.scheduled += 1;
+      target.attachments += files;
+      target.stepsCompleted += stepsDone;
+      if (row.outcome === 'done') target.done += 1;
+      else if (row.outcome === 'not_required') target.notRequired += 1;
+      else target.outstanding += 1;
+    }
+    byTemplate.set(key, tally);
+  }
+
+  return {
+    tallies: [...byTemplate.values()].sort((left, right) => right.scheduled - left.scheduled),
+    total: rows.length ? total : null,
+    failed: false,
+  };
+}
+
 /** One person's finished routine occurrences, both outcomes, newest first. */
 export async function getRoutineOutcomes(
   userId: string,

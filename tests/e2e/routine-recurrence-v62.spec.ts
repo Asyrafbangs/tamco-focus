@@ -32,6 +32,9 @@ test.describe('v62 routine recurrence', () => {
     await signIn(page);
     await openRoutines(page);
 
+    // v93 - configuring a schedule folds away under Manage routines, so the
+    // administration is not the first thing on the page every time.
+    await page.getByText('Manage routines', { exact: true }).click();
     await page.getByRole('button', { name: 'Set up a routine' }).click();
     const dialog = page.getByRole('dialog', { name: 'Set up a routine' });
     await expect(dialog).toBeVisible();
@@ -70,6 +73,9 @@ test.describe('v62 routine recurrence', () => {
     await signIn(page);
     await openRoutines(page);
 
+    // v93 - configuring a schedule folds away under Manage routines, so the
+    // administration is not the first thing on the page every time.
+    await page.getByText('Manage routines', { exact: true }).click();
     await page.getByRole('button', { name: 'Set up a routine' }).click();
     const dialog = page.getByRole('dialog', { name: 'Set up a routine' });
     await dialog.locator('#routine-title').fill(title);
@@ -114,6 +120,9 @@ test.describe('v62 routine recurrence', () => {
     await signIn(page);
     await openRoutines(page);
 
+    // v93 - configuring a schedule folds away under Manage routines, so the
+    // administration is not the first thing on the page every time.
+    await page.getByText('Manage routines', { exact: true }).click();
     await page.getByRole('button', { name: 'Set up a routine' }).click();
     const dialog = page.getByRole('dialog', { name: 'Set up a routine' });
     await dialog.locator('#routine-title').fill(title);

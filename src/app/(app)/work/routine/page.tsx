@@ -26,6 +26,7 @@ import {
   getBinnedRoutines,
   getRoutineExceptionQueue,
   getRoutineOutcomes,
+  getRoutineTally,
   getRoutineTemplates,
   getTeamDirectory,
   getMyTasks,
@@ -70,9 +71,7 @@ export default async function RoutinePage({
    * useful default before a list stops being scannable.
    */
   const completedDays = params.period === '90' ? 90 : params.period === '60' ? 60 : 30;
-  const completedSince = new Date(
-    new Date().getTime() - completedDays * 86_400_000,
-  ).toISOString();
+  const completedSince = new Date(new Date().getTime() - completedDays * 86_400_000).toISOString();
 
   const [
     settings,
@@ -85,6 +84,7 @@ export default async function RoutinePage({
     binnedRoutines,
     routineOutcomes,
     exceptionQueue,
+    tally,
   ] = await Promise.all([
     getDisplaySettings(),
     getRoutineOccurrences(profile.id),
@@ -107,6 +107,11 @@ export default async function RoutinePage({
     isManager
       ? getRoutineExceptionQueue(profile.id)
       : Promise.resolve({ pending: [], failed: false }),
+    // Counted, never entered. Only on Completed, where somebody is already
+    // looking back rather than trying to get something done.
+    params.view === 'completed'
+      ? getRoutineTally(profile.id, completedSince)
+      : Promise.resolve({ tallies: [], total: null, failed: false }),
   ]);
 
   const timeZone = profile.timezone ?? 'Asia/Kuala_Lumpur';
@@ -227,20 +232,6 @@ export default async function RoutinePage({
         Routine work does not use any of your focus targets.
       </p>
 
-      {/* The schedules, above the work they create. */}
-      <section className="routine-manager">
-        <RoutineManager
-          templates={routines.templates}
-          failed={routines.failed}
-          canManageOthers={isManager}
-          people={directory}
-          viewerId={profile.id}
-          binned={binnedRoutines.routines}
-          binnedFailed={binnedRoutines.failed}
-          openWith={params.new ?? null}
-        />
-      </section>
-
       <FocusTabs
         label="Routine occurrences"
         items={(['due', 'upcoming', 'completed'] as RoutineView[]).map(
@@ -348,6 +339,33 @@ export default async function RoutinePage({
               ))}
             </div>
           </div>
+
+          {tally.total && (
+            <div className="routine-tally" aria-label="Routine summary for this period">
+              <div>
+                <strong>{tally.total.scheduled}</strong>
+                <span>Scheduled</span>
+              </div>
+              <div>
+                <strong>{tally.total.done}</strong>
+                <span>Completed</span>
+              </div>
+              <div>
+                <strong>{tally.total.notRequired}</strong>
+                <span>Not required</span>
+              </div>
+              <div>
+                <strong>{tally.total.outstanding}</strong>
+                <span>Outstanding</span>
+              </div>
+              <p className="routine-tally-note">
+                {tally.total.stepsCompleted} step{tally.total.stepsCompleted === 1 ? '' : 's'}{' '}
+                completed · {tally.total.attachments} attachment
+                {tally.total.attachments === 1 ? '' : 's'}. Counted from the occurrence records —
+                nobody enters these.
+              </p>
+            </div>
+          )}
 
           <p className="completed-count" role="status">
             {shownOutcomes.length} {shownOutcomes.length === 1 ? 'occurrence' : 'occurrences'}
@@ -488,6 +506,27 @@ export default async function RoutinePage({
           )}
         </div>
       )}
+      {/*
+        The schedules, under the work rather than over it.
+
+        Configuring a routine is something somebody does once; doing the work
+        is something they do every week. Putting the manager first meant the
+        administration was the first thing on screen every single time, for a
+        job most people never need to open.
+      */}
+      <details className="routine-manage">
+        <summary>Manage routines</summary>
+        <RoutineManager
+          templates={routines.templates}
+          failed={routines.failed}
+          canManageOthers={isManager}
+          people={directory}
+          viewerId={profile.id}
+          binned={binnedRoutines.routines}
+          binnedFailed={binnedRoutines.failed}
+          openWith={params.new ?? null}
+        />
+      </details>
     </>
   );
 }
