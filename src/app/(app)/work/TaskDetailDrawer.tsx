@@ -246,6 +246,15 @@ export function TaskDetailDrawer({
     detail.participants.find((person) => person.id === task.primaryOwnerId)?.fullName ??
     'Unassigned';
   /*
+   * Finished work is a record, not a workspace.
+   *
+   * Opened from Completed, the drawer offered the whole working apparatus -
+   * Add update, Need support, ticking steps - on something already delivered.
+   * The procedures refuse most of it anyway; what somebody wants here is to
+   * read what happened.
+   */
+  const isClosed = task.status === 'completed' || task.status === 'cancelled';
+  /*
    * Mirrors what `complete_task` will accept, so the control appears exactly
    * when pressing it would succeed. The procedure refuses on incomplete
    * checklist steps and on required evidence with no attachment; it accepts
@@ -1326,7 +1335,15 @@ export function TaskDetailDrawer({
           The two things somebody opening their own work normally wants. Both
           say what they do; neither is a disclosure to be discovered.
         */}
-        {detail.capabilities.canContribute && (
+        {isClosed && (
+          <p className="task-closed-note">
+            {task.status === 'completed' ? 'Completed' : 'Cancelled'}
+            {task.completedAt ? ` ${formatMoment(task.completedAt, timeZone)}` : ''}. This is a
+            record of what happened, so it is read-only.
+          </p>
+        )}
+
+        {detail.capabilities.canContribute && !isClosed && (
           <div className="task-primary-actions">
             <button
               type="button"
@@ -1342,7 +1359,7 @@ export function TaskDetailDrawer({
           </div>
         )}
 
-        {composerOpen && detail.capabilities.canContribute && (
+        {composerOpen && detail.capabilities.canContribute && !isClosed && (
           <form
             className="task-update-composer"
             onSubmit={(event) => {
@@ -1508,7 +1525,8 @@ export function TaskDetailDrawer({
                   }}
                   items={detail.checklist}
                   attachmentsByChecklist={attachmentsByChecklist}
-                  canEdit={detail.capabilities.canEdit}
+                  canEdit={detail.capabilities.canEdit && !isClosed}
+                  readOnly={isClosed}
                   pending={pending}
                   timeZone={timeZone}
                   onComplete={(itemId) =>

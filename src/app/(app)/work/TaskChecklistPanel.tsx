@@ -255,6 +255,7 @@ export function TaskChecklistPanel({
   items,
   attachmentsByChecklist,
   canEdit,
+  readOnly = false,
   pending,
   timeZone,
   onComplete,
@@ -268,6 +269,8 @@ export function TaskChecklistPanel({
   items: TaskDetailChecklistItem[];
   attachmentsByChecklist: Map<string, number>;
   canEdit: boolean;
+  /** Finished work. Every control that changes a step is withheld. */
+  readOnly?: boolean;
   pending: boolean;
   timeZone: string;
   onComplete: (itemId: string) => void;
@@ -321,7 +324,7 @@ export function TaskChecklistPanel({
   function completeItem(item: TaskDetailChecklistItem) {
     // Per step, not per task. Holding one step on a piece of work is not
     // authority over somebody else's step on the same work.
-    if (!item.canComplete || item.state !== 'ready' || pending) return;
+    if (readOnly || !item.canComplete || item.state !== 'ready' || pending) return;
     if (item.evidenceRule === 'required') {
       onEvidence(item, 'complete');
       return;
@@ -488,7 +491,7 @@ export function TaskChecklistPanel({
           const evidenceCount = attachmentsByChecklist.get(item.id) ?? 0;
           return (
             <article key={item.id} className={`task-checklist-row ${item.state}`}>
-              {item.canComplete && item.state === 'ready' ? (
+              {!readOnly && item.canComplete && item.state === 'ready' ? (
                 <button
                   type="button"
                   className="checklist-state checklist-state-button"
@@ -537,7 +540,10 @@ export function TaskChecklistPanel({
                 ) : null}
               </div>
               <div className="task-checklist-actions">
-                {item.canComplete && item.state === 'ready' && item.evidenceRule === 'optional' ? (
+                {!readOnly &&
+                item.canComplete &&
+                item.state === 'ready' &&
+                item.evidenceRule === 'optional' ? (
                   <button
                     type="button"
                     className="btn small ghost"
@@ -548,7 +554,7 @@ export function TaskChecklistPanel({
                     + Evidence
                   </button>
                 ) : null}
-                {item.canComplete && item.state === 'ready' ? (
+                {!readOnly && item.canComplete && item.state === 'ready' ? (
                   item.evidenceRule === 'required' ? (
                     <button
                       type="button"
@@ -571,7 +577,7 @@ export function TaskChecklistPanel({
                     </button>
                   )
                 ) : null}
-                {item.canComplete && item.state === 'completed' ? (
+                {!readOnly && item.canComplete && item.state === 'completed' ? (
                   <button
                     type="button"
                     className="btn small ghost checklist-undo"

@@ -270,6 +270,108 @@ export async function getTeamAvailableWork(
   };
 }
 
+/**
+ * One person's finished work, owned and contributed, as a single history.
+ *
+ * Two records answer "what have I delivered": tasks this person owned through
+ * to completion, and steps on somebody else's task that they were given and
+ * finished. Splitting them across two screens meant remembering which kind a
+ * thing had been in order to find it again, which is not something anybody
+ * remembers. They are read together and merged here.
+ *
+ * Bounded by a period rather than paginated. The question is what was
+ * delivered recently; an unbounded history is a search problem, and search
+ * already exists.
+ */
+export interface CompletedRecord {
+  /** Owned work, or a step delivered on somebody else's work. */
+  kind: 'owned' | 'contribution';
+  /** Stable per row: the task for owned work, the step for a contribution. */
+  key: string;
+  /** What opening the row leads to. A contribution opens its parent task. */
+  taskId: string;
+  title: string;
+  workClass: TaskOverview['workClass'] | null;
+  /** Contributions only: the work this step belonged to, and whose it was. */
+  parentTitle: string | null;
+  parentOwnerName: string | null;
+  completedAt: string | null;
+}
+
+export async function getMyCompletedWork(
+  userId: string,
+  sinceIso: string,
+  untilIso: string | null,
+): Promise<{ records: CompletedRecord[]; failed: boolean }> {
+  const supabase = await createSupabaseServerClient();
+
+  let ownedQuery = supabase
+    .from('task_overview')
+    .select('id,title,work_class,completed_at')
+    .eq('primary_owner_id', userId)
+    .eq('status', 'completed')
+    .gte('completed_at', sinceIso);
+  if (untilIso) ownedQuery = ownedQuery.lte('completed_at', untilIso);
+
+  /*
+   * `completed_contributions`, not `shared_contributions`. The latter ends at
+   * `parent.status in ('backlog','active','paused')`, so a step disappeared
+   * from the product the moment somebody else finished the task it belonged
+   * to - taking the reader's own delivered work with it (v87).
+   */
+  let contributionQuery = supabase
+    .from('completed_contributions')
+    .select('checklist_item_id,task_id,title,parent_title,primary_owner_name,completed_at')
+    .eq('assignee_id', userId)
+    .gte('completed_at', sinceIso);
+  if (untilIso) contributionQuery = contributionQuery.lte('completed_at', untilIso);
+
+  const [owned, contributed] = await Promise.all([
+    ownedQuery.order('completed_at', { ascending: false }).limit(400),
+    contributionQuery.order('completed_at', { ascending: false }).limit(400),
+  ]);
+
+  if (owned.error || contributed.error) {
+    console.error(
+      `[getMyCompletedWork] ${owned.error?.message ?? ''} ${contributed.error?.message ?? ''}`.trim(),
+    );
+    return { records: [], failed: true };
+  }
+
+  const records: CompletedRecord[] = [
+    ...(owned.data ?? []).map((row) => ({
+      kind: 'owned' as const,
+      key: `task:${String(row.id)}`,
+      taskId: String(row.id),
+      title: String(row.title),
+      workClass: row.work_class as TaskOverview['workClass'],
+      parentTitle: null,
+      parentOwnerName: null,
+      completedAt: row.completed_at ? String(row.completed_at) : null,
+    })),
+    ...(contributed.data ?? []).map((row) => ({
+      kind: 'contribution' as const,
+      key: `step:${String(row.checklist_item_id)}`,
+      taskId: String(row.task_id),
+      title: String(row.title),
+      workClass: null,
+      parentTitle: row.parent_title ? String(row.parent_title) : null,
+      parentOwnerName: row.primary_owner_name ? String(row.primary_owner_name) : null,
+      completedAt: row.completed_at ? String(row.completed_at) : null,
+    })),
+  ];
+
+  // Newest first, across both kinds. Anything without a completion time sorts
+  // last rather than being dropped: it is still finished work.
+  records.sort((left, right) => {
+    if (!left.completedAt) return 1;
+    if (!right.completedAt) return -1;
+    return right.completedAt.localeCompare(left.completedAt);
+  });
+
+  return { records, failed: false };
+}
+
 /** The caller's own workable tasks, for My Day and the focus tabs. */
 export async function getMyTasks(userId: string): Promise<TaskOverview[]> {
   const supabase = await createSupabaseServerClient();

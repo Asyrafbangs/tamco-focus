@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { AgeChips } from '@/components/AgeChips';
 import {
+  EmptyState,
   FocusTabs,
   ProgressIndicator,
   RowPrimaryLink,
@@ -30,6 +31,7 @@ import { getTeamAttention } from '@/server/queries';
 import {
   getDisplaySettings,
   getFocusSummary,
+  getMyCompletedWork,
   getMyTasks,
   getRoutineOccurrences,
   getAssignablePeople,
@@ -44,6 +46,7 @@ import {
   getMajorProjectProposalDetail,
   getMajorProjectProposals,
   getTeamMemberDetail,
+  type CompletedRecord,
   type SharedContribution,
 } from '@/server/queries';
 
@@ -77,7 +80,72 @@ import { TaskRowActions } from './TaskRowActions';
  * 1 / 5 / 1 figures without being a place to click.
  */
 
-type TabKey = 'active' | 'available' | 'shared' | 'bin';
+type TabKey = 'active' | 'available' | 'shared' | 'completed' | 'bin';
+
+/*
+ * Four working states and one utility.
+ *
+ * Active, Available, Shared and Completed all answer "where is my work?".
+ * The Bin answers "where did a deleted record go?", which is administration,
+ * not a state work is in - so it sits under More rather than taking a fifth
+ * place in the row and giving deletion the same weight as delivery.
+ */
+const WORK_STATE_TABS: TabKey[] = ['active', 'available', 'shared', 'completed'];
+
+const TAB_LABEL: Record<TabKey, string> = {
+  active: 'Active',
+  available: 'Available',
+  shared: 'Shared',
+  completed: 'Completed',
+  bin: 'Bin',
+};
+
+/** How far back Completed looks, and what each choice is called. */
+const COMPLETED_PERIODS = [
+  { key: '30', label: 'Last 30 days', days: 30 },
+  { key: '60', label: 'Last 60 days', days: 60 },
+  { key: '90', label: 'Last 90 days', days: 90 },
+  { key: 'this-year', label: 'This year', days: null },
+  { key: 'last-year', label: 'Last year', days: null },
+] as const;
+
+type CompletedPeriodKey = (typeof COMPLETED_PERIODS)[number]['key'] | 'custom';
+
+/**
+ * The window Completed reads, as an ISO pair.
+ *
+ * "This year" and "Last year" are calendar-bounded; the day counts are rolling
+ * back from now. A custom period supplies its own dates and falls back to the
+ * default whenever one of them is missing or malformed, rather than showing an
+ * empty list that looks like an absence of work.
+ */
+function completedWindow(
+  period: CompletedPeriodKey,
+  fromDate: string | undefined,
+  toDate: string | undefined,
+  now: Date,
+): { since: string; until: string | null } {
+  const isDate = (value: string | undefined): value is string =>
+    typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+  if (period === 'custom' && isDate(fromDate)) {
+    return {
+      since: new Date(`${fromDate}T00:00:00.000Z`).toISOString(),
+      until: isDate(toDate) ? new Date(`${toDate}T23:59:59.999Z`).toISOString() : null,
+    };
+  }
+  if (period === 'this-year') {
+    return { since: new Date(Date.UTC(now.getUTCFullYear(), 0, 1)).toISOString(), until: null };
+  }
+  if (period === 'last-year') {
+    return {
+      since: new Date(Date.UTC(now.getUTCFullYear() - 1, 0, 1)).toISOString(),
+      until: new Date(Date.UTC(now.getUTCFullYear() - 1, 11, 31, 23, 59, 59, 999)).toISOString(),
+    };
+  }
+  const days = COMPLETED_PERIODS.find((entry) => entry.key === period)?.days ?? 30;
+  return { since: new Date(now.getTime() - days * 86_400_000).toISOString(), until: null };
+}
 
 const SHORT_BUCKET_LABEL: Record<FocusBucket, string> = {
   major: 'Major',
@@ -89,6 +157,7 @@ const TAB_MEANING: Record<TabKey, string> = {
   active: 'Work you are currently carrying.',
   available: 'Valid work waiting for you to activate.',
   shared: "Work where you owe a contribution to somebody else's task.",
+  completed: 'Your finished work and contributions.',
   bin: 'Deleted work. Nothing here counts towards anything; restore it if it was a mistake.',
 };
 
@@ -184,6 +253,178 @@ function CapacityStrip({ focus }: { focus: readonly FocusSummary[] }) {
   );
 }
 
+/**
+ * One person's finished work, owned and contributed, newest first.
+ *
+ * Two controls and no more. Everything here is completed, so there is nothing
+ * to filter by status; everything is sorted newest first, so there is nothing
+ * to sort by. What is left is the only two questions somebody actually asks of
+ * their own history: whose work was it, and how far back am I looking.
+ *
+ * The count belongs here rather than on the tab. "Completed 846" is furniture;
+ * "12 items" answers what the filter just did.
+ */
+function CompletedHistory({
+  records,
+  failed,
+  scope,
+  period,
+  fromDate,
+  toDate,
+  timeZone,
+}: {
+  records: CompletedRecord[];
+  failed: boolean;
+  scope: 'all' | 'owned' | 'contribution';
+  period: CompletedPeriodKey;
+  fromDate?: string;
+  toDate?: string;
+  timeZone: string;
+}) {
+  if (failed) {
+    return (
+      <EmptyState title="Completed work is unavailable">
+        <p>The history could not be read just now. Try again in a moment.</p>
+      </EmptyState>
+    );
+  }
+
+  const shown = records.filter((record) =>
+    scope === 'all'
+      ? true
+      : scope === 'owned'
+        ? record.kind === 'owned'
+        : record.kind === 'contribution',
+  );
+  const scopeHref = (next: 'all' | 'owned' | 'contribution') => {
+    const query = new URLSearchParams({ tab: 'completed', period });
+    if (next !== 'all') query.set('show', next);
+    if (period === 'custom' && fromDate) query.set('from_date', fromDate);
+    if (period === 'custom' && toDate) query.set('to_date', toDate);
+    return `/work?${query.toString()}`;
+  };
+  const formatDay = (iso: string | null) =>
+    iso
+      ? new Intl.DateTimeFormat('en-GB', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+          timeZone,
+        }).format(new Date(iso))
+      : 'date not recorded';
+
+  return (
+    <div className="completed-history">
+      <div className="completed-controls">
+        <div className="segmented" role="group" aria-label="Whose work">
+          {(
+            [
+              ['all', 'All'],
+              ['owned', 'My work'],
+              ['contribution', 'Shared contributions'],
+            ] as const
+          ).map(([key, label]) => (
+            <Link
+              key={key}
+              href={scopeHref(key)}
+              className={scope === key ? 'active' : undefined}
+              aria-current={scope === key ? 'true' : undefined}
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+
+        <details className="completed-period">
+          <summary aria-label="Change the period">
+            {period === 'custom'
+              ? fromDate
+                ? `${fromDate}${toDate ? ` to ${toDate}` : ' onwards'}`
+                : 'Custom period'
+              : (COMPLETED_PERIODS.find((entry) => entry.key === period)?.label ?? 'Last 30 days')}
+          </summary>
+          <div className="completed-period-panel">
+            {COMPLETED_PERIODS.map((entry) => {
+              const query = new URLSearchParams({ tab: 'completed', period: entry.key });
+              if (scope !== 'all') query.set('show', scope);
+              return (
+                <Link
+                  key={entry.key}
+                  href={`/work?${query.toString()}`}
+                  className={period === entry.key ? 'active' : undefined}
+                >
+                  {entry.label}
+                </Link>
+              );
+            })}
+            {/* A GET form, so a custom range is a link like every other choice
+                here and survives being bookmarked or shared. */}
+            <form className="completed-custom" action="/work">
+              <input type="hidden" name="tab" value="completed" />
+              <input type="hidden" name="period" value="custom" />
+              {scope !== 'all' && <input type="hidden" name="show" value={scope} />}
+              <label>
+                <span>From</span>
+                <input type="date" name="from_date" defaultValue={fromDate} required />
+              </label>
+              <label>
+                <span>To</span>
+                <input type="date" name="to_date" defaultValue={toDate} />
+              </label>
+              <button className="btn small" type="submit">
+                Apply
+              </button>
+            </form>
+          </div>
+        </details>
+      </div>
+
+      <p className="completed-count" role="status">
+        {shown.length} {shown.length === 1 ? 'item' : 'items'}
+      </p>
+
+      {shown.length === 0 ? (
+        <EmptyState title="Nothing completed in this period" compact>
+          <p>Widen the period, or change whose work you are looking at.</p>
+        </EmptyState>
+      ) : (
+        <div className="completed-list">
+          {shown.map((record) => (
+            <Link
+              key={record.key}
+              href={`/work?tab=completed&task=${record.taskId}`}
+              className="completed-row"
+            >
+              <span className="completed-tick" aria-hidden="true">
+                ✓
+              </span>
+              <span className="completed-copy">
+                <strong>{record.title}</strong>
+                {record.kind === 'owned' ? (
+                  <span>
+                    My work
+                    {record.workClass ? ` · ${WORK_CLASS_LABELS[record.workClass]}` : ''}
+                  </span>
+                ) : (
+                  <span>
+                    Shared contribution
+                    {record.parentTitle ? ` · in ${record.parentTitle}` : ''}
+                    {record.parentOwnerName ? ` · owned by ${record.parentOwnerName}` : ''}
+                  </span>
+                )}
+                <span className="completed-when">Completed {formatDay(record.completedAt)}</span>
+              </span>
+              <span className="completed-chevron" aria-hidden="true">
+                ›
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default async function WorkPage({
   searchParams,
 }: {
@@ -205,6 +446,11 @@ export default async function WorkPage({
     /** v48 §8 — the screen this task was opened from. */
     from?: string;
     proposal?: string;
+    /** Completed only: which slice of history, and how far back. */
+    show?: string;
+    period?: string;
+    from_date?: string;
+    to_date?: string;
   }>;
 }) {
   const profile = await requireProfile();
@@ -263,11 +509,33 @@ export default async function WorkPage({
   // `?filter=attention` outside team scope means "my own full list".
   const personalAttentionView = params.filter === 'attention' && params.scope !== 'team';
 
+  /*
+   * The Completed window, resolved before the queries run because one of them
+   * is bounded by it. Default: everything, over the last 30 days - what
+   * somebody checking their recent work most often wants.
+   */
+  const completedPeriod = (
+    COMPLETED_PERIODS.some((entry) => entry.key === params.period)
+      ? params.period
+      : params.period === 'custom'
+        ? 'custom'
+        : '30'
+  ) as CompletedPeriodKey;
+  const completedScope: 'all' | 'owned' | 'contribution' =
+    params.show === 'owned' ? 'owned' : params.show === 'contribution' ? 'contribution' : 'all';
+  const completedRange = completedWindow(
+    completedPeriod,
+    params.from_date,
+    params.to_date,
+    new Date(),
+  );
+
   const requested = params.tab;
   const activeTab: TabKey =
     requested === 'available' ||
     requested === 'shared' ||
     requested === 'active' ||
+    requested === 'completed' ||
     requested === 'bin'
       ? requested
       : 'active';
@@ -289,6 +557,7 @@ export default async function WorkPage({
     proposalDetail,
     teamAvailable,
     teamAvailableCount,
+    completedWork,
   ] = await Promise.all([
     getMyTasks(profile.id),
     getFocusSummary(profile.id),
@@ -333,10 +602,17 @@ export default async function WorkPage({
     // This badge only exists inside Team scope. Loading it in My Work added a
     // count request whose result was never rendered.
     scope === 'team' ? getTeamAvailableCount(profile.id) : Promise.resolve(0),
+    // Only when Completed is open. Finished work is history, and history is
+    // not part of anybody's day.
+    activeTab === 'completed'
+      ? getMyCompletedWork(profile.id, completedRange.since, completedRange.until)
+      : Promise.resolve({ records: [], failed: false }),
   ]);
 
   const visible =
-    activeTab === 'shared' || activeTab === 'bin' ? [] : tasksForTab(tasks, activeTab, profile.id);
+    activeTab === 'shared' || activeTab === 'bin' || activeTab === 'completed'
+      ? []
+      : tasksForTab(tasks, activeTab, profile.id);
   const overTarget = focus.filter((bucket) => bucket.isOverTarget);
 
   // Section 9 of v40 — a bare number tells nobody what it counts. Routine is
@@ -363,10 +639,17 @@ export default async function WorkPage({
   );
   const teamAttentionCount = teamNeedingAttention.length + pendingManagerProposals.length;
 
+  /*
+   * Completed carries no badge on purpose. After two years it would read
+   * "Completed 846", and a number that large is not an attention signal - it
+   * is furniture. The count that means something is the one inside, after the
+   * period filter has been applied, and that is rendered there.
+   */
   const counts: Record<TabKey, number> = {
     active: tasksForTab(tasks, 'active', profile.id).length,
     available: tasksForTab(tasks, 'available', profile.id).length,
     shared: openContributions.length,
+    completed: 0,
     bin: binnedCount,
   };
 
@@ -563,25 +846,30 @@ export default async function WorkPage({
         />
       ) : scope === 'mine' ? (
         <>
-          <FocusTabs
-            label="Focus states"
-            items={(['active', 'available', 'shared', 'bin'] as TabKey[]).map(
-              (key) =>
-                ({
-                  href: key === 'active' ? '/work' : `/work?tab=${key}`,
-                  label:
-                    key === 'active'
-                      ? 'Active'
-                      : key === 'available'
-                        ? 'Available'
-                        : key === 'shared'
-                          ? 'Shared'
-                          : 'Bin',
-                  active: key === activeTab,
-                  count: counts[key],
-                }) satisfies TabItem,
-            )}
-          />
+          <div className="work-tab-row">
+            <FocusTabs
+              label="Focus states"
+              items={WORK_STATE_TABS.map(
+                (key) =>
+                  ({
+                    href: key === 'active' ? '/work' : `/work?tab=${key}`,
+                    label: TAB_LABEL[key],
+                    active: key === activeTab,
+                    // Completed is history; a running total of it signals
+                    // nothing anybody needs to act on.
+                    count: key === 'completed' ? undefined : counts[key],
+                  }) satisfies TabItem,
+              )}
+            />
+            <details className="work-more-menu">
+              <summary aria-label="More work views">More</summary>
+              <div className="work-more-panel">
+                <Link href="/work?tab=bin" className={activeTab === 'bin' ? 'active' : undefined}>
+                  Bin{binnedCount > 0 ? ` · ${binnedCount}` : ''}
+                </Link>
+              </div>
+            </details>
+          </div>
           <p className="focus-tab-meaning">{TAB_MEANING[activeTab]}</p>
         </>
       ) : (
@@ -711,6 +999,16 @@ export default async function WorkPage({
         <div className="focus-panel">
           {activeTab === 'bin' ? (
             <BinList tasks={binnedTasks.tasks} failed={binnedTasks.failed} />
+          ) : activeTab === 'completed' ? (
+            <CompletedHistory
+              records={completedWork.records}
+              failed={completedWork.failed}
+              scope={completedScope}
+              period={completedPeriod}
+              fromDate={params.from_date}
+              toDate={params.to_date}
+              timeZone={profile.timezone}
+            />
           ) : activeTab === 'shared' ? (
             openContributions.length > 0 ? (
               openContributions.map((item) => {

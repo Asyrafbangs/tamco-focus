@@ -9442,3 +9442,288 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
     width: min(420px, 92vw);
   }
 }
+
+/* ------------------------------------------------------------------------ */
+/* v88 - Completed as a work state, and the Bin as a utility                 */
+/*                                                                           */
+/* Active, Available, Shared and Completed answer "where is my work?"; the   */
+/* Bin answers "where did a deleted record go?", so it sits under More at    */
+/* the end of the row rather than taking a fifth tab.                        */
+/* ------------------------------------------------------------------------ */
+
+.work-tab-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+}
+/* The row owns the rule now, so the tabs must not draw a second one under
+   themselves and leave the More control sitting above a gap. */
+.work-tab-row .focus-tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-bottom: 0;
+}
+.work-more-menu {
+  position: relative;
+  flex: 0 0 auto;
+  padding-bottom: 6px;
+}
+.work-more-menu > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.work-more-menu > summary::after {
+  content: '▾';
+  font-size: 10px;
+}
+.work-more-menu > summary:hover {
+  color: var(--text);
+  border-color: var(--muted);
+}
+.work-more-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 6;
+  display: grid;
+  gap: 2px;
+  min-width: 160px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.work-more-panel a {
+  display: block;
+  padding: 9px 10px;
+  min-height: 40px;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 22px;
+  text-decoration: none;
+}
+.work-more-panel a:hover,
+.work-more-panel a.active {
+  background: var(--line-soft);
+}
+
+/* Completed ---------------------------------------------------------------- */
+
+.completed-history {
+  display: grid;
+  gap: 12px;
+}
+.completed-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--line-soft);
+}
+.segmented a {
+  padding: 7px 12px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.segmented a:hover {
+  color: var(--text);
+}
+.segmented a.active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 650;
+  box-shadow: 0 1px 2px rgba(13, 35, 66, 0.08);
+}
+
+.completed-period {
+  position: relative;
+}
+.completed-period > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.completed-period > summary::after {
+  content: '▾';
+  font-size: 10px;
+  color: var(--muted);
+}
+.completed-period-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 6;
+  display: grid;
+  gap: 2px;
+  width: max-content;
+  min-width: 200px;
+  max-width: min(320px, 88vw);
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.completed-period-panel > a {
+  display: block;
+  padding: 9px 10px;
+  min-height: 40px;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 22px;
+  text-decoration: none;
+}
+.completed-period-panel > a:hover,
+.completed-period-panel > a.active {
+  background: var(--line-soft);
+}
+.completed-custom {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.completed-custom label {
+  display: grid;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.completed-custom input {
+  min-width: 0;
+  width: 100%;
+}
+
+.completed-count {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.completed-list {
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+/* The whole row is the link. No Open, View or Details button beside it:
+   a second control for what the row already does is one more thing to read. */
+.completed-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  color: var(--text);
+  text-decoration: none;
+}
+.completed-row + .completed-row {
+  border-top: 1px solid var(--line);
+}
+.completed-row:hover {
+  background: var(--line-soft);
+}
+.completed-row:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+.completed-tick {
+  flex: 0 0 auto;
+  color: var(--green);
+  font-size: 13px;
+  line-height: 20px;
+}
+.completed-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+/* Titles and parent names are user text of unpredictable length. They wrap;
+   nothing here is truncated against the edge of the panel. */
+.completed-copy strong {
+  font-size: 12.5px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.completed-copy > span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.completed-chevron {
+  flex: 0 0 auto;
+  color: var(--muted);
+  line-height: 20px;
+}
+
+@media (max-width: 720px) {
+  .completed-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .completed-period > summary {
+    justify-content: space-between;
+    width: 100%;
+  }
+  .completed-period-panel {
+    left: 0;
+    right: 0;
+    max-width: none;
+  }
+  .completed-row {
+    padding: 13px 13px;
+  }
+}
+
+/* A finished task states what it is instead of offering the working controls.
+   Quiet, because it is context rather than an alert. */
+.task-closed-note {
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--line-soft);
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
