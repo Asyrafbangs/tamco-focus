@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { AgeChips } from '@/components/AgeChips';
+import { MenuDropdown } from '@/components/ui/MenuDropdown';
 import {
   EmptyState,
   FocusTabs,
@@ -335,48 +336,51 @@ function CompletedHistory({
           ))}
         </div>
 
-        <details className="completed-period">
-          <summary aria-label="Change the period">
-            {period === 'custom'
+        <MenuDropdown
+          ariaLabel="Change the period"
+          className="completed-period"
+          panelClassName="completed-period-panel"
+          minWidth={220}
+          label={
+            period === 'custom'
               ? fromDate
                 ? `${fromDate}${toDate ? ` to ${toDate}` : ' onwards'}`
                 : 'Custom period'
-              : (COMPLETED_PERIODS.find((entry) => entry.key === period)?.label ?? 'Last 30 days')}
-          </summary>
-          <div className="completed-period-panel">
-            {COMPLETED_PERIODS.map((entry) => {
-              const query = new URLSearchParams({ tab: 'completed', period: entry.key });
-              if (scope !== 'all') query.set('show', scope);
-              return (
-                <Link
-                  key={entry.key}
-                  href={`/work?${query.toString()}`}
-                  className={period === entry.key ? 'active' : undefined}
-                >
-                  {entry.label}
-                </Link>
-              );
-            })}
-            {/* A GET form, so a custom range is a link like every other choice
+              : (COMPLETED_PERIODS.find((entry) => entry.key === period)?.label ?? 'Last 30 days')
+          }
+        >
+          {COMPLETED_PERIODS.map((entry) => {
+            const query = new URLSearchParams({ tab: 'completed', period: entry.key });
+            if (scope !== 'all') query.set('show', scope);
+            return (
+              <Link
+                key={entry.key}
+                href={`/work?${query.toString()}`}
+                className={period === entry.key ? 'active' : undefined}
+              >
+                {entry.label}
+              </Link>
+            );
+          })}
+          {/* A GET form, so a custom range is a link like every other choice
                 here and survives being bookmarked or shared. */}
-            <form className="completed-custom" action="/work">
-              <input type="hidden" name="tab" value="completed" />
-              <input type="hidden" name="period" value="custom" />
-              {scope !== 'all' && <input type="hidden" name="show" value={scope} />}
-              <label>
-                <span>From</span>
-                <input type="date" name="from_date" defaultValue={fromDate} required />
-              </label>
-              <label>
-                <span>To</span>
-                <input type="date" name="to_date" defaultValue={toDate} />
-              </label>
-              <button className="btn small" type="submit">
-                Apply
-              </button>
-            </form>
-          </div>
-        </details>
+          <form className="completed-custom" action="/work">
+            <input type="hidden" name="tab" value="completed" />
+            <input type="hidden" name="period" value="custom" />
+            {scope !== 'all' && <input type="hidden" name="show" value={scope} />}
+            <label>
+              <span>From</span>
+              <input type="date" name="from_date" defaultValue={fromDate} required />
+            </label>
+            <label>
+              <span>To</span>
+              <input type="date" name="to_date" defaultValue={toDate} />
+            </label>
+            <button className="btn small" type="submit">
+              Apply
+            </button>
+          </form>
+        </MenuDropdown>
       </div>
 
       <p className="completed-count" role="status">
@@ -861,14 +865,11 @@ export default async function WorkPage({
                   }) satisfies TabItem,
               )}
             />
-            <details className="work-more-menu">
-              <summary aria-label="More work views">More</summary>
-              <div className="work-more-panel">
-                <Link href="/work?tab=bin" className={activeTab === 'bin' ? 'active' : undefined}>
-                  Bin{binnedCount > 0 ? ` · ${binnedCount}` : ''}
-                </Link>
-              </div>
-            </details>
+            <MenuDropdown label="More" ariaLabel="More work views" className="work-more-menu">
+              <Link href="/work?tab=bin" className={activeTab === 'bin' ? 'active' : undefined}>
+                Bin{binnedCount > 0 ? ` · ${binnedCount}` : ''}
+              </Link>
+            </MenuDropdown>
           </div>
           <p className="focus-tab-meaning">{TAB_MEANING[activeTab]}</p>
         </>

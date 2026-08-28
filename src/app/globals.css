@@ -4266,8 +4266,10 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .capacity-strip .over b {
   color: var(--red);
 }
+/* Breathing room under the sentence, so the panel below is a separate thing
+   from the tabs above rather than pressed against them. */
 .focus-tab-meaning {
-  margin: 8px 0 0;
+  margin: 8px 0 10px;
   color: var(--muted);
   font-size: 11px;
 }
@@ -9465,73 +9467,25 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   min-width: 0;
   border-bottom: 0;
 }
-.work-more-menu {
-  position: relative;
-  flex: 0 0 auto;
-  padding-bottom: 6px;
-}
-.work-more-menu > summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 6px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  color: var(--muted);
-  font-size: 12px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.work-more-menu > summary::after {
-  content: '▾';
-  font-size: 10px;
-}
-.work-more-menu > summary:hover {
-  color: var(--text);
-  border-color: var(--muted);
-}
-.work-more-panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
-  z-index: 6;
-  display: grid;
-  gap: 2px;
-  min-width: 160px;
-  padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-.work-more-panel a {
-  display: block;
-  padding: 9px 10px;
-  min-height: 40px;
-  border-radius: 8px;
-  color: var(--text);
-  font-size: 12.5px;
-  line-height: 22px;
-  text-decoration: none;
-}
-.work-more-panel a:hover,
-.work-more-panel a.active {
-  background: var(--line-soft);
-}
 
 /* Completed ---------------------------------------------------------------- */
 
+/* No gap: the sections are separated by their own rules and padding, the way
+   the rest of the panel is. A grid gap on top of that reads as a seam. */
 .completed-history {
-  display: grid;
-  gap: 12px;
+  display: block;
 }
+/* The controls sit on the same 16px gutter as the rows beneath them. They
+   were flush to the panel edge, which put them outside the column everything
+   else lines up to. */
 .completed-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
 }
 .segmented {
   display: flex;
@@ -9563,86 +9517,15 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   box-shadow: 0 1px 2px rgba(13, 35, 66, 0.08);
 }
 
-.completed-period {
-  position: relative;
-}
-.completed-period > summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 8px 13px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  font-size: 12px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.completed-period > summary::after {
-  content: '▾';
-  font-size: 10px;
-  color: var(--muted);
-}
-.completed-period-panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
-  z-index: 6;
-  display: grid;
-  gap: 2px;
-  width: max-content;
-  min-width: 200px;
-  max-width: min(320px, 88vw);
-  padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-.completed-period-panel > a {
-  display: block;
-  padding: 9px 10px;
-  min-height: 40px;
-  border-radius: 8px;
-  color: var(--text);
-  font-size: 12.5px;
-  line-height: 22px;
-  text-decoration: none;
-}
-.completed-period-panel > a:hover,
-.completed-period-panel > a.active {
-  background: var(--line-soft);
-}
-.completed-custom {
-  display: grid;
-  gap: 8px;
-  margin-top: 6px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line);
-}
-.completed-custom label {
-  display: grid;
-  gap: 3px;
-  font-size: 11px;
-  color: var(--muted);
-}
-.completed-custom input {
-  min-width: 0;
-  width: 100%;
-}
-
 .completed-count {
   margin: 0;
+  padding: 12px 16px 4px;
   color: var(--muted);
   font-size: 11.5px;
 }
 
 .completed-list {
   display: grid;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
 }
 /* The whole row is the link. No Open, View or Details button beside it:
    a second control for what the row already does is one more thing to read. */
@@ -9700,18 +9583,13 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   .completed-controls {
     align-items: stretch;
     flex-direction: column;
+    padding: 13px;
   }
-  .completed-period > summary {
-    justify-content: space-between;
-    width: 100%;
-  }
-  .completed-period-panel {
-    left: 0;
-    right: 0;
-    max-width: none;
+  .completed-count {
+    padding: 12px 13px 4px;
   }
   .completed-row {
-    padding: 13px 13px;
+    padding: 13px;
   }
 }
 
@@ -9726,4 +9604,103 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   color: var(--muted);
   font-size: 11.5px;
   line-height: 1.5;
+}
+
+/* The menu that replaced <details> ---------------------------------------- */
+
+.menu-dropdown {
+  position: relative;
+  flex: 0 0 auto;
+}
+.menu-dropdown-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.menu-dropdown-toggle:hover {
+  border-color: var(--muted);
+}
+.menu-dropdown-toggle:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.menu-dropdown-caret {
+  color: var(--muted);
+  font-size: 10px;
+}
+/* Fixed, not absolute: `.focus-panel` sets `overflow: hidden` for its rounded
+   corners, and an absolutely positioned child of a clipping ancestor is cut
+   off however high its z-index. This is why the period list showed only its
+   first three options. */
+.menu-dropdown-panel {
+  position: fixed;
+  z-index: 60;
+  display: grid;
+  gap: 2px;
+  max-width: min(320px, calc(100vw - 24px));
+  max-height: min(60vh, 420px);
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.menu-dropdown-panel > a {
+  display: block;
+  padding: 9px 10px;
+  min-height: 40px;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 22px;
+  text-decoration: none;
+}
+.menu-dropdown-panel > a:hover,
+.menu-dropdown-panel > a.active {
+  background: var(--line-soft);
+}
+.menu-dropdown-panel > a.active {
+  font-weight: 650;
+}
+
+.work-more-menu {
+  padding-bottom: 6px;
+}
+.work-more-menu .menu-dropdown-toggle {
+  min-height: 34px;
+  padding: 6px 12px;
+  color: var(--muted);
+}
+.work-more-menu .menu-dropdown-toggle:hover {
+  color: var(--text);
+}
+
+.completed-custom {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 10px 10px 4px;
+  border-top: 1px solid var(--line);
+}
+.completed-custom label {
+  display: grid;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.completed-custom input {
+  min-width: 0;
+  width: 100%;
 }
