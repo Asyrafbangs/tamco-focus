@@ -230,11 +230,23 @@ export function TaskDetailDrawer({
     (item) => item.state !== 'completed' && item.assignedTo === viewerId,
   ).length;
   const stepsSummary =
-    viewerStepsRemaining > 0
-      ? `${viewerStepsRemaining} ${viewerStepsRemaining === 1 ? 'step needs' : 'steps need'} you`
-      : checklistRemaining > 0
-        ? `${checklistRemaining} remaining`
-        : 'All steps complete';
+    detail.checklist.length === 0
+      ? 'None yet — add one to break this down'
+      : viewerStepsRemaining > 0
+        ? `${viewerStepsRemaining} ${viewerStepsRemaining === 1 ? 'step needs' : 'steps need'} you`
+        : checklistRemaining > 0
+          ? `${checklistRemaining} remaining`
+          : 'All steps complete';
+  /*
+   * Shown with no steps on it, for anybody who can add one.
+   *
+   * Hiding the section when the list was empty removed the only route to
+   * creating a step, so work saved without one could never gain any - and the
+   * commonest way to end up there is simply forgetting at capture. A
+   * contributor still sees nothing, because an empty section they cannot act
+   * on is the padding this rule was written to avoid.
+   */
+  const showSteps = detail.checklist.length > 0 || detail.capabilities.canEdit;
   /*
    * Updates are what a person chose to say. Evidence-only posts are the
    * by-product of attaching a file to a step and belong in the record, not in
@@ -1457,7 +1469,7 @@ export function TaskDetailDrawer({
           the layout open. Work with nothing to tick is updated and completed
           directly.
         */}
-        {detail.checklist.length > 0 && (
+        {showSteps && (
           <section className="task-accordion">
             <button
               type="button"
@@ -1468,10 +1480,15 @@ export function TaskDetailDrawer({
             >
               <span className="task-accordion-copy">
                 <strong>
-                  Steps{' '}
-                  <span className="task-accordion-count">
-                    {checklistCompleted}/{detail.checklist.length}
-                  </span>
+                  Steps
+                  {detail.checklist.length > 0 ? (
+                    <>
+                      {' '}
+                      <span className="task-accordion-count">
+                        {checklistCompleted}/{detail.checklist.length}
+                      </span>
+                    </>
+                  ) : null}
                 </strong>
                 <small>{stepsSummary}</small>
               </span>

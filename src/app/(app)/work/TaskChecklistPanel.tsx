@@ -486,6 +486,13 @@ export function TaskChecklistPanel({
         </Modal>
       )}
 
+      {items.length === 0 && (
+        <p className="muted task-steps-empty">
+          No steps yet. Add one for each thing that has to happen — progress is counted from them,
+          and a step given to somebody else becomes their Shared contribution.
+        </p>
+      )}
+
       <div className="task-checklist-list">
         {items.map((item) => {
           const evidenceCount = attachmentsByChecklist.get(item.id) ?? 0;
