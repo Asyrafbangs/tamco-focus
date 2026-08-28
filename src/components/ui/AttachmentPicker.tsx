@@ -43,6 +43,7 @@ export function AttachmentPicker({
   hint?: string;
 }) {
   const id = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +90,12 @@ export function AttachmentPicker({
     [accepted, commit, files],
   );
 
-  const { dragging, dropHandlers } = useFileDropZone({ onFiles: take, disabled });
+  /*
+   * The drop target is the box this picker sits in, not the picker's own row.
+   * A one-line strip is a poor thing to aim a file at, and somebody dragging a
+   * photo aims at the composer they have been typing in.
+   */
+  const { dragging } = useFileDropZone({ onFiles: take, anchorRef: rootRef, disabled });
 
   /*
    * One input, retargeted.
@@ -113,11 +119,7 @@ export function AttachmentPicker({
   }
 
   return (
-    <div
-      className={`attachment-picker${dragging ? ' dragging' : ''}`}
-      {...dropHandlers}
-      data-drop-target="true"
-    >
+    <div ref={rootRef} className="attachment-picker">
       <input
         ref={inputRef}
         id={id}
@@ -145,7 +147,11 @@ export function AttachmentPicker({
         onPick={openWith}
       />
       {hint && <span className="attachment-picker-hint">{hint}</span>}
-      {!disabled && <span className="attachment-picker-drophint">or drop files here</span>}
+      {!disabled && (
+        <span className="attachment-picker-drophint">
+          {dragging ? 'Drop to attach' : 'or drop files anywhere in this box'}
+        </span>
+      )}
       {error && (
         <span className="attachment-picker-error" role="alert">
           {error}
@@ -162,13 +168,6 @@ export function AttachmentPicker({
             />
           ))}
         </div>
-      )}
-      {/* Only while something is over it: a permanent dashed box would hold
-          the layout open on every screen that can take a file. */}
-      {dragging && (
-        <span className="attachment-picker-dropping" aria-hidden="true">
-          Drop to attach
-        </span>
       )}
     </div>
   );

@@ -9963,47 +9963,42 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 /* v95 - dropping a file onto the thing that takes it                        */
 /* ------------------------------------------------------------------------ */
 
-/* The picker becomes a target on hover-with-a-file rather than sitting there
-   as a permanent dashed box. A box on every screen that can take a file would
-   hold the layout open for something used occasionally. */
-.attachment-picker {
-  position: relative;
-  border: 1px dashed transparent;
-  border-radius: var(--radius-sm);
-  transition:
-    border-color var(--motion-fast) var(--motion-easing),
-    background-color var(--motion-fast) var(--motion-easing);
-}
-.attachment-picker.dragging {
-  border-color: var(--blue);
-  background: var(--blue-bg);
-}
 .attachment-picker-drophint {
   color: var(--muted);
   font-size: 11px;
 }
-/* Covers the row while a file is over it, so the instruction is where the
-   pointer already is. */
-.attachment-picker-dropping {
+
+/* The whole box is the target.
+
+   `is-file-dragging` is set by the drop-zone hook on the composer, modal body
+   or capture panel the picker lives in - not on the picker's own row, which is
+   a one-line strip and a poor thing to aim a file at. Nothing is drawn until
+   a file is actually over it: a permanent dashed box would hold the layout
+   open on every screen that can take a file, for something used occasionally. */
+.is-file-dragging {
+  position: relative;
+  outline: 2px dashed var(--blue);
+  outline-offset: -3px;
+  border-radius: var(--radius-sm);
+}
+.is-file-dragging::after {
+  content: 'Drop to attach';
   position: absolute;
   inset: 0;
+  z-index: 3;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--blue-bg) 92%, transparent);
+  background: color-mix(in srgb, var(--blue-bg) 88%, transparent);
   color: var(--blue);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 650;
+  /* The overlay must not become the drag target itself, or crossing onto it
+     reads as leaving the box and the highlight drops out. */
   pointer-events: none;
 }
-
-.capture-dropzone {
-  transition:
-    border-color var(--motion-fast) var(--motion-easing),
-    background-color var(--motion-fast) var(--motion-easing);
-}
-.capture-dropzone.dragging {
+.capture-dropzone.is-file-dragging {
   border-color: var(--blue);
   border-style: solid;
   background: var(--blue-bg);

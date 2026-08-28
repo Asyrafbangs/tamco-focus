@@ -131,7 +131,10 @@ export function CaptureWork({
     setFiles((current) => [...current, ...Array.from(incoming)].slice(0, 8));
   }
 
-  const { dragging, dropHandlers } = useFileDropZone({ onFiles: addFiles });
+  const dropZoneRef = useRef<HTMLDivElement>(null);
+  // Capture already had its own bordered zone, so that is the box: marked
+  // explicitly rather than left to the form, which is the whole page here.
+  const { dragging } = useFileDropZone({ onFiles: addFiles, anchorRef: dropZoneRef });
 
   /**
    * Adds drafted steps to the task that was just created. Sequential because
@@ -461,11 +464,7 @@ export function CaptureWork({
             {/* The zone handled `drop` but showed nothing while a file was
                 over it, and cleared no state on `dragleave` - so there was no
                 way to tell it was a target until after letting go. */}
-            <div
-              className={`capture-dropzone${dragging ? ' dragging' : ''}`}
-              {...dropHandlers}
-              data-drop-target="true"
-            >
+            <div ref={dropZoneRef} className="capture-dropzone" data-drop-zone="true">
               <strong>Attach evidence or context</strong>
               <span>
                 {dragging
