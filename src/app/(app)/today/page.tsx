@@ -265,12 +265,18 @@ export default async function TodayPage({
                   {recommendation.task.title}
                 </RowPrimaryLink>
               </h2>
-              {/* Labelled, because an unlabelled sentence under a title reads
-                  as description rather than as the thing to go and do. */}
-              <div className="start-next-action">
-                <p className="eyebrow">Next action</p>
-                <p>{recommendation.task.nextAction ?? 'Open the task to decide the next step.'}</p>
-              </div>
+              {/* v83 - Steps are the only record of what remains, so this
+                  says how far through them the work is rather than repeating a
+                  separately maintained sentence. */}
+              {recommendation.task.checklistTotal > 0 ? (
+                <div className="start-next-action">
+                  <p className="eyebrow">Steps</p>
+                  <p>
+                    {recommendation.task.checklistCompleted}/{recommendation.task.checklistTotal}{' '}
+                    complete
+                  </p>
+                </div>
+              ) : null}
 
               {/* Work type, state, and the commitment date. Open-for and
                   in-state ages are task-age analytics; they belong on the task,

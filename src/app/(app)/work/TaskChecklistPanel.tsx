@@ -253,13 +253,10 @@ function StepMenu({
 
 export function TaskChecklistPanel({
   items,
-  nextAction,
   attachmentsByChecklist,
   canEdit,
   pending,
   timeZone,
-  onMarkNextDone,
-  onSetNextAction,
   onComplete,
   onReopen,
   onEvidence,
@@ -269,13 +266,10 @@ export function TaskChecklistPanel({
   onRemoveStep,
 }: {
   items: TaskDetailChecklistItem[];
-  nextAction: string | null;
   attachmentsByChecklist: Map<string, number>;
   canEdit: boolean;
   pending: boolean;
   timeZone: string;
-  onMarkNextDone: () => void;
-  onSetNextAction: () => void;
   onComplete: (itemId: string) => void;
   onReopen: (itemId: string) => void;
   onEvidence: (item: TaskDetailChecklistItem, mode: 'attach' | 'complete') => void;
@@ -288,7 +282,7 @@ export function TaskChecklistPanel({
   const completed = items.filter((item) => item.state === 'completed').length;
 
   /*
-   * v41 section 8 — Add step is a first-class control in the checklist view,
+   * v41 section 8 — Add step is a first-class control in the Steps section,
    * not something to find inside a Manage menu. It asks two questions, because
    * two questions are what adding a step actually needs: what has to be done,
    * and who owes it. Evidence, a separate due date and a prerequisite are real
@@ -356,44 +350,11 @@ export function TaskChecklistPanel({
   }
 
   return (
-    <section
-      className="task-tab-section drawer-panel-checklist"
-      aria-labelledby="checklist-heading"
-    >
-      <div className="current-next-action-block">
-        <p className="eyebrow">Current next action</p>
-        {nextAction ? (
-          <article className="current-next-action-row">
-            <span className="checklist-state" aria-hidden="true" />
-            <strong>{nextAction}</strong>
-            {canEdit ? (
-              <button
-                type="button"
-                className="btn small"
-                disabled={pending}
-                aria-busy={pending}
-                onClick={onMarkNextDone}
-              >
-                Mark done
-              </button>
-            ) : null}
-          </article>
-        ) : (
-          <div className="next-action-checklist-empty">
-            <strong>No next action recorded</strong>
-            {canEdit ? (
-              <button type="button" className="btn small" onClick={onSetNextAction}>
-                + Set next action
-              </button>
-            ) : null}
-          </div>
-        )}
-      </div>
-
+    <section className="task-tab-section task-steps-section" aria-labelledby="checklist-heading">
       <div className="task-checklist-heading-row">
         <div>
-          <h3 id="checklist-heading">Task checklist</h3>
-          <p>Checklist progress is the task progress source.</p>
+          <h3 id="checklist-heading">Steps</h3>
+          <p>Steps are the only record of what is left to do, and they drive progress.</p>
         </div>
         <div className="task-checklist-heading-actions">
           <span>
@@ -408,10 +369,10 @@ export function TaskChecklistPanel({
       </div>
 
       {canEdit && assignees.length > 0 && (
-        <Modal open={addOpen} title="Add checklist step" onClose={closeAdd}>
+        <Modal open={addOpen} title="Add step" onClose={closeAdd}>
           <header className="modalhead">
             <div>
-              <h2>Add checklist step</h2>
+              <h2>Add step</h2>
               <p>
                 Use steps for verifiable work. Assigning another person creates a Shared
                 contribution — not another task.
@@ -454,7 +415,7 @@ export function TaskChecklistPanel({
       )}
 
       {canEdit && assignees.length > 0 && editing && (
-        <Modal open title="Edit checklist step" onClose={() => setEditing(null)}>
+        <Modal open title="Edit step" onClose={() => setEditing(null)}>
           <header className="modalhead">
             <div>
               <h2>Edit step</h2>
@@ -505,11 +466,11 @@ export function TaskChecklistPanel({
       )}
 
       {canEdit && removing && (
-        <Modal open title="Remove checklist step" onClose={() => setRemoving(null)}>
+        <Modal open title="Remove step" onClose={() => setRemoving(null)}>
           <header className="modalhead">
             <div>
               <h2>Remove this step?</h2>
-              <p>&ldquo;{removing.action}&rdquo; will be taken off the checklist.</p>
+              <p>&ldquo;{removing.action}&rdquo; will be taken off the list of steps.</p>
             </div>
           </header>
 

@@ -53,32 +53,38 @@ function eventPresentation(
             : reason,
       };
     }
+    /*
+     * Next Action was retired at v83, but the events it wrote are in the
+     * audit log for good and this is where they are read. Labelled as the
+     * historical thing they are rather than dropped, which would leave gaps
+     * in the record of tasks that lived through the change.
+     */
     case 'next_action_changed': {
       const previous = text(detail, 'previous_next_action');
       const next = text(detail, 'next_action');
       return {
-        title: 'Next Action updated',
+        title: 'Next action updated (before Steps)',
         description: next ? `${previous ? `${previous} → ` : ''}${next}` : null,
       };
     }
     case 'next_action_completed':
       return {
-        title: 'Next Action completed',
+        title: 'Next action completed (before Steps)',
         description: text(detail, 'completed_action'),
       };
     case 'checklist_item_completed': {
       const progress = number(detail, 'progress_percent');
       return {
-        title: 'Checklist item completed',
-        description: `${text(detail, 'action') ?? 'Checklist item'}${
+        title: 'Step completed',
+        description: `${text(detail, 'action') ?? 'Step'}${
           progress === null ? '' : ` · Progress ${progress}%`
         }`,
       };
     }
     case 'checklist_item_reopened':
       return {
-        title: 'Checklist item reopened',
-        description: `${text(detail, 'action') ?? 'Checklist item'}${
+        title: 'Step reopened',
+        description: `${text(detail, 'action') ?? 'Step'}${
           text(detail, 'reason') ? ` · ${text(detail, 'reason')}` : ''
         }`,
       };

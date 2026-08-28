@@ -641,54 +641,6 @@ export async function reopenChecklistItem(input: { itemId: string; reason?: stri
 // Updates and attachments (section 12)
 // ---------------------------------------------------------------------------
 
-const nextActionText = z
-  .string()
-  .trim()
-  .min(1)
-  .max(180)
-  .refine(
-    (value) => !/^continue (the )?next action[\s.!?]*$/i.test(value),
-    'Replace the generic placeholder with one practical action.',
-  );
-
-const nextActionCommandSchema = z
-  .object({
-    taskId: uuid,
-    expectedVersion: z.number().int().positive(),
-    nextAction: nextActionText.nullish(),
-    markDone: z.boolean().default(false),
-    idempotencyKey,
-  })
-  .refine((value) => value.markDone || Boolean(value.nextAction), {
-    message: 'Write one clear Next action before saving.',
-    path: ['nextAction'],
-  });
-
-export async function setTaskNextAction(
-  input: z.input<typeof nextActionCommandSchema>,
-): Promise<OperationResult<{ version: number; next_action: string | null }>> {
-  const parsed = nextActionCommandSchema.safeParse(input);
-  if (!parsed.success) {
-    return {
-      ok: false as const,
-      code: 'validation_failed' as const,
-      message: parsed.error.issues[0]?.message ?? 'Write one clear Next action before saving.',
-    };
-  }
-
-  return (await callProcedure(
-    'set_task_next_action',
-    {
-      p_task_id: parsed.data.taskId,
-      p_expected_version: parsed.data.expectedVersion,
-      p_next_action: parsed.data.nextAction ?? null,
-      p_mark_done: parsed.data.markDone,
-      p_idempotency_key: parsed.data.idempotencyKey ?? null,
-    },
-    ['/today', '/work'],
-  )) as OperationResult<{ version: number; next_action: string | null }>;
-}
-
 /**
  * Uploads private objects and commits their metadata with the written update in
  * one database procedure. If the procedure refuses the update, the narrowly
@@ -701,7 +653,6 @@ export async function postTaskUpdate(formData: FormData): Promise<OperationResul
     .object({
       taskId: uuid,
       body: z.string().trim().max(4000).optional(),
-      nextAction: nextActionText.optional(),
       evidenceOnly: z.enum(['true', 'false']).default('false'),
       checklistItemId: uuid.optional(),
       idempotencyKey: z.string().min(8).max(128),
@@ -709,7 +660,6 @@ export async function postTaskUpdate(formData: FormData): Promise<OperationResul
     .safeParse({
       taskId: formData.get('taskId'),
       body: formData.get('body') || undefined,
-      nextAction: formData.get('nextAction') || undefined,
       evidenceOnly: formData.get('evidenceOnly') || 'false',
       checklistItemId: formData.get('checklistItemId') || undefined,
       idempotencyKey: formData.get('idempotencyKey'),
@@ -756,7 +706,6 @@ export async function postTaskUpdate(formData: FormData): Promise<OperationResul
     p_mention_ids: mentionIds,
     p_attachments: uploaded.attachments,
     p_idempotency_key: parsed.data.idempotencyKey,
-    p_next_action: parsed.data.nextAction ?? null,
   });
 
   if (error) {

@@ -85,7 +85,6 @@ export interface TaskOverview {
   id: string;
   title: string;
   description: string | null;
-  nextAction: string | null;
 
   status: TaskStatus;
   workClass: WorkClass;

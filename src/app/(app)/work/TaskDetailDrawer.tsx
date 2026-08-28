@@ -12,7 +12,6 @@ import {
   dueInputValue,
   formatCompactDuration,
   formatDue,
-  formatDueShort,
   overdueAgeMs,
 } from '@/domain/duration';
 import { barrierAction, barrierViewLabel } from '@/domain/barriers';
@@ -47,7 +46,6 @@ import {
   reopenChecklistItem,
   resolveBarrier,
   resumeTask,
-  setTaskNextAction,
   updateChecklistStep,
 } from '@/server/actions/task-actions';
 import type { TaskDetail } from '@/server/queries';
@@ -131,7 +129,21 @@ export function TaskDetailDrawer({
   const router = useRouter();
   const task = detail.task;
   const [pending, startTransition] = useTransition();
-  const [activeTab, setActiveTab] = useState<'overview' | 'checklist' | 'updates'>('overview');
+  /*
+   * One drawer, three disclosures, at most one open.
+   *
+   * Tabs made the drawer three screens and forced a choice before anything was
+   * visible: a person opening a task landed on Overview and had to know that
+   * the work itself lived behind "Checklist". Sections say what is inside them
+   * on their own summary line, so the choice is informed and closing one is the
+   * same gesture as opening it.
+   */
+  const [openSection, setOpenSection] = useState<'steps' | 'updates' | 'details' | null>(null);
+  const toggleSection = (section: 'steps' | 'updates' | 'details') =>
+    setOpenSection((current) => (current === section ? null : section));
+  // The composer is a disclosure of its own, opened by the button that names
+  // it and closed by posting, so the drawer returns to its resting shape.
+  const [composerOpen, setComposerOpen] = useState(false);
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [barrierOpen, setBarrierOpen] = useState(false);
   const [ageInfoOpen, setAgeInfoOpen] = useState(false);
@@ -151,13 +163,13 @@ export function TaskDetailDrawer({
     mode: 'attach' | 'complete';
   } | null>(null);
   const [drawerExpanded, setDrawerExpanded] = useState(false);
-  const [nextAction, setNextAction] = useState<string | null>(task.nextAction);
-  const [nextActionDraft, setNextActionDraft] = useState(task.nextAction ?? '');
-  const [nextActionEditing, setNextActionEditing] = useState(false);
   const [taskVersion, setTaskVersion] = useState(task.version);
   const [resumeReason, setResumeReason] = useState<ActivationReason | null>(null);
   const [resumeNote, setResumeNote] = useState('');
   const [resumeNeedsReason, setResumeNeedsReason] = useState(false);
+  // Whether the administration menu is showing. Everything in it is either
+  // rare or irreversible, so none of it competes with the two buttons above.
+  const [adminOpen, setAdminOpen] = useState(false);
   const openBarrier = detail.barriers.find((item) => item.status === 'open');
 
   /*
@@ -203,6 +215,23 @@ export function TaskDetailDrawer({
     attentionBarrierId ?? null,
   );
   const checklistCompleted = detail.checklist.filter((item) => item.state === 'completed').length;
+  /*
+   * What the Steps summary previews. Not a stored "next action" - the first
+   * thing still open, read off the list itself, so it cannot fall out of step
+   * with the work the way a separately maintained sentence did.
+   */
+  const firstIncompleteStep = detail.checklist.find((item) => item.state !== 'completed') ?? null;
+  /*
+   * Updates are what a person chose to say. Evidence-only posts are the
+   * by-product of attaching a file to a step and belong in the record, not in
+   * a feed somebody is expected to read.
+   */
+  const writtenUpdates = detail.updates.filter(
+    (update) => !update.isEvidenceOnly && update.body && update.body.trim().length > 0,
+  );
+  const ownerName =
+    detail.participants.find((person) => person.id === task.primaryOwnerId)?.fullName ??
+    'Unassigned';
   /*
    * Mirrors what `complete_task` will accept, so the control appears exactly
    * when pressing it would succeed. The procedure refuses on incomplete
@@ -310,7 +339,6 @@ export function TaskDetailDrawer({
    * is a good enough reason to open the drawer that contains it.
    */
   function revealBarrier(barrierId: string) {
-    setActiveTab('overview');
     setDrawerExpanded(true);
     setRevealedBarrierId(barrierId);
   }
@@ -351,47 +379,17 @@ export function TaskDetailDrawer({
       if (finish(result, !body && hasFiles ? 'Evidence added.' : 'Update posted.')) {
         setTaskVersion((current) => current + 1);
         form.reset();
+        // Posting is the end of the errand, so the composer folds away and the
+        // drawer returns to its resting shape.
+        setComposerOpen(false);
       }
     });
-  }
-
-  function openNextActionEditor() {
-    setNextActionDraft(nextAction ?? '');
-    setNextActionEditing(true);
   }
 
   function openDueEditor() {
     setDueDateOnlyDraft(task.dueIsDateOnly);
     setDueDraft(dueInputValue(task.dueAt, task.dueIsDateOnly, timeZone));
     setDueEditorOpen(true);
-  }
-
-  function saveNextAction(markDone: boolean) {
-    const cleanAction = nextActionDraft.trim();
-    setMessage(null);
-    startTransition(async () => {
-      const result = await setTaskNextAction({
-        taskId: task.id,
-        expectedVersion: Math.max(taskVersion, task.version),
-        nextAction: markDone ? null : cleanAction,
-        markDone,
-        idempotencyKey: idempotencyKey(),
-      });
-      if (
-        finish(
-          result,
-          markDone
-            ? 'Next action marked done. Set the next practical action when ready.'
-            : 'Next action updated and added to task history.',
-        )
-      ) {
-        const savedAction = markDone ? null : cleanAction;
-        setNextAction(savedAction);
-        setNextActionDraft(savedAction ?? '');
-        setNextActionEditing(false);
-        setTaskVersion((current) => (result.ok ? (result.version ?? current + 1) : current));
-      }
-    });
   }
 
   function attachChecklistEvidence(form: HTMLFormElement, checklistItemId: string) {
@@ -620,7 +618,7 @@ export function TaskDetailDrawer({
         </button>
       }
     >
-      <div className="task-detail-scroll" data-tab={activeTab}>
+      <div className="task-detail-scroll">
         {/*
           v46 §5, §38-42 — the barrier surface, and only one of them at a time.
 
@@ -686,20 +684,6 @@ export function TaskDetailDrawer({
               onClick={() => revealBarrier(openBarrier.id)}
             >
               {barrierViewLabel(openBarrier.responses.length > 0, openBarrier.actionPending)}
-            </button>
-          </section>
-        ) : detail.capabilities.canContribute ? (
-          <section className="barrier-callout" aria-label="Task support">
-            <div>
-              <strong>Need help?</strong>
-              <p>Raise a barrier when progress needs support, a decision or escalation.</p>
-            </div>
-            <button
-              type="button"
-              className="btn small barrier-button"
-              onClick={() => setBarrierOpen(true)}
-            >
-              Raise barrier
             </button>
           </section>
         ) : null}
@@ -1114,25 +1098,6 @@ export function TaskDetailDrawer({
           </form>
         </Modal>
 
-        <nav className="drawer-tabs" aria-label="Task details" role="tablist">
-          {(['overview', 'checklist', 'updates'] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              role="tab"
-              className={activeTab === tab ? 'active' : undefined}
-              aria-selected={activeTab === tab}
-              onClick={() => setActiveTab(tab)}
-            >
-              {tab === 'overview'
-                ? 'Overview'
-                : tab === 'checklist'
-                  ? `Checklist ${checklistCompleted}/${detail.checklist.length}`
-                  : 'Updates'}
-            </button>
-          ))}
-        </nav>
-
         {message && (
           <div className={`notice ${message.tone === 'error' ? 'error' : 'success'}`} role="status">
             <strong>{message.tone === 'error' ? 'Action needed' : 'Saved'}</strong>
@@ -1308,43 +1273,31 @@ export function TaskDetailDrawer({
           </form>
         </Modal>
 
-        <div className="task-information-line drawer-panel-overview" aria-label="Task information">
-          <span className="task-information-segment status">
+        {/*
+          The task in one line: what state it is in, when it is due, how far
+          through its Steps it is. Everything that used to sit up here and is
+          not one of those three moved into Details or the menu below.
+        */}
+        <div className="task-status-line" aria-label="Task status">
+          <span className="task-status-state">
             <span className={`metadata-dot ${task.status}`} aria-hidden="true" />
             {TASK_STATUS_LABELS[task.status]}
           </span>
-          <span className="task-information-segment">
-            {task.urgency[0]?.toUpperCase() + task.urgency.slice(1)} urgency
-          </span>
-          <span className="task-information-segment due">
+          <span>
             {task.routineTemplateId ? 'Occurrence' : 'Due'}{' '}
             {formatDue(task.dueAt, task.dueIsDateOnly, timeZone)}
-            {detail.capabilities.canEdit ? (
-              <button type="button" className="task-due-edit" onClick={openDueEditor}>
-                Edit due
-              </button>
-            ) : null}
           </span>
           {taskOverdueMs > 0 ? (
-            <span className="task-information-segment overdue">
+            <span className="task-status-overdue">
               {formatCompactDuration(taskOverdueMs)} overdue
             </span>
           ) : null}
-          <span className="task-information-segment progress">
-            <span className="task-metadata-progress" aria-hidden="true">
-              <span style={{ width: `${task.progressPercent}%` }} />
-            </span>
-            {task.progressPercent}%
-          </span>
           {detail.checklist.length > 0 ? (
-            <span className="task-information-segment">
-              {checklistCompleted}/{detail.checklist.length} checklist
+            <span>
+              {checklistCompleted}/{detail.checklist.length} complete
             </span>
           ) : null}
-          {task.isMandatory ? <span className="task-information-segment">Mandatory</span> : null}
-          <span className="task-information-separator" aria-hidden="true">
-            ·
-          </span>
+          {task.isMandatory ? <span>Mandatory</span> : null}
           <button
             type="button"
             className="task-age-info"
@@ -1354,339 +1307,829 @@ export function TaskDetailDrawer({
           >
             i
           </button>
-          {detail.capabilities.canEdit &&
+        </div>
+
+        {/*
+          The two things somebody opening their own work normally wants. Both
+          say what they do; neither is a disclosure to be discovered.
+        */}
+        {detail.capabilities.canContribute && (
+          <div className="task-primary-actions">
+            <button
+              type="button"
+              className="btn primary"
+              aria-expanded={composerOpen}
+              onClick={() => setComposerOpen((current) => !current)}
+            >
+              + Add update
+            </button>
+            <button type="button" className="btn" onClick={() => setBarrierOpen(true)}>
+              Need support
+            </button>
+          </div>
+        )}
+
+        {composerOpen && detail.capabilities.canContribute && (
+          <form
+            className="task-update-composer"
+            onSubmit={(event) => {
+              event.preventDefault();
+              submitUpdate(event.currentTarget);
+            }}
+          >
+            <div className="update-form-grid">
+              <div className="field">
+                <label htmlFor={`update-${task.id}`}>What changed?</label>
+                <textarea
+                  id={`update-${task.id}`}
+                  name="body"
+                  rows={4}
+                  maxLength={4000}
+                  placeholder="Describe the meaningful progress, result or issue."
+                />
+              </div>
+            </div>
+
+            {/*
+                v43 sections 11-15. Four controls left this form:
+
+                  "What happens next?"  — Next action has one home, in Overview.
+                                          Two places to edit it meant an update
+                                          could silently rewrite the plan.
+                  "This is evidence only" — inferred now (section 27): no text
+                                          plus attachments IS an evidence-only
+                                          update. That was bookkeeping dressed
+                                          up as a question.
+                  "Need help"           — a second route to Raise barrier, which
+                                          already sits at the top of the drawer.
+                  "Mention participants" — a participant model duplicating the
+                                          owner, assignees, contributors and
+                                          manager the task already knows about.
+
+                What is left is the question the form is for: what changed.
+              */}
+            <div className="update-composer-footer">
+              {/* "Add files" rather than "Attach": it names the action and the object,
+                    and keeping the visible text identical to the accessible name
+                    satisfies WCAG 2.5.3 Label in Name. */}
+              <AttachmentPicker label="Add files" disabled={pending} />
+              <button className="btn small primary" disabled={pending} aria-busy={pending}>
+                {pending ? 'Posting…' : 'Post update'}
+              </button>
+            </div>
+            <p className="update-composer-note">
+              For what the system cannot know: a result, a decision, an explanation. Completing a
+              step records itself.
+            </p>
+          </form>
+        )}
+
+        {/*
+          Steps: the only record of what is left to do.
+
+          Absent entirely when there are none, rather than an empty box holding
+          the layout open. Work with nothing to tick is updated and completed
+          directly.
+        */}
+        {detail.checklist.length > 0 && (
+          <section className="task-accordion">
+            <button
+              type="button"
+              className="task-accordion-summary"
+              aria-expanded={openSection === 'steps'}
+              onClick={() => toggleSection('steps')}
+            >
+              <span className="task-accordion-copy">
+                <strong>
+                  Steps{' '}
+                  <span className="task-accordion-count">
+                    {checklistCompleted}/{detail.checklist.length}
+                  </span>
+                </strong>
+                <small>
+                  {firstIncompleteStep
+                    ? `First: ${firstIncompleteStep.action}`
+                    : 'Every step is complete'}
+                </small>
+              </span>
+              <span aria-hidden="true">›</span>
+            </button>
+            {openSection === 'steps' && (
+              <div className="task-accordion-body">
+                <TaskChecklistPanel
+                  assignees={assignablePeople}
+                  onAddStep={(step) => {
+                    setMessage(null);
+                    /*
+                     * v45 §4 — confirm the consequence, not the storage.
+                     *
+                     * "Step added." leaves the one question the author actually has
+                     * unanswered: does Amer know? Handing somebody work silently is
+                     * how a step sits untouched for a week while both people assume
+                     * the other is on it. When the step goes to someone else, say who
+                     * has it and that they were told.
+                     */
+                    const assignee = assignablePeople.find(
+                      (person) => person.id === step.assignedTo,
+                    );
+                    const delegated = Boolean(step.assignedTo) && step.assignedTo !== viewerId;
+                    const firstName = assignee
+                      ? (assignee.name.split(' ')[0] ?? assignee.name)
+                      : null;
+
+                    startTransition(async () => {
+                      finish(
+                        await addChecklistStep({
+                          taskId: task.id,
+                          action: step.action,
+                          assignedTo: step.assignedTo || null,
+                          evidenceRule: step.evidenceRule,
+                          dueDate: step.dueDate,
+                          dependsOnItemId: step.dependsOnItemId,
+                        }),
+                        delegated && firstName
+                          ? `Step assigned to ${firstName}. ${firstName} has been notified.`
+                          : 'Step added.',
+                      );
+                    });
+                  }}
+                  onEditStep={(step) => {
+                    setMessage(null);
+                    const previous = detail.checklist.find((item) => item.id === step.itemId);
+                    const reassigned =
+                      Boolean(previous) && previous?.assignedTo !== step.assignedTo;
+                    const assignee = assignablePeople.find(
+                      (person) => person.id === step.assignedTo,
+                    );
+                    const firstName = assignee
+                      ? (assignee.name.split(' ')[0] ?? assignee.name)
+                      : null;
+
+                    startTransition(async () => {
+                      finish(
+                        await updateChecklistStep({
+                          itemId: step.itemId,
+                          action: step.action,
+                          assignedTo: step.assignedTo,
+                          evidenceRule: step.evidenceRule,
+                          dueDate: step.dueDate,
+                          dependsOnItemId: step.dependsOnItemId,
+                          idempotencyKey: idempotencyKey(),
+                        }),
+                        // Reassignment is the change with a consequence for somebody
+                        // else, so it is the one the confirmation names.
+                        reassigned && firstName && step.assignedTo !== viewerId
+                          ? `Step updated and assigned to ${firstName}. ${firstName} has been notified.`
+                          : 'Step updated.',
+                      );
+                    });
+                  }}
+                  onRemoveStep={(item) => {
+                    setMessage(null);
+                    startTransition(async () => {
+                      finish(
+                        await removeChecklistStep({
+                          itemId: item.id,
+                          idempotencyKey: idempotencyKey(),
+                        }),
+                        'Step removed.',
+                      );
+                    });
+                  }}
+                  items={detail.checklist}
+                  attachmentsByChecklist={attachmentsByChecklist}
+                  canEdit={detail.capabilities.canEdit}
+                  pending={pending}
+                  timeZone={timeZone}
+                  onComplete={(itemId) =>
+                    startTransition(async () => {
+                      finish(
+                        await completeChecklistItem({
+                          itemId,
+                          idempotencyKey: idempotencyKey(),
+                        }),
+                        'Step completed.',
+                      );
+                    })
+                  }
+                  onReopen={(itemId) =>
+                    startTransition(async () => {
+                      finish(
+                        await reopenChecklistItem({
+                          itemId,
+                          reason: 'Reopened from task detail.',
+                        }),
+                        'Step reopened.',
+                      );
+                    })
+                  }
+                  onEvidence={(item, mode) =>
+                    setEvidenceDialog({ itemId: item.id, action: item.action, mode })
+                  }
+                />
+              </div>
+            )}
+          </section>
+        )}
+
+        {/*
+          Only what a person wrote. Everything the system did to this task -
+          created, classified, activated, steps ticked - is in Details under
+          Activity history, where a record belongs, rather than in a feed people
+          are meant to read.
+        */}
+        <section className="task-accordion">
+          <button
+            type="button"
+            className="task-accordion-summary"
+            aria-expanded={openSection === 'updates'}
+            onClick={() => toggleSection('updates')}
+          >
+            <span className="task-accordion-copy">
+              <strong>
+                Updates <span className="task-accordion-count">{writtenUpdates.length}</span>
+              </strong>
+              <small>{writtenUpdates[0]?.body ?? 'No progress update yet'}</small>
+            </span>
+            <span aria-hidden="true">›</span>
+          </button>
+          {openSection === 'updates' && (
+            <div className="task-accordion-body">
+              {writtenUpdates.length === 0 ? (
+                <p className="muted">
+                  Nothing written yet. Add an update when there is something to tell people that the
+                  task does not already say by itself.
+                </p>
+              ) : (
+                <div className="task-update-list">
+                  {writtenUpdates.map((update) => (
+                    <article key={update.id} className="task-written-update">
+                      <p>{update.body}</p>
+                      <span className="muted">
+                        {update.authorName} · {formatMoment(update.createdAt, timeZone)}
+                      </span>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        <section className="task-accordion">
+          <button
+            type="button"
+            className="task-accordion-summary"
+            aria-expanded={openSection === 'details'}
+            onClick={() => toggleSection('details')}
+          >
+            <span className="task-accordion-copy">
+              <strong>Details</strong>
+            </span>
+            <span aria-hidden="true">›</span>
+          </button>
+          {openSection === 'details' && (
+            <div className="task-accordion-body">
+              <div className="task-detail-facts">
+                <div>
+                  <p className="eyebrow">Owner</p>
+                  <p>{ownerName}</p>
+                </div>
+                <div>
+                  <p className="eyebrow">Urgency</p>
+                  <p>{task.urgency[0]?.toUpperCase() + task.urgency.slice(1)}</p>
+                </div>
+                <div>
+                  <p className="eyebrow">Created</p>
+                  <p>{formatMoment(task.createdAt, timeZone)}</p>
+                </div>
+                <div>
+                  <p className="eyebrow">Type</p>
+                  <p>{WORK_CLASS_LABELS[task.workClass]}</p>
+                </div>
+              </div>
+              {task.description && (
+                <section className="detail-section" aria-labelledby="task-context-heading">
+                  <p className="eyebrow" id="task-context-heading">
+                    Task context
+                  </p>
+                  <p>{task.description}</p>
+                </section>
+              )}
+              {task.routineTemplateId && detail.capabilities.canContribute && (
+                <section className="detail-section" aria-labelledby="findings-heading">
+                  <h3 id="findings-heading">Findings</h3>
+
+                  {detail.routineFindings.length > 0 && (
+                    <div className="finding-list">
+                      {detail.routineFindings.map((finding) => (
+                        <article key={finding.id} className="finding-row">
+                          <span
+                            className={`flag ${
+                              finding.severity === 'immediate_risk'
+                                ? 'red'
+                                : finding.severity === 'significant'
+                                  ? 'amber'
+                                  : 'neutral'
+                            }`}
+                          >
+                            {FINDING_SEVERITY_LABEL[finding.severity]}
+                          </span>
+                          <div>
+                            <strong>{finding.description}</strong>
+                            <span>
+                              {finding.recordedByName} ·{' '}
+                              {formatMoment(finding.recordedAt, timeZone)}
+                            </span>
+                            {finding.createdTaskId && (
+                              <Link
+                                href={`/work?task=${finding.createdTaskId}`}
+                                className="btn small"
+                              >
+                                Open the work this raised
+                              </Link>
+                            )}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+
+                  <form
+                    className="detail-lifecycle-form"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const form = event.currentTarget;
+                      const data = new FormData(form);
+                      const severity = String(data.get('severity') ?? 'minor') as
+                        'minor' | 'significant' | 'immediate_risk';
+                      const description = String(data.get('description') ?? '');
+                      const followUpOwnerId = String(data.get('followUpOwnerId') ?? '');
+                      setMessage(null);
+                      startTransition(async () => {
+                        if (
+                          finish(
+                            await recordRoutineFinding({
+                              occurrenceTaskId: task.id,
+                              severity,
+                              description,
+                              followUpOwnerId: followUpOwnerId || null,
+                            }),
+                            severity === 'minor'
+                              ? 'Finding recorded against this occurrence.'
+                              : 'Finding recorded, and follow-up work raised in Available.',
+                          )
+                        ) {
+                          form.reset();
+                        }
+                      });
+                    }}
+                  >
+                    <label htmlFor={`finding-severity-${task.id}`}>What did you find?</label>
+                    <select id={`finding-severity-${task.id}`} name="severity" defaultValue="minor">
+                      <option value="minor">Minor — corrected during this check</option>
+                      <option value="significant">Significant — needs follow-up work</option>
+                      <option value="immediate_risk">Immediate risk — needs action now</option>
+                    </select>
+
+                    <label htmlFor={`finding-description-${task.id}`}>Describe it</label>
+                    <textarea
+                      id={`finding-description-${task.id}`}
+                      name="description"
+                      rows={2}
+                      maxLength={2000}
+                      required
+                    />
+
+                    {assignablePeople.length > 0 && (
+                      <>
+                        <label htmlFor={`finding-owner-${task.id}`}>
+                          Who should own the follow-up?{' '}
+                          <span className="optional-label">Optional</span>
+                        </label>
+                        <select
+                          id={`finding-owner-${task.id}`}
+                          name="followUpOwnerId"
+                          defaultValue=""
+                        >
+                          <option value="">Decide later</option>
+                          {assignablePeople.map((person) => (
+                            <option key={person.id} value={person.id}>
+                              {person.name}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    )}
+
+                    <button className="btn small primary" disabled={pending} aria-busy={pending}>
+                      Record finding
+                    </button>
+                  </form>
+                </section>
+              )}
+              <section className="detail-section" aria-labelledby="attachments-heading">
+                <h3 id="attachments-heading">Attachments and evidence</h3>
+                {detail.attachments.length > 0 ? (
+                  <div className="attachment-list">
+                    {detail.attachments.map((attachment) => (
+                      <Link
+                        key={attachment.id}
+                        href={`/api/attachments/${attachment.id}`}
+                        target="_blank"
+                        className="attachment-row"
+                      >
+                        <span>
+                          <strong>{attachment.fileName}</strong>
+                          <small>
+                            {attachment.uploadedByName} ·{' '}
+                            {formatMoment(attachment.createdAt, timeZone)}
+                          </small>
+                        </span>
+                        <span>
+                          {formatBytes(attachment.byteSize)}
+                          {attachment.isEvidence ? ' · Evidence' : ''}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="muted">No files are attached.</p>
+                )}
+              </section>
+              <section className="detail-section" aria-labelledby="barriers-heading">
+                <h3 id="barriers-heading">Barriers</h3>
+                {detail.barriers.map((barrier) => (
+                  <BarrierDetailPanel
+                    key={barrier.id}
+                    barrier={barrier}
+                    timeZone={timeZone}
+                    canEdit={detail.capabilities.canEdit}
+                    pending={pending}
+                    highlighted={barrier.id === revealedBarrierId}
+                    onResolve={(form, note) => {
+                      startTransition(async () => {
+                        if (
+                          finish(
+                            await resolveBarrier({ barrierId: barrier.id, resolutionNote: note }),
+                            'Barrier resolved.',
+                          )
+                        )
+                          form.reset();
+                      });
+                    }}
+                  />
+                ))}
+                {detail.barriers.length === 0 && (
+                  <p className="muted">No barriers have been raised.</p>
+                )}
+              </section>
+              {task.reviewStatus === 'pending' && detail.capabilities.canReview && (
+                /*
+            Deliberately not `detail-section`. Combined with
+            `drawer-panel-overview` that class is hidden until the drawer is
+            expanded — the same rule that once hid Complete and then Delete. A
+            completion waiting on a manager's decision is the last thing that
+            should be behind Expand.
+          */
+                <section className="review-panel" aria-labelledby="review-heading">
+                  <h3 id="review-heading">Completion review</h3>
+                  <p>Opening evidence records that it was viewed. It does not accept completion.</p>
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const data = new FormData(event.currentTarget);
+                      const submitter = (event.nativeEvent as SubmitEvent)
+                        .submitter as HTMLButtonElement | null;
+                      startTransition(async () => {
+                        finish(
+                          await decideCompletionReview({
+                            taskId: task.id,
+                            decision: String(submitter?.value) as 'accepted' | 'changes_requested',
+                            note: String(data.get('note') ?? '') || null,
+                            idempotencyKey: idempotencyKey(),
+                          }),
+                          'Review decision recorded.',
+                        );
+                      });
+                    }}
+                  >
+                    <div className="field">
+                      <label htmlFor={`review-note-${task.id}`}>Review note</label>
+                      <textarea id={`review-note-${task.id}`} name="note" rows={3} />
+                    </div>
+                    <div className="actions">
+                      <button
+                        className="btn primary"
+                        name="decision"
+                        value="accepted"
+                        disabled={pending}
+                        aria-busy={pending}
+                      >
+                        Accept Completion
+                      </button>
+                      <button
+                        className="btn danger"
+                        name="decision"
+                        value="changes_requested"
+                        disabled={pending}
+                        aria-busy={pending}
+                      >
+                        Request Changes
+                      </button>
+                    </div>
+                  </form>
+                </section>
+              )}
+              <section className="detail-section detail-two-column">
+                <div>
+                  <h3>Collaborators</h3>
+                  {detail.collaborators.length ? (
+                    <ul>
+                      {detail.collaborators.map((person) => (
+                        <li key={person.id}>
+                          {person.fullName}
+                          {person.employeeId ? ` · ${person.employeeId}` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="muted">No collaborators.</p>
+                  )}
+                </div>
+                <div>
+                  <h3>Related Work</h3>
+                  {detail.relatedWork.length ? (
+                    <ul>
+                      {detail.relatedWork.map((related) => (
+                        <li key={related.id}>
+                          <Link href={`/work?task=${related.id}`}>{related.title}</Link> ·{' '}
+                          {related.relation}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="muted">No related work.</p>
+                  )}
+                </div>
+              </section>
+              <details className="task-activity-details">
+                <summary>Activity history</summary>
+                <TaskActivityHistory
+                  activity={detail.activity}
+                  updates={detail.updates}
+                  attachments={detail.attachments}
+                  timeZone={timeZone}
+                  /*
+                   * Only when there is a decision waiting and this reader is the one
+                   * who makes it. The review panel lives on Overview, so from here
+                   * the entry had nothing behind it — a manager could read
+                   * "Completion submitted" and have no way to act on it.
+                   */
+                  onOpenReview={
+                    task.reviewStatus === 'pending' && detail.capabilities.canReview
+                      ? () => {
+                          setOpenSection('details');
+                          // Once the section is open, put the panel in front of them
+                          // rather than leaving it to be hunted for.
+                          requestAnimationFrame(() => {
+                            document
+                              .getElementById(`review-heading`)
+                              ?.scrollIntoView({ block: 'center' });
+                          });
+                        }
+                      : undefined
+                  }
+                />
+              </details>
+            </div>
+          )}
+        </section>
+
+        {/*
+          Finishing, and everything that is not finishing.
+
+          `Complete work` is disabled rather than hidden while steps remain, so
+          the way to end a task is always in the same place; what is missing is
+          said when it is pressed rather than kept permanently on screen.
+        */}
+        <div className="task-detail-footer">
+          {detail.capabilities.canComplete &&
           task.status !== 'completed' &&
           task.status !== 'cancelled' ? (
             <button
               type="button"
-              className="task-due-edit"
-              onClick={() => {
-                setTitleDraft(task.title);
-                setDescriptionDraft(task.description ?? '');
-                setEditOpen(true);
-              }}
-            >
-              Edit task
-            </button>
-          ) : null}
-        </div>
-
-        {task.description && (
-          <section
-            className="detail-section drawer-panel-overview"
-            aria-labelledby="task-context-heading"
-          >
-            <p className="eyebrow" id="task-context-heading">
-              Task context
-            </p>
-            <p>{task.description}</p>
-          </section>
-        )}
-
-        <section
-          className="task-tab-section next-action-section drawer-panel-overview"
-          aria-labelledby="next-action-heading"
-        >
-          <p className="eyebrow" id="next-action-heading">
-            Next action
-          </p>
-          <div className="next-action-card">
-            {!nextActionEditing ? (
-              <div className="next-action-view">
-                <div className="next-action-copy" aria-live="polite">
-                  <strong className={nextAction ? undefined : 'empty'}>
-                    {nextAction ?? 'No next action recorded'}
-                  </strong>
-                  <span>
-                    {nextAction
-                      ? `${task.routineTemplateId ? 'Occurrence' : 'Due'} ${formatDueShort(
-                          task.dueAt,
-                          task.dueIsDateOnly,
-                          timeZone,
-                        )}${taskOverdueMs > 0 ? ` · ${formatCompactDuration(taskOverdueMs)} overdue` : ''}`
-                      : 'No practical next action has been recorded.'}
-                  </span>
-                </div>
-                {detail.capabilities.canEdit && (
-                  <div className="next-action-actions">
-                    {nextAction && (
-                      <button
-                        type="button"
-                        className="btn small"
-                        disabled={pending}
-                        aria-busy={pending}
-                        onClick={() => saveNextAction(true)}
-                      >
-                        Mark done
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="btn small primary"
-                      disabled={pending}
-                      aria-busy={pending}
-                      onClick={openNextActionEditor}
-                    >
-                      {nextAction ? 'Edit' : '+ Set next action'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <form
-                className="next-action-editor"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  saveNextAction(false);
-                }}
-              >
-                <label htmlFor={`next-action-${task.id}`}>Next action</label>
-                <input
-                  id={`next-action-${task.id}`}
-                  value={nextActionDraft}
-                  onChange={(event) => setNextActionDraft(event.target.value)}
-                  maxLength={180}
-                  required
-                  autoFocus
-                  placeholder="Example: Print and test the QR code on one first-aid box"
-                />
-                <span className="help">
-                  Start with a verb and describe one action that can be completed or clearly
-                  advanced.
-                </span>
-                <div className="actions">
-                  <button
-                    type="button"
-                    className="btn small"
-                    disabled={pending}
-                    aria-busy={pending}
-                    onClick={() => setNextActionEditing(false)}
-                  >
-                    Cancel
-                  </button>
-                  <button className="btn small primary" disabled={pending} aria-busy={pending}>
-                    {pending ? 'Saving...' : 'Save next action'}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </section>
-
-        {detail.checklist.length > 0 ? (
-          <button
-            type="button"
-            className="checklist-preview-row drawer-panel-overview"
-            onClick={() => setActiveTab('checklist')}
-          >
-            <span>
-              <strong>
-                Checklist · {checklistCompleted}/{detail.checklist.length} completed
-              </strong>
-              <small>
-                {evidenceOutstanding.length > 0
-                  ? `${evidenceOutstanding.length} item${
-                      evidenceOutstanding.length === 1 ? '' : 's'
-                    } still needs evidence attached`
-                  : 'No required evidence outstanding'}
-              </small>
-            </span>
-            <span aria-hidden="true">›</span>
-          </button>
-        ) : null}
-
-        {/*
-          Finishing the work is the point of the screen, so it is not a thing
-          to go looking for. It used to live two disclosures deep — More task
-          actions, then Complete — which read as though the task had no way to
-          end. It appears here only when nothing is actually blocking it, so
-          the button never promises something the procedure will refuse.
-
-          Gated on canContribute rather than canEdit because that is what
-          `complete_task` itself checks: a contributor may finish work they do
-          not own.
-        */}
-        {/*
-          The className deliberately omits `detail-section`. That class is what
-          `:not(.expanded) .drawer-panel-overview.detail-section` hides, so
-          carrying it would have put finishing the work behind Expand as well as
-          behind the disclosures — which is the state this is fixing.
-        */}
-        {/*
-          When it is not ready, say so and say why.
-
-          The Complete callout below appears only when the procedure would
-          accept, which is right — but it used to simply vanish otherwise,
-          leaving no answer to "how do I finish this?". The reasons are the
-          same ones `complete_task` would give, worked out before the click
-          rather than after it.
-        */}
-        {!readyToComplete && detail.capabilities.canComplete && completionBlockers.length > 0 && (
-          <section className="completion-blockers drawer-panel-overview">
-            <strong>Before this can be completed</strong>
-            <ul>
-              {completionBlockers.map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
-            </ul>
-            <button type="button" className="btn small" onClick={() => setActiveTab('checklist')}>
-              Open the checklist
-            </button>
-          </section>
-        )}
-
-        {readyToComplete && (
-          <section className="drawer-panel-overview task-complete-callout">
-            <div>
-              <strong>Everything is done</strong>
-              <span>
-                {detail.checklist.length > 0
-                  ? `All ${detail.checklist.length} checklist steps are complete and no evidence is outstanding.`
-                  : 'There is no checklist outstanding on this work.'}
-              </span>
-            </div>
-            <button
-              type="button"
               className="btn primary"
-              disabled={pending}
+              disabled={!readyToComplete || pending}
               aria-busy={pending}
+              /*
+               * Disabled rather than shouted about. The old screen carried a
+               * permanent box listing everything outstanding, which is the
+               * Steps list said twice. The reason is here for anybody who
+               * wonders why the button will not press, and `complete_task`
+               * still names what is missing to anyone who reaches it another
+               * way.
+               */
+              title={
+                readyToComplete
+                  ? undefined
+                  : completionBlockers.length > 0
+                    ? `Not yet: ${completionBlockers.join('; ')}`
+                    : undefined
+              }
               onClick={() => setCompleteOpen(true)}
             >
-              Complete task
+              Complete work
             </button>
-          </section>
-        )}
-
-        {detail.capabilities.canEdit && (
-          <section className="detail-section task-lifecycle-section drawer-panel-overview">
-            <details className="task-actions-details">
-              <summary>More task actions</summary>
-              <div className="detail-lifecycle">
-                <TaskRowActions
-                  taskId={task.id}
-                  title={task.title}
-                  status={task.status}
-                  version={task.version}
-                  bucket={task.focusBucket}
-                  isMandatory={task.isMandatory}
-                />
-
-                {task.status === 'active' && (
-                  <>
-                    <details>
-                      <summary>Pause</summary>
-                      <form
-                        className="detail-form"
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          const form = event.currentTarget;
-                          const data = new FormData(form);
-                          const restart = String(data.get('restartAt') ?? '');
-                          startTransition(async () => {
-                            const result = await pauseTask({
-                              taskId: task.id,
-                              expectedVersion: task.version,
-                              reason: String(data.get('reason') ?? ''),
-                              restartAt: restart ? new Date(restart).toISOString() : null,
-                              idempotencyKey: idempotencyKey(),
-                            });
-                            finish(result, 'Work paused with restart information recorded.');
-                          });
-                        }}
-                      >
-                        <div className="field">
-                          <label htmlFor={`pause-reason-${task.id}`}>Why pause?</label>
-                          <textarea
-                            id={`pause-reason-${task.id}`}
-                            name="reason"
-                            required
-                            rows={2}
-                          />
-                        </div>
-                        <div className="field">
-                          <label htmlFor={`restart-${task.id}`}>Restart or review at</label>
-                          <input
-                            id={`restart-${task.id}`}
-                            name="restartAt"
-                            type="datetime-local"
-                            required
-                          />
-                        </div>
-                        <button className="btn small" disabled={pending} aria-busy={pending}>
-                          Pause work
+          ) : (
+            <span />
+          )}
+          {detail.capabilities.canEdit || detail.capabilities.canDelete ? (
+            <div className="task-admin-menu">
+              <button
+                type="button"
+                className="btn ghost task-admin-toggle"
+                aria-expanded={adminOpen}
+                aria-label="More task actions"
+                onClick={() => setAdminOpen((current) => !current)}
+              >
+                •••
+              </button>
+              {adminOpen && (
+                <div className="task-admin-popover" role="group" aria-label="Task administration">
+                  {/*
+                    Editing the work and moving its date are administration,
+                    not execution. They used to sit in the header beside the due
+                    date, where they were the two most prominent controls on a
+                    screen whose point is to get something done.
+                  */}
+                  {detail.capabilities.canEdit &&
+                  task.status !== 'completed' &&
+                  task.status !== 'cancelled' ? (
+                    <section className="task-admin-group">
+                      <div className="task-admin-buttons">
+                        <button
+                          type="button"
+                          className="btn small"
+                          onClick={() => {
+                            setTitleDraft(task.title);
+                            setDescriptionDraft(task.description ?? '');
+                            setEditOpen(true);
+                            setAdminOpen(false);
+                          }}
+                        >
+                          Edit work
                         </button>
-                      </form>
-                    </details>
-                    {/*
+                        <button
+                          type="button"
+                          className="btn small"
+                          onClick={() => {
+                            openDueEditor();
+                            setAdminOpen(false);
+                          }}
+                        >
+                          Edit due date
+                        </button>
+                      </div>
+                    </section>
+                  ) : null}
+                  {detail.capabilities.canEdit && (
+                    <section className="task-admin-group">
+                      <div className="detail-lifecycle">
+                        <TaskRowActions
+                          taskId={task.id}
+                          title={task.title}
+                          status={task.status}
+                          version={task.version}
+                          bucket={task.focusBucket}
+                          isMandatory={task.isMandatory}
+                        />
+
+                        {task.status === 'active' && (
+                          <>
+                            <details>
+                              <summary>Pause</summary>
+                              <form
+                                className="detail-form"
+                                onSubmit={(event) => {
+                                  event.preventDefault();
+                                  const form = event.currentTarget;
+                                  const data = new FormData(form);
+                                  const restart = String(data.get('restartAt') ?? '');
+                                  startTransition(async () => {
+                                    const result = await pauseTask({
+                                      taskId: task.id,
+                                      expectedVersion: task.version,
+                                      reason: String(data.get('reason') ?? ''),
+                                      restartAt: restart ? new Date(restart).toISOString() : null,
+                                      idempotencyKey: idempotencyKey(),
+                                    });
+                                    finish(
+                                      result,
+                                      'Work paused with restart information recorded.',
+                                    );
+                                  });
+                                }}
+                              >
+                                <div className="field">
+                                  <label htmlFor={`pause-reason-${task.id}`}>Why pause?</label>
+                                  <textarea
+                                    id={`pause-reason-${task.id}`}
+                                    name="reason"
+                                    required
+                                    rows={2}
+                                  />
+                                </div>
+                                <div className="field">
+                                  <label htmlFor={`restart-${task.id}`}>Restart or review at</label>
+                                  <input
+                                    id={`restart-${task.id}`}
+                                    name="restartAt"
+                                    type="datetime-local"
+                                    required
+                                  />
+                                </div>
+                                <button
+                                  className="btn small"
+                                  disabled={pending}
+                                  aria-busy={pending}
+                                >
+                                  Pause work
+                                </button>
+                              </form>
+                            </details>
+                            {/*
                       Completion lives on the Overview now, surfaced the moment
                       nothing blocks it. Keeping a second copy here would be two
                       routes to one operation and one of them would drift.
                       Offered here only while something is still outstanding, so
                       the action is never unreachable.
                     */}
-                    {!readyToComplete && detail.capabilities.canComplete && (
-                      <button
-                        type="button"
-                        className="btn small"
-                        onClick={() => setCompleteOpen(true)}
-                      >
-                        Complete task
-                      </button>
-                    )}
-                  </>
-                )}
+                            {!readyToComplete && detail.capabilities.canComplete && (
+                              <button
+                                type="button"
+                                className="btn small"
+                                onClick={() => setCompleteOpen(true)}
+                              >
+                                Complete task
+                              </button>
+                            )}
+                          </>
+                        )}
 
-                {task.status === 'paused' && (
-                  <div className="detail-form">
-                    {resumeNeedsReason && (
-                      <>
-                        <div className="field">
-                          <label htmlFor={`resume-reason-${task.id}`}>
-                            Why is this additional focus needed now?
-                          </label>
-                          <select
-                            id={`resume-reason-${task.id}`}
-                            value={resumeReason ?? ''}
-                            onChange={(event) =>
-                              setResumeReason(
-                                (event.target.value || null) as ActivationReason | null,
-                              )
-                            }
-                          >
-                            <option value="">Select a reason</option>
-                            {ACTIVATION_REASON_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        {resumeReason === 'other' && (
-                          <div className="field">
-                            <label htmlFor={`resume-note-${task.id}`}>Add a short note</label>
-                            <textarea
-                              id={`resume-note-${task.id}`}
-                              value={resumeNote}
-                              onChange={(event) => setResumeNote(event.target.value)}
-                              rows={2}
-                            />
+                        {task.status === 'paused' && (
+                          <div className="detail-form">
+                            {resumeNeedsReason && (
+                              <>
+                                <div className="field">
+                                  <label htmlFor={`resume-reason-${task.id}`}>
+                                    Why is this additional focus needed now?
+                                  </label>
+                                  <select
+                                    id={`resume-reason-${task.id}`}
+                                    value={resumeReason ?? ''}
+                                    onChange={(event) =>
+                                      setResumeReason(
+                                        (event.target.value || null) as ActivationReason | null,
+                                      )
+                                    }
+                                  >
+                                    <option value="">Select a reason</option>
+                                    {ACTIVATION_REASON_OPTIONS.map((option) => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                {resumeReason === 'other' && (
+                                  <div className="field">
+                                    <label htmlFor={`resume-note-${task.id}`}>
+                                      Add a short note
+                                    </label>
+                                    <textarea
+                                      id={`resume-note-${task.id}`}
+                                      value={resumeNote}
+                                      onChange={(event) => setResumeNote(event.target.value)}
+                                      rows={2}
+                                    />
+                                  </div>
+                                )}
+                              </>
+                            )}
+                            <button
+                              type="button"
+                              className="btn primary"
+                              onClick={runResume}
+                              disabled={pending}
+                              aria-busy={pending}
+                            >
+                              Resume work
+                            </button>
                           </div>
                         )}
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      className="btn primary"
-                      onClick={runResume}
-                      disabled={pending}
-                      aria-busy={pending}
-                    >
-                      Resume work
-                    </button>
-                  </div>
-                )}
 
-                {/*
+                        {/*
                   v52 — the two ends of the lifecycle that had no way in.
                   
                   `cancelled` has always existed in the status enum and
@@ -1694,106 +2137,117 @@ export function TaskDetailDrawer({
                   work captured by mistake could only be completed, which puts
                   a lie in the record, or left in Available for ever.
                 */}
-                {detail.capabilities.canCancel &&
-                  task.status !== 'completed' &&
-                  task.status !== 'cancelled' && (
-                    <form
-                      className="detail-lifecycle-form"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        const form = event.currentTarget;
-                        const reason = String(new FormData(form).get('cancelReason') ?? '');
-                        setMessage(null);
-                        startTransition(async () => {
-                          if (
-                            finish(
-                              await cancelTask({
-                                taskId: task.id,
-                                expectedVersion: taskVersion,
-                                reason,
-                                idempotencyKey: idempotencyKey(),
-                              }),
-                              'Work cancelled. It stays on the record with your reason.',
-                            )
-                          ) {
-                            form.reset();
-                            setTaskVersion((current) => current + 1);
-                          }
-                        });
-                      }}
-                    >
-                      <label htmlFor={`cancel-${task.id}`}>
-                        Cancel this work — why is it no longer needed?
-                      </label>
-                      <textarea id={`cancel-${task.id}`} name="cancelReason" rows={2} required />
-                      <button className="btn small danger" disabled={pending} aria-busy={pending}>
-                        Cancel work
-                      </button>
-                    </form>
-                  )}
+                        {detail.capabilities.canCancel &&
+                          task.status !== 'completed' &&
+                          task.status !== 'cancelled' && (
+                            <form
+                              className="detail-lifecycle-form"
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                const form = event.currentTarget;
+                                const reason = String(new FormData(form).get('cancelReason') ?? '');
+                                setMessage(null);
+                                startTransition(async () => {
+                                  if (
+                                    finish(
+                                      await cancelTask({
+                                        taskId: task.id,
+                                        expectedVersion: taskVersion,
+                                        reason,
+                                        idempotencyKey: idempotencyKey(),
+                                      }),
+                                      'Work cancelled. It stays on the record with your reason.',
+                                    )
+                                  ) {
+                                    form.reset();
+                                    setTaskVersion((current) => current + 1);
+                                  }
+                                });
+                              }}
+                            >
+                              <label htmlFor={`cancel-${task.id}`}>
+                                Cancel this work — why is it no longer needed?
+                              </label>
+                              <textarea
+                                id={`cancel-${task.id}`}
+                                name="cancelReason"
+                                rows={2}
+                                required
+                              />
+                              <button
+                                className="btn small danger"
+                                disabled={pending}
+                                aria-busy={pending}
+                              >
+                                Cancel work
+                              </button>
+                            </form>
+                          )}
 
-                {/*
+                        {/*
                   Reassignment is a manager act and the capability says so, so
                   an owner never sees a control the database would refuse. It
                   is also the answer to the message an administrator gets when
                   deactivating somebody who still owns open work.
                 */}
-                {detail.capabilities.canReassign &&
-                  task.status !== 'completed' &&
-                  task.status !== 'cancelled' &&
-                  assignablePeople.length > 0 && (
-                    <form
-                      className="detail-lifecycle-form"
-                      onSubmit={(event) => {
-                        event.preventDefault();
-                        const form = event.currentTarget;
-                        const newOwnerId = String(new FormData(form).get('newOwnerId') ?? '');
-                        if (!newOwnerId) return;
-                        setMessage(null);
-                        startTransition(async () => {
-                          const result = (await reassignTask({
-                            taskId: task.id,
-                            expectedVersion: taskVersion,
-                            newOwnerId,
-                            idempotencyKey: idempotencyKey(),
-                          })) as OperationResult<{
-                            workload_review_needed?: boolean;
-                            active_count?: number;
-                            recommended_target?: number;
-                            status?: string;
-                          }>;
-                          const success =
-                            result.ok && result.workload_review_needed
-                              ? `Owner changed. Work remains ${result.status ?? task.status}; workload review needed (${result.active_count ?? 'over'}/${result.recommended_target ?? 'target'} Active).`
-                              : `Owner changed. Work remains ${result.ok ? (result.status ?? task.status) : task.status}.`;
-                          if (finish(result, success)) {
-                            setTaskVersion((current) => current + 1);
-                          }
-                        });
-                      }}
-                    >
-                      <label htmlFor={`reassign-${task.id}`}>Change the primary owner</label>
-                      <select id={`reassign-${task.id}`} name="newOwnerId" defaultValue="">
-                        <option value="">Choose a person</option>
-                        {assignablePeople
-                          .filter((person) => person.id !== task.primaryOwnerId)
-                          .map((person) => (
-                            <option key={person.id} value={person.id}>
-                              {person.name}
-                            </option>
-                          ))}
-                      </select>
-                      <button className="btn small" disabled={pending} aria-busy={pending}>
-                        Reassign work
-                      </button>
-                    </form>
+                        {detail.capabilities.canReassign &&
+                          task.status !== 'completed' &&
+                          task.status !== 'cancelled' &&
+                          assignablePeople.length > 0 && (
+                            <form
+                              className="detail-lifecycle-form"
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                const form = event.currentTarget;
+                                const newOwnerId = String(
+                                  new FormData(form).get('newOwnerId') ?? '',
+                                );
+                                if (!newOwnerId) return;
+                                setMessage(null);
+                                startTransition(async () => {
+                                  const result = (await reassignTask({
+                                    taskId: task.id,
+                                    expectedVersion: taskVersion,
+                                    newOwnerId,
+                                    idempotencyKey: idempotencyKey(),
+                                  })) as OperationResult<{
+                                    workload_review_needed?: boolean;
+                                    active_count?: number;
+                                    recommended_target?: number;
+                                    status?: string;
+                                  }>;
+                                  const success =
+                                    result.ok && result.workload_review_needed
+                                      ? `Owner changed. Work remains ${result.status ?? task.status}; workload review needed (${result.active_count ?? 'over'}/${result.recommended_target ?? 'target'} Active).`
+                                      : `Owner changed. Work remains ${result.ok ? (result.status ?? task.status) : task.status}.`;
+                                  if (finish(result, success)) {
+                                    setTaskVersion((current) => current + 1);
+                                  }
+                                });
+                              }}
+                            >
+                              <label htmlFor={`reassign-${task.id}`}>
+                                Change the primary owner
+                              </label>
+                              <select id={`reassign-${task.id}`} name="newOwnerId" defaultValue="">
+                                <option value="">Choose a person</option>
+                                {assignablePeople
+                                  .filter((person) => person.id !== task.primaryOwnerId)
+                                  .map((person) => (
+                                    <option key={person.id} value={person.id}>
+                                      {person.name}
+                                    </option>
+                                  ))}
+                              </select>
+                              <button className="btn small" disabled={pending} aria-busy={pending}>
+                                Reassign work
+                              </button>
+                            </form>
+                          )}
+                      </div>
+                    </section>
                   )}
-              </div>
-            </details>
-          </section>
-        )}
-
-        {/*
+                  {/*
           Delete, on its own and always reachable.
 
           This button used to live inside the "More task actions" disclosure,
@@ -1814,28 +2268,28 @@ export function TaskDetailDrawer({
           expanded, which would bury the control all over again. The
           `drawer-panel-overview` class stays so it belongs to the Overview tab.
         */}
-        {detail.capabilities.canDelete && (
-          <section className="task-delete-section drawer-panel-overview">
-            <div>
-              <strong>Delete this work</strong>
-              <p className="muted">
-                For work that should never have been created. It moves to the Bin and can be
-                restored. To stop work that was right to create but should not go ahead, cancel it
-                instead.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="btn small danger"
-              disabled={pending}
-              onClick={() => setDeleteOpen(true)}
-            >
-              Delete task
-            </button>
-          </section>
-        )}
+                  {detail.capabilities.canDelete && (
+                    <section className="task-admin-group task-delete-section">
+                      <div>
+                        <strong>Delete this work</strong>
+                        <p className="muted">
+                          For work that should never have been created. It moves to the Bin and can
+                          be restored. To stop work that was right to create but should not go
+                          ahead, cancel it instead.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn small danger"
+                        disabled={pending}
+                        onClick={() => setDeleteOpen(true)}
+                      >
+                        Delete task
+                      </button>
+                    </section>
+                  )}
 
-        {/*
+                  {/*
           v52 — recording what an inspection found (master spec §16.4).
 
           The table, the procedure and the server action have existed since the
@@ -1848,469 +2302,11 @@ export function TaskDetailDrawer({
           work for somebody to own. The procedure enforces that; this form only
           has to ask the question clearly.
         */}
-        {task.routineTemplateId && detail.capabilities.canContribute && (
-          <section
-            className="detail-section drawer-panel-overview"
-            aria-labelledby="findings-heading"
-          >
-            <h3 id="findings-heading">Findings</h3>
-
-            {detail.routineFindings.length > 0 && (
-              <div className="finding-list">
-                {detail.routineFindings.map((finding) => (
-                  <article key={finding.id} className="finding-row">
-                    <span
-                      className={`flag ${
-                        finding.severity === 'immediate_risk'
-                          ? 'red'
-                          : finding.severity === 'significant'
-                            ? 'amber'
-                            : 'neutral'
-                      }`}
-                    >
-                      {FINDING_SEVERITY_LABEL[finding.severity]}
-                    </span>
-                    <div>
-                      <strong>{finding.description}</strong>
-                      <span>
-                        {finding.recordedByName} · {formatMoment(finding.recordedAt, timeZone)}
-                      </span>
-                      {finding.createdTaskId && (
-                        <Link href={`/work?task=${finding.createdTaskId}`} className="btn small">
-                          Open the work this raised
-                        </Link>
-                      )}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-
-            <form
-              className="detail-lifecycle-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                const form = event.currentTarget;
-                const data = new FormData(form);
-                const severity = String(data.get('severity') ?? 'minor') as
-                  'minor' | 'significant' | 'immediate_risk';
-                const description = String(data.get('description') ?? '');
-                const followUpOwnerId = String(data.get('followUpOwnerId') ?? '');
-                setMessage(null);
-                startTransition(async () => {
-                  if (
-                    finish(
-                      await recordRoutineFinding({
-                        occurrenceTaskId: task.id,
-                        severity,
-                        description,
-                        followUpOwnerId: followUpOwnerId || null,
-                      }),
-                      severity === 'minor'
-                        ? 'Finding recorded against this occurrence.'
-                        : 'Finding recorded, and follow-up work raised in Available.',
-                    )
-                  ) {
-                    form.reset();
-                  }
-                });
-              }}
-            >
-              <label htmlFor={`finding-severity-${task.id}`}>What did you find?</label>
-              <select id={`finding-severity-${task.id}`} name="severity" defaultValue="minor">
-                <option value="minor">Minor — corrected during this check</option>
-                <option value="significant">Significant — needs follow-up work</option>
-                <option value="immediate_risk">Immediate risk — needs action now</option>
-              </select>
-
-              <label htmlFor={`finding-description-${task.id}`}>Describe it</label>
-              <textarea
-                id={`finding-description-${task.id}`}
-                name="description"
-                rows={2}
-                maxLength={2000}
-                required
-              />
-
-              {assignablePeople.length > 0 && (
-                <>
-                  <label htmlFor={`finding-owner-${task.id}`}>
-                    Who should own the follow-up? <span className="optional-label">Optional</span>
-                  </label>
-                  <select id={`finding-owner-${task.id}`} name="followUpOwnerId" defaultValue="">
-                    <option value="">Decide later</option>
-                    {assignablePeople.map((person) => (
-                      <option key={person.id} value={person.id}>
-                        {person.name}
-                      </option>
-                    ))}
-                  </select>
-                </>
-              )}
-
-              <button className="btn small primary" disabled={pending} aria-busy={pending}>
-                Record finding
-              </button>
-            </form>
-          </section>
-        )}
-
-        <TaskChecklistPanel
-          assignees={assignablePeople}
-          onAddStep={(step) => {
-            setMessage(null);
-            /*
-             * v45 §4 — confirm the consequence, not the storage.
-             *
-             * "Step added." leaves the one question the author actually has
-             * unanswered: does Amer know? Handing somebody work silently is
-             * how a step sits untouched for a week while both people assume
-             * the other is on it. When the step goes to someone else, say who
-             * has it and that they were told.
-             */
-            const assignee = assignablePeople.find((person) => person.id === step.assignedTo);
-            const delegated = Boolean(step.assignedTo) && step.assignedTo !== viewerId;
-            const firstName = assignee ? (assignee.name.split(' ')[0] ?? assignee.name) : null;
-
-            startTransition(async () => {
-              finish(
-                await addChecklistStep({
-                  taskId: task.id,
-                  action: step.action,
-                  assignedTo: step.assignedTo || null,
-                  evidenceRule: step.evidenceRule,
-                  dueDate: step.dueDate,
-                  dependsOnItemId: step.dependsOnItemId,
-                }),
-                delegated && firstName
-                  ? `Step assigned to ${firstName}. ${firstName} has been notified.`
-                  : 'Step added.',
-              );
-            });
-          }}
-          onEditStep={(step) => {
-            setMessage(null);
-            const previous = detail.checklist.find((item) => item.id === step.itemId);
-            const reassigned = Boolean(previous) && previous?.assignedTo !== step.assignedTo;
-            const assignee = assignablePeople.find((person) => person.id === step.assignedTo);
-            const firstName = assignee ? (assignee.name.split(' ')[0] ?? assignee.name) : null;
-
-            startTransition(async () => {
-              finish(
-                await updateChecklistStep({
-                  itemId: step.itemId,
-                  action: step.action,
-                  assignedTo: step.assignedTo,
-                  evidenceRule: step.evidenceRule,
-                  dueDate: step.dueDate,
-                  dependsOnItemId: step.dependsOnItemId,
-                  idempotencyKey: idempotencyKey(),
-                }),
-                // Reassignment is the change with a consequence for somebody
-                // else, so it is the one the confirmation names.
-                reassigned && firstName && step.assignedTo !== viewerId
-                  ? `Step updated and assigned to ${firstName}. ${firstName} has been notified.`
-                  : 'Step updated.',
-              );
-            });
-          }}
-          onRemoveStep={(item) => {
-            setMessage(null);
-            startTransition(async () => {
-              finish(
-                await removeChecklistStep({
-                  itemId: item.id,
-                  idempotencyKey: idempotencyKey(),
-                }),
-                'Step removed.',
-              );
-            });
-          }}
-          items={detail.checklist}
-          nextAction={nextAction}
-          attachmentsByChecklist={attachmentsByChecklist}
-          canEdit={detail.capabilities.canEdit}
-          pending={pending}
-          timeZone={timeZone}
-          onMarkNextDone={() => saveNextAction(true)}
-          onSetNextAction={() => {
-            setActiveTab('overview');
-            openNextActionEditor();
-          }}
-          onComplete={(itemId) =>
-            startTransition(async () => {
-              finish(
-                await completeChecklistItem({
-                  itemId,
-                  idempotencyKey: idempotencyKey(),
-                }),
-                'Checklist item completed.',
-              );
-            })
-          }
-          onReopen={(itemId) =>
-            startTransition(async () => {
-              finish(
-                await reopenChecklistItem({
-                  itemId,
-                  reason: 'Reopened from task detail.',
-                }),
-                'Checklist item reopened.',
-              );
-            })
-          }
-          onEvidence={(item, mode) =>
-            setEvidenceDialog({ itemId: item.id, action: item.action, mode })
-          }
-        />
-
-        <section
-          className="task-tab-section drawer-panel-updates"
-          aria-labelledby="updates-heading"
-        >
-          <h3 id="updates-heading">Post an update</h3>
-
-          {/*
-            The composer is open as soon as the Updates tab is selected. The tab
-            is itself the disclosure section 12.1 asks for — reaching this panel
-            is already a deliberate act, so hiding the form behind a second click
-            only adds a step. The two-question split is kept: "What happens
-            next?" maps onto Do Next, a real concept in the product.
-          */}
-          {detail.capabilities.canContribute && (
-            <form
-              key={nextAction ?? 'no-next-action'}
-              className="task-update-composer"
-              onSubmit={(event) => {
-                event.preventDefault();
-                submitUpdate(event.currentTarget);
-              }}
-            >
-              <div className="update-form-grid">
-                <div className="field">
-                  <label htmlFor={`update-${task.id}`}>What changed?</label>
-                  <textarea
-                    id={`update-${task.id}`}
-                    name="body"
-                    rows={4}
-                    maxLength={4000}
-                    placeholder="Describe the meaningful progress, result or issue."
-                  />
                 </div>
-              </div>
-
-              {/*
-                v43 sections 11-15. Four controls left this form:
-
-                  "What happens next?"  — Next action has one home, in Overview.
-                                          Two places to edit it meant an update
-                                          could silently rewrite the plan.
-                  "This is evidence only" — inferred now (section 27): no text
-                                          plus attachments IS an evidence-only
-                                          update. That was bookkeeping dressed
-                                          up as a question.
-                  "Need help"           — a second route to Raise barrier, which
-                                          already sits at the top of the drawer.
-                  "Mention participants" — a participant model duplicating the
-                                          owner, assignees, contributors and
-                                          manager the task already knows about.
-
-                What is left is the question the form is for: what changed.
-              */}
-              <div className="update-composer-footer">
-                {/* "Add files" rather than "Attach": it names the action and the object,
-                    and keeping the visible text identical to the accessible name
-                    satisfies WCAG 2.5.3 Label in Name. */}
-                <AttachmentPicker label="Add files" disabled={pending} />
-                <button className="btn small primary" disabled={pending} aria-busy={pending}>
-                  {pending ? 'Posting…' : 'Post update'}
-                </button>
-              </div>
-              <p className="update-composer-note">
-                Records what changed. Next action is edited separately, in Overview.
-              </p>
-            </form>
-          )}
-          <h3 className="recent-activity-heading">Recent activity</h3>
-          <TaskActivityHistory
-            activity={detail.activity}
-            updates={detail.updates}
-            attachments={detail.attachments}
-            timeZone={timeZone}
-            /*
-             * Only when there is a decision waiting and this reader is the one
-             * who makes it. The review panel lives on Overview, so from here
-             * the entry had nothing behind it — a manager could read
-             * "Completion submitted" and have no way to act on it.
-             */
-            onOpenReview={
-              task.reviewStatus === 'pending' && detail.capabilities.canReview
-                ? () => {
-                    setActiveTab('overview');
-                    // After the tab swaps, put the panel in front of them
-                    // rather than leaving it to be hunted for.
-                    requestAnimationFrame(() => {
-                      document
-                        .getElementById(`review-heading`)
-                        ?.scrollIntoView({ block: 'center' });
-                    });
-                  }
-                : undefined
-            }
-          />
-        </section>
-
-        <section
-          className="detail-section drawer-panel-overview"
-          aria-labelledby="attachments-heading"
-        >
-          <h3 id="attachments-heading">Attachments and evidence</h3>
-          {detail.attachments.length > 0 ? (
-            <div className="attachment-list">
-              {detail.attachments.map((attachment) => (
-                <Link
-                  key={attachment.id}
-                  href={`/api/attachments/${attachment.id}`}
-                  target="_blank"
-                  className="attachment-row"
-                >
-                  <span>
-                    <strong>{attachment.fileName}</strong>
-                    <small>
-                      {attachment.uploadedByName} · {formatMoment(attachment.createdAt, timeZone)}
-                    </small>
-                  </span>
-                  <span>
-                    {formatBytes(attachment.byteSize)}
-                    {attachment.isEvidence ? ' · Evidence' : ''}
-                  </span>
-                </Link>
-              ))}
+              )}
             </div>
-          ) : (
-            <p className="muted">No files are attached.</p>
-          )}
-        </section>
-
-        <section
-          className="detail-section drawer-panel-overview"
-          aria-labelledby="barriers-heading"
-        >
-          <h3 id="barriers-heading">Barriers</h3>
-          {detail.barriers.map((barrier) => (
-            <BarrierDetailPanel
-              key={barrier.id}
-              barrier={barrier}
-              timeZone={timeZone}
-              canEdit={detail.capabilities.canEdit}
-              pending={pending}
-              highlighted={barrier.id === revealedBarrierId}
-              onResolve={(form, note) => {
-                startTransition(async () => {
-                  if (
-                    finish(
-                      await resolveBarrier({ barrierId: barrier.id, resolutionNote: note }),
-                      'Barrier resolved.',
-                    )
-                  )
-                    form.reset();
-                });
-              }}
-            />
-          ))}
-          {detail.barriers.length === 0 && <p className="muted">No barriers have been raised.</p>}
-        </section>
-
-        {task.reviewStatus === 'pending' && detail.capabilities.canReview && (
-          /*
-            Deliberately not `detail-section`. Combined with
-            `drawer-panel-overview` that class is hidden until the drawer is
-            expanded — the same rule that once hid Complete and then Delete. A
-            completion waiting on a manager's decision is the last thing that
-            should be behind Expand.
-          */
-          <section className="review-panel drawer-panel-overview" aria-labelledby="review-heading">
-            <h3 id="review-heading">Completion review</h3>
-            <p>Opening evidence records that it was viewed. It does not accept completion.</p>
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                const data = new FormData(event.currentTarget);
-                const submitter = (event.nativeEvent as SubmitEvent)
-                  .submitter as HTMLButtonElement | null;
-                startTransition(async () => {
-                  finish(
-                    await decideCompletionReview({
-                      taskId: task.id,
-                      decision: String(submitter?.value) as 'accepted' | 'changes_requested',
-                      note: String(data.get('note') ?? '') || null,
-                      idempotencyKey: idempotencyKey(),
-                    }),
-                    'Review decision recorded.',
-                  );
-                });
-              }}
-            >
-              <div className="field">
-                <label htmlFor={`review-note-${task.id}`}>Review note</label>
-                <textarea id={`review-note-${task.id}`} name="note" rows={3} />
-              </div>
-              <div className="actions">
-                <button
-                  className="btn primary"
-                  name="decision"
-                  value="accepted"
-                  disabled={pending}
-                  aria-busy={pending}
-                >
-                  Accept Completion
-                </button>
-                <button
-                  className="btn danger"
-                  name="decision"
-                  value="changes_requested"
-                  disabled={pending}
-                  aria-busy={pending}
-                >
-                  Request Changes
-                </button>
-              </div>
-            </form>
-          </section>
-        )}
-
-        <section className="detail-section detail-two-column drawer-panel-overview">
-          <div>
-            <h3>Collaborators</h3>
-            {detail.collaborators.length ? (
-              <ul>
-                {detail.collaborators.map((person) => (
-                  <li key={person.id}>
-                    {person.fullName}
-                    {person.employeeId ? ` · ${person.employeeId}` : ''}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="muted">No collaborators.</p>
-            )}
-          </div>
-          <div>
-            <h3>Related Work</h3>
-            {detail.relatedWork.length ? (
-              <ul>
-                {detail.relatedWork.map((related) => (
-                  <li key={related.id}>
-                    <Link href={`/work?task=${related.id}`}>{related.title}</Link> ·{' '}
-                    {related.relation}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="muted">No related work.</p>
-            )}
-          </div>
-        </section>
+          ) : null}
+        </div>
       </div>
     </SideDrawer>
   );

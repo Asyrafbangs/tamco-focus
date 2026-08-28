@@ -21,7 +21,7 @@ export const PRIORITY_BANDS = [
   'due_today',
   'deadline_today',
   'handoff_ready',
-  'active_next_action',
+  'active_work',
   'due_soon',
 ] as const;
 
@@ -94,8 +94,8 @@ function bandFor(task: TaskOverview, context: PrioritisationContext): PriorityBa
   // 5. A collaborative handoff that just became ready for this person.
   if (context.handoffReadyTaskIds?.has(task.id)) return 'handoff_ready';
 
-  // 6. The next action on work already Active.
-  if (task.status === 'active') return 'active_next_action';
+  // 6. Work the person has already committed to carrying.
+  if (task.status === 'active') return 'active_work';
 
   // 7. Due within the configured upcoming window.
   if (task.dueAt) {
@@ -133,10 +133,8 @@ function explain(task: TaskOverview, band: PriorityBand, context: Prioritisation
     case 'handoff_ready':
       return 'Selected because a step was handed to you and is now ready to start.';
 
-    case 'active_next_action':
-      return task.nextAction
-        ? `Selected because it is the next action on your active work: ${task.nextAction}.`
-        : 'Selected because it is the next step on work you already have active.';
+    case 'active_work':
+      return 'Selected because it is the next step on work you already have active.';
 
     case 'due_soon':
       return 'Selected because it is coming up soon and nothing more urgent needs you first.';

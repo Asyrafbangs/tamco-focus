@@ -121,15 +121,12 @@ test('employee opens task detail and posts an update with private evidence', asy
     name: 'Close out corrective actions from the June audit',
   });
   await expect(detail).toBeVisible();
-  await detail.getByRole('tab', { name: /Checklist/ }).click();
-  await expect(detail.getByRole('heading', { name: 'Checklist' })).toBeVisible();
+  // v84 - one drawer. Steps and Updates are named sections, and the composer
+  // is opened by the button that names it rather than by arriving somewhere.
+  await detail.getByRole('button', { name: /^Steps/ }).click();
+  await expect(detail.getByRole('heading', { name: 'Steps' })).toBeVisible();
 
-  await detail.getByRole('tab', { name: /Updates/ }).click();
-  // The Updates tab is itself the disclosure; the composer is open on arrival,
-  // which `task-next-action-v35.spec.ts` also relies on.
-  // The composer now asks two plain questions instead of one compound prompt.
-  // "What happens next?" maps onto Do Next, which is a real concept in the
-  // product, so the split is kept and this expectation follows it.
+  await detail.getByRole('button', { name: '+ Add update' }).click();
   await detail.getByLabel('What changed?').fill(update);
   await detail.getByLabel('Add files').setInputFiles({
     name: fileName,
@@ -138,7 +135,10 @@ test('employee opens task detail and posts an update with private evidence', asy
   });
   await clickVisibleControl(page, detail.getByRole('button', { name: 'Post update' }));
 
+  await detail.getByRole('button', { name: /^Updates/ }).click();
   await expect(detail.getByText(update, { exact: true })).toBeVisible();
+  // Attachments live in Details now, with the rest of the record.
+  await detail.getByRole('button', { name: 'Details' }).click();
   const attachment = detail.getByRole('link', { name: new RegExp(fileName) }).first();
   await expect(attachment).toBeVisible();
   const href = await attachment.getAttribute('href');

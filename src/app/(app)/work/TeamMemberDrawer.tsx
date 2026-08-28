@@ -129,9 +129,6 @@ export function TeamMemberDrawer({
                       ? ` · ${task.isOverdue ? 'Overdue' : 'Due'} ${formatDue(task.dueAt, task.dueIsDateOnly, timeZone)}`
                       : ''}
                   </span>
-                  {task.nextAction && (
-                    <span className="member-work-next">Next: {task.nextAction}</span>
-                  )}
                 </Link>
               ))}
             </div>

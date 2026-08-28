@@ -30,7 +30,6 @@ function toTaskOverview(row: Record<string, unknown>): TaskOverview {
     id: row.id as string,
     title: row.title as string,
     description: (row.description as string) ?? null,
-    nextAction: (row.next_action as string) ?? null,
 
     status: row.status as TaskOverview['status'],
     workClass: row.work_class as TaskOverview['workClass'],
@@ -88,7 +87,6 @@ type TeamAttentionTask = Pick<
   TaskOverview,
   | 'id'
   | 'title'
-  | 'nextAction'
   | 'status'
   | 'workClass'
   | 'focusBucket'
@@ -103,7 +101,6 @@ function toTeamAttentionTask(row: Record<string, unknown>): TeamAttentionTask {
   return {
     id: String(row.id),
     title: String(row.title),
-    nextAction: row.next_action ? String(row.next_action) : null,
     status: row.status as TaskOverview['status'],
     workClass: row.work_class as TaskOverview['workClass'],
     focusBucket: (row.focus_bucket as FocusBucket | null) ?? null,
@@ -2131,8 +2128,8 @@ export interface TeamAttentionRow {
   fullName: string;
   activeCount: number;
   routineDueCount: number;
-  /** What they are carrying right now, with its next action. */
-  workingOn: { taskId: string; title: string; nextAction: string | null } | null;
+  /** What they are carrying right now. */
+  workingOn: { taskId: string; title: string } | null;
   attention: {
     /**
      * The state, in three words: "Decision needed", "Overdue routine".
@@ -2374,7 +2371,6 @@ export interface TeamMemberDetail {
     dueIsDateOnly: boolean;
     isOverdue: boolean;
     isMandatory: boolean;
-    nextAction: string | null;
     /** Needed by any operation on this task; optimistic concurrency is not optional. */
     version: number;
   }>;
@@ -2550,7 +2546,6 @@ export async function getTeamMemberDetail(
       dueIsDateOnly: task.dueIsDateOnly,
       isOverdue: task.isOverdue,
       isMandatory: task.isMandatory,
-      nextAction: task.nextAction,
       version: task.version,
     })),
     recentUpdates: updates.map((update) => ({
@@ -2973,9 +2968,7 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
       fullName: person.fullName,
       activeCount: active.length,
       routineDueCount: person.routinesOverdue,
-      workingOn: active[0]
-        ? { taskId: active[0].id, title: active[0].title, nextAction: active[0].nextAction }
-        : null,
+      workingOn: active[0] ? { taskId: active[0].id, title: active[0].title } : null,
       attention: top
         ? {
             // Anything that does not say otherwise is something owed: a branch

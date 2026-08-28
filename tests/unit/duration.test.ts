@@ -7,7 +7,6 @@ import {
   endOfLocalDay,
   formatCompactDuration,
   formatDue,
-  formatDueShort,
   localDateTimeToInstant,
   localDateString,
   openAgeMs,
@@ -223,8 +222,4 @@ describe('due date presentation', () => {
     expect(formatDue(null, true, KL)).toBe('No date yet');
   });
 
-  it('renders compact Next Action due context', () => {
-    expect(formatDueShort('2026-08-12T15:59:59.999Z', true, KL)).toBe('12 Aug');
-    expect(formatDueShort('2026-08-12T04:00:00.000Z', false, KL)).toBe('12 Aug, 12:00');
-  });
 });

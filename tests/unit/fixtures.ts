@@ -11,7 +11,6 @@ export function makeTask(overrides: Partial<TaskOverview> = {}): TaskOverview {
     id: '00000000-0000-4000-a000-000000000001',
     title: 'Sample work',
     description: null,
-    nextAction: null,
 
     status: 'active',
     workClass: 'operational_action',

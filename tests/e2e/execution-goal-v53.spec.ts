@@ -213,10 +213,9 @@ test('cancelling work retires its open request without pretending it was answere
 
     await page.goto(`/work?task=${seeded.taskId}`);
     const drawer = page.locator('.task-detail-drawer');
-    // The lifecycle section lives in the expanded drawer: collapsed, it is
-    // `display: none`, so a click on it silently does nothing.
-    await drawer.getByRole('button', { name: 'Expand' }).click();
-    await drawer.getByText('More task actions').click();
+    // v84 - administration sits behind the ••• menu in the drawer footer, and
+    // is no longer gated on expanding the drawer first.
+    await drawer.getByRole('button', { name: 'More task actions' }).click();
     await drawer
       .getByLabel('Cancel this work — why is it no longer needed?')
       .fill('The line was decommissioned, so the guard is no longer needed.');

@@ -769,7 +769,7 @@ export default async function WorkPage({
               <div className="empty-state">
                 <h3>Nothing is shared with you</h3>
                 <p>
-                  Shared holds checklist steps on other people&rsquo;s work that have been assigned
+                  Shared holds steps on other people&rsquo;s work that have been assigned
                   to you. They appear here as soon as somebody assigns you one — you never create
                   them yourself.
                 </p>
@@ -810,11 +810,11 @@ export default async function WorkPage({
                     <span className="sub available-note">
                       Valid work that is not yet part of your Active focus.
                     </span>
-                  ) : task.nextAction ? (
-                    <span className="sub">Next action: {task.nextAction}</span>
-                  ) : (
-                    <span className="sub muted">No next action recorded</span>
-                  )}
+                  ) : task.checklistTotal > 0 ? (
+                    <span className="sub">
+                      Steps {task.checklistCompleted}/{task.checklistTotal} complete
+                    </span>
+                  ) : null}
                   <div style={{ marginTop: 6 }}>
                     <AgeChips task={task} staleThresholdDays={settings.staleThresholdDays} />
                   </div>

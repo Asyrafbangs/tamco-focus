@@ -158,10 +158,13 @@ describe('Why this? (section 9.5)', () => {
     expect(startHere([task], context)!.why).toContain('due today');
   });
 
-  it('names the next action when recommending active work', () => {
-    const task = makeTask({ status: 'active', nextAction: 'Chase the contractor' });
+  // v83 retired Next Action. Active work is recommended on the strength of
+  // being active; what remains inside it is the Steps list, not a sentence
+  // maintained alongside it.
+  it('explains a recommendation of work already active', () => {
+    const task = makeTask({ status: 'active' });
 
-    expect(startHere([task], context)!.why).toContain('Chase the contractor');
+    expect(startHere([task], context)!.why).toContain('already have active');
   });
 
   it('always gives a plain-language sentence', () => {

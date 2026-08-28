@@ -240,7 +240,8 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
   await firstRow.locator('.row-primary-link').focus();
   await page.keyboard.press('Enter');
   await expect(drawer).toBeVisible();
-  await drawer.getByRole('tab', { name: /Checklist/ }).click();
+  // v84 - one drawer, named disclosures. Steps is a section, not a tab.
+  await drawer.getByRole('button', { name: /^Steps/ }).click();
   const requiredItem = drawer.locator('.task-checklist-row').filter({
     hasText: 'Evidence required',
   });
@@ -326,8 +327,9 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
   await availableRow.getByRole('link', { name: `Open ${activationTitle}`, exact: true }).click();
   const activationDrawer = page.locator('.task-detail');
   await expect(activationDrawer).toBeVisible();
-  await activationDrawer.getByRole('button', { name: 'Expand' }).click();
-  await activationDrawer.getByText('More task actions', { exact: true }).click();
+  // v84 - administration moved behind the ••• menu in the footer. Nothing is
+  // hidden behind Expand any more, so no expansion is needed to reach it.
+  await activationDrawer.getByRole('button', { name: 'More task actions' }).click();
   await activationDrawer.getByRole('button', { name: 'Activate' }).click();
   await completeActivationPromptIfNeeded(page);
   const drawerUndo = activationDrawer.getByRole('button', { name: 'Undo' });

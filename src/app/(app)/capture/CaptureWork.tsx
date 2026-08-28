@@ -170,7 +170,7 @@ export function CaptureWork({
     if (taskId) {
       const failure = await applyChecklist(taskId);
       if (failure) {
-        setError(`The work was created, but a checklist step was not added: ${failure}`);
+        setError(`The work was created, but a step was not added: ${failure}`);
         return;
       }
     }
@@ -403,7 +403,7 @@ export function CaptureWork({
           <details className="capture-details">
             <summary>Add details</summary>
 
-            <p className="capture-detail-heading">Checklist — Optional</p>
+            <p className="capture-detail-heading">Steps — Optional</p>
             {steps.length > 0 && (
               <ol className="capture-steps">
                 {steps.map((step, index) => (

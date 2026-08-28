@@ -5089,16 +5089,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   color: var(--text);
   background: var(--blue-bg);
 }
-.task-detail-scroll[data-tab] .drawer-panel-overview,
-.task-detail-scroll[data-tab] .drawer-panel-checklist,
-.task-detail-scroll[data-tab] .drawer-panel-updates {
-  display: none;
-}
-.task-detail-scroll[data-tab='overview'] .drawer-panel-overview,
-.task-detail-scroll[data-tab='checklist'] .drawer-panel-checklist,
-.task-detail-scroll[data-tab='updates'] .drawer-panel-updates {
-  display: block;
-}
 .checklist-item {
   align-items: center;
   min-height: 72px;
@@ -6032,10 +6022,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   line-height: 1;
   scrollbar-width: none;
   white-space: nowrap;
-}
-.task-detail-drawer .task-detail-scroll[data-tab='overview'] .task-information-line,
-.task-detail-drawer .task-detail-scroll[data-tab='overview'] .checklist-preview-row {
-  display: flex;
 }
 .task-information-line::-webkit-scrollbar {
   display: none;
@@ -7485,19 +7471,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   background: var(--surface);
   color: var(--text);
 }
-/*
- * Collapsed drawer shows the decision-useful core only: metadata, Do Next, and
- * the primary actions. Secondary reference sections — attachments, collaborators,
- * Related Work — appear on Expand.
- *
- * This is deliberate progressive disclosure, asserted by
- * `tests/e2e/task-next-action-v35.spec.ts`: collapsed hides "Attachments and
- * evidence", Expand reveals it. Section 10.4 lists what the detail view must
- * CONTAIN, which it does; Expand governs how much is on screen at once.
- */
-.task-detail.task-detail-drawer:not(.expanded) .drawer-panel-overview.detail-section {
-  display: none;
-}
 @media (max-width: 720px) {
   .task-detail.task-detail-drawer,
   .task-detail.task-detail-drawer.expanded {
@@ -8720,9 +8693,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 
 /* Shown only when nothing is blocking completion, so it reads as an answer
    rather than a suggestion. */
-/* Specificity has to match the tab rule above, which sets display:block on
-   every .drawer-panel-overview child, or the layout collapses. */
-.task-detail-scroll[data-tab='overview'] .task-complete-callout {
+.task-complete-callout {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -9252,4 +9223,197 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+}
+
+/* ------------------------------------------------------------------------ */
+/* v84 - one task drawer                                                     */
+/*                                                                           */
+/* Replaces the Overview / Checklist / Updates tabs. The drawer is a single  */
+/* surface: a status line, the two actions somebody normally wants, and      */
+/* three named disclosures of which at most one is open.                     */
+/* ------------------------------------------------------------------------ */
+
+.task-status-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.task-status-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-weight: 650;
+}
+.task-status-overdue {
+  color: var(--red);
+  font-weight: 650;
+}
+
+.task-primary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+/* One row per disclosure: what it holds, and enough of the contents to know
+   whether to open it. */
+.task-accordion {
+  border-top: 1px solid var(--line);
+}
+.task-accordion:last-of-type {
+  border-bottom: 1px solid var(--line);
+}
+.task-accordion-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 2px;
+  min-height: 44px;
+  background: none;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.task-accordion-summary:hover {
+  background: var(--line-soft);
+}
+.task-accordion-summary:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+.task-accordion-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.task-accordion-copy strong {
+  font-size: 12.5px;
+}
+/* The count sits with the name rather than after the preview, so "Steps 0/3"
+   reads as one fact. */
+.task-accordion-count {
+  color: var(--muted);
+  font-weight: 500;
+}
+.task-accordion-copy small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task-accordion-summary > span[aria-hidden] {
+  color: var(--muted);
+  transition: transform 120ms ease;
+}
+.task-accordion-summary[aria-expanded='true'] > span[aria-hidden] {
+  transform: rotate(90deg);
+}
+.task-accordion-body {
+  padding: 0 0 14px;
+}
+
+.task-detail-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 18px;
+  margin-bottom: 16px;
+}
+.task-detail-facts p {
+  margin: 0;
+}
+
+.task-update-list {
+  display: grid;
+  gap: 10px;
+}
+.task-written-update {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.task-written-update p {
+  margin: 0 0 4px;
+  white-space: pre-wrap;
+}
+.task-written-update span {
+  font-size: 11px;
+}
+
+.task-activity-details {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.task-activity-details > summary {
+  min-height: 44px;
+  padding: 12px 0 8px;
+  cursor: pointer;
+  font-weight: 650;
+  font-size: 12px;
+}
+
+/* Finishing sits on its own, always in the same place, so a task never looks
+   like it has no way to end. */
+.task-detail-footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 12px 0 4px;
+  background: var(--surface);
+}
+.task-admin-menu {
+  position: relative;
+}
+.task-admin-toggle {
+  min-width: 44px;
+  min-height: 40px;
+  letter-spacing: 1px;
+}
+.task-admin-popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 5;
+  width: min(420px, 78vw);
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.task-admin-group + .task-admin-group {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.task-admin-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .task-detail-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .task-admin-popover {
+    width: min(420px, 92vw);
+  }
 }

@@ -88,11 +88,6 @@ export function MyTeamPersonRow({
         {person.workingOn ? (
           <>
             <strong>{person.workingOn.title}</strong>
-            <span>
-              {person.workingOn.nextAction
-                ? `Next: ${person.workingOn.nextAction}`
-                : 'No next action recorded'}
-            </span>
           </>
         ) : (
           <span className={styles.muted}>No Active focus</span>

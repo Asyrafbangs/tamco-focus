@@ -420,22 +420,6 @@ export function formatDue(
   }).format(due);
 }
 
-/** Compact due context for the focused Next Action card. */
-export function formatDueShort(
-  dueAt: string | null,
-  dueIsDateOnly: boolean,
-  timeZone = DEFAULT_ORG_TIMEZONE,
-): string {
-  const due = parse(dueAt);
-  if (!due) return 'No due date';
-
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone,
-    day: 'numeric',
-    month: 'short',
-    ...(dueIsDateOnly ? {} : { hour: '2-digit', minute: '2-digit', hour12: false }),
-  }).format(due);
-}
 
 /**
  * Routine occurrence states (v41 section 15).
