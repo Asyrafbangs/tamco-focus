@@ -7,6 +7,7 @@ import { useState, useTransition } from 'react';
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker';
 import { Modal } from '@/components/ui/Modal';
 import { SideDrawer } from '@/components/ui/SideDrawer';
+import { AttachmentViewer, canPreview } from './AttachmentViewer';
 import { RoutineOutcomePanel } from './RoutineOutcomePanel';
 import {
   ageChips,
@@ -49,7 +50,7 @@ import {
   resumeTask,
   updateChecklistStep,
 } from '@/server/actions/task-actions';
-import type { TaskDetail } from '@/server/queries';
+import type { TaskDetail, TaskDetailAttachment } from '@/server/queries';
 
 import { BarrierActionPanel, type BarrierResponseKind } from './BarrierActionPanel';
 import { BarrierDetailPanel } from './BarrierDetailPanel';
@@ -173,6 +174,12 @@ export function TaskDetailDrawer({
     mode: 'attach' | 'complete';
   } | null>(null);
   const [drawerExpanded, setDrawerExpanded] = useState(false);
+  /*
+   * The file being read, if any. Held here rather than in the attachment list
+   * because it changes what the whole drawer is: full width, the file's name
+   * in the header, and the task's own fields out of the way until it closes.
+   */
+  const [viewingFile, setViewingFile] = useState<TaskDetailAttachment | null>(null);
   const [taskVersion, setTaskVersion] = useState(task.version);
   const [resumeReason, setResumeReason] = useState<ActivationReason | null>(null);
   const [resumeNote, setResumeNote] = useState('');
@@ -513,7 +520,16 @@ export function TaskDetailDrawer({
         title={task.title}
         titleId="task-detail-title"
       >
-        <div className="task-detail-scroll">
+        {/* The task's own fields are not hidden with CSS but simply not
+          rendered: a file is being read, and everything else on the screen is
+          a different subject. Collapsing brings them back untouched, because
+          nothing about them was unmounted in a way that loses work - the
+          composer and its draft live above this point. */}
+        {viewingFile && (
+          <AttachmentViewer file={viewingFile} onClose={() => setViewingFile(null)} />
+        )}
+
+        <div className="task-detail-scroll" hidden={Boolean(viewingFile)}>
           {message && (
             <div
               className={`notice ${message.tone === 'error' ? 'error' : 'success'}`}
@@ -648,19 +664,38 @@ export function TaskDetailDrawer({
     <SideDrawer
       closeHref={closeHref}
       closeLabel="Close task detail"
-      className={`task-detail-drawer${drawerExpanded ? ' expanded' : ''}`}
-      eyebrow={WORK_CLASS_LABELS[task.workClass]}
-      title={task.title}
+      className={`task-detail-drawer${drawerExpanded ? ' expanded' : ''}${
+        viewingFile ? ' viewing-file' : ''
+      }`}
+      eyebrow={viewingFile ? 'Attachment' : WORK_CLASS_LABELS[task.workClass]}
+      title={viewingFile ? viewingFile.fileName : task.title}
       titleId="task-detail-title"
       actions={
-        <button
-          type="button"
-          className="btn small ghost"
-          aria-pressed={drawerExpanded}
-          onClick={() => setDrawerExpanded((current) => !current)}
-        >
-          {drawerExpanded ? 'Restore' : 'Expand'}
-        </button>
+        viewingFile ? (
+          <>
+            {/* Reading it in the page does not stop anybody wanting a copy. */}
+            <a
+              className="btn small"
+              href={`/api/attachments/${viewingFile.id}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Download
+            </a>
+            <button type="button" className="btn small ghost" onClick={() => setViewingFile(null)}>
+              Collapse
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="btn small ghost"
+            aria-pressed={drawerExpanded}
+            onClick={() => setDrawerExpanded((current) => !current)}
+          >
+            {drawerExpanded ? 'Restore' : 'Expand'}
+          </button>
+        )
       }
     >
       <div className="task-detail-scroll">
@@ -1820,26 +1855,48 @@ export function TaskDetailDrawer({
                 <h3 id="attachments-heading">Attachments and evidence</h3>
                 {detail.attachments.length > 0 ? (
                   <div className="attachment-list">
-                    {detail.attachments.map((attachment) => (
-                      <Link
-                        key={attachment.id}
-                        href={`/api/attachments/${attachment.id}`}
-                        target="_blank"
-                        className="attachment-row"
-                      >
-                        <span>
-                          <strong>{attachment.fileName}</strong>
-                          <small>
-                            {attachment.uploadedByName} ·{' '}
-                            {formatMoment(attachment.createdAt, timeZone)}
-                          </small>
-                        </span>
-                        <span>
-                          {formatBytes(attachment.byteSize)}
-                          {attachment.isEvidence ? ' · Evidence' : ''}
-                        </span>
-                      </Link>
-                    ))}
+                    {detail.attachments.map((attachment) => {
+                      const body = (
+                        <>
+                          <span>
+                            <strong>{attachment.fileName}</strong>
+                            <small>
+                              {attachment.uploadedByName} ·{' '}
+                              {formatMoment(attachment.createdAt, timeZone)}
+                            </small>
+                          </span>
+                          <span>
+                            {formatBytes(attachment.byteSize)}
+                            {attachment.isEvidence ? ' · Evidence' : ''}
+                          </span>
+                        </>
+                      );
+                      /*
+                       * A spreadsheet or a document has no in-page renderer, so
+                       * the row stays a download for those. Offering a preview
+                       * that cannot preview is worse than the download it
+                       * replaced.
+                       */
+                      return canPreview(attachment.mimeType) ? (
+                        <button
+                          key={attachment.id}
+                          type="button"
+                          className="attachment-row"
+                          onClick={() => setViewingFile(attachment)}
+                        >
+                          {body}
+                        </button>
+                      ) : (
+                        <Link
+                          key={attachment.id}
+                          href={`/api/attachments/${attachment.id}`}
+                          target="_blank"
+                          className="attachment-row"
+                        >
+                          {body}
+                        </Link>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="muted">No files are attached.</p>

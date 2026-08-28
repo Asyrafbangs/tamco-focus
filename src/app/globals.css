@@ -9967,3 +9967,67 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   font-size: 11.5px;
   line-height: 1.55;
 }
+
+/* ------------------------------------------------------------------------ */
+/* v99 - reading an attachment instead of downloading it                     */
+/* ------------------------------------------------------------------------ */
+
+/* Full width, because the point of opening a file is to see it. Wins over the
+   Expand width by specificity, so the two cannot fight over the panel. */
+.task-detail.task-detail-drawer.viewing-file,
+.task-detail.task-detail-drawer.expanded.viewing-file {
+  width: 100vw;
+  max-width: 100vw;
+}
+.task-detail-drawer.viewing-file .task-detail-head h2 {
+  overflow-wrap: anywhere;
+}
+
+/* Stated rather than left to the UA stylesheet: a `display` rule anywhere on
+   this element would beat `[hidden]` and leave the task's fields behind the
+   file. */
+.task-detail-scroll[hidden] {
+  display: none;
+}
+
+.attachment-viewer {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 17px 20px;
+  background: var(--line-soft);
+}
+/* Contained, so a tall inspection photo and a wide panel shot both fit whole
+   rather than one of them being cropped. */
+.attachment-viewer-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.attachment-viewer-frame {
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+/* The row is a button now, and a button brings its own chrome. */
+button.attachment-row {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .attachment-viewer {
+    padding: 10px 13px 16px;
+  }
+}
