@@ -420,7 +420,6 @@ export function formatDue(
   }).format(due);
 }
 
-
 /**
  * Routine occurrence states (v41 section 15).
  *

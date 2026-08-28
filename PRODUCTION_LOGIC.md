@@ -1142,3 +1142,16 @@ derived-progress rules. The future ESH finding/action system remains outside the
    aggregates are loaded only on surfaces that render them.
 8. Propagate authoritative Team read failures to the existing error boundary. Never convert a
    permission/query failure to an empty roster or false all-clear message.
+
+## 44. v85 Operational Action disclosure presentation
+
+1. Steps remain canonical data from `task_checklist_items`; the drawer summary derives only counts and
+   current-viewer responsibility. It does not persist or infer another Next Action value.
+2. The expanded Steps body renders the canonical rows directly. Removing a duplicate heading or
+   instructional sentence does not change completion authority, readiness, evidence, dependencies or
+   checklist-derived progress.
+3. Written Updates remain the filtered, newest-first `task_updates` projection. A collapsed summary
+   may expose only the count and latest timestamp; the update body is rendered once in the expanded
+   list.
+4. Spacing and wrapping are shared presentation rules. They introduce no database, RLS, API,
+   notification, storage, audit or production-data mutation.

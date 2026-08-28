@@ -279,8 +279,6 @@ export function TaskChecklistPanel({
   onEditStep: (step: EditChecklistStep) => void;
   onRemoveStep: (item: TaskDetailChecklistItem) => void;
 }) {
-  const completed = items.filter((item) => item.state === 'completed').length;
-
   /*
    * v41 section 8 — Add step is a first-class control in the Steps section,
    * not something to find inside a Manage menu. It asks two questions, because
@@ -350,24 +348,7 @@ export function TaskChecklistPanel({
   }
 
   return (
-    <section className="task-tab-section task-steps-section" aria-labelledby="checklist-heading">
-      <div className="task-checklist-heading-row">
-        <div>
-          <h3 id="checklist-heading">Steps</h3>
-          <p>Steps are the only record of what is left to do, and they drive progress.</p>
-        </div>
-        <div className="task-checklist-heading-actions">
-          <span>
-            {completed} of {items.length} complete
-          </span>
-          {canEdit && assignees.length > 0 && (
-            <button type="button" className="btn small primary" onClick={() => setAddOpen(true)}>
-              ＋ Add step
-            </button>
-          )}
-        </div>
-      </div>
-
+    <section className="task-tab-section task-steps-section" aria-label="Step list">
       {canEdit && assignees.length > 0 && (
         <Modal open={addOpen} title="Add step" onClose={closeAdd}>
           <header className="modalhead">
@@ -626,6 +607,13 @@ export function TaskChecklistPanel({
           );
         })}
       </div>
+      {canEdit && assignees.length > 0 && (
+        <div className="task-checklist-add-row">
+          <button type="button" className="btn small primary" onClick={() => setAddOpen(true)}>
+            + Add step
+          </button>
+        </div>
+      )}
     </section>
   );
 }

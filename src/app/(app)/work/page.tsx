@@ -769,9 +769,9 @@ export default async function WorkPage({
               <div className="empty-state">
                 <h3>Nothing is shared with you</h3>
                 <p>
-                  Shared holds steps on other people&rsquo;s work that have been assigned
-                  to you. They appear here as soon as somebody assigns you one — you never create
-                  them yourself.
+                  Shared holds steps on other people&rsquo;s work that have been assigned to you.
+                  They appear here as soon as somebody assigns you one — you never create them
+                  yourself.
                 </p>
               </div>
             )

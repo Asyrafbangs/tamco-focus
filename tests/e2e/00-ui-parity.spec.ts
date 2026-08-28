@@ -241,7 +241,16 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
   await page.keyboard.press('Enter');
   await expect(drawer).toBeVisible();
   // v84 - one drawer, named disclosures. Steps is a section, not a tab.
-  await drawer.getByRole('button', { name: /^Steps/ }).click();
+  const stepsDisclosure = drawer.getByRole('button', { name: /^Steps/ });
+  await stepsDisclosure.click();
+  await expect(drawer.locator('.task-checklist-list')).toBeVisible();
+  await expect(drawer.getByText(/^First:/)).toHaveCount(0);
+  await expect(
+    drawer.getByText('Steps are the only record of what is left to do, and they drive progress.'),
+  ).toHaveCount(0);
+  await expect(stepsDisclosure.locator('small')).toContainText(
+    /remaining|needs you|All steps complete/,
+  );
   const requiredItem = drawer.locator('.task-checklist-row').filter({
     hasText: 'Evidence required',
   });
@@ -392,5 +401,12 @@ test('mobile navigation and full-width drawer retain keyboard-sized controls', a
   await expect(drawer).toBeVisible();
   const box = await drawer.boundingBox();
   expect(Math.round(box?.width ?? 0)).toBe(390);
+  const stepsDisclosure = drawer.getByRole('button', { name: /^Steps/ });
+  if ((await stepsDisclosure.count()) > 0) {
+    await stepsDisclosure.click();
+    await expectNoDocumentOverflow(page, 'mobile task drawer with Steps open');
+    await drawer.getByRole('button', { name: /^Updates/ }).click();
+    await expectNoDocumentOverflow(page, 'mobile task drawer with Updates open');
+  }
   await expectNoDocumentOverflow(page, 'mobile task drawer');
 });

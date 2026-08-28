@@ -124,7 +124,11 @@ test('employee opens task detail and posts an update with private evidence', asy
   // v84 - one drawer. Steps and Updates are named sections, and the composer
   // is opened by the button that names it rather than by arriving somewhere.
   await detail.getByRole('button', { name: /^Steps/ }).click();
-  await expect(detail.getByRole('heading', { name: 'Steps' })).toBeVisible();
+  await expect(detail.locator('.task-checklist-list')).toBeVisible();
+  await expect(detail.getByText(/^First:/)).toHaveCount(0);
+  await expect(
+    detail.getByText('Steps are the only record of what is left to do, and they drive progress.'),
+  ).toHaveCount(0);
 
   await detail.getByRole('button', { name: '+ Add update' }).click();
   await detail.getByLabel('What changed?').fill(update);
@@ -135,8 +139,10 @@ test('employee opens task detail and posts an update with private evidence', asy
   });
   await clickVisibleControl(page, detail.getByRole('button', { name: 'Post update' }));
 
-  await detail.getByRole('button', { name: /^Updates/ }).click();
-  await expect(detail.getByText(update, { exact: true })).toBeVisible();
+  const updatesDisclosure = detail.getByRole('button', { name: /^Updates/ });
+  await expect(updatesDisclosure.locator('small')).toContainText(/^Latest · /);
+  await updatesDisclosure.click();
+  await expect(detail.getByText(update, { exact: true })).toHaveCount(1);
   // Attachments live in Details now, with the rest of the record.
   await detail.getByRole('button', { name: 'Details' }).click();
   const attachment = detail.getByRole('link', { name: new RegExp(fileName) }).first();

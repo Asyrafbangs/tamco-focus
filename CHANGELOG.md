@@ -1,5 +1,15 @@
 # TAMCO Focus — Change Log
 
+## v85 Operational Action disclosure clarity — 28 August 2026
+
+- Removed the duplicated expanded Steps heading, completion count, and permanent teaching copy; the
+  disclosure button is now the single visible Steps title.
+- Replaced the long `First: …` preview with a compact remaining count or viewer-specific action count.
+- Stopped Updates from repeating the latest update body in both the disclosure summary and record;
+  the summary now shows only the latest time.
+- Added consistent disclosure/body inset, safe text wrapping, and desktop/mobile overflow coverage.
+- Preserved all Step, update, evidence, permission, progress, audit, API, RLS and database behavior.
+
 ## v70 Team member workload details — 18 August 2026
 
 - Replaced the Team Member drawer's count-only Other workload paragraph with named, compact lists

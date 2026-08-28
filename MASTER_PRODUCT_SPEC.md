@@ -2515,3 +2515,19 @@ routine-occurrence, and Team RLS remain authoritative; this change requires no d
    page and its drawer are memoized only within the current request, never across users or requests.
 6. Team task reads select only fields the Team surface renders. Authoritative query failure is an
    error state and must never be described as an empty team or as “nothing needs attention.”
+
+## V85 — Operational Action disclosure clarity (28 August 2026)
+
+This presentation rule supersedes earlier task-drawer wording where it conflicts, without changing
+task execution, evidence, permission, progress, audit or lifecycle rules.
+
+1. The one-surface Task Detail drawer uses named Steps, Updates and Details disclosures. A disclosure
+   button is the single visible title for its section; expanded content must not repeat that title,
+   count, or permanent explanatory copy.
+2. The Steps summary shows completed/total plus a compact actionable summary: steps assigned to the
+   current viewer when any need them, otherwise the number remaining, or that all Steps are complete.
+   It must not preview a delegated step as `First:`.
+3. The Updates summary shows the count and either the latest update time or `No updates yet`. The
+   update body appears only in the expanded record and is never duplicated in the summary.
+4. Disclosure rows and bodies use consistent inner spacing and wrap unpredictable user text. Desktop,
+   mobile and zoomed layouts must not clip content or create horizontal page overflow.

@@ -221,5 +221,4 @@ describe('due date presentation', () => {
   it('says so plainly when there is no date', () => {
     expect(formatDue(null, true, KL)).toBe('No date yet');
   });
-
 });

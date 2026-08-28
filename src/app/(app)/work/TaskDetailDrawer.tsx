@@ -80,6 +80,15 @@ function formatMoment(value: string, timeZone: string) {
   }).format(new Date(value));
 }
 
+function formatClock(value: string, timeZone: string) {
+  return new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone,
+  }).format(new Date(value));
+}
+
 /** Master spec §16.4 — severity decides whether follow-up work is raised. */
 const FINDING_SEVERITY_LABEL: Record<string, string> = {
   minor: 'Minor',
@@ -215,12 +224,16 @@ export function TaskDetailDrawer({
     attentionBarrierId ?? null,
   );
   const checklistCompleted = detail.checklist.filter((item) => item.state === 'completed').length;
-  /*
-   * What the Steps summary previews. Not a stored "next action" - the first
-   * thing still open, read off the list itself, so it cannot fall out of step
-   * with the work the way a separately maintained sentence did.
-   */
-  const firstIncompleteStep = detail.checklist.find((item) => item.state !== 'completed') ?? null;
+  const checklistRemaining = detail.checklist.length - checklistCompleted;
+  const viewerStepsRemaining = detail.checklist.filter(
+    (item) => item.state !== 'completed' && item.assignedTo === viewerId,
+  ).length;
+  const stepsSummary =
+    viewerStepsRemaining > 0
+      ? `${viewerStepsRemaining} ${viewerStepsRemaining === 1 ? 'step needs' : 'steps need'} you`
+      : checklistRemaining > 0
+        ? `${checklistRemaining} remaining`
+        : 'All steps complete';
   /*
    * Updates are what a person chose to say. Evidence-only posts are the
    * by-product of attaching a file to a step and belong in the record, not in
@@ -1397,6 +1410,7 @@ export function TaskDetailDrawer({
               type="button"
               className="task-accordion-summary"
               aria-expanded={openSection === 'steps'}
+              aria-controls={`task-steps-${task.id}`}
               onClick={() => toggleSection('steps')}
             >
               <span className="task-accordion-copy">
@@ -1406,16 +1420,12 @@ export function TaskDetailDrawer({
                     {checklistCompleted}/{detail.checklist.length}
                   </span>
                 </strong>
-                <small>
-                  {firstIncompleteStep
-                    ? `First: ${firstIncompleteStep.action}`
-                    : 'Every step is complete'}
-                </small>
+                <small>{stepsSummary}</small>
               </span>
               <span aria-hidden="true">›</span>
             </button>
             {openSection === 'steps' && (
-              <div className="task-accordion-body">
+              <div className="task-accordion-body" id={`task-steps-${task.id}`}>
                 <TaskChecklistPanel
                   assignees={assignablePeople}
                   onAddStep={(step) => {
@@ -1543,18 +1553,23 @@ export function TaskDetailDrawer({
             type="button"
             className="task-accordion-summary"
             aria-expanded={openSection === 'updates'}
+            aria-controls={`task-updates-${task.id}`}
             onClick={() => toggleSection('updates')}
           >
             <span className="task-accordion-copy">
               <strong>
                 Updates <span className="task-accordion-count">{writtenUpdates.length}</span>
               </strong>
-              <small>{writtenUpdates[0]?.body ?? 'No progress update yet'}</small>
+              <small>
+                {writtenUpdates[0]
+                  ? `Latest · ${formatClock(writtenUpdates[0].createdAt, timeZone)}`
+                  : 'No updates yet'}
+              </small>
             </span>
             <span aria-hidden="true">›</span>
           </button>
           {openSection === 'updates' && (
-            <div className="task-accordion-body">
+            <div className="task-accordion-body" id={`task-updates-${task.id}`}>
               {writtenUpdates.length === 0 ? (
                 <p className="muted">
                   Nothing written yet. Add an update when there is something to tell people that the
