@@ -119,6 +119,39 @@ export async function GET(request: Request) {
     const transport = resolveEmailTransport();
     if ('error' in transport) throw new Error(transport.error);
 
+    /*
+     * One message, to one address, to prove this deployment can reach the
+     * relay.
+     *
+     * Resolving the transport only proves the five variables are present and
+     * well shaped. It says nothing about whether Vercel's egress can open a
+     * connection to the mail host, or whether the tenant accepts mail from
+     * these addresses - and the difference between those is a run at 06:00
+     * that silently sends nothing.
+     *
+     * Deliberately not a query parameter: an address supplied in the URL turns
+     * an authenticated endpoint into a way of sending mail to anybody. The
+     * recipient comes from an environment variable, so choosing it is the same
+     * privilege as changing any other part of the configuration. Remove the
+     * variable when the check has passed; it fires on every run while it is
+     * set.
+     */
+    const probeTo = process.env.EMAIL_PROBE_TO?.trim();
+    // `send` is optional on the resolved transport: the log transport has none.
+    if (probeTo && probeTo.includes('@') && transport.send) {
+      await transport.send({
+        to: probeTo,
+        subject: 'TAMCO Focus production mail check',
+        text: 'Sent by /api/cron from the deployed application. Nothing was stored.',
+        html: '<p>Sent by <code>/api/cron</code> from the deployed application. Nothing was stored.</p>',
+      });
+      results.push({
+        worker: 'mail_probe',
+        ok: true,
+        detail: `sent one message via ${transport.name}`,
+      });
+    }
+
     const summary = await runWeeklySummaryWorker(client, {
       now: new Date(),
       timeZone: orgConfig.timeZone,
