@@ -67,12 +67,17 @@ console.log(`  to        ${recipient}`);
 console.log(`  password  (not shown)\n`);
 
 try {
+  const body = 'If you are reading this, the mail configuration works.';
   const accepted = await sendSmtp(configured, {
     to: recipient,
     subject: 'TAMCO Focus mail check',
-    text:
-      'If you are reading this, the mail configuration works.\n\n' +
-      'Sent by npm run mail:verify. Nothing was stored.',
+    // Both parts, because the transport sends multipart/alternative and a
+    // missing half is a TypeError rather than a refusal. This script is
+    // JavaScript, so nothing type-checked that for me the first time.
+    text: `${body}
+
+Sent by npm run mail:verify. Nothing was stored.`,
+    html: `<p>${body}</p><p>Sent by <code>npm run mail:verify</code>. Nothing was stored.</p>`,
   });
   console.log(`Accepted by the server: ${accepted}`);
   console.log('\nIt works. Set the same five values in Vercel, Production scope only.\n');

@@ -184,6 +184,19 @@ export function redactCredentials(text: string, config: SmtpConfig): string {
 }
 
 export async function sendSmtp(config: SmtpConfig, message: SmtpMessage): Promise<string> {
+  /*
+   * Checked at run time as well as in the types, because the callers that
+   * matter most are not always TypeScript. A script that passed three of the
+   * four parts got "Cannot read properties of undefined (reading 'replace')"
+   * from deep inside the body encoder, which says nothing at all about what
+   * was actually wrong.
+   */
+  for (const part of ['to', 'subject', 'text', 'html'] as const) {
+    if (typeof message[part] !== 'string' || message[part].length === 0) {
+      throw new Error(`The message has no ${part}, so there is nothing to send.`);
+    }
+  }
+
   const session = new SmtpSession(await openSocket(config));
 
   try {
