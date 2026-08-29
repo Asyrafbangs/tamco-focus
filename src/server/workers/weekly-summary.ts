@@ -278,6 +278,19 @@ export async function runWeeklySummaryWorker(
     failed: 0,
     periodStart: window.reportingStart.toISOString(),
   };
+  /*
+   * A sending transport with nothing to send through is a programming error,
+   * and a quiet one: every delivery would be claimed, marked sent and thrown
+   * away, and the queue would never retry it because `sent` is terminal. That
+   * is exactly what shipped, so it is now a refusal rather than a comment.
+   */
+  if ((options.transport === 'smtp' || options.transport === 'inbucket') && !options.send) {
+    throw new Error(
+      `The ${options.transport} transport was named but no send function was supplied. ` +
+        'Every summary would be recorded as sent and discarded.',
+    );
+  }
+
   if (!window.due && !options.force) return result;
 
   const { data: profiles, error: profilesError } = await client
@@ -430,7 +443,21 @@ export async function runWeeklySummaryWorker(
       client,
       deliveryId,
       { to: profile.email, subject: rendered.subject, html: rendered.html, text: rendered.text },
-      options.transport === 'inbucket' ? options.send : undefined,
+      /*
+       * Whatever sender was supplied - not only inbucket's.
+       *
+       * This used to read `options.transport === 'inbucket' ? options.send : undefined`,
+       * which meant that under `smtp` the delivery was claimed, marked sent
+       * and never handed to a mail server. Production ran that way: rows in
+       * `email_deliveries` said sent, the worker reported success, and not one
+       * summary was posted.
+       *
+       * There is nothing to decide here. `resolveEmailTransport` returns no
+       * `send` for the log transport, which is the only transport that should
+       * treat the delivery log as the delivery - so passing it through is both
+       * shorter and correct.
+       */
+      options.send,
     );
     result[outcome] += 1;
   }

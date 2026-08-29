@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { escapeHtml, renderSummary } from '@/server/workers/weekly-summary';
+import { escapeHtml, renderSummary, runWeeklySummaryWorker } from '@/server/workers/weekly-summary';
 
 /**
  * The weekly summary is the only place user-entered text is rendered into HTML
@@ -322,5 +322,41 @@ describe('message envelope', () => {
 
     expect(text).toContain('Open My Day: http://localhost:3000/today');
     expect(html).toContain('href="http://localhost:3000/today"');
+  });
+});
+
+/**
+ * The delivery that was recorded but never sent.
+ *
+ * The worker used to hand its sender to `claimAndDeliver` only when the
+ * transport was named `inbucket`. Under `smtp` - which is what Production
+ * runs - the row was claimed, marked `sent`, and nothing was ever given to a
+ * mail server. Nobody chases a weekly email that does not arrive, and `sent`
+ * is terminal, so the queue would not have retried it either.
+ *
+ * Neither of these touches a database: the refusal happens before the first
+ * query, which is the whole point of putting it there.
+ */
+describe('sending transports must be able to send', () => {
+  const client = {} as Parameters<typeof runWeeklySummaryWorker>[0];
+
+  it.each(['smtp', 'inbucket'] as const)(
+    'refuses to run under %s with no send function',
+    async (transport) => {
+      await expect(
+        runWeeklySummaryWorker(client, { now: NOW, force: true, transport }),
+      ).rejects.toThrow(/no send function was supplied/i);
+    },
+  );
+
+  it('still allows the log transport, which has nothing to send through', async () => {
+    /*
+     * Reaching the database is the pass condition here: it means the guard let
+     * this through. What happens next needs a real Postgres and is covered by
+     * the integration suite.
+     */
+    await expect(
+      runWeeklySummaryWorker(client, { now: NOW, force: true, transport: 'log' }),
+    ).rejects.not.toThrow(/no send function was supplied/i);
   });
 });

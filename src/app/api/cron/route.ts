@@ -61,6 +61,9 @@ export async function GET(request: Request) {
   });
 
   const results: RunResult[] = [];
+  /* Named outside the try, because a run that could not resolve a transport
+     still has to say so. */
+  let transportName = 'unresolved';
 
   /*
    * Routine occurrences.
@@ -118,6 +121,7 @@ export async function GET(request: Request) {
      */
     const transport = resolveEmailTransport();
     if ('error' in transport) throw new Error(transport.error);
+    transportName = transport.name;
 
     /*
      * One message, to one address, to prove this deployment can reach the
@@ -137,19 +141,35 @@ export async function GET(request: Request) {
      * set.
      */
     const probeTo = process.env.EMAIL_PROBE_TO?.trim();
-    // `send` is optional on the resolved transport: the log transport has none.
-    if (probeTo && probeTo.includes('@') && transport.send) {
-      await transport.send({
-        to: probeTo,
-        subject: 'TAMCO Focus production mail check',
-        text: 'Sent by /api/cron from the deployed application. Nothing was stored.',
-        html: '<p>Sent by <code>/api/cron</code> from the deployed application. Nothing was stored.</p>',
-      });
-      results.push({
-        worker: 'mail_probe',
-        ok: true,
-        detail: `sent one message via ${transport.name}`,
-      });
+    if (probeTo && probeTo.includes('@')) {
+      /*
+       * `send` is optional on the resolved transport: the log transport has
+       * none. The first version of this simply skipped the probe in that case,
+       * which produced a run indistinguishable from one where the variable had
+       * never been set - so the check meant to answer "can this deployment send
+       * mail" answered nothing at all. The skip is now recorded, and it fails
+       * the run, because a probe that was asked for and could not be performed
+       * is not a success.
+       */
+      if (!transport.send) {
+        results.push({
+          worker: 'mail_probe',
+          ok: false,
+          detail: `the ${transport.name} transport sends nothing; set EMAIL_TRANSPORT=smtp`,
+        });
+      } else {
+        await transport.send({
+          to: probeTo,
+          subject: 'TAMCO Focus production mail check',
+          text: 'Sent by /api/cron from the deployed application. Nothing was stored.',
+          html: '<p>Sent by <code>/api/cron</code> from the deployed application. Nothing was stored.</p>',
+        });
+        results.push({
+          worker: 'mail_probe',
+          ok: true,
+          detail: `sent one message via ${transport.name}`,
+        });
+      }
     }
 
     const summary = await runWeeklySummaryWorker(client, {
@@ -180,7 +200,7 @@ export async function GET(request: Request) {
    * a platform log (instruction section 42).
    */
   console.info(
-    `[cron] ran ${results.map((result) => `${result.worker}=${result.ok ? 'ok' : 'failed'}`).join(' ')}`,
+    `[cron] ran transport=${transportName} ${results.map((result) => `${result.worker}=${result.ok ? 'ok' : 'failed'}`).join(' ')}`,
   );
 
   const failed = results.filter((result) => !result.ok);
