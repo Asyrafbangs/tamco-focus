@@ -284,14 +284,43 @@ export async function sendSmtp(config: SmtpConfig, message: SmtpMessage): Promis
  * Returns null when SMTP is not configured, which is how a local or
  * preview environment stays on the log transport without special-casing.
  */
+/** One address, and nothing else that could end up inside `MAIL FROM:<>`. */
+const ONE_ADDRESS = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/;
+
+/**
+ * Reads an address from configuration the way a person supplies one.
+ *
+ * These values are pasted into a web form, and the two ways that goes wrong
+ * both end in the same place: the relay answering `501 5.1.7 Invalid address`
+ * to `MAIL FROM`. That reply names nothing, so it reads as a mailbox
+ * permissions problem in Exchange, and the afternoon goes on the wrong
+ * question - when the actual content was a trailing space, or a display name
+ * that came along with the address.
+ *
+ * So: trim it, accept the `Name <address>` form and keep the name, and refuse
+ * anything still not a single address with the variable named in the message.
+ */
+function readAddress(value: string): { address: string; display: string } | { error: string } {
+  const raw = value.trim();
+  const wrapped = /^(.*)<([^<>]+)>$/.exec(raw);
+  const address = (wrapped?.[2] ?? raw).trim();
+  const display = (wrapped?.[1] ?? '').trim().replace(/^"|"$/g, '').trim();
+  if (!ONE_ADDRESS.test(address)) {
+    return {
+      error: `"${raw}" is not one email address. Give a single address, optionally as Name <address>.`,
+    };
+  }
+  return { address, display };
+}
+
 export function smtpConfigFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): SmtpConfig | { error: string } | null {
-  const host = env.EMAIL_SMTP_HOST;
+  const host = env.EMAIL_SMTP_HOST?.trim();
   if (!host) return null;
 
   const missing = ['EMAIL_SMTP_USER', 'EMAIL_SMTP_PASSWORD', 'EMAIL_FROM'].filter(
-    (name) => !env[name],
+    (name) => !env[name]?.trim(),
   );
   if (missing.length) {
     return {
@@ -299,12 +328,31 @@ export function smtpConfigFromEnv(
     };
   }
 
+  /*
+   * A port that is not a port, caught here rather than as a connection
+   * timeout. `587587` is not hypothetical: it is what a field already
+   * containing 587 produces when somebody types 587 into it.
+   */
+  const port = Number(env.EMAIL_SMTP_PORT?.trim() || 587);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    return { error: `EMAIL_SMTP_PORT="${env.EMAIL_SMTP_PORT}" is not a port number.` };
+  }
+
+  const from = readAddress(env.EMAIL_FROM!);
+  if ('error' in from) return { error: `EMAIL_FROM: ${from.error}` };
+
   return {
     host,
-    port: Number(env.EMAIL_SMTP_PORT ?? 587),
-    user: env.EMAIL_SMTP_USER!,
+    port,
+    // Not an address in general - some relays authenticate by username - so
+    // this is trimmed and otherwise left alone.
+    user: env.EMAIL_SMTP_USER!.trim(),
+    // The password is NOT trimmed: trailing space is legal in one, and
+    // silently changing a credential is worse than a clear 535.
     password: env.EMAIL_SMTP_PASSWORD!,
-    from: env.EMAIL_FROM!,
-    fromName: env.EMAIL_FROM_NAME ?? 'TAMCO Focus',
+    from: from.address,
+    // A name supplied on its own wins; otherwise one that travelled in with
+    // the address is used rather than discarded.
+    fromName: env.EMAIL_FROM_NAME?.trim() || from.display || 'TAMCO Focus',
   };
 }
