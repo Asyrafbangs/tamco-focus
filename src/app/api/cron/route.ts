@@ -170,6 +170,19 @@ export async function GET(request: Request) {
     results.push({ worker: 'weekly_summary', ok: false, detail });
   }
 
+  /*
+   * One line per run, on success as well as failure.
+   *
+   * A scheduled endpoint nobody is watching has to say what it did, or the
+   * only evidence of a run is an HTTP status — and 200 covers both "sent the
+   * summary" and "decided today was not the day". Worker names and outcomes
+   * only: the details carry counts and addresses, and those do not belong in
+   * a platform log (instruction section 42).
+   */
+  console.info(
+    `[cron] ran ${results.map((result) => `${result.worker}=${result.ok ? 'ok' : 'failed'}`).join(' ')}`,
+  );
+
   const failed = results.filter((result) => !result.ok);
   return NextResponse.json(
     { ranAt: new Date().toISOString(), results },
