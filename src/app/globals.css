@@ -1721,6 +1721,20 @@ body {
   letter-spacing: -0.003em;
 }
 
+/*
+ * `<small>` lands on the scale rather than on 0.8em.
+ *
+ * The browser default is relative, so a `<small>` that sets no size of its own
+ * inherits whatever its parent has and multiplies it: 13.5px of body text
+ * became 10.8333px, a value nobody chose and no step on the scale. Every rule
+ * that sizes a `<small>` deliberately still wins — this is a bare element
+ * selector, the weakest thing in the file — so this only catches the ones that
+ * were relying on the multiplier.
+ */
+small {
+  font-size: 10.5px;
+}
+
 strong,
 h1,
 h2,

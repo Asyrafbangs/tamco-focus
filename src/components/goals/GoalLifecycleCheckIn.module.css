@@ -185,7 +185,7 @@
 .measureUpdates > summary span {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 8.8px;
+  font-size: 9px;
 }
 
 .measureInput {
@@ -224,7 +224,7 @@
 .recorded span,
 .agreement span {
   color: var(--muted);
-  font-size: 8.8px;
+  font-size: 9px;
 }
 
 .recorded p,

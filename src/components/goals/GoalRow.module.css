@@ -43,7 +43,9 @@
   border-radius: 999px;
   background: var(--surface-2);
   color: var(--muted);
-  font-size: 8.7px;
+  /* 9, not 8.7: the rounding pass that put the type scale in order swept
+     globals.css and missed the CSS modules. */
+  font-size: 9px;
   font-weight: 650;
 }
 

@@ -105,7 +105,7 @@
 .measureRow span {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 8.8px;
+  font-size: 9px;
   line-height: 1.45;
 }
 
@@ -117,7 +117,7 @@
 
 .measureDue {
   color: var(--muted);
-  font-size: 8.8px;
+  font-size: 9px;
 }
 
 .measureActual {
@@ -237,7 +237,7 @@
 .completeControl small {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 8.7px;
+  font-size: 9px;
 }
 
 .updateFooter {
@@ -366,7 +366,7 @@
 .cadencePreview span,
 .cadencePreview small {
   color: var(--muted);
-  font-size: 8.7px;
+  font-size: 9px;
 }
 
 .cadencePreview strong {
@@ -415,7 +415,7 @@
 .currentFocus span {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 9.3px;
+  font-size: 9.5px;
   line-height: 1.45;
 }
 
@@ -524,7 +524,7 @@
 .updateContext span {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 8.8px;
+  font-size: 9px;
 }
 
 .progressCard {
@@ -544,7 +544,7 @@
   float: right;
   margin-right: 82px;
   color: var(--muted);
-  font-size: 8.7px;
+  font-size: 9px;
   font-weight: 500;
 }
 
@@ -626,7 +626,7 @@
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--text);
-  font-size: 8.8px;
+  font-size: 9px;
   text-decoration: none;
 }
 
@@ -716,7 +716,7 @@
 
 :global(.goal-detail-drawer .goal-file-row small),
 :global(.goal-detail-drawer .goal-work-row small) {
-  font-size: 8.8px;
+  font-size: 9px;
 }
 
 @media (max-width: 760px) {
