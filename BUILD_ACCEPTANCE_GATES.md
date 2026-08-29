@@ -368,12 +368,29 @@ check unless marked otherwise.
       execution separate; it renders no fabricated overall Goal achievement percentage.
 - [ ] Direct `person` parameters and record-level collaboration/participation cannot expose a
       person or workload outside the authorised Team roster.
+
 - [ ] The disclosure target, focus state, text wrapping and scrolling pass at desktop and 390 px
       mobile widths with no horizontal page overflow.
 - [ ] No migration, generated-type, RLS, authentication, action-authority, workflow, notification,
       audit, Storage, or production-data behaviour changes.
 - [ ] The on-demand E2E workflow completes against its isolated production build without a
       long-lived development compiler or application-server heap exhaustion.
+
+## v117 Lean weekly email acceptance gates
+
+- [ ] The personal email contains only Needs attention, the merged current-week list, up to three
+      or five recent completions, and Open My Day; report-like change counts, separate Routine
+      sections, and recommended-start sections are absent.
+- [ ] Available Work is excluded unless High/Critical, due or review-bound in the current week, or
+      supported by another explicit action signal.
+- [ ] Current-week Focus, Routine, and Shared commitments are merged and labelled; generated Routine
+      occurrences beyond the current planning week are absent.
+- [ ] A pending Routine not-required request is not overdue; a returned request says “Returned by
+      manager · Still due”.
+- [ ] Manager content is grouped by visible person and contains only intervention counts/reasons;
+      team task dumps, completion feeds, rankings, and performance scores are absent.
+- [ ] Exception-aware and healthy subject lines, HTML escaping, plain-text parity, safe application
+      links, email-compatible layout, idempotency, retry, audit, and delivery behavior are tested.
 
 ## v103 PDF attachment preview acceptance gates
 

@@ -1,13 +1,53 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { Database } from '@/lib/database.types';
 import { formatDurationWords, staleAgeMs } from '@/domain/duration';
-import { weeklyWindow } from '@/domain/weekly-schedule';
+import { weeklyWindow, type WeeklyWindow } from '@/domain/weekly-schedule';
+import type { Database } from '@/lib/database.types';
 
 type Client = SupabaseClient<Database, 'public'>;
 type Profile = Database['public']['Tables']['user_profiles']['Row'];
 type TaskRow = Database['public']['Views']['task_overview']['Row'];
 type GoalRow = Database['public']['Views']['goal_overview']['Row'];
+type BarrierRow = Database['public']['Tables']['barriers']['Row'];
+type CompletionReviewRow = Database['public']['Tables']['completion_reviews']['Row'];
+type SharedContributionRow = Database['public']['Views']['shared_contributions']['Row'];
+type CompletedContributionRow = Database['public']['Views']['completed_contributions']['Row'];
+type RoutineOutcomeRow = Database['public']['Views']['routine_occurrence_outcomes']['Row'];
+
+interface TeamPerson {
+  userId: string;
+  fullName: string;
+}
+
+interface DigestItem {
+  key: string;
+  title: string;
+  label: string;
+  detail: string;
+  occurredAt?: string | null;
+  dueAt?: string | null;
+}
+
+interface RenderSummaryInput {
+  profile: Profile;
+  mode: 'focused' | 'standard';
+  tasks: TaskRow[];
+  teamTasks: TaskRow[];
+  sharedContributions?: SharedContributionRow[];
+  completedContributions?: CompletedContributionRow[];
+  barriers?: BarrierRow[];
+  completionReviews?: CompletionReviewRow[];
+  routineOutcomes?: RoutineOutcomeRow[];
+  goals?: GoalRow[];
+  teamBarriers?: BarrierRow[];
+  teamRoutineOutcomes?: RoutineOutcomeRow[];
+  teamGoals?: GoalRow[];
+  teamPeople?: TeamPerson[];
+  appBaseUrl: string;
+  now: Date;
+  window?: WeeklyWindow;
+  timeZone?: string;
+}
 
 export interface WeeklyWorkerOptions {
   now?: Date;
@@ -29,11 +69,7 @@ export interface WeeklyWorkerResult {
   periodStart: string;
 }
 
-/**
- * Exported so the escaping can be tested directly. Section 14.4 requires email
- * bodies to escape user-entered content, and task titles reach the HTML body
- * verbatim — an untested escape is the one place a silent XSS would survive.
- */
+/** HTML escaping is a security boundary because user-entered text leaves the app in email. */
 export const escapeHtml = (value: string) =>
   value
     .replaceAll('&', '&amp;')
@@ -42,183 +78,547 @@ export const escapeHtml = (value: string) =>
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 
-const titleList = (title: string, tasks: TaskRow[], empty: string) => ({
-  title,
-  items: tasks.length ? tasks.map((task) => task.title ?? 'Untitled work') : [empty],
-});
-
-function meaningfulGoal(goal: GoalRow, reportingStart: Date) {
-  return Boolean(
-    goal.needs_attention ||
-    goal.is_checkin_due ||
-    goal.is_update_requested ||
-    goal.is_target_approaching ||
-    goal.has_recent_milestone_completion ||
-    Number(goal.open_support_count ?? 0) > 0 ||
-    goal.pending_version_id ||
-    (goal.last_meaningful_update_at &&
-      new Date(goal.last_meaningful_update_at).getTime() >= reportingStart.getTime()),
-  );
+function asTime(value: string | null | undefined) {
+  if (!value) return null;
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? null : time;
 }
 
-function goalSummaryLine(goal: GoalRow) {
-  const reasons = [
-    Number(goal.open_support_count ?? 0) > 0 ? 'support requested' : null,
-    goal.is_update_requested ? 'update requested' : null,
-    goal.is_checkin_due ? 'check-in due' : null,
-    goal.is_target_approaching ? 'target approaching' : null,
-    goal.has_recent_milestone_completion ? 'milestone completed' : null,
-    goal.pending_version_id ? 'changes awaiting agreement' : null,
-  ].filter(Boolean);
-  const health = String(goal.health ?? 'on_track').replaceAll('_', ' ');
-  return `${goal.title ?? 'Untitled Goal'} — ${health}${reasons.length ? `; ${reasons.join(', ')}` : '; updated this week'}`;
+function inWindow(value: string | null | undefined, start: Date, end: Date) {
+  const time = asTime(value);
+  return time !== null && time >= start.getTime() && time < end.getTime();
 }
 
-/**
- * Exported for unit testing. Pure: it takes rows and returns strings, touching
- * neither the database nor the clock, so the preference-mode section selection
- * (PRODUCTION_LOGIC.md "V30", items 4 to 7) can be asserted directly.
- */
-export function renderSummary(input: {
-  profile: Profile;
-  mode: 'focused' | 'standard';
-  tasks: TaskRow[];
-  changes: number;
-  teamTasks: TaskRow[];
-  teamChanges: number;
-  teamBarriers: number;
-  goals?: GoalRow[];
-  teamGoals?: GoalRow[];
-  appBaseUrl: string;
-  now: Date;
-}) {
-  const { profile, tasks, now } = input;
-  const meaningfulGoals = (input.goals ?? []).filter((goal) =>
-    meaningfulGoal(goal, new Date(now.getTime() - 7 * 86_400_000)),
+function firstName(fullName: string) {
+  return fullName.trim().split(/\s+/)[0] || fullName;
+}
+
+function workLabel(workClass: TaskRow['work_class']) {
+  const labels: Partial<Record<NonNullable<TaskRow['work_class']>, string>> = {
+    major_project: 'Major Project',
+    operational_action: 'Operational',
+    self_development: 'Development',
+    quick_action: 'Quick Action',
+    routine_occurrence: 'Routine',
+    collaborative_contribution: 'Shared',
+  };
+  return workClass ? (labels[workClass] ?? 'Work') : 'Work';
+}
+
+function formatWeekRange(window: WeeklyWindow, timeZone: string) {
+  const finalDay = new Date(window.planningEnd.getTime() - 1);
+  const start = new Intl.DateTimeFormat('en-MY', {
+    day: 'numeric',
+    month: 'short',
+    timeZone,
+  }).formatToParts(window.reportingEnd);
+  const end = new Intl.DateTimeFormat('en-MY', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone,
+  }).formatToParts(finalDay);
+  const part = (parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((candidate) => candidate.type === type)?.value ?? '';
+  const startDay = part(start, 'day');
+  const startMonth = part(start, 'month');
+  const endDay = part(end, 'day');
+  const endMonth = part(end, 'month');
+  const year = part(end, 'year');
+  return startMonth === endMonth
+    ? `${startDay}–${endDay} ${endMonth} ${year}`
+    : `${startDay} ${startMonth}–${endDay} ${endMonth} ${year}`;
+}
+
+function formatDue(
+  dueAt: string | null | undefined,
+  dueIsDateOnly: boolean | null | undefined,
+  now: Date,
+  timeZone: string,
+) {
+  if (!dueAt) return 'No due date';
+  const due = new Date(dueAt);
+  if (due.getTime() < now.getTime()) {
+    return `Overdue ${formatDurationWords(now.getTime() - due.getTime())}`;
+  }
+  return `Due ${new Intl.DateTimeFormat('en-MY', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    ...(dueIsDateOnly ? {} : { hour: '2-digit', minute: '2-digit', hour12: false }),
+    timeZone,
+  }).format(due)}`;
+}
+
+function appLink(base: string, path: string) {
+  try {
+    const url = new URL(path, base);
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : '#';
+  } catch {
+    return '#';
+  }
+}
+
+function latestReviewByTask(reviews: CompletionReviewRow[]) {
+  const latest = new Map<string, CompletionReviewRow>();
+  for (const review of [...reviews].sort((a, b) =>
+    String(b.decided_at ?? b.submitted_at).localeCompare(String(a.decided_at ?? a.submitted_at)),
+  )) {
+    if (!latest.has(review.task_id)) latest.set(review.task_id, review);
+  }
+  return latest;
+}
+
+function personalDigest(input: RenderSummaryInput & { window: WeeklyWindow; timeZone: string }) {
+  const { tasks, now, window, timeZone } = input;
+  const taskById = new Map(tasks.flatMap((task) => (task.id ? ([[task.id, task]] as const) : [])));
+  const goalById = new Map(
+    (input.goals ?? []).flatMap((goal) => (goal.id ? ([[goal.id, goal]] as const) : [])),
   );
-  const completed = tasks.filter((task) => task.status === 'completed' && task.completed_at);
-  const attention = tasks.filter((task) => task.is_overdue || task.is_stale);
-  const due = tasks.filter(
-    (task) => task.status !== 'completed' && task.status !== 'cancelled' && task.due_at,
-  );
-  const routines = due.filter((task) => task.work_class === 'routine_occurrence');
-  const ranked = [...tasks]
-    .filter((task) => ['backlog', 'active', 'paused'].includes(task.status ?? ''))
-    .sort((a, b) => {
-      const score = (task: TaskRow) =>
-        task.is_mandatory
-          ? 0
-          : task.is_overdue
-            ? 1
-            : task.is_stale
-              ? 2
-              : task.status === 'active'
-                ? 3
-                : 4;
-      return (
-        score(a) - score(b) || String(a.due_at ?? '9999').localeCompare(String(b.due_at ?? '9999'))
-      );
-    });
-  const recommendation = ranked[0];
-  const sections = [
-    titleList('Wins from last week', completed, 'No completed work was recorded last week.'),
-    titleList('Needs attention', attention, 'No overdue or stale active work needs attention.'),
-    titleList(
-      'Due this week',
-      due.filter((task) => task.work_class !== 'routine_occurrence'),
-      'No dated commitments are due this week.',
+  const routineByTask = new Map(
+    (input.routineOutcomes ?? []).flatMap((row) =>
+      row.task_id ? ([[row.task_id, row]] as const) : [],
     ),
-  ];
-  if (input.mode === 'standard') {
-    sections.splice(1, 0, {
-      title: 'Meaningful changes',
-      items: [`${input.changes} recorded task change${input.changes === 1 ? '' : 's'} last week.`],
-    });
-    sections.push(
-      titleList('Routine work due', routines, 'No routine occurrences are due this week.'),
-    );
-  }
-  if (meaningfulGoals.length > 0) {
-    sections.push({
-      title: 'Goal progress and check-ins',
-      items: meaningfulGoals.slice(0, 6).map(goalSummaryLine),
-    });
-  }
-  sections.push({
-    title: 'Recommended starting point',
-    items: recommendation
-      ? [
-          `${recommendation.title ?? 'Untitled work'}${recommendation.is_stale && recommendation.status && recommendation.last_meaningful_update_at ? ` — no meaningful update for ${formatDurationWords(staleAgeMs({ status: recommendation.status, lastMeaningfulUpdateAt: recommendation.last_meaningful_update_at }, now))}` : ''}`,
-        ]
-      : ['No recommendation is needed right now.'],
-  });
+  );
+  const attention = new Map<string, DigestItem>();
+  const addAttention = (item: DigestItem) => {
+    if (!attention.has(item.key)) attention.set(item.key, item);
+  };
 
-  if (profile.team_summary_mode !== 'off') {
-    const meaningfulTeamGoals = (input.teamGoals ?? []).filter((goal) =>
-      meaningfulGoal(goal, new Date(now.getTime() - 7 * 86_400_000)),
-    );
-    sections.push(
-      titleList(
-        'Team wins and changes',
-        input.teamTasks.filter((task) => task.status === 'completed'),
-        'No team completions were recorded last week.',
-      ),
-      titleList(
-        'Team exceptions',
-        input.teamTasks.filter(
-          (task) => task.is_overdue || task.is_stale || task.over_focus_target,
-        ),
-        'No overdue, stale, or over-target team work needs attention.',
-      ),
-      {
-        title: 'Manager decisions and support',
-        items: [
-          `${input.teamBarriers} open barrier${input.teamBarriers === 1 ? '' : 's'} and ${input.teamChanges} recorded team change${input.teamChanges === 1 ? '' : 's'}.`,
-        ],
-      },
-    );
-    if (meaningfulTeamGoals.length > 0) {
-      sections.push({
-        title: 'Team Goal coaching',
-        items: meaningfulTeamGoals
-          .slice(0, 8)
-          .map((goal) => `${goal.owner_name ?? 'Team member'}: ${goalSummaryLine(goal)}`),
+  for (const [taskId, review] of latestReviewByTask(input.completionReviews ?? [])) {
+    const task = taskById.get(taskId);
+    if (!task || ['completed', 'cancelled'].includes(task.status ?? '')) continue;
+    if (review.decision !== 'changes_requested') continue;
+    addAttention({
+      key: `task:${taskId}`,
+      title: task.title ?? 'Untitled work',
+      label: workLabel(task.work_class),
+      detail: `Changes requested after completion review${review.decision_note ? ` · ${review.decision_note}` : ''}`,
+      dueAt: task.due_at,
+    });
+  }
+
+  for (const outcome of input.routineOutcomes ?? []) {
+    if (!outcome.task_id || outcome.exception_state !== 'returned') continue;
+    const task = taskById.get(outcome.task_id);
+    if (!task || ['completed', 'cancelled'].includes(task.status ?? '')) continue;
+    addAttention({
+      key: `task:${outcome.task_id}`,
+      title: task.title ?? outcome.title ?? 'Routine occurrence',
+      label: 'Routine',
+      detail: `Returned by manager · Still due${outcome.decision_note ? ` · ${outcome.decision_note}` : ''}`,
+      dueAt: task.due_at,
+    });
+  }
+
+  for (const barrier of input.barriers ?? []) {
+    const task = barrier.task_id ? taskById.get(barrier.task_id) : null;
+    const goal = barrier.goal_id ? goalById.get(barrier.goal_id) : null;
+    addAttention({
+      key: task?.id ? `task:${task.id}` : goal?.id ? `goal:${goal.id}` : `barrier:${barrier.id}`,
+      title: task?.title ?? goal?.title ?? barrier.description ?? 'Support request',
+      label: task ? workLabel(task.work_class) : goal ? 'Goal' : 'Request',
+      detail: `Action requested · ${barrier.support_needed}`,
+      dueAt: task?.due_at ?? goal?.checkin_due_at,
+    });
+  }
+
+  for (const task of tasks) {
+    if (!task.id || ['completed', 'cancelled'].includes(task.status ?? '')) continue;
+    const exceptionState = routineByTask.get(task.id)?.exception_state;
+    if (exceptionState === 'pending') continue;
+    if (task.is_overdue) {
+      addAttention({
+        key: `task:${task.id}`,
+        title: task.title ?? 'Untitled work',
+        label: workLabel(task.work_class),
+        detail: formatDue(task.due_at, task.due_is_date_only, now, timeZone),
+        dueAt: task.due_at,
+      });
+      continue;
+    }
+    if (task.is_stale && task.status === 'active' && task.last_meaningful_update_at) {
+      addAttention({
+        key: `task:${task.id}`,
+        title: task.title ?? 'Untitled work',
+        label: workLabel(task.work_class),
+        detail: `No meaningful update for ${formatDurationWords(
+          staleAgeMs(
+            { status: task.status, lastMeaningfulUpdateAt: task.last_meaningful_update_at },
+            now,
+          ),
+        )}`,
+        dueAt: task.due_at,
+      });
+      continue;
+    }
+
+    const dueThisWeek = inWindow(task.due_at, window.reportingEnd, window.planningEnd);
+    const reviewThisWeek = inWindow(task.review_at, window.reportingEnd, window.planningEnd);
+    const urgentAvailable =
+      task.status === 'backlog' && ['high', 'critical'].includes(task.urgency ?? 'normal');
+    if (
+      task.status === 'backlog' &&
+      task.work_class !== 'routine_occurrence' &&
+      (dueThisWeek || reviewThisWeek || urgentAvailable)
+    ) {
+      const reason = reviewThisWeek
+        ? `Manager review ${formatDue(task.review_at, false, now, timeZone).toLowerCase()}`
+        : urgentAvailable
+          ? `${task.urgency === 'critical' ? 'Critical' : 'High'} urgency · Available work`
+          : `Available work · ${formatDue(task.due_at, task.due_is_date_only, now, timeZone)}`;
+      addAttention({
+        key: `task:${task.id}`,
+        title: task.title ?? 'Untitled work',
+        label: workLabel(task.work_class),
+        detail: reason,
+        dueAt: task.due_at ?? task.review_at,
+      });
+    } else if (task.status === 'paused' && dueThisWeek) {
+      addAttention({
+        key: `task:${task.id}`,
+        title: task.title ?? 'Untitled work',
+        label: workLabel(task.work_class),
+        detail: `Paused · ${formatDue(task.due_at, task.due_is_date_only, now, timeZone)}`,
+        dueAt: task.due_at,
       });
     }
   }
 
-  const subject = `TAMCO Focus weekly summary — ${profile.full_name}`;
-  const text = [
-    `Hello ${profile.full_name},`,
-    '',
-    ...sections.flatMap((section) => [
-      section.title,
-      ...section.items.map((item) => `- ${item}`),
-      '',
-    ]),
-    `Open My Day: ${input.appBaseUrl}/today`,
-  ].join('\n');
-  const htmlSections = sections
-    .map(
-      (section) =>
-        `<section><h2>${escapeHtml(section.title)}</h2><ul>${section.items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></section>`,
+  for (const goal of input.goals ?? []) {
+    if (!goal.id || !['active', 'pending_discussion'].includes(goal.status ?? '')) continue;
+    const reasons = [
+      goal.is_update_requested ? 'Update requested' : null,
+      goal.is_checkin_due ? 'Check-in due' : null,
+      goal.needs_attention ? goal.attention_reason || 'Needs attention' : null,
+    ].filter((reason): reason is string => Boolean(reason));
+    if (!reasons.length) continue;
+    addAttention({
+      key: `goal:${goal.id}`,
+      title: goal.title ?? 'Untitled Goal',
+      label: 'Goal',
+      detail: reasons.join(' · '),
+      dueAt: goal.checkin_due_at ?? goal.target_date,
+    });
+  }
+
+  const commitments: DigestItem[] = [];
+  for (const task of tasks) {
+    const isCurrentCommitment =
+      task.status === 'active' ||
+      (task.work_class === 'routine_occurrence' && task.status === 'backlog');
+    if (!task.id || !isCurrentCommitment) continue;
+    if (!inWindow(task.due_at, window.reportingEnd, window.planningEnd)) continue;
+    const exceptionState = routineByTask.get(task.id)?.exception_state;
+    if (exceptionState === 'pending' || exceptionState === 'returned') continue;
+    if (attention.has(`task:${task.id}`)) continue;
+    commitments.push({
+      key: `task:${task.id}`,
+      title: task.title ?? 'Untitled work',
+      label: workLabel(task.work_class),
+      detail: formatDue(task.due_at, task.due_is_date_only, now, timeZone),
+      dueAt: task.due_at,
+    });
+  }
+  for (const contribution of input.sharedContributions ?? []) {
+    const dueAt = contribution.item_due_at ?? contribution.parent_due_at;
+    if (!contribution.checklist_item_id || contribution.state === 'completed') continue;
+    if (!inWindow(dueAt, window.reportingEnd, window.planningEnd)) continue;
+    commitments.push({
+      key: `shared:${contribution.checklist_item_id}`,
+      title: contribution.title ?? 'Shared contribution',
+      label: 'Shared',
+      detail: `${contribution.parent_title ?? 'Shared work'} · ${formatDue(
+        dueAt,
+        contribution.item_due_at ? false : contribution.parent_due_is_date_only,
+        now,
+        timeZone,
+      )}`,
+      dueAt,
+    });
+  }
+
+  const dateFormatter = new Intl.DateTimeFormat('en-MY', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone,
+  });
+  const completed: DigestItem[] = tasks
+    .filter(
+      (task) =>
+        task.id &&
+        task.status === 'completed' &&
+        inWindow(task.completed_at, window.reportingStart, window.reportingEnd),
     )
-    .join('');
-  const html = `<!doctype html><html><body><main><h1>Your TAMCO Focus week</h1><p>Hello ${escapeHtml(profile.full_name)},</p>${htmlSections}<p><a href="${escapeHtml(input.appBaseUrl)}/today">Open My Day</a></p></main></body></html>`;
-  return { subject, text, html };
+    .map((task) => ({
+      key: `task:${task.id}`,
+      title: task.title ?? 'Untitled work',
+      label: workLabel(task.work_class),
+      detail: `Completed ${dateFormatter.format(new Date(task.completed_at!))}`,
+      occurredAt: task.completed_at,
+    }));
+  for (const contribution of input.completedContributions ?? []) {
+    if (
+      !contribution.checklist_item_id ||
+      !inWindow(contribution.completed_at, window.reportingStart, window.reportingEnd)
+    ) {
+      continue;
+    }
+    completed.push({
+      key: `shared:${contribution.checklist_item_id}`,
+      title: contribution.title ?? 'Shared contribution',
+      label: 'Shared',
+      detail: `${contribution.parent_title ?? 'Shared work'} · Completed${contribution.primary_owner_name && contribution.primary_owner_name !== 'Team member' ? ` for ${contribution.primary_owner_name}` : ''}`,
+      occurredAt: contribution.completed_at,
+    });
+  }
+
+  const byDue = (a: DigestItem, b: DigestItem) =>
+    String(a.dueAt ?? '9999').localeCompare(String(b.dueAt ?? '9999')) ||
+    a.title.localeCompare(b.title);
+  const byRecent = (a: DigestItem, b: DigestItem) =>
+    String(b.occurredAt ?? '').localeCompare(String(a.occurredAt ?? ''));
+  return {
+    attention: [...attention.values()].sort(byDue),
+    commitments: commitments.sort(byDue),
+    completed: completed.sort(byRecent),
+  };
 }
 
-async function loadTaskChanges(client: Client, taskIds: string[], start: string, end: string) {
-  if (!taskIds.length) return 0;
-  const { count, error } = await client
-    .from('audit_events')
-    .select('id', { count: 'exact', head: true })
-    .in('task_id', taskIds)
-    .gte('occurred_at', start)
-    .lt('occurred_at', end)
-    .neq('event_type', 'attachment_opened');
-  if (error) throw error;
-  return count ?? 0;
+function teamDigest(input: RenderSummaryInput) {
+  if (input.profile.team_summary_mode === 'off') return [];
+  const names = new Map((input.teamPeople ?? []).map((person) => [person.userId, person.fullName]));
+  for (const task of input.teamTasks) {
+    if (task.primary_owner_id && task.owner_name) names.set(task.primary_owner_id, task.owner_name);
+  }
+  for (const goal of input.teamGoals ?? []) {
+    if (goal.owner_id && goal.owner_name) names.set(goal.owner_id, goal.owner_name);
+  }
+
+  const pendingRoutineIds = new Set(
+    (input.teamRoutineOutcomes ?? [])
+      .filter((row) => row.exception_state === 'pending' && row.task_id)
+      .map((row) => row.task_id as string),
+  );
+  const rows = new Map<string, { userId: string; fullName: string; signals: string[] }>();
+  const add = (userId: string | null | undefined, signal: string) => {
+    if (!userId) return;
+    const row = rows.get(userId) ?? {
+      userId,
+      fullName: names.get(userId) ?? 'Team member',
+      signals: [],
+    };
+    if (!row.signals.includes(signal)) row.signals.push(signal);
+    rows.set(userId, row);
+  };
+  const plural = (count: number, singular: string, pluralForm = `${singular}s`) =>
+    `${count} ${count === 1 ? singular : pluralForm}`;
+
+  const overdueByPerson = new Map<string, number>();
+  const reviewByPerson = new Map<string, number>();
+  const overTarget = new Set<string>();
+  for (const task of input.teamTasks) {
+    if (!task.primary_owner_id) continue;
+    if (task.review_status === 'pending' && task.reviewer_id === input.profile.id) {
+      reviewByPerson.set(
+        task.primary_owner_id,
+        (reviewByPerson.get(task.primary_owner_id) ?? 0) + 1,
+      );
+    }
+    if (['completed', 'cancelled'].includes(task.status ?? '')) continue;
+    if (task.is_overdue && (!task.id || !pendingRoutineIds.has(task.id))) {
+      overdueByPerson.set(
+        task.primary_owner_id,
+        (overdueByPerson.get(task.primary_owner_id) ?? 0) + 1,
+      );
+    }
+    if (task.over_focus_target) overTarget.add(task.primary_owner_id);
+  }
+  for (const [userId, count] of overdueByPerson) add(userId, plural(count, 'overdue item'));
+  for (const [userId, count] of reviewByPerson) {
+    add(userId, plural(count, 'completion awaiting review', 'completions awaiting review'));
+  }
+
+  const routineReviews = new Map<string, number>();
+  for (const outcome of input.teamRoutineOutcomes ?? []) {
+    if (outcome.exception_state !== 'pending' || !outcome.primary_owner_id) continue;
+    routineReviews.set(
+      outcome.primary_owner_id,
+      (routineReviews.get(outcome.primary_owner_id) ?? 0) + 1,
+    );
+  }
+  for (const [userId, count] of routineReviews) {
+    add(
+      userId,
+      plural(count, 'routine exception awaiting review', 'routine exceptions awaiting review'),
+    );
+  }
+
+  const taskOwner = new Map(
+    input.teamTasks.flatMap((task) =>
+      task.id && task.primary_owner_id ? ([[task.id, task.primary_owner_id]] as const) : [],
+    ),
+  );
+  const goalOwner = new Map(
+    (input.teamGoals ?? []).flatMap((goal) =>
+      goal.id && goal.owner_id ? ([[goal.id, goal.owner_id]] as const) : [],
+    ),
+  );
+  const barrierDecisions = new Map<string, number>();
+  for (const barrier of input.teamBarriers ?? []) {
+    const ownerId = barrier.task_id
+      ? taskOwner.get(barrier.task_id)
+      : barrier.goal_id
+        ? goalOwner.get(barrier.goal_id)
+        : null;
+    if (!ownerId) continue;
+    barrierDecisions.set(ownerId, (barrierDecisions.get(ownerId) ?? 0) + 1);
+  }
+  for (const [userId, count] of barrierDecisions) {
+    add(
+      userId,
+      plural(count, 'barrier waiting on your decision', 'barriers waiting on your decision'),
+    );
+  }
+
+  const goalActions = new Map<string, number>();
+  for (const goal of input.teamGoals ?? []) {
+    if (
+      !goal.owner_id ||
+      !(
+        goal.manager_needs_attention ||
+        goal.quarterly_requires_manager_action ||
+        Number(goal.open_support_count ?? 0) > 0 ||
+        goal.pending_version_id
+      )
+    ) {
+      continue;
+    }
+    goalActions.set(goal.owner_id, (goalActions.get(goal.owner_id) ?? 0) + 1);
+  }
+  for (const [userId, count] of goalActions) {
+    add(
+      userId,
+      plural(count, 'Goal decision or support request', 'Goal decisions or support requests'),
+    );
+  }
+  for (const userId of overTarget) add(userId, 'workload review needed');
+
+  return [...rows.values()].sort(
+    (a, b) => b.signals.length - a.signals.length || a.fullName.localeCompare(b.fullName),
+  );
+}
+
+function renderItemRows(items: DigestItem[]) {
+  return items
+    .map(
+      (item) =>
+        `<tr><td style="padding:14px 0;border-top:1px solid #e7ebf0;vertical-align:top"><div style="font-size:15px;line-height:21px;font-weight:650;color:#182235">${escapeHtml(item.title)}</div><div style="padding-top:4px;font-size:13px;line-height:19px;color:#66758a">${escapeHtml(item.label)}&nbsp;&nbsp;·&nbsp;&nbsp;${escapeHtml(item.detail)}</div></td></tr>`,
+    )
+    .join('');
+}
+
+function renderSection(
+  title: string,
+  items: DigestItem[],
+  limit: number,
+  footer?: { href: string; label: string },
+) {
+  if (!items.length) return '';
+  const visible = items.slice(0, limit);
+  const remaining = items.length - visible.length;
+  const footerText =
+    remaining > 0 ? `+ ${remaining} more · ${footer?.label ?? 'View all'}` : footer?.label;
+  return `<tr><td style="padding:26px 32px 0"><div style="font-size:12px;line-height:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#0d2342">${escapeHtml(title)}</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-top:9px">${renderItemRows(visible)}</table>${footer && footerText ? `<div style="padding-top:10px;font-size:13px;line-height:18px"><a href="${escapeHtml(footer.href)}" style="color:#1668e8;text-decoration:none;font-weight:600">${escapeHtml(footerText)}</a></div>` : remaining > 0 ? `<div style="padding-top:10px;font-size:13px;line-height:18px;color:#66758a">+ ${remaining} more</div>` : ''}</td></tr>`;
+}
+
+/** Builds the small decision-ready digest without reading the database or clock. */
+export function renderSummary(input: RenderSummaryInput) {
+  const timeZone = input.timeZone ?? 'Asia/Kuala_Lumpur';
+  const window = input.window ?? weeklyWindow(input.now, timeZone);
+  const normalizedInput = { ...input, timeZone, window };
+  const personal = personalDigest(normalizedInput);
+  const team = teamDigest(normalizedInput);
+  const itemLimit = input.mode === 'focused' ? 3 : 5;
+  const subject = personal.attention.length
+    ? `TAMCO Focus — ${personal.attention.length} ${personal.attention.length === 1 ? 'needs' : 'need'} attention${personal.commitments.length ? ` · ${personal.commitments.length} due this week` : ''}`
+    : `TAMCO Focus — Your week ahead · ${personal.commitments.length} commitment${personal.commitments.length === 1 ? '' : 's'}`;
+  const myDayHref = appLink(input.appBaseUrl, '/today');
+  const completedHref = appLink(input.appBaseUrl, '/more/records?state=completed');
+  const teamHref = appLink(input.appBaseUrl, '/work?scope=team&filter=attention');
+
+  const textSections: string[] = ['NEEDS ATTENTION'];
+  if (personal.attention.length) {
+    textSections.push(
+      ...personal.attention
+        .slice(0, itemLimit)
+        .map((item) => `- [${item.label}] ${item.title} — ${item.detail}`),
+    );
+    if (personal.attention.length > itemLimit) {
+      textSections.push(`- + ${personal.attention.length - itemLimit} more in TAMCO Focus`);
+    }
+  } else {
+    textSections.push('Nothing urgent needs your attention.');
+  }
+  if (personal.commitments.length) {
+    textSections.push(
+      '',
+      'THIS WEEK',
+      ...personal.commitments
+        .slice(0, itemLimit)
+        .map((item) => `- [${item.label}] ${item.title} — ${item.detail}`),
+    );
+    if (personal.commitments.length > itemLimit) {
+      textSections.push(`- + ${personal.commitments.length - itemLimit} more in My Day`);
+    }
+  }
+  if (personal.completed.length) {
+    textSections.push(
+      '',
+      'COMPLETED LAST WEEK',
+      ...personal.completed
+        .slice(0, itemLimit)
+        .map((item) => `- [${item.label}] ${item.title} — ${item.detail}`),
+      `- View completed: ${completedHref}`,
+    );
+  }
+  if (team.length) {
+    textSections.push(
+      '',
+      'TEAM NEEDS ATTENTION',
+      ...team.slice(0, 5).map((row) => `- ${row.fullName} — ${row.signals.join(' · ')}`),
+    );
+    if (team.length > 5) textSections.push(`- + ${team.length - 5} more people`);
+    textSections.push(`- Open team attention: ${teamHref}`);
+  }
+  const text = [
+    `Hello ${input.profile.full_name},`,
+    `Here is your week at a glance for ${formatWeekRange(window, timeZone)}.`,
+    '',
+    ...textSections,
+    '',
+    `Open My Day: ${myDayHref}`,
+  ].join('\n');
+
+  const attentionHtml = personal.attention.length
+    ? renderSection('Needs attention', personal.attention, itemLimit)
+    : `<tr><td style="padding:24px 32px 0"><div style="font-size:12px;line-height:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#0d2342">Needs attention</div><div style="margin-top:10px;padding:12px 14px;border:1px solid #d9eee3;border-radius:10px;background:#f3faf6;font-size:14px;line-height:20px;color:#277a4f">Nothing urgent needs your attention.</div></td></tr>`;
+  const teamItems: DigestItem[] = team.map((row) => ({
+    key: row.userId,
+    title: row.fullName,
+    label: 'Team',
+    detail: row.signals.join(' · '),
+  }));
+  const summaryLine = [
+    personal.attention.length
+      ? `${personal.attention.length} need attention`
+      : 'No urgent exceptions',
+    `${personal.commitments.length} this week`,
+    `${personal.completed.length} completed last week`,
+  ].join('  ·  ');
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(subject)}</title></head><body style="margin:0;padding:0;background:#f5f6f8;color:#182235;font-family:Arial,'Helvetica Neue',sans-serif"><div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(summaryLine)}</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#f5f6f8"><tr><td align="center" style="padding:32px 14px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:620px;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #dde3ea;border-radius:16px;overflow:hidden"><tr><td style="height:5px;background:#1668e8;font-size:0;line-height:0">&nbsp;</td></tr><tr><td style="padding:28px 32px 22px;border-bottom:1px solid #e7ebf0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="vertical-align:top"><div style="font-size:12px;line-height:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#1668e8">TAMCO Focus</div><h1 style="margin:8px 0 0;font-size:26px;line-height:32px;font-weight:700;letter-spacing:-.02em;color:#0d2342">Your week at a glance</h1><div style="margin-top:7px;font-size:13px;line-height:19px;color:#66758a">${escapeHtml(formatWeekRange(window, timeZone))}</div></td><td align="right" style="vertical-align:top"><div style="width:36px;height:36px;border-radius:10px;background:#0d2342;color:#ffffff;font-size:18px;font-weight:700;line-height:36px;text-align:center">T</div></td></tr></table><p style="margin:20px 0 0;font-size:15px;line-height:23px;color:#334155">Hello ${escapeHtml(firstName(input.profile.full_name))}, here is the small set of things most useful for the week ahead.</p><div style="margin-top:16px;padding:10px 12px;border-radius:9px;background:#f7f9fb;font-size:12px;line-height:18px;color:#66758a">${escapeHtml(summaryLine)}</div></td></tr>${attentionHtml}${renderSection('This week', personal.commitments, itemLimit)}${renderSection('Completed last week', personal.completed, itemLimit, { href: completedHref, label: 'View completed' })}${renderSection('Team needs attention', teamItems, 5, { href: teamHref, label: 'Open Team attention' })}<tr><td style="padding:28px 32px 32px"><a href="${escapeHtml(myDayHref)}" style="display:inline-block;padding:12px 18px;border-radius:9px;background:#1668e8;color:#ffffff;font-size:14px;line-height:18px;font-weight:700;text-decoration:none">Open My Day</a><div style="margin-top:18px;font-size:11px;line-height:17px;color:#8995a5">Generated from recorded work, routine, contribution, review and support activity. No separate weekly report is required.</div></td></tr></table></td></tr></table></body></html>`;
+  return { subject, text, html };
 }
 
 async function claimAndDeliver(
@@ -232,8 +632,6 @@ async function claimAndDeliver(
   if (error || !claim?.ok) return 'skipped' as const;
 
   try {
-    // The local log transport is the delivery log itself. Mark it sent before
-    // returning so a worker restart cannot print or process it twice.
     if (send) await send(delivery);
     const sentAt = new Date().toISOString();
     const updated = await client
@@ -261,8 +659,69 @@ async function claimAndDeliver(
   }
 }
 
-/** Generates real summaries, claims delivery rows atomically, and retries
- * transient failures without creating duplicate period records. */
+async function loadPersonalSignals(
+  client: Client,
+  profileId: string,
+  tasks: TaskRow[],
+  window: WeeklyWindow,
+) {
+  const taskIds = tasks.map((task) => task.id).filter((id): id is string => id !== null);
+  const [shared, completedContributions, barriers, routineOutcomes, completionReviews] =
+    await Promise.all([
+      client.from('shared_contributions').select('*').eq('assignee_id', profileId).limit(500),
+      client
+        .from('completed_contributions')
+        .select(
+          'checklist_item_id,task_id,title,assignee_id,completed_at,parent_title,primary_owner_name',
+        )
+        .eq('assignee_id', profileId)
+        .gte('completed_at', window.reportingStart.toISOString())
+        .lt('completed_at', window.reportingEnd.toISOString())
+        .order('completed_at', { ascending: false })
+        .limit(100),
+      client
+        .from('barriers')
+        .select('*')
+        .eq('action_required_from', profileId)
+        .eq('action_pending', true)
+        .eq('source_active', true)
+        .eq('status', 'open')
+        .limit(100),
+      client
+        .from('routine_occurrence_outcomes')
+        .select(
+          'task_id,title,primary_owner_id,occurrence_date,status,exception_state,decision_note,outcome',
+        )
+        .eq('primary_owner_id', profileId)
+        .in('status', ['backlog', 'active', 'paused'])
+        .order('occurrence_date', { ascending: false })
+        .limit(500),
+      taskIds.length
+        ? client
+            .from('completion_reviews')
+            .select('*')
+            .in('task_id', taskIds)
+            .order('submitted_at', { ascending: false })
+            .limit(500)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+  const error =
+    shared.error ||
+    completedContributions.error ||
+    barriers.error ||
+    routineOutcomes.error ||
+    completionReviews.error;
+  if (error) throw error;
+  return {
+    sharedContributions: (shared.data ?? []) as SharedContributionRow[],
+    completedContributions: (completedContributions.data ?? []) as CompletedContributionRow[],
+    barriers: (barriers.data ?? []) as BarrierRow[],
+    routineOutcomes: (routineOutcomes.data ?? []) as RoutineOutcomeRow[],
+    completionReviews: (completionReviews.data ?? []) as CompletionReviewRow[],
+  };
+}
+
+/** Generates, claims, sends and retries weekly summaries without duplicate period records. */
 export async function runWeeklySummaryWorker(
   client: Client,
   options: WeeklyWorkerOptions = {},
@@ -278,19 +737,12 @@ export async function runWeeklySummaryWorker(
     failed: 0,
     periodStart: window.reportingStart.toISOString(),
   };
-  /*
-   * A sending transport with nothing to send through is a programming error,
-   * and a quiet one: every delivery would be claimed, marked sent and thrown
-   * away, and the queue would never retry it because `sent` is terminal. That
-   * is exactly what shipped, so it is now a refusal rather than a comment.
-   */
   if ((options.transport === 'smtp' || options.transport === 'inbucket') && !options.send) {
     throw new Error(
       `The ${options.transport} transport was named but no send function was supplied. ` +
         'Every summary would be recorded as sent and discarded.',
     );
   }
-
   if (!window.due && !options.force) return result;
 
   const { data: profiles, error: profilesError } = await client
@@ -309,74 +761,73 @@ export async function runWeeklySummaryWorker(
       .order('due_at', { ascending: true, nullsFirst: false });
     if (taskError) throw taskError;
     const owned = tasks ?? [];
-    const changes = await loadTaskChanges(
-      client,
-      owned.map((task) => task.id).filter((id): id is string => id !== null),
-      window.reportingStart.toISOString(),
-      window.reportingEnd.toISOString(),
-    );
-    const { data: goalRows, error: goalError } = await client
-      .from('goal_overview')
-      .select('*')
-      .eq('owner_id', profile.id)
-      .eq('status', 'active')
-      .order('target_date', { ascending: true });
-    if (goalError) throw goalError;
+    const [personalSignals, goalResult] = await Promise.all([
+      loadPersonalSignals(client, profile.id, owned, window),
+      client
+        .from('goal_overview')
+        .select('*')
+        .eq('owner_id', profile.id)
+        .in('status', ['active', 'pending_discussion'])
+        .order('target_date', { ascending: true }),
+    ]);
+    if (goalResult.error) throw goalResult.error;
 
     let teamTasks: TaskRow[] = [];
-    let teamChanges = 0;
-    let teamBarriers = 0;
+    let teamBarriers: BarrierRow[] = [];
+    let teamRoutineOutcomes: RoutineOutcomeRow[] = [];
     let teamGoals: GoalRow[] = [];
+    let teamPeople: TeamPerson[] = [];
     if (
       profile.team_summary_mode !== 'off' &&
       ['manager', 'administrator'].includes(profile.role)
     ) {
       const preview = await client.rpc('preview_effective_visibility', { p_viewer_id: profile.id });
       if (preview.error) throw preview.error;
-      const subjectIds = (preview.data ?? [])
-        .map((row) => row.user_id)
-        .filter((id) => id !== profile.id);
+      teamPeople = (preview.data ?? [])
+        .filter((row) => row.user_id !== profile.id)
+        .map((row) => ({ userId: row.user_id, fullName: row.full_name }));
+      const subjectIds = teamPeople.map((person) => person.userId);
       if (subjectIds.length) {
-        const teamResult = await client
-          .from('task_overview')
-          .select('*')
-          .in('primary_owner_id', subjectIds);
-        if (teamResult.error) throw teamResult.error;
-        teamTasks = (teamResult.data ?? []).filter((task) => {
-          const completedAt = task.completed_at ? new Date(task.completed_at).getTime() : null;
-          return (
-            task.is_overdue ||
-            task.is_stale ||
-            task.over_focus_target ||
-            ['backlog', 'active', 'paused'].includes(task.status ?? '') ||
-            (completedAt !== null &&
-              completedAt >= window.reportingStart.getTime() &&
-              completedAt < window.reportingEnd.getTime())
-          );
-        });
-        const teamTaskIds = teamTasks
-          .map((task) => task.id)
-          .filter((id): id is string => id !== null);
-        teamChanges = await loadTaskChanges(
-          client,
-          teamTaskIds,
-          window.reportingStart.toISOString(),
-          window.reportingEnd.toISOString(),
-        );
-        const barriers = await client
-          .from('barriers')
-          .select('id', { count: 'exact', head: true })
-          .in('task_id', teamTaskIds)
-          .eq('status', 'open');
-        if (barriers.error) throw barriers.error;
-        teamBarriers = barriers.count ?? 0;
-        const teamGoalResult = await client
-          .from('goal_overview')
-          .select('*')
-          .in('owner_id', subjectIds)
-          .in('status', ['active', 'pending_discussion'])
-          .order('target_date', { ascending: true });
-        if (teamGoalResult.error) throw teamGoalResult.error;
+        const [teamTaskResult, teamBarrierResult, teamRoutineResult, teamGoalResult] =
+          await Promise.all([
+            client
+              .from('task_overview')
+              .select('*')
+              .in('primary_owner_id', subjectIds)
+              .or('status.in.(backlog,active,paused),review_status.eq.pending')
+              .limit(5000),
+            client
+              .from('barriers')
+              .select('*')
+              .eq('action_required_from', profile.id)
+              .eq('action_pending', true)
+              .eq('source_active', true)
+              .eq('status', 'open')
+              .limit(500),
+            client
+              .from('routine_occurrence_outcomes')
+              .select(
+                'task_id,title,primary_owner_id,occurrence_date,status,exception_state,decision_note,outcome',
+              )
+              .in('primary_owner_id', subjectIds)
+              .eq('exception_state', 'pending')
+              .limit(500),
+            client
+              .from('goal_overview')
+              .select('*')
+              .in('owner_id', subjectIds)
+              .in('status', ['active', 'pending_discussion'])
+              .limit(1000),
+          ]);
+        const teamError =
+          teamTaskResult.error ||
+          teamBarrierResult.error ||
+          teamRoutineResult.error ||
+          teamGoalResult.error;
+        if (teamError) throw teamError;
+        teamTasks = teamTaskResult.data ?? [];
+        teamBarriers = (teamBarrierResult.data ?? []) as BarrierRow[];
+        teamRoutineOutcomes = (teamRoutineResult.data ?? []) as RoutineOutcomeRow[];
         teamGoals = teamGoalResult.data ?? [];
       }
     }
@@ -384,29 +835,18 @@ export async function runWeeklySummaryWorker(
     const rendered = renderSummary({
       profile,
       mode: profile.personal_summary_mode as 'focused' | 'standard',
-      tasks: owned.filter((task) => {
-        const completedAt = task.completed_at ? new Date(task.completed_at).getTime() : null;
-        const dueAt = task.due_at ? new Date(task.due_at).getTime() : null;
-        return (
-          task.is_overdue ||
-          task.is_stale ||
-          (completedAt !== null &&
-            completedAt >= window.reportingStart.getTime() &&
-            completedAt < window.reportingEnd.getTime()) ||
-          (dueAt !== null &&
-            dueAt >= window.reportingEnd.getTime() &&
-            dueAt < window.planningEnd.getTime()) ||
-          ['backlog', 'active', 'paused'].includes(task.status ?? '')
-        );
-      }),
-      changes,
+      tasks: owned,
       teamTasks,
-      teamChanges,
+      ...personalSignals,
+      goals: goalResult.data ?? [],
       teamBarriers,
-      goals: goalRows ?? [],
+      teamRoutineOutcomes,
       teamGoals,
+      teamPeople,
       appBaseUrl: options.appBaseUrl ?? 'http://localhost:3000',
       now,
+      window,
+      timeZone,
     });
     const summaryType = profile.team_summary_mode === 'off' ? 'personal' : 'manager_team';
     const row = {
@@ -443,20 +883,6 @@ export async function runWeeklySummaryWorker(
       client,
       deliveryId,
       { to: profile.email, subject: rendered.subject, html: rendered.html, text: rendered.text },
-      /*
-       * Whatever sender was supplied - not only inbucket's.
-       *
-       * This used to read `options.transport === 'inbucket' ? options.send : undefined`,
-       * which meant that under `smtp` the delivery was claimed, marked sent
-       * and never handed to a mail server. Production ran that way: rows in
-       * `email_deliveries` said sent, the worker reported success, and not one
-       * summary was posted.
-       *
-       * There is nothing to decide here. `resolveEmailTransport` returns no
-       * `send` for the log transport, which is the only transport that should
-       * treat the delivery log as the delivery - so passing it through is both
-       * shorter and correct.
-       */
       options.send,
     );
     result[outcome] += 1;

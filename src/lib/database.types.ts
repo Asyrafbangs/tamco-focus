@@ -169,6 +169,13 @@ export type Database = {
             foreignKeyName: "attachments_checklist_item_id_fkey"
             columns: ["checklist_item_id"]
             isOneToOne: false
+            referencedRelation: "completed_contributions"
+            referencedColumns: ["checklist_item_id"]
+          },
+          {
+            foreignKeyName: "attachments_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
             referencedRelation: "shared_contributions"
             referencedColumns: ["checklist_item_id"]
           },
@@ -185,6 +192,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "binned_tasks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
           },
           {
             foreignKeyName: "attachments_task_id_fkey"
@@ -406,6 +420,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "binned_tasks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
           },
           {
             foreignKeyName: "audit_events_task_id_fkey"
@@ -695,6 +716,13 @@ export type Database = {
             foreignKeyName: "barriers_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "barriers_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
             referencedRelation: "task_overview"
             referencedColumns: ["id"]
           },
@@ -878,6 +906,13 @@ export type Database = {
             foreignKeyName: "calendar_events_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "calendar_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
             referencedRelation: "task_overview"
             referencedColumns: ["id"]
           },
@@ -1046,6 +1081,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "binned_tasks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "completion_reviews_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
           },
           {
             foreignKeyName: "completion_reviews_task_id_fkey"
@@ -3433,6 +3475,13 @@ export type Database = {
             foreignKeyName: "goal_work_links_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "goal_work_links_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
             referencedRelation: "task_overview"
             referencedColumns: ["id"]
           },
@@ -3937,6 +3986,13 @@ export type Database = {
             foreignKeyName: "meeting_queue_items_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "meeting_queue_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
             referencedRelation: "task_overview"
             referencedColumns: ["id"]
           },
@@ -4106,6 +4162,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "binned_tasks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
           },
           {
             foreignKeyName: "notifications_task_id_fkey"
@@ -4319,6 +4382,13 @@ export type Database = {
             foreignKeyName: "routine_findings_created_task_id_fkey"
             columns: ["created_task_id"]
             isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "routine_findings_created_task_id_fkey"
+            columns: ["created_task_id"]
+            isOneToOne: false
             referencedRelation: "task_overview"
             referencedColumns: ["id"]
           },
@@ -4335,6 +4405,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "binned_tasks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_findings_occurrence_task_id_fkey"
+            columns: ["occurrence_task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
           },
           {
             foreignKeyName: "routine_findings_occurrence_task_id_fkey"
@@ -4383,6 +4460,144 @@ export type Database = {
             columns: ["recorded_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      routine_occurrence_exceptions: {
+        Row: {
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          raised_at: string
+          raised_by: string
+          reason_code: Database["public"]["Enums"]["routine_exception_reason"]
+          reason_note: string | null
+          state: Database["public"]["Enums"]["routine_exception_state"]
+          task_id: string
+        }
+        Insert: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          raised_at?: string
+          raised_by: string
+          reason_code: Database["public"]["Enums"]["routine_exception_reason"]
+          reason_note?: string | null
+          state?: Database["public"]["Enums"]["routine_exception_state"]
+          task_id: string
+        }
+        Update: {
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          raised_at?: string
+          raised_by?: string
+          reason_code?: Database["public"]["Enums"]["routine_exception_reason"]
+          reason_note?: string | null
+          state?: Database["public"]["Enums"]["routine_exception_state"]
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_occurrence_exceptions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "binned_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "task_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -4439,6 +4654,7 @@ export type Database = {
           ends_after_count: number | null
           ends_mode: string
           ends_on_date: string | null
+          evidence_instruction: string | null
           evidence_required: boolean
           frequency: Database["public"]["Enums"]["recurrence_frequency"]
           generated_through: string | null
@@ -4450,6 +4666,8 @@ export type Database = {
           nth_weekday: number | null
           nth_weekday_dow: number | null
           occurrences_generated: number
+          purged_at: string | null
+          purged_by: string | null
           requires_completion_review: boolean
           start_date: string | null
           title: string
@@ -4469,6 +4687,7 @@ export type Database = {
           ends_after_count?: number | null
           ends_mode?: string
           ends_on_date?: string | null
+          evidence_instruction?: string | null
           evidence_required?: boolean
           frequency: Database["public"]["Enums"]["recurrence_frequency"]
           generated_through?: string | null
@@ -4480,6 +4699,8 @@ export type Database = {
           nth_weekday?: number | null
           nth_weekday_dow?: number | null
           occurrences_generated?: number
+          purged_at?: string | null
+          purged_by?: string | null
           requires_completion_review?: boolean
           start_date?: string | null
           title: string
@@ -4499,6 +4720,7 @@ export type Database = {
           ends_after_count?: number | null
           ends_mode?: string
           ends_on_date?: string | null
+          evidence_instruction?: string | null
           evidence_required?: boolean
           frequency?: Database["public"]["Enums"]["recurrence_frequency"]
           generated_through?: string | null
@@ -4510,6 +4732,8 @@ export type Database = {
           nth_weekday?: number | null
           nth_weekday_dow?: number | null
           occurrences_generated?: number
+          purged_at?: string | null
+          purged_by?: string | null
           requires_completion_review?: boolean
           start_date?: string | null
           title?: string
@@ -4619,6 +4843,41 @@ export type Database = {
           {
             foreignKeyName: "routine_templates_deleted_by_fkey"
             columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_templates_purged_by_fkey"
+            columns: ["purged_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_templates_purged_by_fkey"
+            columns: ["purged_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_templates_purged_by_fkey"
+            columns: ["purged_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_templates_purged_by_fkey"
+            columns: ["purged_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_templates_purged_by_fkey"
+            columns: ["purged_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
             referencedColumns: ["id"]
@@ -4749,6 +5008,13 @@ export type Database = {
             foreignKeyName: "task_checklist_items_depends_on_item_id_fkey"
             columns: ["depends_on_item_id"]
             isOneToOne: false
+            referencedRelation: "completed_contributions"
+            referencedColumns: ["checklist_item_id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_depends_on_item_id_fkey"
+            columns: ["depends_on_item_id"]
+            isOneToOne: false
             referencedRelation: "shared_contributions"
             referencedColumns: ["checklist_item_id"]
           },
@@ -4765,6 +5031,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "binned_tasks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
           },
           {
             foreignKeyName: "task_checklist_items_task_id_fkey"
@@ -4846,6 +5119,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "binned_tasks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_collaborators_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
           },
           {
             foreignKeyName: "task_collaborators_task_id_fkey"
@@ -4970,6 +5250,13 @@ export type Database = {
             foreignKeyName: "task_relations_related_task_id_fkey"
             columns: ["related_task_id"]
             isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "task_relations_related_task_id_fkey"
+            columns: ["related_task_id"]
+            isOneToOne: false
             referencedRelation: "task_overview"
             referencedColumns: ["id"]
           },
@@ -4986,6 +5273,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "binned_tasks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_relations_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
           },
           {
             foreignKeyName: "task_relations_task_id_fkey"
@@ -5153,6 +5447,13 @@ export type Database = {
             foreignKeyName: "task_updates_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "task_updates_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
             referencedRelation: "task_overview"
             referencedColumns: ["id"]
           },
@@ -5199,6 +5500,8 @@ export type Database = {
           paused_restart_at: string | null
           primary_owner_id: string
           progress_percent: number
+          purged_at: string | null
+          purged_by: string | null
           review_at: string | null
           review_status: Database["public"]["Enums"]["review_status"]
           reviewer_id: string | null
@@ -5247,6 +5550,8 @@ export type Database = {
           paused_restart_at?: string | null
           primary_owner_id: string
           progress_percent?: number
+          purged_at?: string | null
+          purged_by?: string | null
           review_at?: string | null
           review_status?: Database["public"]["Enums"]["review_status"]
           reviewer_id?: string | null
@@ -5295,6 +5600,8 @@ export type Database = {
           paused_restart_at?: string | null
           primary_owner_id?: string
           progress_percent?: number
+          purged_at?: string | null
+          purged_by?: string | null
           review_at?: string | null
           review_status?: Database["public"]["Enums"]["review_status"]
           reviewer_id?: string | null
@@ -5487,6 +5794,41 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tasks_purged_by_fkey"
+            columns: ["purged_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_purged_by_fkey"
+            columns: ["purged_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_purged_by_fkey"
+            columns: ["purged_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_purged_by_fkey"
+            columns: ["purged_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_purged_by_fkey"
+            columns: ["purged_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tasks_reviewer_id_fkey"
             columns: ["reviewer_id"]
             isOneToOne: false
@@ -5627,6 +5969,7 @@ export type Database = {
           status_labels_always_visible: boolean
           team_summary_mode: Database["public"]["Enums"]["team_summary_mode"]
           text_size: string
+          theme_colors: Json | null
           theme_preference: string
           timezone: string
           updated_at: string
@@ -5654,6 +5997,7 @@ export type Database = {
           status_labels_always_visible?: boolean
           team_summary_mode?: Database["public"]["Enums"]["team_summary_mode"]
           text_size?: string
+          theme_colors?: Json | null
           theme_preference?: string
           timezone?: string
           updated_at?: string
@@ -5681,6 +6025,7 @@ export type Database = {
           status_labels_always_visible?: boolean
           team_summary_mode?: Database["public"]["Enums"]["team_summary_mode"]
           text_size?: string
+          theme_colors?: Json | null
           theme_preference?: string
           timezone?: string
           updated_at?: string
@@ -6138,6 +6483,13 @@ export type Database = {
             foreignKeyName: "work_captures_created_task_id_fkey"
             columns: ["created_task_id"]
             isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "work_captures_created_task_id_fkey"
+            columns: ["created_task_id"]
+            isOneToOne: false
             referencedRelation: "task_overview"
             referencedColumns: ["id"]
           },
@@ -6154,6 +6506,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "binned_tasks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_captures_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
           },
           {
             foreignKeyName: "work_captures_parent_task_id_fkey"
@@ -6233,6 +6592,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "binned_tasks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_proposals_created_task_id_fkey"
+            columns: ["created_task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
           },
           {
             foreignKeyName: "work_proposals_created_task_id_fkey"
@@ -6456,6 +6822,13 @@ export type Database = {
             foreignKeyName: "barriers_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "barriers_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
             referencedRelation: "task_overview"
             referencedColumns: ["id"]
           },
@@ -6518,6 +6891,156 @@ export type Database = {
             columns: ["deleted_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      completed_contributions: {
+        Row: {
+          assignee_id: string | null
+          checklist_item_id: string | null
+          completed_at: string | null
+          completed_by: string | null
+          parent_status: Database["public"]["Enums"]["task_status"] | null
+          parent_title: string | null
+          parent_work_class: Database["public"]["Enums"]["work_class"] | null
+          primary_owner_id: string | null
+          primary_owner_name: string | null
+          task_id: string | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_checklist_items_assigned_to_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_assigned_to_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_assigned_to_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_assigned_to_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_assigned_to_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "binned_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "task_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
           {
@@ -7095,6 +7618,155 @@ export type Database = {
         }
         Relationships: []
       }
+      routine_occurrence_outcomes: {
+        Row: {
+          cancelled_at: string | null
+          completed_at: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decided_by_name: string | null
+          decision_note: string | null
+          exception_id: string | null
+          exception_state:
+            | Database["public"]["Enums"]["routine_exception_state"]
+            | null
+          occurrence_date: string | null
+          outcome: string | null
+          primary_owner_id: string | null
+          raised_at: string | null
+          raised_by: string | null
+          raised_by_name: string | null
+          reason_code:
+            | Database["public"]["Enums"]["routine_exception_reason"]
+            | null
+          reason_note: string | null
+          routine_template_id: string | null
+          status: Database["public"]["Enums"]["task_status"] | null
+          task_id: string | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "routine_occurrence_exceptions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_occurrence_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_routine_template_fk"
+            columns: ["routine_template_id"]
+            isOneToOne: false
+            referencedRelation: "routine_template_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_routine_template_fk"
+            columns: ["routine_template_id"]
+            isOneToOne: false
+            referencedRelation: "routine_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       routine_template_overview: {
         Row: {
           created_at: string | null
@@ -7108,6 +7780,7 @@ export type Database = {
           ends_after_count: number | null
           ends_mode: string | null
           ends_on_date: string | null
+          evidence_instruction: string | null
           evidence_required: boolean | null
           frequency: Database["public"]["Enums"]["recurrence_frequency"] | null
           generated_through: string | null
@@ -7121,6 +7794,8 @@ export type Database = {
           nth_weekday_dow: number | null
           occurrence_count: number | null
           owner_name: string | null
+          purged_at: string | null
+          purged_by: string | null
           requires_completion_review: boolean | null
           scheduled_next_date: string | null
           start_date: string | null
@@ -7234,6 +7909,41 @@ export type Database = {
             referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "routine_templates_purged_by_fkey"
+            columns: ["purged_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_templates_purged_by_fkey"
+            columns: ["purged_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_templates_purged_by_fkey"
+            columns: ["purged_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "routine_templates_purged_by_fkey"
+            columns: ["purged_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "routine_templates_purged_by_fkey"
+            columns: ["purged_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       shared_contributions: {
@@ -7298,6 +8008,13 @@ export type Database = {
             foreignKeyName: "task_checklist_items_depends_on_item_id_fkey"
             columns: ["depends_on_item_id"]
             isOneToOne: false
+            referencedRelation: "completed_contributions"
+            referencedColumns: ["checklist_item_id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_depends_on_item_id_fkey"
+            columns: ["depends_on_item_id"]
+            isOneToOne: false
             referencedRelation: "shared_contributions"
             referencedColumns: ["checklist_item_id"]
           },
@@ -7314,6 +8031,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "binned_tasks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
           },
           {
             foreignKeyName: "task_checklist_items_task_id_fkey"
@@ -7798,6 +8522,7 @@ export type Database = {
           p_ends_after_count?: number
           p_ends_mode?: string
           p_ends_on_date?: string
+          p_evidence_instruction?: string
           p_evidence_required?: boolean
           p_frequency: Database["public"]["Enums"]["recurrence_frequency"]
           p_idempotency_key?: string
@@ -7837,6 +8562,15 @@ export type Database = {
         }
         Returns: Json
       }
+      decide_routine_exception: {
+        Args: {
+          p_accept: boolean
+          p_exception_id: string
+          p_idempotency_key?: string
+          p_note?: string
+        }
+        Returns: Json
+      }
       delete_routine_template: {
         Args: { p_idempotency_key?: string; p_template_id: string }
         Returns: Json
@@ -7868,6 +8602,7 @@ export type Database = {
       }
       get_goal_capabilities: { Args: { p_goal_id: string }; Returns: Json }
       get_task_capabilities: { Args: { p_task_id: string }; Returns: Json }
+      get_visibility_state: { Args: { p_viewer_id: string }; Returns: Json }
       get_work_proposal_capabilities: {
         Args: { p_proposal_id: string }
         Returns: Json
@@ -7878,6 +8613,15 @@ export type Database = {
           p_goal_id: string
           p_idempotency_key?: string
           p_milestone_id?: string
+          p_task_id: string
+        }
+        Returns: Json
+      }
+      mark_routine_not_required: {
+        Args: {
+          p_idempotency_key?: string
+          p_reason_code: Database["public"]["Enums"]["routine_exception_reason"]
+          p_reason_note?: string
           p_task_id: string
         }
         Returns: Json
@@ -7957,19 +8701,6 @@ export type Database = {
           p_idempotency_key?: string
           p_is_evidence_only?: boolean
           p_mention_ids?: string[]
-          p_next_action?: string
-          p_task_id: string
-        }
-        Returns: Json
-      }
-      post_task_update_v34_internal: {
-        Args: {
-          p_attachments?: Json
-          p_body?: string
-          p_checklist_item_id?: string
-          p_idempotency_key?: string
-          p_is_evidence_only?: boolean
-          p_mention_ids?: string[]
           p_task_id: string
         }
         Returns: Json
@@ -7996,6 +8727,14 @@ export type Database = {
           p_team_summary_mode?: Database["public"]["Enums"]["team_summary_mode"]
           p_user_id: string
         }
+        Returns: Json
+      }
+      purge_routine_template: {
+        Args: { p_idempotency_key?: string; p_template_id: string }
+        Returns: Json
+      }
+      purge_task: {
+        Args: { p_idempotency_key?: string; p_task_id: string }
         Returns: Json
       }
       raise_barrier: {
@@ -8184,16 +8923,7 @@ export type Database = {
         }
         Returns: Json
       }
-      set_task_next_action: {
-        Args: {
-          p_expected_version: number
-          p_idempotency_key?: string
-          p_mark_done?: boolean
-          p_next_action?: string
-          p_task_id: string
-        }
-        Returns: Json
-      }
+      set_theme_colors: { Args: { p_colors: Json }; Returns: Json }
       set_user_visibility: {
         Args: {
           p_mode: Database["public"]["Enums"]["visibility_mode"]
@@ -8261,6 +8991,7 @@ export type Database = {
           p_ends_after_count?: number
           p_ends_mode?: string
           p_ends_on_date?: string
+          p_evidence_instruction?: string
           p_evidence_required?: boolean
           p_frequency: Database["public"]["Enums"]["recurrence_frequency"]
           p_idempotency_key?: string
@@ -8397,6 +9128,11 @@ export type Database = {
         | "routine_template_paused"
         | "routine_template_deleted"
         | "routine_template_restored"
+        | "task_purged"
+        | "routine_template_purged"
+        | "routine_not_required_raised"
+        | "routine_not_required_accepted"
+        | "routine_not_required_returned"
       barrier_action_type:
         | "decision"
         | "approval"
@@ -8502,6 +9238,11 @@ export type Database = {
       relation_type: "before" | "after" | "related"
       review_decision: "accepted" | "changes_requested"
       review_status: "pending" | "decided" | "not_required"
+      routine_exception_reason:
+        | "no_applicable_work"
+        | "activity_cancelled"
+        | "other"
+      routine_exception_state: "pending" | "accepted" | "returned"
       task_status: "backlog" | "active" | "paused" | "completed" | "cancelled"
       team_summary_mode: "off" | "leadership" | "detailed"
       urgency_level: "normal" | "high" | "critical"
@@ -8743,6 +9484,11 @@ export const Constants = {
         "routine_template_paused",
         "routine_template_deleted",
         "routine_template_restored",
+        "task_purged",
+        "routine_template_purged",
+        "routine_not_required_raised",
+        "routine_not_required_accepted",
+        "routine_not_required_returned",
       ],
       barrier_action_type: [
         "decision",
@@ -8859,6 +9605,12 @@ export const Constants = {
       relation_type: ["before", "after", "related"],
       review_decision: ["accepted", "changes_requested"],
       review_status: ["pending", "decided", "not_required"],
+      routine_exception_reason: [
+        "no_applicable_work",
+        "activity_cancelled",
+        "other",
+      ],
+      routine_exception_state: ["pending", "accepted", "returned"],
       task_status: ["backlog", "active", "paused", "completed", "cancelled"],
       team_summary_mode: ["off", "leadership", "detailed"],
       urgency_level: ["normal", "high", "critical"],

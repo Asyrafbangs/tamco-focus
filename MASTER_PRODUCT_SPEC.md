@@ -1838,33 +1838,24 @@ Permanent deletion may be offered only where the account has no retained task, r
 
 Each active user with a valid email address may receive one weekly summary, defaulting to Monday at 8:00 AM in `Asia/Kuala_Lumpur`.
 
-The personal summary is generated from recorded application activity; it is not a separate report the employee must prepare. It must include:
+The personal summary is generated from recorded application activity; it is not a separate report the employee must prepare. It is a compact decision-ready digest, not a dashboard or activity report. Its approved order is:
 
-- work completed during the previous reporting week
-- meaningful progress, checklist, state, owner, due-date, or next-action changes
-- overdue work
-- stale Active work with no qualifying update
-- commitments due in the current week
-- routines due in the current week
-- the highest-priority recommended next action
-- a direct link to My Day
+1. **Needs attention** — only true exceptions that require the employee to respond, such as overdue or stale Focus work, a returned Routine exception, an action-directed barrier, a completion returned with changes, or unusually urgent/time-bound Available Work. A Routine occurrence legitimately awaiting a manager's not-required decision is not overdue. When there are no exceptions, show one small positive line instead of an empty panel.
+2. **This week** — one merged list of current-week Active Focus work, Routine occurrences and Shared contributions. Each row carries a compact type label and date. Future Routine occurrences generated inside the wider scheduler horizon do not appear.
+3. **Completed last week** — the latest three items in focused mode or five in standard mode, including delivered Shared contributions, followed by a link to Completed history.
+4. A single **Open My Day** action.
+
+Available Work is excluded by default. It may appear only in Needs attention when its manager review date is this week, urgency is High or Critical, its due date is approaching, or another canonical signal explicitly requires attention. Empty large sections, change-volume counts, a standalone Routine section, broad Goal reporting, and a generated “recommended starting point” are not part of the email.
+
+The subject reflects the decision state: `TAMCO Focus — 2 need attention · 5 due this week` when exceptions exist, otherwise `TAMCO Focus — Your week ahead · 4 commitments`.
 
 The email job must be idempotent, auditable, retryable, and protected against duplicate sends. Delivery status and failure reason must be retained.
 
 ## 31B.4 Manager team-change summary
 
-A manager receives the personal summary plus a clearly separated direct-report section. The team section must be derived from reporting lines, visibility rules, task records, and audit events. It must include:
+A manager receives the same personal summary plus one clearly separated **Team needs attention** section. It is derived from effective visibility, task records, Routine exception decisions, completion reviews, barriers and Goal support signals. It is grouped by person and contains only the counts or short reasons that call for manager intervention, such as overdue items, completions or Routine exceptions awaiting review, a barrier awaiting the manager's decision, Goal support/alignment, or an over-target workload review.
 
-- work completed by direct reports last week
-- meaningful task progress or state changes
-- newly activated or moved-out focus work
-- newly overdue work
-- barriers raised or resolved
-- stale Active work requiring follow-up
-- over-focus-target activations and their recorded reasons
-- items requiring manager decision or support
-
-The manager summary must highlight changes and exceptions rather than reproduce every team task. It must not require employees to prepare duplicate weekly status reports.
+The manager section never reproduces all team tasks, completions, Routines or progress events. It contains no ranking, performance score or productivity comparison. Its purpose is to tell the manager where a conversation or decision is needed, while preserving the employee's own summary above it.
 
 ## 31B.5 Task age terminology
 
@@ -1900,8 +1891,10 @@ A release is not acceptable unless:
 - an existing user can be deactivated and reactivated without losing history
 - permanent deletion is blocked when retained history exists
 - a history-free test user can be permanently deleted after employee-ID confirmation
-- personal weekly email content is generated from real task and audit records
-- manager email content includes direct-report changes and exceptions
+- personal weekly email content is generated from canonical task, Routine, contribution, review, barrier, and Goal records
+- personal weekly email is limited to actionable exceptions, current-week commitments, recent completions, and My Day
+- pending Routine not-required requests are never represented as overdue, while returned requests are clearly actionable
+- manager email content is grouped by person and includes only manager interventions and decisions
 - duplicate weekly emails are prevented
 - Open, current-state, overdue, and stale indicators are calculated from timestamps and displayed consistently on desktop and mobile
 
@@ -2548,3 +2541,21 @@ permission, storage, evidence, audit, review or download rules.
 4. Opening the file continues to pass through the authorised attachment route and automatically logs
    the view. Private file bytes and signed storage URLs are not exposed outside that flow.
 5. Loading, corrupt-file/error, keyboard Escape, desktop and mobile states remain clear and usable.
+
+## V117 — Lean weekly decision digest (29 August 2026)
+
+This revision supersedes the earlier report-like weekly email composition while preserving its
+schedule, preferences, delivery queue, audit, retry, transport and duplicate-prevention behavior.
+
+1. The ordinary employee email is deliberately small: Needs attention, a merged This week list,
+   Completed last week, and Open My Day. Focused and Standard vary the visible item cap, not the
+   information hierarchy.
+2. Canonical Task, Routine exception, Shared contribution, completed-contribution, completion-review,
+   Barrier, and Goal records determine inclusion. Event volume and generic activity do not.
+3. Available Work stays out unless urgency, a due/review boundary, or an explicit action signal makes
+   it a real exception. Pending Routine not-required review suppresses overdue presentation; a
+   manager-returned occurrence is immediately actionable.
+4. Managers receive the same personal digest followed by Team needs attention, aggregated by visible
+   person and manager intervention only. It contains no team export, performance score, or ranking.
+5. The email uses the current restrained navy/blue/neutral theme in a table-based, inline-styled,
+   mobile-safe template with matching plain text and safe application links.

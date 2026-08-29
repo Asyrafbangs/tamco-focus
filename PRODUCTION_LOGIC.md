@@ -463,11 +463,13 @@ Return duration values and accessible labels from a shared domain/service layer 
 1. Personal weekly summary preference is stored per user as a high-level mode: `off`, `focused`, or `standard`.
 2. Manager team-summary preference is stored per eligible user as `off`, `leadership`, or `detailed`.
 3. The email-generation job uses the high-level preference to choose a curated content set rather than exposing event-by-event notification controls.
-4. Focused summary selects a shorter set of sections: wins, attention, due this week, and recommended starting point.
-5. Standard summary selects the full personal sections: completed work, meaningful changes, attention, routine due, upcoming work, and recommended starting point.
-6. Leadership summary selects manager sections emphasising team wins, barriers, overdue or stale work, focus-target exceptions, support needed, and upcoming commitments.
-7. Detailed team summary may add more progress and completion coverage, but should still remain a management briefing rather than an exhaustive export.
-8. Preview screens in the prototype are visual references; the production implementation must render the same information through a reusable email template system.
+4. Focused and Standard use the same lean section order: Needs attention, This week, Completed last week, and Open My Day. Focused caps visible items at three; Standard caps them at five.
+5. Needs attention is exception-driven, not an activity feed. It includes overdue or stale Active work, returned Routine exceptions, action-directed barriers, requested completion changes, employee Goal updates/check-ins, and only urgent or current-week Available Work. Pending Routine not-required requests suppress overdue presentation until the manager decides.
+6. This week merges Active Focus work, current-week Routine occurrences, and current-week Shared contributions with compact type/date context. The email ignores Routine occurrences outside the current planning week even when the scheduler generated them in a wider horizon.
+7. Completed last week merges owned completions and completed Shared contributions, orders them latest first, applies the mode cap, and links to the full Completed history.
+8. Leadership and Detailed team preferences add one Team needs attention section grouped by visible person. It may aggregate overdue work, pending completion/Routine reviews, barriers requiring the recipient's decision, Goal support/alignment, and over-target workload review. It must not list all team work, performance scores, rankings, change counts, or completion feeds.
+9. Empty This week, Completed, and Team sections are omitted. An empty Needs attention section becomes one small positive line.
+10. Preview screens in the prototype are visual references; the production implementation renders the same hierarchy through an email-compatible, table-based template with inline styles and plain-text parity.
 
 
 ## V34 — Lean Goal update logic
@@ -1172,3 +1174,25 @@ derived-progress rules. The future ESH finding/action system remains outside the
    preserves automatic view logging, the explicit Download action in the attachment header and the
    safe MIME allowlist that excludes active content such as HTML and SVG. That action uses the
    ordinary authenticated route and retains the attachment's original filename.
+
+## 46. v117 lean weekly decision digest
+
+1. Build the employee exception set in priority order and deduplicate by source record. Completion
+   changes, returned Routine decisions, action-directed Barriers, authoritative overdue/stale state,
+   exceptional Available Work, and employee Goal actions may contribute. A task appears once.
+2. Read the latest Routine outcome for each occurrence. `pending` removes that occurrence from both
+   employee overdue and This week; `returned` places it in Needs attention; accepted/cancelled work is
+   terminal. Do not derive this state from dates or display wording.
+3. This week selects non-terminal Active Focus Tasks and generated Backlog Routine occurrences whose
+   due instant falls in the current planning window, plus incomplete Shared contributions using item
+   due date before parent due date. Ordinary Backlog and paused work do not become commitments; their
+   exceptional cases belong in Needs attention.
+4. Completed last week merges owned Task completions with `completed_contributions`, sorts by the
+   canonical completion timestamp, caps output by preference mode, and links to Completed history.
+5. Team aggregation starts from `preview_effective_visibility`, groups canonical signals by source
+   owner, and keeps source titles out of the manager roll-up. Pending review, Barrier decision, Goal
+   support/alignment, overdue count, and over-target workload are interventions, not performance data.
+6. The subject count is derived from the complete uncapped exception and commitment sets. Hidden rows
+   therefore cannot make the envelope claim an inaccurate all-clear.
+7. Delivery claiming, unique period keys, retry backoff, SMTP/Inbucket sender requirements, stored HTML
+   and text bodies, and terminal sent status remain unchanged.
