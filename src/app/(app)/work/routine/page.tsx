@@ -22,6 +22,8 @@ import { RoutineManager } from './RoutineManager';
 import {
   PersonRoutineProfile,
   ROUTINE_PERIODS,
+  RoutineComplianceList,
+  RoutineStandingList,
   TeamRoutineList,
   type RoutinePeriodKey,
 } from './TeamRoutineView';
@@ -30,6 +32,8 @@ import {
   getFocusSummary,
   getBinnedRoutines,
   getRoutineExceptionQueue,
+  getRoutineTeamStanding,
+  getTeamRoutineCompliance,
   getTeamRoutineSummary,
   getRoutineOutcomes,
   getRoutineTally,
@@ -74,6 +78,9 @@ export default async function RoutinePage({
     person?: string;
     q?: string;
     filter?: string;
+    /** The secondary axis: read the team by schedule rather than by person. */
+    by?: string;
+    routine?: string;
   }>;
 }) {
   const profile = await requireProfile();
@@ -125,6 +132,14 @@ export default async function RoutinePage({
   })();
   const managerPanel = isManager && params.panel === 'manager';
   const managerPerson = managerPanel ? (params.person ?? null) : null;
+  /*
+   * People is the default and stays it: that is how a team is managed. Reading
+   * by schedule answers a compliance question instead, which is asked far less
+   * often than "who needs me".
+   */
+  const managerAxis: 'people' | 'routines' =
+    managerPanel && params.by === 'routines' ? 'routines' : 'people';
+  const managerRoutine = managerAxis === 'routines' ? (params.routine ?? null) : null;
 
   const [
     settings,
@@ -141,6 +156,8 @@ export default async function RoutinePage({
     teamRoutine,
     personOutcomes,
     personTally,
+    routineCompliance,
+    routineStanding,
   ] = await Promise.all([
     getDisplaySettings(),
     getRoutineOccurrences(profile.id),
@@ -183,6 +200,12 @@ export default async function RoutinePage({
     managerPerson
       ? getRoutineTally(managerPerson, managerWindow.since)
       : Promise.resolve({ tallies: [], total: null, failed: false }),
+    managerAxis === 'routines' && !managerRoutine
+      ? getTeamRoutineCompliance(profile.id, managerWindow.since, managerWindow.until)
+      : Promise.resolve({ rows: [], failed: false }),
+    managerRoutine
+      ? getRoutineTeamStanding(profile.id, managerRoutine, managerWindow.since, managerWindow.until)
+      : Promise.resolve({ title: 'Routine', people: [], failed: false }),
   ]);
 
   const timeZone = profile.timezone ?? 'Asia/Kuala_Lumpur';
@@ -330,8 +353,52 @@ export default async function RoutinePage({
         </div>
       )}
 
+      {managerPanel && !managerPerson && !managerRoutine && (
+        <div className="routine-axis" role="group" aria-label="Read the team by">
+          <Link
+            href={`/work/routine?panel=manager&period=${managerPeriod}`}
+            className={managerAxis === 'people' ? 'active' : undefined}
+            aria-current={managerAxis === 'people' ? 'true' : undefined}
+          >
+            People
+          </Link>
+          <Link
+            href={`/work/routine?panel=manager&by=routines&period=${managerPeriod}`}
+            className={managerAxis === 'routines' ? 'active' : undefined}
+            aria-current={managerAxis === 'routines' ? 'true' : undefined}
+          >
+            Routines
+          </Link>
+        </div>
+      )}
+
       {managerPanel ? (
-        managerPerson ? (
+        managerRoutine ? (
+          <RoutineStandingList
+            title={routineStanding.title}
+            people={routineStanding.people}
+            period={managerPeriod}
+            backHref={`/work/routine?panel=manager&by=routines&period=${managerPeriod}`}
+            taskHref={(taskId) =>
+              taskDrawerHref(
+                taskId,
+                `/work/routine?panel=manager&by=routines&routine=${managerRoutine}`,
+              )
+            }
+            personHref={(userId) =>
+              `/work/routine?panel=manager&person=${userId}&period=${managerPeriod}`
+            }
+          />
+        ) : managerAxis === 'routines' ? (
+          <RoutineComplianceList
+            rows={routineCompliance.rows}
+            failed={routineCompliance.failed}
+            period={managerPeriod}
+            hrefFor={(templateId) =>
+              `/work/routine?panel=manager&by=routines&routine=${templateId}&period=${managerPeriod}`
+            }
+          />
+        ) : managerPerson ? (
           <PersonRoutineProfile
             name={team.find((person) => person.userId === managerPerson)?.fullName ?? 'Team member'}
             tally={personTally.total}

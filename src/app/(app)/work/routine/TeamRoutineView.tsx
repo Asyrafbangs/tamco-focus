@@ -1,7 +1,13 @@
 import Link from 'next/link';
 
 import { EmptyState } from '@/components/ui/ParityPrimitives';
-import type { RoutineOutcome, RoutineTally, TeamRoutineRow } from '@/server/queries';
+import type {
+  RoutineComplianceRow,
+  RoutineOutcome,
+  RoutinePersonStanding,
+  RoutineTally,
+  TeamRoutineRow,
+} from '@/server/queries';
 
 /**
  * A manager's routine view: people first, exceptions first.
@@ -304,6 +310,131 @@ export function PersonRoutineProfile({
                     : `Not required · ${reasonText(row)}${
                         row.decidedByName ? ` · accepted by ${row.decidedByName}` : ''
                       }`}
+                </span>
+              </span>
+              <span className="team-routine-chevron" aria-hidden="true">
+                ›
+              </span>
+            </Link>
+          ))
+        )}
+      </section>
+    </div>
+  );
+}
+
+const OUTCOME_WORDS = {
+  done: '✓ Completed',
+  not_required: '— Not required',
+  awaiting_decision: '⚠ Awaiting your decision',
+  open: '⚠ Not done',
+} as const;
+
+/**
+ * The team read down the other axis: one row per schedule.
+ *
+ * Secondary on purpose. People is how a team is managed, and stays the
+ * default; this answers a compliance question - "how is Gemba Walk doing
+ * across everybody" - which is asked far less often and would crowd the view
+ * that gets asked daily.
+ */
+export function RoutineComplianceList({
+  rows,
+  failed,
+  period,
+  hrefFor,
+}: {
+  rows: RoutineComplianceRow[];
+  failed: boolean;
+  period: RoutinePeriodKey;
+  hrefFor: (templateId: string) => string;
+}) {
+  if (failed) {
+    return (
+      <EmptyState title="Routine compliance could not be read">
+        <p>Try again in a moment.</p>
+      </EmptyState>
+    );
+  }
+  if (rows.length === 0) {
+    return (
+      <EmptyState title="No routine work in this period" compact>
+        <p>Nothing your team is scheduled for falls inside it. Widen the period.</p>
+      </EmptyState>
+    );
+  }
+
+  return (
+    <section className="team-routine-group" aria-label="Routines">
+      <h3>Routines · {ROUTINE_PERIODS.find((entry) => entry.key === period)?.label}</h3>
+      {rows.map((row) => (
+        <Link key={row.templateId} href={hrefFor(row.templateId)} className="team-routine-row">
+          <span className="team-routine-copy">
+            <strong>{row.title}</strong>
+            <span>
+              {row.completed} completed · {row.notRequired} not required · {row.overdue} overdue
+              {row.awaitingReview > 0 ? ` · ${row.awaitingReview} awaiting your decision` : ''}
+            </span>
+          </span>
+          <span className="team-routine-chevron" aria-hidden="true">
+            ›
+          </span>
+        </Link>
+      ))}
+    </section>
+  );
+}
+
+/** One schedule, everybody on it. */
+export function RoutineStandingList({
+  title,
+  people,
+  period,
+  backHref,
+  taskHref,
+  personHref,
+}: {
+  title: string;
+  people: RoutinePersonStanding[];
+  period: RoutinePeriodKey;
+  backHref: string;
+  taskHref: (taskId: string) => string;
+  personHref: (userId: string) => string;
+}) {
+  const periodLabel = ROUTINE_PERIODS.find((entry) => entry.key === period)?.label ?? 'This month';
+
+  return (
+    <div className="team-routine">
+      <Link href={backHref} className="team-routine-back">
+        ← Routines
+      </Link>
+      <div className="section-heading">
+        <div>
+          <h2>{title}</h2>
+          <p>Everybody on this schedule · {periodLabel.toLowerCase()}</p>
+        </div>
+      </div>
+
+      <section className="team-routine-group" aria-label="People on this routine">
+        {people.length === 0 ? (
+          <p className="muted">Nobody was scheduled for this in the period.</p>
+        ) : (
+          people.map((person) => (
+            <Link
+              key={person.userId}
+              /*
+               * A single occurrence opens itself; several open the person,
+               * because there is no one occurrence for the row to mean.
+               */
+              href={person.singleTaskId ? taskHref(person.singleTaskId) : personHref(person.userId)}
+              className="team-routine-row"
+            >
+              <span className="team-routine-copy">
+                <strong>{person.fullName}</strong>
+                <span>
+                  {person.singleOutcome
+                    ? OUTCOME_WORDS[person.singleOutcome]
+                    : `${person.completed} completed · ${person.notRequired} not required · ${person.overdue} overdue`}
                 </span>
               </span>
               <span className="team-routine-chevron" aria-hidden="true">

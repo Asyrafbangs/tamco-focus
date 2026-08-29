@@ -1013,6 +1013,205 @@ export async function getTeamRoutineSummary(
 }
 
 /**
+ * The same team, read down the other axis: one row per schedule.
+ *
+ * People is the primary question, because that is how a team is managed. This
+ * is the secondary one - "how is Gemba Walk doing across everybody" - which is
+ * a compliance question rather than a management one, and is asked far less
+ * often. Same records, same visibility, grouped differently.
+ */
+export interface RoutineComplianceRow {
+  templateId: string;
+  title: string;
+  scheduled: number;
+  completed: number;
+  notRequired: number;
+  overdue: number;
+  awaitingReview: number;
+  needsAttention: boolean;
+}
+
+/** One person's standing on one schedule, for the period being read. */
+export interface RoutinePersonStanding {
+  userId: string;
+  fullName: string;
+  scheduled: number;
+  completed: number;
+  notRequired: number;
+  overdue: number;
+  awaitingReview: number;
+  /**
+   * The outcome word, when the period holds exactly one occurrence for this
+   * person. A monthly routine over a month reads "Completed"; a weekly one
+   * over the same month has four, where a single word would be a lie and the
+   * counts are the honest answer.
+   */
+  singleOutcome: RoutineOutcome['outcome'] | null;
+  singleTaskId: string | null;
+}
+
+interface OutcomeTally {
+  scheduled: number;
+  completed: number;
+  notRequired: number;
+  overdue: number;
+  awaitingReview: number;
+}
+
+function blankTally(): OutcomeTally {
+  return { scheduled: 0, completed: 0, notRequired: 0, overdue: 0, awaitingReview: 0 };
+}
+
+function addOutcome(tally: OutcomeTally, outcome: string, date: string | null, today: string) {
+  tally.scheduled += 1;
+  if (outcome === 'done') tally.completed += 1;
+  else if (outcome === 'not_required') tally.notRequired += 1;
+  else if (outcome === 'awaiting_decision') tally.awaitingReview += 1;
+  else if (date && date < today) tally.overdue += 1;
+}
+
+async function readTeamOccurrences(
+  viewerId: string,
+  sinceIso: string,
+  untilIso: string | null,
+  templateId?: string,
+) {
+  const supabase = await createSupabaseServerClient();
+  let query = supabase
+    .from('routine_occurrence_outcomes')
+    .select('task_id,title,routine_template_id,primary_owner_id,outcome,occurrence_date')
+    .gte('occurrence_date', sinceIso.slice(0, 10))
+    .limit(4000);
+  if (untilIso) query = query.lte('occurrence_date', untilIso.slice(0, 10));
+  if (templateId) query = query.eq('routine_template_id', templateId);
+
+  const { data, error } = await query;
+  if (error) return { rows: null, error };
+  // The viewer's own routine work is the other tab, not their team's.
+  return {
+    rows: (data ?? []).filter((row) => String(row.primary_owner_id) !== viewerId),
+    error: null,
+  };
+}
+
+export async function getTeamRoutineCompliance(
+  viewerId: string,
+  sinceIso: string,
+  untilIso: string | null,
+): Promise<{ rows: RoutineComplianceRow[]; failed: boolean }> {
+  const { rows: occurrences, error } = await readTeamOccurrences(viewerId, sinceIso, untilIso);
+  if (error || !occurrences) {
+    console.error(`[getTeamRoutineCompliance] ${error?.message ?? 'unavailable'}`);
+    return { rows: [], failed: true };
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const byTemplate = new Map<string, RoutineComplianceRow>();
+  for (const occurrence of occurrences) {
+    const id = occurrence.routine_template_id ? String(occurrence.routine_template_id) : null;
+    if (!id) continue;
+    const row =
+      byTemplate.get(id) ??
+      ({
+        templateId: id,
+        title: String(occurrence.title),
+        ...blankTally(),
+        needsAttention: false,
+      } as RoutineComplianceRow);
+    addOutcome(
+      row,
+      String(occurrence.outcome),
+      occurrence.occurrence_date ? String(occurrence.occurrence_date) : null,
+      today,
+    );
+    byTemplate.set(id, row);
+  }
+
+  const rows = [...byTemplate.values()].map((row) => ({
+    ...row,
+    needsAttention: row.awaitingReview > 0 || row.overdue > 0,
+  }));
+  rows.sort((left, right) => {
+    if (left.awaitingReview !== right.awaitingReview) {
+      return right.awaitingReview - left.awaitingReview;
+    }
+    if (left.overdue !== right.overdue) return right.overdue - left.overdue;
+    return left.title.localeCompare(right.title);
+  });
+  return { rows, failed: false };
+}
+
+export async function getRoutineTeamStanding(
+  viewerId: string,
+  templateId: string,
+  sinceIso: string,
+  untilIso: string | null,
+): Promise<{ title: string; people: RoutinePersonStanding[]; failed: boolean }> {
+  const { rows: occurrences, error } = await readTeamOccurrences(
+    viewerId,
+    sinceIso,
+    untilIso,
+    templateId,
+  );
+  if (error || !occurrences) {
+    console.error(`[getRoutineTeamStanding] ${error?.message ?? 'unavailable'}`);
+    return { title: 'Routine', people: [], failed: true };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const ownerIds = Array.from(new Set(occurrences.map((row) => String(row.primary_owner_id))));
+  const names = new Map<string, string>();
+  if (ownerIds.length) {
+    const { data: people } = await supabase
+      .from('team_directory')
+      .select('id,full_name')
+      .in('id', ownerIds);
+    for (const person of people ?? []) names.set(String(person.id), String(person.full_name));
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const byPerson = new Map<string, RoutinePersonStanding>();
+  for (const occurrence of occurrences) {
+    const id = String(occurrence.primary_owner_id);
+    const person =
+      byPerson.get(id) ??
+      ({
+        userId: id,
+        fullName: names.get(id) ?? 'Team member',
+        ...blankTally(),
+        singleOutcome: null,
+        singleTaskId: null,
+      } as RoutinePersonStanding);
+    addOutcome(
+      person,
+      String(occurrence.outcome),
+      occurrence.occurrence_date ? String(occurrence.occurrence_date) : null,
+      today,
+    );
+    person.singleOutcome = occurrence.outcome as RoutineOutcome['outcome'];
+    person.singleTaskId = String(occurrence.task_id);
+    byPerson.set(id, person);
+  }
+
+  const people = [...byPerson.values()].map((person) =>
+    person.scheduled === 1 ? person : { ...person, singleOutcome: null, singleTaskId: null },
+  );
+  people.sort((left, right) => {
+    if (left.awaitingReview !== right.awaitingReview) {
+      return right.awaitingReview - left.awaitingReview;
+    }
+    if (left.overdue !== right.overdue) return right.overdue - left.overdue;
+    return left.fullName.localeCompare(right.fullName);
+  });
+
+  return {
+    title: occurrences[0] ? String(occurrences[0].title) : 'Routine',
+    people,
+    failed: false,
+  };
+}
+
+/**
  * What a routine has actually produced, counted rather than typed.
  *
  * Every figure here already exists in the occurrence records: how many were
