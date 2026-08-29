@@ -52,7 +52,10 @@ const { host, port, from, fromName, user } = configured;
  * problem in Exchange rather than a typo in an environment variable. Said here
  * first, because that is the one people lose an afternoon to.
  */
-if (/office365|outlook|protection\.outlook/i.test(host) && from.toLowerCase() !== user.toLowerCase()) {
+if (
+  /office365|outlook|protection\.outlook/i.test(host) &&
+  from.toLowerCase() !== user.toLowerCase()
+) {
   console.warn(
     `\nNote: EMAIL_FROM (${from}) is not the mailbox you are authenticating as (${user}).\n` +
       'Microsoft 365 will refuse this with "SendAsDenied" unless that mailbox has been\n' +
