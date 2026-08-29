@@ -47,6 +47,14 @@ const patternSchema = {
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullish(),
   evidenceRequired: z.boolean().default(false),
+  /**
+   * What to attach, decided once by whoever sets the schedule up.
+   *
+   * The person doing the work should never have to judge whether this
+   * occurrence needs a photo, so the answer travels with the schedule rather
+   * than with them.
+   */
+  evidenceInstruction: z.string().trim().max(300).nullish(),
   requiresCompletionReview: z.boolean().default(false),
 };
 
@@ -105,6 +113,9 @@ function patternArgs(input: z.infer<typeof createSchema> | z.infer<typeof update
     p_ends_after_count: input.endsAfterCount ?? null,
     p_ends_on_date: input.endsOnDate ?? null,
     p_evidence_required: input.evidenceRequired,
+    // Only carried when evidence is required; the procedure drops it either
+    // way, so a routine switched to optional cannot keep a stale sentence.
+    p_evidence_instruction: input.evidenceRequired ? (input.evidenceInstruction ?? null) : null,
     p_requires_completion_review: input.requiresCompletionReview,
     p_idempotency_key: input.idempotencyKey ?? null,
   };

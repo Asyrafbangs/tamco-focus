@@ -444,6 +444,9 @@ function RoutineForm({
   const [dueTime, setDueTime] = useState((template?.dueTime ?? '17:00').slice(0, 5));
   const [ownerId, setOwnerId] = useState(template?.ownerId ?? '');
   const [evidenceRequired, setEvidenceRequired] = useState(template?.evidenceRequired ?? false);
+  const [evidenceInstruction, setEvidenceInstruction] = useState(
+    template?.evidenceInstruction ?? '',
+  );
   const [requiresReview, setRequiresReview] = useState(template?.requiresCompletionReview ?? false);
 
   const [pattern, setPattern] = useState<RecurrencePattern>(() =>
@@ -510,6 +513,7 @@ function RoutineForm({
       endsAfterCount: columns.endsAfterCount,
       endsOnDate: columns.endsOnDate,
       evidenceRequired,
+      evidenceInstruction: evidenceInstruction.trim() || null,
       requiresCompletionReview: requiresReview,
       idempotencyKey: crypto.randomUUID(),
     };
@@ -859,6 +863,25 @@ function RoutineForm({
             />
             <span>Evidence is required to complete each one</span>
           </label>
+          {/*
+            Asked here because here is where it is known.
+
+            Whoever sets a Gemba Walk up knows it wants a shopfloor photo; the
+            person doing it at 17:00 on a Wednesday should not have to work
+            that out, and certainly not differently each week. One sentence,
+            shown on every occurrence the schedule creates.
+          */}
+          {evidenceRequired && (
+            <label className="routine-evidence-instruction">
+              <span>What should they attach? — optional</span>
+              <input
+                value={evidenceInstruction}
+                maxLength={300}
+                placeholder="At least one shopfloor photo or the inspection record."
+                onChange={(event) => setEvidenceInstruction(event.target.value)}
+              />
+            </label>
+          )}
           <label>
             <input
               type="checkbox"

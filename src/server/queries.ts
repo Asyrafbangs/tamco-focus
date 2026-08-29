@@ -1486,6 +1486,8 @@ export interface RoutineTemplateRow {
   endsOnDate: string | null;
   dueTime: string;
   evidenceRequired: boolean;
+  /** What to attach, when the schedule requires evidence. */
+  evidenceInstruction: string | null;
   requiresCompletionReview: boolean;
   isActive: boolean;
   createdBy: string;
@@ -1552,6 +1554,7 @@ export async function getRoutineTemplates(): Promise<{
       endsOnDate: row.ends_on_date ? String(row.ends_on_date) : null,
       dueTime: String(row.due_time ?? '17:00'),
       evidenceRequired: Boolean(row.evidence_required),
+      evidenceInstruction: row.evidence_instruction ? String(row.evidence_instruction) : null,
       requiresCompletionReview: Boolean(row.requires_completion_review),
       isActive: Boolean(row.is_active),
       createdBy: String(row.created_by ?? ''),
