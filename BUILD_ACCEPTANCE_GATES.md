@@ -374,3 +374,16 @@ check unless marked otherwise.
       audit, Storage, or production-data behaviour changes.
 - [ ] The on-demand E2E workflow completes against its isolated production build without a
       long-lived development compiler or application-server heap exhaustion.
+
+## v103 PDF attachment preview acceptance gates
+
+- [ ] Selecting an authorised PDF renders page 1 inside Task Detail without an iframe, browser
+      plug-in Open placeholder, new tab, or automatic download.
+- [ ] Previous/Next, page count, zoom and Fit width work at desktop and 390 px mobile widths without
+      document-level horizontal overflow.
+- [ ] Opening a PDF still records the authorised attachment view; an unauthorised request remains a
+      neutral not-found response.
+- [ ] Download remains an explicit separate action and unsupported document types remain downloads.
+- [ ] Images still preview in the same surface, object URLs are revoked on close, and loading or
+      corrupt PDFs show an actionable error state.
+- [ ] Unit, E2E, accessibility, lint, formatting, typecheck, production build and smoke checks pass.

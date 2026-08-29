@@ -709,7 +709,13 @@ export function TaskDetailDrawer({
           a different subject. Collapsing brings them back untouched - the
           composer and its draft live above this point, so nothing holding
           unsaved work is unmounted. */}
-      {viewingFile && <AttachmentViewer file={viewingFile} onClose={() => setViewingFile(null)} />}
+      {viewingFile && (
+        <AttachmentViewer
+          key={viewingFile.id}
+          file={viewingFile}
+          onClose={() => setViewingFile(null)}
+        />
+      )}
 
       <div className="task-detail-scroll" hidden={Boolean(viewingFile)}>
         {/*

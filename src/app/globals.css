@@ -9996,6 +9996,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
   padding: 14px 17px 20px;
   background: var(--line-soft);
 }
@@ -10008,12 +10009,85 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: var(--radius-sm);
   background: var(--surface);
 }
-.attachment-viewer-frame {
+.attachment-pdf-viewer {
   width: 100%;
   height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface);
+}
+.attachment-pdf-toolbar {
+  min-width: 0;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.attachment-pdf-control-group {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.attachment-pdf-control-group > span {
+  min-width: 76px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+  white-space: nowrap;
+}
+.attachment-pdf-control-group:last-child > span {
+  min-width: 42px;
+}
+.attachment-pdf-zoom-button {
+  width: 34px;
+  padding-inline: 0;
+  font-size: 16px;
+}
+.attachment-pdf-stage {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  background: var(--line-soft);
+  text-align: center;
+}
+.attachment-pdf-stage > .muted,
+.attachment-pdf-stage > .attachment-viewer-failed {
+  margin: 18vh auto 0;
+}
+.attachment-pdf-canvas {
+  display: block;
+  max-width: none;
+  margin: 0 auto;
+  background: #fff;
+  box-shadow: 0 3px 14px rgba(15, 23, 42, 0.14);
+}
+.attachment-pdf-canvas[hidden] {
+  display: none;
+}
+.attachment-pdf-rendering {
+  position: sticky;
+  left: 50%;
+  bottom: 12px;
+  display: inline-flex;
+  translate: -50% 0;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
+  font-size: 10.5px;
 }
 
 /* The row is a button now, and a button brings its own chrome. */
@@ -10029,6 +10103,16 @@ button.attachment-row {
 @media (max-width: 720px) {
   .attachment-viewer {
     padding: 10px 13px 16px;
+  }
+  .attachment-pdf-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .attachment-pdf-control-group {
+    justify-content: space-between;
+  }
+  .attachment-pdf-stage {
+    padding: 10px;
   }
 }
 

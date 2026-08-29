@@ -1,5 +1,16 @@
 # TAMCO Focus — Change Log
 
+## v103 Reliable in-app PDF attachment reading — 29 August 2026
+
+- Replaced the browser PDF plug-in iframe with a lazy-loaded PDF.js canvas renderer, removing the
+  dependency on Chrome/Edge “download PDFs” preferences that produced the grey Open placeholder.
+- Added page navigation, page count, bounded zoom, Fit width, high-density rendering, responsive
+  controls, loading feedback and a readable corrupt-file fallback.
+- Kept Download as an explicit separate action; opening a PDF no longer downloads a copy.
+- Preserved the authenticated private-file route, RLS decision, automatic attachment-view audit,
+  image preview, safe MIME allowlist and unsupported-file download behavior.
+- Added unit allowlist coverage and desktop/mobile end-to-end PDF rendering coverage.
+
 ## v85 Operational Action disclosure clarity — 28 August 2026
 
 - Removed the duplicated expanded Steps heading, completion count, and permanent teaching copy; the

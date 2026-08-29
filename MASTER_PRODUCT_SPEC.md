@@ -2531,3 +2531,19 @@ task execution, evidence, permission, progress, audit or lifecycle rules.
    update body appears only in the expanded record and is never duplicated in the summary.
 4. Disclosure rows and bodies use consistent inner spacing and wrap unpredictable user text. Desktop,
    mobile and zoomed layouts must not clip content or create horizontal page overflow.
+
+## V103 — Reliable in-app PDF attachment reading (29 August 2026)
+
+This repair strengthens the existing attachment-preview requirement without changing attachment
+permission, storage, evidence, audit, review or download rules.
+
+1. Selecting an authorised PDF attachment opens the document inside Task Detail. It must not depend
+   on the browser's built-in PDF plug-in or its “download PDFs” preference.
+2. The in-app PDF reader renders document pages directly and provides previous/next page controls,
+   current page/total pages, zoom controls, and Fit width. Download remains a separate explicit
+   action and must never be triggered merely by opening the attachment.
+3. Images continue to open in the same attachment-reading surface. Unsupported document types keep
+   their explicit download behaviour rather than presenting a preview that cannot render them.
+4. Opening the file continues to pass through the authorised attachment route and automatically logs
+   the view. Private file bytes and signed storage URLs are not exposed outside that flow.
+5. Loading, corrupt-file/error, keyboard Escape, desktop and mobile states remain clear and usable.

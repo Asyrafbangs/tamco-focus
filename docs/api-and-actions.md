@@ -29,7 +29,11 @@ Capture staging records the title, timing, optional files, one approved follow-u
 
 ## Route handlers
 
-`GET /api/attachments/[id]` requires a signed-in authorised attachment row, records the view, creates a short-lived private URL, and redirects. It returns a neutral refusal instead of schema or storage detail.
+`GET /api/attachments/[id]` requires a signed-in authorised attachment row and records the view. The
+ordinary request creates a short-lived private download URL and redirects. `?inline=1` streams only
+allowlisted image/PDF bytes with private no-store headers for the in-app reader; PDF.js renders those
+bytes to canvas rather than delegating to the browser PDF plug-in. The route returns a neutral refusal
+instead of schema or storage detail.
 
 ## Worker contracts
 

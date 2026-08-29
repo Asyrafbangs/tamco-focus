@@ -1155,3 +1155,19 @@ derived-progress rules. The future ESH finding/action system remains outside the
    list.
 4. Spacing and wrapping are shared presentation rules. They introduce no database, RLS, API,
    notification, storage, audit or production-data mutation.
+
+## 45. v103 reliable PDF attachment rendering
+
+1. `GET /api/attachments/[id]?inline=1` remains the authenticated, RLS-bound byte source and records
+   the attachment view before returning private, no-store content. The ordinary route remains the
+   explicit download path.
+2. PDF bytes are fetched same-origin and rendered to a canvas with a lazy-loaded PDF.js worker. The
+   application does not iframe the PDF or delegate rendering to a browser plug-in, because browser
+   download preferences can replace embedded documents with a grey Open placeholder.
+3. Only one PDF page is drawn at a time. Page changes, responsive fit-to-width calculation and a
+   bounded 75%–250% reader zoom rerender that page at device-pixel resolution capped at 2×.
+4. Image preview keeps its short-lived Blob URL and revokes it on close. PDF rendering receives an
+   in-memory copy of the authorised bytes and destroys its loading task/worker on close.
+5. The renderer adds no database, migration, RLS, permission, notification or audit definition. It
+   preserves automatic view logging, the explicit Download action and the safe MIME allowlist that
+   excludes active content such as HTML and SVG.

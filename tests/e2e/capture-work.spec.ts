@@ -3,6 +3,31 @@ import { expect, test } from '@playwright/test';
 
 const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
 
+/** A valid, dependency-free one-page PDF used to exercise the real renderer. */
+function pdfFixture(text: string) {
+  const safeText = text.replace(/[()\\]/g, (character) => `\\${character}`);
+  const stream = `BT\n/F1 18 Tf\n72 720 Td\n(${safeText}) Tj\nET\n`;
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+    `<< /Length ${Buffer.byteLength(stream, 'ascii')} >>\nstream\n${stream}endstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ];
+
+  let pdf = '%PDF-1.4\n';
+  const offsets = objects.map((object, index) => {
+    const offset = Buffer.byteLength(pdf, 'ascii');
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`;
+    return offset;
+  });
+  const xrefOffset = Buffer.byteLength(pdf, 'ascii');
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  pdf += offsets.map((offset) => `${String(offset).padStart(10, '0')} 00000 n \n`).join('');
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+  return Buffer.from(pdf, 'ascii');
+}
+
 async function expectHydrated(page: import('@playwright/test').Page) {
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 }
@@ -152,5 +177,57 @@ test('employee opens task detail and posts an update with private evidence', asy
   const download = await page.context().request.get(href!);
   expect(download.ok()).toBe(true);
   expect(await download.text()).toContain('Browser-verified private evidence.');
+  await expectAccessible(page);
+});
+
+test('employee reads a PDF in the task drawer without the browser download plug-in', async ({
+  page,
+}, testInfo) => {
+  const fileName = `inline-${testInfo.project.name}-${Date.now()}.pdf`;
+
+  await page.goto('/sign-in');
+  await page.getByLabel('Email address').fill('izzah@tamco.local');
+  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/today$/);
+  await expectHydrated(page);
+
+  await page.goto('/work');
+  await expectHydrated(page);
+  await page
+    .getByRole('link', { name: 'Close out corrective actions from the June audit' })
+    .click();
+  const detail = page.getByRole('dialog', {
+    name: 'Close out corrective actions from the June audit',
+  });
+  await expect(detail).toBeVisible();
+
+  await detail.getByRole('button', { name: '+ Add update' }).click();
+  await detail.getByLabel('What changed?').fill('Added the PDF for an in-app review.');
+  await detail.getByLabel('Add files').setInputFiles({
+    name: fileName,
+    mimeType: 'application/pdf',
+    buffer: pdfFixture('TAMCO Focus inline PDF preview'),
+  });
+  await clickVisibleControl(page, detail.getByRole('button', { name: 'Post update' }));
+
+  const updatesDisclosure = detail.getByRole('button', { name: /^Updates/ });
+  if ((await updatesDisclosure.getAttribute('aria-expanded')) !== 'true') {
+    await updatesDisclosure.click();
+  }
+  await detail.getByRole('button', { name: fileName }).click();
+
+  await expect(page.getByRole('heading', { name: fileName })).toBeVisible();
+  await expect(page.getByRole('toolbar', { name: 'PDF page controls' })).toBeVisible();
+  await expect(page.getByText('Page 1 of 1', { exact: true })).toBeVisible();
+  const pageCanvas = page.getByRole('img', { name: `Page 1 of 1 in ${fileName}` });
+  await expect(pageCanvas).toBeVisible();
+  await expect
+    .poll(() =>
+      pageCanvas.evaluate((canvas: HTMLCanvasElement) => canvas.width > 100 && canvas.height > 100),
+    )
+    .toBe(true);
+  await expect(detail.locator('iframe')).toHaveCount(0);
+  await expect(detail.getByRole('button', { name: /^Open$/ })).toHaveCount(0);
   await expectAccessible(page);
 });
