@@ -66,10 +66,32 @@ export function MenuDropdown({
      */
     const openUp = spaceBelow < 260 && spaceAbove > spaceBelow;
     const room = (openUp ? spaceAbove : spaceBelow) - 16;
+    /*
+     * The window is the last word on how wide the panel gets.
+     *
+     * `minWidth` is what the caller would like; the task admin menu asks for
+     * 320 because it holds forms rather than links. On a narrow phone that is
+     * wider than the screen, and a min-width always beats a max-width in CSS,
+     * so no stylesheet could have rescued it - the panel simply hung off the
+     * edge with its buttons unreachable.
+     */
+    const width = Math.min(Math.max(minWidth, rect.width), window.innerWidth - 16);
+    /*
+     * Right-aligned to its button, but never pushed off either edge.
+     *
+     * Aligning to the button alone is only safe while the button is near the
+     * right of the window. A wide panel on a button near the left has to slide
+     * back inward, or it opens off-screen to the left - visible in the layout,
+     * unreadable on the display.
+     */
+    const right = Math.min(
+      Math.max(8, window.innerWidth - rect.right),
+      window.innerWidth - width - 8,
+    );
     setPosition({
       ...(openUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
-      right: Math.max(8, window.innerWidth - rect.right),
-      width: Math.max(minWidth, rect.width),
+      right: Math.max(8, right),
+      width,
       maxHeight: Math.max(160, room),
     });
   }, [open, minWidth]);

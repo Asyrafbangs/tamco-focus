@@ -4440,8 +4440,14 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 /* Notification bell (v42 sections M, N, P)                                  */
 /* ------------------------------------------------------------------------ */
 
+/*
+ * Deliberately not a containing block — see `.notification-panel`.
+ *
+ * The unread badge does not need one here: `.notification-bell-button` is
+ * itself relative, so the count still anchors to the button.
+ */
 .notification-bell {
-  position: relative;
+  position: static;
 }
 .notification-bell-button {
   position: relative;
@@ -4474,10 +4480,26 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   line-height: 17px;
   text-align: center;
 }
+/*
+ * Anchored to the header, not to the bell.
+ *
+ * `.notification-bell` used to be the containing block, so `right: 0` aligned
+ * the panel's right edge with the BELL's — and the bell is third from the right
+ * in the header, ahead of the theme toggle and the avatar. On a 390px phone
+ * that placed a 358px panel at `left: -162px`: every row lost its first half,
+ * so the list read "…d", "…f "Evacuation drill". Assigned by a". Unreadable,
+ * and on the surface that exists to tell somebody what needs their attention.
+ *
+ * `header.topbar` is sticky, which already makes it a containing block, and it
+ * spans the window. Measuring from its right padding edge gives the panel the
+ * header's own gutter and no width at which it can hang off either side.
+ */
 .notification-panel {
   position: absolute;
   top: calc(100% + 9px);
-  right: 0;
+  /* The header's own gutter, so the panel lines up with Sign out rather than
+     sitting flush against the edge of the window. */
+  right: 20px;
   z-index: 140;
   width: min(360px, calc(100vw - 32px));
   border: 1px solid var(--line);
@@ -7686,11 +7708,22 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .goals-page-intro summary::-webkit-details-marker {
   display: none;
 }
+/*
+ * Opens to the right of "How goals work", because that is where the room is.
+ *
+ * This was `right: 0`, which aligns the panel's RIGHT edge with the trigger's.
+ * The trigger is the only child of a flex row, so it sits at the left of the
+ * content column — and a 360px panel hung back from it started at x = -201.
+ * More than half the sentence was off the left of the screen at every width,
+ * 1280px included; it read as a paragraph with its first words cut off rather
+ * than as a mispositioned popover, which is why it survived this long.
+ */
 .goals-page-intro details p {
   position: absolute;
   z-index: 5;
   top: calc(100% + 7px);
-  right: 0;
+  left: 0;
+  right: auto;
   width: min(360px, calc(100vw - 40px));
   margin: 0;
   padding: 11px 12px;
@@ -9413,24 +9446,26 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .task-admin-menu {
   position: relative;
 }
-.task-admin-toggle {
-  min-width: 44px;
-  min-height: 40px;
-  letter-spacing: 1px;
-}
-.task-admin-popover {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 8px);
-  z-index: 5;
-  width: min(420px, 78vw);
-  max-height: 60vh;
-  overflow-y: auto;
+/*
+ * The admin menu is a MenuDropdown panel, not a <details> popover.
+ *
+ * This ruleset used to position it — `position: absolute` with
+ * `bottom: calc(100% + 8px)` — from when the menu was a <details> element.
+ * MenuDropdown positions its own panel with `position: fixed` and an inline
+ * `top`, and against a fixed box `100%` resolves against the VIEWPORT, not the
+ * offset parent. On a 912px window the stale rule therefore computed
+ * `bottom: 920px`; with `top` also set, the panel was handed a negative height
+ * and clamped to 14px. The menu opened in the right place, with the right
+ * items, and showed 14px of a 275px list.
+ *
+ * Nothing here may position the panel. This says only how wide it is allowed
+ * to get — wider than the default, because it holds forms rather than links —
+ * and is written as a compound selector so it outranks `.menu-dropdown-panel`
+ * regardless of which appears first in this file.
+ */
+.menu-dropdown-panel.task-admin-popover {
+  max-width: min(420px, calc(100vw - 16px));
   padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  box-shadow: var(--shadow);
 }
 .task-admin-group + .task-admin-group {
   margin-top: 12px;
@@ -9446,9 +9481,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 @media (max-width: 720px) {
   .task-detail-facts {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .task-admin-popover {
-    width: min(420px, 92vw);
   }
 }
 
