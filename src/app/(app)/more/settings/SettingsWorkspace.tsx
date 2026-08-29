@@ -7,6 +7,7 @@ export type SettingsKey =
   | 'workspace'
   | 'alerts'
   | 'accessibility'
+  | 'appearance'
   | 'focus'
   | 'review'
   | 'routine'
@@ -42,6 +43,13 @@ const ITEMS: SettingsItem[] = [
     key: 'accessibility',
     label: 'Accessibility',
     description: 'Theme, text size, motion and status labels',
+    group: 'Personal',
+    editable: true,
+  },
+  {
+    key: 'appearance',
+    label: 'Appearance',
+    description: 'The colours the application is drawn in',
     group: 'Personal',
     editable: true,
   },

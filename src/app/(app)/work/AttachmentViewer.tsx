@@ -220,6 +220,14 @@ function PdfAttachmentCanvas({ bytes, fileName }: { bytes: ArrayBuffer; fileName
         className="attachment-pdf-stage"
         aria-busy={!pdf || rendering}
         aria-label={`${fileName} document`}
+        /*
+         * A scrollable region needs to be reachable by keyboard, or the only
+         * way to see page two of a long page is a mouse. `group` gives the
+         * label something to attach to; `tabIndex` is what lets the arrow keys
+         * reach the scroll.
+         */
+        role="group"
+        tabIndex={0}
       >
         {!pdf && !error && (
           <p className="muted" role="status">

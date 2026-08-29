@@ -1169,5 +1169,6 @@ derived-progress rules. The future ESH finding/action system remains outside the
 4. Image preview keeps its short-lived Blob URL and revokes it on close. PDF rendering receives an
    in-memory copy of the authorised bytes and destroys its loading task/worker on close.
 5. The renderer adds no database, migration, RLS, permission, notification or audit definition. It
-   preserves automatic view logging, the explicit Download action and the safe MIME allowlist that
-   excludes active content such as HTML and SVG.
+   preserves automatic view logging, the explicit Download action in the attachment header and the
+   safe MIME allowlist that excludes active content such as HTML and SVG. That action uses the
+   ordinary authenticated route and retains the attachment's original filename.

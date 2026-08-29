@@ -38,6 +38,33 @@ const themeBootstrap = `
     if (localStorage.getItem('tamco-focus-reduced-motion') === 'true') {
       document.documentElement.setAttribute('data-reduced-motion', 'true');
     }
+
+    // The saved palette, from the last visit, before anything is painted. The
+    // server renders the same rule a moment later; this is only what stops a
+    // flash of the default blue on the way there. Six-digit hex and known
+    // keys only, because this string is written into a stylesheet.
+    var raw = localStorage.getItem('tamco-focus-theme-colors');
+    if (raw) {
+      var saved = JSON.parse(raw);
+      var allowed = ['brand','background','nav','surface','text','muted','success','warning','danger'];
+      var map = { brand: '--blue', background: '--bg', nav: '--navy', surface: '--surface',
+                  text: '--text', muted: '--muted', success: '--green', warning: '--amber',
+                  danger: '--red' };
+      var css = '';
+      for (var i = 0; i < allowed.length; i += 1) {
+        var value = saved[allowed[i]];
+        if (typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value)) {
+          css += map[allowed[i]] + ':' + value + ';';
+        }
+      }
+      if (css) {
+        var style = document.createElement('style');
+        style.id = 'tamco-theme-boot';
+        style.textContent = 'html[data-theme-custom]:root{' + css + '}';
+        document.head.appendChild(style);
+        document.documentElement.setAttribute('data-theme-custom', '');
+      }
+    }
   } catch (error) {
     document.documentElement.setAttribute('data-theme', 'light');
   }

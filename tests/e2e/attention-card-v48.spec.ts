@@ -39,7 +39,7 @@ async function raiseRequest(page: Page, taskTitle: string, request: string) {
 
   await page.goto('/work?tab=available');
   await page.getByRole('link', { name: taskTitle }).click();
-  await page.locator('.task-detail-drawer').getByRole('button', { name: 'Raise barrier' }).click();
+  await page.locator('.task-detail-drawer').getByRole('button', { name: 'Need support' }).click();
 
   const form = page.getByRole('dialog', { name: 'Raise Barrier' });
   await form.getByLabel('What is blocking the work?').fill('Blocked pending a decision.');

@@ -6,7 +6,8 @@
   dependency on Chrome/Edge “download PDFs” preferences that produced the grey Open placeholder.
 - Added page navigation, page count, bounded zoom, Fit width, high-density rendering, responsive
   controls, loading feedback and a readable corrupt-file fallback.
-- Kept Download as an explicit separate action; opening a PDF no longer downloads a copy.
+- Kept Download as an explicit separate action in the attachment header, using the original
+  filename without opening a disposable browser tab; opening a PDF no longer downloads a copy.
 - Preserved the authenticated private-file route, RLS decision, automatic attachment-view audit,
   image preview, safe MIME allowlist and unsupported-file download behavior.
 - Added unit allowlist coverage and desktop/mobile end-to-end PDF rendering coverage.

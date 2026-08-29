@@ -98,10 +98,12 @@ export interface CurrentProfile {
   shortcut_hints: boolean;
   personal_summary_mode: 'off' | 'focused' | 'standard';
   team_summary_mode: 'off' | 'leadership' | 'detailed';
+  /** Nine optional colour overrides. Null means the built-in palette. */
+  theme_colors: Record<string, string> | null;
 }
 
 const PROFILE_COLUMNS =
-  'id, employee_id, email, full_name, role, status, department_id, reporting_manager_id, theme_preference, text_size, reduced_motion, default_landing_page, daily_brief_mode, daily_brief_hour, quiet_hours_start, quiet_hours_end, first_day_of_week, timezone, status_labels_always_visible, shortcut_hints, personal_summary_mode, team_summary_mode';
+  'id, employee_id, email, full_name, role, status, department_id, reporting_manager_id, theme_preference, text_size, reduced_motion, default_landing_page, daily_brief_mode, daily_brief_hour, quiet_hours_start, quiet_hours_end, first_day_of_week, timezone, status_labels_always_visible, shortcut_hints, personal_summary_mode, team_summary_mode, theme_colors';
 
 /**
  * The signed-in person's profile, or null.

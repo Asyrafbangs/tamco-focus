@@ -169,7 +169,7 @@ test('employee opens task detail and posts an update with private evidence', asy
   await updatesDisclosure.click();
   await expect(detail.getByText(update, { exact: true })).toHaveCount(1);
   // Attachments live in Details now, with the rest of the record.
-  await detail.getByRole('button', { name: 'Details' }).click();
+  await detail.getByRole('button', { name: 'Details', exact: true }).click();
   const attachment = detail.getByRole('link', { name: new RegExp(fileName) }).first();
   await expect(attachment).toBeVisible();
   const href = await attachment.getAttribute('href');
@@ -215,9 +215,30 @@ test('employee reads a PDF in the task drawer without the browser download plug-
   if ((await updatesDisclosure.getAttribute('aria-expanded')) !== 'true') {
     await updatesDisclosure.click();
   }
-  await detail.getByRole('button', { name: fileName }).click();
+  /*
+   * The post triggers a router refresh, and clicking the chip while that is
+   * still in flight opens a viewer the re-render then discards. Waiting for
+   * the chip to settle is waiting for the post to finish landing, which is a
+   * precondition of the click rather than a weakening of it.
+   */
+  const chip = detail.getByRole('button', { name: fileName });
+  await expect(chip).toBeVisible();
+  await expect(detail.getByText('Update posted.')).toBeVisible();
+  await chip.click();
 
   await expect(page.getByRole('heading', { name: fileName })).toBeVisible();
+  /*
+   * Scoped to the header itself, not to `detail`. The drawer is labelled by
+   * its own heading, and in viewer mode that heading is the file name - so a
+   * dialog locator built from the task title stops matching the moment the
+   * file opens.
+   */
+  const headerDownload = page
+    .locator('.task-detail-head')
+    .getByRole('link', { name: 'Download', exact: true });
+  await expect(headerDownload).toBeVisible();
+  await expect(headerDownload).toHaveAttribute('href', /^\/api\/attachments\/[0-9a-f-]+$/i);
+  await expect(headerDownload).toHaveAttribute('download', fileName);
   await expect(page.getByRole('toolbar', { name: 'PDF page controls' })).toBeVisible();
   await expect(page.getByText('Page 1 of 1', { exact: true })).toBeVisible();
   const pageCanvas = page.getByRole('img', { name: `Page 1 of 1 in ${fileName}` });
@@ -227,7 +248,7 @@ test('employee reads a PDF in the task drawer without the browser download plug-
       pageCanvas.evaluate((canvas: HTMLCanvasElement) => canvas.width > 100 && canvas.height > 100),
     )
     .toBe(true);
-  await expect(detail.locator('iframe')).toHaveCount(0);
-  await expect(detail.getByRole('button', { name: /^Open$/ })).toHaveCount(0);
+  await expect(page.locator('.task-detail iframe')).toHaveCount(0);
+  await expect(page.locator('.task-detail').getByRole('button', { name: /^Open$/ })).toHaveCount(0);
   await expectAccessible(page);
 });

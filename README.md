@@ -20,8 +20,9 @@ Run `node scripts/verify.mjs` for the full gate suite.
 
 Open an Operational Action, expand **Updates** or **Details**, and select a PDF attachment. The PDF
 opens inside the Task Detail surface with page and zoom controls; it does not open the browser's PDF
-plug-in or download a copy. **Download** remains available as an explicit action. The same reader is
-responsive on mobile and opening the authorised file continues to record the evidence view.
+plug-in or download a copy. **Download** remains available in the attachment header at the top and
+saves the original filename. The same reader is responsive on mobile and opening the authorised
+file continues to record the evidence view.
 
 ## v70 Team member workload review path
 

@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
+import { sanitiseTheme, type ThemeColors } from '@/lib/theme';
+
 import {
   createSupabaseServerClient,
   createSupabaseServiceRoleClient,
@@ -549,4 +551,36 @@ export async function setVisibilityAction(
             reach === 0 ? 'own work only' : `own work plus ${reach} people`
           }.`,
   };
+}
+
+/**
+ * Saves the caller's nine colour overrides.
+ *
+ * Validated here and again in the procedure. Here so the person gets a
+ * sentence rather than a refusal code; there because a server action is a
+ * public endpoint and the values end up in a stylesheet, which is not a place
+ * to take somebody's word for what a colour is.
+ */
+export async function saveThemeColors(colors: ThemeColors): Promise<SettingsActionState> {
+  await requireProfile();
+  const cleaned = sanitiseTheme(colors);
+  const asked = Object.keys(colors ?? {}).length;
+  if (asked > 0 && Object.keys(cleaned).length !== asked) {
+    return initialError('Every colour has to be a value like #1668e8.');
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('set_theme_colors', {
+    p_colors: Object.keys(cleaned).length ? cleaned : null,
+  });
+  if (error) {
+    console.error(`[set_theme_colors] ${error.message}`);
+    return initialError('The theme could not be saved.');
+  }
+  const state = resultState(data as RpcResult, 'Theme saved.');
+  if (state.ok) {
+    // Every screen renders the palette, so every screen is stale.
+    revalidatePath('/', 'layout');
+  }
+  return state;
 }

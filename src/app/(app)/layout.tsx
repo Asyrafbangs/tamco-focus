@@ -1,5 +1,9 @@
 import { redirect } from 'next/navigation';
 
+import { sanitiseTheme, themeStyleSheet } from '@/lib/theme';
+
+import { ThemeAttribute } from './ThemeAttribute';
+
 import { MobileNavigation, NavigationRail } from '@/components/Navigation';
 import { NotificationBell } from '@/components/NotificationBell';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -37,8 +41,24 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .join('')
     .toUpperCase();
 
+  const themeColors = sanitiseTheme(profile.theme_colors);
+  const themeCss = themeStyleSheet(themeColors);
+
   return (
     <div className="app">
+      {/*
+        The saved palette, rendered by the server.
+
+        Two elements rather than one: this carries what is stored, and the
+        settings page writes into the empty one below it while somebody is
+        choosing, so the whole application previews live without this being
+        rebuilt on every keystroke. The attribute is what the override selector
+        keys on, so a person with no theme costs nothing at all.
+      */}
+      {themeCss && <style id="tamco-theme-saved">{themeCss}</style>}
+      <style id="tamco-theme-live" />
+      {themeCss && <ThemeAttribute />}
+
       <a className="skip-link" href="#main">
         Skip to main content
       </a>

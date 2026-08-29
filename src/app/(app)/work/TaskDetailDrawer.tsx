@@ -6,6 +6,7 @@ import { useState, useTransition } from 'react';
 
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker';
 import { Modal } from '@/components/ui/Modal';
+import { MenuDropdown } from '@/components/ui/MenuDropdown';
 import { SideDrawer } from '@/components/ui/SideDrawer';
 import { AttachmentViewer, canPreview } from './AttachmentViewer';
 import { RoutineOutcomePanel } from './RoutineOutcomePanel';
@@ -184,9 +185,6 @@ export function TaskDetailDrawer({
   const [resumeReason, setResumeReason] = useState<ActivationReason | null>(null);
   const [resumeNote, setResumeNote] = useState('');
   const [resumeNeedsReason, setResumeNeedsReason] = useState(false);
-  // Whether the administration menu is showing. Everything in it is either
-  // rare or irreversible, so none of it competes with the two buttons above.
-  const [adminOpen, setAdminOpen] = useState(false);
   const openBarrier = detail.barriers.find((item) => item.status === 'open');
 
   /*
@@ -407,7 +405,17 @@ export function TaskDetailDrawer({
    */
   function revealBarrier(barrierId: string) {
     setDrawerExpanded(true);
+    /*
+     * v84 moved Barriers inside Details, which is closed by default - so this
+     * marked a record that was never rendered and the button did nothing at
+     * all. Asking to see the request is reason enough to open the section that
+     * holds it.
+     */
+    setOpenSection('details');
     setRevealedBarrierId(barrierId);
+    requestAnimationFrame(() => {
+      document.getElementById('barriers-heading')?.scrollIntoView({ block: 'center' });
+    });
   }
 
   function finish(result: OperationResult, success: string) {
@@ -683,8 +691,7 @@ export function TaskDetailDrawer({
             <a
               className="btn small"
               href={`/api/attachments/${viewingFile.id}`}
-              target="_blank"
-              rel="noreferrer"
+              download={viewingFile.fileName}
             >
               Download
             </a>
@@ -695,7 +702,7 @@ export function TaskDetailDrawer({
         ) : (
           <button
             type="button"
-            className="btn small ghost"
+            className="btn small ghost drawer-expand-toggle"
             aria-pressed={drawerExpanded}
             onClick={() => setDrawerExpanded((current) => !current)}
           >
@@ -1455,9 +1462,19 @@ export function TaskDetailDrawer({
             >
               + Add update
             </button>
-            <button type="button" className="btn" onClick={() => setBarrierOpen(true)}>
-              Need support
-            </button>
+            {/*
+              v46 §39 - not offered while a barrier is already open.
+
+              The panel above already says who the work is waiting for and
+              offers to show the request. Leaving this here invited somebody to
+              raise a second barrier about the problem they were looking at,
+              which is what the callout it replaced was careful not to do.
+            */}
+            {!openBarrier && (
+              <button type="button" className="btn" onClick={() => setBarrierOpen(true)}>
+                Need support
+              </button>
+            )}
           </div>
         )}
 
@@ -2138,191 +2155,176 @@ export function TaskDetailDrawer({
             <span />
           )}
           {detail.capabilities.canEdit || detail.capabilities.canDelete ? (
-            <div className="task-admin-menu">
-              <button
-                type="button"
-                className="btn ghost task-admin-toggle"
-                aria-expanded={adminOpen}
-                aria-label="More task actions"
-                onClick={() => setAdminOpen((current) => !current)}
-              >
-                •••
-              </button>
-              {adminOpen && (
-                <div className="task-admin-popover" role="group" aria-label="Task administration">
-                  {/*
+            <MenuDropdown
+              label="•••"
+              ariaLabel="More task actions"
+              className="task-admin-menu"
+              panelClassName="task-admin-popover"
+              minWidth={320}
+            >
+              <div role="group" aria-label="Task administration">
+                {/*
                     Editing the work and moving its date are administration,
                     not execution. They used to sit in the header beside the due
                     date, where they were the two most prominent controls on a
                     screen whose point is to get something done.
                   */}
-                  {detail.capabilities.canEdit &&
-                  task.status !== 'completed' &&
-                  task.status !== 'cancelled' ? (
-                    <section className="task-admin-group">
-                      <div className="task-admin-buttons">
-                        <button
-                          type="button"
-                          className="btn small"
-                          onClick={() => {
-                            setTitleDraft(task.title);
-                            setDescriptionDraft(task.description ?? '');
-                            setEditOpen(true);
-                            setAdminOpen(false);
-                          }}
-                        >
-                          Edit work
-                        </button>
-                        <button
-                          type="button"
-                          className="btn small"
-                          onClick={() => {
-                            openDueEditor();
-                            setAdminOpen(false);
-                          }}
-                        >
-                          Edit due date
-                        </button>
-                      </div>
-                    </section>
-                  ) : null}
-                  {detail.capabilities.canEdit && (
-                    <section className="task-admin-group">
-                      <div className="detail-lifecycle">
-                        <TaskRowActions
-                          taskId={task.id}
-                          title={task.title}
-                          status={task.status}
-                          version={task.version}
-                          bucket={task.focusBucket}
-                          isMandatory={task.isMandatory}
-                        />
+                {detail.capabilities.canEdit &&
+                task.status !== 'completed' &&
+                task.status !== 'cancelled' ? (
+                  <section className="task-admin-group">
+                    <div className="task-admin-buttons">
+                      <button
+                        type="button"
+                        className="btn small"
+                        onClick={() => {
+                          setTitleDraft(task.title);
+                          setDescriptionDraft(task.description ?? '');
+                          setEditOpen(true);
+                        }}
+                      >
+                        Edit work
+                      </button>
+                      <button
+                        type="button"
+                        className="btn small"
+                        onClick={() => {
+                          openDueEditor();
+                        }}
+                      >
+                        Edit due date
+                      </button>
+                    </div>
+                  </section>
+                ) : null}
+                {detail.capabilities.canEdit && (
+                  <section className="task-admin-group">
+                    <div className="detail-lifecycle">
+                      <TaskRowActions
+                        taskId={task.id}
+                        title={task.title}
+                        status={task.status}
+                        version={task.version}
+                        bucket={task.focusBucket}
+                        isMandatory={task.isMandatory}
+                      />
 
-                        {task.status === 'active' && (
-                          <>
-                            <details>
-                              <summary>Pause</summary>
-                              <form
-                                className="detail-form"
-                                onSubmit={(event) => {
-                                  event.preventDefault();
-                                  const form = event.currentTarget;
-                                  const data = new FormData(form);
-                                  const restart = String(data.get('restartAt') ?? '');
-                                  startTransition(async () => {
-                                    const result = await pauseTask({
-                                      taskId: task.id,
-                                      expectedVersion: task.version,
-                                      reason: String(data.get('reason') ?? ''),
-                                      restartAt: restart ? new Date(restart).toISOString() : null,
-                                      idempotencyKey: idempotencyKey(),
-                                    });
-                                    finish(
-                                      result,
-                                      'Work paused with restart information recorded.',
-                                    );
+                      {task.status === 'active' && (
+                        <>
+                          <details>
+                            <summary>Pause</summary>
+                            <form
+                              className="detail-form"
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                const form = event.currentTarget;
+                                const data = new FormData(form);
+                                const restart = String(data.get('restartAt') ?? '');
+                                startTransition(async () => {
+                                  const result = await pauseTask({
+                                    taskId: task.id,
+                                    expectedVersion: task.version,
+                                    reason: String(data.get('reason') ?? ''),
+                                    restartAt: restart ? new Date(restart).toISOString() : null,
+                                    idempotencyKey: idempotencyKey(),
                                   });
-                                }}
-                              >
-                                <div className="field">
-                                  <label htmlFor={`pause-reason-${task.id}`}>Why pause?</label>
-                                  <textarea
-                                    id={`pause-reason-${task.id}`}
-                                    name="reason"
-                                    required
-                                    rows={2}
-                                  />
-                                </div>
-                                <div className="field">
-                                  <label htmlFor={`restart-${task.id}`}>Restart or review at</label>
-                                  <input
-                                    id={`restart-${task.id}`}
-                                    name="restartAt"
-                                    type="datetime-local"
-                                    required
-                                  />
-                                </div>
-                                <button
-                                  className="btn small"
-                                  disabled={pending}
-                                  aria-busy={pending}
-                                >
-                                  Pause work
-                                </button>
-                              </form>
-                            </details>
-                            {/*
+                                  finish(result, 'Work paused with restart information recorded.');
+                                });
+                              }}
+                            >
+                              <div className="field">
+                                <label htmlFor={`pause-reason-${task.id}`}>Why pause?</label>
+                                <textarea
+                                  id={`pause-reason-${task.id}`}
+                                  name="reason"
+                                  required
+                                  rows={2}
+                                />
+                              </div>
+                              <div className="field">
+                                <label htmlFor={`restart-${task.id}`}>Restart or review at</label>
+                                <input
+                                  id={`restart-${task.id}`}
+                                  name="restartAt"
+                                  type="datetime-local"
+                                  required
+                                />
+                              </div>
+                              <button className="btn small" disabled={pending} aria-busy={pending}>
+                                Pause work
+                              </button>
+                            </form>
+                          </details>
+                          {/*
                       Completion lives on the Overview now, surfaced the moment
                       nothing blocks it. Keeping a second copy here would be two
                       routes to one operation and one of them would drift.
                       Offered here only while something is still outstanding, so
                       the action is never unreachable.
                     */}
-                            {!readyToComplete && detail.capabilities.canComplete && (
-                              <button
-                                type="button"
-                                className="btn small"
-                                onClick={() => setCompleteOpen(true)}
-                              >
-                                Complete task
-                              </button>
-                            )}
-                          </>
-                        )}
-
-                        {task.status === 'paused' && (
-                          <div className="detail-form">
-                            {resumeNeedsReason && (
-                              <>
-                                <div className="field">
-                                  <label htmlFor={`resume-reason-${task.id}`}>
-                                    Why is this additional focus needed now?
-                                  </label>
-                                  <select
-                                    id={`resume-reason-${task.id}`}
-                                    value={resumeReason ?? ''}
-                                    onChange={(event) =>
-                                      setResumeReason(
-                                        (event.target.value || null) as ActivationReason | null,
-                                      )
-                                    }
-                                  >
-                                    <option value="">Select a reason</option>
-                                    {ACTIVATION_REASON_OPTIONS.map((option) => (
-                                      <option key={option.value} value={option.value}>
-                                        {option.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                                {resumeReason === 'other' && (
-                                  <div className="field">
-                                    <label htmlFor={`resume-note-${task.id}`}>
-                                      Add a short note
-                                    </label>
-                                    <textarea
-                                      id={`resume-note-${task.id}`}
-                                      value={resumeNote}
-                                      onChange={(event) => setResumeNote(event.target.value)}
-                                      rows={2}
-                                    />
-                                  </div>
-                                )}
-                              </>
-                            )}
+                          {!readyToComplete && detail.capabilities.canComplete && (
                             <button
                               type="button"
-                              className="btn primary"
-                              onClick={runResume}
-                              disabled={pending}
-                              aria-busy={pending}
+                              className="btn small"
+                              onClick={() => setCompleteOpen(true)}
                             >
-                              Resume work
+                              Complete task
                             </button>
-                          </div>
-                        )}
+                          )}
+                        </>
+                      )}
 
-                        {/*
+                      {task.status === 'paused' && (
+                        <div className="detail-form">
+                          {resumeNeedsReason && (
+                            <>
+                              <div className="field">
+                                <label htmlFor={`resume-reason-${task.id}`}>
+                                  Why is this additional focus needed now?
+                                </label>
+                                <select
+                                  id={`resume-reason-${task.id}`}
+                                  value={resumeReason ?? ''}
+                                  onChange={(event) =>
+                                    setResumeReason(
+                                      (event.target.value || null) as ActivationReason | null,
+                                    )
+                                  }
+                                >
+                                  <option value="">Select a reason</option>
+                                  {ACTIVATION_REASON_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              {resumeReason === 'other' && (
+                                <div className="field">
+                                  <label htmlFor={`resume-note-${task.id}`}>Add a short note</label>
+                                  <textarea
+                                    id={`resume-note-${task.id}`}
+                                    value={resumeNote}
+                                    onChange={(event) => setResumeNote(event.target.value)}
+                                    rows={2}
+                                  />
+                                </div>
+                              )}
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            className="btn primary"
+                            onClick={runResume}
+                            disabled={pending}
+                            aria-busy={pending}
+                          >
+                            Resume work
+                          </button>
+                        </div>
+                      )}
+
+                      {/*
                   v52 — the two ends of the lifecycle that had no way in.
                   
                   `cancelled` has always existed in the status enum and
@@ -2330,117 +2332,113 @@ export function TaskDetailDrawer({
                   work captured by mistake could only be completed, which puts
                   a lie in the record, or left in Available for ever.
                 */}
-                        {detail.capabilities.canCancel &&
-                          task.status !== 'completed' &&
-                          task.status !== 'cancelled' && (
-                            <form
-                              className="detail-lifecycle-form"
-                              onSubmit={(event) => {
-                                event.preventDefault();
-                                const form = event.currentTarget;
-                                const reason = String(new FormData(form).get('cancelReason') ?? '');
-                                setMessage(null);
-                                startTransition(async () => {
-                                  if (
-                                    finish(
-                                      await cancelTask({
-                                        taskId: task.id,
-                                        expectedVersion: taskVersion,
-                                        reason,
-                                        idempotencyKey: idempotencyKey(),
-                                      }),
-                                      'Work cancelled. It stays on the record with your reason.',
-                                    )
-                                  ) {
-                                    form.reset();
-                                    setTaskVersion((current) => current + 1);
-                                  }
-                                });
-                              }}
+                      {detail.capabilities.canCancel &&
+                        task.status !== 'completed' &&
+                        task.status !== 'cancelled' && (
+                          <form
+                            className="detail-lifecycle-form"
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              const form = event.currentTarget;
+                              const reason = String(new FormData(form).get('cancelReason') ?? '');
+                              setMessage(null);
+                              startTransition(async () => {
+                                if (
+                                  finish(
+                                    await cancelTask({
+                                      taskId: task.id,
+                                      expectedVersion: taskVersion,
+                                      reason,
+                                      idempotencyKey: idempotencyKey(),
+                                    }),
+                                    'Work cancelled. It stays on the record with your reason.',
+                                  )
+                                ) {
+                                  form.reset();
+                                  setTaskVersion((current) => current + 1);
+                                }
+                              });
+                            }}
+                          >
+                            <label htmlFor={`cancel-${task.id}`}>
+                              Cancel this work — why is it no longer needed?
+                            </label>
+                            <textarea
+                              id={`cancel-${task.id}`}
+                              name="cancelReason"
+                              rows={2}
+                              required
+                            />
+                            <button
+                              className="btn small danger"
+                              disabled={pending}
+                              aria-busy={pending}
                             >
-                              <label htmlFor={`cancel-${task.id}`}>
-                                Cancel this work — why is it no longer needed?
-                              </label>
-                              <textarea
-                                id={`cancel-${task.id}`}
-                                name="cancelReason"
-                                rows={2}
-                                required
-                              />
-                              <button
-                                className="btn small danger"
-                                disabled={pending}
-                                aria-busy={pending}
-                              >
-                                Cancel work
-                              </button>
-                            </form>
-                          )}
+                              Cancel work
+                            </button>
+                          </form>
+                        )}
 
-                        {/*
+                      {/*
                   Reassignment is a manager act and the capability says so, so
                   an owner never sees a control the database would refuse. It
                   is also the answer to the message an administrator gets when
                   deactivating somebody who still owns open work.
                 */}
-                        {detail.capabilities.canReassign &&
-                          task.status !== 'completed' &&
-                          task.status !== 'cancelled' &&
-                          assignablePeople.length > 0 && (
-                            <form
-                              className="detail-lifecycle-form"
-                              onSubmit={(event) => {
-                                event.preventDefault();
-                                const form = event.currentTarget;
-                                const newOwnerId = String(
-                                  new FormData(form).get('newOwnerId') ?? '',
-                                );
-                                if (!newOwnerId) return;
-                                setMessage(null);
-                                startTransition(async () => {
-                                  const result = (await reassignTask({
-                                    taskId: task.id,
-                                    expectedVersion: taskVersion,
-                                    newOwnerId,
-                                    idempotencyKey: idempotencyKey(),
-                                  })) as OperationResult<{
-                                    workload_review_needed?: boolean;
-                                    active_count?: number;
-                                    recommended_target?: number;
-                                    status?: string;
-                                  }>;
-                                  const success =
-                                    result.ok && result.workload_review_needed
-                                      ? `Owner changed. Work remains ${result.status ?? task.status}; workload review needed (${result.active_count ?? 'over'}/${result.recommended_target ?? 'target'} Active).`
-                                      : `Owner changed. Work remains ${result.ok ? (result.status ?? task.status) : task.status}.`;
-                                  if (finish(result, success)) {
-                                    setTaskVersion((current) => current + 1);
-                                  }
-                                });
-                              }}
-                            >
-                              <label htmlFor={`reassign-${task.id}`}>
-                                Change the primary owner
-                              </label>
-                              <select id={`reassign-${task.id}`} name="newOwnerId" defaultValue="">
-                                <option value="">Choose a person</option>
-                                {assignablePeople
-                                  .filter((person) => person.id !== task.primaryOwnerId)
-                                  .map((person) => (
-                                    <option key={person.id} value={person.id}>
-                                      {person.name}
-                                    </option>
-                                  ))}
-                              </select>
-                              <button className="btn small" disabled={pending} aria-busy={pending}>
-                                Reassign work
-                              </button>
-                            </form>
-                          )}
-                      </div>
-                    </section>
-                  )}
-                  {/*
+                      {detail.capabilities.canReassign &&
+                        task.status !== 'completed' &&
+                        task.status !== 'cancelled' &&
+                        assignablePeople.length > 0 && (
+                          <form
+                            className="detail-lifecycle-form"
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              const form = event.currentTarget;
+                              const newOwnerId = String(new FormData(form).get('newOwnerId') ?? '');
+                              if (!newOwnerId) return;
+                              setMessage(null);
+                              startTransition(async () => {
+                                const result = (await reassignTask({
+                                  taskId: task.id,
+                                  expectedVersion: taskVersion,
+                                  newOwnerId,
+                                  idempotencyKey: idempotencyKey(),
+                                })) as OperationResult<{
+                                  workload_review_needed?: boolean;
+                                  active_count?: number;
+                                  recommended_target?: number;
+                                  status?: string;
+                                }>;
+                                const success =
+                                  result.ok && result.workload_review_needed
+                                    ? `Owner changed. Work remains ${result.status ?? task.status}; workload review needed (${result.active_count ?? 'over'}/${result.recommended_target ?? 'target'} Active).`
+                                    : `Owner changed. Work remains ${result.ok ? (result.status ?? task.status) : task.status}.`;
+                                if (finish(result, success)) {
+                                  setTaskVersion((current) => current + 1);
+                                }
+                              });
+                            }}
+                          >
+                            <label htmlFor={`reassign-${task.id}`}>Change the primary owner</label>
+                            <select id={`reassign-${task.id}`} name="newOwnerId" defaultValue="">
+                              <option value="">Choose a person</option>
+                              {assignablePeople
+                                .filter((person) => person.id !== task.primaryOwnerId)
+                                .map((person) => (
+                                  <option key={person.id} value={person.id}>
+                                    {person.name}
+                                  </option>
+                                ))}
+                            </select>
+                            <button className="btn small" disabled={pending} aria-busy={pending}>
+                              Reassign work
+                            </button>
+                          </form>
+                        )}
+                    </div>
+                  </section>
+                )}
+                {/*
           Delete, on its own and always reachable.
 
           This button used to live inside the "More task actions" disclosure,
@@ -2461,28 +2459,28 @@ export function TaskDetailDrawer({
           expanded, which would bury the control all over again. The
           `drawer-panel-overview` class stays so it belongs to the Overview tab.
         */}
-                  {detail.capabilities.canDelete && (
-                    <section className="task-admin-group task-delete-section">
-                      <div>
-                        <strong>Delete this work</strong>
-                        <p className="muted">
-                          For work that should never have been created. It moves to the Bin and can
-                          be restored. To stop work that was right to create but should not go
-                          ahead, cancel it instead.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        className="btn small danger"
-                        disabled={pending}
-                        onClick={() => setDeleteOpen(true)}
-                      >
-                        Delete task
-                      </button>
-                    </section>
-                  )}
+                {detail.capabilities.canDelete && (
+                  <section className="task-admin-group task-delete-section">
+                    <div>
+                      <strong>Delete this work</strong>
+                      <p className="muted">
+                        For work that should never have been created. It moves to the Bin and can be
+                        restored. To stop work that was right to create but should not go ahead,
+                        cancel it instead.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn small danger"
+                      disabled={pending}
+                      onClick={() => setDeleteOpen(true)}
+                    >
+                      Delete task
+                    </button>
+                  </section>
+                )}
 
-                  {/*
+                {/*
           v52 — recording what an inspection found (master spec §16.4).
 
           The table, the procedure and the server action have existed since the
@@ -2495,9 +2493,8 @@ export function TaskDetailDrawer({
           work for somebody to own. The procedure enforces that; this form only
           has to ask the question clearly.
         */}
-                </div>
-              )}
-            </div>
+              </div>
+            </MenuDropdown>
           ) : null}
         </div>
       </div>

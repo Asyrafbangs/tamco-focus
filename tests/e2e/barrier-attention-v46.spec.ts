@@ -53,7 +53,7 @@ test('a decision request is actionable from every entry point', async ({ page },
   await expect(drawer).toBeVisible();
 
   // With no open barrier the quiet option is the one on offer.
-  await drawer.getByRole('button', { name: 'Raise barrier' }).click();
+  await drawer.getByRole('button', { name: 'Need support' }).click();
 
   const barrierForm = page.getByRole('dialog', { name: 'Raise Barrier' });
   await expect(barrierForm).toBeVisible();
@@ -70,8 +70,10 @@ test('a decision request is actionable from every entry point', async ({ page },
   const waiting = page.locator('.barrier-exception.waiting');
   await expect(waiting).toBeVisible();
   await expect(waiting).toContainText('Waiting for');
+  // v84 renamed the control and moved it into the drawer's primary actions,
+  // so this asserts where it now lives rather than where it used to.
   await expect(
-    page.locator('.barrier-exception').getByRole('button', { name: 'Raise barrier' }),
+    page.locator('.task-primary-actions').getByRole('button', { name: 'Need support' }),
   ).toHaveCount(0);
 
   // --- Izzul is asked -------------------------------------------------------

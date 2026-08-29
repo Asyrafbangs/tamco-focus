@@ -1,7 +1,9 @@
+import { sanitiseTheme } from '@/lib/theme';
 import { requireProfile } from '@/lib/supabase/server';
 import { getSettingsData } from '@/server/queries';
 
 import { PersonalSettingsForm, SettingsPolicyRow } from '../SettingsForms';
+import { ThemeSettings } from '../ThemeSettings';
 import { SettingsWorkspace, type SettingsKey } from './SettingsWorkspace';
 
 const supportedOrgKeys = new Set([
@@ -58,6 +60,9 @@ export default async function SettingsPage({
       </section>
       <section data-settings-panel="accessibility" aria-label="Accessibility settings">
         <PersonalSettingsForm profile={profile} data={data} section="accessibility" />
+      </section>
+      <section data-settings-panel="appearance" aria-label="Appearance settings">
+        <ThemeSettings initial={sanitiseTheme(profile.theme_colors)} />
       </section>
 
       {canManageOperations && (

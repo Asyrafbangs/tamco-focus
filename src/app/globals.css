@@ -479,7 +479,11 @@
 }
 
 @media (max-width: 440px) {
-  .task-detail-drawer .task-detail-head-actions .btn:first-child {
+  /* Expand, and only Expand. A phone drawer is already full width, so the
+     control has nothing to do - but this was written as "the first button",
+     and when the attachment viewer put Download there instead, the only way
+     to save a file on a phone quietly disappeared. */
+  .task-detail-drawer .task-detail-head-actions .drawer-expand-toggle {
     display: none;
   }
   .task-detail-drawer .barrier-callout {
@@ -1308,6 +1312,9 @@
 .settings-workspace[data-active='workspace'] [data-settings-panel='workspace'],
 .settings-workspace[data-active='alerts'] [data-settings-panel='alerts'],
 .settings-workspace[data-active='accessibility'] [data-settings-panel='accessibility'],
+/* Every section needs a line here or its panel is display:none for good. A
+   test asserts the list is complete, because nothing else does. */
+.settings-workspace[data-active='appearance'] [data-settings-panel='appearance'],
 .settings-workspace[data-active='focus'] [data-settings-panel='focus'],
 .settings-workspace[data-active='review'] [data-settings-panel='review'],
 .settings-workspace[data-active='routine'] [data-settings-panel='routine'],
@@ -1639,7 +1646,7 @@
 .cal-item-owner {
   display: block;
   overflow: hidden;
-  font-size: 8.5px;
+  font-size: 9px;
   font-weight: 600;
   opacity: 0.78;
   text-overflow: ellipsis;
@@ -7799,7 +7806,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   margin: 4px 0 0 16px;
   overflow: hidden;
   color: var(--muted);
-  font-size: 9.4px;
+  font-size: 9.5px;
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -7818,17 +7825,17 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   height: 5px;
 }
 .goal-row-progress .sub {
-  font-size: 8.7px;
+  font-size: 9px;
 }
 .goal-row-date {
   justify-items: end;
   text-align: right;
 }
 .goal-row-date strong {
-  font-size: 9.8px;
+  font-size: 10px;
 }
 .goal-row-date .sub {
-  font-size: 8.7px;
+  font-size: 9px;
 }
 
 .task-detail-head {
@@ -10413,4 +10420,177 @@ button.attachment-row {
   .routine-breakdown-row {
     padding: 11px 13px;
   }
+}
+
+/* ------------------------------------------------------------------------ */
+/* v108 - appearance: nine colours, previewed as the product                 */
+/* ------------------------------------------------------------------------ */
+
+.theme-settings {
+  display: grid;
+  gap: 16px;
+}
+.theme-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.theme-fields {
+  display: grid;
+  gap: 12px;
+}
+.theme-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.theme-field label {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.theme-field label strong {
+  font-size: 12.5px;
+}
+.theme-field label small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.theme-inputs {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+.theme-inputs input[type='color'] {
+  width: 40px;
+  height: 34px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  cursor: pointer;
+}
+.theme-hex {
+  width: 92px;
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  text-transform: lowercase;
+}
+.theme-hex[aria-invalid='true'] {
+  border-color: var(--red);
+}
+
+/* The preview is the product, not nine swatches: the question is never "is
+   this blue nice" but "can I read a status message on it". */
+.theme-preview {
+  position: sticky;
+  top: 12px;
+  display: grid;
+  gap: 12px;
+}
+.theme-preview-frame {
+  display: flex;
+  gap: 0;
+  min-height: 190px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.theme-preview-rail {
+  flex: 0 0 44px;
+}
+.theme-preview-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 14px;
+}
+.theme-preview-head {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.theme-preview-card {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+}
+.theme-preview-card strong {
+  font-size: 12.5px;
+}
+.theme-preview-card > span {
+  font-size: 11px;
+}
+.theme-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.theme-preview-actions span {
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 650;
+}
+.theme-preview-states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.theme-warnings {
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--amber) 35%, var(--line));
+  border-radius: var(--radius-sm);
+  background: var(--amber-bg);
+}
+.theme-warnings strong,
+.theme-warnings p {
+  display: block;
+  margin: 0;
+  font-size: 11.5px;
+}
+.theme-warnings ul {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+.theme-warnings li {
+  font-size: 11px;
+  line-height: 1.5;
+}
+.theme-warnings p {
+  color: var(--muted);
+}
+
+.theme-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .theme-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .theme-preview {
+    position: static;
+  }
+}
+
+.theme-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.55;
 }

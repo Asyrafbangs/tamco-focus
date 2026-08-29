@@ -32,7 +32,8 @@ browser preference because the final iframe still depended on the built-in PDF p
 - HTML, SVG, office documents, text and other unsupported types remain explicit downloads.
 - The attachment route continues to authenticate, apply row-level visibility and write the automatic
   attachment-view audit event before returning bytes.
-- Download remains optional and deliberate.
+- Download remains optional and deliberate, visible in the attachment header, and retains the
+  original filename.
 - No SQL migration, generated database type, RLS, notification or production-data change is required.
 
 ## Acceptance checks

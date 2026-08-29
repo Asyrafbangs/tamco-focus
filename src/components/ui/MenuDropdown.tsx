@@ -39,9 +39,13 @@ export function MenuDropdown({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState<{ top: number; right: number; width: number } | null>(
-    null,
-  );
+  const [position, setPosition] = useState<{
+    top?: number;
+    bottom?: number;
+    right: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -49,10 +53,24 @@ export function MenuDropdown({
   useLayoutEffect(() => {
     if (!open || !buttonRef.current) return;
     const rect = buttonRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const spaceAbove = rect.top;
+    /*
+     * Opens upward when there is no room below.
+     *
+     * A menu on a button at the foot of a drawer has nowhere to go downward,
+     * and an absolutely positioned panel that opens up instead slides under
+     * whatever sticky header is above it - where it is visible but cannot be
+     * clicked, because the header takes the pointer. Choosing the side with
+     * room, and capping the height to it, is what stops that.
+     */
+    const openUp = spaceBelow < 260 && spaceAbove > spaceBelow;
+    const room = (openUp ? spaceAbove : spaceBelow) - 16;
     setPosition({
-      top: rect.bottom + 4,
+      ...(openUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
       right: Math.max(8, window.innerWidth - rect.right),
       width: Math.max(minWidth, rect.width),
+      maxHeight: Math.max(160, room),
     });
   }, [open, minWidth]);
 
@@ -69,8 +87,17 @@ export function MenuDropdown({
       setOpen(false);
       buttonRef.current?.focus();
     };
-    // Capture, so a scroll inside any container closes it and not only the page.
-    const onScroll = () => setOpen(false);
+    /*
+     * Scrolling the page moves the button the panel is pinned to, so the panel
+     * has to go. Scrolling INSIDE the panel does not - and closing on that
+     * makes a long menu impossible to read past its first screen, which is
+     * what a capture listener with no origin check did.
+     */
+    const onScroll = (event: Event) => {
+      const target = event.target;
+      if (target instanceof Node && panelRef.current?.contains(target)) return;
+      setOpen(false);
+    };
 
     document.addEventListener('pointerdown', onPointerDown, true);
     document.addEventListener('keydown', onKeyDown);
@@ -108,7 +135,13 @@ export function MenuDropdown({
           className={
             panelClassName ? `menu-dropdown-panel ${panelClassName}` : 'menu-dropdown-panel'
           }
-          style={{ top: position.top, right: position.right, minWidth: position.width }}
+          style={{
+            top: position.top,
+            bottom: position.bottom,
+            right: position.right,
+            minWidth: position.width,
+            maxHeight: position.maxHeight,
+          }}
           /* A choice inside is a navigation or a submit; either way the menu
              has done its job and should not still be sitting there when the
              new page paints. */

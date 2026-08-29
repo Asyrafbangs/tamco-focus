@@ -120,6 +120,104 @@ test.describe('responsive behaviour', () => {
   });
 });
 
+test.describe('settings sections', () => {
+  /**
+   * Every section shows its panel.
+   *
+   * The panels are hidden by default and revealed by an enumerated list of
+   * `[data-active='x'] [data-settings-panel='x']` rules. Adding a section
+   * without adding its line leaves it `display: none` for good - navigable,
+   * present in the DOM, and invisible. That is a silent failure no type
+   * checker can see, so it is checked here.
+   */
+  test('each one reveals a panel with something in it', async ({ page }) => {
+    await signIn(page);
+    await page.goto('/more/settings');
+    await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+
+    const sections = await page.evaluate(() =>
+      [...document.querySelectorAll('[data-settings-panel]')].map((panel) =>
+        panel.getAttribute('data-settings-panel'),
+      ),
+    );
+    expect(sections.length).toBeGreaterThan(5);
+
+    const invisible: string[] = [];
+    for (const section of sections) {
+      await page.goto(`/more/settings?section=${section}`);
+      await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+      const shown = await page.evaluate((key) => {
+        const panel = document.querySelector(`[data-settings-panel="${key}"]`);
+        if (!panel) return false;
+        const box = panel.getBoundingClientRect();
+        return box.height > 0 && box.width > 0;
+      }, section);
+      if (!shown) invisible.push(String(section));
+    }
+
+    expect(invisible, 'settings sections whose panel never displays').toEqual([]);
+  });
+});
+
+test.describe('typography', () => {
+  /**
+   * The type scale, locked.
+   *
+   * 444 font-size rules had grown to twenty-two distinct values, including
+   * 8.7px and 9.8px - arithmetic that escaped into the stylesheet rather than
+   * sizes anybody chose. Rounding them was the easy half; this is the half
+   * that stops it happening again, because a scale nothing enforces is a
+   * suggestion.
+   *
+   * Measured on the rendered page rather than read from the stylesheet, so it
+   * covers inline styles and anything a component sets for itself.
+   */
+  const SCALE = [
+    8, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5,
+    // The inherited base, from `body { font: calc(13.5px * var(--font-scale)) }`.
+    // Anything that sets no size of its own lands here.
+    13.5, 13, 14, 15, 16, 17, 18, 20, 21, 22, 24, 25, 26, 28,
+    // Browser defaults on elements the product does not size itself.
+    32, 37.3281,
+  ];
+
+  test('every rendered size is a step on the scale', async ({ page }) => {
+    await signIn(page);
+
+    const offScale = new Map<number, string>();
+    for (const path of ['/today', '/work', '/work/routine', '/goals', '/plan', '/more/settings']) {
+      await page.goto(path);
+      await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+      const found = await page.evaluate(() =>
+        [...document.querySelectorAll('body *')]
+          .filter((element) => {
+            const text = [...element.childNodes].some(
+              (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim(),
+            );
+            if (!text || (element as HTMLElement).offsetParent === null) return false;
+            // Screen-reader-only text has no visual size to be consistent with.
+            return !element.closest('.visually-hidden, [aria-hidden="true"]');
+          })
+          .map((element) => ({
+            size: Number.parseFloat(getComputedStyle(element).fontSize),
+            label: element.className || element.tagName,
+          })),
+      );
+      for (const entry of found) {
+        if (!Number.isFinite(entry.size)) continue;
+        if (!SCALE.some((step) => Math.abs(step - entry.size) < 0.02)) {
+          offScale.set(entry.size, `${path} · ${String(entry.label).slice(0, 40)}`);
+        }
+      }
+    }
+
+    expect(
+      [...offScale.entries()].map(([size, where]) => `${size}px on ${where}`),
+      'font sizes outside the scale',
+    ).toEqual([]);
+  });
+});
+
 test.describe('touch targets', () => {
   test('every control is at least 44px tall on mobile', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile', 'Touch sizing applies to the mobile build.');

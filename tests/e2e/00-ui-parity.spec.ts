@@ -339,7 +339,9 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
   // v84 - administration moved behind the ••• menu in the footer. Nothing is
   // hidden behind Expand any more, so no expansion is needed to reach it.
   await activationDrawer.getByRole('button', { name: 'More task actions' }).click();
-  await activationDrawer.getByRole('button', { name: 'Activate' }).click();
+  // The menu renders against the viewport rather than inside the drawer, so it
+  // can flip above a footer button without sliding under the sticky header.
+  await page.getByRole('menu').getByRole('button', { name: 'Activate' }).click();
   await completeActivationPromptIfNeeded(page);
   const drawerUndo = activationDrawer.getByRole('button', { name: 'Undo' });
   await expect(drawerUndo).toBeVisible();

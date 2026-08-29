@@ -383,7 +383,8 @@ check unless marked otherwise.
       document-level horizontal overflow.
 - [ ] Opening a PDF still records the authorised attachment view; an unauthorised request remains a
       neutral not-found response.
-- [ ] Download remains an explicit separate action and unsupported document types remain downloads.
+- [ ] Download remains an explicit separate action in the attachment header, preserves the original
+      filename, and unsupported document types remain downloads.
 - [ ] Images still preview in the same surface, object URLs are revoked on close, and loading or
       corrupt PDFs show an actionable error state.
 - [ ] Unit, E2E, accessibility, lint, formatting, typecheck, production build and smoke checks pass.

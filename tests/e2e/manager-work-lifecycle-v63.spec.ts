@@ -43,7 +43,9 @@ test.describe('v63 manager work lifecycle', () => {
     const drawer = page.locator('.task-detail-drawer');
     await expect(drawer).toBeVisible();
 
-    const deleteButton = drawer.getByRole('button', { name: /^Delete/ });
+    // v84 - administration lives behind the ••• menu in the drawer footer.
+    await drawer.getByRole('button', { name: 'More task actions' }).click();
+    const deleteButton = page.getByRole('menu').getByRole('button', { name: /^Delete/ });
     await expect(deleteButton).toBeVisible();
     await deleteButton.click();
 
@@ -69,10 +71,13 @@ test.describe('v63 manager work lifecycle', () => {
      * became correct the moment you clicked the thing it was supposed to be
      * telling you about.
      */
+    await page.getByRole('button', { name: 'More work views' }).click();
     const binTab = page.getByRole('link', { name: /^Bin/ });
     const onBin = (await binTab.textContent())?.replace(/\D/g, '');
     await page.goto('/work');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+    // v88 - the Bin is a utility, not a work state, so it moved under More.
+    await page.getByRole('button', { name: 'More work views' }).click();
     await expect(page.getByRole('link', { name: /^Bin/ })).toHaveText(new RegExp(`${onBin}$`));
     expect(Number(onBin)).toBeGreaterThan(0);
   });
@@ -92,7 +97,11 @@ test.describe('v63 manager work lifecycle', () => {
     await page.goto('/work?tab=available');
     await page.getByText(title, { exact: true }).click();
     const drawer = page.locator('.task-detail-drawer');
-    await drawer.getByRole('button', { name: /^Delete/ }).click();
+    await drawer.getByRole('button', { name: 'More task actions' }).click();
+    await page
+      .getByRole('menu')
+      .getByRole('button', { name: /^Delete/ })
+      .click();
     const confirm = page.getByRole('dialog', { name: 'Delete task' });
     await expect(confirm).toBeVisible();
     await confirm.getByRole('button', { name: /^Delete task$/ }).click();

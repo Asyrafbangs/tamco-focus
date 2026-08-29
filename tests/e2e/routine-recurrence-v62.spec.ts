@@ -11,9 +11,23 @@ async function signIn(page: Page, email = 'izzul@tamco.local') {
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 }
 
+/**
+ * The Routine page with its schedule administration open.
+ *
+ * v93 folded Manage routines away under the work it creates, which is right
+ * for the employee who never opens it - but every one of these tests is about
+ * the schedules themselves, so opening it belongs in the helper rather than
+ * being remembered at four call sites.
+ */
 async function openRoutines(page: Page) {
   await page.goto('/work/routine');
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+  const manage = page.locator('details.routine-manage');
+  await expect(manage).toBeVisible();
+  if ((await manage.getAttribute('open')) === null) {
+    await manage.locator('summary').click();
+  }
+  await expect(page.getByRole('button', { name: 'Set up a routine' })).toBeVisible();
 }
 
 /**
@@ -32,9 +46,6 @@ test.describe('v62 routine recurrence', () => {
     await signIn(page);
     await openRoutines(page);
 
-    // v93 - configuring a schedule folds away under Manage routines, so the
-    // administration is not the first thing on the page every time.
-    await page.getByText('Manage routines', { exact: true }).click();
     await page.getByRole('button', { name: 'Set up a routine' }).click();
     const dialog = page.getByRole('dialog', { name: 'Set up a routine' });
     await expect(dialog).toBeVisible();
@@ -73,9 +84,6 @@ test.describe('v62 routine recurrence', () => {
     await signIn(page);
     await openRoutines(page);
 
-    // v93 - configuring a schedule folds away under Manage routines, so the
-    // administration is not the first thing on the page every time.
-    await page.getByText('Manage routines', { exact: true }).click();
     await page.getByRole('button', { name: 'Set up a routine' }).click();
     const dialog = page.getByRole('dialog', { name: 'Set up a routine' });
     await dialog.locator('#routine-title').fill(title);
@@ -120,9 +128,6 @@ test.describe('v62 routine recurrence', () => {
     await signIn(page);
     await openRoutines(page);
 
-    // v93 - configuring a schedule folds away under Manage routines, so the
-    // administration is not the first thing on the page every time.
-    await page.getByText('Manage routines', { exact: true }).click();
     await page.getByRole('button', { name: 'Set up a routine' }).click();
     const dialog = page.getByRole('dialog', { name: 'Set up a routine' });
     await dialog.locator('#routine-title').fill(title);

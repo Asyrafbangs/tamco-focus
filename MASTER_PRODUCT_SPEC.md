@@ -2541,7 +2541,8 @@ permission, storage, evidence, audit, review or download rules.
    on the browser's built-in PDF plug-in or its “download PDFs” preference.
 2. The in-app PDF reader renders document pages directly and provides previous/next page controls,
    current page/total pages, zoom controls, and Fit width. Download remains a separate explicit
-   action and must never be triggered merely by opening the attachment.
+   action in the attachment header at the top of the surface, saves using the original filename,
+   and must never be triggered merely by opening the attachment.
 3. Images continue to open in the same attachment-reading surface. Unsupported document types keep
    their explicit download behaviour rather than presenting a preview that cannot render them.
 4. Opening the file continues to pass through the authorised attachment route and automatically logs

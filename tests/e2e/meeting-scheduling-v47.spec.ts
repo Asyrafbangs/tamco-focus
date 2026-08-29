@@ -27,7 +27,7 @@ async function raiseRequest(page: Page, taskTitle: string, request: string) {
   await page.getByRole('link', { name: taskTitle }).click();
   await expect(page.locator('.task-detail-drawer')).toBeVisible();
 
-  await page.locator('.task-detail-drawer').getByRole('button', { name: 'Raise barrier' }).click();
+  await page.locator('.task-detail-drawer').getByRole('button', { name: 'Need support' }).click();
   const form = page.getByRole('dialog', { name: 'Raise Barrier' });
   await form.getByLabel('What is blocking the work?').fill('The contractor cannot meet the date.');
   await form.getByLabel('What do you need from them?').fill(request);
