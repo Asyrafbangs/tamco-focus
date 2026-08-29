@@ -881,6 +881,8 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
 export interface RoutineOutcome {
   taskId: string;
   title: string;
+  /** Which schedule produced it, so a history can be read one routine at a time. */
+  templateId: string | null;
   occurrenceDate: string | null;
   outcome: 'done' | 'not_required' | 'awaiting_decision' | 'open';
   completedAt: string | null;
@@ -897,6 +899,7 @@ function toRoutineOutcome(row: Record<string, unknown>): RoutineOutcome {
   return {
     taskId: String(row.task_id),
     title: String(row.title),
+    templateId: row.routine_template_id ? String(row.routine_template_id) : null,
     occurrenceDate: row.occurrence_date ? String(row.occurrence_date) : null,
     outcome: row.outcome as RoutineOutcome['outcome'],
     completedAt: row.completed_at ? String(row.completed_at) : null,
@@ -1226,6 +1229,12 @@ export interface RoutineTally {
   scheduled: number;
   done: number;
   notRequired: number;
+  /**
+   * Past its date and not settled. Kept apart from `outstanding` because over
+   * a year they are the same number and over this month they are not - one is
+   * a failure, the other is simply work that has not come round yet.
+   */
+  overdue: number;
   outstanding: number;
   attachments: number;
   stepsCompleted: number;
@@ -1234,16 +1243,21 @@ export interface RoutineTally {
 export async function getRoutineTally(
   userId: string,
   sinceIso: string,
+  untilIso: string | null = null,
 ): Promise<{ tallies: RoutineTally[]; total: RoutineTally | null; failed: boolean }> {
   const supabase = await createSupabaseServerClient();
   const since = sinceIso.slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
 
-  const { data, error } = await supabase
+  let scoped = supabase
     .from('routine_occurrence_outcomes')
     .select('task_id,title,routine_template_id,outcome,occurrence_date')
     .eq('primary_owner_id', userId)
-    .gte('occurrence_date', since)
-    .limit(1000);
+    .gte('occurrence_date', since);
+  // Without this, "last year" quietly included this one.
+  if (untilIso) scoped = scoped.lte('occurrence_date', untilIso.slice(0, 10));
+
+  const { data, error } = await scoped.limit(1000);
 
   if (error) {
     console.error(`[getRoutineTally] ${error.message}`);
@@ -1286,6 +1300,7 @@ export async function getRoutineTally(
     scheduled: 0,
     done: 0,
     notRequired: 0,
+    overdue: 0,
     outstanding: 0,
     attachments: 0,
     stepsCompleted: 0,
@@ -1308,7 +1323,11 @@ export async function getRoutineTally(
       target.stepsCompleted += stepsDone;
       if (row.outcome === 'done') target.done += 1;
       else if (row.outcome === 'not_required') target.notRequired += 1;
-      else target.outstanding += 1;
+      else {
+        target.outstanding += 1;
+        const date = row.occurrence_date ? String(row.occurrence_date) : null;
+        if (date && date < today) target.overdue += 1;
+      }
     }
     byTemplate.set(key, tally);
   }

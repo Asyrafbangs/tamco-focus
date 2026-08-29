@@ -139,7 +139,11 @@ export default async function RoutinePage({
    */
   const managerAxis: 'people' | 'routines' =
     managerPanel && params.by === 'routines' ? 'routines' : 'people';
-  const managerRoutine = managerAxis === 'routines' ? (params.routine ?? null) : null;
+  const managerRoutine =
+    managerAxis === 'routines' && !managerPerson ? (params.routine ?? null) : null;
+  // The same parameter, narrowing one person's history instead of choosing a
+  // schedule to read across the team.
+  const personRoutine = managerPerson ? (params.routine ?? null) : null;
 
   const [
     settings,
@@ -198,7 +202,7 @@ export default async function RoutinePage({
         ])
       : Promise.resolve({ outcomes: [], failed: false }),
     managerPerson
-      ? getRoutineTally(managerPerson, managerWindow.since)
+      ? getRoutineTally(managerPerson, managerWindow.since, managerWindow.until)
       : Promise.resolve({ tallies: [], total: null, failed: false }),
     managerAxis === 'routines' && !managerRoutine
       ? getTeamRoutineCompliance(profile.id, managerWindow.since, managerWindow.until)
@@ -402,8 +406,15 @@ export default async function RoutinePage({
           <PersonRoutineProfile
             name={team.find((person) => person.userId === managerPerson)?.fullName ?? 'Team member'}
             tally={personTally.total}
+            tallies={personTally.tallies}
             outcomes={personOutcomes.outcomes}
             period={managerPeriod}
+            routineFilter={personRoutine}
+            routineHref={(templateId) =>
+              `/work/routine?panel=manager&person=${managerPerson}&period=${managerPeriod}${
+                templateId ? `&routine=${templateId}` : ''
+              }`
+            }
             backHref={`/work/routine?panel=manager&period=${managerPeriod}`}
             taskHref={(taskId) =>
               taskDrawerHref(taskId, `/work/routine?panel=manager&person=${managerPerson}`)

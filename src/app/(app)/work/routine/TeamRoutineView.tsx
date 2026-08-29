@@ -199,26 +199,39 @@ function PersonRow({
 export function PersonRoutineProfile({
   name,
   tally,
+  tallies,
   outcomes,
   period,
   backHref,
   taskHref,
+  routineFilter,
+  routineHref,
 }: {
   name: string;
   tally: RoutineTally | null;
+  /** One row per schedule this person is on, for the year-end read. */
+  tallies: RoutineTally[];
   outcomes: RoutineOutcome[];
   period: RoutinePeriodKey;
   backHref: string;
   taskHref: (taskId: string) => string;
+  /** When set, the lists below show only this schedule. */
+  routineFilter: string | null;
+  routineHref: (templateId: string | null) => string;
 }) {
-  const awaiting = outcomes.filter((row) => row.outcome === 'awaiting_decision');
+  const inScope = routineFilter
+    ? outcomes.filter((row) => row.templateId === routineFilter)
+    : outcomes;
+  const awaiting = inScope.filter((row) => row.outcome === 'awaiting_decision');
   const today = new Date().toISOString().slice(0, 10);
-  const overdue = outcomes.filter(
+  const overdue = inScope.filter(
     (row) => row.outcome === 'open' && (row.occurrenceDate ?? '') < today,
   );
-  const settled = outcomes.filter(
-    (row) => row.outcome === 'done' || row.outcome === 'not_required',
-  );
+  const settled = inScope.filter((row) => row.outcome === 'done' || row.outcome === 'not_required');
+  const selected = routineFilter
+    ? (tallies.find((row) => row.templateId === routineFilter) ?? null)
+    : null;
+  const shownTally = selected ?? tally;
   const periodLabel = ROUTINE_PERIODS.find((entry) => entry.key === period)?.label ?? 'This month';
 
   return (
@@ -235,28 +248,72 @@ export function PersonRoutineProfile({
 
       <div className="routine-tally">
         <div>
-          <strong>{tally?.scheduled ?? 0}</strong>
+          <strong>{shownTally?.scheduled ?? 0}</strong>
           <span>Scheduled</span>
         </div>
         <div>
-          <strong>{tally?.done ?? 0}</strong>
+          <strong>{shownTally?.done ?? 0}</strong>
           <span>Completed</span>
         </div>
         <div>
-          <strong>{tally?.notRequired ?? 0}</strong>
+          <strong>{shownTally?.notRequired ?? 0}</strong>
           <span>Not required</span>
         </div>
         <div>
-          <strong>{overdue.length}</strong>
+          <strong>{shownTally?.overdue ?? 0}</strong>
           <span>Overdue</span>
         </div>
         <p className="routine-tally-note">
-          {tally?.attachments ?? 0} file{(tally?.attachments ?? 0) === 1 ? '' : 's'} attached across{' '}
-          {tally?.stepsCompleted ?? 0} completed step
-          {(tally?.stepsCompleted ?? 0) === 1 ? '' : 's'}. Counted from the occurrence records —
-          nobody enters these.
+          {shownTally?.attachments ?? 0} file{(shownTally?.attachments ?? 0) === 1 ? '' : 's'}{' '}
+          attached across {shownTally?.stepsCompleted ?? 0} completed step
+          {(shownTally?.stepsCompleted ?? 0) === 1 ? '' : 's'}. Counted from the occurrence records
+          — nobody enters these.
         </p>
       </div>
+
+      {/*
+        The year-end read.
+
+        Over a month the totals above are the whole story; over a year they
+        flatten twelve months of six different schedules into four numbers.
+        This is the same records split by schedule, and choosing one narrows
+        everything below it - so a performance conversation can go from "126
+        scheduled" to the four Site Visits that were not required and the
+        evidence on each, without anybody preparing a spreadsheet.
+      */}
+      {tallies.length > 1 && (
+        <section className="team-routine-group" aria-label="By routine">
+          <h3>By routine</h3>
+          <div className="routine-breakdown">
+            <Link
+              href={routineHref(null)}
+              className={routineFilter ? 'routine-breakdown-row' : 'routine-breakdown-row active'}
+            >
+              <strong>All routines</strong>
+              <span>
+                {tally?.scheduled ?? 0} scheduled · {tally?.done ?? 0} completed
+              </span>
+            </Link>
+            {tallies.map((row) => (
+              <Link
+                key={row.templateId ?? row.title}
+                href={routineHref(row.templateId)}
+                className={
+                  row.templateId === routineFilter
+                    ? 'routine-breakdown-row active'
+                    : 'routine-breakdown-row'
+                }
+              >
+                <strong>{row.title}</strong>
+                <span>
+                  {row.scheduled} scheduled · {row.done} completed · {row.notRequired} not required
+                  {row.overdue > 0 ? ` · ${row.overdue} overdue` : ''}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {awaiting.length > 0 && (
         <section className="team-routine-group needs-review" aria-label="Needs review">

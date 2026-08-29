@@ -10371,3 +10371,46 @@ button.attachment-row {
   font-weight: 650;
   border-bottom-color: var(--blue);
 }
+
+/* The year-end read: the same records split by schedule. Choosing one narrows
+   everything below it, so the selected row has to look chosen. */
+.routine-breakdown {
+  display: grid;
+}
+.routine-breakdown-row {
+  display: grid;
+  gap: 2px;
+  padding: 11px 16px;
+  border-left: 3px solid transparent;
+  color: var(--text);
+  text-decoration: none;
+}
+.routine-breakdown-row + .routine-breakdown-row {
+  border-top: 1px solid var(--line-soft);
+}
+.routine-breakdown-row:hover {
+  background: var(--line-soft);
+}
+.routine-breakdown-row:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+.routine-breakdown-row.active {
+  border-left-color: var(--blue);
+  background: var(--blue-bg);
+}
+.routine-breakdown-row strong {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.routine-breakdown-row span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .routine-breakdown-row {
+    padding: 11px 13px;
+  }
+}
