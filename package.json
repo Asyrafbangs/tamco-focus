@@ -9,6 +9,8 @@
   },
   "scripts": {
     "dev": "next dev",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "hooks:install": "git config core.hooksPath .githooks",
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0",

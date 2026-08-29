@@ -89,6 +89,67 @@ day, and the weekly worker already decides for itself whether today is its day.
 Routine generation is idempotent per date, so a missed day catches up and a
 double run is harmless.
 
+## Mail credentials
+
+Two things send mail, and they hold their credentials in different places.
+Knowing which is which is the difference between rotating one secret and
+hunting for three.
+
+| What sends it    | Where the credential lives                         | Used for                        |
+| ---------------- | -------------------------------------------------- | ------------------------------- |
+| Supabase Auth    | Supabase → Authentication → Emails → SMTP Settings | Password resets, invites        |
+| This application | Vercel → Environment Variables, Production only    | Weekly summaries, notifications |
+
+**Never both.** A credential in two places is two things to rotate and twice the
+chance one is forgotten.
+
+### Adding an application mail credential
+
+`EMAIL_SMTP_HOST`, `EMAIL_SMTP_PORT`, `EMAIL_SMTP_USER`, `EMAIL_SMTP_PASSWORD`,
+`EMAIL_FROM`. Set `EMAIL_TRANSPORT=smtp` last: the transport refuses to start
+when it is set without the rest, rather than falling back to the log transport
+and reporting success while discarding mail.
+
+```bash
+vercel env add EMAIL_SMTP_PASSWORD production
+```
+
+Three rules, and they are not stylistic:
+
+- **Production scope only.** A variable added to Preview is handed to every
+  branch deployment, and preview URLs are guessable.
+- **Sensitive/Secret type**, so it cannot be read back afterwards - only
+  overwritten. Every variable on this project is already Secret; keep it that
+  way.
+- **Never `NEXT_PUBLIC_`.** That prefix ships the value to the browser.
+
+`vercel env pull` writes real values to a local file. Use it sparingly and
+delete the file afterwards.
+
+### Company mail (Microsoft 365 / Outlook)
+
+Ask for a credential that can only send, from one mailbox:
+
+1. **Microsoft Graph `Mail.Send`, application permission, scoped with
+   `New-ApplicationAccessPolicy` to a single mailbox.** The policy is the part
+   that matters - `Mail.Send` on its own permits sending as anybody in the
+   tenant. Microsoft has been retiring basic-auth SMTP AUTH in Exchange Online,
+   so this is also the option that keeps working.
+2. **A dedicated no-reply service mailbox** with SMTP AUTH. A leak then costs
+   one sending mailbox rather than somebody's inbox.
+3. A person's mailbox credential. Only if the first two are refused, and only
+   with a rotation route that takes minutes rather than days.
+
+Before accepting any of them, ask how to rotate it. If the answer is a
+multi-day ticket, that is an argument for option 1 or 2, not a detail.
+
+### If one leaks
+
+Rotate first, investigate second - a credential in a commit is in every clone,
+so removing the commit does not un-leak it. `email_deliveries` records every
+send this application makes, and an unusual volume is what a stolen relay
+credential looks like from the inside.
+
 ## After go-live
 
 ```

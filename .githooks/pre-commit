@@ -1,0 +1,11 @@
+#!/bin/sh
+# Blocks a commit that carries a credential.
+#
+# GitHub push protection would normally do this, but it needs paid Advanced
+# Security on a private repository. This runs earlier anyway: a secret that
+# reaches a commit has to be rotated even if the push is rejected, because it
+# is already in the local history.
+#
+# Enabled by `npm run hooks:install`. Bypassable with `--no-verify`, which is
+# deliberate - a hook you cannot skip is a hook people delete.
+node scripts/check-secrets.mjs || exit 1

@@ -163,6 +163,26 @@ const openSocket = (config: SmtpConfig): Promise<Socket | TLSSocket> =>
  * throws, so the caller records a failed attempt and retries rather than
  * marking a message sent that never left.
  */
+/**
+ * Removes the credential from anything on its way to a log.
+ *
+ * Nothing here puts it there today: the errors carry the server's reply, not
+ * what we sent. This exists because that is one refactor away from being
+ * untrue, and a mail relay password in a platform log is the kind of mistake
+ * that is only ever found afterwards. The base64 forms are covered too, since
+ * AUTH LOGIN sends them that way.
+ */
+export function redactCredentials(text: string, config: SmtpConfig): string {
+  const secrets = [
+    config.password,
+    config.user,
+    Buffer.from(config.password, 'utf8').toString('base64'),
+    Buffer.from(config.user, 'utf8').toString('base64'),
+  ].filter((value) => value && value.length > 3);
+
+  return secrets.reduce((carried, secret) => carried.split(secret).join('[redacted]'), text);
+}
+
 export async function sendSmtp(config: SmtpConfig, message: SmtpMessage): Promise<string> {
   const session = new SmtpSession(await openSocket(config));
 
@@ -236,6 +256,10 @@ export async function sendSmtp(config: SmtpConfig, message: SmtpMessage): Promis
     });
 
     return accepted;
+  } catch (problem) {
+    // Re-thrown scrubbed, so no caller can log what it never needed to see.
+    const message_ = problem instanceof Error ? problem.message : String(problem);
+    throw new Error(redactCredentials(message_, config));
   } finally {
     session.end();
   }
