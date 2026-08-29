@@ -911,6 +911,108 @@ function toRoutineOutcome(row: Record<string, unknown>): RoutineOutcome {
 }
 
 /**
+ * A manager's routine view, one row per person rather than one per occurrence.
+ *
+ * With four people a mixed list of occurrences is untidy; with forty it is
+ * unusable, and the manager's actual question is never "show me everything" -
+ * it is "who needs me". So the shape of this is people, with the counts that
+ * decide whether anybody has to be opened at all, and problems sorted to the
+ * top rather than left to be found alphabetically.
+ *
+ * Bounded by `focus.visible_user_ids` through the view's `security_invoker`,
+ * so it lists the people this manager can already see and nobody else.
+ */
+export interface TeamRoutineRow {
+  userId: string;
+  fullName: string;
+  scheduled: number;
+  completed: number;
+  notRequired: number;
+  overdue: number;
+  awaitingReview: number;
+  /** True when anything on this row is somebody's problem right now. */
+  needsAttention: boolean;
+}
+
+export async function getTeamRoutineSummary(
+  viewerId: string,
+  sinceIso: string,
+  untilIso: string | null,
+): Promise<{ rows: TeamRoutineRow[]; failed: boolean }> {
+  const supabase = await createSupabaseServerClient();
+  const since = sinceIso.slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+
+  let query = supabase
+    .from('routine_occurrence_outcomes')
+    .select('task_id,primary_owner_id,outcome,occurrence_date')
+    .gte('occurrence_date', since)
+    .limit(4000);
+  if (untilIso) query = query.lte('occurrence_date', untilIso.slice(0, 10));
+
+  const { data, error } = await query;
+  if (error) {
+    console.error(`[getTeamRoutineSummary] ${error.message}`);
+    return { rows: [], failed: true };
+  }
+
+  const occurrences = (data ?? []).filter((row) => String(row.primary_owner_id) !== viewerId);
+  const ownerIds = Array.from(new Set(occurrences.map((row) => String(row.primary_owner_id))));
+  const names = new Map<string, string>();
+  if (ownerIds.length) {
+    const { data: people } = await supabase
+      .from('team_directory')
+      .select('id,full_name')
+      .in('id', ownerIds);
+    for (const person of people ?? []) names.set(String(person.id), String(person.full_name));
+  }
+
+  const rows = new Map<string, TeamRoutineRow>();
+  for (const occurrence of occurrences) {
+    const id = String(occurrence.primary_owner_id);
+    const row = rows.get(id) ?? {
+      userId: id,
+      fullName: names.get(id) ?? 'Team member',
+      scheduled: 0,
+      completed: 0,
+      notRequired: 0,
+      overdue: 0,
+      awaitingReview: 0,
+      needsAttention: false,
+    };
+    row.scheduled += 1;
+    const outcome = String(occurrence.outcome);
+    const date = occurrence.occurrence_date ? String(occurrence.occurrence_date) : null;
+    if (outcome === 'done') row.completed += 1;
+    else if (outcome === 'not_required') row.notRequired += 1;
+    else if (outcome === 'awaiting_decision') row.awaitingReview += 1;
+    else if (date && date < today) row.overdue += 1;
+    rows.set(id, row);
+  }
+
+  const ordered = [...rows.values()].map((row) => ({
+    ...row,
+    needsAttention: row.awaitingReview > 0 || row.overdue > 0,
+  }));
+
+  /*
+   * Exception-first, then alphabetical. A decision somebody is waiting on
+   * outranks work that is merely late, because the late work is already the
+   * employee's to finish and the decision is nobody's until the manager makes
+   * it. With forty people and three problems, those three are at the top.
+   */
+  ordered.sort((left, right) => {
+    if (left.awaitingReview !== right.awaitingReview) {
+      return right.awaitingReview - left.awaitingReview;
+    }
+    if (left.overdue !== right.overdue) return right.overdue - left.overdue;
+    return left.fullName.localeCompare(right.fullName);
+  });
+
+  return { rows: ordered, failed: false };
+}
+
+/**
  * What a routine has actually produced, counted rather than typed.
  *
  * Every figure here already exists in the occurrence records: how many were
@@ -1024,6 +1126,12 @@ export async function getRoutineOutcomes(
   userId: string,
   sinceIso: string,
   untilIso: string | null,
+  /*
+   * Which endings to include. The employee's own Completed view wants the two
+   * settled ones; a manager reading somebody's history also wants what is
+   * still open, because "what has Amer not done" is half the question.
+   */
+  outcomes: Array<RoutineOutcome['outcome']> = ['done', 'not_required'],
 ): Promise<{ outcomes: RoutineOutcome[]; failed: boolean }> {
   const supabase = await createSupabaseServerClient();
   const since = sinceIso.slice(0, 10);
@@ -1031,7 +1139,7 @@ export async function getRoutineOutcomes(
     .from('routine_occurrence_outcomes')
     .select('*')
     .eq('primary_owner_id', userId)
-    .in('outcome', ['done', 'not_required'])
+    .in('outcome', outcomes)
     .gte('occurrence_date', since);
   if (untilIso) query = query.lte('occurrence_date', untilIso.slice(0, 10));
 

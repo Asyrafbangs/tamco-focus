@@ -275,6 +275,14 @@ export function RoutineOutcomePanel({
 
       {canAct && (
         <>
+          {/*
+            Said, not hidden in a tooltip. "Complete is greyed out" is a
+            question; "Finish 2 steps and add evidence" is an instruction, and
+            somebody standing in a plant with a phone cannot hover anything.
+          */}
+          {!readyToComplete && blockers.length > 0 && (
+            <p className="routine-blockers">{blockers.join(' · ')}</p>
+          )}
           <div className="routine-outcome-actions">
             <button
               type="button"

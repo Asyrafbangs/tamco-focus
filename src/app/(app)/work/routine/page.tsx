@@ -1,6 +1,5 @@
 import Link from 'next/link';
 
-import { AgeChips } from '@/components/AgeChips';
 import {
   FocusTabs,
   ProgressIndicator,
@@ -21,10 +20,17 @@ import { requireProfile } from '@/lib/supabase/server';
 
 import { RoutineManager } from './RoutineManager';
 import {
+  PersonRoutineProfile,
+  ROUTINE_PERIODS,
+  TeamRoutineList,
+  type RoutinePeriodKey,
+} from './TeamRoutineView';
+import {
   getDisplaySettings,
   getFocusSummary,
   getBinnedRoutines,
   getRoutineExceptionQueue,
+  getTeamRoutineSummary,
   getRoutineOutcomes,
   getRoutineTally,
   getRoutineTemplates,
@@ -58,7 +64,17 @@ type RoutineView = 'due' | 'upcoming' | 'completed';
 export default async function RoutinePage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; new?: string; outcome?: string; period?: string }>;
+  searchParams: Promise<{
+    view?: string;
+    new?: string;
+    outcome?: string;
+    period?: string;
+    /** The manager layer: which panel, whose history, and how it is filtered. */
+    panel?: string;
+    person?: string;
+    q?: string;
+    filter?: string;
+  }>;
 }) {
   const profile = await requireProfile();
   const params = await searchParams;
@@ -73,6 +89,43 @@ export default async function RoutinePage({
   const completedDays = params.period === '90' ? 90 : params.period === '60' ? 60 : 30;
   const completedSince = new Date(new Date().getTime() - completedDays * 86_400_000).toISOString();
 
+  /*
+   * The manager layer reads calendar periods rather than rolling days, because
+   * the question it answers is about a month or a year - "how did August go",
+   * "what did Amer do in 2026" - not about the last thirty days from now.
+   */
+  const managerPeriod: RoutinePeriodKey = ROUTINE_PERIODS.some(
+    (entry) => entry.key === params.period,
+  )
+    ? (params.period as RoutinePeriodKey)
+    : 'this-month';
+  const managerWindow = (() => {
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = now.getUTCMonth();
+    if (managerPeriod === 'last-month') {
+      return {
+        since: new Date(Date.UTC(year, month - 1, 1)).toISOString(),
+        until: new Date(Date.UTC(year, month, 0, 23, 59, 59, 999)).toISOString(),
+      };
+    }
+    if (managerPeriod === '90') {
+      return { since: new Date(now.getTime() - 90 * 86_400_000).toISOString(), until: null };
+    }
+    if (managerPeriod === 'this-year') {
+      return { since: new Date(Date.UTC(year, 0, 1)).toISOString(), until: null };
+    }
+    if (managerPeriod === 'last-year') {
+      return {
+        since: new Date(Date.UTC(year - 1, 0, 1)).toISOString(),
+        until: new Date(Date.UTC(year - 1, 11, 31, 23, 59, 59, 999)).toISOString(),
+      };
+    }
+    return { since: new Date(Date.UTC(year, month, 1)).toISOString(), until: null };
+  })();
+  const managerPanel = isManager && params.panel === 'manager';
+  const managerPerson = managerPanel ? (params.person ?? null) : null;
+
   const [
     settings,
     occurrences,
@@ -85,6 +138,9 @@ export default async function RoutinePage({
     routineOutcomes,
     exceptionQueue,
     tally,
+    teamRoutine,
+    personOutcomes,
+    personTally,
   ] = await Promise.all([
     getDisplaySettings(),
     getRoutineOccurrences(profile.id),
@@ -111,6 +167,21 @@ export default async function RoutinePage({
     // looking back rather than trying to get something done.
     params.view === 'completed'
       ? getRoutineTally(profile.id, completedSince)
+      : Promise.resolve({ tallies: [], total: null, failed: false }),
+    // People first: only loaded when the manager layer is actually open.
+    managerPanel && !managerPerson
+      ? getTeamRoutineSummary(profile.id, managerWindow.since, managerWindow.until)
+      : Promise.resolve({ rows: [], failed: false }),
+    managerPerson
+      ? getRoutineOutcomes(managerPerson, managerWindow.since, managerWindow.until, [
+          'done',
+          'not_required',
+          'awaiting_decision',
+          'open',
+        ])
+      : Promise.resolve({ outcomes: [], failed: false }),
+    managerPerson
+      ? getRoutineTally(managerPerson, managerWindow.since)
       : Promise.resolve({ tallies: [], total: null, failed: false }),
   ]);
 
@@ -232,280 +303,334 @@ export default async function RoutinePage({
         Routine work does not use any of your focus targets.
       </p>
 
-      <FocusTabs
-        label="Routine occurrences"
-        items={(['due', 'upcoming', 'completed'] as RoutineView[]).map(
-          (key) =>
-            ({
-              href: key === 'due' ? '/work/routine' : `/work/routine?view=${key}`,
-              label:
-                key === 'due'
-                  ? 'Due now / this week'
-                  : key === 'upcoming'
-                    ? 'Upcoming'
-                    : 'Completed',
-              active: key === view,
-              // No badge on Completed: a running total of finished routine work
-              // is not something anybody needs to act on. The count that means
-              // something is inside, after the period filter.
-              count:
-                key === 'due' ? dueNow.length : key === 'upcoming' ? upcoming.length : undefined,
-              attention: key === 'due' && overdue.length > 0,
-            }) satisfies TabItem,
-        )}
-      />
+      {/*
+        Two audiences, one module.
 
-      <p className="focus-tab-meaning">{VIEW_MEANING[view]}</p>
-
-      {exceptionQueue.pending.length > 0 && (
-        <section className="routine-exception-queue" aria-label="Routine exceptions">
-          <h2>Routine exception{exceptionQueue.pending.length === 1 ? '' : 's'} to accept</h2>
-          {/* One click to accept. Returning it costs a sentence, and that is
-              written in the occurrence itself, where the person will read it. */}
-          {exceptionQueue.pending.map((row) => (
-            <article key={row.exceptionId ?? row.taskId} className="routine-exception-row">
-              <div>
-                <strong>{row.title}</strong>
-                <span>
-                  {row.ownerName}
-                  {row.occurrenceDate ? ` · ${row.occurrenceDate}` : ''}
-                </span>
-                <span className="muted">
-                  {row.reasonCode === 'no_applicable_work'
-                    ? 'No applicable site or work'
-                    : row.reasonCode === 'activity_cancelled'
-                      ? 'Activity cancelled'
-                      : (row.reasonNote ?? 'Other')}
-                </span>
-              </div>
-              <Link
-                href={taskDrawerHref(row.taskId, '/work/routine')}
-                className="btn small primary"
-              >
-                Review
-              </Link>
-            </article>
-          ))}
-        </section>
-      )}
-
-      {overdue.length > 0 && view === 'due' && (
-        <div className="notice error" role="status" style={{ marginTop: 14 }}>
-          <strong>
-            {overdue.length} routine occurrence{overdue.length === 1 ? '' : 's'} overdue
-          </strong>
-          <p>
-            A missed occurrence stays open rather than disappearing, so the record of what was and
-            was not done remains accurate.
-          </p>
+        An employee's Routine answers "what do I have to do"; a manager's
+        answers "who needs me". Those are different enough that mixing them
+        produces a screen serving neither - and a manager is also an employee,
+        so this is a switch rather than a role.
+      */}
+      {isManager && (
+        <div className="routine-audience" role="group" aria-label="Routine view">
+          <Link
+            href="/work/routine"
+            className={managerPanel ? undefined : 'active'}
+            aria-current={managerPanel ? undefined : 'true'}
+          >
+            My routine
+          </Link>
+          <Link
+            href="/work/routine?panel=manager"
+            className={managerPanel ? 'active' : undefined}
+            aria-current={managerPanel ? 'true' : undefined}
+          >
+            My team
+          </Link>
         </div>
       )}
 
-      {view === 'completed' ? (
-        <div className="focus-panel">
-          <div className="completed-controls">
-            <div className="segmented" role="group" aria-label="Which outcome">
-              {(
-                [
-                  ['all', 'All'],
-                  ['done', 'Done'],
-                  ['not_required', 'Not required'],
-                ] as const
-              ).map(([key, label]) => (
-                <Link
-                  key={key}
-                  href={`/work/routine?view=completed&period=${completedDays}${
-                    key === 'all' ? '' : `&outcome=${key}`
-                  }`}
-                  className={outcomeFilter === key ? 'active' : undefined}
-                  aria-current={outcomeFilter === key ? 'true' : undefined}
-                >
-                  {label}
-                </Link>
-              ))}
-            </div>
-            <div className="segmented" role="group" aria-label="Period">
-              {([30, 60, 90] as const).map((days) => (
-                <Link
-                  key={days}
-                  href={`/work/routine?view=completed&period=${days}${
-                    outcomeFilter === 'all' ? '' : `&outcome=${outcomeFilter}`
-                  }`}
-                  className={completedDays === days ? 'active' : undefined}
-                  aria-current={completedDays === days ? 'true' : undefined}
-                >
-                  Last {days} days
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {tally.total && (
-            <div className="routine-tally" aria-label="Routine summary for this period">
-              <div>
-                <strong>{tally.total.scheduled}</strong>
-                <span>Scheduled</span>
-              </div>
-              <div>
-                <strong>{tally.total.done}</strong>
-                <span>Completed</span>
-              </div>
-              <div>
-                <strong>{tally.total.notRequired}</strong>
-                <span>Not required</span>
-              </div>
-              <div>
-                <strong>{tally.total.outstanding}</strong>
-                <span>Outstanding</span>
-              </div>
-              <p className="routine-tally-note">
-                {tally.total.stepsCompleted} step{tally.total.stepsCompleted === 1 ? '' : 's'}{' '}
-                completed · {tally.total.attachments} attachment
-                {tally.total.attachments === 1 ? '' : 's'}. Counted from the occurrence records —
-                nobody enters these.
-              </p>
-            </div>
-          )}
-
-          <p className="completed-count" role="status">
-            {shownOutcomes.length} {shownOutcomes.length === 1 ? 'occurrence' : 'occurrences'}
-          </p>
-
-          {shownOutcomes.length === 0 ? (
-            <div className="empty-state compact">
-              <h3>Nothing in this period</h3>
-              <p>Widen the period, or change which outcome you are looking at.</p>
-            </div>
-          ) : (
-            <div className="completed-list">
-              {shownOutcomes.map((row) => (
-                <Link
-                  key={row.taskId}
-                  href={taskDrawerHref(row.taskId, '/work/routine?view=completed')}
-                  className="completed-row"
-                >
-                  <span className="completed-tick" aria-hidden="true">
-                    {row.outcome === 'done' ? '✓' : '—'}
-                  </span>
-                  <span className="completed-copy">
-                    <strong>{row.title}</strong>
-                    {row.outcome === 'done' ? (
-                      <span>Completed</span>
-                    ) : (
-                      <span>
-                        Not required ·{' '}
-                        {row.reasonCode === 'no_applicable_work'
-                          ? 'No applicable site or work'
-                          : row.reasonCode === 'activity_cancelled'
-                            ? 'Activity cancelled'
-                            : (row.reasonNote ?? 'Other')}
-                        {row.decidedByName ? ` · accepted by ${row.decidedByName}` : ''}
-                      </span>
-                    )}
-                    <span className="completed-when">{row.occurrenceDate}</span>
-                  </span>
-                  <span className="completed-chevron" aria-hidden="true">
-                    ›
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+      {managerPanel ? (
+        managerPerson ? (
+          <PersonRoutineProfile
+            name={team.find((person) => person.userId === managerPerson)?.fullName ?? 'Team member'}
+            tally={personTally.total}
+            outcomes={personOutcomes.outcomes}
+            period={managerPeriod}
+            backHref={`/work/routine?panel=manager&period=${managerPeriod}`}
+            taskHref={(taskId) =>
+              taskDrawerHref(taskId, `/work/routine?panel=manager&person=${managerPerson}`)
+            }
+          />
+        ) : (
+          <TeamRoutineList
+            rows={teamRoutine.rows}
+            failed={teamRoutine.failed}
+            query={params.q ?? ''}
+            period={managerPeriod}
+            attentionOnly={params.filter === 'attention'}
+          />
+        )
       ) : (
-        <div className="focus-panel">
-          {visible.length > 0 ? (
-            visible.map((task) => {
-              const state = routineOccurrenceState(task, timeZone);
-              return (
-                <RoutineRow key={task.id}>
+        <>
+          <FocusTabs
+            label="Routine occurrences"
+            items={(['due', 'upcoming', 'completed'] as RoutineView[]).map(
+              (key) =>
+                ({
+                  href: key === 'due' ? '/work/routine' : `/work/routine?view=${key}`,
+                  label:
+                    key === 'due'
+                      ? 'Due now / this week'
+                      : key === 'upcoming'
+                        ? 'Upcoming'
+                        : 'Completed',
+                  active: key === view,
+                  // No badge on Completed: a running total of finished routine work
+                  // is not something anybody needs to act on. The count that means
+                  // something is inside, after the period filter.
+                  count:
+                    key === 'due'
+                      ? dueNow.length
+                      : key === 'upcoming'
+                        ? upcoming.length
+                        : undefined,
+                  attention: key === 'due' && overdue.length > 0,
+                }) satisfies TabItem,
+            )}
+          />
+
+          <p className="focus-tab-meaning">{VIEW_MEANING[view]}</p>
+
+          {exceptionQueue.pending.length > 0 && (
+            <section className="routine-exception-queue" aria-label="Routine exceptions">
+              <h2>Routine exception{exceptionQueue.pending.length === 1 ? '' : 's'} to accept</h2>
+              {/* One click to accept. Returning it costs a sentence, and that is
+              written in the occurrence itself, where the person will read it. */}
+              {exceptionQueue.pending.map((row) => (
+                <article key={row.exceptionId ?? row.taskId} className="routine-exception-row">
                   <div>
-                    <RowPrimaryLink
-                      href={taskDrawerHref(task.id, '/work/routine')}
-                      className="title-link"
-                      ariaLabel={`Open ${task.title}`}
-                    >
-                      <strong>{task.title}</strong>
-                    </RowPrimaryLink>
-                    <span className="sub">
-                      Routine occurrence
-                      {task.checklistTotal > 0 &&
-                        ` · ${task.checklistCompleted} of ${task.checklistTotal} steps`}
-                      {task.missingEvidenceCount > 0 &&
-                        ` · ${task.missingEvidenceCount} step${
-                          task.missingEvidenceCount === 1 ? '' : 's'
-                        } need evidence`}
+                    <strong>{row.title}</strong>
+                    <span>
+                      {row.ownerName}
+                      {row.occurrenceDate ? ` · ${row.occurrenceDate}` : ''}
                     </span>
-                    <div style={{ marginTop: 6 }}>
-                      <AgeChips task={task} staleThresholdDays={settings.staleThresholdDays} />
-                    </div>
-                  </div>
-
-                  <div className="hide-mobile">
-                    <span
-                      className={`status ${
-                        state === 'overdue'
-                          ? 'cancelled'
-                          : state === 'due_today'
-                            ? 'active'
-                            : state === 'completed'
-                              ? 'completed'
-                              : 'backlog'
-                      }`}
-                    >
-                      {ROUTINE_OCCURRENCE_LABELS[state]}
+                    <span className="muted">
+                      {row.reasonCode === 'no_applicable_work'
+                        ? 'No applicable site or work'
+                        : row.reasonCode === 'activity_cancelled'
+                          ? 'Activity cancelled'
+                          : (row.reasonNote ?? 'Other')}
                     </span>
-                    <div className="sub" style={{ marginTop: 4 }}>
-                      {formatDue(task.dueAt, task.dueIsDateOnly, timeZone)}
-                    </div>
                   </div>
+                  <Link
+                    href={taskDrawerHref(row.taskId, '/work/routine')}
+                    className="btn small primary"
+                  >
+                    Review
+                  </Link>
+                </article>
+              ))}
+            </section>
+          )}
 
-                  <div className="hide-narrow">
-                    <ProgressIndicator
-                      value={task.progressPercent}
-                      label={
-                        task.checklistTotal > 0
-                          ? `${task.checklistCompleted} of ${task.checklistTotal} steps`
-                          : `${task.progressPercent}% complete`
-                      }
-                    />
-                  </div>
-
-                  <div className="row-action">
-                    <Link href={taskDrawerHref(task.id, '/work/routine')} className="btn small">
-                      Open
-                    </Link>
-                  </div>
-                </RoutineRow>
-              );
-            })
-          ) : (
-            /* Section 27.2 — what is empty, why, and the next useful action. */
-            <div className="empty-state">
-              <h3>
-                {occurrences.length === 0
-                  ? 'No routine work assigned to you'
-                  : view === 'upcoming'
-                    ? 'Nothing scheduled ahead'
-                    : 'Nothing due right now'}
-              </h3>
+          {overdue.length > 0 && view === 'due' && (
+            <div className="notice error" role="status" style={{ marginTop: 14 }}>
+              <strong>
+                {overdue.length} routine occurrence{overdue.length === 1 ? '' : 's'} overdue
+              </strong>
               <p>
-                {occurrences.length === 0
-                  ? 'Occurrences are created from the routines above. Set one up to have work appear here on a schedule; a routine you set up for yourself starts once your manager activates it.'
-                  : view === 'upcoming'
-                    ? 'Future occurrences appear as their scheduled date approaches, so the list stays about work you can act on.'
-                    : 'Nothing is overdue or scheduled for today. Upcoming shows what is coming.'}
+                A missed occurrence stays open rather than disappearing, so the record of what was
+                and was not done remains accurate.
               </p>
-              <Link
-                href={occurrences.length === 0 ? '/capture' : '/work/routine?view=upcoming'}
-                className="btn"
-              >
-                {occurrences.length === 0 ? 'New Work' : 'See upcoming'}
-              </Link>
             </div>
           )}
-        </div>
+
+          {view === 'completed' ? (
+            <div className="focus-panel">
+              <div className="completed-controls">
+                <div className="segmented" role="group" aria-label="Which outcome">
+                  {(
+                    [
+                      ['all', 'All'],
+                      ['done', 'Done'],
+                      ['not_required', 'Not required'],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <Link
+                      key={key}
+                      href={`/work/routine?view=completed&period=${completedDays}${
+                        key === 'all' ? '' : `&outcome=${key}`
+                      }`}
+                      className={outcomeFilter === key ? 'active' : undefined}
+                      aria-current={outcomeFilter === key ? 'true' : undefined}
+                    >
+                      {label}
+                    </Link>
+                  ))}
+                </div>
+                <div className="segmented" role="group" aria-label="Period">
+                  {([30, 60, 90] as const).map((days) => (
+                    <Link
+                      key={days}
+                      href={`/work/routine?view=completed&period=${days}${
+                        outcomeFilter === 'all' ? '' : `&outcome=${outcomeFilter}`
+                      }`}
+                      className={completedDays === days ? 'active' : undefined}
+                      aria-current={completedDays === days ? 'true' : undefined}
+                    >
+                      Last {days} days
+                    </Link>
+                  ))}
+                </div>
+              </div>
+
+              {tally.total && (
+                <div className="routine-tally" aria-label="Routine summary for this period">
+                  <div>
+                    <strong>{tally.total.scheduled}</strong>
+                    <span>Scheduled</span>
+                  </div>
+                  <div>
+                    <strong>{tally.total.done}</strong>
+                    <span>Completed</span>
+                  </div>
+                  <div>
+                    <strong>{tally.total.notRequired}</strong>
+                    <span>Not required</span>
+                  </div>
+                  <div>
+                    <strong>{tally.total.outstanding}</strong>
+                    <span>Outstanding</span>
+                  </div>
+                  <p className="routine-tally-note">
+                    {tally.total.stepsCompleted} step{tally.total.stepsCompleted === 1 ? '' : 's'}{' '}
+                    completed · {tally.total.attachments} attachment
+                    {tally.total.attachments === 1 ? '' : 's'}. Counted from the occurrence records
+                    — nobody enters these.
+                  </p>
+                </div>
+              )}
+
+              <p className="completed-count" role="status">
+                {shownOutcomes.length} {shownOutcomes.length === 1 ? 'occurrence' : 'occurrences'}
+              </p>
+
+              {shownOutcomes.length === 0 ? (
+                <div className="empty-state compact">
+                  <h3>Nothing in this period</h3>
+                  <p>Widen the period, or change which outcome you are looking at.</p>
+                </div>
+              ) : (
+                <div className="completed-list">
+                  {shownOutcomes.map((row) => (
+                    <Link
+                      key={row.taskId}
+                      href={taskDrawerHref(row.taskId, '/work/routine?view=completed')}
+                      className="completed-row"
+                    >
+                      <span className="completed-tick" aria-hidden="true">
+                        {row.outcome === 'done' ? '✓' : '—'}
+                      </span>
+                      <span className="completed-copy">
+                        <strong>{row.title}</strong>
+                        {row.outcome === 'done' ? (
+                          <span>Completed</span>
+                        ) : (
+                          <span>
+                            Not required ·{' '}
+                            {row.reasonCode === 'no_applicable_work'
+                              ? 'No applicable site or work'
+                              : row.reasonCode === 'activity_cancelled'
+                                ? 'Activity cancelled'
+                                : (row.reasonNote ?? 'Other')}
+                            {row.decidedByName ? ` · accepted by ${row.decidedByName}` : ''}
+                          </span>
+                        )}
+                        <span className="completed-when">{row.occurrenceDate}</span>
+                      </span>
+                      <span className="completed-chevron" aria-hidden="true">
+                        ›
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="focus-panel">
+              {visible.length > 0 ? (
+                visible.map((task) => {
+                  const state = routineOccurrenceState(task, timeZone);
+                  return (
+                    <RoutineRow key={task.id}>
+                      <div>
+                        <RowPrimaryLink
+                          href={taskDrawerHref(task.id, '/work/routine')}
+                          className="title-link"
+                          ariaLabel={`Open ${task.title}`}
+                        >
+                          <strong>{task.title}</strong>
+                        </RowPrimaryLink>
+                        <span className="sub">
+                          Routine occurrence
+                          {task.checklistTotal > 0 &&
+                            ` · ${task.checklistCompleted} of ${task.checklistTotal} steps`}
+                          {task.missingEvidenceCount > 0 &&
+                            ` · ${task.missingEvidenceCount} step${
+                              task.missingEvidenceCount === 1 ? '' : 's'
+                            } need evidence`}
+                        </span>
+                      </div>
+
+                      <div className="hide-mobile">
+                        <span
+                          className={`status ${
+                            state === 'overdue'
+                              ? 'cancelled'
+                              : state === 'due_today'
+                                ? 'active'
+                                : state === 'completed'
+                                  ? 'completed'
+                                  : 'backlog'
+                          }`}
+                        >
+                          {ROUTINE_OCCURRENCE_LABELS[state]}
+                        </span>
+                        <div className="sub" style={{ marginTop: 4 }}>
+                          {formatDue(task.dueAt, task.dueIsDateOnly, timeZone)}
+                        </div>
+                      </div>
+
+                      <div className="hide-narrow">
+                        <ProgressIndicator
+                          value={task.progressPercent}
+                          label={
+                            task.checklistTotal > 0
+                              ? `${task.checklistCompleted} of ${task.checklistTotal} steps`
+                              : `${task.progressPercent}% complete`
+                          }
+                        />
+                      </div>
+
+                      <div className="row-action">
+                        <Link href={taskDrawerHref(task.id, '/work/routine')} className="btn small">
+                          Open
+                        </Link>
+                      </div>
+                    </RoutineRow>
+                  );
+                })
+              ) : (
+                /* Section 27.2 — what is empty, why, and the next useful action. */
+                <div className="empty-state">
+                  <h3>
+                    {occurrences.length === 0
+                      ? 'No routine work assigned to you'
+                      : view === 'upcoming'
+                        ? 'Nothing scheduled ahead'
+                        : 'Nothing due right now'}
+                  </h3>
+                  <p>
+                    {occurrences.length === 0
+                      ? 'Occurrences are created from the routines above. Set one up to have work appear here on a schedule; a routine you set up for yourself starts once your manager activates it.'
+                      : view === 'upcoming'
+                        ? 'Future occurrences appear as their scheduled date approaches, so the list stays about work you can act on.'
+                        : 'Nothing is overdue or scheduled for today. Upcoming shows what is coming.'}
+                  </p>
+                  <Link
+                    href={occurrences.length === 0 ? '/capture' : '/work/routine?view=upcoming'}
+                    className="btn"
+                  >
+                    {occurrences.length === 0 ? 'New Work' : 'See upcoming'}
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
+
       {/*
         The schedules, under the work rather than over it.
 

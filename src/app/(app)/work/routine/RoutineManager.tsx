@@ -215,7 +215,7 @@ export function RoutineManager({
                   </span>
                 </div>
                 <span className={`routine-state ${template.isActive ? 'active' : 'paused'}`}>
-                  {template.isActive ? 'Active' : 'Paused'}
+                  {template.isActive ? 'Running' : 'Paused'}
                 </span>
                 <div className="routine-template-actions">
                   <button type="button" className="btn small" onClick={() => setEditing(template)}>
@@ -227,7 +227,7 @@ export function RoutineManager({
                     disabled={pending}
                     onClick={() => toggle(template)}
                   >
-                    {template.isActive ? 'Pause' : 'Activate'}
+                    {template.isActive ? 'Pause' : 'Resume'}
                   </button>
                   {/*
                     Deleting is for a routine that should not exist, which is
