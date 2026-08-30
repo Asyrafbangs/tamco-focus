@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { resolveEmailTransport } from '@/server/workers/email-transport';
-import { smtpConfigFromEnv } from '@/server/workers/smtp-transport';
+import { sendSmtp, smtpConfigFromEnv } from '@/server/workers/smtp-transport';
 
 /**
  * The behaviour these pin is the one that made notification email look healthy
@@ -155,5 +155,60 @@ describe('reading mail configuration a person typed', () => {
 
   it('still defaults the port to 587', () => {
     expect(smtpConfigFromEnv(base)).toMatchObject({ port: 587 });
+  });
+});
+
+/**
+ * A real relay only gets an address that could actually receive mail.
+ *
+ * The seed fixtures use `@tamco.local`. The moment a real SMTP transport was
+ * configured, a worker run handed two of them to Office 365, which accepted
+ * them at RCPT and bounced them afterwards — nobody received anything, and the
+ * sending mailbox collected the failures. `sendSmtp` is the one place every
+ * real send passes through, so the refusal lives there rather than in each
+ * worker; the inbucket capture is deliberately left alone, because catching
+ * `.local` is precisely its purpose.
+ */
+describe('refusing to send to an address that cannot receive mail', () => {
+  const config = {
+    host: 'smtp.office365.com',
+    port: 587,
+    user: 'sender@example.org',
+    password: 'pw',
+    from: 'sender@example.org',
+  };
+  const message = { subject: 's', text: 't', html: '<p>h</p>' };
+
+  it.each([
+    'izzah@tamco.local',
+    'someone@corp.internal',
+    'someone@box.lan',
+    'someone@host.test',
+    'someone@nowhere.invalid',
+  ])('refuses %s, naming the reserved name', async (to) => {
+    await expect(sendSmtp(config, { ...message, to })).rejects.toThrow(/reserved name/i);
+  });
+
+  /*
+   * `someone@localhost` is refused a step earlier, by the shape check: a
+   * domain with no dot is not an address at all. Different sentence, same
+   * outcome, so what this pins is that it never reaches a relay.
+   */
+  it.each(['not-an-address', 'someone@localhost', 'one@a.com, two@b.com'])(
+    'refuses %s as not one address',
+    async (to) => {
+      await expect(sendSmtp(config, { ...message, to })).rejects.toThrow(/not one email address/i);
+    },
+  );
+
+  /*
+   * A routable address must get past the guard. It cannot reach a real server
+   * from a unit test, so the pass condition is that it fails for a network
+   * reason rather than a refusal.
+   */
+  it('lets a routable address through to the connection attempt', async () => {
+    await expect(
+      sendSmtp({ ...config, host: '127.0.0.1', port: 1 }, { ...message, to: 'real@tamco.com.my' }),
+    ).rejects.not.toThrow(/reserved name|not one email address/i);
   });
 });

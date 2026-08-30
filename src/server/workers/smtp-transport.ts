@@ -43,6 +43,24 @@ export interface SmtpMessage {
 
 const TIMEOUT_MS = 20_000;
 
+/**
+ * Names reserved so they can never resolve on the public internet.
+ *
+ * `local`, `localhost`, `test`, `invalid` and `example` are reserved by
+ * RFC 6761 and RFC 2606; `internal` and `lan` are not reserved by an RFC but
+ * are used the same way and never route. Mail to any of them is undeliverable
+ * by construction, so a relay that accepts it is only promising a bounce.
+ */
+const UNROUTABLE_TLDS = new Set([
+  'local',
+  'localhost',
+  'internal',
+  'lan',
+  'test',
+  'invalid',
+  'example',
+]);
+
 /** RFC 2047 for anything a header cannot carry raw. */
 const encodeHeader = (value: string) =>
   /^[\x20-\x7E]*$/.test(value)
@@ -195,6 +213,32 @@ export async function sendSmtp(config: SmtpConfig, message: SmtpMessage): Promis
     if (typeof message[part] !== 'string' || message[part].length === 0) {
       throw new Error(`The message has no ${part}, so there is nothing to send.`);
     }
+  }
+
+  /*
+   * A real relay only gets an address that could actually receive mail.
+   *
+   * This is the one place every real send passes through, which is why the
+   * check lives here rather than in each worker. `sendLocalSmtp` — the
+   * inbucket capture used for local work — is deliberately untouched, because
+   * catching `@tamco.local` is exactly its job.
+   *
+   * The seed fixtures use `.local`, and the moment a real transport was
+   * configured they went to Office 365, which accepted them at RCPT and
+   * bounced them afterwards. Nobody received anything; the sending mailbox
+   * received the failures. Refusing here turns a delayed bounce into an
+   * immediate, legible error against the delivery that caused it.
+   */
+  const recipient = message.to.trim();
+  if (!ONE_ADDRESS.test(recipient)) {
+    throw new Error(`"${message.to}" is not one email address, so it cannot be sent to.`);
+  }
+  const tld = recipient.slice(recipient.lastIndexOf('.') + 1).toLowerCase();
+  if (UNROUTABLE_TLDS.has(tld)) {
+    throw new Error(
+      `Refusing to send to "${recipient}": .${tld} is a reserved name that cannot receive mail. ` +
+        'Fixture addresses belong on the inbucket transport, not on a real relay.',
+    );
   }
 
   const session = new SmtpSession(await openSocket(config));
