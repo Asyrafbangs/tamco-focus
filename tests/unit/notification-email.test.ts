@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { notificationPath, renderNotificationEmail } from '@/server/workers/notification-email';
+import {
+  notificationPath,
+  renderNotificationEmail,
+  runNotificationEmailWorker,
+} from '@/server/workers/notification-email';
 
 const taskNotification = {
   title: 'New work assigned to you',
@@ -74,5 +78,41 @@ describe('notification email template', () => {
 
     expect(rendered.href).toBe('#');
     expect(rendered.html).not.toContain('javascript:');
+  });
+});
+
+/**
+ * The delivery that would be recorded but never sent.
+ *
+ * `runNotificationEmailWorker` skips the send when no sender was supplied and
+ * marks the row `sent` immediately afterwards either way. Under `smtp` that
+ * means every notification is recorded as delivered and discarded, and `sent`
+ * is terminal, so nothing retries it. The weekly summary worker shipped with
+ * exactly this shape and ran that way in Production for weeks.
+ *
+ * Neither of these touches a database: the refusal happens before the first
+ * query, which is the whole point of putting it there.
+ */
+describe('sending transports must be able to send', () => {
+  const client = {} as Parameters<typeof runNotificationEmailWorker>[0];
+
+  it.each(['smtp', 'inbucket'] as const)(
+    'refuses to run under %s with no send function',
+    async (transport) => {
+      await expect(runNotificationEmailWorker(client, { transport })).rejects.toThrow(
+        /no send function was supplied/i,
+      );
+    },
+  );
+
+  it('still allows the log transport, which has nothing to send through', async () => {
+    /*
+     * Reaching the database is the pass condition: it means the guard let this
+     * through. What happens next needs a real Postgres and is covered by the
+     * integration suite.
+     */
+    await expect(runNotificationEmailWorker(client, { transport: 'log' })).rejects.not.toThrow(
+      /no send function was supplied/i,
+    );
   });
 });

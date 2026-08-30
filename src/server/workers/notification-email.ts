@@ -227,6 +227,24 @@ export async function runNotificationEmailWorker(
   client: Client,
   options: NotificationEmailWorkerOptions = {},
 ): Promise<NotificationEmailWorkerResult> {
+  /*
+   * A sending transport with nothing to send through is a programming error,
+   * and a silent one: the send below is skipped when `send` is absent, and the
+   * row is marked `sent` immediately afterwards regardless. Every notification
+   * would be recorded as delivered and thrown away, and `sent` is terminal, so
+   * nothing would ever retry it.
+   *
+   * That is not hypothetical. The weekly summary worker shipped with exactly
+   * this shape and ran that way in Production for weeks (v115); only the log
+   * transport, which legitimately has no sender, may take the quiet path.
+   */
+  if ((options.transport === 'smtp' || options.transport === 'inbucket') && !options.send) {
+    throw new Error(
+      `The ${options.transport} transport was named but no send function was supplied. ` +
+        'Every notification would be recorded as sent and discarded.',
+    );
+  }
+
   const now = options.now ?? new Date();
   const limit = Math.max(1, Math.min(options.limit ?? 100, 500));
   const result: NotificationEmailWorkerResult = {
