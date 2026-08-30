@@ -751,9 +751,19 @@ export default async function WorkPage({
               : 'One workspace for focused commitments and repeating responsibilities.'}
           </p>
         </div>
+        {/*
+          The primary action belongs to the mode you are in.
+
+          Focus and Routine create different things: a task that enters the
+          Active/Available workflow, and a schedule that generates occurrences
+          by itself. One global New Work button was therefore right here and
+          wrong on Routine, where pressing it made a task and no routine ever
+          appeared. The Focus/Routine selector switches this button with the
+          view, so nobody has to work out which of the two they are creating.
+        */}
         <div className="actions">
           <Link href="/capture" className="btn primary">
-            New Work
+            ＋ New Work
           </Link>
         </div>
       </div>

@@ -78,7 +78,13 @@ export function RoutineManager({
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [editing, setEditing] = useState<RoutineTemplateRow | null>(null);
-  const [creating, setCreating] = useState(Boolean(openWith));
+  /*
+   * `?new=` with no title asks for an empty form; `?new=Weekly%20report`
+   * arrives from New Work with the title already filled in. Testing the string
+   * for truth made the first of those do nothing at all, because the empty
+   * string is false — Set up routine navigated, and no form opened.
+   */
+  const [creating, setCreating] = useState(openWith !== null);
   const [confirmDelete, setConfirmDelete] = useState<RoutineTemplateRow | null>(null);
   const [confirmPurge, setConfirmPurge] = useState<BinnedRoutine | null>(null);
 
@@ -174,7 +180,11 @@ export function RoutineManager({
             without touching those already created.
           </span>
         </div>
-        <button type="button" className="btn primary" onClick={() => setCreating(true)}>
+        {/* Secondary now: the page header carries the primary Set up routine,
+            and two primary buttons for one action is one too many. This stays
+            because it is this section's own affordance, where somebody
+            reviewing their schedules would look for it. */}
+        <button type="button" className="btn small" onClick={() => setCreating(true)}>
           Set up a routine
         </button>
       </div>

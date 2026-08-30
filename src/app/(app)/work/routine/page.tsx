@@ -52,10 +52,16 @@ import {
  * with its own due date, checklist, evidence, and audit history.
  *
  * This page sits inside the SAME Work shell as Focus — same heading, same
- * My Work / My Team scope selector, same Focus / Routine selector, same Capture
- * entry point. Switching to Routine changes the work lifecycle on display, not
- * the application you appear to be in; previously it dropped the scope selector
- * and the Capture button, so it read as a different product.
+ * My Work / My Team scope selector, same Focus / Routine selector. Switching to
+ * Routine changes the work lifecycle on display, not the application you appear
+ * to be in; previously it dropped the scope selector entirely, so it read as a
+ * different product.
+ *
+ * The one thing deliberately NOT shared is the primary action. The shell used
+ * to carry New Work here too, which was a genuine trap: it creates a task, and
+ * a person who wanted a repeating responsibility got a one-off piece of work
+ * and no routine. The button follows the selector instead — Focus creates
+ * work, Routine creates the schedule that generates it.
  *
  * What does NOT carry over is Focus vocabulary. Routine has its own occurrence
  * lifecycle — Due now, Upcoming, Completed — because nobody activates an
@@ -64,6 +70,13 @@ import {
  */
 
 type RoutineView = 'due' | 'upcoming' | 'completed';
+
+/**
+ * Opens the schedules disclosure AND the create form inside it. Both, because
+ * the form lives in that disclosure: leaving it shut would put the form behind
+ * a closed `details` on the very navigation that asked for it.
+ */
+const ROUTINE_SETUP_HREF = '/work/routine?schedules=1&new=';
 
 export default async function RoutinePage({
   searchParams,
@@ -297,9 +310,23 @@ export default async function RoutinePage({
           <h1>My Work</h1>
           <p>One workspace for focused commitments and repeating responsibilities.</p>
         </div>
+        {/*
+          Routine's half of the contextual action (see the Focus page).
+
+          "Set up routine" rather than "New routine" because what this creates
+          is the schedule, not a piece of work. The occurrences need no button
+          at all — the schedule generates them, which is the entire reason
+          somebody sets one up.
+
+          It is shown to everybody, including on the manager's team panel:
+          creating a schedule needs no particular authority here, and
+          assigning one to somebody else needs exactly the authority that
+          opened that panel. There is no reader who would be given a button
+          that cannot work, so there is no case to hide it in.
+        */}
         <div className="actions">
-          <Link href="/capture" className="btn primary">
-            New Work
+          <Link href={ROUTINE_SETUP_HREF} className="btn primary">
+            ＋ Set up routine
           </Link>
         </div>
       </div>
@@ -730,19 +757,23 @@ export default async function RoutinePage({
                   </h3>
                   <p>
                     {mySchedules.length === 0
-                      ? 'Routine work appears here automatically once a schedule is assigned to you or activated.'
+                      ? 'Routine work will appear here automatically when a schedule is set up or assigned to you.'
                       : awaitingActivation.length > 0
                         ? `${awaitingActivation.length} routine ${awaitingActivation.length === 1 ? 'schedule is' : 'schedules are'} waiting for manager activation.`
                         : view === 'upcoming'
                           ? 'Future occurrences appear as their scheduled date approaches, so the list stays about work you can act on.'
                           : 'Routine work appears here automatically when it reaches its scheduled date.'}
                   </p>
-                  {mySchedules.length === 0 ? (
-                    <Link href="/work/routine?new=" className="btn">
-                      Set up a routine
-                    </Link>
-                  ) : awaitingActivation.length > 0 ? (
-                    <Link href="/work/routine?schedules=1" className="btn">
+                  {/*
+                    No second setup button. This one sat directly under a
+                    header that now reads Set up routine, so an empty screen
+                    offered the same action twice with equal weight. What is
+                    left is a different action — go and look at the schedules
+                    that already exist — and it is quiet, so the header keeps
+                    the only primary action on the page.
+                  */}
+                  {mySchedules.length > 0 && awaitingActivation.length > 0 ? (
+                    <Link href="/work/routine?schedules=1" className="empty-link">
                       View routine schedules
                     </Link>
                   ) : null}
@@ -766,6 +797,19 @@ export default async function RoutinePage({
       <details className="routine-manage" open={params.schedules === '1' || undefined}>
         <summary>Routine schedules</summary>
         <RoutineManager
+          /*
+            Keyed on the parameter that opens the form. Set up routine is a
+            link on the page it leads to, so following it is a soft navigation
+            that re-renders this server component without remounting the
+            client one below — and the form's initial state would never be
+            read. Keying it makes the parameter changing mean what it says.
+
+            Absent and present-but-empty have to stay distinguishable: `?new=`
+            is a request for a blank form, and folding it into the same key as
+            "no parameter at all" produces one key for both, which is a key
+            that never changes.
+          */
+          key={params.new === undefined ? 'routines' : `routines-open-${params.new}`}
           templates={routines.templates}
           failed={routines.failed}
           canManageOthers={isManager}

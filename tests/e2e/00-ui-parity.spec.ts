@@ -101,13 +101,18 @@ test('main employee surfaces retain prototype structure at every required viewpo
 
   /*
    * v43 section 6 — Routine lives inside the SAME Work shell as Focus. The
-   * heading, the Capture entry point and the Focus/Routine selector are shared,
-   * so this asserts the shell rather than a Routine-specific heading: the whole
-   * requirement is that switching does not feel like another application.
+   * heading and the Focus/Routine selector are shared, so this asserts the
+   * shell rather than a Routine-specific heading: the whole requirement is that
+   * switching does not feel like another application.
+   *
+   * v128 — with one exception, which is the primary action. It used to say New
+   * Work here as well, which creates a task: somebody who wanted a repeating
+   * responsibility got a one-off piece of work and no routine at all.
    */
   await page.goto('/work/routine');
   await expect(page.getByRole('heading', { name: 'My Work' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /New Work/i })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Set up routine/i })).toBeVisible();
+  await expect(page.getByRole('link', { name: /New Work/i })).toHaveCount(0);
   await expect(page.getByRole('navigation', { name: 'Workspace' })).toBeVisible();
 
   // But Routine keeps its own occurrence lifecycle, never Focus vocabulary.

@@ -4781,6 +4781,23 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   color: var(--muted);
   max-width: 46ch;
 }
+/* The bottom margin exists to separate the paragraph from an action. Where
+   there is no action — an empty state that is simply reporting a fact — it
+   leaves the box looking bottom-heavy. */
+.empty-state p:last-child {
+  margin-bottom: 0;
+}
+/* A link that is deliberately not a button, for an empty state whose primary
+   action lives in the page header. */
+.empty-link {
+  color: var(--blue);
+  font-weight: 550;
+  text-decoration: none;
+}
+.empty-link:hover,
+.empty-link:focus-visible {
+  text-decoration: underline;
+}
 
 .notice {
   border-radius: var(--radius-sm);
