@@ -138,26 +138,40 @@ export function MyDayNeedsAttentionSummary({
   items,
   now,
   timeZone,
+  announceClear = true,
 }: {
   items: AttentionRequest[];
   now: Date;
   timeZone: string;
+  /**
+   * Whether "all clear" is worth saying. False when the exception banner above
+   * is already reporting that something is wrong: the two count different
+   * things — that banner is this person's own work slipping, this is other
+   * people waiting on them — but stacked together they read as a contradiction,
+   * and the reassuring half is the one to drop.
+   */
+  announceClear?: boolean;
 }) {
   const visible = items.slice(0, MY_DAY_ATTENTION_LIMIT);
 
+  /*
+   * Nothing waiting is a line, not a panel.
+   *
+   * This was a full card with a heading and a sentence, which gave the absence
+   * of news more of the screen than most of the work on it. The information is
+   * worth one line — you are not blocking anybody, and nobody is blocking you —
+   * and the space belongs to Start here. When something IS waiting, the card
+   * below returns at full size, which is the moment it earns it.
+   */
   if (items.length === 0) {
+    if (!announceClear) return null;
     return (
-      <section
-        className={`card ${styles.queue} ${styles.clear}`}
-        aria-labelledby="needs-attention-heading"
-      >
-        <div className={styles.header}>
-          <div>
-            <h2 id="needs-attention-heading">✓ You&rsquo;re all clear</h2>
-            <p>Nothing currently needs your decision, approval or response.</p>
-          </div>
-        </div>
-      </section>
+      <p className={styles.clearStrip} role="status" id="needs-attention-heading">
+        <strong>
+          <span aria-hidden="true">✓</span> All clear
+        </strong>
+        No blockers, approvals or responses need you.
+      </p>
     );
   }
 

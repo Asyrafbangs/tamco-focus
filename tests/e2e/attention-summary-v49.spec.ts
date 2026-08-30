@@ -212,10 +212,18 @@ test('a clear queue reads as clear, with no View all 0', async ({ page }) => {
 
   await signIn(page, 'lim@tamco.local');
 
-  const queue = page.locator('section[aria-labelledby="needs-attention-heading"]');
-  await expect(queue).toContainText(/You.re all clear/);
-  await expect(queue.getByTestId('my-day-attention-row')).toHaveCount(0);
+  // v125 - nothing owed is one line, not a card. A panel announcing the
+  // absence of news took more of My Day than most of the work on it.
+  const clear = page.locator('#needs-attention-heading');
+  await expect(clear).toContainText(/All clear/);
+  await expect(clear).toContainText(/No blockers, approvals or responses need you/);
+  await expect(page.getByTestId('my-day-attention-row')).toHaveCount(0);
   await expect(page.getByRole('link', { name: /View all 0/ })).toHaveCount(0);
+
+  // It is a line, not a panel: comfortably under the height a card would take.
+  const box = await clear.boundingBox();
+  expect(box, 'the all-clear line has no box').not.toBeNull();
+  expect(box!.height, 'the all-clear line has grown back into a card').toBeLessThan(60);
 });
 
 /**

@@ -1484,6 +1484,38 @@ export async function getHandoffReadyTaskIds(userId: string): Promise<Set<string
   return new Set((data ?? []).map((row) => row.task_id as string));
 }
 
+/**
+ * Tasks whose open barrier is waiting on somebody else.
+ *
+ * My Day ranks a blocked task highly, which is right when the blockage is the
+ * viewer's to clear and wrong when it is not: recommending somebody "start"
+ * work that is sitting on another person's decision asks them to do the one
+ * thing they cannot. This is the difference, and it needs the barrier's
+ * `action_required_from`, which the task overview does not carry.
+ *
+ * A barrier with no named actor is not counted: nobody specific owes an answer,
+ * so the viewer is as able to move it forward as anyone.
+ */
+export async function getBarriersAwaitingOthers(userId: string): Promise<Set<string>> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from('barriers')
+    .select('task_id, action_required_from')
+    .eq('status', 'open')
+    .eq('action_pending', true)
+    .not('task_id', 'is', null)
+    .not('action_required_from', 'is', null)
+    .neq('action_required_from', userId);
+
+  if (error) {
+    console.error(`[getBarriersAwaitingOthers] ${error.message}`);
+    return new Set();
+  }
+
+  return new Set((data ?? []).map((row) => String(row.task_id)));
+}
+
 /** How many other tasks each task blocks, for My Day tie-breaking. */
 export async function getBlockingCounts(): Promise<Map<string, number>> {
   const supabase = await createSupabaseServerClient();

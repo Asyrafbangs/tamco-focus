@@ -37,6 +37,52 @@ describe('Start Here ordering (section 9.4)', () => {
     expect(startHere([active, blocked], context)!.task.id).toBe('blocked');
   });
 
+  /*
+   * "Blocked and needing this person" — the second half is the operative one.
+   *
+   * A barrier ranks a task highly because a blockage is urgent, which holds
+   * only while the viewer is the one who can clear it. Where somebody else
+   * owes the answer, recommending they "start" it asks them to do the single
+   * thing they cannot, and pushes work they could actually move below it.
+   */
+  it('does not recommend work that is waiting on somebody else', () => {
+    const blockedOnOthers = makeTask({ id: 'theirs', openBarrierCount: 1 });
+    const active = makeTask({ id: 'mine', status: 'active' });
+
+    const recommendation = startHere([blockedOnOthers, active], {
+      ...context,
+      awaitingOthersTaskIds: new Set(['theirs']),
+    });
+
+    expect(recommendation!.task.id).toBe('mine');
+  });
+
+  it('still recommends blocked work when the viewer is the one who can clear it', () => {
+    const blocked = makeTask({ id: 'blocked', openBarrierCount: 1 });
+    const active = makeTask({ id: 'active', status: 'active' });
+
+    expect(
+      startHere([active, blocked], { ...context, awaitingOthersTaskIds: new Set() })!.task.id,
+    ).toBe('blocked');
+  });
+
+  /*
+   * Overdue is overdue whoever is holding it up, so it keeps its band — but it
+   * is still not what to recommend starting. Having something to fall back to
+   * matters more than the ranking here: a page with nothing recommended is
+   * worse than one recommending the only thing there is.
+   */
+  it('falls back to waiting work when there is nothing else to do', () => {
+    const onlyTask = makeTask({ id: 'only', openBarrierCount: 1 });
+
+    const recommendation = startHere([onlyTask], {
+      ...context,
+      awaitingOthersTaskIds: new Set(['only']),
+    });
+
+    expect(recommendation!.task.id).toBe('only');
+  });
+
   it('ranks a ready handoff above ordinary active work', () => {
     const handoff = makeTask({ id: 'handoff', status: 'backlog' });
     const active = makeTask({ id: 'active', status: 'active' });

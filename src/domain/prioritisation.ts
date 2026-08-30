@@ -51,6 +51,14 @@ export interface PrioritisationContext {
   blockingCounts?: ReadonlyMap<string, number>;
   /** The oldest open barrier per task, for tie-break 4. */
   oldestBarrierAt?: ReadonlyMap<string, string>;
+  /**
+   * Tasks whose open barrier names somebody else as the person to act.
+   *
+   * A blocked task ranks highly because a blockage is urgent — but only when
+   * the viewer is the one who can clear it. Where they are not, the blockage
+   * is a reason they cannot proceed, not a reason to start.
+   */
+  awaitingOthersTaskIds?: ReadonlySet<string>;
 }
 
 const BAND_RANK: Record<PriorityBand, number> = Object.fromEntries(
@@ -77,7 +85,15 @@ function bandFor(task: TaskOverview, context: PrioritisationContext): PriorityBa
 
   // 2. Overdue, or blocked and needing this person.
   if (task.isOverdue) return 'overdue_or_blocked';
-  if (task.openBarrierCount > 0) return 'overdue_or_blocked';
+  /*
+   * "and needing this person" is the operative half. A barrier waiting on
+   * somebody else's decision does not promote the task: the viewer cannot
+   * clear it, so ranking it above work they could actually do puts the one
+   * thing they are powerless over at the top of their day.
+   */
+  if (task.openBarrierCount > 0 && !context.awaitingOthersTaskIds?.has(task.id)) {
+    return 'overdue_or_blocked';
+  }
 
   const today = localDateString(now, timeZone);
 
@@ -210,7 +226,18 @@ export function startHere(
   tasks: readonly TaskOverview[],
   context: PrioritisationContext,
 ): RankedTask | null {
-  return rankTasks(tasks, context)[0] ?? null;
+  /*
+   * The first thing the viewer can actually move.
+   *
+   * Work waiting on somebody else's answer can still be overdue, and overdue
+   * work still ranks first — so without this the recommendation could be a
+   * task whose only honest next step is to wait. It stays visible further down
+   * the page, where it reads as information rather than as an instruction.
+   */
+  const ranked = rankTasks(tasks, context);
+  return (
+    ranked.find((entry) => !context.awaitingOthersTaskIds?.has(entry.task.id)) ?? ranked[0] ?? null
+  );
 }
 
 /** The short Today list (section 9.6), which is capped at three to five items. */

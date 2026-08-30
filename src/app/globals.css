@@ -3470,6 +3470,13 @@ fieldset:disabled label,
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+/* The recommendation's reason, said rather than hidden behind a control. */
+.start-reason {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 18px;
+}
 .start-card h2 {
   margin: 8px 0 5px;
   font-size: 20px;
@@ -3592,6 +3599,22 @@ fieldset:disabled label,
 .summary-item strong {
   font-size: 13px;
   color: var(--text);
+}
+/* The two counts that name a list are links to it. Underlined on hover rather
+   than styled as buttons: they are still a summary, just one you can follow. */
+.summary-link {
+  padding: 5px 10px;
+  margin: -5px 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+}
+.summary-link:hover,
+.summary-link:focus-visible {
+  border-color: var(--muted);
+  background: var(--line-soft);
 }
 .summary-dot {
   width: 7px;

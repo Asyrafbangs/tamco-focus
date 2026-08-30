@@ -14,6 +14,7 @@ import {
 import { TASK_STATUS_LABELS, WORK_CLASS_LABELS } from '@/domain/types';
 import { requireProfile } from '@/lib/supabase/server';
 import {
+  getBarriersAwaitingOthers,
   getBlockingCounts,
   getDisplaySettings,
   getFocusSummary,
@@ -107,6 +108,7 @@ export default async function TodayPage({
     assignablePeople,
     actionRequests,
     teamDirectory,
+    awaitingOthersTaskIds,
   ] = await Promise.all([
     getMyTasks(profile.id),
     getFocusSummary(profile.id),
@@ -122,6 +124,7 @@ export default async function TodayPage({
     // Only when Capture is open, for checklist assignment. Loading the
     // directory on every My Day render would be a query nobody asked for.
     params.capture === '1' ? getTeamDirectory() : Promise.resolve([]),
+    getBarriersAwaitingOthers(profile.id),
   ]);
 
   const context = {
@@ -130,24 +133,71 @@ export default async function TodayPage({
     timeZone: profile.timezone ?? undefined,
     handoffReadyTaskIds,
     blockingCounts,
+    awaitingOthersTaskIds,
   };
 
   const now = new Date();
 
   const attention = needsAttention(tasks, context);
   const recommendation = startHere(tasks, context);
-  const upcoming = comingUp(tasks, context, 3);
 
-  // Today is the next useful work, so it excludes what the page already shows:
-  // the Start Here recommendation above it and the commitments under Coming Up
-  // below it. Three items keeps it scannable (section 9.6).
-  const alreadyShown = new Set<string>([
-    ...(recommendation ? [recommendation.task.id] : []),
-    ...upcoming.map((task) => task.id),
-  ]);
-  const today = todayList(tasks, context, settings.todayListMaxItems + alreadyShown.size)
-    .filter((entry) => !alreadyShown.has(entry.task.id))
-    .slice(0, 3);
+  /*
+   * Each section shows work the ones above it have not.
+   *
+   * The exclusion used to run one way only: Next up dropped anything already
+   * recommended or coming up, but Coming up was computed independently and so
+   * happily repeated the Start here card. The recommendation is the largest
+   * thing on the page; seeing it again four inches below reads as a mistake,
+   * and it is. The page should reveal different work as you go down it.
+   */
+  /*
+   * One row per piece of work, and one row per ROUTINE.
+   *
+   * Filtering by task id alone was not enough. A routine generates an
+   * occurrence per period, each a separate task carrying the same title, so a
+   * weekly walk put four rows reading "Weekly workplace safety walk" across
+   * three sections — every one a different id, every one correctly
+   * deduplicated, and the page still repeating itself to anybody reading it.
+   * Nobody needs next week's occurrence while this week's is open, so the
+   * nearest one stands for the routine and the rest wait for the calendar.
+   */
+  const seenTasks = new Set<string>();
+  const seenRoutines = new Set<string>();
+
+  /** Claims a slot, or refuses because the page already says this. */
+  function claim(task: { id: string; routineTemplateId: string | null }): boolean {
+    if (seenTasks.has(task.id)) return false;
+    if (task.routineTemplateId && seenRoutines.has(task.routineTemplateId)) return false;
+    seenTasks.add(task.id);
+    if (task.routineTemplateId) seenRoutines.add(task.routineTemplateId);
+    return true;
+  }
+
+  /*
+   * Claims only what it shows. Filtering and then slicing would claim the
+   * items the slice discards, and those never reach the page — so the section
+   * below would hide work on account of a row nobody can see.
+   */
+  function take<T>(
+    candidates: readonly T[],
+    limit: number,
+    of: (item: T) => { id: string; routineTemplateId: string | null },
+  ): T[] {
+    const chosen: T[] = [];
+    for (const item of candidates) {
+      if (chosen.length >= limit) break;
+      if (claim(of(item))) chosen.push(item);
+    }
+    return chosen;
+  }
+
+  if (recommendation) claim(recommendation.task);
+  const nextUp = take(
+    todayList(tasks, context, settings.todayListMaxItems + 8),
+    3,
+    (entry) => entry.task,
+  );
+  const upcoming = take(comingUp(tasks, context, 12), 3, (task) => task);
 
   const activeCount = tasks.filter((task) => task.status === 'active').length;
   const availableCount = tasks.filter((task) => task.status === 'backlog').length;
@@ -187,8 +237,10 @@ export default async function TodayPage({
         {/* Monthly Plan is reachable from Coming up, where it is in context.
             Two routes to the same page from one screen is navigation noise. */}
         <div className="actions">
-          <Link href="/work" className="btn">
-            Open My Focus
+          {/* Quieter than New Work: the rail already navigates to Focus, so
+              this is a convenience, not the point of the page. */}
+          <Link href="/work" className="btn ghost">
+            My Focus
           </Link>
           <Link href="/today?capture=1" className="btn primary">
             ＋ New Work
@@ -242,6 +294,7 @@ export default async function TodayPage({
         items={actionRequests}
         now={now}
         timeZone={profile.timezone ?? 'Asia/Kuala_Lumpur'}
+        announceClear={attention.length === 0}
       />
 
       <div className="today-grid">
@@ -291,6 +344,16 @@ export default async function TodayPage({
                 </span>
               </div>
 
+              {/*
+                The reason, in the open.
+
+                It was behind a "Why this?" disclosure, which asked for a click
+                to answer the first question anybody has about a recommendation.
+                The rule is one sentence; there is no reason to charge for it.
+                The disclosure stays for the detailed version.
+              */}
+              <p className="start-reason">{recommendation.why}</p>
+
               <div className="actions" style={{ marginTop: 14 }}>
                 <Link
                   href={taskDrawerHref(recommendation.task.id, '/today')}
@@ -317,19 +380,26 @@ export default async function TodayPage({
         </section>
 
         {/* Section 9.6 — a short list of three to five useful items. */}
-        <section className="card" aria-labelledby="today-heading">
+        {/*
+          "Today" was a promise the list could not keep: it ranks the next
+          useful work, which on a clear week is due next month. People read the
+          heading, saw the 16th and the 19th, and reasonably asked why it was
+          under Today. The subtitle was already right, so the heading now
+          matches it.
+        */}
+        <section className="card" aria-labelledby="next-up-heading">
           <div className="sectionhead">
             <div>
-              <h3 id="today-heading">Today</h3>
-              <p>The next few things worth your time</p>
+              <h3 id="next-up-heading">Next up</h3>
+              <p>The next few active commitments worth your attention</p>
             </div>
             <Link href="/work" className="btn small ghost">
               All work
             </Link>
           </div>
 
-          {today.length > 0 ? (
-            today.map((entry) => (
+          {nextUp.length > 0 ? (
+            nextUp.map((entry) => (
               <Link
                 key={entry.task.id}
                 href={taskDrawerHref(entry.task.id, '/today')}
@@ -371,7 +441,7 @@ export default async function TodayPage({
             ))
           ) : (
             <div className="empty-state">
-              <h3>Nothing scheduled for today</h3>
+              <h3>Nothing else waiting</h3>
               <p>Work you activate or that becomes due will appear here.</p>
             </div>
           )}
@@ -379,15 +449,23 @@ export default async function TodayPage({
       </div>
 
       {/* Section 9.2 — a compact workload summary, not a dashboard. */}
+      {/*
+        Counts that go somewhere.
+
+        These looked informative but were inert, which is the worst of both:
+        they occupy the space of navigation and answer nothing you can act on.
+        The two that name a list are now links to that list. The rest stay
+        plain, because there is no single view of "stale" to send anybody to.
+      */}
       <div className="summary-strip" role="group" aria-label="Workload summary">
-        <span className="summary-item">
+        <Link href="/work" className="summary-item summary-link">
           <span className="summary-dot" aria-hidden="true" />
           <strong>{activeCount}</strong> active
-        </span>
-        <span className="summary-item">
+        </Link>
+        <Link href="/work?tab=available" className="summary-item summary-link">
           <span className="summary-dot" style={{ background: 'var(--muted)' }} aria-hidden="true" />
           <strong>{availableCount}</strong> available
-        </span>
+        </Link>
         {overdueCount > 0 && (
           <span className="summary-item">
             <span className="summary-dot red" aria-hidden="true" />
@@ -452,7 +530,9 @@ export default async function TodayPage({
         <div className="sectionhead">
           <div>
             <h3 id="coming-heading">Coming up</h3>
-            <p>Within the next {settings.upcomingWindowDays} days</p>
+            <p>
+              Within the next {settings.upcomingWindowDays} days, excluding work already shown above
+            </p>
           </div>
           <Link href="/plan" className="btn small ghost">
             View Monthly Plan
