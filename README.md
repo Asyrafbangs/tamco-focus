@@ -16,6 +16,18 @@ transaction as the change, and those notifications open the exact record.
 
 Run `node scripts/verify.mjs` for the full gate suite.
 
+## v120 notification email
+
+Every committed in-app notification now queues one transactional email for the recipient, including
+new task assignments and checklist collaboration handoffs. The email repeats the canonical title
+and explanation in a compact application-themed template and links to the exact record. Server
+Actions attempt delivery after responding; `npm run worker:notifications` and the authenticated
+daily cron endpoint drain retries. Set `EMAIL_TRANSPORT=inbucket` locally to inspect a real message
+without contacting an external relay. For a guarded one-message check, set
+`NOTIFICATION_TEST_RECIPIENT` to an active local fixture email and run
+`npm run mail:test-notification`; the command refuses non-local Supabase and forces the local
+Inbucket host/port even if relay variables are present in `.env.local`.
+
 ## v103 PDF attachment review path
 
 Open an Operational Action, expand **Updates** or **Details**, and select a PDF attachment. The PDF

@@ -37,7 +37,12 @@ instead of schema or storage detail.
 
 ## Worker contracts
 
-`claim_email_delivery` atomically claims queued/failed work and recovers abandoned claims after fifteen minutes. The routine worker calls `generate_routine_occurrences` through the service role. Both commands are local-only in this stage.
+`claim_email_delivery` atomically claims weekly queued/failed work.
+`claim_notification_email_delivery` atomically claims one transactional notification delivery and
+recovers an abandoned claim after fifteen minutes. Successful Server Actions schedule prompt
+notification delivery with `after()`; the scheduled cron route and `worker:notifications` command
+drain remaining or retryable rows. The routine worker calls `generate_routine_occurrences` through
+the service role. These operations remain local-only in this stage.
 
 ## v53 lifecycle contracts
 

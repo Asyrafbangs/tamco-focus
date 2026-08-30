@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import type { OperationResult } from '@/domain/types';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
+import { scheduleNotificationEmailDispatch } from '@/server/workers/schedule-notification-email';
 
 const id = z.string().uuid();
 const idempotencyKey = z.string().min(8).max(128);
@@ -27,6 +28,7 @@ async function callProposalProcedure(
   const result = data as OperationResult<{ task_id?: string; version?: number }>;
   if (result.ok) {
     for (const path of ['/today', '/work', '/more/records']) revalidatePath(path);
+    await scheduleNotificationEmailDispatch();
   }
   return result;
 }

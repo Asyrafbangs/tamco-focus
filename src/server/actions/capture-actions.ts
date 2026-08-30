@@ -7,6 +7,7 @@ import { classifyCapture } from '@/domain/classification';
 import { endOfLocalDay } from '@/domain/duration';
 import type { CaptureDestination, OperationResult } from '@/domain/types';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
+import { scheduleNotificationEmailDispatch } from '@/server/workers/schedule-notification-email';
 import { safeAttachmentFileName, validateAttachmentFiles } from '@/server/attachments';
 
 const captureDestination = z.enum([
@@ -317,6 +318,7 @@ export async function confirmCapture(input: {
   }>;
   if (result.ok) {
     for (const path of ['/today', '/work', '/plan']) revalidatePath(path);
+    await scheduleNotificationEmailDispatch();
   }
   return result;
 }

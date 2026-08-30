@@ -33,6 +33,10 @@ Supporting records are `task_collaborators`, `task_relations`, `task_checklist_i
 - `admin_security_log` outlives user deletion and retains identity-administration events.
 - `notifications` drives in-app and digest attention.
 - `email_deliveries` stores rendered content, a unique recipient/type/period key, processing claims, attempts, retry time, result, and failure reason.
+- `notification_email_deliveries` is the transactional outbox for individual notification email.
+  Its unique notification key prevents duplicate logical deliveries; it snapshots the recipient
+  address and retains rendered HTML/text, claim, retry, sent, and failure state for the lifetime of
+  its authoritative notification.
 - `operation_log` absorbs repeat high-impact requests through idempotency keys.
 
 ## Read models

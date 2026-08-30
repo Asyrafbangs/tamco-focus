@@ -405,3 +405,20 @@ check unless marked otherwise.
 - [ ] Images still preview in the same surface, object URLs are revoked on close, and loading or
       corrupt PDFs show an actionable error state.
 - [ ] Unit, E2E, accessibility, lint, formatting, typecheck, production build and smoke checks pass.
+
+## v120 Transactional notification-email acceptance gates
+
+- [ ] Every newly inserted notification for an active recipient creates exactly one durable email
+      delivery row in the same transaction; the migration does not enqueue historical rows.
+- [ ] New task assignment and checklist collaboration handoff emails preserve the canonical title,
+      explanation, recipient, and exact record link.
+- [ ] HTML escapes user content, subjects reject newline injection, links remain same-origin HTTP(S),
+      and the plain-text body carries equivalent information.
+- [ ] The minimalist template matches the application navy/blue/neutral theme and remains readable
+      in desktop and narrow mobile email views.
+- [ ] Prompt post-response delivery, scheduled retry, abandoned-claim recovery, bounded attempts,
+      one-record idempotency, and persisted sent/failed audit state are verified.
+- [ ] Authenticated users can read only their own delivery history and cannot claim, update, insert,
+      or delete delivery records; service-role worker access remains server-only.
+- [ ] A local Inbucket test notification is visibly received, and the full database, unit,
+      integration, RLS, E2E, accessibility, formatting, typecheck, build, and smoke gates pass.

@@ -7,6 +7,7 @@ import { endOfLocalDay, localDateTimeToInstant } from '@/domain/duration';
 import type { OperationResult } from '@/domain/types';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
 import { safeAttachmentFileName, validateAttachmentFiles } from '@/server/attachments';
+import { scheduleNotificationEmailDispatch } from '@/server/workers/schedule-notification-email';
 
 /**
  * Server actions for high-impact task transitions.
@@ -70,6 +71,7 @@ async function callProcedure(
 
   if (result?.ok) {
     for (const path of revalidate) revalidatePath(path);
+    await scheduleNotificationEmailDispatch();
   }
 
   return result as OperationResult;
@@ -1017,6 +1019,7 @@ export async function addChecklistStep(input: {
   }
 
   for (const path of ['/today', '/work']) revalidatePath(path);
+  await scheduleNotificationEmailDispatch();
   return { ok: true, code: 'checklist_step_added' };
 }
 

@@ -11,6 +11,7 @@
     "dev": "next dev",
     "check:secrets": "node scripts/check-secrets.mjs",
     "mail:verify": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-mail.mjs",
+    "mail:test-notification": "tsx --env-file=.env.local scripts/send-test-notification.ts",
     "hooks:install": "git config core.hooksPath .githooks",
     "build": "next build",
     "start": "next start",
@@ -37,8 +38,9 @@
     "check:schema": "node scripts/check-schema.mjs",
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "worker:weekly": "tsx --env-file=.env.local scripts/run-weekly-summaries.ts",
+    "worker:notifications": "tsx --env-file=.env.local scripts/run-notification-emails.ts",
     "worker:routines": "tsx --env-file=.env.local scripts/run-routine-scheduler.ts",
-    "worker:tick": "npm run worker:routines && npm run worker:weekly",
+    "worker:tick": "npm run worker:routines && npm run worker:notifications && npm run worker:weekly",
     "preflight": "node scripts/preflight.mjs",
     "verify": "node scripts/verify.mjs",
     "stop:dev": "node scripts/stop-dev.mjs"

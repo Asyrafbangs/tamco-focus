@@ -4,6 +4,7 @@ import { cache } from 'react';
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { barrierHref } from '@/domain/barriers';
+import { notificationHref } from '@/domain/notification-link';
 import { describeRecurrence, patternFromRow } from '@/domain/routines';
 import {
   attentionPriority,
@@ -2460,6 +2461,7 @@ export interface PersonalSettingsData {
   }>;
   recentDeliveries: Array<{
     id: string;
+    type: 'Weekly summary' | 'Notification';
     subject: string;
     status: string;
     queuedAt: string;
@@ -2470,16 +2472,23 @@ export interface PersonalSettingsData {
 
 export async function getSettingsData(userId: string): Promise<PersonalSettingsData> {
   const supabase = await createSupabaseServerClient();
-  const [alertsResult, orgResult, deliveriesResult] = await Promise.all([
-    supabase.from('user_alert_preferences').select('*').eq('user_id', userId).maybeSingle(),
-    supabase.from('org_settings').select('key,value,description,manager_editable').order('key'),
-    supabase
-      .from('email_deliveries')
-      .select('id,subject,status,queued_at,sent_at,last_error')
-      .eq('recipient_id', userId)
-      .order('queued_at', { ascending: false })
-      .limit(8),
-  ]);
+  const [alertsResult, orgResult, weeklyDeliveriesResult, notificationDeliveriesResult] =
+    await Promise.all([
+      supabase.from('user_alert_preferences').select('*').eq('user_id', userId).maybeSingle(),
+      supabase.from('org_settings').select('key,value,description,manager_editable').order('key'),
+      supabase
+        .from('email_deliveries')
+        .select('id,subject,status,queued_at,sent_at,last_error')
+        .eq('recipient_id', userId)
+        .order('queued_at', { ascending: false })
+        .limit(8),
+      supabase
+        .from('notification_email_deliveries')
+        .select('id,subject,status,queued_at,sent_at,last_error')
+        .eq('recipient_id', userId)
+        .order('queued_at', { ascending: false })
+        .limit(8),
+    ]);
   const alerts = alertsResult.data;
   return {
     alerts: {
@@ -2495,14 +2504,28 @@ export async function getSettingsData(userId: string): Promise<PersonalSettingsD
       description: row.description as string,
       managerEditable: Boolean(row.manager_editable),
     })),
-    recentDeliveries: (deliveriesResult.data ?? []).map((row) => ({
-      id: row.id as string,
-      subject: row.subject as string,
-      status: row.status as string,
-      queuedAt: row.queued_at as string,
-      sentAt: (row.sent_at as string) ?? null,
-      lastError: (row.last_error as string) ?? null,
-    })),
+    recentDeliveries: [
+      ...(weeklyDeliveriesResult.data ?? []).map((row) => ({
+        id: row.id as string,
+        type: 'Weekly summary' as const,
+        subject: row.subject as string,
+        status: row.status as string,
+        queuedAt: row.queued_at as string,
+        sentAt: (row.sent_at as string) ?? null,
+        lastError: (row.last_error as string) ?? null,
+      })),
+      ...(notificationDeliveriesResult.data ?? []).map((row) => ({
+        id: row.id as string,
+        type: 'Notification' as const,
+        subject: (row.subject as string | null) ?? 'Notification email queued',
+        status: row.status as string,
+        queuedAt: row.queued_at as string,
+        sentAt: (row.sent_at as string) ?? null,
+        lastError: (row.last_error as string) ?? null,
+      })),
+    ]
+      .sort((left, right) => right.queuedAt.localeCompare(left.queuedAt))
+      .slice(0, 8),
   };
 }
 
@@ -2754,38 +2777,6 @@ export interface NotificationEntry {
   href: string;
 }
 
-function notificationHref(row: Record<string, unknown>): string {
-  const entityType = row.entity_type as string | null;
-  const entityId = row.entity_id as string | null;
-  const taskId = row.task_id as string | null;
-  const goalId = row.goal_id as string | null;
-
-  // A checklist item is reached through the task that owns it — Shared is a
-  // projection, so there is no separate page to land on. The item id rides
-  // along so the drawer can open the checklist and highlight the exact step,
-  // rather than dropping somebody on a list to find their own work (v44 §7).
-  if (entityType === 'checklist_item' && taskId && entityId) {
-    return `/work?tab=shared&task=${taskId}&item=${entityId}`;
-  }
-  // Same for a barrier: open the task with its barrier section focused, never
-  // the team homepage (v44 §22).
-  if (entityType === 'barrier' && taskId && entityId) {
-    return barrierHref(taskId, entityId);
-  }
-  // v46 §45 — a legacy notification that recorded only the task still has to
-  // land somewhere useful. The drawer resolves the recipient's own open
-  // barrier when there is exactly one, and otherwise opens the task normally.
-  if (entityType === 'barrier' && taskId) return `/work?task=${taskId}&attention=barrier`;
-  // v53 §21 — a request raised against a Goal is still a barrier notification,
-  // but it has no task to open. Without this it fell through to My Day: the
-  // bell said somebody needed you on a Goal and then took you nowhere near it.
-  if (entityType === 'barrier' && goalId) return `/goals?goal=${goalId}`;
-  if (entityType === 'goal' && entityId) return `/goals?goal=${entityId}`;
-  if (taskId) return `/work?task=${taskId}`;
-  if (goalId) return `/goals?goal=${goalId}`;
-  return '/today';
-}
-
 /**
  * Notifications for the bell.
  *
@@ -2820,7 +2811,7 @@ export async function getNotifications(userId: string): Promise<NotificationEntr
     requiresAction: Boolean(row.requires_action),
     readAt: (row.read_at as string) ?? null,
     createdAt: String(row.created_at),
-    href: notificationHref(row as Record<string, unknown>),
+    href: notificationHref(row),
   }));
 }
 

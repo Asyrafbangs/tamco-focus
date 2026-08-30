@@ -2559,3 +2559,25 @@ schedule, preferences, delivery queue, audit, retry, transport and duplicate-pre
    person and manager intervention only. It contains no team export, performance score, or ranking.
 5. The email uses the current restrained navy/blue/neutral theme in a table-based, inline-styled,
    mobile-safe template with matching plain text and safe application links.
+
+## V120 — Transactional email for every notification (30 August 2026)
+
+This requirement extends notification delivery; it does not redefine which business events create
+notifications.
+
+1. Every notification successfully inserted into `notifications` for an active user with an email
+   address creates one durable transactional-email delivery record in the same database transaction.
+   New task assignment and checklist collaboration handoff are required examples, not special cases.
+2. The email carries the notification title and explanation, identifies the application, and offers
+   one contextual link to the exact Task, checklist contribution, Goal, Barrier/request, proposal,
+   Routine occurrence, or other supported record. Untrusted content is escaped and links are limited
+   to the configured same-origin HTTP(S) application base.
+3. The template is minimalist, responsive, email-client safe, and consistent with the application’s
+   restrained navy, blue, white, and neutral palette. Every HTML email has equivalent plain text.
+4. A successful user mutation schedules prompt delivery after the response. A service worker and the
+   authenticated daily cron endpoint retry queued, transiently failed, or abandoned claims with
+   bounded backoff. Email failure never rolls back the already-committed business action.
+5. `notifications` remains the source of truth. Clients do not recreate alert rules, and historical
+   notifications are not bulk-emailed when this feature is introduced.
+6. One unique delivery record per notification prevents duplicate queue creation. The recipient may
+   read their own delivery history; only the service-role worker may claim or mutate delivery state.

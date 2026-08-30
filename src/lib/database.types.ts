@@ -4005,6 +4005,100 @@ export type Database = {
           },
         ]
       }
+      notification_email_deliveries: {
+        Row: {
+          attempt_count: number
+          body_html: string | null
+          body_text: string | null
+          id: string
+          last_error: string | null
+          next_retry_at: string | null
+          notification_id: string
+          processing_started_at: string | null
+          queued_at: string
+          recipient_email: string
+          recipient_id: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["email_delivery_status"]
+          subject: string | null
+        }
+        Insert: {
+          attempt_count?: number
+          body_html?: string | null
+          body_text?: string | null
+          id?: string
+          last_error?: string | null
+          next_retry_at?: string | null
+          notification_id: string
+          processing_started_at?: string | null
+          queued_at?: string
+          recipient_email: string
+          recipient_id: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["email_delivery_status"]
+          subject?: string | null
+        }
+        Update: {
+          attempt_count?: number
+          body_html?: string | null
+          body_text?: string | null
+          id?: string
+          last_error?: string | null
+          next_retry_at?: string | null
+          notification_id?: string
+          processing_started_at?: string | null
+          queued_at?: string
+          recipient_email?: string
+          recipient_id?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["email_delivery_status"]
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_email_deliveries_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: true
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_email_deliveries_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "notification_email_deliveries_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_email_deliveries_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_email_deliveries_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "notification_email_deliveries_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           actor_id: string | null
@@ -8429,6 +8523,10 @@ export type Database = {
         Returns: Json
       }
       claim_email_delivery: { Args: { p_delivery_id: string }; Returns: Json }
+      claim_notification_email_delivery: {
+        Args: { p_delivery_id: string }
+        Returns: Json
+      }
       complete_checklist_item: {
         Args: {
           p_completion_note?: string

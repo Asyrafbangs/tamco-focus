@@ -93,6 +93,7 @@ export default async function SettingsPage({
                 <div>
                   <strong>{delivery.subject}</strong>
                   <span>
+                    {delivery.type} ·{' '}
                     {new Intl.DateTimeFormat('en-MY', {
                       dateStyle: 'medium',
                       timeStyle: 'short',
@@ -110,7 +111,7 @@ export default async function SettingsPage({
           </ul>
         ) : (
           <div className="empty-state compact">
-            <p>No weekly summaries have been generated yet.</p>
+            <p>No email deliveries have been generated yet.</p>
           </div>
         )}
       </section>

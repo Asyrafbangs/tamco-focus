@@ -91,7 +91,7 @@ const ITEMS: SettingsItem[] = [
   {
     key: 'delivery',
     label: 'Delivery history',
-    description: 'Recent weekly email outcomes',
+    description: 'Recent notification and weekly email outcomes',
     group: 'Records',
     editable: false,
   },

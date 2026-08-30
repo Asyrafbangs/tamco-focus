@@ -43,9 +43,10 @@ export async function createSupabaseServerClient() {
 /**
  * The service-role client. Bypasses RLS entirely.
  *
- * Reserved for the two operations that genuinely cannot run as the caller:
+ * Reserved for operations that genuinely cannot run as the caller:
  *   * creating and deleting local Auth identities during user provisioning
  *   * the weekly summary worker, which reads across everyone by design
+ *   * the notification-email outbox worker, which claims recipient deliveries
  *
  * Both re-check authorisation in application code before they use it. This
  * module is `server-only` and the key is never prefixed `NEXT_PUBLIC_`, so it
@@ -57,7 +58,7 @@ export function createSupabaseServiceRoleClient() {
   if (!serviceRoleKey) {
     throw new Error(
       'SUPABASE_SERVICE_ROLE_KEY is not set. It is required for user provisioning and the ' +
-        'weekly summary worker. Run the local setup script to populate .env.local.',
+        'email workers. Run the local setup script to populate .env.local.',
     );
   }
 

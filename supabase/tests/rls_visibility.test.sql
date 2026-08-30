@@ -16,7 +16,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(58);
+select plan(61);
 
 -- ---------------------------------------------------------------------------
 -- Fixture identities (supabase/seed.sql)
@@ -582,7 +582,52 @@ select isnt_empty(
 select pg_temp.reset_role();
 
 -- ---------------------------------------------------------------------------
--- 10. A deactivated account loses access even holding a valid token.
+-- 10. Notification email delivery history is private and worker-owned.
+-- ---------------------------------------------------------------------------
+
+insert into public.notifications (
+  recipient_id,
+  kind,
+  channel,
+  requires_action,
+  title,
+  body
+) values (
+  pg_temp.uid('izzah'),
+  'ordinary_assignment',
+  'digest',
+  false,
+  'RLS notification-email fixture',
+  'This row exists only inside the pgTAP transaction.'
+);
+
+select pg_temp.act_as(pg_temp.uid('izzah'));
+
+select isnt_empty(
+  $$ select id from public.notification_email_deliveries
+      where recipient_id = pg_temp.uid('izzah') $$,
+  'a recipient can read their own notification email delivery history');
+
+select throws_ok(
+  $$ update public.notification_email_deliveries
+        set status = 'sent'
+      where recipient_id = pg_temp.uid('izzah') $$,
+  '42501',
+  null,
+  'an authenticated recipient cannot mutate notification email delivery state');
+
+select pg_temp.reset_role();
+select pg_temp.act_as(pg_temp.uid('lim'));
+
+select is_empty(
+  $$ select id from public.notification_email_deliveries
+      where recipient_id = pg_temp.uid('izzah') $$,
+  'another user cannot read somebody else''s notification email delivery history');
+
+select pg_temp.reset_role();
+
+-- ---------------------------------------------------------------------------
+-- 11. A deactivated account loses access even holding a valid token.
 -- ---------------------------------------------------------------------------
 
 select public.deactivate_user(pg_temp.uid('lim'), true);
@@ -600,7 +645,7 @@ select is_empty(
 select pg_temp.reset_role();
 
 -- ---------------------------------------------------------------------------
--- 11. Attachments follow the authorisation of the task that owns them.
+-- 12. Attachments follow the authorisation of the task that owns them.
 -- ---------------------------------------------------------------------------
 
 select pg_temp.act_as(pg_temp.uid('lim'));

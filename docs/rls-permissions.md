@@ -37,7 +37,19 @@ Clients cannot insert, update, or delete audit events. Security-definer procedur
 
 ## Verification
 
-`supabase/tests/rls_visibility.test.sql` proves 58 properties including anonymous Goal denial, own Goal access, view-without-update/edit/agreement, direct-table mutation denial, authorised manager agreement, aggregate plan/session visibility, audit creation, deactivated-token denial, append-only history, private attachment behaviour, and the administrator/manager/explicit/none Team projection matrix. `npm run db:test` and the integration suite run against real local Postgres and Auth.
+`supabase/tests/rls_visibility.test.sql` proves 61 properties including anonymous Goal denial, own
+Goal access, view-without-update/edit/agreement, direct-table mutation denial, authorised manager
+agreement, aggregate plan/session visibility, audit creation, deactivated-token denial, append-only
+history, private attachment behaviour, private notification-email delivery history, and the
+administrator/manager/explicit/none Team projection matrix. `npm run db:test` and the integration
+suite run against real local Postgres and Auth.
+
+## Notification-email delivery
+
+An authenticated recipient may select only their own `notification_email_deliveries` rows and has
+no insert, update, delete, or claim privilege. The trigger is a narrowly scoped security-definer
+function attached to the already-authorised notification insert. Only the server-side service role
+may claim deliveries, persist rendered content, or change retry/sent state.
 
 ## Team projection boundary (v69)
 

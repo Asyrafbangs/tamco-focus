@@ -39,7 +39,16 @@ drawer renders.
 
 ## Operational jobs
 
-`worker:routines` calls the idempotent occurrence-generation procedure through the local service role. `worker:weekly` calculates the reporting window, renders summaries from canonical records, inserts the unique period delivery, claims it atomically, and records delivery or bounded retry state. `worker:tick` runs both and is suitable for a local scheduler.
+`worker:routines` calls the idempotent occurrence-generation procedure through the local service
+role. `worker:weekly` calculates the reporting window, renders summaries from canonical records,
+inserts the unique period delivery, claims it atomically, and records delivery or bounded retry
+state. `worker:notifications` drains the transactional notification-email outbox. Successful Server
+Actions also schedule that drain after their response; the authenticated cron endpoint is the
+durable retry path. `worker:tick` runs all three and is suitable for a local scheduler.
+
+Every new notification creates its unique delivery row in PostgreSQL before commit. The worker—not
+the client—renders and transports it. This keeps alert rules, recipient selection, and the business
+mutation in one authority while isolating a mail outage from the already-committed user action.
 
 ## Execution and Goal boundaries
 

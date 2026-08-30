@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import type { OperationResult } from '@/domain/types';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
+import { scheduleNotificationEmailDispatch } from '@/server/workers/schedule-notification-email';
 
 /**
  * Managing routines.
@@ -90,6 +91,7 @@ async function call(name: string, args: Record<string, unknown>): Promise<Routin
     // The Bin and the calendar both read routines now, so neither can be left
     // showing a schedule that has just changed.
     for (const path of ['/work/routine', '/work', '/today', '/plan']) revalidatePath(path);
+    await scheduleNotificationEmailDispatch();
   }
   return result;
 }

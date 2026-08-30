@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
 import type { OperationResult } from '@/domain/types';
 import { safeAttachmentFileName, validateAttachmentFiles } from '@/server/attachments';
+import { scheduleNotificationEmailDispatch } from '@/server/workers/schedule-notification-email';
 
 const uuid = z.string().uuid();
 const idempotencyKey = z.string().min(8).max(128);
@@ -87,7 +88,10 @@ async function callGoalProcedure(
     };
   }
   const result = data as RpcResult;
-  if (result?.ok) for (const path of paths) revalidatePath(path);
+  if (result?.ok) {
+    for (const path of paths) revalidatePath(path);
+    await scheduleNotificationEmailDispatch();
+  }
   return result as OperationResult;
 }
 

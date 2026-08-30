@@ -1,5 +1,19 @@
 # TAMCO Focus — Change Log
 
+## v120 Transactional notification email — 30 August 2026
+
+- Added one durable email-delivery record in the same transaction as every new in-app notification,
+  including new work assignments, checklist collaboration handoffs, barriers, reviews, Goal actions,
+  routine exceptions, and governed decisions.
+- Added a restrained navy/blue/neutral transactional template with matching plain text, contextual
+  action labels, and safe deep links to the exact application record.
+- Added prompt post-response dispatch for Server Actions plus scheduled retry/recovery through the
+  existing authenticated cron endpoint and `worker:notifications` local operation.
+- Kept notification generation authoritative in PostgreSQL: email transport neither invents new
+  alerts nor duplicates client-side business rules.
+- Added recipient-only delivery-history visibility, service-role-only claims, bounded retries,
+  generated database types, unit/integration/pgTAP coverage, and desktop/mobile email prototypes.
+
 ## v103 Reliable in-app PDF attachment reading — 29 August 2026
 
 - Replaced the browser PDF plug-in iframe with a lazy-loaded PDF.js canvas renderer, removing the

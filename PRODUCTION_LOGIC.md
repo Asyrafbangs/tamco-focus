@@ -1196,3 +1196,25 @@ derived-progress rules. The future ESH finding/action system remains outside the
    therefore cannot make the envelope claim an inaccurate all-clear.
 7. Delivery claiming, unique period keys, retry backoff, SMTP/Inbucket sender requirements, stored HTML
    and text bodies, and terminal sent status remain unchanged.
+
+## 47. v120 transactional notification-email delivery
+
+1. An `AFTER INSERT` trigger on `notifications` copies the recipient identity and current email into
+   `notification_email_deliveries` inside the notification transaction. A unique
+   `notification_id` is the logical idempotency key. Inactive recipients create no delivery.
+2. The worker selects eligible queued, retryable failed, or stale processing rows, then calls
+   `claim_notification_email_delivery` for an atomic claim. Claims increment the bounded attempt
+   count and recover after fifteen minutes if a worker disappears.
+3. Rendering reads the canonical notification after claim. It escapes title/body/recipient content,
+   removes subject-line control characters, creates matching text and inline-styled HTML, and maps
+   the canonical `entity_type`/`entity_id` pair to the exact application route. Unsupported or
+   unsafe link inputs fall back to the application home.
+4. A successful transport records the rendered bodies and `sent_at`. A transport or render failure
+   stores a bounded error and retry time. The notification itself is never deleted or rolled back.
+5. Server Actions schedule the worker with Next.js `after()` only after a successful mutation. The
+   request origin is used for those links. Cron and `worker:notifications` use `APP_BASE_URL` and
+   provide the durable drain for SQL events, restarts, and relay outages.
+6. The worker uses the existing explicit SMTP, Inbucket, or log transport contract. It never silently
+   downgrades a partially configured relay and never exposes the service-role key to the client.
+7. This mechanism follows actual notification rows. Preference or workflow rules that suppress a
+   notification naturally suppress its email; transport code never makes an independent decision.

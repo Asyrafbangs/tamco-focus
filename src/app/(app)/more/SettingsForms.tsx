@@ -159,6 +159,10 @@ export function PersonalSettingsForm({
       {(section === 'all' || section === 'alerts') && (
         <fieldset>
           <legend>My alerts</legend>
+          <p className="form-hint">
+            Each notification recorded for these alerts also arrives by email, with a secure link to
+            the exact task, contribution, Goal, or request.
+          </p>
           <label className="check-row">
             <input
               name="barrierInvolvingMe"

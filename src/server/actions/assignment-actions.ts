@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { endOfLocalDay } from '@/domain/duration';
 import type { OperationResult } from '@/domain/types';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
+import { scheduleNotificationEmailDispatch } from '@/server/workers/schedule-notification-email';
 
 /**
  * Manager assignment (v40 sections 3 and 6).
@@ -98,6 +99,7 @@ export async function assignWork(
   const result = data as OperationResult<AssignmentResultData>;
   if (result.ok) {
     for (const path of ['/today', '/work', '/plan']) revalidatePath(path);
+    await scheduleNotificationEmailDispatch();
   }
   return result;
 }

@@ -7,16 +7,16 @@ import { orgConfig } from '@/lib/env';
 /**
  * Scheduled work, run by the platform rather than by a developer's PC.
  *
- * Two things have to happen whether or not anybody is looking at the website:
+ * Three things have to happen whether or not anybody is looking at the website:
  * routine occurrences have to be generated, or a routine simply never appears;
- * and the weekly summary has to be sent. Both currently run as `tsx` scripts on
- * the machine this was built on, which means that in Production they would stop
- * the moment it was switched off (assessment section D).
+ * notification-email retries have to drain; and the weekly summary has to be
+ * sent. These jobs cannot depend on a developer's machine remaining switched
+ * on (assessment section D).
  *
  * This endpoint is that work, reachable by a scheduler. It is deliberately one
  * endpoint rather than two: free scheduling tiers are measured in jobs per day,
  * and the weekly worker already decides for itself whether this is its day, so
- * one daily call covers both without pretending to a cadence we do not have.
+ * one daily call covers all three without pretending to a cadence we do not have.
  *
  * Authorisation is a shared secret, not a session. There is no user here, so
  * there is nothing for RLS to check — which is exactly why the endpoint has to
@@ -122,6 +122,32 @@ export async function GET(request: Request) {
     const transport = resolveEmailTransport();
     if ('error' in transport) throw new Error(transport.error);
     transportName = transport.name;
+
+    /*
+     * Notification email.
+     *
+     * Server Actions attempt this promptly after their response, but the
+     * transactional outbox is the guarantee. This scheduled drain retries any
+     * message left behind by a process restart, transport outage, database
+     * operation outside the UI, or an abandoned processing claim.
+     */
+    try {
+      const { runNotificationEmailWorker } = await import('@/server/workers/notification-email');
+      const notificationSummary = await runNotificationEmailWorker(client, {
+        appBaseUrl: orgConfig.appBaseUrl,
+        transport: transport.name,
+        send: transport.send,
+      });
+      results.push({
+        worker: 'notification_email',
+        ok: notificationSummary.failed === 0,
+        detail: JSON.stringify({ transport: transport.name, ...notificationSummary }),
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'unknown error';
+      console.error(`[cron] notification email failed: ${detail}`);
+      results.push({ worker: 'notification_email', ok: false, detail });
+    }
 
     /*
      * One message, to one address, to prove this deployment can reach the
