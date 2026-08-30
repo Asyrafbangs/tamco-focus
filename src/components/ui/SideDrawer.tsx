@@ -28,6 +28,17 @@ export function SideDrawer({
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /*
+   * Closing is guarded by its own flag, not by the transition state.
+   *
+   * `open` is false for one animation frame after mount — it drives the slide-
+   * in, nothing more — while the drawer's content is already rendered and
+   * focused. Guarding `close()` on it therefore made Escape a no-op during
+   * that frame: the drawer was on screen, had the caret, and silently ignored
+   * the first Escape. Rare by hand, reproducible under load, and it failed the
+   * team-visibility spec about one run in three.
+   */
+  const closing = useRef(false);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -36,6 +47,9 @@ export function SideDrawer({
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const frame = requestAnimationFrame(() => {
+      // Escape can arrive before this frame. If it has, do not slide a drawer
+      // in that is already on its way out.
+      if (closing.current) return;
       setOpen(true);
       /*
        * v46 §41 — let the content name where the caret belongs.
@@ -58,13 +72,17 @@ export function SideDrawer({
   }, []);
 
   const close = useCallback(() => {
-    if (!open) return;
+    // Re-entrancy only: two Escapes in quick succession must not queue two
+    // navigations. Whether the opening transition has run is irrelevant to
+    // whether this drawer can be dismissed.
+    if (closing.current) return;
+    closing.current = true;
     setOpen(false);
     closeTimer.current = setTimeout(() => {
       triggerRef.current?.focus({ preventScroll: true });
       router.push(closeHref, { scroll: false });
     }, 245);
-  }, [closeHref, open, router]);
+  }, [closeHref, router]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
