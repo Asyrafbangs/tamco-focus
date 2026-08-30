@@ -336,12 +336,13 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
   await availableRow.getByRole('link', { name: `Open ${activationTitle}`, exact: true }).click();
   const activationDrawer = page.locator('.task-detail');
   await expect(activationDrawer).toBeVisible();
-  // v84 - administration moved behind the ••• menu in the footer. Nothing is
-  // hidden behind Expand any more, so no expansion is needed to reach it.
-  await activationDrawer.getByRole('button', { name: 'More task actions' }).click();
-  // The menu renders against the viewport rather than inside the drawer, so it
-  // can flip above a footer button without sliding under the sticky header.
-  await page.getByRole('menu').getByRole('button', { name: 'Activate' }).click();
+  // v124 - Activate is the primary action for Available work, so it sits in
+  // the footer where Complete work sits for Active work, not inside the •••
+  // menu. That menu is administration only: edit, move, cancel, bin.
+  await activationDrawer
+    .locator('.task-detail-footer')
+    .getByRole('button', { name: 'Activate' })
+    .click();
   await completeActivationPromptIfNeeded(page);
   const drawerUndo = activationDrawer.getByRole('button', { name: 'Undo' });
   await expect(drawerUndo).toBeVisible();

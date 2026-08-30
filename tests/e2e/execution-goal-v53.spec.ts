@@ -216,10 +216,16 @@ test('cancelling work retires its open request without pretending it was answere
     // v84 - administration sits behind the ••• menu in the drawer footer, and
     // is no longer gated on expanding the drawer first.
     await drawer.getByRole('button', { name: 'More task actions' }).click();
-    await drawer
-      .getByLabel('Cancel this work — why is it no longer needed?')
+    // The menu holds commands only; the reason is asked in its own dialog.
+    await page
+      .getByRole('menu')
+      .getByRole('button', { name: /^Cancel work$/ })
+      .click();
+    const cancelDialog = page.getByRole('dialog', { name: 'Cancel work' });
+    await cancelDialog
+      .getByLabel('Why is this work no longer needed?')
       .fill('The line was decommissioned, so the guard is no longer needed.');
-    await drawer.getByRole('button', { name: 'Cancel work' }).click();
+    await cancelDialog.getByRole('button', { name: /^Cancel work$/ }).click();
     await expect(
       drawer.getByText('Work cancelled. It stays on the record with your reason.'),
     ).toBeVisible();

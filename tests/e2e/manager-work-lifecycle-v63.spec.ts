@@ -45,15 +45,15 @@ test.describe('v63 manager work lifecycle', () => {
 
     // v84 - administration lives behind the ••• menu in the drawer footer.
     await drawer.getByRole('button', { name: 'More task actions' }).click();
-    const deleteButton = page.getByRole('menu').getByRole('button', { name: /^Delete/ });
+    const deleteButton = page.getByRole('menu').getByRole('button', { name: /^Move to Bin$/ });
     await expect(deleteButton).toBeVisible();
     await deleteButton.click();
 
-    // Scoped to the confirmation modal by name. Unscoped, the drawer's own
-    // "Delete task" button matched first and sat behind the modal overlay.
-    const confirm = page.getByRole('dialog', { name: 'Delete task' });
+    // Scoped to the confirmation modal by name. Unscoped, the menu's own
+    // "Move to Bin" command matched first and sat behind the modal overlay.
+    const confirm = page.getByRole('dialog', { name: 'Move to Bin' });
     await expect(confirm).toBeVisible();
-    await confirm.getByRole('button', { name: /^Delete task$/ }).click();
+    await confirm.getByRole('button', { name: /^Move to Bin$/ }).click();
     await expect(confirm).toBeHidden();
 
     await expect(page.getByText(title, { exact: true })).toHaveCount(0);
@@ -100,11 +100,11 @@ test.describe('v63 manager work lifecycle', () => {
     await drawer.getByRole('button', { name: 'More task actions' }).click();
     await page
       .getByRole('menu')
-      .getByRole('button', { name: /^Delete/ })
+      .getByRole('button', { name: /^Move to Bin$/ })
       .click();
-    const confirm = page.getByRole('dialog', { name: 'Delete task' });
+    const confirm = page.getByRole('dialog', { name: 'Move to Bin' });
     await expect(confirm).toBeVisible();
-    await confirm.getByRole('button', { name: /^Delete task$/ }).click();
+    await confirm.getByRole('button', { name: /^Move to Bin$/ }).click();
     await expect(confirm).toBeHidden();
 
     await page.goto('/work?tab=bin');

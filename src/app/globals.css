@@ -629,31 +629,6 @@
   border-radius: var(--radius);
 }
 
-/* Deletion is set apart and stated plainly rather than folded into "More task
-   actions" — it was hidden in there, under a status branch, and so was never
-   found. Quiet, not alarming: it is recoverable. */
-.task-delete-section {
-  margin-top: 16px;
-  padding: 17px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--red);
-  border-radius: var(--radius);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.task-delete-section strong {
-  display: block;
-  font-size: 14px;
-}
-.task-delete-section p {
-  margin: 4px 0 0;
-  max-width: 46ch;
-  font-size: 12px;
-}
 .detail-section h3 {
   margin: 0 0 7px;
   font-size: 15px;
@@ -9481,16 +9456,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   max-width: min(420px, calc(100vw - 16px));
   padding: 12px 14px;
 }
-.task-admin-group + .task-admin-group {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-}
-.task-admin-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
 
 @media (max-width: 720px) {
   .task-detail-facts {
@@ -9726,6 +9691,52 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .menu-dropdown-panel > a.active {
   font-weight: 650;
+}
+
+/*
+ * A command in a menu, which is a row and not a button.
+ *
+ * Deliberately the same shape as the links above it, using the same tokens, so
+ * a menu of commands and a menu of destinations read as one thing — and so a
+ * custom palette reaches both. The panel used to hold real `.btn` controls in
+ * rows and a red card, which is how it stopped looking like a menu at all.
+ */
+.task-admin-commands {
+  display: grid;
+  gap: 2px;
+}
+.menu-command {
+  display: block;
+  width: 100%;
+  padding: 9px 10px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 22px;
+  text-align: left;
+  cursor: pointer;
+}
+.menu-command:hover,
+.menu-command:focus-visible {
+  background: var(--line-soft);
+}
+.menu-command[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+/* Reachable, never the first thing the eye lands on. Colour on the text only:
+   a red panel here made deletion the loudest thing in the drawer. */
+.menu-command.destructive {
+  color: var(--red);
+}
+.menu-separator {
+  height: 1px;
+  margin: 5px 2px;
+  background: var(--line);
 }
 
 .work-more-menu {

@@ -164,12 +164,17 @@ export function MenuDropdown({
             minWidth: position.width,
             maxHeight: position.maxHeight,
           }}
-          /* A choice inside is a navigation or a submit; either way the menu
-             has done its job and should not still be sitting there when the
-             new page paints. */
+          /* A choice inside is a navigation, a submit, or a command; any of
+             them means the menu has done its job and should not still be
+             sitting there when the new page or dialog paints.
+
+             `.menu-command` is named explicitly rather than closing on every
+             button, because a panel may still hold a form — the period menu's
+             custom range has date inputs — and a control inside one is being
+             filled in, not chosen. */
           onClick={(event) => {
             const target = event.target as HTMLElement;
-            if (target.closest('a, button[type="submit"]')) setOpen(false);
+            if (target.closest('a, button[type="submit"], .menu-command')) setOpen(false);
           }}
         >
           {children}
