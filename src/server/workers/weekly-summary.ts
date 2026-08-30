@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { formatDurationWords, staleAgeMs } from '@/domain/duration';
 import { weeklyWindow, type WeeklyWindow } from '@/domain/weekly-schedule';
+import { PermanentDeliveryError } from '@/server/workers/smtp-transport';
 import type { Database } from '@/lib/database.types';
 
 type Client = SupabaseClient<Database, 'public'>;
@@ -66,6 +67,8 @@ export interface WeeklyWorkerResult {
   sent: number;
   skipped: number;
   failed: number;
+  /** Permanently rejected. Counted apart from `failed`, which will retry. */
+  undeliverable: number;
   periodStart: string;
 }
 
@@ -644,18 +647,27 @@ async function claimAndDeliver(
   } catch (caught) {
     const message =
       caught instanceof Error ? caught.message.slice(0, 1000) : 'Unknown delivery error';
+    /*
+     * `undeliverable` is terminal: `claim_email_delivery` picks up `queued`,
+     * retryable `failed` and abandoned `processing` rows, and nothing else.
+     * Only the transport can tell a busy relay from an address that cannot
+     * receive mail, so the distinction arrives as the type of the error.
+     */
+    const permanent = caught instanceof PermanentDeliveryError;
     const attempts = Number(claim.delivery?.attempt_count ?? 1);
     const retryMinutes = Math.min(24 * 60, 2 ** Math.min(attempts, 10));
     await client
       .from('email_deliveries')
       .update({
-        status: 'failed',
+        status: permanent ? 'undeliverable' : 'failed',
         last_error: message,
-        next_retry_at: new Date(Date.now() + retryMinutes * 60_000).toISOString(),
+        next_retry_at: permanent
+          ? null
+          : new Date(Date.now() + retryMinutes * 60_000).toISOString(),
         processing_started_at: null,
       })
       .eq('id', deliveryId);
-    return 'failed' as const;
+    return permanent ? ('undeliverable' as const) : ('failed' as const);
   }
 }
 
@@ -735,6 +747,7 @@ export async function runWeeklySummaryWorker(
     sent: 0,
     skipped: 0,
     failed: 0,
+    undeliverable: 0,
     periodStart: window.reportingStart.toISOString(),
   };
   if ((options.transport === 'smtp' || options.transport === 'inbucket') && !options.send) {

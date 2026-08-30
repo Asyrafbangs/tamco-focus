@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { resolveEmailTransport } from '@/server/workers/email-transport';
-import { sendSmtp, smtpConfigFromEnv } from '@/server/workers/smtp-transport';
+import {
+  isPermanentReplyCode,
+  PermanentDeliveryError,
+  scrubError,
+  sendSmtp,
+  smtpConfigFromEnv,
+} from '@/server/workers/smtp-transport';
 
 /**
  * The behaviour these pin is the one that made notification email look healthy
@@ -210,5 +216,89 @@ describe('refusing to send to an address that cannot receive mail', () => {
     await expect(
       sendSmtp({ ...config, host: '127.0.0.1', port: 1 }, { ...message, to: 'real@tamco.com.my' }),
     ).rejects.not.toThrow(/reserved name|not one email address/i);
+  });
+});
+
+/**
+ * Which failures a retry could ever fix.
+ *
+ * The queue's default assumption is "transient": back off and try again, up to
+ * ten times. For an address that cannot receive mail that is ten attempts and
+ * a day of delay before anybody learns the address is wrong. The workers
+ * decide from the TYPE of the error, so what matters here is that the type
+ * survives — including through the scrubbing that rewrites the message on its
+ * way out, which returned a plain Error and would have made every permanent
+ * failure look transient again.
+ */
+describe('telling a permanent failure from a transient one', () => {
+  const config = {
+    host: '127.0.0.1',
+    port: 1,
+    user: 'sender@example.org',
+    password: 'pw',
+    from: 'sender@example.org',
+  };
+  const message = { subject: 's', text: 't', html: '<p>h</p>' };
+
+  it.each(['izzah@tamco.local', 'not-an-address'])(
+    'reports %s as permanent, not as something to retry',
+    async (to) => {
+      await expect(sendSmtp(config, { ...message, to })).rejects.toBeInstanceOf(
+        PermanentDeliveryError,
+      );
+    },
+  );
+
+  it('leaves a connection failure retryable', async () => {
+    // Nothing is listening on port 1, so this fails for a reason that could
+    // genuinely be different in ten minutes.
+    const problem = await sendSmtp(config, { ...message, to: 'real@tamco.com.my' }).catch(
+      (caught: unknown) => caught,
+    );
+    expect(problem).toBeInstanceOf(Error);
+    expect(problem).not.toBeInstanceOf(PermanentDeliveryError);
+  });
+});
+
+/**
+ * The two decisions that make a failure terminal, tested where they live.
+ *
+ * The first version of these tests exercised only the pre-flight address
+ * checks, which throw before the session is opened and so never reach the
+ * scrubbing on the way out. They passed with the bug reintroduced — the exact
+ * shape of a test that confirms the wrong thing. These reach the decisions
+ * themselves.
+ */
+describe('what makes a delivery failure terminal', () => {
+  const config = {
+    host: 'smtp.office365.com',
+    port: 587,
+    user: 'sender@example.org',
+    password: 'a-real-looking-secret',
+    from: 'sender@example.org',
+  };
+
+  it('treats 5xx as permanent and 4xx as worth retrying', () => {
+    // 550 unknown mailbox, 552 too large: no retry helps.
+    for (const code of [500, 550, 552, 571, 599]) expect(isPermanentReplyCode(code)).toBe(true);
+    // 421 shutting down, 450 mailbox busy, 452 out of storage: try later.
+    for (const code of [220, 250, 421, 450, 452, 499])
+      expect(isPermanentReplyCode(code)).toBe(false);
+  });
+
+  it('keeps the error kind through the scrubbing, and removes the password', () => {
+    const permanent = scrubError(
+      new PermanentDeliveryError(`Recipient refused: 550 no such user ${config.password}`),
+      config,
+    );
+    expect(permanent).toBeInstanceOf(PermanentDeliveryError);
+    expect(permanent.message).not.toContain(config.password);
+    expect(permanent.message).toContain('[redacted]');
+  });
+
+  it('does not promote a transient failure into a permanent one', () => {
+    const transient = scrubError(new Error('Recipient refused: 450 mailbox busy'), config);
+    expect(transient).toBeInstanceOf(Error);
+    expect(transient).not.toBeInstanceOf(PermanentDeliveryError);
   });
 });

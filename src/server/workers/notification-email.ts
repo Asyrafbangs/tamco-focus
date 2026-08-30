@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from '@/lib/database.types';
 import { notificationHref } from '@/domain/notification-link';
+import { PermanentDeliveryError } from '@/server/workers/smtp-transport';
 
 type Client = SupabaseClient<Database, 'public'>;
 type NotificationRow = Database['public']['Tables']['notifications']['Row'];
@@ -21,6 +22,8 @@ export interface NotificationEmailWorkerResult {
   sent: number;
   skipped: number;
   failed: number;
+  /** Permanently rejected. Counted apart from `failed`, which will retry. */
+  undeliverable: number;
 }
 
 interface RenderNotificationEmailInput {
@@ -120,22 +123,35 @@ export function renderNotificationEmail(input: RenderNotificationEmailInput) {
   return { subject, html, text, href };
 }
 
+/**
+ * Records a failed attempt, and whether it is worth another one.
+ *
+ * `failed` schedules a retry; `undeliverable` is terminal, because neither
+ * claim function will pick that status up again. The distinction comes from
+ * the transport, which is the only layer that can tell "the relay was busy"
+ * from "this address cannot receive mail" — a reserved name, or a 5xx from
+ * the server on this recipient. Retrying the latter nine more times only
+ * delays somebody noticing the address is wrong.
+ */
 async function markFailed(
   client: Client,
   deliveryId: string,
   attemptCount: number,
   problem: unknown,
   now: Date,
-) {
+): Promise<'failed' | 'undeliverable'> {
   const message =
     problem instanceof Error ? problem.message.slice(0, 1000) : 'Unknown delivery error';
+  const permanent = problem instanceof PermanentDeliveryError;
   const retryMinutes = Math.min(24 * 60, 2 ** Math.min(attemptCount, 10));
   const failure = await client
     .from('notification_email_deliveries')
     .update({
-      status: 'failed',
+      status: permanent ? 'undeliverable' : 'failed',
       last_error: message,
-      next_retry_at: new Date(now.getTime() + retryMinutes * 60_000).toISOString(),
+      next_retry_at: permanent
+        ? null
+        : new Date(now.getTime() + retryMinutes * 60_000).toISOString(),
       processing_started_at: null,
     })
     .eq('id', deliveryId)
@@ -143,6 +159,7 @@ async function markFailed(
   if (failure.error) {
     console.error(`[notification-email] could not persist failure: ${failure.error.message}`);
   }
+  return permanent ? 'undeliverable' : 'failed';
 }
 
 async function deliverOne(
@@ -218,8 +235,7 @@ async function deliverOne(
     if (sent.error) throw sent.error;
     return 'sent' as const;
   } catch (problem) {
-    await markFailed(client, deliveryId, delivery.attempt_count, problem, options.now);
-    return 'failed' as const;
+    return await markFailed(client, deliveryId, delivery.attempt_count, problem, options.now);
   }
 }
 
@@ -252,6 +268,7 @@ export async function runNotificationEmailWorker(
     sent: 0,
     skipped: 0,
     failed: 0,
+    undeliverable: 0,
   };
 
   const staleBefore = new Date(now.getTime() - 15 * 60_000).toISOString();

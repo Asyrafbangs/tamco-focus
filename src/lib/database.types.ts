@@ -9254,7 +9254,12 @@ export type Database = {
         | "mandatory_operational_action"
       capture_status: "pending_confirmation" | "confirmed" | "discarded"
       checklist_item_state: "waiting" | "ready" | "completed"
-      email_delivery_status: "queued" | "processing" | "sent" | "failed"
+      email_delivery_status:
+        | "queued"
+        | "processing"
+        | "sent"
+        | "failed"
+        | "undeliverable"
       email_summary_type: "personal" | "manager_team"
       evidence_rule: "not_required" | "optional" | "required"
       finding_severity: "minor" | "significant" | "immediate_risk"
@@ -9614,7 +9619,13 @@ export const Constants = {
       ],
       capture_status: ["pending_confirmation", "confirmed", "discarded"],
       checklist_item_state: ["waiting", "ready", "completed"],
-      email_delivery_status: ["queued", "processing", "sent", "failed"],
+      email_delivery_status: [
+        "queued",
+        "processing",
+        "sent",
+        "failed",
+        "undeliverable",
+      ],
       email_summary_type: ["personal", "manager_team"],
       evidence_rule: ["not_required", "optional", "required"],
       finding_severity: ["minor", "significant", "immediate_risk"],

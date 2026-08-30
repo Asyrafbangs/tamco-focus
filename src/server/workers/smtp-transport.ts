@@ -44,6 +44,35 @@ export interface SmtpMessage {
 const TIMEOUT_MS = 20_000;
 
 /**
+ * A failure that a retry cannot fix.
+ *
+ * The queue's default assumption is that a failure was transient — the relay
+ * was busy, the network blinked — so it backs off and tries again up to ten
+ * times. That is wrong for an address that cannot receive mail: it will not
+ * start resolving, and the nine further attempts only delay somebody noticing.
+ *
+ * Thrown only where the fault is THIS recipient. A 5xx at AUTH is permanent
+ * for the connection but is a configuration problem affecting every message,
+ * so it stays retryable and recovers when the credential is fixed.
+ */
+export class PermanentDeliveryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PermanentDeliveryError';
+  }
+}
+
+/** The reply code, kept so a caller can tell 4xx from 5xx. */
+class SmtpReplyError extends Error {
+  readonly code: number;
+  constructor(label: string, line: string) {
+    super(`${label} refused: ${line}`);
+    this.name = 'SmtpReplyError';
+    this.code = Number.parseInt(line.slice(0, 3), 10);
+  }
+}
+
+/**
  * Names reserved so they can never resolve on the public internet.
  *
  * `local`, `localhost`, `test`, `invalid` and `example` are reserved by
@@ -144,7 +173,7 @@ class SmtpSession {
   async command(value: string, expected: RegExp, label: string): Promise<string> {
     this.write(`${value}\r\n`);
     const line = await this.reply();
-    if (!expected.test(line)) throw new Error(`${label} refused: ${line}`);
+    if (!expected.test(line)) throw new SmtpReplyError(label, line);
     return line;
   }
 
@@ -201,6 +230,26 @@ export function redactCredentials(text: string, config: SmtpConfig): string {
   return secrets.reduce((carried, secret) => carried.split(secret).join('[redacted]'), text);
 }
 
+/** A 5xx names this message or recipient; a 4xx is the relay saying "not now". */
+export const isPermanentReplyCode = (code: number) => code >= 500 && code < 600;
+
+/**
+ * Rebuilds an error with the credential removed, keeping what KIND it is.
+ *
+ * The kind is load-bearing: the queue decides whether to retry from it, so
+ * flattening everything to `Error` on the way out — which is what this did —
+ * quietly turns every permanent failure back into one that retries ten times.
+ * The scrubbing and the class have to survive together or neither is doing its
+ * job.
+ */
+export function scrubError(problem: unknown, config: SmtpConfig): Error {
+  const message = problem instanceof Error ? problem.message : String(problem);
+  const scrubbed = redactCredentials(message, config);
+  return problem instanceof PermanentDeliveryError
+    ? new PermanentDeliveryError(scrubbed)
+    : new Error(scrubbed);
+}
+
 export async function sendSmtp(config: SmtpConfig, message: SmtpMessage): Promise<string> {
   /*
    * Checked at run time as well as in the types, because the callers that
@@ -231,11 +280,13 @@ export async function sendSmtp(config: SmtpConfig, message: SmtpMessage): Promis
    */
   const recipient = message.to.trim();
   if (!ONE_ADDRESS.test(recipient)) {
-    throw new Error(`"${message.to}" is not one email address, so it cannot be sent to.`);
+    throw new PermanentDeliveryError(
+      `"${message.to}" is not one email address, so it cannot be sent to.`,
+    );
   }
   const tld = recipient.slice(recipient.lastIndexOf('.') + 1).toLowerCase();
   if (UNROUTABLE_TLDS.has(tld)) {
-    throw new Error(
+    throw new PermanentDeliveryError(
       `Refusing to send to "${recipient}": .${tld} is a reserved name that cannot receive mail. ` +
         'Fixture addresses belong on the inbucket transport, not on a real relay.',
     );
@@ -271,7 +322,22 @@ export async function sendSmtp(config: SmtpConfig, message: SmtpMessage): Promis
     );
 
     await session.command(`MAIL FROM:<${config.from}>`, /^250 /, 'Sender');
-    await session.command(`RCPT TO:<${message.to}>`, /^250 /, 'Recipient');
+    /*
+     * The relay's verdict on this recipient specifically. A 5xx here means the
+     * mailbox does not exist or will not accept us and no retry changes that,
+     * so it is recorded as permanent; a 4xx is a "not now" and stays
+     * retryable. Every other step is left alone deliberately — a 5xx at AUTH
+     * is permanent for the connection but is a configuration fault affecting
+     * every message, and must recover when the credential is fixed.
+     */
+    try {
+      await session.command(`RCPT TO:<${message.to}>`, /^250 /, 'Recipient');
+    } catch (problem) {
+      if (problem instanceof SmtpReplyError && isPermanentReplyCode(problem.code)) {
+        throw new PermanentDeliveryError(problem.message);
+      }
+      throw problem;
+    }
     await session.command('DATA', /^354 /, 'DATA');
 
     const boundary = `tamco-focus-${crypto.randomUUID()}`;
@@ -305,7 +371,14 @@ export async function sendSmtp(config: SmtpConfig, message: SmtpMessage): Promis
     );
 
     const accepted = await session.reply();
-    if (!/^250 /.test(accepted)) throw new Error(`Message rejected: ${accepted}`);
+    if (!/^250 /.test(accepted)) {
+      // The content itself was refused. A 5xx will refuse it again tomorrow.
+      const code = Number.parseInt(accepted.slice(0, 3), 10);
+      const rejection = `Message rejected: ${accepted}`;
+      throw isPermanentReplyCode(code)
+        ? new PermanentDeliveryError(rejection)
+        : new Error(rejection);
+    }
 
     await session.command('QUIT', /^221 /, 'QUIT').catch(() => {
       // The message is already accepted; a rude disconnect at QUIT is not a
@@ -314,9 +387,14 @@ export async function sendSmtp(config: SmtpConfig, message: SmtpMessage): Promis
 
     return accepted;
   } catch (problem) {
-    // Re-thrown scrubbed, so no caller can log what it never needed to see.
-    const message_ = problem instanceof Error ? problem.message : String(problem);
-    throw new Error(redactCredentials(message_, config));
+    /*
+     * Re-thrown scrubbed, so no caller can log what it never needed to see —
+     * but as the same KIND of error. The queue decides whether to retry from
+     * the type, and wrapping everything in a plain Error here would quietly
+     * make every permanent failure look transient again, which is the whole
+     * behaviour this scrubbing sits in front of.
+     */
+    throw scrubError(problem, config);
   } finally {
     session.end();
   }
