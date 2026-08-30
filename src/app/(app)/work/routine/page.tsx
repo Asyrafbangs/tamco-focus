@@ -78,6 +78,8 @@ export default async function RoutinePage({
     person?: string;
     q?: string;
     filter?: string;
+    /** Opens the schedules disclosure, for the empty state that points at it. */
+    schedules?: string;
     /** The secondary axis: read the team by schedule rather than by person. */
     by?: string;
     routine?: string;
@@ -236,6 +238,17 @@ export default async function RoutinePage({
       .map((row) => row.taskId),
   );
 
+  /*
+   * The reader's own schedules, and which of them are not running yet.
+   *
+   * An empty occurrence list means three different things depending on these:
+   * nobody has given them a routine, they set one up and it is waiting to be
+   * switched on, or everything is running and nothing falls today. Only the
+   * first two have a useful next action.
+   */
+  const mySchedules = routines.templates.filter((template) => template.ownerId === profile.id);
+  const awaitingActivation = mySchedules.filter((template) => !template.isActive);
+
   // "Due now / this week" is one decision — what has to happen before the week
   // ends — so overdue and today's occurrences belong together rather than in
   // two lists somebody has to reconcile.
@@ -308,7 +321,13 @@ export default async function RoutinePage({
 
       <WorkspaceTabs
         items={[
-          { href: '/work', label: 'Focus', count: `${activeCount} active` },
+          // Counted only where there is something to count: "0 active" and
+          // "none due" are badges reporting the absence of news.
+          {
+            href: '/work',
+            label: 'Focus',
+            count: activeCount > 0 ? `${activeCount} active` : undefined,
+          },
           {
             href: '/work/routine',
             label: 'Routine',
@@ -318,7 +337,7 @@ export default async function RoutinePage({
                 ? `${overdue.length} overdue`
                 : dueToday.length > 0
                   ? `${dueToday.length} due`
-                  : 'none due',
+                  : undefined,
             attention: overdue.length > 0,
           },
         ]}
@@ -437,21 +456,25 @@ export default async function RoutinePage({
               (key) =>
                 ({
                   href: key === 'due' ? '/work/routine' : `/work/routine?view=${key}`,
-                  label:
-                    key === 'due'
-                      ? 'Due now / this week'
-                      : key === 'upcoming'
-                        ? 'Upcoming'
-                        : 'Completed',
+                  /*
+                    "Due now / this week" and its own description — "overdue or
+                    scheduled for today" — did not agree with each other. The
+                    description was the honest one, so the label matches it now:
+                    Due now means overdue or due today, and everything later is
+                    Upcoming.
+                  */
+                  label: key === 'due' ? 'Due now' : key === 'upcoming' ? 'Upcoming' : 'Completed',
                   active: key === view,
                   // No badge on Completed: a running total of finished routine work
                   // is not something anybody needs to act on. The count that means
                   // something is inside, after the period filter.
+                  // A zero here is a counter reporting that there is nothing
+                  // to count. Silence says it, and takes no room.
                   count:
                     key === 'due'
-                      ? dueNow.length
+                      ? dueNow.length || undefined
                       : key === 'upcoming'
-                        ? upcoming.length
+                        ? upcoming.length || undefined
                         : undefined,
                   attention: key === 'due' && overdue.length > 0,
                 }) satisfies TabItem,
@@ -680,28 +703,49 @@ export default async function RoutinePage({
                   );
                 })
               ) : (
-                /* Section 27.2 — what is empty, why, and the next useful action. */
+                /*
+                  What is empty, why, and — only where there is one — the next
+                  useful action.
+
+                  This used to answer every situation with the same paragraph
+                  and a "New Work" button. The paragraph explained the
+                  machinery: occurrences are created from templates, and a
+                  routine you set up starts once your manager activates it.
+                  That is how it works, not what the reader needs, and the
+                  button was worse than useless — New Work does not create a
+                  schedule, so it invited people to make a task and wonder why
+                  no routine appeared.
+
+                  Three different situations, three answers: no schedules at
+                  all, schedules that exist but are waiting to be switched on,
+                  and schedules running with nothing due today.
+                */
                 <div className="empty-state">
                   <h3>
-                    {occurrences.length === 0
-                      ? 'No routine work assigned to you'
+                    {mySchedules.length === 0
+                      ? 'No routine responsibilities yet'
                       : view === 'upcoming'
                         ? 'Nothing scheduled ahead'
-                        : 'Nothing due right now'}
+                        : 'No routine work due'}
                   </h3>
                   <p>
-                    {occurrences.length === 0
-                      ? 'Occurrences are created from the routines above. Set one up to have work appear here on a schedule; a routine you set up for yourself starts once your manager activates it.'
-                      : view === 'upcoming'
-                        ? 'Future occurrences appear as their scheduled date approaches, so the list stays about work you can act on.'
-                        : 'Nothing is overdue or scheduled for today. Upcoming shows what is coming.'}
+                    {mySchedules.length === 0
+                      ? 'Routine work appears here automatically once a schedule is assigned to you or activated.'
+                      : awaitingActivation.length > 0
+                        ? `${awaitingActivation.length} routine ${awaitingActivation.length === 1 ? 'schedule is' : 'schedules are'} waiting for manager activation.`
+                        : view === 'upcoming'
+                          ? 'Future occurrences appear as their scheduled date approaches, so the list stays about work you can act on.'
+                          : 'Routine work appears here automatically when it reaches its scheduled date.'}
                   </p>
-                  <Link
-                    href={occurrences.length === 0 ? '/capture' : '/work/routine?view=upcoming'}
-                    className="btn"
-                  >
-                    {occurrences.length === 0 ? 'New Work' : 'See upcoming'}
-                  </Link>
+                  {mySchedules.length === 0 ? (
+                    <Link href="/work/routine?new=" className="btn">
+                      Set up a routine
+                    </Link>
+                  ) : awaitingActivation.length > 0 ? (
+                    <Link href="/work/routine?schedules=1" className="btn">
+                      View routine schedules
+                    </Link>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -717,8 +761,10 @@ export default async function RoutinePage({
         administration was the first thing on screen every single time, for a
         job most people never need to open.
       */}
-      <details className="routine-manage">
-        <summary>Manage routines</summary>
+      {/* "Manage routines" sounded like an administrator's job. It is the
+          list of schedules — the reader's own, mostly — so it says so. */}
+      <details className="routine-manage" open={params.schedules === '1' || undefined}>
+        <summary>Routine schedules</summary>
         <RoutineManager
           templates={routines.templates}
           failed={routines.failed}

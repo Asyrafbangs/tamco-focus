@@ -3790,6 +3790,51 @@ fieldset:disabled label,
   text-decoration: underline;
 }
 
+/*
+ * The leaner row: content, exceptions, one affordance.
+ *
+ * The four-column grid was built for a row carrying a status label, a due
+ * date, a progress bar and two buttons. What is left is the work itself, a
+ * flag when something is wrong, and the way in — so the columns collapse to
+ * what is actually there.
+ */
+.task-row-lean {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  min-height: 0;
+}
+.row-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: flex-end;
+}
+/* Quiet by default so that a loud one means something. Colour on the text and
+   the border, never a filled block. */
+.row-flag {
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 15px;
+  white-space: nowrap;
+}
+.row-flag.red {
+  border-color: color-mix(in srgb, var(--red) 35%, var(--line));
+  color: var(--red);
+}
+.row-flag.amber {
+  border-color: color-mix(in srgb, var(--amber) 40%, var(--line));
+  color: var(--amber);
+}
+/* The row is the target — this only says so. */
+.row-chevron {
+  color: var(--muted);
+  font-size: 17px;
+  line-height: 1;
+}
+
 .row-actions {
   display: flex;
   gap: 6px;
@@ -4276,6 +4321,9 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   margin: 12px 0 8px;
   color: var(--muted);
   font-size: 10.5px;
+}
+.capacity-label {
+  font-weight: 650;
 }
 .capacity-strip b {
   color: var(--text);

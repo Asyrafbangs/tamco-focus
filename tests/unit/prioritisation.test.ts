@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { comingUp, needsAttention, rankTasks, startHere, todayList } from '@/domain/prioritisation';
+import {
+  activeOrder,
+  comingUp,
+  needsAttention,
+  rankTasks,
+  startHere,
+  todayList,
+} from '@/domain/prioritisation';
 import { makeTask, NOW } from './fixtures';
 
 const DAY = 86_400_000;
@@ -309,5 +316,44 @@ describe('Coming Up (section 9.7)', () => {
     const overdue = makeTask({ dueAt: new Date(NOW.getTime() - DAY).toISOString() });
 
     expect(comingUp([overdue], context)).toHaveLength(0);
+  });
+});
+
+/**
+ * Active had no order of its own, so it arrived however the query returned it
+ * and the late work could be anywhere in the list. Automatic rather than a
+ * sort control: nobody should have to configure a list to find what slipped.
+ */
+describe('Active ordering', () => {
+  it('puts overdue first, then due today, then nearest, then undated', () => {
+    const undated = makeTask({ id: 'undated', dueAt: null });
+    const later = makeTask({ id: 'later', dueAt: new Date(NOW.getTime() + 9 * DAY).toISOString() });
+    const soon = makeTask({ id: 'soon', dueAt: new Date(NOW.getTime() + 2 * DAY).toISOString() });
+    const today = makeTask({ id: 'today', dueAt: NOW.toISOString() });
+    const overdue = makeTask({
+      id: 'overdue',
+      isOverdue: true,
+      dueAt: new Date(NOW.getTime() - DAY).toISOString(),
+    });
+
+    const ordered = activeOrder([undated, later, soon, today, overdue], NOW, 'UTC');
+
+    expect(ordered.map((task) => task.id)).toEqual([
+      'overdue',
+      'today',
+      'soon',
+      'later',
+      'undated',
+    ]);
+  });
+
+  it('leaves the caller array untouched', () => {
+    const first = makeTask({ id: 'first', dueAt: null });
+    const second = makeTask({ id: 'second', isOverdue: true });
+    const input = [first, second];
+
+    activeOrder(input, NOW, 'UTC');
+
+    expect(input.map((task) => task.id)).toEqual(['first', 'second']);
   });
 });

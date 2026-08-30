@@ -111,7 +111,9 @@ test('main employee surfaces retain prototype structure at every required viewpo
   await expect(page.getByRole('navigation', { name: 'Workspace' })).toBeVisible();
 
   // But Routine keeps its own occurrence lifecycle, never Focus vocabulary.
-  await expect(page.getByRole('link', { name: /Due now \/ this week/ })).toBeVisible();
+  // v126 - "Due now / this week" disagreed with its own description, which
+  // said overdue or scheduled for today. The description was the honest one.
+  await expect(page.getByRole('link', { name: /^Due now/ })).toBeVisible();
   await expect(page.getByRole('link', { name: /^Upcoming/ })).toBeVisible();
   await expect(page.locator('.focus-panel')).not.toContainText('Available Work');
 

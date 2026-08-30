@@ -1,11 +1,9 @@
 import Link from 'next/link';
 
-import { AgeChips } from '@/components/AgeChips';
 import { MenuDropdown } from '@/components/ui/MenuDropdown';
 import {
   EmptyState,
   FocusTabs,
-  ProgressIndicator,
   RowPrimaryLink,
   TaskRow,
   WorkspaceTabs,
@@ -17,11 +15,10 @@ import {
   safeReturnPath,
   TASK_LAYER_PARAMS,
 } from '@/domain/navigation';
-import { formatDue } from '@/domain/duration';
-import { availableOrder } from '@/domain/prioritisation';
+import { formatDue, overdueAgeMs } from '@/domain/duration';
+import { activeOrder, availableOrder } from '@/domain/prioritisation';
 import {
   FOCUS_BUCKET_LABELS,
-  TASK_STATUS_LABELS,
   WORK_CLASS_LABELS,
   type FocusBucket,
   type FocusSummary,
@@ -162,6 +159,42 @@ const TAB_MEANING: Record<TabKey, string> = {
   bin: 'Deleted work. Nothing here counts towards anything; restore it if it was a mistake.',
 };
 
+/**
+ * The only things worth shouting about on a row.
+ *
+ * Every row used to carry its status, two ages and a progress bar, so nothing
+ * stood out and the late work looked exactly like the rest. A flag appears
+ * only when the work is not proceeding normally; quiet rows are what make a
+ * loud one mean something.
+ */
+function exceptionFlags(
+  task: TaskOverview,
+  timeZone: string,
+  now: Date,
+): { label: string; tone: string }[] {
+  const flags: { label: string; tone: string }[] = [];
+
+  if (task.isOverdue) {
+    const days = Math.floor(overdueAgeMs(task, now) / 86_400_000);
+    flags.push({
+      label: days >= 1 ? `Overdue ${days} day${days === 1 ? '' : 's'}` : 'Overdue',
+      tone: 'red',
+    });
+  } else if (isDueToday(task, timeZone)) {
+    flags.push({ label: 'Due today', tone: 'amber' });
+  }
+
+  if (task.isMandatory) flags.push({ label: 'Mandatory', tone: 'red' });
+  if (task.openBarrierCount > 0) flags.push({ label: 'Waiting on a decision', tone: 'amber' });
+  if (task.urgency === 'critical') flags.push({ label: 'Critical', tone: 'red' });
+  else if (task.urgency === 'high') flags.push({ label: 'High', tone: 'amber' });
+  if (task.reviewAt) {
+    flags.push({ label: `Review by ${formatDue(task.reviewAt, true, timeZone)}`, tone: 'amber' });
+  }
+
+  return flags;
+}
+
 function tasksForTab(
   tasks: readonly TaskOverview[],
   tab: TabKey,
@@ -174,11 +207,19 @@ function tasksForTab(
     return availableOrder(tasks.filter((task) => task.status === 'backlog' && !isRoutine(task)));
   }
 
-  return tasks.filter(
-    (task) =>
-      task.primaryOwnerId === viewerId &&
-      (task.status === 'active' || task.status === 'paused') &&
-      !isRoutine(task),
+  /*
+   * Active had no order of its own, so it arrived however the query returned
+   * it and the late work could be anywhere in the list. Overdue first, then
+   * due today, then nearest — automatically, because nobody should have to
+   * configure a sort to find what has slipped.
+   */
+  return activeOrder(
+    tasks.filter(
+      (task) =>
+        task.primaryOwnerId === viewerId &&
+        (task.status === 'active' || task.status === 'paused') &&
+        !isRoutine(task),
+    ),
   );
 }
 
@@ -234,7 +275,9 @@ function CapacityStrip({ focus }: { focus: readonly FocusSummary[] }) {
 
   return (
     <p className="capacity-strip" role="status">
-      <span className="visually-hidden">Focus capacity: </span>
+      {/* Named rather than left as bare numbers: "Major 0/1 · Operational
+          3/5" reads as system metadata until something says what it counts. */}
+      <span className="capacity-label">Focus capacity:</span>{' '}
       {buckets.map((bucket, index) => (
         <span key={bucket.bucket} className={bucket.isOverTarget ? 'over' : undefined}>
           {index > 0 && <span aria-hidden="true"> · </span>}
@@ -738,17 +781,19 @@ export default async function WorkPage({
               href: '/work',
               label: 'Focus',
               active: true,
-              count: `${counts.active} active`,
+              count: counts.active > 0 ? `${counts.active} active` : undefined,
             },
             {
               href: '/work/routine',
               label: 'Routine',
+              // "none due" is a label reporting the absence of news. Silence
+              // says the same thing and takes no room.
               count:
                 routineOverdue.length > 0
                   ? `${routineOverdue.length} overdue`
                   : routineDue.length > 0
                     ? `${routineDue.length} due`
-                    : 'none due',
+                    : undefined,
               attention: routineOverdue.length > 0,
             },
           ]}
@@ -859,9 +904,13 @@ export default async function WorkPage({
                     href: key === 'active' ? '/work' : `/work?tab=${key}`,
                     label: TAB_LABEL[key],
                     active: key === activeTab,
-                    // Completed is history; a running total of it signals
-                    // nothing anybody needs to act on.
-                    count: key === 'completed' ? undefined : counts[key],
+                    /*
+                      Completed is history; a running total of it signals
+                      nothing anybody needs to act on. A zero is worse than
+                      nothing on the others too — six counters all reading 0
+                      make an empty workspace look like a broken dashboard.
+                    */
+                    count: key === 'completed' || counts[key] === 0 ? undefined : counts[key],
                   }) satisfies TabItem,
               )}
             />
@@ -1015,7 +1064,16 @@ export default async function WorkPage({
               openContributions.map((item) => {
                 const copy = readinessCopy(item);
                 return (
-                  <TaskRow key={item.checklistItemId}>
+                  /*
+                    The contribution leads, not the task it belongs to.
+
+                    Somebody reading Shared needs to know what THEY owe; whose
+                    work it is part of is the context for that, not the
+                    headline. The readiness label is a flag rather than a
+                    permanent status column, so a step that is genuinely
+                    waiting stands out from the ones that are simply ready.
+                  */
+                  <TaskRow key={item.checklistItemId} className="task-row-lean">
                     <div>
                       <RowPrimaryLink
                         href={`/work?tab=shared&task=${item.taskId}`}
@@ -1025,42 +1083,37 @@ export default async function WorkPage({
                         <strong>{item.title}</strong>
                       </RowPrimaryLink>
                       <span className="sub">
-                        Your step on <b>{item.parentTitle}</b> · Owned by {item.primaryOwnerName}
-                      </span>
-                      <span className="sub">
-                        {copy.note}
-                        {item.readiness === 'waiting_prerequisite' &&
-                          item.prerequisiteTitle &&
-                          ` (${item.prerequisiteTitle})`}
-                        {item.evidenceRule === 'required' && ' · Evidence required'}
-                      </span>
-                    </div>
-
-                    <div className="hide-mobile">
-                      <span
-                        className={`status ${item.readiness === 'ready' ? 'active' : 'backlog'}`}
-                      >
-                        {copy.label}
-                      </span>
-                      <div className="sub" style={{ marginTop: 4 }}>
+                        Shared contribution ·{' '}
                         {formatDue(
                           item.itemDueAt ?? item.parentDueAt,
                           item.itemDueAt ? true : item.parentDueIsDateOnly,
                           profile.timezone,
                         )}
+                      </span>
+                      <span className="sub">
+                        Part of <b>{item.parentTitle}</b> · Owned by {item.primaryOwnerName}
+                      </span>
+                    </div>
+
+                    {item.readiness !== 'ready' || item.evidenceRule === 'required' ? (
+                      <div className="row-flags">
+                        {item.readiness !== 'ready' && (
+                          <span className="row-flag amber">
+                            {copy.label}
+                            {item.readiness === 'waiting_prerequisite' && item.prerequisiteTitle
+                              ? `: ${item.prerequisiteTitle}`
+                              : ''}
+                          </span>
+                        )}
+                        {item.evidenceRule === 'required' && (
+                          <span className="row-flag amber">Evidence required</span>
+                        )}
                       </div>
-                    </div>
+                    ) : null}
 
-                    <div className="hide-narrow" />
-
-                    <div className="row-action">
-                      <Link
-                        href={`/work?tab=shared&task=${item.taskId}`}
-                        className={`btn small${item.readiness === 'ready' ? ' primary' : ''}`}
-                      >
-                        Open
-                      </Link>
-                    </div>
+                    <span className="row-chevron" aria-hidden="true">
+                      ›
+                    </span>
                   </TaskRow>
                 );
               })
@@ -1075,95 +1128,121 @@ export default async function WorkPage({
               </div>
             )
           ) : visible.length > 0 ? (
-            visible.map((task) => (
-              <TaskRow key={task.id}>
-                <div>
-                  <RowPrimaryLink
-                    href={`/work?tab=${activeTab}&task=${task.id}`}
-                    className="title-link"
-                    returnFocusId={`task-${task.id}`}
-                    ariaLabel={`Open ${task.title}`}
-                  >
-                    <strong>{task.title}</strong>
-                  </RowPrimaryLink>
-                  <span className="sub">
-                    {/* The work class stays visible on the row — it is what the
-                      work IS. It just is not how you got here. */}
-                    {WORK_CLASS_LABELS[task.workClass]}
-                    {task.assignedByName && ` · Assigned by ${task.assignedByName.split(' ')[0]}`}
-                    {task.urgency === 'high' && ' · High'}
-                    {task.urgency === 'critical' && ' · Critical'}
-                    {task.reviewAt &&
-                      ` · Review by ${formatDue(task.reviewAt, true, profile.timezone)}`}
-                    {task.openBarrierCount > 0 && ' · Barrier open'}
-                    {task.isMandatory && ' · Mandatory'}
-                  </span>
-                  {/*
-                  v41 sections 11 and 12. Active work answers "what do I do
-                  next?", so it shows the Next action. Available answers "should
-                  I start carrying this?", which no sentence can answer for you —
-                  so it states what Available means and offers Activate instead
-                  of an invented instruction.
-                */}
-                  {task.status === 'backlog' ? (
-                    <span className="sub available-note">
-                      Valid work that is not yet part of your Active focus.
-                    </span>
-                  ) : task.checklistTotal > 0 ? (
+            visible.map((task) => {
+              /*
+                Enough to decide which row to open, and nothing else.
+
+                The row used to carry the title, the work class, a steps
+                sentence, an open age, an in-state age, a status label, a due
+                date, a progress bar, the same step count again as its label,
+                an Open button and Move out. Inside the Active tab every row
+                also announced "Active", and the step count appeared twice in
+                two formats. None of it helped anybody choose a row, and the
+                two ages were actively confusing: "Open 12h" sat next to a
+                button labelled Open.
+
+                What is left is the title, what the work is, when it is due,
+                how far through its steps it is — and, only when something is
+                genuinely exceptional, a flag. Normal work is quiet, so the
+                exceptions are the thing your eye lands on.
+              */
+              const flags = exceptionFlags(task, profile.timezone, now);
+              return (
+                <TaskRow key={task.id} className="task-row-lean">
+                  <div>
+                    <RowPrimaryLink
+                      href={`/work?tab=${activeTab}&task=${task.id}`}
+                      className="title-link"
+                      returnFocusId={`task-${task.id}`}
+                      ariaLabel={`Open ${task.title}`}
+                    >
+                      <strong>{task.title}</strong>
+                    </RowPrimaryLink>
                     <span className="sub">
-                      Steps {task.checklistCompleted}/{task.checklistTotal} complete
+                      {WORK_CLASS_LABELS[task.workClass]}
+                      {task.dueAt
+                        ? ` · ${formatDue(task.dueAt, task.dueIsDateOnly, profile.timezone)}`
+                        : ''}
+                      {/* Who sent it is context on work you have not taken on
+                          yet, and provenance once you have. Available only. */}
+                      {task.status === 'backlog' && task.assignedByName
+                        ? ` · Assigned by ${task.assignedByName.split(' ')[0]}`
+                        : ''}
                     </span>
-                  ) : null}
-                  <div style={{ marginTop: 6 }}>
-                    <AgeChips task={task} staleThresholdDays={settings.staleThresholdDays} />
+                    {task.checklistTotal > 0 ? (
+                      <span className="sub">
+                        {task.checklistCompleted}/{task.checklistTotal}{' '}
+                        {task.checklistTotal === 1 ? 'step' : 'steps'}
+                      </span>
+                    ) : null}
                   </div>
-                </div>
 
-                <div className="hide-mobile">
-                  <span className={`status ${task.status}`}>{TASK_STATUS_LABELS[task.status]}</span>
-                  <div className="sub" style={{ marginTop: 4 }}>
-                    {formatDue(task.dueAt, task.dueIsDateOnly, profile.timezone)}
-                  </div>
-                </div>
+                  {flags.length > 0 && (
+                    <div className="row-flags">
+                      {flags.map((flag: { label: string; tone: string }) => (
+                        <span key={flag.label} className={`row-flag ${flag.tone}`}>
+                          {flag.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
-                <div className="hide-narrow">
-                  <ProgressIndicator
-                    value={task.progressPercent}
-                    label={
-                      task.checklistTotal > 0
-                        ? `${task.checklistCompleted} of ${task.checklistTotal} steps`
-                        : `${task.progressPercent}% complete`
-                    }
-                  />
-                </div>
-
-                <TaskRowActions
-                  taskId={task.id}
-                  title={task.title}
-                  status={task.status}
-                  version={task.version}
-                  bucket={task.focusBucket}
-                  isMandatory={task.isMandatory}
-                  openHref={`/work?tab=${activeTab}&task=${task.id}`}
-                />
-              </TaskRow>
-            ))
+                  {/*
+                    Activating is a real decision, so Available keeps an
+                    explicit button. Active does not: moving work out is
+                    administration and lives in the task's ••• menu, where it
+                    reads Move to Available.
+                  */}
+                  {task.status === 'backlog' ? (
+                    <TaskRowActions
+                      taskId={task.id}
+                      title={task.title}
+                      status={task.status}
+                      version={task.version}
+                      bucket={task.focusBucket}
+                      isMandatory={task.isMandatory}
+                    />
+                  ) : (
+                    <span className="row-chevron" aria-hidden="true">
+                      ›
+                    </span>
+                  )}
+                </TaskRow>
+              );
+            })
           ) : (
             /* Section 27.2 — what is empty, why, and the next useful action. */
+            /*
+              An empty state that answers the situation, not the tab.
+
+              "Activate something from Available" with a View Available button
+              was printed whether or not Available held anything, so on an
+              empty workspace it sent people from one empty page to another —
+              past a tab already reading Available 0. What to suggest depends
+              on whether there is anything there.
+            */
             <div className="empty-state">
-              <h3>Nothing here yet</h3>
+              <h3>
+                {activeTab === 'available' ? 'Nothing waiting yet' : 'No active work right now'}
+              </h3>
               <p>
-                {/* Shared has its own empty state above, because it is a
-                  projection rather than a task list. */}
                 {activeTab === 'available'
                   ? 'Available is valid work you have not started yet. Capture something, or ask your manager what is waiting.'
-                  : 'You are not carrying anything right now. Activate something from Available when you are ready.'}
+                  : counts.available > 0
+                    ? `You have ${counts.available} item${counts.available === 1 ? '' : 's'} waiting for you in Available.`
+                    : 'You have nothing waiting in Available either. Add something when there is work that needs following through.'}
               </p>
               <Link
-                href={activeTab === 'available' ? '/capture' : '/work?tab=available'}
+                href={
+                  activeTab === 'available' || counts.available === 0
+                    ? '/capture'
+                    : '/work?tab=available'
+                }
                 className="btn"
               >
-                {activeTab === 'available' ? 'New Work' : 'View Available'}
+                {activeTab === 'available' || counts.available === 0
+                  ? '＋ New Work'
+                  : 'View Available'}
               </Link>
             </div>
           )}

@@ -427,6 +427,44 @@ export function comingUp(
  *   5. Nearest due date
  *   6. Everything else
  */
+/**
+ * Ordering for the Active list.
+ *
+ * Active work had no order of its own, so it arrived in whatever sequence the
+ * query returned and people had to read every row to find the one that was
+ * late. The rule is the obvious one, written down: what has already slipped,
+ * then what is due today, then the nearest commitment, then work with no date
+ * at all.
+ *
+ * Deliberately automatic rather than a sort control. Nobody should have to
+ * configure a list to find the work that is overdue on it.
+ */
+export function activeOrder(
+  tasks: readonly TaskOverview[],
+  now: Date = new Date(),
+  timeZone: string = DEFAULT_ORG_TIMEZONE,
+): TaskOverview[] {
+  const today = localDateString(now, timeZone);
+  const rank = (task: TaskOverview): number => {
+    if (task.isOverdue) return 0;
+    if (task.dueAt && localDateString(new Date(task.dueAt), timeZone) === today) return 1;
+    if (task.dueAt) return 2;
+    return 3;
+  };
+
+  return [...tasks].sort((left, right) => {
+    const byRank = rank(left) - rank(right);
+    if (byRank !== 0) return byRank;
+
+    // Undated work sorts last rather than as though it were due at the epoch.
+    const leftDue = left.dueAt ? new Date(left.dueAt).getTime() : Number.POSITIVE_INFINITY;
+    const rightDue = right.dueAt ? new Date(right.dueAt).getTime() : Number.POSITIVE_INFINITY;
+    if (leftDue !== rightDue) return leftDue - rightDue;
+
+    return left.title.localeCompare(right.title);
+  });
+}
+
 export function availableOrder(
   tasks: readonly TaskOverview[],
   now: Date = new Date(),
