@@ -266,6 +266,110 @@ export async function completeTask(input: z.input<typeof completeSchema>) {
   );
 }
 
+/**
+ * Completion, with its evidence, in one action.
+ *
+ * The alternative was to make somebody attach files first and then press
+ * Complete, which is two operations for one intention and leaves a window
+ * where the evidence exists and the completion does not. Here the files are
+ * stored, linked to the task as completion evidence, and only then is the
+ * completion submitted — and a failure at any point leaves the task open with
+ * nothing half-attached.
+ *
+ * `FormData` rather than a typed object because files cannot cross a Server
+ * Action boundary any other way.
+ */
+export async function completeTaskWithEvidence(formData: FormData) {
+  const parsed = completeSchema.safeParse({
+    taskId: formData.get('taskId'),
+    expectedVersion: Number(formData.get('expectedVersion') ?? 0),
+    completionNote: formData.get('completionNote') || undefined,
+    idempotencyKey: formData.get('idempotencyKey') || undefined,
+  });
+  if (!parsed.success) {
+    return { ok: false as const, code: 'validation_failed' as const, message: 'Invalid request.' };
+  }
+
+  const files = formData.getAll('files').filter((entry): entry is File => entry instanceof File);
+  const realFiles = files.filter((file) => file.size > 0);
+
+  if (realFiles.length === 0) {
+    return completeTask(parsed.data);
+  }
+
+  const invalid = validateAttachmentFiles(realFiles);
+  if (invalid) {
+    return { ok: false as const, code: 'validation_failed' as const, message: invalid };
+  }
+
+  const profile = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  /*
+   * Uploaded before the completion is submitted, and removed again if any part
+   * of it fails. Completing first and attaching afterwards would leave a task
+   * closed with the proof missing, which is the one outcome an evidence rule
+   * exists to prevent.
+   */
+  const uploadedPaths: string[] = [];
+  const cleanUp = async () => {
+    if (uploadedPaths.length) {
+      await supabase.storage.from('task-attachments').remove(uploadedPaths);
+    }
+  };
+
+  for (const file of realFiles) {
+    const path = `tasks/${parsed.data.taskId}/${crypto.randomUUID()}-${safeAttachmentFileName(file.name)}`;
+    const upload = await supabase.storage.from('task-attachments').upload(path, file, {
+      contentType: file.type,
+      upsert: false,
+    });
+    if (upload.error) {
+      await cleanUp();
+      console.error(`[completeTaskWithEvidence:upload] ${upload.error.message}`);
+      return {
+        ok: false as const,
+        code: 'unexpected_error' as const,
+        message: 'The evidence could not be saved, so the work was not completed.',
+      };
+    }
+    uploadedPaths.push(path);
+
+    const metadata = await supabase.from('attachments').insert({
+      task_id: parsed.data.taskId,
+      // Neither a step's evidence nor an update's payload: this is evidence
+      // for the work as a whole, which is what makes it survive in the
+      // completed record rather than inside one update.
+      checklist_item_id: null,
+      update_id: null,
+      storage_path: path,
+      file_name: file.name,
+      mime_type: file.type,
+      byte_size: file.size,
+      is_evidence: true,
+      uploaded_by: profile.id,
+    });
+    if (metadata.error) {
+      await cleanUp();
+      console.error(`[completeTaskWithEvidence:metadata] ${metadata.error.message}`);
+      return {
+        ok: false as const,
+        code: 'unexpected_error' as const,
+        message: 'The evidence record could not be saved, so the work was not completed.',
+      };
+    }
+  }
+
+  const result = await completeTask(parsed.data);
+  if (!result.ok) {
+    // The completion was refused, so its evidence should not be left behind
+    // attached to work that is still open and may be completed differently.
+    await cleanUp();
+    await supabase.storage.from('task-attachments').remove(uploadedPaths);
+  }
+  return result;
+}
+
 const cancelSchema = z.object({
   taskId: uuid,
   expectedVersion: z.number().int().positive(),

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
+import { CompletionForm } from './CompletionForm';
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker';
 import { Modal } from '@/components/ui/Modal';
 import { MenuDropdown } from '@/components/ui/MenuDropdown';
@@ -11,11 +12,13 @@ import { SideDrawer } from '@/components/ui/SideDrawer';
 import { AttachmentViewer, canPreview } from './AttachmentViewer';
 import { RoutineOutcomePanel } from './RoutineOutcomePanel';
 import {
+  ROUTINE_OCCURRENCE_LABELS,
   ageChips,
   dueInputValue,
   formatCompactDuration,
   formatDue,
   overdueAgeMs,
+  routineOccurrenceState,
 } from '@/domain/duration';
 import { latestPlausibleDate } from '@/domain/delivery';
 import { barrierAction, barrierViewLabel } from '@/domain/barriers';
@@ -360,6 +363,13 @@ export function TaskDetailDrawer({
       .filter((item) => item.evidenceRule === 'required' && !attachmentsByChecklist.get(item.id))
       .map((item) => `“${item.action}” needs evidence attached`),
   ];
+
+  /*
+   * Evidence already on the work, whether it arrived on a step or on the work
+   * itself. Counted so the completion form can say it is there rather than ask
+   * for the same file again.
+   */
+  const existingEvidenceCount = detail.attachments.filter((file) => file.isEvidence).length;
 
   const readyToComplete =
     detail.capabilities.canComplete &&
@@ -885,56 +895,55 @@ export function TaskDetailDrawer({
           </div>
         </Modal>
 
+        {/*
+          One completion pattern, shared with Routine.
+
+          The form itself lives in `CompletionForm`, because an employee should
+          learn this moment once. Two implementations of the same thing drift,
+          and the drift lands on the person trying to remember which screen
+          behaves which way.
+        */}
         <Modal
           open={completeOpen}
-          title="Complete task"
-          className="task-due-modal"
+          title="Complete work"
+          className="completion-modal"
           onClose={() => setCompleteOpen(false)}
         >
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              const data = new FormData(event.currentTarget);
-              startTransition(async () => {
-                const result = await completeTask({
-                  taskId: task.id,
-                  expectedVersion: Math.max(taskVersion, task.version),
-                  completionNote: String(data.get('completionNote') ?? '') || null,
-                  idempotencyKey: idempotencyKey(),
-                });
-                if (finish(result, 'Completion recorded.')) setCompleteOpen(false);
-              });
+          <div className="modal-head">
+            <div>
+              <strong>Complete work</strong>
+              <span>This records the result, its evidence, and closes the work.</span>
+            </div>
+            <button
+              type="button"
+              className="btn small"
+              aria-label="Close completion form"
+              onClick={() => setCompleteOpen(false)}
+            >
+              &times;
+            </button>
+          </div>
+          {/* Keyed on the modal, so closing it clears anything staged rather
+              than leaving yesterday's photograph in tomorrow's form. */}
+          <CompletionForm
+            key={completeOpen ? 'open' : 'closed'}
+            taskId={task.id}
+            expectedVersion={Math.max(taskVersion, task.version)}
+            stepsTotal={detail.checklist.length}
+            stepsCompleted={checklistCompleted}
+            stepsNeedingEvidence={evidenceOutstanding.length}
+            existingEvidenceCount={existingEvidenceCount}
+            readyToComplete={readyToComplete}
+            blockers={completionBlockers}
+            pending={pending}
+            onCancel={() => setCompleteOpen(false)}
+            onDone={(message) => {
+              setCompleteOpen(false);
+              setMessage({ tone: 'success', text: message });
+              router.refresh();
             }}
-          >
-            <div className="modal-head">
-              <div>
-                <strong>Complete task</strong>
-                <span>This records the result and closes the work.</span>
-              </div>
-              <button
-                type="button"
-                className="btn small"
-                aria-label="Close completion form"
-                onClick={() => setCompleteOpen(false)}
-              >
-                &times;
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="field">
-                <label htmlFor={`complete-note-${task.id}`}>Completion note — optional</label>
-                <textarea id={`complete-note-${task.id}`} name="completionNote" rows={3} />
-              </div>
-            </div>
-            <div className="modal-foot">
-              <button type="button" className="btn" onClick={() => setCompleteOpen(false)}>
-                Not yet
-              </button>
-              <button type="submit" className="btn primary" disabled={pending} aria-busy={pending}>
-                {pending ? 'Completing…' : 'Complete task'}
-              </button>
-            </div>
-          </form>
+            onFailed={(message) => setMessage({ tone: 'error', text: message })}
+          />
         </Modal>
 
         <Modal
@@ -1656,7 +1665,20 @@ export function TaskDetailDrawer({
         <div className="task-status-line" aria-label="Task status">
           <span className="task-status-state">
             <span className={`metadata-dot ${task.status}`} aria-hidden="true" />
-            {TASK_STATUS_LABELS[task.status]}
+            {/*
+              A routine occurrence is never "Available".
+
+              Available is a Focus state: work that is valid but not yet being
+              carried, waiting for somebody to decide to activate it. An
+              occurrence has no such decision - the schedule created it, it is
+              upcoming or due or late, and nobody activates it. Printing the
+              Focus word here put a state on screen that the routine model does
+              not contain, next to an Activate button for a decision that does
+              not exist.
+            */}
+            {isRoutineOccurrence
+              ? ROUTINE_OCCURRENCE_LABELS[routineOccurrenceState(task, timeZone)]
+              : TASK_STATUS_LABELS[task.status]}
           </span>
           <span>
             {task.routineTemplateId ? 'Occurrence' : 'Due'}{' '}
@@ -2417,7 +2439,7 @@ export function TaskDetailDrawer({
             >
               Resume work
             </button>
-          ) : canOfferActivate(task.status) ? (
+          ) : canOfferActivate(task.status, task.workClass) ? (
             <TaskRowActions
               taskId={task.id}
               title={task.title}
@@ -2425,6 +2447,7 @@ export function TaskDetailDrawer({
               version={task.version}
               bucket={task.focusBucket}
               isMandatory={task.isMandatory}
+              workClass={task.workClass}
             />
           ) : !isRoutineOccurrence &&
             detail.capabilities.canComplete &&

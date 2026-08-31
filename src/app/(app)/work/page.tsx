@@ -1356,6 +1356,7 @@ export default async function WorkPage({
                       version={task.version}
                       bucket={task.focusBucket}
                       isMandatory={task.isMandatory}
+                      workClass={task.workClass}
                     />
                   ) : (
                     <span className="row-chevron" aria-hidden="true">

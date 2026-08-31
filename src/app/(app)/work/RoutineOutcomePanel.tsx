@@ -4,8 +4,9 @@ import { useState, useTransition } from 'react';
 
 import { Modal } from '@/components/ui/Modal';
 import { decideRoutineException, markRoutineNotRequired } from '@/server/actions/routine-actions';
-import { completeTask } from '@/server/actions/task-actions';
 import type { TaskDetail } from '@/server/queries';
+
+import { CompletionForm } from './CompletionForm';
 
 function idempotencyKey() {
   return crypto.randomUUID();
@@ -75,6 +76,7 @@ export function RoutineOutcomePanel({
   const [busy, startTransition] = useTransition();
   const [reasonOpen, setReasonOpen] = useState(false);
   const [otherNote, setOtherNote] = useState('');
+  const [completeOpen, setCompleteOpen] = useState(false);
   const [returnOpen, setReturnOpen] = useState(false);
   const [returnNote, setReturnNote] = useState('');
   const working = pending || busy;
@@ -125,18 +127,6 @@ export function RoutineOutcomePanel({
       } else {
         onFailed(result.message);
       }
-    });
-  }
-
-  function complete() {
-    startTransition(async () => {
-      const result = await completeTask({
-        taskId,
-        expectedVersion: taskVersion,
-        idempotencyKey: idempotencyKey(),
-      });
-      if (result.ok) onCompleted('Completed.');
-      else onFailed(result.message);
     });
   }
 
@@ -284,6 +274,15 @@ export function RoutineOutcomePanel({
             <p className="routine-blockers">{blockers.join(' · ')}</p>
           )}
           <div className="routine-outcome-actions">
+            {/*
+              Opens the same form Focus completion opens.
+
+              It used to complete immediately, which meant evidence had to be
+              attached somewhere else first and a routine occurrence and a
+              piece of Focus work were finished by two different rituals. An
+              inspection is exactly the case where the proof is a photograph
+              taken at that moment, so the form is where the photograph goes.
+            */}
             <button
               type="button"
               className="btn primary"
@@ -294,7 +293,7 @@ export function RoutineOutcomePanel({
                   ? undefined
                   : `Not yet: ${blockers.join('; ')}`
               }
-              onClick={complete}
+              onClick={() => setCompleteOpen(true)}
             >
               Complete
             </button>
@@ -307,6 +306,47 @@ export function RoutineOutcomePanel({
               Not required this time
             </button>
           </div>
+          {completeOpen && (
+            <Modal
+              open
+              title="Complete work"
+              className="completion-modal"
+              onClose={() => setCompleteOpen(false)}
+            >
+              <div className="modal-head">
+                <div>
+                  <strong>Complete work</strong>
+                  <span>This records the result, its evidence, and closes the occurrence.</span>
+                </div>
+                <button
+                  type="button"
+                  className="btn small"
+                  aria-label="Close completion form"
+                  onClick={() => setCompleteOpen(false)}
+                >
+                  &times;
+                </button>
+              </div>
+              <CompletionForm
+                taskId={taskId}
+                expectedVersion={taskVersion}
+                stepsTotal={stepsTotal}
+                stepsCompleted={stepsCompleted}
+                stepsNeedingEvidence={0}
+                existingEvidenceCount={evidenceCount}
+                readyToComplete={readyToComplete}
+                blockers={blockers}
+                pending={working}
+                onCancel={() => setCompleteOpen(false)}
+                onDone={(message) => {
+                  setCompleteOpen(false);
+                  onCompleted(message);
+                }}
+                onFailed={onFailed}
+              />
+            </Modal>
+          )}
+
           {/* Quiet, and optional. Most people never touch it: a routine
               records itself, and a running commentary is Focus vocabulary. */}
           <button

@@ -35,9 +35,34 @@ export const publicEnv = parsedPublic.data;
  * pre-check so the two cannot disagree about what is allowed. */
 export const attachmentPolicy = {
   maxBytes: Number(process.env.ATTACHMENT_MAX_BYTES ?? 10_485_760),
+  /*
+   * What an organisation actually files as proof of work: photographs, a
+   * report, a spreadsheet of readings, a deck. The list previously stopped at
+   * PDF and images, so somebody whose evidence was the completed assessment
+   * workbook had nothing they could attach.
+   *
+   * Executables and scripts are not on it and must not be added: this is the
+   * allow-list, so anything unnamed is already refused.
+   */
   allowedMimeTypes: (
     process.env.ATTACHMENT_ALLOWED_MIME ??
-    'image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/csv'
+    [
+      'image/png',
+      'image/jpeg',
+      'image/webp',
+      'image/gif',
+      'image/heic',
+      'image/heif',
+      'application/pdf',
+      'text/plain',
+      'text/csv',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    ].join(',')
   )
     .split(',')
     .map((value) => value.trim())

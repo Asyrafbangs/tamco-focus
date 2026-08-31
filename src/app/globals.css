@@ -11041,3 +11041,244 @@ button.attachment-row {
 .member-delivery-more:focus-visible {
   text-decoration: underline;
 }
+
+/* ------------------------------------------------------------------------ */
+/* v133 - one completion pattern, and one evidence box                       */
+/* ------------------------------------------------------------------------ */
+
+/*
+  A target worth aiming at.
+
+  The old picker was a button with a drop hint beside it, which is right in a
+  composer somebody is already typing into and wrong at the moment of
+  completion, where attaching the proof IS the task. The whole dashed area is
+  the click target and the drop target.
+*/
+.evidence-zone {
+  display: block;
+}
+
+.evidence-target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 100%;
+  min-height: 118px;
+  padding: 18px 16px;
+  border: 2px dashed var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  text-align: center;
+  transition:
+    border-color var(--motion-fast) var(--motion-easing),
+    background-color var(--motion-fast) var(--motion-easing);
+}
+
+.evidence-target:hover,
+.evidence-target:focus-visible {
+  border-color: var(--blue);
+  background: var(--blue-bg, var(--line-soft));
+}
+
+/* While a file is over the box, so it is obvious where it will land. */
+.evidence-target.dragging {
+  border-color: var(--blue);
+  border-style: solid;
+  background: var(--line-soft);
+}
+
+.evidence-target-title {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.evidence-target-sub {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* Said up front rather than discovered by having a file refused. */
+.evidence-target-formats {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+/* On a phone this is the primary route, not an extra: open the routine,
+   photograph what you found, complete. */
+.evidence-camera {
+  margin-top: 8px;
+}
+
+.evidence-error {
+  margin: 8px 0 0;
+  color: var(--red);
+  font-size: 11px;
+}
+
+.evidence-list {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.evidence-list-head {
+  margin: 0;
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.evidence-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface);
+}
+
+.evidence-item:last-child {
+  border-bottom: 0;
+}
+
+/* A thumbnail, because a filename is a poor way to tell one site photograph
+   from another and removing the wrong one is easy. */
+.evidence-thumb {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--surface-2);
+}
+
+.evidence-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  font-size: 16px;
+}
+
+.evidence-item-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.evidence-item-copy strong {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.evidence-item-copy span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.evidence-remove {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.evidence-remove:hover,
+.evidence-remove:focus-visible {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/*
+  What is done and what is outstanding, before anything is pressed. A disabled
+  button with no explanation makes somebody hunt for the reason.
+*/
+.completion-requirements {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 5px;
+}
+
+.completion-requirements li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.completion-requirements li.met {
+  color: var(--text);
+}
+
+.completion-requirements li.met span[aria-hidden] {
+  color: var(--green, #1a7f4b);
+}
+
+.completion-existing {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 12px;
+}
+
+.completion-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 650;
+}
+
+.field-optional {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Progressive disclosure: offered, not requested. */
+.completion-note-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.completion-note-toggle:hover,
+.completion-note-toggle:focus-visible {
+  text-decoration: underline;
+}
+
+.completion-modal .modal-body {
+  display: block;
+}

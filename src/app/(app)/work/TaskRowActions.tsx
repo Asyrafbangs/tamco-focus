@@ -11,7 +11,7 @@ import {
   canOfferMoveOut,
   validateActivationReason,
 } from '@/domain/focus';
-import type { ActivationReason, FocusBucket, TaskStatus } from '@/domain/types';
+import type { ActivationReason, FocusBucket, TaskStatus, WorkClass } from '@/domain/types';
 
 import { useTaskActionFeedback, type TaskActionFeedbackOrigin } from './TaskActionFeedback';
 
@@ -39,6 +39,12 @@ interface TaskRowActionsProps {
   version: number;
   bucket: FocusBucket | null;
   isMandatory: boolean;
+  /**
+   * What kind of work this is. A routine occurrence is never activated, so the
+   * row must not offer it: the schedule decides when the occurrence exists and
+   * it consumes no focus target.
+   */
+  workClass?: WorkClass;
   openHref?: string;
 }
 
@@ -61,6 +67,7 @@ export function TaskRowActions({
   status,
   version,
   isMandatory,
+  workClass,
   openHref,
 }: TaskRowActionsProps) {
   const [pending, startTransition] = useTransition();
@@ -174,7 +181,7 @@ export function TaskRowActions({
           Open
         </Link>
       )}
-      {canOfferActivate(status) && (
+      {canOfferActivate(status, workClass) && (
         <button
           type="button"
           className="btn small primary"
