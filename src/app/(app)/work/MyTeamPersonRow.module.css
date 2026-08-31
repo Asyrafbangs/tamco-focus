@@ -188,11 +188,22 @@
   justify-content: flex-end;
 }
 
-/* The one button a row can carry lives in the Needs you cell. It is left
-   aligned under the reason, because it answers it. */
+/* The state and the response share a line, so the cell costs two lines rather
+   than three and the control stays next to the thing it answers. */
+.attentionHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.attentionHead .flag {
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
 .attention button {
-  justify-self: start;
-  margin-top: 4px;
+  flex: none;
   white-space: nowrap;
 }
 
@@ -247,15 +258,24 @@
       'attention attention'
       'latest latest';
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 8px 12px;
+    /*
+      Tighter than the wider layouts, because on a phone the row is a stack of
+      four labelled bands rather than a table row, and the separators already
+      do the work the whitespace was doing.
+
+      The height matters here: a row that carries a manager action carries a
+      44px touch target, which is not negotiable, so the room it needs comes
+      out of spacing instead.
+    */
+    gap: 6px 12px;
     min-height: 0;
-    padding: 12px;
+    padding: 11px 12px;
   }
 
   .working,
   .attention,
   .latest {
-    padding-top: 7px;
+    padding-top: 6px;
     border-top: 1px solid var(--line-soft);
   }
 

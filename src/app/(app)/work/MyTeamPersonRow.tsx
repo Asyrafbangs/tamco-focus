@@ -126,40 +126,50 @@ export function MyTeamPersonRow({
       <div className={styles.attention} data-cell="needs-you">
         {person.attention ? (
           <>
-            <span
-              className={styles.flag}
-              data-tone={
-                person.attention.kind === 'exception'
-                  ? 'neutral'
-                  : person.attention.severity === 'critical'
-                    ? 'critical'
-                    : 'attention'
-              }
-            >
-              {/* Small, and only present on an exception. The words alone were
-                  easy to miss because a row with a problem was otherwise
-                  identical to a row without one. */}
-              <span className={styles.dot} aria-hidden="true" />
-              {person.attention.headline}
+            {/*
+              The state and the response on one line.
+
+              The button used to sit under the reason, which cost the cell a
+              third line. On a narrower screen the row already folds into two
+              bands, so that line pushed the row past the height the layout
+              test allows - and it separated "a decision is owed" from the
+              control that gives it by the width of the reason text.
+            */}
+            <span className={styles.attentionHead}>
+              <span
+                className={styles.flag}
+                data-tone={
+                  person.attention.kind === 'exception'
+                    ? 'neutral'
+                    : person.attention.severity === 'critical'
+                      ? 'critical'
+                      : 'attention'
+                }
+              >
+                {/* Small, and only present on an exception. The words alone
+                    were easy to miss because a row with a problem was
+                    otherwise identical to a row without one. */}
+                <span className={styles.dot} aria-hidden="true" />
+                {person.attention.headline}
+              </span>
+              {/*
+                Not in a column of its own at the end of the row: that gave a
+                variable width to a column the header could not match, so the
+                table lost its alignment on exactly the rows a manager most
+                needs to read.
+              */}
+              {managerAction ? (
+                <button
+                  type="button"
+                  className="btn small primary"
+                  onClick={handleAction}
+                  aria-label={`${managerAction.label} for ${person.fullName}: ${person.attention.reason}`}
+                >
+                  {managerAction.label}
+                </button>
+              ) : null}
             </span>
             <span className={styles.reason}>{person.attention.reason}</span>
-            {/*
-              The button sits with the exception it answers, not in a column of
-              its own at the end of the row. Putting it last gave a variable
-              width to a column the header could not match, so the table lost
-              its alignment on exactly the rows a manager most needs to read —
-              and it separated "a decision is owed" from "decide it".
-            */}
-            {managerAction ? (
-              <button
-                type="button"
-                className="btn small primary"
-                onClick={handleAction}
-                aria-label={`${managerAction.label} for ${person.fullName}: ${person.attention.reason}`}
-              >
-                {managerAction.label}
-              </button>
-            ) : null}
           </>
         ) : (
           /*

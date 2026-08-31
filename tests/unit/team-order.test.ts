@@ -26,10 +26,12 @@ const awareness = { reasonCode: 'awareness', sourceType: 'task' };
 describe('teamRowRank', () => {
   it('ranks by what the row asks of the reader', () => {
     expect(teamRowRank(row('a', workloadReview))).toBe(0);
-    expect(teamRowRank(row('a', overdue))).toBe(1);
-    expect(teamRowRank(row('a', overdueRoutine))).toBe(1);
-    expect(teamRowRank(row('a', barrier))).toBe(2);
-    expect(teamRowRank(row('a', goal))).toBe(2);
+    // A barrier outranks overdue work: overdue is theirs to catch up on and
+    // will still be overdue tomorrow, while a barrier is somebody stopped.
+    expect(teamRowRank(row('a', barrier))).toBe(1);
+    expect(teamRowRank(row('a', goal))).toBe(1);
+    expect(teamRowRank(row('a', overdue))).toBe(2);
+    expect(teamRowRank(row('a', overdueRoutine))).toBe(2);
     // Worth knowing, but nothing is being asked.
     expect(teamRowRank(row('a', awareness))).toBe(3);
     expect(teamRowRank(row('a'))).toBe(9);
@@ -53,8 +55,8 @@ describe('teamRowOrder', () => {
 
     expect(ordered.map((person) => person.fullName)).toEqual([
       'Erin Workload',
-      'Dan Overdue',
       'Cathy Barrier',
+      'Dan Overdue',
       'Bella Awareness',
       'Aaron Healthy',
     ]);

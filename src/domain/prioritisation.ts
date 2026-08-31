@@ -507,9 +507,14 @@ export interface TeamOrderRow {
  * Who a manager should read first. Lower sorts first.
  *
  * Ranked by what the row asks of the reader, not by severity in the abstract:
- * a workload they have been asked to review, then work that has already
- * slipped, then a decision or barrier owed, then something merely worth
- * knowing, then everybody who is fine.
+ * a workload they have been asked to review, then a decision or barrier owed,
+ * then work that has already slipped, then something merely worth knowing,
+ * then everybody who is fine.
+ *
+ * A barrier outranks overdue work because of who is blocked. Overdue work is
+ * the person's own to catch up on and will still be there tomorrow; a barrier
+ * is somebody stopped, waiting on an answer only the manager can give, and
+ * every hour it sits unread is an hour of theirs.
  *
  * The rule this replaced was "anyone with anything, then alphabetically",
  * which put a stalled item somebody might like to know about above a decision
@@ -519,8 +524,8 @@ export function teamRowRank(row: TeamOrderRow): number {
   const attention = row.attention;
   if (!attention) return 9;
   if (attention.reasonCode === 'workload_review') return 0;
-  if (attention.reasonCode === 'overdue') return 1;
-  if (attention.sourceType === 'barrier' || attention.sourceType === 'goal') return 2;
+  if (attention.sourceType === 'barrier' || attention.sourceType === 'goal') return 1;
+  if (attention.reasonCode === 'overdue') return 2;
   return 3;
 }
 
