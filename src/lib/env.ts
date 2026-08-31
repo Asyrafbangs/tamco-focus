@@ -51,10 +51,19 @@ export const attachmentPolicy = {
   virusScanEnabled: process.env.ATTACHMENT_VIRUS_SCAN_ENABLED === 'true',
 } as const;
 
+/*
+ * `weeklySummaryDay` and `weeklySummaryHour` used to sit here and were read by
+ * nothing. The deployed schedule comes from `weeklyWindow`'s own defaults,
+ * because `/api/cron` does not pass either one — so setting WEEKLY_SUMMARY_DAY
+ * or WEEKLY_SUMMARY_HOUR in the hosting environment changed nothing at all,
+ * while looking exactly like the control that decided when mail went out.
+ * Those two variables are read only by `scripts/run-weekly-summaries.ts`, which
+ * runs from somebody's own machine. Removed rather than wired up: the schedule
+ * is asserted by a test against `vercel.json`, and a value that can be changed
+ * without the test seeing it would put the Tuesday bug straight back.
+ */
 export const orgConfig = {
   timeZone: process.env.ORG_TIMEZONE ?? 'Asia/Kuala_Lumpur',
-  weeklySummaryDay: process.env.WEEKLY_SUMMARY_DAY ?? 'monday',
-  weeklySummaryHour: Number(process.env.WEEKLY_SUMMARY_HOUR ?? 8),
   appBaseUrl: process.env.APP_BASE_URL ?? 'http://localhost:3000',
 } as const;
 

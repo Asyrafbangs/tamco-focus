@@ -18,6 +18,18 @@ import { orgConfig } from '@/lib/env';
  * and the weekly worker already decides for itself whether this is its day, so
  * one daily call covers all three without pretending to a cadence we do not have.
  *
+ * WHEN it runs matters, and for one reason that is easy to miss. `vercel.json`
+ * schedules this in UTC; `weeklyWindow` decides the summary is due from a local
+ * day and hour onwards, and the summary is sent on the first firing after that
+ * moment. So a firing EARLIER in the day than the weekly threshold is never the
+ * one that sends — Monday's run is not yet due, and the send slips to Tuesday,
+ * every week, with both runs reporting success. It ran at 22:00 UTC (06:00 in
+ * Kuala Lumpur) against a Monday 08:00 threshold and did exactly that for as
+ * long as mail worked at all. 01:00 UTC is 09:00 local, an hour clear of the
+ * threshold, which also absorbs the platform triggering within the hour rather
+ * than on the minute. `tests/unit/cron-weekly-alignment.test.ts` holds the two
+ * schedules together, because either can be changed without seeing the other.
+ *
  * Authorisation is a shared secret, not a session. There is no user here, so
  * there is nothing for RLS to check — which is exactly why the endpoint has to
  * refuse anything that cannot present the secret. An unauthenticated caller
