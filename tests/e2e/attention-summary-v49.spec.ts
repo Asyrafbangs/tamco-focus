@@ -149,10 +149,13 @@ test('twelve requests still show two rows and a way to see the rest', async ({
     await expect(page).toHaveURL(/scope=team/);
     await expect(page).toHaveURL(/filter=attention/);
     await expect(page.getByRole('heading', { name: 'My Team' })).toBeVisible();
-    await expect(page.getByRole('link', { name: /Needs attention/ })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    // Scoped to the filter row: v132 added a snapshot figure that carries the
+    // same words and the same aria-current, one level above these tabs.
+    await expect(
+      page.getByRole('navigation', { name: 'Team filter' }).getByRole('link', {
+        name: /Needs attention/,
+      }),
+    ).toHaveAttribute('aria-current', 'page');
   } finally {
     await cleanupSeeded(seeded);
   }

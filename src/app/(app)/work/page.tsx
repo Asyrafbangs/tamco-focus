@@ -16,6 +16,7 @@ import {
   TASK_LAYER_PARAMS,
 } from '@/domain/navigation';
 import { formatDue, formatDueShort, overdueAgeMs } from '@/domain/duration';
+import { DEFAULT_DELIVERY_WINDOW, DELIVERY_WINDOWS, deliveryWindow } from '@/domain/delivery';
 import { activeOrder, availableOrder, teamRowOrder } from '@/domain/prioritisation';
 import {
   FOCUS_BUCKET_LABELS,
@@ -44,6 +45,7 @@ import {
   getVisiblePeopleCount,
   getMajorProjectProposalDetail,
   getMajorProjectProposals,
+  getTeamDeliveryCount,
   getTeamMemberDetail,
   type CompletedRecord,
   type SharedContribution,
@@ -539,6 +541,8 @@ export default async function WorkPage({
     /** v48 §8 — the screen this task was opened from. */
     from?: string;
     proposal?: string;
+    /** My Team: the rolling window delivery is counted over. */
+    delivery?: string;
     /** Completed only: which slice of history, and how far back. */
     show?: string;
     period?: string;
@@ -650,6 +654,7 @@ export default async function WorkPage({
     proposalDetail,
     teamAvailable,
     teamAvailableCount,
+    teamDelivered,
     completedWork,
   ] = await Promise.all([
     getMyTasks(profile.id),
@@ -673,7 +678,7 @@ export default async function WorkPage({
     // bounded by the same visibility rules the list is, and returns nothing for
     // somebody outside this manager's scope.
     params.person && hasTeam
-      ? getTeamMemberDetail(profile.id, params.person)
+      ? getTeamMemberDetail(profile.id, params.person, params.delivery)
       : Promise.resolve(null),
     personalAttentionView ? getMyAttention(profile.id) : Promise.resolve([]),
     // Scoped by the viewer's own visibility, not the whole organisation
@@ -695,6 +700,8 @@ export default async function WorkPage({
     // This badge only exists inside Team scope. Loading it in My Work added a
     // count request whose result was never rendered.
     scope === 'team' ? getTeamAvailableCount(profile.id) : Promise.resolve(0),
+    // The one number in the team snapshot that is not already on this page.
+    scope === 'team' ? getTeamDeliveryCount(profile.id, params.delivery) : Promise.resolve(0),
     // Only when Completed is open. Finished work is history, and history is
     // not part of anybody's day.
     activeTab === 'completed'
@@ -758,6 +765,21 @@ export default async function WorkPage({
    * data where the two orders disagree.
    */
   const teamRows = teamRowOrder(teamFilter === 'attention' ? teamNeedingAttention : team);
+
+  /*
+   * The window everything on My Team is counted over, and links that keep it.
+   *
+   * A manager who widens to ninety days and then opens somebody expects the
+   * drawer to still be showing ninety days. Dropping the parameter on every
+   * navigation would silently reset the question they just asked.
+   */
+  const deliveryChoice = deliveryWindow(params.delivery);
+  const teamHref = (filter?: 'attention' | 'available', windowKey = deliveryChoice.key) => {
+    const query = new URLSearchParams({ scope: 'team' });
+    if (filter) query.set('filter', filter);
+    if (windowKey !== DEFAULT_DELIVERY_WINDOW) query.set('delivery', windowKey);
+    return `/work?${query.toString()}`;
+  };
 
   /*
    * v46 §9, §45 — resolve what the person was sent here to do.
@@ -987,39 +1009,92 @@ export default async function WorkPage({
           <p className="focus-tab-meaning">{TAB_MEANING[activeTab]}</p>
         </>
       ) : (
-        <FocusTabs
-          label="Team filter"
-          variant="underline"
-          items={[
-            {
-              href: '/work?scope=team',
-              label: 'Everyone',
-              active: teamFilter === 'everyone',
-              count: team.length,
-            },
-            {
-              href: '/work?scope=team&filter=attention',
-              label: 'Needs attention',
-              active: teamFilter === 'attention',
-              count: teamNeedingAttention.length,
-              attention: teamNeedingAttention.length > 0,
-            },
-            {
-              // What is already waiting on each person. A manager could see
-              // that somebody had five Available items and not what any of
-              // them were, so the question asked before handing out more work
-              // had no answer in the product.
-              href: '/work?scope=team&filter=available',
-              // Named for what it browses. Beside two views OF PEOPLE, a tab
-              // called "Available work" quietly changes the object on screen
-              // from a person to a task, which is a surprise rather than a
-              // filter. The word Team keeps it honest about whose it is.
-              label: 'Team available work',
-              active: teamFilter === 'available',
-              count: teamAvailableCount,
-            },
-          ]}
-        />
+        <>
+          {/*
+            Four numbers, and no more.
+
+            The question this answers is "where do I look first", not "how is
+            the team performing" - so it is a strip rather than a dashboard,
+            and two of the four are the way in to the views behind them. The
+            fourth is deliberately a rolling window: lifetime completions
+            flatter whoever has been here longest and say nothing about now.
+          */}
+          <div className="team-snapshot">
+            <ul className="snapshot-figures">
+              <li>
+                <span className="snapshot-value">{team.length}</span>
+                <span className="snapshot-label">People</span>
+              </li>
+              <li>
+                <Link
+                  href={teamHref('attention')}
+                  aria-current={teamFilter === 'attention' ? 'page' : undefined}
+                >
+                  <span
+                    className={`snapshot-value${teamNeedingAttention.length > 0 ? ' alert' : ''}`}
+                  >
+                    {teamNeedingAttention.length}
+                  </span>
+                  <span className="snapshot-label">Needs attention</span>
+                </Link>
+              </li>
+              <li>
+                {/*
+                  The backlog view lives here rather than beside Everyone and
+                  Needs attention. Those two browse PEOPLE; this one browses
+                  TASKS, and giving it equal billing made the main way to
+                  manage people a list of unstarted work - which says there
+                  are seven items waiting for somebody, and nothing about
+                  whether that is a problem.
+                */}
+                <Link
+                  href={teamHref('available')}
+                  aria-current={teamFilter === 'available' ? 'page' : undefined}
+                >
+                  <span className="snapshot-value">{teamAvailableCount}</span>
+                  <span className="snapshot-label">Available work</span>
+                </Link>
+              </li>
+              <li>
+                <span className="snapshot-value">{teamDelivered}</span>
+                <span className="snapshot-label">Completed {deliveryChoice.short}</span>
+              </li>
+            </ul>
+
+            <nav className="snapshot-window" aria-label="Delivery window">
+              {DELIVERY_WINDOWS.map((option) => (
+                <Link
+                  key={option.key}
+                  href={teamHref(teamFilter === 'everyone' ? undefined : teamFilter, option.key)}
+                  className={option.key === deliveryChoice.key ? 'active' : undefined}
+                  aria-current={option.key === deliveryChoice.key ? 'true' : undefined}
+                >
+                  {option.short}
+                </Link>
+              ))}
+            </nav>
+          </div>
+
+          <FocusTabs
+            label="Team filter"
+            variant="underline"
+            items={[
+              {
+                href: teamHref(),
+                label: 'Everyone',
+                active: teamFilter === 'everyone',
+                count: team.length,
+              },
+              {
+                href: teamHref('attention'),
+                label: 'Needs attention',
+                active: teamFilter === 'attention',
+                count: teamNeedingAttention.length,
+                attention: teamNeedingAttention.length > 0,
+              },
+            ]}
+          />
+        </>
       )}
 
       {/* Section 7.4 — over target is shown in red AND in words, and is never a
@@ -1096,6 +1171,9 @@ export default async function WorkPage({
                   person={person}
                   filter={teamFilter}
                   nowIso={now.toISOString()}
+                  deliveryWindowKey={
+                    deliveryChoice.key === DEFAULT_DELIVERY_WINDOW ? undefined : deliveryChoice.key
+                  }
                 />
               ))}
             </>

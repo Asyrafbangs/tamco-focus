@@ -10861,3 +10861,183 @@ button.attachment-row {
   min-height: 64px;
   padding-block: 9px;
 }
+
+/* ------------------------------------------------------------------------ */
+/* v132 - the manager's snapshot, and delivery in the person drawer          */
+/* ------------------------------------------------------------------------ */
+
+/*
+  Four numbers and a window, not a dashboard.
+
+  The strip answers "where do I look first", so it is one line of figures with
+  two of them acting as the way in to the views behind them. Anything more -
+  charts, trends, a score - would be answering a question nobody asked at the
+  top of a list they came here to read.
+*/
+.team-snapshot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 24px;
+  margin: 0 0 14px;
+  padding: 12px 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.snapshot-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 30px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.snapshot-figures li {
+  min-width: 0;
+}
+
+.snapshot-figures a {
+  display: block;
+  border-radius: 7px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.snapshot-figures a:hover .snapshot-label,
+.snapshot-figures a:focus-visible .snapshot-label {
+  color: var(--text);
+}
+
+/* The view you are in, marked on the figure that opens it, because the tab
+   row below holds only the two views of people. */
+.snapshot-figures a[aria-current] .snapshot-label {
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.snapshot-value {
+  display: block;
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+/* Only where somebody is waiting on the reader. A count of people is not an
+   alarm, and colouring it would spend the one colour that means something. */
+.snapshot-value.alert {
+  color: var(--red);
+}
+
+.snapshot-label {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.snapshot-window {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+
+.snapshot-window a {
+  padding: 5px 10px;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.snapshot-window a.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(13, 35, 66, 0.1);
+}
+
+@media (max-width: 640px) {
+  .team-snapshot {
+    gap: 12px;
+  }
+  .snapshot-figures {
+    gap: 10px 22px;
+  }
+  .snapshot-window {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+/*
+  Observations on one line, separated rather than punctuated.
+
+  Each is a fact a manager weighs for themselves: what is late, what has
+  stopped moving, what is queued. None of them is a verdict, so none of them
+  gets a bar, a percentage or a colour except overdue, which already is one.
+*/
+.member-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.member-signals .tone-red {
+  font-weight: 650;
+}
+
+.member-routine-signals {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.member-signals-label {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.member-delivery-total {
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+
+.member-delivery-total strong {
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+/* The window this section is counting, said next to the heading rather than
+   left for the reader to remember from the strip at the top of the page. */
+.member-window {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.member-delivery-more {
+  display: inline-block;
+  margin-top: 8px;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.member-delivery-more:hover,
+.member-delivery-more:focus-visible {
+  text-decoration: underline;
+}

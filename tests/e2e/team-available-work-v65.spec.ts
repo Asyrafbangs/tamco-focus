@@ -49,11 +49,17 @@ test.describe('v65 team Available work', () => {
      */
     await page.goto('/work?scope=team');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
-    // v130 — "Team available work". Beside two views of PEOPLE, a tab called
-    // "Available work" changed the object on screen without saying so.
-    const tab = page.getByRole('link', { name: /^Team available work/ });
-    await expect(tab).toBeVisible();
-    const count = Number((await tab.textContent())?.replace(/\D/g, '') ?? '0');
+    /*
+     * v132 — the way in is the snapshot figure, not a tab.
+     *
+     * v130 renamed it "Team available work" to stop a tab beside two views of
+     * PEOPLE quietly changing the object on screen to a task. v132 went
+     * further and took it out of that row entirely: browsing unstarted work is
+     * a planning question, not the main way to manage people.
+     */
+    const figure = page.locator('.team-snapshot').getByRole('link', { name: /Available work/ });
+    await expect(figure).toBeVisible();
+    const count = Number((await figure.textContent())?.replace(/\D/g, '') ?? '0');
     expect(count).toBeGreaterThan(0);
   });
 

@@ -5,6 +5,7 @@ import { cache } from 'react';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { barrierHref } from '@/domain/barriers';
 import { notificationHref } from '@/domain/notification-link';
+import { deliveryWindow, deliveryWindowSince } from '@/domain/delivery';
 import { describeRecurrence, patternFromRow } from '@/domain/routines';
 import {
   attentionPriority,
@@ -123,7 +124,10 @@ type TeamMemberTask = TeamAttentionTask &
     | 'occurrenceDate'
     | 'checklistTotal'
     | 'checklistCompleted'
-  >;
+  > & {
+    /** Null where a row predates the column being populated. */
+    stateEnteredAt: string | null;
+  };
 
 function toTeamMemberTask(row: Record<string, unknown>): TeamMemberTask {
   return {
@@ -135,6 +139,9 @@ function toTeamMemberTask(row: Record<string, unknown>): TeamMemberTask {
     occurrenceDate: row.occurrence_date ? String(row.occurrence_date) : null,
     checklistTotal: Number(row.checklist_total ?? 0),
     checklistCompleted: Number(row.checklist_completed ?? 0),
+    // How long it has been in its current state. Active work that has not
+    // moved in a month is the signal a completion count cannot give.
+    stateEnteredAt: row.state_entered_at ? String(row.state_entered_at) : null,
   };
 }
 
@@ -3122,18 +3129,51 @@ export interface TeamMemberDetail {
   }>;
   recentUpdates: Array<{ id: string; at: string; taskTitle: string; summary: string }>;
   /**
-   * What this person finished recently, for a manager reviewing the month.
+   * What actually closed inside the chosen window, and what kind of work it was.
    *
-   * Deliberately bounded to a month rather than paginated: the question is
-   * "what did they get done", not "everything they have ever done", and an
-   * unbounded history turns a review into a scroll.
+   * Split three ways on purpose. A single completion count rewards whoever
+   * closes the most small things: ten quick actions outscore one Major Project
+   * that took the quarter, and a routine occurrence generated automatically
+   * every week outscores both. Separating owned work, contributions to
+   * somebody else's work, and routine occurrences lets a manager see what the
+   * number is made of before drawing any conclusion from it.
    */
-  completedRecently: Array<{
-    id: string;
-    title: string;
-    workClass: TaskOverview['workClass'];
-    completedAt: string | null;
-  }>;
+  recentDelivery: {
+    windowKey: string;
+    windowLabel: string;
+    total: number;
+    owned: number;
+    shared: number;
+    routine: number;
+    /** The most recent few, as evidence a manager can open. */
+    records: Array<{
+      id: string;
+      taskId: string;
+      kind: 'owned' | 'shared' | 'routine';
+      title: string;
+      parentTitle: string | null;
+      at: string | null;
+    }>;
+  };
+  /**
+   * Execution signals, deliberately not a score.
+   *
+   * "Efficiency 73%" would have to decide how a Major Project compares to a
+   * PPE check, and any answer it gave would be wrong for somebody. These are
+   * the observations a manager makes for themselves: what is late, what has
+   * stopped moving, what is queued, and how the routine work is running.
+   * Read together they show a pattern; read alone none of them is a verdict.
+   */
+  signals: {
+    /** Commitments already past their date, of every kind. */
+    openOverdue: number;
+    /** Active work that has not changed state in a month. */
+    agingActive: number;
+    agingActiveDays: number;
+    /** Queued, not failed: a planning signal. */
+    availableCount: number;
+    routine: { completed: number; overdue: number; notRequired: number };
+  };
   otherWorkload: {
     available: Array<{
       id: string;
@@ -3169,9 +3209,46 @@ export interface TeamMemberDetail {
   };
 }
 
+/**
+ * What the whole team closed inside the window.
+ *
+ * Counted the same three ways the drawer counts one person — owned work,
+ * contributions to somebody else's, and routine occurrences — so the headline
+ * and the detail behind it cannot disagree. A manager who clicks into five
+ * people should be able to add up roughly what the strip already said.
+ */
+export async function getTeamDeliveryCount(viewerId: string, windowKey?: string): Promise<number> {
+  const supabase = await createSupabaseServerClient();
+  const team = await getTeamLoad(viewerId);
+  const ids = team.map((person) => person.userId);
+  if (ids.length === 0) return 0;
+
+  const since = deliveryWindowSince(windowKey);
+  const [owned, shared] = await Promise.all([
+    supabase
+      .from('task_overview')
+      .select('id', { count: 'exact', head: true })
+      .in('primary_owner_id', ids)
+      .eq('status', 'completed')
+      .gte('completed_at', since),
+    supabase
+      .from('completed_contributions')
+      .select('checklist_item_id', { count: 'exact', head: true })
+      .in('assignee_id', ids)
+      .gte('completed_at', since),
+  ]);
+
+  // A count that cannot be read is reported as nothing rather than as zero:
+  // "0 completed" is a claim about the team, and a failed query is not.
+  if (owned.error) console.error(`[getTeamDeliveryCount:owned] ${owned.error.message}`);
+  if (shared.error) console.error(`[getTeamDeliveryCount:shared] ${shared.error.message}`);
+  return (owned.count ?? 0) + (shared.count ?? 0);
+}
+
 export async function getTeamMemberDetail(
   viewerId: string,
   personId: string,
+  windowKey?: string,
 ): Promise<TeamMemberDetail | null> {
   const supabase = await createSupabaseServerClient();
 
@@ -3185,40 +3262,62 @@ export async function getTeamMemberDetail(
   const person = team.find((row) => row.userId === personId);
   if (!person) return null;
 
-  // A month of finished work, counted back from today so the list is never
-  // nearly empty just because the calendar month has only just started.
-  const completedSince = new Date(Date.now() - 31 * 86_400_000).toISOString();
+  /*
+   * The window the manager chose, defaulting to thirty days.
+   *
+   * It used to be a fixed month with no way to widen it, which meant a
+   * quarterly conversation had no evidence in the product at all: somebody
+   * who shipped a Major Project six weeks ago read as having delivered
+   * nothing.
+   */
+  const window = deliveryWindow(windowKey);
+  const completedSince = deliveryWindowSince(windowKey);
 
-  const [attentionRows, focusRows, tasksResult, goalsResult, completedResult] = await Promise.all([
-    getTeamAttention(viewerId),
-    getTeamFocusSummary(),
-    supabase
-      .from('task_overview')
-      .select(
-        'id,title,next_action,status,work_class,focus_bucket,is_mandatory,primary_owner_id,last_meaningful_update_at,due_at,due_is_date_only,progress_percent,version,is_overdue,is_stale,occurrence_date,checklist_total,checklist_completed',
-      )
-      .eq('primary_owner_id', personId)
-      .in('status', ['backlog', 'active', 'paused'])
-      .order('last_meaningful_update_at', { ascending: false })
-      .limit(200),
-    supabase
-      .from('goal_overview')
-      .select(
-        'id,title,status,health,target_date,weight_percent,success_measure_count,current_milestone_title',
-      )
-      .eq('owner_id', personId)
-      .in('status', ['draft', 'pending_discussion', 'active'])
-      .order('target_date', { ascending: true })
-      .limit(100),
-    supabase
-      .from('task_overview')
-      .select('id,title,work_class,completed_at')
-      .eq('primary_owner_id', personId)
-      .eq('status', 'completed')
-      .gte('completed_at', completedSince)
-      .order('completed_at', { ascending: false })
-      .limit(100),
-  ]);
+  const [attentionRows, focusRows, tasksResult, goalsResult, completedResult, sharedResult] =
+    await Promise.all([
+      getTeamAttention(viewerId),
+      getTeamFocusSummary(),
+      supabase
+        .from('task_overview')
+        .select(
+          'id,title,next_action,status,work_class,focus_bucket,is_mandatory,primary_owner_id,last_meaningful_update_at,due_at,due_is_date_only,progress_percent,version,is_overdue,is_stale,occurrence_date,checklist_total,checklist_completed,state_entered_at',
+        )
+        .eq('primary_owner_id', personId)
+        .in('status', ['backlog', 'active', 'paused'])
+        .order('last_meaningful_update_at', { ascending: false })
+        .limit(200),
+      supabase
+        .from('goal_overview')
+        .select(
+          'id,title,status,health,target_date,weight_percent,success_measure_count,current_milestone_title',
+        )
+        .eq('owner_id', personId)
+        .in('status', ['draft', 'pending_discussion', 'active'])
+        .order('target_date', { ascending: true })
+        .limit(100),
+      supabase
+        .from('task_overview')
+        .select('id,title,work_class,completed_at')
+        .eq('primary_owner_id', personId)
+        .eq('status', 'completed')
+        .gte('completed_at', completedSince)
+        .order('completed_at', { ascending: false })
+        .limit(200),
+      /*
+       * Steps this person finished on work somebody else owns.
+       *
+       * Invisible in a count of completed tasks, because the task belongs to
+       * the owner — so a person who spends a fortnight unblocking three
+       * colleagues appeared to have delivered nothing at all.
+       */
+      supabase
+        .from('completed_contributions')
+        .select('checklist_item_id,task_id,title,parent_title,completed_at')
+        .eq('assignee_id', personId)
+        .gte('completed_at', completedSince)
+        .order('completed_at', { ascending: false })
+        .limit(200),
+    ]);
 
   if (tasksResult.error) {
     console.error(`[getTeamMemberDetail:tasks] ${tasksResult.error.message}`);
@@ -3230,6 +3329,10 @@ export async function getTeamMemberDetail(
   }
   if (completedResult.error) {
     console.error(`[getTeamMemberDetail:completed] ${completedResult.error.message}`);
+    throw new Error('TEAM_MEMBER_UNAVAILABLE');
+  }
+  if (sharedResult.error) {
+    console.error(`[getTeamMemberDetail:shared] ${sharedResult.error.message}`);
     throw new Error('TEAM_MEMBER_UNAVAILABLE');
   }
 
@@ -3272,9 +3375,97 @@ export async function getTeamMemberDetail(
     console.error(`[getTeamMemberDetail:updates] ${updatesResult.error.message}`);
     throw new Error('TEAM_MEMBER_UNAVAILABLE');
   }
-  const updates = updatesResult.data ?? [];
+  /*
+   * An update with no text is not an update.
+   *
+   * `String(update.body)` turned a null body into the four characters "null",
+   * which then appeared in a manager's drawer as somebody's most recent
+   * meaningful change. Rows written by the system carry no body at all; they
+   * belong to the audit trail, not to a list headed "what changed".
+   */
+  const updates = (updatesResult.data ?? []).filter(
+    (update) => typeof update.body === 'string' && update.body.trim().length > 0,
+  );
 
   const titles = new Map(tasks.map((task) => [task.id, task.title]));
+
+  /*
+   * Delivery, split by what kind of work it was.
+   *
+   * A routine occurrence is generated on a schedule and closed every week; a
+   * Major Project closes once a quarter. Counting them together and calling
+   * the result productivity would rank the person doing the smallest work
+   * highest, which is the opposite of what a manager wants to see.
+   */
+  const completedRows = completedResult.data ?? [];
+  const ownedCompleted = completedRows.filter((row) => row.work_class !== 'routine_occurrence');
+  const routineCompleted = completedRows.filter((row) => row.work_class === 'routine_occurrence');
+  const sharedCompleted = sharedResult.data ?? [];
+
+  const deliveryRecords = [
+    ...ownedCompleted.map((row) => ({
+      id: String(row.id),
+      taskId: String(row.id),
+      kind: 'owned' as const,
+      title: String(row.title),
+      parentTitle: null,
+      at: row.completed_at ? String(row.completed_at) : null,
+    })),
+    ...sharedCompleted.map((row) => ({
+      id: String(row.checklist_item_id),
+      taskId: String(row.task_id),
+      kind: 'shared' as const,
+      title: String(row.title),
+      parentTitle: row.parent_title ? String(row.parent_title) : null,
+      at: row.completed_at ? String(row.completed_at) : null,
+    })),
+    ...routineCompleted.map((row) => ({
+      id: String(row.id),
+      taskId: String(row.id),
+      kind: 'routine' as const,
+      title: String(row.title),
+      parentTitle: null,
+      at: row.completed_at ? String(row.completed_at) : null,
+    })),
+  ].sort((left, right) => (right.at ?? '').localeCompare(left.at ?? ''));
+
+  /*
+   * Routine execution, which needs its own three numbers.
+   *
+   * An accepted "not required" is neither a completion nor a failure — it is
+   * a decision that the occurrence did not apply, and folding it into either
+   * column misrepresents both the person and the schedule.
+   */
+  const routineOutcomes = await supabase
+    .from('routine_occurrence_outcomes')
+    .select('task_id,outcome,completed_at,occurrence_date')
+    .eq('primary_owner_id', personId)
+    .limit(500);
+  if (routineOutcomes.error) {
+    console.error(`[getTeamMemberDetail:routine outcomes] ${routineOutcomes.error.message}`);
+    throw new Error('TEAM_MEMBER_UNAVAILABLE');
+  }
+  const outcomeRows = routineOutcomes.data ?? [];
+  const routineSignals = {
+    completed: outcomeRows.filter(
+      (row) =>
+        row.outcome === 'done' && row.completed_at && String(row.completed_at) >= completedSince,
+    ).length,
+    overdue: routines.length,
+    notRequired: outcomeRows.filter(
+      (row) =>
+        row.outcome === 'not_required' &&
+        String(row.occurrence_date ?? '') >= completedSince.slice(0, 10),
+    ).length,
+  };
+
+  // Active work that has not changed state in a month. Not a failure on its
+  // own; a question worth asking next to what has closed.
+  const agingActiveDays = 30;
+  const agingCutoff = new Date(Date.now() - agingActiveDays * 86_400_000).toISOString();
+  const agingActive = active.filter(
+    (task) => task.stateEnteredAt !== null && task.stateEnteredAt < agingCutoff,
+  ).length;
   const row = attentionRows.find((candidate) => candidate.userId === personId);
 
   return {
@@ -3294,17 +3485,29 @@ export async function getTeamMemberDetail(
       isMandatory: task.isMandatory,
       version: task.version,
     })),
+    recentDelivery: {
+      windowKey: window.key,
+      windowLabel: window.label,
+      total: deliveryRecords.length,
+      owned: ownedCompleted.length,
+      shared: sharedCompleted.length,
+      routine: routineCompleted.length,
+      // Enough to see what the number is made of without the drawer becoming
+      // a history page; the rest is one link away.
+      records: deliveryRecords.slice(0, 5),
+    },
+    signals: {
+      openOverdue: tasks.filter((task) => task.isOverdue).length,
+      agingActive,
+      agingActiveDays,
+      availableCount: available.length,
+      routine: routineSignals,
+    },
     recentUpdates: updates.map((update) => ({
       id: String(update.id),
       at: String(update.created_at),
       taskTitle: titles.get(String(update.task_id)) ?? 'Work',
       summary: String(update.body),
-    })),
-    completedRecently: (completedResult.data ?? []).map((row) => ({
-      id: String(row.id),
-      title: String(row.title),
-      workClass: row.work_class as TaskOverview['workClass'],
-      completedAt: row.completed_at ? String(row.completed_at) : null,
     })),
     otherWorkload: {
       available: available.map((task) => ({

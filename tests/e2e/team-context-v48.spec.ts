@@ -130,6 +130,14 @@ test('closing a drawer returns one layer, to the context it was opened from', as
   const firstRow = page.getByTestId('my-team-person-row').first();
   await expect(firstRow).toBeVisible();
 
+  /*
+   * Raw coordinates, deliberately: the point is that blank space inside the
+   * row opens the person, not only its links. They have to be measured with
+   * the row actually on screen — `page.mouse.click` does not scroll the way
+   * `locator.click` does, so anything added above this list silently moves the
+   * target out from under it.
+   */
+  await firstRow.scrollIntoViewIfNeeded();
   const firstBox = (await firstRow.boundingBox())!;
   await page.mouse.click(firstBox.x + 20, firstBox.y + firstBox.height / 2);
 
@@ -225,8 +233,8 @@ test('a team member name opens their detail without leaving My Team', async ({ p
 
   // §74 — the sections that answer the manager's three questions.
   await expect(drawer.getByRole('heading', { name: 'Needs your attention' })).toBeVisible();
-  await expect(drawer.getByRole('heading', { name: 'Working on now' })).toBeVisible();
-  await expect(drawer.getByRole('heading', { name: 'Recent meaningful updates' })).toBeVisible();
+  await expect(drawer.getByRole('heading', { name: 'Current commitments' })).toBeVisible();
+  await expect(drawer.getByRole('heading', { name: 'Recent updates' })).toBeVisible();
   await expect(drawer.locator('.team-member-focus')).toContainText('/');
 });
 

@@ -42,13 +42,26 @@ export function MyTeamPersonRow({
   person,
   filter,
   nowIso,
+  deliveryWindowKey,
 }: {
   person: TeamAttentionRow;
   filter: 'everyone' | 'attention';
   nowIso: string;
+  /**
+   * The window the page is counting delivery over, carried into the drawer.
+   *
+   * The row built its own URL and dropped it, so widening to ninety days and
+   * then opening somebody silently put the question back to thirty — and the
+   * drawer said "Last 30 days" while the strip above it still said 90.
+   */
+  deliveryWindowKey?: string;
 }) {
   const router = useRouter();
-  const personHref = `/work?scope=team${filter === 'attention' ? '&filter=attention' : ''}&person=${person.userId}`;
+  const personQuery = new URLSearchParams({ scope: 'team' });
+  if (filter === 'attention') personQuery.set('filter', 'attention');
+  if (deliveryWindowKey) personQuery.set('delivery', deliveryWindowKey);
+  personQuery.set('person', person.userId);
+  const personHref = `/work?${personQuery.toString()}`;
   const action = person.attention
     ? resolveAttentionAction(person.attention, { teamAttention: true })
     : null;

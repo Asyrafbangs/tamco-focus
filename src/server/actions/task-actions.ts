@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
+import { IMPLAUSIBLE_YEARS_AHEAD, isImplausibleDate } from '@/domain/delivery';
 import { endOfLocalDay, localDateTimeToInstant } from '@/domain/duration';
 import type { OperationResult } from '@/domain/types';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
@@ -482,6 +483,16 @@ export async function changeTaskDueDate(input: z.input<typeof dueDateCommandSche
       ok: false,
       code: 'validation_failed',
       message: 'Choose a valid new due date.',
+    };
+  }
+
+  // The same guard as New Work: a year is four characters and one of them is
+  // easy to get wrong, and the result is a commitment nobody can act on.
+  if (isImplausibleDate(parsed.data.dueValue)) {
+    return {
+      ok: false,
+      code: 'validation_failed',
+      message: `That due date is more than ${IMPLAUSIBLE_YEARS_AHEAD} years away. Check the year - 2926 is easy to type for 2026.`,
     };
   }
 

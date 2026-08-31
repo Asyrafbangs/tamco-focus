@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
+import { IMPLAUSIBLE_YEARS_AHEAD, isImplausibleDate } from '@/domain/delivery';
 import { classifyCapture } from '@/domain/classification';
 import { endOfLocalDay } from '@/domain/duration';
 import type { CaptureDestination, OperationResult } from '@/domain/types';
@@ -66,6 +67,23 @@ export async function createCaptureDraft(formData: FormData): Promise<CaptureDra
 
   if (!parsed.success) {
     return { ok: false, code: 'validation_failed', message: 'Add a title before creating work.' };
+  }
+
+  /*
+   * A date a decade out is a slipped digit, not a plan.
+   *
+   * "15 Sep 2926" reached a manager's backlog because nothing questioned it,
+   * and once there it is invisible: it is never overdue, never due today, and
+   * never appears in any window, so it sits in Available forever looking
+   * valid. The check belongs here rather than only in the browser, because a
+   * form is not the only way into this action.
+   */
+  if (isImplausibleDate(parsed.data.chosenDate)) {
+    return {
+      ok: false,
+      code: 'validation_failed',
+      message: `That due date is more than ${IMPLAUSIBLE_YEARS_AHEAD} years away. Check the year - 2926 is easy to type for 2026.`,
+    };
   }
 
   /*

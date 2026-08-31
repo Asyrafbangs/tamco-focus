@@ -154,14 +154,20 @@ test.describe('v130 My Team is an exception list, not a table of buttons', () =>
     await expect(rows.filter({ hasText: 'Nothing needed from you' }).first()).toBeVisible();
   });
 
-  test('the filter says what it browses', async ({ page }) => {
+  test('the filter row browses people, and only people', async ({ page }) => {
     const tabs = page.getByRole('navigation', { name: 'Team filter' });
     /*
-     * Beside two views of PEOPLE, a tab called "Available work" changed the
-     * object on screen from a person to a task without saying so.
+     * v130 renamed the third tab "Team available work" because, beside two
+     * views of PEOPLE, it changed the object on screen to a task without
+     * saying so. v132 removed it from this row altogether and put the figure
+     * in the snapshot above: browsing unstarted work is a planning question,
+     * not the main way to manage people.
      */
-    await expect(tabs.getByRole('link', { name: /Team available work/ })).toBeVisible();
-    await expect(tabs.getByRole('link', { name: /^Available work/ })).toHaveCount(0);
+    await expect(tabs.getByRole('link')).toHaveCount(2);
+    await expect(tabs.getByRole('link', { name: /available/i })).toHaveCount(0);
+    await expect(
+      page.locator('.team-snapshot').getByRole('link', { name: /Available work/ }),
+    ).toBeVisible();
   });
 
   /*

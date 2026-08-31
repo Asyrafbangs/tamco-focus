@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useRef, useState, useTransition } from 'react';
 
+import { latestPlausibleDate } from '@/domain/delivery';
 import { classifyCapture, type CaptureWorkType } from '@/domain/classification';
 import type { CaptureDestination } from '@/domain/types';
 import { assignWork } from '@/server/actions/assignment-actions';
@@ -382,6 +383,10 @@ export function CaptureWork({
               id="capture-date"
               name="chosenDate"
               type="date"
+              /* A slipped digit in the year is the one date error nobody
+                 notices: 2926 is never overdue, never due today, and sits in
+                 Available looking valid forever. The server refuses it too. */
+              max={latestPlausibleDate()}
               value={chosenDate}
               onChange={(event) => setChosenDate(event.target.value)}
             />

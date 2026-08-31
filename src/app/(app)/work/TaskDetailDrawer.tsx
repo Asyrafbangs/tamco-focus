@@ -17,6 +17,7 @@ import {
   formatDue,
   overdueAgeMs,
 } from '@/domain/duration';
+import { latestPlausibleDate } from '@/domain/delivery';
 import { barrierAction, barrierViewLabel } from '@/domain/barriers';
 import {
   ACTIVATION_REASON_OPTIONS,
@@ -648,6 +649,10 @@ export function TaskDetailDrawer({
                 <input
                   id="quick-due"
                   type="date"
+                  /* Same bound as New Work, and the same one the server
+                     enforces: a year with a slipped digit produces a
+                     commitment that is never due and never late. */
+                  max={latestPlausibleDate()}
                   value={dueDraft}
                   onChange={(event) => setDueDraft(event.target.value)}
                 />
