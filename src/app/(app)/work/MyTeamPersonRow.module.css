@@ -1,12 +1,25 @@
+/*
+  Weighted towards the two columns a manager is actually reading.
+
+  The old split gave the widest column to what somebody is working on and the
+  narrowest to what the manager owes them, with a fifth column of buttons
+  taking real estate at the end. Needs you now matches Current focus, and the
+  last column is a chevron.
+*/
+/*
+  Named rather than found by position. These rules used to select the reason as
+  `.attention > span:last-child`, so adding a button after it silently dropped
+  the reason to default body type in the middle of the table.
+*/
 .listHeader,
 .row {
   display: grid;
   grid-template-columns:
-    minmax(180px, 1.1fr)
-    minmax(260px, 2fr)
-    minmax(240px, 1.5fr)
-    minmax(150px, 1fr)
-    auto;
+    minmax(150px, 1.1fr)
+    minmax(190px, 1.7fr)
+    minmax(190px, 1.7fr)
+    minmax(130px, 1.2fr)
+    26px;
   gap: 14px;
   min-width: 0;
 }
@@ -73,7 +86,7 @@
 .latest strong,
 .person span,
 .working span,
-.attention > span:last-child,
+.reason,
 .latest span {
   min-width: 0;
   overflow: hidden;
@@ -94,7 +107,7 @@
 
 .person span,
 .working span,
-.attention > span:last-child,
+.reason,
 .latest span,
 .latest strong {
   color: var(--muted);
@@ -103,7 +116,7 @@
 }
 
 .working span,
-.attention > span:last-child,
+.reason,
 .latest span {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -136,28 +149,59 @@
 }
 
 .muted,
-.unavailable {
+.none {
   color: var(--muted);
 }
 
-.unavailable {
+/* Sized like the text it replaces so the row does not change height when a
+   person acquires a problem, or loses one. */
+.none {
   font-size: 9px;
-  white-space: nowrap;
+  line-height: 1.4;
+}
+
+/* Overdue is the one number in the summary worth a second look. */
+.summaryAlert {
+  color: var(--red);
+  font-weight: 650;
+}
+
+.dot {
+  width: 5px;
+  height: 5px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+.flag {
+  display: inline-flex;
+  align-items: center;
 }
 
 .action {
   display: flex;
+  align-items: center;
   align-self: center;
   justify-self: end;
   justify-content: flex-end;
 }
 
-.action button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
+/* The one button a row can carry lives in the Needs you cell. It is left
+   aligned under the reason, because it answers it. */
+.attention button {
+  justify-self: start;
+  margin-top: 4px;
   white-space: nowrap;
+}
+
+/* The affordance for a row that opens, matching the work rows on My Work.
+   Quiet, because the row itself is the control. */
+.chevron {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
 }
 
 @media (max-width: 1120px) {

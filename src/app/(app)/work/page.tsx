@@ -15,11 +15,12 @@ import {
   safeReturnPath,
   TASK_LAYER_PARAMS,
 } from '@/domain/navigation';
-import { formatDue, overdueAgeMs } from '@/domain/duration';
-import { activeOrder, availableOrder } from '@/domain/prioritisation';
+import { formatDue, formatDueShort, overdueAgeMs } from '@/domain/duration';
+import { activeOrder, availableOrder, teamRowOrder } from '@/domain/prioritisation';
 import {
   FOCUS_BUCKET_LABELS,
   WORK_CLASS_LABELS,
+  WORK_CLASS_SHORT_LABELS,
   type FocusBucket,
   type FocusSummary,
   type TaskOverview,
@@ -167,29 +168,60 @@ const TAB_MEANING: Record<TabKey, string> = {
  * only when the work is not proceeding normally; quiet rows are what make a
  * loud one mean something.
  */
-function exceptionFlags(
+/**
+ * The date, in the words this row should say.
+ *
+ * One slot, three states. Ordinary work states when it is due; work that is
+ * late or due today says that instead, in the same position, so the eye lands
+ * on the same spot in every row and only the tone changes.
+ *
+ * It used to be two things at once: a date on the left and a coloured chip on
+ * the far right. An overdue row therefore announced the fact twice, in two
+ * places, in two vocabularies — "27 Aug 2026" and "Overdue 4 days" — and the
+ * reader had to put them together themselves.
+ */
+function dueSignal(
   task: TaskOverview,
   timeZone: string,
   now: Date,
-): { label: string; tone: string }[] {
-  const flags: { label: string; tone: string }[] = [];
-
+): { label: string; tone: 'late' | 'today' | 'plain' } | null {
   if (task.isOverdue) {
     const days = Math.floor(overdueAgeMs(task, now) / 86_400_000);
-    flags.push({
+    return {
       label: days >= 1 ? `Overdue ${days} day${days === 1 ? '' : 's'}` : 'Overdue',
-      tone: 'red',
-    });
-  } else if (isDueToday(task, timeZone)) {
-    flags.push({ label: 'Due today', tone: 'amber' });
+      tone: 'late',
+    };
   }
+  if (isDueToday(task, timeZone)) return { label: 'Due today', tone: 'today' };
+  if (!task.dueAt) return null;
+  return {
+    label: `Due ${formatDueShort(task.dueAt, task.dueIsDateOnly, timeZone, now)}`,
+    tone: 'plain',
+  };
+}
+
+/**
+ * What is abnormal about this work, beyond its date.
+ *
+ * Deliberately not "what is true about this work". A row that reports Active
+ * on the Active tab, or On track on everything that is fine, teaches people to
+ * stop reading rows — and then the one that says something real is skipped
+ * with the rest.
+ */
+function exceptionFlags(task: TaskOverview, timeZone: string): { label: string; tone: string }[] {
+  const flags: { label: string; tone: string }[] = [];
 
   if (task.isMandatory) flags.push({ label: 'Mandatory', tone: 'red' });
   if (task.openBarrierCount > 0) flags.push({ label: 'Waiting on a decision', tone: 'amber' });
   if (task.urgency === 'critical') flags.push({ label: 'Critical', tone: 'red' });
   else if (task.urgency === 'high') flags.push({ label: 'High', tone: 'amber' });
   if (task.reviewAt) {
-    flags.push({ label: `Review by ${formatDue(task.reviewAt, true, timeZone)}`, tone: 'amber' });
+    // Short, like every other date on the row. "Review by 10 Sept 2026" was
+    // the widest thing in a chip meant to be glanced at.
+    flags.push({
+      label: `Review by ${formatDueShort(task.reviewAt, true, timeZone)}`,
+      tone: 'amber',
+    });
   }
 
   return flags;
@@ -275,24 +307,38 @@ function CapacityStrip({ focus }: { focus: readonly FocusSummary[] }) {
 
   return (
     <p className="capacity-strip" role="status">
-      {/* Named rather than left as bare numbers: "Major 0/1 · Operational
-          3/5" reads as system metadata until something says what it counts. */}
-      <span className="capacity-label">Focus capacity:</span>{' '}
-      {buckets.map((bucket, index) => (
-        <span key={bucket.bucket} className={bucket.isOverTarget ? 'over' : undefined}>
-          {index > 0 && <span aria-hidden="true"> · </span>}
-          {SHORT_BUCKET_LABEL[bucket.bucket]}{' '}
-          <b>
-            {bucket.activeCount}/{bucket.recommendedTarget}
-          </b>
-          {bucket.isOverTarget && (
-            <span className="visually-hidden">
-              {' '}
-              — over the recommended target, which is allowed
-            </span>
-          )}
-        </span>
-      ))}
+      {/*
+        Named rather than left as bare numbers: "Major 0/1 · Operational 3/5"
+        reads as system metadata until something says what it counts.
+
+        Colour is spent only where it means something. A bucket with room is
+        the ordinary case and stays quiet; full is worth knowing before the
+        next thing is started; over target is worth knowing now. Marking all
+        three would leave the strip permanently lit and saying nothing.
+      */}
+      <span className="capacity-label">Capacity</span>
+      {buckets.map((bucket) => {
+        const full = bucket.activeCount >= bucket.recommendedTarget;
+        return (
+          <span
+            key={bucket.bucket}
+            className={bucket.isOverTarget ? 'over' : full ? 'full' : undefined}
+          >
+            {SHORT_BUCKET_LABEL[bucket.bucket]}{' '}
+            <b>
+              {bucket.activeCount}/{bucket.recommendedTarget}
+            </b>
+            {bucket.isOverTarget ? (
+              <span className="visually-hidden">
+                {' '}
+                — over the recommended target, which is allowed
+              </span>
+            ) : full ? (
+              <span className="visually-hidden"> — at the recommended target</span>
+            ) : null}
+          </span>
+        );
+      })}
     </p>
   );
 }
@@ -704,15 +750,14 @@ export default async function WorkPage({
   // A manager should see normal activity AND exceptions, not have to choose.
   const now = new Date();
 
-  const teamRows = (teamFilter === 'attention' ? teamNeedingAttention : team)
-    .slice()
-    .sort((left, right) => {
-      // Section 35 — Everyone by default, but people who need something first.
-      const leftNeeds = left.attention ? 0 : 1;
-      const rightNeeds = right.attention ? 0 : 1;
-      if (leftNeeds !== rightNeeds) return leftNeeds - rightNeeds;
-      return left.fullName.localeCompare(right.fullName);
-    });
+  /*
+   * Who a manager reads first, without filtering to find out. The rule lives in
+   * the domain because the seed cannot distinguish it from an alphabetical
+   * list — every person who needs something also happens to sort early — so an
+   * end-to-end check of it could not fail. `tests/unit/team-order.test.ts` uses
+   * data where the two orders disagree.
+   */
+  const teamRows = teamRowOrder(teamFilter === 'attention' ? teamNeedingAttention : team);
 
   /*
    * v46 §9, §45 — resolve what the person was sent here to do.
@@ -745,10 +790,14 @@ export default async function WorkPage({
           {/* One Work shell; the heading follows the view rather than the view
               becoming another page (v42 section A). */}
           <h1>{scope === 'team' ? 'My Team' : 'My Work'}</h1>
+          {/* The sentence follows the mode, because the mode is what the reader
+              has just chosen. "One workspace for focused commitments and
+              repeating responsibilities" described the shell; this describes
+              the list actually on screen. */}
           <p>
             {scope === 'team'
               ? 'What your people are working on, where they need you, and what changed.'
-              : 'One workspace for focused commitments and repeating responsibilities.'}
+              : 'Work you are carrying, waiting to start, or contributing to.'}
           </p>
         </div>
         {/*
@@ -762,8 +811,11 @@ export default async function WorkPage({
           view, so nobody has to work out which of the two they are creating.
         */}
         <div className="actions">
+          {/* The same flow, in the manager's word for it. From My Team the
+              thing being created is work for somebody else, and "New Work"
+              names the record rather than the act. */}
           <Link href="/capture" className="btn primary">
-            ＋ New Work
+            {scope === 'team' ? '＋ Assign work' : '＋ New Work'}
           </Link>
         </div>
       </div>
@@ -786,6 +838,8 @@ export default async function WorkPage({
 
       {scope === 'mine' && (
         <WorkspaceTabs
+          label="Work type"
+          tone="mode"
           items={[
             {
               href: '/work',
@@ -935,6 +989,7 @@ export default async function WorkPage({
       ) : (
         <FocusTabs
           label="Team filter"
+          variant="underline"
           items={[
             {
               href: '/work?scope=team',
@@ -955,7 +1010,11 @@ export default async function WorkPage({
               // them were, so the question asked before handing out more work
               // had no answer in the product.
               href: '/work?scope=team&filter=available',
-              label: 'Available work',
+              // Named for what it browses. Beside two views OF PEOPLE, a tab
+              // called "Available work" quietly changes the object on screen
+              // from a person to a task, which is a surprise rather than a
+              // filter. The word Team keeps it honest about whose it is.
+              label: 'Team available work',
               active: teamFilter === 'available',
               count: teamAvailableCount,
             },
@@ -1156,7 +1215,8 @@ export default async function WorkPage({
                 genuinely exceptional, a flag. Normal work is quiet, so the
                 exceptions are the thing your eye lands on.
               */
-              const flags = exceptionFlags(task, profile.timezone, now);
+              const flags = exceptionFlags(task, profile.timezone);
+              const due = dueSignal(task, profile.timezone, now);
               return (
                 <TaskRow key={task.id} className="task-row-lean">
                   <div>
@@ -1169,10 +1229,17 @@ export default async function WorkPage({
                       <strong>{task.title}</strong>
                     </RowPrimaryLink>
                     <span className="sub">
-                      {WORK_CLASS_LABELS[task.workClass]}
-                      {task.dueAt
-                        ? ` · ${formatDue(task.dueAt, task.dueIsDateOnly, profile.timezone)}`
-                        : ''}
+                      {/* One word, because every row on this page is work: the
+                          "Action" in "Operational Action" and the "Project" in
+                          "Major Project" are the same on every row and tell
+                          nobody anything. */}
+                      {WORK_CLASS_SHORT_LABELS[task.workClass]}
+                      {due ? (
+                        <>
+                          {' · '}
+                          <span className={`row-due ${due.tone}`}>{due.label}</span>
+                        </>
+                      ) : null}
                       {/* Who sent it is context on work you have not taken on
                           yet, and provenance once you have. Available only. */}
                       {task.status === 'backlog' && task.assignedByName

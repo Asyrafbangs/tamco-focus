@@ -22,10 +22,18 @@ export function MyTeamListHeader() {
   return (
     <div className={styles.listHeader} aria-hidden="true">
       <span>Person</span>
-      <span>Working on</span>
+      {/* "Working on" invited the question this column could not answer: when
+          somebody has four Active items, which one is this? It is the one
+          touched most recently, and the column now says so by naming itself
+          for a single thing and counting the rest. */}
+      <span>Current focus</span>
       <span>Needs you</span>
-      <span>Latest</span>
-      <span>Action</span>
+      {/* "Latest" alone could mean the latest task, the latest change or the
+          latest message. */}
+      <span>Latest update</span>
+      {/* The chevron's column. It needs no heading, and "Action" over a column
+          of Open buttons described the buttons rather than the work. */}
+      <span />
     </div>
   );
 }
@@ -44,9 +52,34 @@ export function MyTeamPersonRow({
   const action = person.attention
     ? resolveAttentionAction(person.attention, { teamAttention: true })
     : null;
-  const actionHref = action?.href ?? (person.attention ? null : personHref);
-  const actionLabel = action?.label ?? (person.attention ? null : 'Open');
+  /*
+   * A button only where the manager is being asked to do something.
+   *
+   * Every row used to end in one: Open, Open task, Open routine — three labels
+   * for the one interaction the whole row already performs, sized and placed
+   * like the most important thing in the row. Work that is merely overdue is
+   * the person's to catch up on; the manager reads it and moves on. What
+   * survives is the case where they owe a decision, and there the button says
+   * which decision.
+   */
+  const managerAction = person.attention?.kind === 'action_required' ? action : null;
   const now = new Date(nowIso);
+
+  /*
+   * The exception before the volume.
+   *
+   * "4 active · 2 routines overdue" reads the wrong way round: the number that
+   * decides whether this person needs reading is second, behind a number that
+   * is the same shape on every row. Zeroes are left out entirely — a column of
+   * "0 overdue" is a column of nothing happening, said loudly.
+   */
+  const summary =
+    [
+      person.overdueCount > 0 ? `${person.overdueCount} overdue` : null,
+      person.activeCount > 0 ? `${person.activeCount} active` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ') || 'Nothing active';
 
   function openPerson() {
     router.push(personHref);
@@ -61,7 +94,7 @@ export function MyTeamPersonRow({
 
   function handleAction(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();
-    if (actionHref) router.push(actionHref);
+    if (managerAction) router.push(managerAction.href);
   }
 
   return (
@@ -76,18 +109,14 @@ export function MyTeamPersonRow({
     >
       <div className={styles.person} data-cell="person">
         <strong>{person.fullName}</strong>
-        <span>
-          {person.activeCount} active
-          {person.routineDueCount > 0
-            ? ` · ${person.routineDueCount} routine${person.routineDueCount === 1 ? '' : 's'} overdue`
-            : ''}
-        </span>
+        <span className={person.overdueCount > 0 ? styles.summaryAlert : undefined}>{summary}</span>
       </div>
 
       <div className={styles.working} data-cell="working-on">
         {person.workingOn ? (
           <>
             <strong>{person.workingOn.title}</strong>
+            {person.otherActiveCount > 0 && <span>+{person.otherActiveCount} other active</span>}
           </>
         ) : (
           <span className={styles.muted}>No Active focus</span>
@@ -107,12 +136,41 @@ export function MyTeamPersonRow({
                     : 'attention'
               }
             >
+              {/* Small, and only present on an exception. The words alone were
+                  easy to miss because a row with a problem was otherwise
+                  identical to a row without one. */}
+              <span className={styles.dot} aria-hidden="true" />
               {person.attention.headline}
             </span>
-            <span>{person.attention.reason}</span>
+            <span className={styles.reason}>{person.attention.reason}</span>
+            {/*
+              The button sits with the exception it answers, not in a column of
+              its own at the end of the row. Putting it last gave a variable
+              width to a column the header could not match, so the table lost
+              its alignment on exactly the rows a manager most needs to read —
+              and it separated "a decision is owed" from "decide it".
+            */}
+            {managerAction ? (
+              <button
+                type="button"
+                className="btn small primary"
+                onClick={handleAction}
+                aria-label={`${managerAction.label} for ${person.fullName}: ${person.attention.reason}`}
+              >
+                {managerAction.label}
+              </button>
+            ) : null}
           </>
         ) : (
-          <span className={styles.muted}>No action needed from you</span>
+          /*
+            A dash, not a sentence. "No action needed from you" repeated down
+            every healthy row was the loudest text in the table, and it said
+            the same thing each time: nothing.
+          */
+          <span className={styles.none}>
+            <span aria-hidden="true">{'—'}</span>
+            <span className="visually-hidden">Nothing needed from you</span>
+          </span>
         )}
       </div>
 
@@ -128,23 +186,9 @@ export function MyTeamPersonRow({
       </div>
 
       <div className={styles.action} data-cell="action">
-        {actionHref && actionLabel ? (
-          <button
-            type="button"
-            className={`btn small${person.attention ? ' primary' : ''}`}
-            onClick={handleAction}
-            aria-label={
-              person.attention
-                ? `${actionLabel} for ${person.fullName}: ${person.attention.reason}`
-                : `Open detail for ${person.fullName}`
-            }
-          >
-            {actionLabel}
-            <span aria-hidden="true">›</span>
-          </button>
-        ) : (
-          <span className={styles.unavailable}>Action unavailable</span>
-        )}
+        <span className={styles.chevron} aria-hidden="true">
+          ›
+        </span>
       </div>
     </div>
   );

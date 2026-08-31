@@ -1,6 +1,76 @@
+import { createClient } from '@supabase/supabase-js';
 import { expect, test, type Page } from '@playwright/test';
+import { config } from 'dotenv';
+
+config({ path: '.env.local', quiet: true });
 
 const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
+const IZZUL = 'f0c05000-0000-4000-a000-000000000002';
+/** Somebody the fixture leaves with nothing outstanding, so a seeded decision
+    is unambiguously their top attention item. */
+const LIM = 'f0c05000-0000-4000-a000-000000000006';
+
+function admin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } },
+  );
+}
+
+/**
+ * One open decision addressed to the manager, created by this test.
+ *
+ * It used to rely on whatever the fixture happened to leave in Needs
+ * Attention. Every viewport project shares one database, and other specs
+ * answer barriers as part of what they are testing — so by the time this ran
+ * in a full suite the row it was written against had been resolved and the
+ * test failed on its fixture rather than its subject.
+ */
+async function seedDecision(marker: string) {
+  const client = admin();
+  const { data: task, error: taskError } = await client
+    .from('tasks')
+    .insert({
+      title: `Filter survival ${marker}`,
+      status: 'active',
+      work_class: 'operational_action',
+      focus_bucket: 'operational',
+      origin: 'self_initiated',
+      primary_owner_id: LIM,
+      created_by: LIM,
+    })
+    .select('id')
+    .single();
+  if (taskError || !task) throw new Error(`Could not seed task: ${taskError?.message}`);
+
+  const { data: barrier, error: barrierError } = await client
+    .from('barriers')
+    .insert({
+      task_id: task.id,
+      raised_by: LIM,
+      description: `Blocked pending a decision ${marker}`,
+      support_needed: `${marker} confirm the approach before Friday`,
+      impact: 'may_delay' as const,
+      status: 'open' as const,
+      action_pending: true,
+      action_required_from: IZZUL,
+      action_type: 'decision' as const,
+      raised_at: new Date().toISOString(),
+    })
+    .select('id')
+    .single();
+  if (barrierError || !barrier) throw new Error(`Could not seed barrier: ${barrierError?.message}`);
+  return { taskId: String(task.id), barrierId: String(barrier.id) };
+}
+
+async function cleanupDecision(seed: { taskId: string; barrierId: string }) {
+  const client = admin();
+  const barrier = await client.from('barriers').delete().eq('id', seed.barrierId);
+  if (barrier.error) throw new Error(`Could not clean barrier: ${barrier.error.message}`);
+  const task = await client.from('tasks').delete().eq('id', seed.taskId);
+  if (task.error) throw new Error(`Could not clean task: ${task.error.message}`);
+}
 
 async function signInAsManager(page: Page) {
   await page.context().clearCookies();
@@ -97,23 +167,45 @@ test('closing a drawer returns one layer, to the context it was opened from', as
  * losing the context costs the most: the manager was part-way through a list of
  * things needing them.
  */
-test('the Needs Attention filter survives opening and closing a task', async ({ page }) => {
-  await signInAsManager(page);
-  await gotoHydrated(page, '/work?scope=team&filter=attention');
+test('the Needs Attention filter survives opening and closing a task', async ({
+  page,
+}, testInfo) => {
+  /*
+   * Its own decision, marked per project and per run, because every viewport
+   * shares one database.
+   *
+   * v130 — the action button sits with the reason it answers rather than in a
+   * column of its own, and only rows where the manager owes a decision carry
+   * one at all. Before that every row had a button, so `.first()` always found
+   * one; now the first row is an overdue routine, which is the person's own
+   * work to catch up on and asks the manager for nothing.
+   *
+   * A decision rather than a goal, because this is about a TASK layer opening
+   * and closing, and a goal action leaves My Team altogether.
+   */
+  const marker = `V48F${testInfo.project.name}${Date.now()}`;
+  const seeded = await seedDecision(marker);
 
-  const action = page
-    .getByTestId('my-team-person-row')
-    .first()
-    .locator('[data-cell="action"] button');
-  await expect(action).toBeVisible();
+  try {
+    await signInAsManager(page);
+    await gotoHydrated(page, '/work?scope=team&filter=attention');
 
-  await action.click();
-  await expect(page.locator('.task-detail-layer').first()).toBeVisible();
-  await expect(page.locator('.team-member-drawer')).toHaveCount(0);
+    const action = page
+      .getByTestId('my-team-person-row')
+      .filter({ hasText: marker })
+      .locator('[data-cell="needs-you"] button');
+    await expect(action).toBeVisible();
 
-  await closeTopDrawer(page);
-  await expect(page).toHaveURL(/scope=team/);
-  await expect(page).not.toHaveURL(/[?&]task=/);
+    await action.click();
+    await expect(page.locator('.task-detail-layer').first()).toBeVisible();
+    await expect(page.locator('.team-member-drawer')).toHaveCount(0);
+
+    await closeTopDrawer(page);
+    await expect(page).toHaveURL(/scope=team/);
+    await expect(page).not.toHaveURL(/[?&]task=/);
+  } finally {
+    await cleanupDecision(seeded);
+  }
 });
 
 /**
@@ -153,7 +245,7 @@ test('mandatory work running normally is not manager attention', async ({ page }
   await expect(page.getByText('Controlled work', { exact: true })).toHaveCount(0);
 
   // §52 — whatever does appear must name an action, not a status.
-  const actions = page.locator('[data-testid="my-team-person-row"] [data-cell="action"] button');
+  const actions = page.locator('[data-testid="my-team-person-row"] [data-cell="needs-you"] button');
   const count = await actions.count();
   for (let index = 0; index < count; index += 1) {
     const label = (await actions.nth(index).textContent())?.trim() ?? '';

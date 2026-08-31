@@ -231,6 +231,24 @@ export const WORK_CLASS_LABELS: Record<WorkClass, string> = {
   collaborative_contribution: 'Collaborative Contribution',
 };
 
+/**
+ * The same classes, in one word.
+ *
+ * A row in a work list is read at a glance, and "Operational Action" spends
+ * two words saying what "Operational" says in one. Next to a title, in a list
+ * where every item is already work, "Action", "Project" and "Plan" carry no
+ * information — they just repeat on every row. The long labels stay wherever
+ * the class is being chosen or explained rather than recognised.
+ */
+export const WORK_CLASS_SHORT_LABELS: Record<WorkClass, string> = {
+  quick_action: 'Quick',
+  major_project: 'Major',
+  operational_action: 'Operational',
+  self_development: 'Development',
+  routine_occurrence: 'Routine',
+  collaborative_contribution: 'Contribution',
+};
+
 /** Section 5 — `backlog` is presented to users as Available Work. */
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
   // v41 section 17 — `backlog` is persisted; "Available" is what people read.

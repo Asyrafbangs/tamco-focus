@@ -3672,8 +3672,14 @@ fieldset:disabled label,
 /* Work (section 10)                                                         */
 /* ------------------------------------------------------------------------ */
 
+/*
+  Level 1 of three. A block, not an inline-flex: two of these sat side by side
+  on one line, so "My Work | My Team | Focus | Routine" read as one row of four
+  peers when it is two questions — whose work, and what kind.
+*/
 .workspace-tabs {
-  display: inline-flex;
+  display: flex;
+  width: fit-content;
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 11px;
@@ -3713,6 +3719,29 @@ fieldset:disabled label,
   box-shadow: 0 2px 6px rgba(13, 35, 66, 0.08);
 }
 
+/*
+  Level 2. The same shape as the scope control above, so it is recognisably a
+  switch, but without the filled track or the raised chip: it is a choice made
+  inside the scope already chosen, not a peer of it.
+*/
+.workspace-tabs.mode {
+  margin-top: -2px;
+  padding: 0;
+  gap: 2px;
+  border-color: transparent;
+  background: transparent;
+}
+.workspace-tabs.mode a {
+  padding: 6px 11px;
+  font-size: 12px;
+}
+.workspace-tabs.mode a.active {
+  background: var(--line-soft);
+  box-shadow: none;
+  color: var(--text);
+}
+
+/* Level 3. */
 .focus-tabs {
   display: flex;
   gap: 6px;
@@ -4314,20 +4343,49 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 /* design: it is orientation, not navigation.                                 */
 /* ------------------------------------------------------------------------ */
 
+/*
+  Readable at a glance, without becoming three cards.
+
+  This was 10.5px muted text with a 2px gap, which at a glance was a grey smear
+  under the tabs — useful information nobody could see. The label is set as a
+  small heading so the numbers after it read as values rather than as a
+  sentence, and the groups are spaced far enough apart to be counted.
+*/
 .capacity-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px;
-  margin: 12px 0 8px;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 14px 0 12px;
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 .capacity-label {
-  font-weight: 650;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+/* The separator the flex gap cannot draw. Not before the first bucket, whose
+   previous sibling is the label. */
+.capacity-strip > span:not(.capacity-label) + span::before {
+  content: '\00b7';
+  margin-right: 12px;
+  color: var(--line);
 }
 .capacity-strip b {
   color: var(--text);
   font-weight: 650;
+}
+/*
+  Colour where it means something, and nowhere else. Full is worth knowing
+  before starting the next thing; over target is worth knowing now; a bucket
+  with room left is the ordinary case and says nothing by staying quiet.
+*/
+.capacity-strip .full,
+.capacity-strip .full b {
+  color: var(--amber);
 }
 .capacity-strip .over,
 .capacity-strip .over b {
@@ -10738,4 +10796,68 @@ button.attachment-row {
   color: var(--muted);
   font-size: 11.5px;
   line-height: 1.55;
+}
+
+/* ------------------------------------------------------------------------ */
+/* v130 - three levels of navigation, told apart                             */
+/* ------------------------------------------------------------------------ */
+
+/*
+  A filter over one list, rather than a set of content tabs.
+
+  My Team stacks a workspace switch on a filter, and giving both the card-and
+  -dark-fill treatment made the page look like two navigations fighting. This
+  is a label with a rule under the selected one, which is as much weight as
+  narrowing a list deserves.
+*/
+.focus-tabs.underline {
+  gap: 20px;
+  padding: 0;
+}
+.focus-tabs.underline a {
+  min-width: 0;
+  padding: 9px 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+}
+.focus-tabs.underline a.active {
+  border-color: transparent;
+  border-bottom-color: var(--blue);
+  background: transparent;
+  color: var(--text);
+}
+.focus-tabs.underline a:hover {
+  color: var(--text);
+}
+
+/*
+  The date is what people scan a work list for, so it is the part of the meta
+  line that is not muted. Tone only where the date has become a problem: an
+  ordinary due date is information, not an alarm.
+*/
+.row-due.plain {
+  color: var(--text);
+  font-weight: 600;
+}
+.row-due.today {
+  color: var(--amber);
+  font-weight: 650;
+}
+.row-due.late {
+  color: var(--red);
+  font-weight: 650;
+}
+
+/*
+  Tighter, so eight or ten Active items fit on a screen without scrolling.
+  Three short lines and a chevron do not need 78px; they need enough room to
+  stay legible, which is what the padding is for.
+*/
+.task-row {
+  min-height: 64px;
+  padding-block: 9px;
 }

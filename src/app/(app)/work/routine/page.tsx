@@ -346,7 +346,12 @@ export default async function RoutinePage({
         />
       )}
 
+      {/* The same two levels as Focus: whose work, then what kind. Rendered
+          with the lighter treatment so the pair reads as a hierarchy rather
+          than as four peers on one line (v130). */}
       <WorkspaceTabs
+        label="Work type"
+        tone="mode"
         items={[
           // Counted only where there is something to count: "0 active" and
           // "none due" are badges reporting the absence of news.

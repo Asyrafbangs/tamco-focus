@@ -137,15 +137,26 @@ function TabLink({ item, compact = false }: { item: TabItem; compact?: boolean }
   );
 }
 
+/**
+ * `tone` separates two questions that are not peers.
+ *
+ * Scope asks whose work you are looking at; mode asks what kind of work. They
+ * were rendered with the same control, one directly under the other, so four
+ * options read as one row of four peers and the distinction between them was
+ * invisible — a reader had to learn it rather than see it. Mode is the lighter
+ * of the two because it sits inside the scope you have already chosen.
+ */
 export function WorkspaceTabs({
   items,
   label = 'Workspace',
+  tone = 'scope',
 }: {
   items: TabItem[];
   label?: string;
+  tone?: 'scope' | 'mode';
 }) {
   return (
-    <nav className="workspace-tabs" aria-label={label}>
+    <nav className={tone === 'mode' ? 'workspace-tabs mode' : 'workspace-tabs'} aria-label={label}>
       {items.map((item) => (
         <TabLink key={item.href} item={item} compact />
       ))}
@@ -153,9 +164,27 @@ export function WorkspaceTabs({
   );
 }
 
-export function FocusTabs({ items, label = 'Focus areas' }: { items: TabItem[]; label?: string }) {
+/**
+ * `variant` tells a set of content tabs from a filter.
+ *
+ * The dark tabs say "this is the list you are now looking at". A filter over
+ * one list is a smaller claim, and giving it the same weight made My Team read
+ * as two navigations stacked on each other.
+ */
+export function FocusTabs({
+  items,
+  label = 'Focus areas',
+  variant = 'panel',
+}: {
+  items: TabItem[];
+  label?: string;
+  variant?: 'panel' | 'underline';
+}) {
   return (
-    <nav className="focus-tabs" aria-label={label}>
+    <nav
+      className={variant === 'underline' ? 'focus-tabs underline' : 'focus-tabs'}
+      aria-label={label}
+    >
       {items.map((item) => (
         <TabLink key={item.href} item={item} />
       ))}

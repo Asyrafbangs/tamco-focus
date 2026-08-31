@@ -421,6 +421,44 @@ export function formatDue(
 }
 
 /**
+ * A due date for scanning: "4 Sep", with the year only when it is not this one.
+ *
+ * `formatDue` always prints the year. In a list of work that is nearly all in
+ * the current year that is the same four characters on every row, and the eye
+ * has to step over them to reach the part that differs. The year still appears
+ * where it changes the meaning — next year's commitment, or last year's
+ * overdue one.
+ *
+ * Composed from parts rather than formatted straight, because en-GB abbreviates
+ * September as "Sept" while every other month gets three letters, so a column
+ * of dates comes out visibly ragged.
+ */
+export function formatDueShort(
+  dueAt: string | null,
+  dueIsDateOnly: boolean,
+  timeZone = DEFAULT_ORG_TIMEZONE,
+  now: Date = new Date(),
+): string {
+  const due = parse(dueAt);
+  if (!due) return 'No date yet';
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    ...(dueIsDateOnly ? {} : { hour: '2-digit', minute: '2-digit', hour12: false }),
+  }).formatToParts(due);
+  const read = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? '';
+
+  const thisYear = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric' }).format(now);
+  const year = read('year');
+  const time = dueIsDateOnly ? '' : ` ${read('hour')}:${read('minute')}`;
+  return `${read('day')} ${read('month')}${year === thisYear ? '' : ` ${year}`}${time}`;
+}
+
+/**
  * Routine occurrence states (v41 section 15).
  *
  * Routine sits outside the 1 / 5 / 1 focus model, so it must not borrow focus

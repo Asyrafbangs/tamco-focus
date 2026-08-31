@@ -491,3 +491,49 @@ export function availableOrder(
     return left.title.localeCompare(right.title);
   });
 }
+
+/**
+ * A team row, as ordering sees it.
+ *
+ * Structural rather than the query's own type, so the rule can be exercised
+ * with three lines of synthetic data instead of a database.
+ */
+export interface TeamOrderRow {
+  fullName: string;
+  attention: { reasonCode: string; sourceType: string } | null;
+}
+
+/**
+ * Who a manager should read first. Lower sorts first.
+ *
+ * Ranked by what the row asks of the reader, not by severity in the abstract:
+ * a workload they have been asked to review, then work that has already
+ * slipped, then a decision or barrier owed, then something merely worth
+ * knowing, then everybody who is fine.
+ *
+ * The rule this replaced was "anyone with anything, then alphabetically",
+ * which put a stalled item somebody might like to know about above a decision
+ * holding a person up — both merely had an attention row.
+ */
+export function teamRowRank(row: TeamOrderRow): number {
+  const attention = row.attention;
+  if (!attention) return 9;
+  if (attention.reasonCode === 'workload_review') return 0;
+  if (attention.reasonCode === 'overdue') return 1;
+  if (attention.sourceType === 'barrier' || attention.sourceType === 'goal') return 2;
+  return 3;
+}
+
+/**
+ * The same people, in the order a manager should meet them.
+ *
+ * Alphabetical within a rank, so the list is stable from one visit to the next
+ * and nobody has to filter to discover a problem.
+ */
+export function teamRowOrder<T extends TeamOrderRow>(rows: readonly T[]): T[] {
+  return rows.slice().sort((left, right) => {
+    const rank = teamRowRank(left) - teamRowRank(right);
+    if (rank !== 0) return rank;
+    return left.fullName.localeCompare(right.fullName);
+  });
+}

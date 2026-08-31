@@ -54,7 +54,8 @@ test.describe('v128 the header action follows the selector', () => {
     await signIn(page, 'izzul@tamco.local');
 
     await page.goto('/work?scope=team');
-    await expect(head(page).getByRole('link', { name: /New Work/ })).toBeVisible();
+    // v130 renamed this to the manager's word for the same flow.
+    await expect(head(page).getByRole('link', { name: /Assign work/ })).toBeVisible();
 
     await page.goto('/work/routine?panel=manager');
     await expect(head(page).getByRole('link', { name: /Set up routine/ })).toBeVisible();

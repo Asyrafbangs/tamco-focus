@@ -49,7 +49,9 @@ test.describe('v65 team Available work', () => {
      */
     await page.goto('/work?scope=team');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
-    const tab = page.getByRole('link', { name: /^Available work/ });
+    // v130 — "Team available work". Beside two views of PEOPLE, a tab called
+    // "Available work" changed the object on screen without saying so.
+    const tab = page.getByRole('link', { name: /^Team available work/ });
     await expect(tab).toBeVisible();
     const count = Number((await tab.textContent())?.replace(/\D/g, '') ?? '0');
     expect(count).toBeGreaterThan(0);

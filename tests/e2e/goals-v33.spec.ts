@@ -195,7 +195,9 @@ test('manager My Team and two-step setup retain the approved master-detail struc
   const goalAttention = page
     .getByTestId('my-team-person-row')
     .filter({ hasText: 'Goal support needed' });
-  await expect(goalAttention.locator('[data-cell="needs-you"] span').nth(1)).toHaveText(/\S/);
+  // Direct children only: v130 put a tone dot inside the headline chip, so a
+  // descendant selector's second span is now that dot rather than the reason.
+  await expect(goalAttention.locator('[data-cell="needs-you"] > span').nth(1)).toHaveText(/\S/);
   await goalAttention.getByRole('button', { name: /Review goal for Amer Hakim/ }).click();
   await expect(page).toHaveURL(new RegExp(`goal=${SAFETY_GOAL}`));
   expect(new URL(page.url()).searchParams.has('action')).toBe(false);
@@ -323,6 +325,6 @@ test('mobile Goals navigation and My Team avoid document overflow', async ({ pag
   await page.goto('/work');
   await expect(page.getByRole('heading', { name: 'My Work' })).toBeVisible();
   await expect(
-    page.getByRole('navigation', { name: 'Workspace' }).getByRole('link', { name: 'Routine' }),
+    page.getByRole('navigation', { name: 'Work type' }).getByRole('link', { name: 'Routine' }),
   ).toBeVisible();
 });

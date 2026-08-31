@@ -2862,9 +2862,20 @@ export interface TeamAttentionRow {
   userId: string;
   fullName: string;
   activeCount: number;
+  /** Overdue items of every kind, so an exception can be stated before a volume. */
+  overdueCount: number;
   routineDueCount: number;
-  /** What they are carrying right now. */
+  /**
+   * Their current focus: the Active item touched most recently.
+   *
+   * A manager looking at "4 active" and one title needs to know which one it
+   * is, or the column is a guess. The task query orders by
+   * `last_meaningful_update_at` descending, so the first Active row is the one
+   * worked on most recently — a rule that can be stated on screen.
+   */
   workingOn: { taskId: string; title: string } | null;
+  /** The rest of their Active work, so the one title above does not imply it is all. */
+  otherActiveCount: number;
   attention: {
     /**
      * The state, in three words: "Decision needed", "Overdue routine".
@@ -3702,8 +3713,12 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
       userId: person.userId,
       fullName: person.fullName,
       activeCount: active.length,
+      // `theirs` holds backlog, active and paused work including routine
+      // occurrences, so this is every overdue thing they are carrying.
+      overdueCount: theirs.filter((task) => task.isOverdue).length,
       routineDueCount: person.routinesOverdue,
       workingOn: active[0] ? { taskId: active[0].id, title: active[0].title } : null,
+      otherActiveCount: Math.max(0, active.length - 1),
       attention: top
         ? {
             // Anything that does not say otherwise is something owed: a branch

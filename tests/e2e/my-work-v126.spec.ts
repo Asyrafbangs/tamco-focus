@@ -73,7 +73,10 @@ test.describe('v126 the work row is quiet until something is wrong', () => {
     for (const route of ['/work', '/work/routine']) {
       await page.goto(route);
       await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
-      const badges = await page.locator('nav[aria-label="Workspace"] .count').allInnerTexts();
+      // v130 — scope and work type are two controls with two labels now
+      // ("Work scope" and "Work type"), so this asks the component rather than
+      // one of the two names.
+      const badges = await page.locator('nav.workspace-tabs .count').allInnerTexts();
       expect(badges, `${route} shows a zero badge`).not.toContain('0 active');
       expect(badges, `${route} shows a "none due" badge`).not.toContain('none due');
       await expect(page.locator('.focus-tabs .count', { hasText: /^0$/ })).toHaveCount(0);

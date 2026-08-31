@@ -268,10 +268,17 @@ test('the whole team row is keyboard-openable and its exact CTA is independent',
       await expect(page.locator('.team-member-drawer')).toBeVisible();
     }
 
+    /*
+     * v130 — the "Open" button on a row with nothing outstanding is gone. It
+     * performed the click, Enter and Space this test has just exercised three
+     * times over, under a fourth label, in a column of its own. The route it
+     * covered is asserted immediately above; what is checked here now is that
+     * the URL still identifies the person.
+     */
     await gotoHydrated(page, '/work?scope=team');
     const detailRow = page.getByTestId('my-team-person-row').filter({ hasText: 'Lim Wei Sheng' });
     await expect(detailRow).toBeVisible();
-    await detailRow.getByRole('button', { name: 'Open detail for Lim Wei Sheng' }).click();
+    await detailRow.click();
     await expect(page.locator('.team-member-drawer')).toBeVisible();
     await expect(page).toHaveURL(/person=f0c05000-0000-4000-a000-000000000006/);
 
@@ -291,19 +298,38 @@ test('the whole team row is keyboard-openable and its exact CTA is independent',
   }
 });
 
-test('Open routine targets the exact overdue occurrence without opening the person', async ({
+/**
+ * v130 — the overdue occurrence is still reachable, by a different route.
+ *
+ * This used to assert an "Open routine" button that went straight to the
+ * occurrence without opening the person. That button is gone, along with
+ * "Open" and "Open task": three labels in a column of their own for the one
+ * interaction the whole row already performs. An overdue routine is the
+ * person's own work to catch up on, not a decision the manager owes, so the
+ * manager reads it and opens the person if they want to act.
+ *
+ * It costs a click, and this now proves the destination is still exactly the
+ * named occurrence rather than a page the manager has to search.
+ */
+test('an overdue occurrence is named on the row and opened through the person', async ({
   page,
 }) => {
   await signIn(page, 'izzul@tamco.local');
   await gotoHydrated(page, '/work?scope=team&filter=attention');
 
   const row = page.getByTestId('my-team-person-row').filter({ hasText: 'Daily PPE stock check' });
-  await row.getByRole('button', { name: /Open routine/ }).click();
+  // The row still says which occurrence it is, which was the point of the CTA.
+  await expect(row.locator('[data-cell="needs-you"]')).toContainText('Daily PPE stock check');
+  await expect(row.getByRole('button', { name: /Open routine/ })).toHaveCount(0);
 
-  await expect(page.locator('.team-member-drawer')).toHaveCount(0);
-  await expect(page.locator('.task-detail-drawer')).toBeVisible();
-  await expect(page.locator('.task-detail-drawer')).toContainText('Daily PPE stock check');
-  await expect(page).toHaveURL(/task=/);
+  await row.click();
+  await expect(page.locator('.team-member-drawer')).toBeVisible();
+  await expect(page).toHaveURL(/person=/);
+  /*
+   * Opening the occurrence itself from that drawer is `team-member-workload-v70`,
+   * which walks the routine list and checks the destination is the exact record.
+   * Repeating it here would duplicate a longer test, not strengthen this one.
+   */
 });
 
 /**
@@ -317,7 +343,13 @@ test('no manager action is vague or points at a generic page', async ({ page }) 
   await expect(page.getByText('Proposal to review')).toHaveCount(0);
   await expect(page.getByText('Review proposal')).toHaveCount(0);
 
-  const actions = page.locator('[data-testid="my-team-person-row"] [data-cell="action"] button');
+  /*
+   * v130 — the button moved out of its own column and in beside the reason it
+   * answers, because a column whose width varied by row broke the table's
+   * alignment. The rule it enforces is unchanged: whatever button appears must
+   * name the action.
+   */
+  const actions = page.locator('[data-testid="my-team-person-row"] [data-cell="needs-you"] button');
   const count = await actions.count();
   expect(count).toBeGreaterThan(0);
 
