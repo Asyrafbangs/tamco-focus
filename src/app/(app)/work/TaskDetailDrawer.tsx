@@ -933,6 +933,8 @@ export function TaskDetailDrawer({
             stepsCompleted={checklistCompleted}
             stepsNeedingEvidence={evidenceOutstanding.length}
             existingEvidenceCount={existingEvidenceCount}
+            evidenceRule={task.completionEvidenceRule}
+            evidenceInstruction={task.completionEvidenceInstruction}
             readyToComplete={readyToComplete}
             blockers={completionBlockers}
             pending={pending}
@@ -1727,6 +1729,7 @@ export function TaskDetailDrawer({
             stepsTotal={detail.checklist.length}
             stepsCompleted={checklistCompleted}
             evidenceCount={detail.attachments.filter((file) => file.isEvidence).length}
+            evidenceRule={task.completionEvidenceRule}
             canAct={detail.capabilities.canContribute && !isClosed}
             canDecide={detail.capabilities.canEdit}
             readyToComplete={readyToComplete}

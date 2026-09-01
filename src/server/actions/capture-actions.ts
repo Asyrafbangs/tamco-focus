@@ -47,6 +47,9 @@ export async function createCaptureDraft(formData: FormData): Promise<CaptureDra
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/)
         .optional(),
+      /** What completing this work will require as proof (v134). */
+      completionEvidenceRule: z.enum(['optional', 'file_or_note', 'file']).default('optional'),
+      completionEvidenceInstruction: z.string().trim().max(500).optional(),
       /**
        * Asked only for a Major Project, which is the one capture that goes to
        * somebody else for a decision. Everything else creates work the person
@@ -61,6 +64,8 @@ export async function createCaptureDraft(formData: FormData): Promise<CaptureDra
       workType: formData.get('workType') || 'normal',
       requiresFollowUp: formData.get('requiresFollowUp') || undefined,
       chosenDate: formData.get('chosenDate') || undefined,
+      completionEvidenceRule: formData.get('completionEvidenceRule') || 'optional',
+      completionEvidenceInstruction: formData.get('completionEvidenceInstruction') || undefined,
       successMeasure: formData.get('successMeasure') || undefined,
       expectedMonths: formData.get('expectedMonths') || undefined,
     });
@@ -138,6 +143,13 @@ export async function createCaptureDraft(formData: FormData): Promise<CaptureDra
       classification_rule_text: recommendation.ruleText,
       urgency_question_asked: recommendation.urgencyQuestion !== null,
       followup_question: null,
+      completion_evidence_rule: parsed.data.completionEvidenceRule,
+      // Only meaningful where something is actually required: an instruction
+      // for "optional" is a sentence nobody needs to read.
+      completion_evidence_instruction:
+        parsed.data.completionEvidenceRule === 'optional'
+          ? null
+          : parsed.data.completionEvidenceInstruction || null,
       // Carried into the proposal payload by `confirm_work_capture`, so the
       // person deciding sees scope and size next to the reason.
       success_measure:

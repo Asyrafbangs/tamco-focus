@@ -80,6 +80,12 @@ function toTaskOverview(row: Record<string, unknown>): TaskOverview {
     checklistCompleted: Number(row.checklist_completed ?? 0),
     checklistReady: Number(row.checklist_ready ?? 0),
     missingEvidenceCount: Number(row.missing_evidence_count ?? 0),
+    completionEvidenceRule: (row.completion_evidence_rule ??
+      'optional') as TaskOverview['completionEvidenceRule'],
+    completionEvidenceInstruction: row.completion_evidence_instruction
+      ? String(row.completion_evidence_instruction)
+      : null,
+    evidenceCount: Number(row.evidence_count ?? 0),
     attachmentCount: Number(row.attachment_count ?? 0),
     collaboratorCount: Number(row.collaborator_count ?? 0),
   };

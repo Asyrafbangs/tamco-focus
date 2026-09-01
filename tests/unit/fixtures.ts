@@ -60,6 +60,11 @@ export function makeTask(overrides: Partial<TaskOverview> = {}): TaskOverview {
     missingEvidenceCount: 0,
     attachmentCount: 0,
     collaboratorCount: 0,
+    // v134 - most work asks for nothing in particular; the tests that care
+    // about the rule say so explicitly.
+    completionEvidenceRule: 'optional',
+    completionEvidenceInstruction: null,
+    evidenceCount: 0,
 
     ...overrides,
   };

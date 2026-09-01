@@ -11282,3 +11282,22 @@ button.attachment-row {
 .completion-modal .modal-body {
   display: block;
 }
+
+/* What to attach, from whoever set the rule up. A requirement without an
+   instruction makes somebody guess what would satisfy it, and a guess is how a
+   photograph of a car park ends up filed as an inspection. */
+.completion-instruction {
+  margin: 0 0 12px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--blue);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 12px;
+}
+
+.completion-blockers {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { type FormEvent, useRef, useState, useTransition } from 'react';
 
 import { latestPlausibleDate } from '@/domain/delivery';
+import { COMPLETION_EVIDENCE_LABELS, type CompletionEvidenceRule } from '@/domain/types';
 import { classifyCapture, type CaptureWorkType } from '@/domain/classification';
 import type { CaptureDestination } from '@/domain/types';
 import { assignWork } from '@/server/actions/assignment-actions';
@@ -94,6 +95,8 @@ export function CaptureWork({
   const [successMeasure, setSuccessMeasure] = useState('');
   const [expectedMonths, setExpectedMonths] = useState('');
   const isProposal = workType === 'major_project';
+  const [evidenceRule, setEvidenceRule] = useState<CompletionEvidenceRule>('optional');
+  const [evidenceInstruction, setEvidenceInstruction] = useState('');
 
   /*
    * v41 section 4 — ownership is decided here, once. An employee capturing
@@ -191,6 +194,8 @@ export function CaptureWork({
 
     const form = new FormData(event.currentTarget);
     form.set('workType', workType);
+    form.set('completionEvidenceRule', evidenceRule);
+    form.set('completionEvidenceInstruction', evidenceInstruction.trim());
     if (followUp !== 'unset') form.set('requiresFollowUp', followUp);
     files.forEach((file) => form.append('files', file));
 
@@ -392,6 +397,57 @@ export function CaptureWork({
             />
             <small>Leave this blank if there is no date yet.</small>
           </div>
+
+          {/*
+            Decided once, here, rather than asked of the employee at every
+            completion.
+
+            Most work asks for nothing in particular. Where proof matters it is
+            the person setting the work up who knows what would count — an
+            inspection needs a photograph, an assessment needs the report — and
+            the employee should simply be told. Asking them to choose would make
+            the requirement theirs to weaken.
+          */}
+          <div className="field">
+            <label htmlFor="capture-evidence-rule">Completion evidence</label>
+            <select
+              id="capture-evidence-rule"
+              name="completionEvidenceRule"
+              value={evidenceRule}
+              onChange={(event) => setEvidenceRule(event.target.value as CompletionEvidenceRule)}
+            >
+              {(Object.keys(COMPLETION_EVIDENCE_LABELS) as CompletionEvidenceRule[]).map((rule) => (
+                <option key={rule} value={rule}>
+                  {COMPLETION_EVIDENCE_LABELS[rule]}
+                </option>
+              ))}
+            </select>
+            <small>
+              {evidenceRule === 'optional'
+                ? 'Nothing has to be attached to complete this.'
+                : evidenceRule === 'file'
+                  ? 'A file or photograph must be attached before this can be completed.'
+                  : 'Proof is required. A written result counts where no file exists.'}
+            </small>
+          </div>
+
+          {/* Only worth asking once something is actually required: an
+              instruction for "optional" is a sentence nobody needs. */}
+          {evidenceRule !== 'optional' && (
+            <div className="field">
+              <label htmlFor="capture-evidence-instruction">
+                What should be attached? <span className="field-optional">Optional</span>
+              </label>
+              <input
+                id="capture-evidence-instruction"
+                name="completionEvidenceInstruction"
+                maxLength={500}
+                value={evidenceInstruction}
+                onChange={(event) => setEvidenceInstruction(event.target.value)}
+                placeholder="Attach the completed assessment report."
+              />
+            </div>
+          )}
 
           {canAssign && (
             <div className="field">

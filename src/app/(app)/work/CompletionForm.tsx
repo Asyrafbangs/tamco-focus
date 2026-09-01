@@ -3,6 +3,10 @@
 import { useState, useTransition } from 'react';
 
 import { EvidenceDropZone } from '@/components/ui/EvidenceDropZone';
+import {
+  COMPLETION_EVIDENCE_DEFAULT_INSTRUCTION,
+  type CompletionEvidenceRule,
+} from '@/domain/types';
 import { completeTaskWithEvidence } from '@/server/actions/task-actions';
 
 /**
@@ -31,6 +35,8 @@ export function CompletionForm({
   stepsCompleted,
   stepsNeedingEvidence,
   existingEvidenceCount,
+  evidenceRule,
+  evidenceInstruction,
   readyToComplete,
   blockers,
   pending = false,
@@ -47,6 +53,10 @@ export function CompletionForm({
   stepsNeedingEvidence: number;
   /** Evidence already on this work, from steps or from an earlier attempt. */
   existingEvidenceCount: number;
+  /** What this work requires as proof, decided when it was set up. */
+  evidenceRule: CompletionEvidenceRule;
+  /** What to attach, in the words of whoever set the rule. */
+  evidenceInstruction: string | null;
   readyToComplete: boolean;
   /** Why it cannot be completed yet, in words somebody can act on. */
   blockers: string[];
@@ -58,8 +68,38 @@ export function CompletionForm({
 }) {
   const [busy, startTransition] = useTransition();
   const [noteOpen, setNoteOpen] = useState(false);
+  const [staged, setStaged] = useState(0);
+  const [note, setNote] = useState('');
   const working = pending || busy;
   const stepsOutstanding = stepsTotal - stepsCompleted;
+
+  /*
+   * Whether the evidence rule is satisfied, counted the same way the database
+   * counts it.
+   *
+   * Evidence already on the work counts, wherever it arrived: a step's proof
+   * is proof. And under `file_or_note` a written result counts, because the
+   * work sometimes genuinely has no artefact - a decision, a conversation, a
+   * phone call - and demanding a file anyway is what produces a blank document
+   * uploaded to get past the gate.
+   */
+  const evidenceSatisfied =
+    evidenceRule === 'optional' ||
+    existingEvidenceCount > 0 ||
+    staged > 0 ||
+    (evidenceRule === 'file_or_note' && note.trim().length > 0);
+
+  const canComplete = readyToComplete && evidenceSatisfied;
+  const outstanding = [
+    ...blockers,
+    ...(evidenceSatisfied
+      ? []
+      : [
+          evidenceRule === 'file'
+            ? 'a file is required'
+            : 'a file or a completion note is required',
+        ]),
+  ];
 
   return (
     <form
@@ -84,7 +124,7 @@ export function CompletionForm({
           reason, and somebody standing in a plant with a phone cannot hover a
           tooltip to find it.
         */}
-        {(stepsTotal > 0 || stepsNeedingEvidence > 0) && (
+        {(stepsTotal > 0 || stepsNeedingEvidence > 0 || evidenceRule !== 'optional') && (
           <ul className="completion-requirements">
             {stepsTotal > 0 && (
               <li className={stepsOutstanding === 0 ? 'met' : undefined}>
@@ -101,7 +141,28 @@ export function CompletionForm({
                 evidence attached
               </li>
             )}
+            {evidenceRule !== 'optional' && (
+              <li className={evidenceSatisfied ? 'met' : undefined}>
+                <span aria-hidden="true">{evidenceSatisfied ? '✓' : '○'}</span>
+                {evidenceSatisfied
+                  ? 'Evidence attached'
+                  : evidenceRule === 'file'
+                    ? 'Evidence required'
+                    : 'Evidence or a completion note required'}
+              </li>
+            )}
           </ul>
+        )}
+
+        {/*
+          What to attach, from whoever set the rule up. A requirement without an
+          instruction makes somebody guess what would satisfy it, and a guess
+          is how a photograph of a car park ends up filed as an inspection.
+        */}
+        {evidenceRule !== 'optional' && (
+          <p className="completion-instruction">
+            {evidenceInstruction ?? COMPLETION_EVIDENCE_DEFAULT_INSTRUCTION[evidenceRule]}
+          </p>
         )}
 
         {/*
@@ -121,7 +182,7 @@ export function CompletionForm({
 
         <div className="field">
           <span className="completion-label">Evidence</span>
-          <EvidenceDropZone />
+          <EvidenceDropZone onCountChange={setStaged} />
         </div>
 
         {/*
@@ -139,6 +200,8 @@ export function CompletionForm({
               name="completionNote"
               rows={3}
               autoFocus
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
               placeholder="What was achieved, or anything useful for future reference."
             />
           </div>
@@ -152,9 +215,9 @@ export function CompletionForm({
           </button>
         )}
 
-        {!readyToComplete && blockers.length > 0 && (
+        {!canComplete && outstanding.length > 0 && (
           <p className="completion-blockers" role="status">
-            {blockers.join(' · ')}
+            {outstanding.join(' · ')}
           </p>
         )}
       </div>
@@ -166,14 +229,14 @@ export function CompletionForm({
         <button
           type="submit"
           className="btn primary"
-          disabled={working || !readyToComplete}
+          disabled={working || !canComplete}
           aria-busy={working}
         >
           {working
             ? 'Completing…'
-            : readyToComplete
+            : canComplete
               ? completeLabel
-              : `${blockers.length} requirement${blockers.length === 1 ? '' : 's'} remaining`}
+              : `${outstanding.length} requirement${outstanding.length === 1 ? '' : 's'} remaining`}
         </button>
       </div>
     </form>

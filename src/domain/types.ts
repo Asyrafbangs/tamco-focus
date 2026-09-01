@@ -45,6 +45,30 @@ export type UrgencyLevel = 'normal' | 'high' | 'critical';
 
 export type EvidenceRule = 'not_required' | 'optional' | 'required';
 
+/**
+ * What a completion requires as proof, decided when the work is set up.
+ *
+ * Three values, deliberately. `file_or_note` exists because the alternative is
+ * worse: a rule that demands an upload for every completion gets one — a blank
+ * document, a duplicate photograph, a screenshot of nothing. Requiring proof
+ * while accepting a written result where a file genuinely cannot exist keeps
+ * the evidence that does arrive worth reading.
+ */
+export type CompletionEvidenceRule = 'optional' | 'file_or_note' | 'file';
+
+export const COMPLETION_EVIDENCE_LABELS: Record<CompletionEvidenceRule, string> = {
+  optional: 'Optional',
+  file_or_note: 'Required — file or note',
+  file: 'Required — file',
+};
+
+/** What the person completing the work is told, when the setter said nothing. */
+export const COMPLETION_EVIDENCE_DEFAULT_INSTRUCTION: Record<CompletionEvidenceRule, string> = {
+  optional: 'Attach anything that would be useful to whoever reads this later.',
+  file_or_note: 'Attach proof of completion, or describe the result in a note.',
+  file: 'Attach a file or photograph as proof before completing this work.',
+};
+
 /** Section 7.4 — the approved reason list, in the approved order. */
 export type ActivationReason =
   | 'urgent_deadline'
@@ -141,6 +165,12 @@ export interface TaskOverview {
   checklistReady: number;
   missingEvidenceCount: number;
   attachmentCount: number;
+  /** What completing this work requires as proof. */
+  completionEvidenceRule: CompletionEvidenceRule;
+  /** What to attach, in the words of whoever set the rule. */
+  completionEvidenceInstruction: string | null;
+  /** Evidence already on the work, from a step or from the work itself. */
+  evidenceCount: number;
   collaboratorCount: number;
 }
 

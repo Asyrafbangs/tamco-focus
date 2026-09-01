@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 
 import { Modal } from '@/components/ui/Modal';
 import { decideRoutineException, markRoutineNotRequired } from '@/server/actions/routine-actions';
+import type { CompletionEvidenceRule } from '@/domain/types';
 import type { TaskDetail } from '@/server/queries';
 
 import { CompletionForm } from './CompletionForm';
@@ -43,6 +44,7 @@ export function RoutineOutcomePanel({
   stepsTotal,
   stepsCompleted,
   evidenceCount,
+  evidenceRule,
   canAct,
   canDecide,
   readyToComplete,
@@ -61,6 +63,12 @@ export function RoutineOutcomePanel({
   stepsTotal: number;
   stepsCompleted: number;
   evidenceCount: number;
+  /**
+   * What this occurrence requires as proof. It comes from the schedule rather
+   * than the occurrence, so tightening a weekly inspection applies to the ones
+   * already sitting in somebody's list.
+   */
+  evidenceRule: CompletionEvidenceRule;
   canAct: boolean;
   /** The owner's manager, who decides whether the work was really not needed. */
   canDecide: boolean;
@@ -334,6 +342,8 @@ export function RoutineOutcomePanel({
                 stepsCompleted={stepsCompleted}
                 stepsNeedingEvidence={0}
                 existingEvidenceCount={evidenceCount}
+                evidenceRule={evidenceRule}
+                evidenceInstruction={routine.evidenceInstruction ?? null}
                 readyToComplete={readyToComplete}
                 blockers={blockers}
                 pending={working}

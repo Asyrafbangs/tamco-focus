@@ -5574,6 +5574,8 @@ export type Database = {
           classification_rule_code: string | null
           classification_rule_text: string | null
           completed_at: string | null
+          completion_evidence_instruction: string | null
+          completion_evidence_rule: string
           created_at: string
           created_by: string
           deleted_at: string | null
@@ -5624,6 +5626,8 @@ export type Database = {
           classification_rule_code?: string | null
           classification_rule_text?: string | null
           completed_at?: string | null
+          completion_evidence_instruction?: string | null
+          completion_evidence_rule?: string
           created_at?: string
           created_by: string
           deleted_at?: string | null
@@ -5674,6 +5678,8 @@ export type Database = {
           classification_rule_code?: string | null
           classification_rule_text?: string | null
           completed_at?: string | null
+          completion_evidence_instruction?: string | null
+          completion_evidence_rule?: string
           created_at?: string
           created_by?: string
           deleted_at?: string | null
@@ -6446,6 +6452,8 @@ export type Database = {
             | null
           classification_rule_code: string | null
           classification_rule_text: string | null
+          completion_evidence_instruction: string | null
+          completion_evidence_rule: string
           created_at: string
           created_proposal_id: string | null
           created_task_id: string | null
@@ -6474,6 +6482,8 @@ export type Database = {
             | null
           classification_rule_code?: string | null
           classification_rule_text?: string | null
+          completion_evidence_instruction?: string | null
+          completion_evidence_rule?: string
           created_at?: string
           created_proposal_id?: string | null
           created_task_id?: string | null
@@ -6502,6 +6512,8 @@ export type Database = {
             | null
           classification_rule_code?: string | null
           classification_rule_text?: string | null
+          completion_evidence_instruction?: string | null
+          completion_evidence_rule?: string
           created_at?: string
           created_proposal_id?: string | null
           created_task_id?: string | null
@@ -8202,10 +8214,13 @@ export type Database = {
           classification_rule_text: string | null
           collaborator_count: number | null
           completed_at: string | null
+          completion_evidence_instruction: string | null
+          completion_evidence_rule: string | null
           created_at: string | null
           description: string | null
           due_at: string | null
           due_is_date_only: boolean | null
+          evidence_count: number | null
           focus_bucket: Database["public"]["Enums"]["focus_bucket"] | null
           id: string | null
           is_mandatory: boolean | null
