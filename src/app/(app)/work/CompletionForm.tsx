@@ -7,7 +7,7 @@ import {
   COMPLETION_EVIDENCE_DEFAULT_INSTRUCTION,
   type CompletionEvidenceRule,
 } from '@/domain/types';
-import { completeTaskWithEvidence } from '@/server/actions/task-actions';
+import { completeTaskWithEvidence, uploadTaskEvidence } from '@/server/actions/task-actions';
 
 /**
  * One completion form, for Focus work and for routine occurrences.
@@ -182,7 +182,16 @@ export function CompletionForm({
 
         <div className="field">
           <span className="completion-label">Evidence</span>
-          <EvidenceDropZone onCountChange={setStaged} />
+          {/*
+            Uploaded as they arrive rather than posted with the form, so a file
+            that fails names itself and can be retried on its own. They attach
+            to the work, which is a state the product already has: evidence on
+            an open task, which the completion gate already counts.
+          */}
+          <EvidenceDropZone
+            onCountChange={setStaged}
+            uploadTo={{ taskId, upload: uploadTaskEvidence }}
+          />
         </div>
 
         {/*

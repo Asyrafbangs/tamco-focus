@@ -67,6 +67,15 @@ export const attachmentPolicy = {
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean),
+  /*
+   * Batch limits, so a completion cannot quietly cost a hundred megabytes.
+   * Per-file size is the obvious control and it is not enough on its own: ten
+   * files inside the limit are still ten files.
+   */
+  maxFilesPerUpload: Number(process.env.ATTACHMENT_MAX_FILES ?? 10),
+  maxBatchBytes: Number(process.env.ATTACHMENT_MAX_BATCH_BYTES ?? 41_943_040),
+  /** A ceiling per piece of work, not only per upload. */
+  maxEvidencePerTask: Number(process.env.ATTACHMENT_MAX_EVIDENCE_PER_TASK ?? 25),
   signedUrlTtlSeconds: Number(process.env.ATTACHMENT_SIGNED_URL_TTL_SECONDS ?? 120),
   /**
    * Honest by default. Nothing in this application fabricates a scan result;

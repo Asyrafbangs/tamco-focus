@@ -71,6 +71,13 @@ function kindOf(file: File): { icon: string; label: string } {
   return { icon: '📎', label: 'File' };
 }
 
+/** One file's journey, so a failure can name itself and be retried alone. */
+type Staged = {
+  file: File;
+  state: 'ready' | 'uploading' | 'attached' | 'failed';
+  error?: string;
+};
+
 export function EvidenceDropZone({
   name = 'files',
   accept = DEFAULT_ACCEPT,
@@ -78,6 +85,7 @@ export function EvidenceDropZone({
   disabled = false,
   label = 'Drag and drop evidence here',
   onCountChange,
+  uploadTo,
 }: {
   name?: string;
   accept?: string;
@@ -86,13 +94,59 @@ export function EvidenceDropZone({
   label?: string;
   /** So the form around this can say what is still outstanding. */
   onCountChange?: (count: number) => void;
+  /**
+   * Upload each file as it arrives, rather than posting them with the form.
+   *
+   * Given a task id, files go up one at a time and each reports its own
+   * outcome. Without it the zone stays a plain multi-file input, which is what
+   * New Work wants: there is no record to attach to until the work exists.
+   */
+  uploadTo?: {
+    taskId: string;
+    upload: (formData: FormData) => Promise<{ ok: boolean; message: string }>;
+  };
 }) {
   const id = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
+  const [staged, setStaged] = useState<Staged[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  /*
+   * One at a time, and never in a batch.
+   *
+   * A single request carrying five photographs fails as one thing: everything
+   * is discarded and somebody on a plant network starts again from the camera
+   * roll, which is where people give up and complete the work with no evidence
+   * at all. Per file, a failure is one row that names itself and offers Retry,
+   * and the four that worked stay attached.
+   */
+  const send = useCallback(
+    async (file: File, index: number) => {
+      if (!uploadTo) return;
+      setStaged((current) =>
+        current.map((entry, position) =>
+          position === index ? { ...entry, state: 'uploading', error: undefined } : entry,
+        ),
+      );
+      const body = new FormData();
+      body.set('taskId', uploadTo.taskId);
+      body.set('file', file);
+      const result = await uploadTo.upload(body);
+      setStaged((current) =>
+        current.map((entry, position) =>
+          position === index
+            ? result.ok
+              ? { ...entry, state: 'attached', error: undefined }
+              : { ...entry, state: 'failed', error: result.message }
+            : entry,
+        ),
+      );
+    },
+    [uploadTo],
+  );
 
   /*
    * The input is the record, the state is the display.
@@ -101,18 +155,14 @@ export function EvidenceDropZone({
    * camera, a drop — has to end up writing that same list rather than keeping
    * its own on the side.
    */
-  const commit = useCallback(
-    (next: File[]) => {
-      const input = inputRef.current;
-      if (!input) return;
-      const transfer = new DataTransfer();
-      for (const file of next) transfer.items.add(file);
-      input.files = transfer.files;
-      setFiles(next);
-      onCountChange?.(next.length);
-    },
-    [onCountChange],
-  );
+  const commit = useCallback((next: File[]) => {
+    const input = inputRef.current;
+    if (!input) return;
+    const transfer = new DataTransfer();
+    for (const file of next) transfer.items.add(file);
+    input.files = transfer.files;
+    setFiles(next);
+  }, []);
 
   const take = useCallback(
     (incoming: File[]) => {
@@ -123,9 +173,29 @@ export function EvidenceDropZone({
       }
       setError(null);
       // Added, not replaced: a second photo after a first means both.
-      commit([...files, ...incoming.filter((file) => !files.some((have) => sameFile(have, file)))]);
+      const next = [
+        ...files,
+        ...incoming.filter((file) => !files.some((have) => sameFile(have, file))),
+      ];
+      commit(next);
+
+      if (uploadTo) {
+        const added = next.slice(files.length);
+        setStaged((current) => [
+          ...current,
+          ...added.map((file) => ({ file, state: 'ready' as const })),
+        ]);
+        // Sequential rather than parallel: a phone on a plant network does not
+        // go faster with five requests in flight, and the failures interleave
+        // into noise nobody can act on.
+        void (async () => {
+          for (let position = 0; position < added.length; position += 1) {
+            await send(added[position]!, files.length + position);
+          }
+        })();
+      }
     },
-    [commit, files, maxBytes],
+    [commit, files, maxBytes, send, uploadTo],
   );
 
   const { dragging } = useFileDropZone({ onFiles: take, anchorRef: rootRef, disabled });
@@ -147,6 +217,18 @@ export function EvidenceDropZone({
   );
 
   const openChooser = () => inputRef.current?.click();
+  const attachedCount = uploadTo
+    ? staged.filter((entry) => entry.state === 'attached').length
+    : files.length;
+
+  /*
+   * Reported from the state rather than from inside the upload loop, so the
+   * number the form sees is always how many are actually on the record - not
+   * how far a loop had got when it last called back.
+   */
+  useEffect(() => {
+    onCountChange?.(attachedCount);
+  }, [attachedCount, onCountChange]);
 
   return (
     <div ref={rootRef} className="evidence-zone" data-drop-zone>
@@ -154,7 +236,7 @@ export function EvidenceDropZone({
         ref={inputRef}
         id={id}
         className="visually-hidden file-input"
-        name={name}
+        {...(uploadTo ? {} : { name })}
         type="file"
         multiple
         disabled={disabled}
@@ -220,11 +302,16 @@ export function EvidenceDropZone({
       {files.length > 0 && (
         <div className="evidence-list" aria-live="polite">
           <p className="evidence-list-head">
-            {files.length} file{files.length === 1 ? '' : 's'} ready
+            {uploadTo
+              ? attachedCount === files.length
+                ? `${files.length} file${files.length === 1 ? '' : 's'} attached`
+                : `Uploading ${Math.min(attachedCount + 1, files.length)} of ${files.length}…`
+              : `${files.length} file${files.length === 1 ? '' : 's'} ready`}
           </p>
           {files.map((file, index) => {
             const kind = kindOf(file);
             const preview = previews[index];
+            const entry = staged[index];
             return (
               <div key={`${file.name}-${file.lastModified}-${index}`} className="evidence-item">
                 {preview ? (
@@ -237,20 +324,49 @@ export function EvidenceDropZone({
                 )}
                 <span className="evidence-item-copy">
                   <strong>{file.name}</strong>
-                  <span>
+                  <span className={entry?.state === 'failed' ? 'evidence-item-error' : undefined}>
                     {kind.label} · {fileSize(file.size)}
+                    {entry?.state === 'uploading' ? ' · Uploading…' : ''}
+                    {entry?.state === 'attached' ? ' · Attached' : ''}
+                    {entry?.state === 'failed' ? ` · ${entry.error ?? 'Upload failed'}` : ''}
                   </span>
                 </span>
+
+                {/*
+                  One file's retry, not the whole batch's. The four that worked
+                  stay attached; starting again from the camera roll because of
+                  one failure is where somebody gives up and completes the work
+                  with no evidence at all.
+                */}
+                {entry?.state === 'failed' && (
+                  <button
+                    type="button"
+                    className="btn small evidence-retry"
+                    onClick={() => void send(file, index)}
+                  >
+                    Retry
+                  </button>
+                )}
                 {/* Removable before completing, because an accidental photo
                     should not have to be attached to the record forever. */}
-                <button
-                  type="button"
-                  className="evidence-remove"
-                  aria-label={`Remove ${file.name}`}
-                  onClick={() => commit(files.filter((_, position) => position !== index))}
-                >
-                  ×
-                </button>
+                {/*
+                  Only before it is attached. Once a file is on the record,
+                  taking it off again is an operation on the work with its own
+                  authority and its own audit entry - not a tidy-up of a form.
+                */}
+                {entry?.state !== 'attached' && (
+                  <button
+                    type="button"
+                    className="evidence-remove"
+                    aria-label={`Remove ${file.name}`}
+                    onClick={() => {
+                      commit(files.filter((_, position) => position !== index));
+                      setStaged((current) => current.filter((_, position) => position !== index));
+                    }}
+                  >
+                    ×
+                  </button>
+                )}
               </div>
             );
           })}

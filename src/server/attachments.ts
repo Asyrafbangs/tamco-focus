@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { refuseAttachments } from '@/domain/attachment-policy';
 import { attachmentPolicy } from '@/lib/env';
 
 export function safeAttachmentFileName(name: string): string {
@@ -10,14 +11,18 @@ export function safeAttachmentFileName(name: string): string {
   return cleaned.slice(0, 120) || 'attachment';
 }
 
+/**
+ * The configured limits applied to a real upload.
+ *
+ * The judgement itself lives in `@/domain/attachment-policy`, where it can be
+ * exercised without a server: a list of refused extensions that nothing can
+ * test is a list nobody can change safely.
+ */
 export function validateAttachmentFiles(files: readonly File[]): string | null {
-  for (const file of files) {
-    if (file.size > attachmentPolicy.maxBytes) {
-      return `${file.name} is larger than the ${Math.floor(attachmentPolicy.maxBytes / 1_048_576)} MB local limit.`;
-    }
-    if (!attachmentPolicy.allowedMimeTypes.includes(file.type)) {
-      return `${file.name} is not an allowed file type.`;
-    }
-  }
-  return null;
+  return refuseAttachments(files, {
+    maxBytes: attachmentPolicy.maxBytes,
+    maxFilesPerUpload: attachmentPolicy.maxFilesPerUpload,
+    maxBatchBytes: attachmentPolicy.maxBatchBytes,
+    allowedMimeTypes: attachmentPolicy.allowedMimeTypes,
+  });
 }

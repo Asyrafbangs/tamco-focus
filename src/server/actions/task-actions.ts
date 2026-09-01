@@ -7,6 +7,7 @@ import { IMPLAUSIBLE_YEARS_AHEAD, isImplausibleDate } from '@/domain/delivery';
 import { endOfLocalDay, localDateTimeToInstant } from '@/domain/duration';
 import type { OperationResult } from '@/domain/types';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
+import { attachmentPolicy } from '@/lib/env';
 import { safeAttachmentFileName, validateAttachmentFiles } from '@/server/attachments';
 import { scheduleNotificationEmailDispatch } from '@/server/workers/schedule-notification-email';
 
@@ -279,6 +280,113 @@ export async function completeTask(input: z.input<typeof completeSchema>) {
  * `FormData` rather than a typed object because files cannot cross a Server
  * Action boundary any other way.
  */
+/**
+ * One evidence file, uploaded and attached to the work on its own.
+ *
+ * Deliberately one file per call. A single request carrying five photographs
+ * fails as one thing: the person is told "the evidence could not be saved",
+ * every file is discarded, and they start again from the camera roll — which
+ * on a phone, on a plant network, is where somebody gives up and completes the
+ * work without evidence at all.
+ *
+ * Per file, a failure is one row saying which file and offering Retry, and the
+ * four that worked stay attached. Progress means something too, because the
+ * client knows how many of how many have finished rather than watching one
+ * request that either returns or does not.
+ *
+ * The file is attached to the WORK, not to a pending completion, so nothing is
+ * in limbo if the person never presses Complete: it is evidence on an open
+ * task, which is a state the product already has and the completion gate
+ * already counts.
+ */
+export async function uploadTaskEvidence(formData: FormData) {
+  const taskId = String(formData.get('taskId') ?? '');
+  if (!uuid.safeParse(taskId).success) {
+    return { ok: false as const, code: 'validation_failed' as const, message: 'Invalid request.' };
+  }
+
+  const file = formData.get('file');
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false as const, code: 'validation_failed' as const, message: 'No file was sent.' };
+  }
+
+  const invalid = validateAttachmentFiles([file]);
+  if (invalid) {
+    return { ok: false as const, code: 'validation_failed' as const, message: invalid };
+  }
+
+  const profile = await requireProfile();
+  const supabase = await createSupabaseServerClient();
+
+  /*
+   * Authorisation is the database's, not this function's. Reading the task
+   * through the same view the interface uses means somebody who cannot see the
+   * work cannot attach to it either, without this action having its own
+   * opinion about who may.
+   */
+  const { data: task, error: taskError } = await supabase
+    .from('task_overview')
+    .select('id, evidence_count')
+    .eq('id', taskId)
+    .maybeSingle();
+  if (taskError || !task) {
+    return {
+      ok: false as const,
+      code: 'not_authorised' as const,
+      message: 'This work is not available to you.',
+    };
+  }
+
+  // A cap per piece of work, not only per upload: attaching one file forty
+  // times in a row is the same storage as attaching forty at once.
+  if (Number(task.evidence_count ?? 0) >= attachmentPolicy.maxEvidencePerTask) {
+    return {
+      ok: false as const,
+      code: 'validation_failed' as const,
+      message: `This work already has ${attachmentPolicy.maxEvidencePerTask} pieces of evidence attached.`,
+    };
+  }
+
+  const path = `tasks/${taskId}/${crypto.randomUUID()}-${safeAttachmentFileName(file.name)}`;
+  const upload = await supabase.storage.from('task-attachments').upload(path, file, {
+    contentType: file.type,
+    upsert: false,
+  });
+  if (upload.error) {
+    console.error(`[uploadTaskEvidence:upload] ${upload.error.message}`);
+    return {
+      ok: false as const,
+      code: 'unexpected_error' as const,
+      message: 'That file could not be saved. Try it again.',
+    };
+  }
+
+  const metadata = await supabase.from('attachments').insert({
+    task_id: taskId,
+    checklist_item_id: null,
+    update_id: null,
+    storage_path: path,
+    file_name: file.name,
+    mime_type: file.type,
+    byte_size: file.size,
+    is_evidence: true,
+    uploaded_by: profile.id,
+  });
+  if (metadata.error) {
+    // The blob is removed rather than left orphaned: storage nothing points at
+    // is invisible, permanent and billed.
+    await supabase.storage.from('task-attachments').remove([path]);
+    console.error(`[uploadTaskEvidence:metadata] ${metadata.error.message}`);
+    return {
+      ok: false as const,
+      code: 'unexpected_error' as const,
+      message: 'That file could not be recorded. Try it again.',
+    };
+  }
+
+  return { ok: true as const, code: 'evidence_attached' as const, message: 'Attached.' };
+}
+
 export async function completeTaskWithEvidence(formData: FormData) {
   const parsed = completeSchema.safeParse({
     taskId: formData.get('taskId'),

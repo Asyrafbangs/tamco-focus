@@ -11301,3 +11301,14 @@ button.attachment-row {
   color: var(--muted);
   font-size: 11px;
 }
+
+/* A file that failed says so on its own row, and is retried on its own. */
+.evidence-item-error {
+  color: var(--red);
+  font-weight: 600;
+}
+
+.evidence-retry {
+  flex: none;
+  white-space: nowrap;
+}
