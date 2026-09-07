@@ -1,6 +1,8 @@
 import Link from 'next/link';
 
 import { EmptyState } from '@/components/ui/ParityPrimitives';
+import { PeriodPicker } from '@/components/ui/PeriodPicker';
+import { periodParams, ROUTINE_PERIODS, type ResolvedPeriod } from '@/domain/period';
 import type {
   RoutineComplianceRow,
   RoutineOutcome,
@@ -43,16 +45,6 @@ function periodHref(base: Record<string, string>, changes: Record<string, string
   return `/work/routine?${query.toString()}`;
 }
 
-export const ROUTINE_PERIODS = [
-  { key: 'this-month', label: 'This month' },
-  { key: 'last-month', label: 'Last month' },
-  { key: '90', label: 'Last 90 days' },
-  { key: 'this-year', label: 'This year' },
-  { key: 'last-year', label: 'Last year' },
-] as const;
-
-export type RoutinePeriodKey = (typeof ROUTINE_PERIODS)[number]['key'];
-
 export function TeamRoutineList({
   rows,
   failed,
@@ -63,10 +55,10 @@ export function TeamRoutineList({
   rows: TeamRoutineRow[];
   failed: boolean;
   query: string;
-  period: RoutinePeriodKey;
+  period: ResolvedPeriod;
   attentionOnly: boolean;
 }) {
-  const base = { panel: 'manager', period };
+  const base = { panel: 'manager', ...periodParams(period) };
 
   if (failed) {
     return (
@@ -92,7 +84,9 @@ export function TeamRoutineList({
             survives being bookmarked or reloaded. */}
         <form className="team-routine-search" action="/work/routine">
           <input type="hidden" name="panel" value="manager" />
-          <input type="hidden" name="period" value={period} />
+          {Object.entries(periodParams(period)).map(([name, value]) => (
+            <input key={name} type="hidden" name={name} value={value} />
+          ))}
           {attentionOnly && <input type="hidden" name="filter" value="attention" />}
           <label className="visually-hidden" htmlFor="team-routine-q">
             Search employee
@@ -103,22 +97,19 @@ export function TeamRoutineList({
           </button>
         </form>
 
-        <div className="segmented" role="group" aria-label="Period">
-          {ROUTINE_PERIODS.map((entry) => (
-            <Link
-              key={entry.key}
-              href={periodHref(base, {
-                period: entry.key,
-                q: needle || null,
-                filter: attentionOnly ? 'attention' : null,
-              })}
-              className={period === entry.key ? 'active' : undefined}
-              aria-current={period === entry.key ? 'true' : undefined}
-            >
-              {entry.label}
-            </Link>
-          ))}
-        </div>
+        {/* The same control as My Work, My Team and Records. Routine leads
+            with months because a schedule runs on one, but the shape and the
+            date range are identical everywhere. */}
+        <PeriodPicker
+          action="/work/routine"
+          hidden={{
+            panel: 'manager',
+            ...(needle ? { q: needle } : {}),
+            ...(attentionOnly ? { filter: 'attention' } : {}),
+          }}
+          presets={ROUTINE_PERIODS}
+          period={period}
+        />
 
         <div className="segmented" role="group" aria-label="Which people">
           <Link
@@ -212,7 +203,7 @@ export function PersonRoutineProfile({
   /** One row per schedule this person is on, for the year-end read. */
   tallies: RoutineTally[];
   outcomes: RoutineOutcome[];
-  period: RoutinePeriodKey;
+  period: ResolvedPeriod;
   backHref: string;
   taskHref: (taskId: string) => string;
   /** When set, the lists below show only this schedule. */
@@ -232,7 +223,7 @@ export function PersonRoutineProfile({
     ? (tallies.find((row) => row.templateId === routineFilter) ?? null)
     : null;
   const shownTally = selected ?? tally;
-  const periodLabel = ROUTINE_PERIODS.find((entry) => entry.key === period)?.label ?? 'This month';
+  const periodLabel = period.label;
 
   return (
     <div className="team-routine">
@@ -403,7 +394,7 @@ export function RoutineComplianceList({
 }: {
   rows: RoutineComplianceRow[];
   failed: boolean;
-  period: RoutinePeriodKey;
+  period: ResolvedPeriod;
   hrefFor: (templateId: string) => string;
 }) {
   if (failed) {
@@ -423,7 +414,7 @@ export function RoutineComplianceList({
 
   return (
     <section className="team-routine-group" aria-label="Routines">
-      <h3>Routines · {ROUTINE_PERIODS.find((entry) => entry.key === period)?.label}</h3>
+      <h3>Routines · {period.label}</h3>
       {rows.map((row) => (
         <Link key={row.templateId} href={hrefFor(row.templateId)} className="team-routine-row">
           <span className="team-routine-copy">
@@ -453,12 +444,12 @@ export function RoutineStandingList({
 }: {
   title: string;
   people: RoutinePersonStanding[];
-  period: RoutinePeriodKey;
+  period: ResolvedPeriod;
   backHref: string;
   taskHref: (taskId: string) => string;
   personHref: (userId: string) => string;
 }) {
-  const periodLabel = ROUTINE_PERIODS.find((entry) => entry.key === period)?.label ?? 'This month';
+  const periodLabel = period.label;
 
   return (
     <div className="team-routine">

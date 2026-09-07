@@ -47,7 +47,7 @@ test.describe('v132 the snapshot', () => {
     await expect(snapshot).toContainText('People');
     await expect(snapshot).toContainText('Needs attention');
     await expect(snapshot).toContainText('Available work');
-    await expect(snapshot).toContainText('Completed 30 days');
+    await expect(snapshot).toContainText('Completed · 30 days');
   });
 
   test('the backlog is reached from the snapshot, not from a tab beside the people views', async ({
@@ -72,24 +72,37 @@ test.describe('v132 the snapshot', () => {
   });
 
   test('the window is a choice, and it is never all time', async ({ page }) => {
-    const windows = page.getByRole('navigation', { name: 'Delivery window' });
-    await expect(windows.getByRole('link')).toHaveCount(4);
-    await expect(windows.getByRole('link', { name: /all time/i })).toHaveCount(0);
-    // Thirty days by default, so the page opens on what is happening now.
-    await expect(windows.getByRole('link', { name: '30 days' })).toHaveAttribute(
-      'aria-current',
-      'true',
-    );
+    /*
+     * v136 replaced the segmented strip with the period control the rest of
+     * the app uses, so this now checks the same rule through the menu: five
+     * presets and a date range, and no way to ask for everything ever. A
+     * lifetime figure flatters whoever has been here longest and says nothing
+     * about now.
+     */
+    const picker = page.locator('.team-snapshot .period-picker');
+    await expect(picker.getByRole('button')).toContainText('Last 30 days');
+    await picker.getByRole('button').click();
 
-    await windows.getByRole('link', { name: '90 days' }).click();
-    await expect(page).toHaveURL(/delivery=90/);
-    await expect(page.locator('.team-snapshot')).toContainText('Completed 90 days');
+    const menu = page.locator('.period-picker-panel');
+    await expect(menu.getByRole('link')).toHaveCount(5);
+    await expect(menu.getByRole('link', { name: /all time/i })).toHaveCount(0);
+    await expect(menu.getByRole('link', { name: 'Last 30 days' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    // The range the strip could not express at all.
+    await expect(menu.getByLabel('From')).toBeVisible();
+    await expect(menu.getByLabel('To')).toBeVisible();
+
+    await menu.getByRole('link', { name: 'Last 90 days' }).click();
+    await expect(page).toHaveURL(/period=90/);
+    await expect(page.locator('.team-snapshot')).toContainText('Completed · 90 days');
   });
 
   test('the chosen window survives opening a person', async ({ page }) => {
     // Widening to ninety days and then opening somebody should not silently
     // put the question back to thirty.
-    await openTeam(page, '&delivery=90');
+    await openTeam(page, '&period=90');
     await page.getByTestId('my-team-person-row').first().locator('strong').first().click();
     const drawer = page.locator('.team-member-drawer');
     await expect(drawer).toBeVisible();
@@ -153,7 +166,7 @@ test.describe('v132 the person drawer', () => {
 test('v132 delivery is split by kind, not reported as one number', async ({ page }) => {
   await signIn(page, 'izzul@tamco.local');
   // The widest window, so the fixture has something to show.
-  await openTeam(page, '&delivery=year');
+  await openTeam(page, '&period=this-year');
 
   const rows = page.getByTestId('my-team-person-row');
   const count = await rows.count();

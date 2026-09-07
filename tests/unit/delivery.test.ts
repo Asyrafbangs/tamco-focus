@@ -1,34 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  DEFAULT_DELIVERY_WINDOW,
-  IMPLAUSIBLE_YEARS_AHEAD,
-  deliveryWindow,
-  deliveryWindowSince,
-  isImplausibleDate,
-  latestPlausibleDate,
-} from '@/domain/delivery';
+import { IMPLAUSIBLE_YEARS_AHEAD, isImplausibleDate, latestPlausibleDate } from '@/domain/delivery';
 
 const NOW = new Date('2026-08-31T04:00:00.000Z');
-
-describe('deliveryWindow', () => {
-  it('falls back to the default rather than showing nothing', () => {
-    // A junk parameter should not produce an empty screen that reads as
-    // "this person has delivered nothing".
-    expect(deliveryWindow(undefined).key).toBe(DEFAULT_DELIVERY_WINDOW);
-    expect(deliveryWindow('all-time').key).toBe(DEFAULT_DELIVERY_WINDOW);
-    expect(deliveryWindow('').key).toBe(DEFAULT_DELIVERY_WINDOW);
-    expect(deliveryWindow('90').key).toBe('90');
-  });
-
-  it('rolls day counts back from now, and bounds the year to the calendar', () => {
-    // Rolling, so a list is never nearly empty because the day just started.
-    expect(deliveryWindowSince('30', NOW)).toBe('2026-08-01T04:00:00.000Z');
-    expect(deliveryWindowSince('90', NOW)).toBe('2026-06-02T04:00:00.000Z');
-    // "This year" means the year, which is what the words say.
-    expect(deliveryWindowSince('year', NOW)).toBe('2026-01-01T00:00:00.000Z');
-  });
-});
 
 describe('isImplausibleDate', () => {
   it('accepts every date somebody would really commit to', () => {

@@ -9821,7 +9821,12 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
    first three options. */
 .menu-dropdown-panel {
   position: fixed;
-  z-index: 60;
+  /* Above the modal layer (120) and the notification panel (140), because a
+     menu can be opened from inside either; below the skip link (200), which
+     must stay reachable over everything. It sits this high because the panel
+     is portalled to the body, so it no longer inherits the stacking context
+     of the drawer or modal it belongs to. */
+  z-index: 150;
   display: grid;
   gap: 2px;
   max-width: min(320px, calc(100vw - 24px));
@@ -9909,20 +9914,34 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   color: var(--text);
 }
 
-.completed-custom {
+/* The one period control, wherever a screen reports over a window. Presets are
+   links and the range is a GET form, so both are addresses rather than state
+   held in a component. */
+/* The period sits above the filter disclosure on Records, because it is the
+   filter people change most and it should be readable without opening
+   anything. */
+.record-period {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: 12px;
+}
+
+.period-picker-custom {
   display: grid;
   gap: 8px;
   margin-top: 4px;
   padding: 10px 10px 4px;
   border-top: 1px solid var(--line);
 }
-.completed-custom label {
+.period-picker-custom label {
   display: grid;
   gap: 3px;
   color: var(--muted);
   font-size: 11px;
 }
-.completed-custom input {
+.period-picker-custom input {
   min-width: 0;
   width: 100%;
 }
@@ -10952,31 +10971,6 @@ button.attachment-row {
   font-size: 10px;
 }
 
-.snapshot-window {
-  display: inline-flex;
-  gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--surface-2);
-}
-
-.snapshot-window a {
-  padding: 5px 10px;
-  border-radius: 7px;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.snapshot-window a.active {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: 0 1px 3px rgba(13, 35, 66, 0.1);
-}
-
 @media (max-width: 640px) {
   .team-snapshot {
     gap: 12px;
@@ -10984,9 +10978,8 @@ button.attachment-row {
   .snapshot-figures {
     gap: 10px 22px;
   }
-  .snapshot-window {
+  .team-snapshot .period-picker {
     width: 100%;
-    justify-content: space-between;
   }
 }
 

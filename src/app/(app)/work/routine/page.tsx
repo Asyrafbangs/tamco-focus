@@ -16,16 +16,16 @@ import {
 } from '@/domain/duration';
 import { taskDrawerHref } from '@/domain/navigation';
 import { type TaskOverview } from '@/domain/types';
+import { PeriodPicker } from '@/components/ui/PeriodPicker';
+import { periodParams, resolvePeriod, ROUTINE_PERIODS } from '@/domain/period';
 import { requireProfile } from '@/lib/supabase/server';
 
 import { RoutineManager } from './RoutineManager';
 import {
   PersonRoutineProfile,
-  ROUTINE_PERIODS,
   RoutineComplianceList,
   RoutineStandingList,
   TeamRoutineList,
-  type RoutinePeriodKey,
 } from './TeamRoutineView';
 import {
   getDisplaySettings,
@@ -86,6 +86,8 @@ export default async function RoutinePage({
     new?: string;
     outcome?: string;
     period?: string;
+    period_from?: string;
+    period_to?: string;
     /** The manager layer: which panel, whose history, and how it is filtered. */
     panel?: string;
     person?: string;
@@ -104,47 +106,31 @@ export default async function RoutinePage({
   const isManager = profile.role === 'manager' || profile.role === 'administrator';
 
   /*
-   * How far back Completed looks. Routine work is periodic, so a month is
-   * usually one or two occurrences of each schedule; 90 days is the widest
-   * useful default before a list stops being scannable.
+   * One period for this page, in the vocabulary every other screen uses.
+   *
+   * Routine used to resolve two of its own: a rolling 30/60/90 strip on its
+   * own Completed view and a calendar-based strip on the manager panel, both
+   * reading the same `period` parameter and neither offering a date range.
+   *
+   * Both now open on this month, because a routine is scheduled by the month
+   * and that is the question either reader is asking. It also has to be a
+   * period the menu actually offers: defaulting Completed to a rolling thirty
+   * days left the button reading "Last 30 days" above a list that did not
+   * contain it, so nothing was marked as current.
    */
-  const completedDays = params.period === '90' ? 90 : params.period === '60' ? 60 : 30;
-  const completedSince = new Date(new Date().getTime() - completedDays * 86_400_000).toISOString();
-
-  /*
-   * The manager layer reads calendar periods rather than rolling days, because
-   * the question it answers is about a month or a year - "how did August go",
-   * "what did Amer do in 2026" - not about the last thirty days from now.
-   */
-  const managerPeriod: RoutinePeriodKey = ROUTINE_PERIODS.some(
-    (entry) => entry.key === params.period,
-  )
-    ? (params.period as RoutinePeriodKey)
-    : 'this-month';
-  const managerWindow = (() => {
-    const now = new Date();
-    const year = now.getUTCFullYear();
-    const month = now.getUTCMonth();
-    if (managerPeriod === 'last-month') {
-      return {
-        since: new Date(Date.UTC(year, month - 1, 1)).toISOString(),
-        until: new Date(Date.UTC(year, month, 0, 23, 59, 59, 999)).toISOString(),
-      };
-    }
-    if (managerPeriod === '90') {
-      return { since: new Date(now.getTime() - 90 * 86_400_000).toISOString(), until: null };
-    }
-    if (managerPeriod === 'this-year') {
-      return { since: new Date(Date.UTC(year, 0, 1)).toISOString(), until: null };
-    }
-    if (managerPeriod === 'last-year') {
-      return {
-        since: new Date(Date.UTC(year - 1, 0, 1)).toISOString(),
-        until: new Date(Date.UTC(year - 1, 11, 31, 23, 59, 59, 999)).toISOString(),
-      };
-    }
-    return { since: new Date(Date.UTC(year, month, 1)).toISOString(), until: null };
-  })();
+  const now = new Date();
+  const period = resolvePeriod(
+    params.period,
+    params.period_from,
+    params.period_to,
+    now,
+    'this-month',
+  );
+  const completedSince = period.since;
+  const managerWindow = { since: period.since, until: period.until };
+  // The chosen period travels with every manager link, so opening a person or
+  // a schedule does not silently reset the question that was just asked.
+  const managerQuery = new URLSearchParams(periodParams(period)).toString();
   const managerPanel = isManager && params.panel === 'manager';
   const managerPerson = managerPanel ? (params.person ?? null) : null;
   /*
@@ -192,7 +178,7 @@ export default async function RoutinePage({
     // Both outcomes, over the chosen period. Only when Completed is open:
     // finished routine work is history, not part of anybody's day.
     params.view === 'completed'
-      ? getRoutineOutcomes(profile.id, completedSince, null)
+      ? getRoutineOutcomes(profile.id, completedSince, period.until)
       : Promise.resolve({ outcomes: [], failed: false }),
     // What this manager has been asked to accept. Nothing to decide is the
     // normal case, and then nothing appears.
@@ -411,14 +397,14 @@ export default async function RoutinePage({
       {managerPanel && !managerPerson && !managerRoutine && (
         <div className="routine-axis" role="group" aria-label="Read the team by">
           <Link
-            href={`/work/routine?panel=manager&period=${managerPeriod}`}
+            href={`/work/routine?panel=manager&${managerQuery}`}
             className={managerAxis === 'people' ? 'active' : undefined}
             aria-current={managerAxis === 'people' ? 'true' : undefined}
           >
             People
           </Link>
           <Link
-            href={`/work/routine?panel=manager&by=routines&period=${managerPeriod}`}
+            href={`/work/routine?panel=manager&by=routines&${managerQuery}`}
             className={managerAxis === 'routines' ? 'active' : undefined}
             aria-current={managerAxis === 'routines' ? 'true' : undefined}
           >
@@ -432,25 +418,23 @@ export default async function RoutinePage({
           <RoutineStandingList
             title={routineStanding.title}
             people={routineStanding.people}
-            period={managerPeriod}
-            backHref={`/work/routine?panel=manager&by=routines&period=${managerPeriod}`}
+            period={period}
+            backHref={`/work/routine?panel=manager&by=routines&${managerQuery}`}
             taskHref={(taskId) =>
               taskDrawerHref(
                 taskId,
                 `/work/routine?panel=manager&by=routines&routine=${managerRoutine}`,
               )
             }
-            personHref={(userId) =>
-              `/work/routine?panel=manager&person=${userId}&period=${managerPeriod}`
-            }
+            personHref={(userId) => `/work/routine?panel=manager&person=${userId}&${managerQuery}`}
           />
         ) : managerAxis === 'routines' ? (
           <RoutineComplianceList
             rows={routineCompliance.rows}
             failed={routineCompliance.failed}
-            period={managerPeriod}
+            period={period}
             hrefFor={(templateId) =>
-              `/work/routine?panel=manager&by=routines&routine=${templateId}&period=${managerPeriod}`
+              `/work/routine?panel=manager&by=routines&routine=${templateId}&${managerQuery}`
             }
           />
         ) : managerPerson ? (
@@ -459,14 +443,14 @@ export default async function RoutinePage({
             tally={personTally.total}
             tallies={personTally.tallies}
             outcomes={personOutcomes.outcomes}
-            period={managerPeriod}
+            period={period}
             routineFilter={personRoutine}
             routineHref={(templateId) =>
-              `/work/routine?panel=manager&person=${managerPerson}&period=${managerPeriod}${
+              `/work/routine?panel=manager&person=${managerPerson}&${managerQuery}${
                 templateId ? `&routine=${templateId}` : ''
               }`
             }
-            backHref={`/work/routine?panel=manager&period=${managerPeriod}`}
+            backHref={`/work/routine?panel=manager&${managerQuery}`}
             taskHref={(taskId) =>
               taskDrawerHref(taskId, `/work/routine?panel=manager&person=${managerPerson}`)
             }
@@ -476,7 +460,7 @@ export default async function RoutinePage({
             rows={teamRoutine.rows}
             failed={teamRoutine.failed}
             query={params.q ?? ''}
-            period={managerPeriod}
+            period={period}
             attentionOnly={params.filter === 'attention'}
           />
         )
@@ -569,33 +553,37 @@ export default async function RoutinePage({
                       ['done', 'Done'],
                       ['not_required', 'Not required'],
                     ] as const
-                  ).map(([key, label]) => (
-                    <Link
-                      key={key}
-                      href={`/work/routine?view=completed&period=${completedDays}${
-                        key === 'all' ? '' : `&outcome=${key}`
-                      }`}
-                      className={outcomeFilter === key ? 'active' : undefined}
-                      aria-current={outcomeFilter === key ? 'true' : undefined}
-                    >
-                      {label}
-                    </Link>
-                  ))}
+                  ).map(([key, label]) => {
+                    const query = new URLSearchParams({
+                      view: 'completed',
+                      ...periodParams(period),
+                    });
+                    if (key !== 'all') query.set('outcome', key);
+                    return (
+                      <Link
+                        key={key}
+                        href={`/work/routine?${query.toString()}`}
+                        className={outcomeFilter === key ? 'active' : undefined}
+                        aria-current={outcomeFilter === key ? 'true' : undefined}
+                      >
+                        {label}
+                      </Link>
+                    );
+                  })}
                 </div>
-                <div className="segmented" role="group" aria-label="Period">
-                  {([30, 60, 90] as const).map((days) => (
-                    <Link
-                      key={days}
-                      href={`/work/routine?view=completed&period=${days}${
-                        outcomeFilter === 'all' ? '' : `&outcome=${outcomeFilter}`
-                      }`}
-                      className={completedDays === days ? 'active' : undefined}
-                      aria-current={completedDays === days ? 'true' : undefined}
-                    >
-                      Last {days} days
-                    </Link>
-                  ))}
-                </div>
+                {/* Three rolling day counts and nothing else, on a view whose
+                    own manager panel offered five calendar periods and a page
+                    elsewhere offered a date range. One control now. */}
+                <PeriodPicker
+                  action="/work/routine"
+                  hidden={{
+                    view: 'completed',
+                    ...(outcomeFilter === 'all' ? {} : { outcome: outcomeFilter }),
+                  }}
+                  presets={ROUTINE_PERIODS}
+                  period={period}
+                  now={now}
+                />
               </div>
 
               {tally.total && (

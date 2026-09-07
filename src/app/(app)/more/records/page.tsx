@@ -1,6 +1,8 @@
 import Link from 'next/link';
 
 import { RecordRow, StatusBadge, WorkspaceTabs } from '@/components/ui/ParityPrimitives';
+import { PeriodPicker } from '@/components/ui/PeriodPicker';
+import { periodParams, RECORD_PERIODS, resolvePeriod } from '@/domain/period';
 import { requireProfile } from '@/lib/supabase/server';
 import { getCompletionRecords, type RecordFilters } from '@/server/queries';
 import { taskDrawerHref } from '@/domain/navigation';
@@ -22,8 +24,9 @@ export default async function RecordsPage({
     owner?: string;
     type?: string;
     attachment?: string;
-    from?: string;
-    to?: string;
+    period?: string;
+    period_from?: string;
+    period_to?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -48,6 +51,13 @@ export default async function RecordsPage({
   const attachment = ['all', 'with', 'without'].includes(params.attachment ?? '')
     ? (params.attachment as RecordFilters['attachment'])
     : 'all';
+  const period = resolvePeriod(
+    params.period,
+    params.period_from,
+    params.period_to,
+    new Date(),
+    'all',
+  );
   const [profile, records] = await Promise.all([
     requireProfile(),
     getCompletionRecords({
@@ -57,10 +67,25 @@ export default async function RecordsPage({
       ownerId: params.owner,
       workClass,
       attachment,
-      dateFrom: params.from,
-      dateTo: params.to,
+      // Records is the archive, so its period defaults to all time rather
+      // than to a recent window: finding one old record is why it exists.
+      dateFrom: period.key === 'all' ? undefined : period.since.slice(0, 10),
+      dateTo: period.until ? period.until.slice(0, 10) : undefined,
     }),
   ]);
+  /* Everything except the period, so choosing one keeps the rest of the
+     filter the reader already set. */
+  const recordFilterParams = Object.fromEntries(
+    Object.entries({
+      q: params.q,
+      owner: params.owner,
+      type: params.type,
+      attachment: params.attachment,
+      state: params.state,
+      review: params.review,
+    }).filter(([, value]) => typeof value === 'string' && value.length > 0),
+  ) as Record<string, string>;
+
   const ownerOptions = [
     ...new Map(
       records.map((record) => [record.task.primaryOwnerId, record.task.ownerName]),
@@ -110,9 +135,30 @@ export default async function RecordsPage({
               ]
         }
       />
+      {/* Beside the filters rather than inside them: the period is the filter
+          people change most, and burying it behind a disclosure meant Records
+          was the one screen where you could not see what window you were
+          looking at. */}
+      <div className="record-period">
+        <span className="muted">Closed</span>
+        <PeriodPicker
+          action="/more/records"
+          hidden={recordFilterParams}
+          presets={RECORD_PERIODS}
+          period={period}
+          ariaLabel="Change the period records are read over"
+        />
+      </div>
+
       <details className="record-filters">
         <summary>Filter records</summary>
         <form className="filterbar" role="search">
+          {/* The period lives outside this form, in the control every other
+              screen uses. Carried here so applying a filter does not silently
+              reset it. */}
+          {Object.entries(periodParams(period)).map(([name, value]) => (
+            <input key={name} type="hidden" name={name} value={value} />
+          ))}
           <label>
             <span>Title or reference</span>
             <input name="q" defaultValue={params.q} placeholder="Search records" />
@@ -146,14 +192,6 @@ export default async function RecordsPage({
               <option value="with">Has attachments</option>
               <option value="without">No attachments</option>
             </select>
-          </label>
-          <label>
-            <span>Closed from</span>
-            <input name="from" type="date" defaultValue={params.from} />
-          </label>
-          <label>
-            <span>Closed to</span>
-            <input name="to" type="date" defaultValue={params.to} />
           </label>
           <label>
             <span>State</span>

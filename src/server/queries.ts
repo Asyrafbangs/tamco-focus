@@ -5,7 +5,7 @@ import { cache } from 'react';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { barrierHref } from '@/domain/barriers';
 import { notificationHref } from '@/domain/notification-link';
-import { deliveryWindow, deliveryWindowSince } from '@/domain/delivery';
+import type { ResolvedPeriod } from '@/domain/period';
 import { describeRecurrence, patternFromRow } from '@/domain/routines';
 import {
   attentionPriority,
@@ -3252,25 +3252,38 @@ export interface TeamMemberDetail {
  * and the detail behind it cannot disagree. A manager who clicks into five
  * people should be able to add up roughly what the strip already said.
  */
-export async function getTeamDeliveryCount(viewerId: string, windowKey?: string): Promise<number> {
+export async function getTeamDeliveryCount(
+  viewerId: string,
+  period: ResolvedPeriod,
+): Promise<number> {
   const supabase = await createSupabaseServerClient();
   const team = await getTeamLoad(viewerId);
   const ids = team.map((person) => person.userId);
   if (ids.length === 0) return 0;
 
-  const since = deliveryWindowSince(windowKey);
+  /*
+   * A closed period has an upper bound as well as a lower one.
+   *
+   * The old window could only ever run up to now, so this read `since` alone.
+   * "Last year" and a custom range both end somewhere, and without `until` the
+   * figure would quietly include everything since — "Last year" would mean
+   * "the last twenty months" and disagree with the list behind it.
+   */
+  const ownedQuery = supabase
+    .from('task_overview')
+    .select('id', { count: 'exact', head: true })
+    .in('primary_owner_id', ids)
+    .eq('status', 'completed')
+    .gte('completed_at', period.since);
+  const sharedQuery = supabase
+    .from('completed_contributions')
+    .select('checklist_item_id', { count: 'exact', head: true })
+    .in('assignee_id', ids)
+    .gte('completed_at', period.since);
+
   const [owned, shared] = await Promise.all([
-    supabase
-      .from('task_overview')
-      .select('id', { count: 'exact', head: true })
-      .in('primary_owner_id', ids)
-      .eq('status', 'completed')
-      .gte('completed_at', since),
-    supabase
-      .from('completed_contributions')
-      .select('checklist_item_id', { count: 'exact', head: true })
-      .in('assignee_id', ids)
-      .gte('completed_at', since),
+    period.until ? ownedQuery.lte('completed_at', period.until) : ownedQuery,
+    period.until ? sharedQuery.lte('completed_at', period.until) : sharedQuery,
   ]);
 
   // A count that cannot be read is reported as nothing rather than as zero:
@@ -3308,7 +3321,7 @@ export interface TeamDeliveredGroup {
  */
 export async function getTeamDeliveredWork(
   viewerId: string,
-  windowKey?: string,
+  period: ResolvedPeriod,
 ): Promise<{ groups: TeamDeliveredGroup[]; failed: boolean }> {
   const team = await getTeamLoad(viewerId);
   const ownerNames = new Map(team.map((person) => [person.userId, person.fullName]));
@@ -3316,24 +3329,26 @@ export async function getTeamDeliveredWork(
   if (ownerIds.length === 0) return { groups: [], failed: false };
 
   const supabase = await createSupabaseServerClient();
-  const since = deliveryWindowSince(windowKey);
+
+  const ownedQuery = supabase
+    .from('task_overview')
+    .select('id,title,work_class,completed_at,primary_owner_id')
+    .in('primary_owner_id', ownerIds)
+    .eq('status', 'completed')
+    .gte('completed_at', period.since)
+    .order('completed_at', { ascending: false })
+    .limit(500);
+  const sharedQuery = supabase
+    .from('completed_contributions')
+    .select('checklist_item_id,task_id,title,parent_title,completed_at,assignee_id')
+    .in('assignee_id', ownerIds)
+    .gte('completed_at', period.since)
+    .order('completed_at', { ascending: false })
+    .limit(500);
 
   const [owned, shared] = await Promise.all([
-    supabase
-      .from('task_overview')
-      .select('id,title,work_class,completed_at,primary_owner_id')
-      .in('primary_owner_id', ownerIds)
-      .eq('status', 'completed')
-      .gte('completed_at', since)
-      .order('completed_at', { ascending: false })
-      .limit(500),
-    supabase
-      .from('completed_contributions')
-      .select('checklist_item_id,task_id,title,parent_title,completed_at,assignee_id')
-      .in('assignee_id', ownerIds)
-      .gte('completed_at', since)
-      .order('completed_at', { ascending: false })
-      .limit(500),
+    period.until ? ownedQuery.lte('completed_at', period.until) : ownedQuery,
+    period.until ? sharedQuery.lte('completed_at', period.until) : sharedQuery,
   ]);
 
   if (owned.error || shared.error) {
@@ -3391,7 +3406,7 @@ export async function getTeamDeliveredWork(
 export async function getTeamMemberDetail(
   viewerId: string,
   personId: string,
-  windowKey?: string,
+  period: ResolvedPeriod,
 ): Promise<TeamMemberDetail | null> {
   const supabase = await createSupabaseServerClient();
 
@@ -3413,8 +3428,10 @@ export async function getTeamMemberDetail(
    * who shipped a Major Project six weeks ago read as having delivered
    * nothing.
    */
-  const window = deliveryWindow(windowKey);
-  const completedSince = deliveryWindowSince(windowKey);
+  const completedSince = period.since;
+  // A closed period ends somewhere. Without this, opening somebody while
+  // "Last year" was chosen showed everything they had closed since.
+  const completedUntil = period.until;
 
   const [attentionRows, focusRows, tasksResult, goalsResult, completedResult, sharedResult] =
     await Promise.all([
@@ -3444,6 +3461,7 @@ export async function getTeamMemberDetail(
         .eq('primary_owner_id', personId)
         .eq('status', 'completed')
         .gte('completed_at', completedSince)
+        .lte('completed_at', completedUntil ?? '9999-12-31T23:59:59.999Z')
         .order('completed_at', { ascending: false })
         .limit(200),
       /*
@@ -3458,6 +3476,7 @@ export async function getTeamMemberDetail(
         .select('checklist_item_id,task_id,title,parent_title,completed_at')
         .eq('assignee_id', personId)
         .gte('completed_at', completedSince)
+        .lte('completed_at', completedUntil ?? '9999-12-31T23:59:59.999Z')
         .order('completed_at', { ascending: false })
         .limit(200),
     ]);
@@ -3592,13 +3611,17 @@ export async function getTeamMemberDetail(
   const routineSignals = {
     completed: outcomeRows.filter(
       (row) =>
-        row.outcome === 'done' && row.completed_at && String(row.completed_at) >= completedSince,
+        row.outcome === 'done' &&
+        row.completed_at &&
+        String(row.completed_at) >= completedSince &&
+        (!completedUntil || String(row.completed_at) <= completedUntil),
     ).length,
     overdue: routines.length,
     notRequired: outcomeRows.filter(
       (row) =>
         row.outcome === 'not_required' &&
-        String(row.occurrence_date ?? '') >= completedSince.slice(0, 10),
+        String(row.occurrence_date ?? '') >= completedSince.slice(0, 10) &&
+        (!completedUntil || String(row.occurrence_date ?? '') <= completedUntil.slice(0, 10)),
     ).length,
   };
 
@@ -3629,8 +3652,8 @@ export async function getTeamMemberDetail(
       version: task.version,
     })),
     recentDelivery: {
-      windowKey: window.key,
-      windowLabel: window.label,
+      windowKey: period.key,
+      windowLabel: period.label,
       total: deliveryRecords.length,
       owned: ownedCompleted.length,
       shared: sharedCompleted.length,

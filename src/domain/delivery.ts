@@ -1,48 +1,4 @@
 /**
- * The rolling window My Team reads delivery over.
- *
- * Never "all time". A manager judging whether somebody is moving needs what
- * closed recently, and lifetime history answers a different question badly:
- * it grows without limit, it flatters whoever has been here longest, and it
- * buries this month under three years of everything.
- *
- * Deliberately small — four choices, one of them the default. A date-range
- * picker here would be a second Records screen, and Records is where an
- * arbitrary range belongs.
- */
-export const DELIVERY_WINDOWS = [
-  { key: '30', label: 'Last 30 days', short: '30 days', days: 30 },
-  { key: '60', label: 'Last 60 days', short: '60 days', days: 60 },
-  { key: '90', label: 'Last 90 days', short: '90 days', days: 90 },
-  { key: 'year', label: 'This year', short: 'this year', days: null },
-] as const;
-
-export type DeliveryWindowKey = (typeof DELIVERY_WINDOWS)[number]['key'];
-
-export const DEFAULT_DELIVERY_WINDOW: DeliveryWindowKey = '30';
-
-/** The chosen window, or the default when the parameter is absent or junk. */
-export function deliveryWindow(key: string | undefined) {
-  return (
-    DELIVERY_WINDOWS.find((window) => window.key === key) ??
-    DELIVERY_WINDOWS.find((window) => window.key === DEFAULT_DELIVERY_WINDOW)!
-  );
-}
-
-/**
- * The instant the window opens.
- *
- * Day counts roll back from now rather than snapping to midnight, so a list
- * is never nearly empty because the day has only just started. "This year" is
- * calendar-bounded, because that is what the words mean.
- */
-export function deliveryWindowSince(key: string | undefined, now: Date = new Date()): string {
-  const window = deliveryWindow(key);
-  if (window.days === null) return new Date(Date.UTC(now.getUTCFullYear(), 0, 1)).toISOString();
-  return new Date(now.getTime() - window.days * 86_400_000).toISOString();
-}
-
-/**
  * A date so far out it is almost certainly a typo.
  *
  * "15 Sep 2926" reached a manager's backlog because nothing questioned it: a
@@ -95,14 +51,3 @@ export const DELIVERY_KIND_WORD: Record<'owned' | 'shared' | 'routine', string> 
   shared: 'Contribution',
   routine: 'Routine',
 };
-
-/**
- * The window as a phrase a sentence can contain.
- *
- * `short` is a control label — "30 days", "this year" — and reads wrongly in
- * prose: "closed in the last this year". The two forms differ, so both exist.
- */
-export function deliveryWindowPhrase(key: string | undefined): string {
-  const window = deliveryWindow(key);
-  return window.days === null ? 'this year' : `in the last ${window.days} days`;
-}

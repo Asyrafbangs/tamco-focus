@@ -1,8 +1,26 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
+import { BaseSequencer, type TestSpecification } from 'vitest/node';
 
 const srcRoot = fileURLToPath(new URL('./src', import.meta.url));
 const testsRoot = fileURLToPath(new URL('./tests', import.meta.url));
+
+/**
+ * One order, every run.
+ *
+ * Vitest sorts files by how long they took last time, slowest first. That is
+ * the right default for a parallel suite of pure functions and the wrong one
+ * here: the integration specs share a seeded database, so the order decides
+ * the result. `goals` and `execution-goal-v53` both take about a second, and
+ * the two swapped places between two runs of the same commit — one green, one
+ * with two failures in files nothing had touched. Sorting by path makes a
+ * failure mean what it says.
+ */
+class PathSequencer extends BaseSequencer {
+  override async sort(files: TestSpecification[]) {
+    return [...files].sort((left, right) => left.moduleId.localeCompare(right.moduleId));
+  }
+}
 
 export default defineConfig({
   resolve: {
@@ -10,8 +28,11 @@ export default defineConfig({
   },
   test: {
     // Integration specs contend on the same seeded rows, so failures stay
-    // attributable to logic rather than to test ordering.
+    // attributable to logic rather than to test ordering. Running one file at
+    // a time was half of that; the other half is running them in the same
+    // order every time.
     fileParallelism: false,
+    sequence: { sequencer: PathSequencer },
     projects: [
       {
         // Pure domain logic. No database, no network, fully deterministic.

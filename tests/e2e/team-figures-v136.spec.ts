@@ -75,7 +75,7 @@ test.describe('v136 completed is reachable', () => {
   test('names the kind of each record rather than counting them together', async ({ page }) => {
     // A routine occurrence closes every week and a Major Project once a
     // quarter. A list that does not say which is which reads as a ranking.
-    await openTeam(page, '&filter=delivered&delivery=year');
+    await openTeam(page, '&filter=delivered&period=this-year');
     const rows = page.locator('.team-available-row');
     if ((await rows.count()) === 0) {
       test.skip(true, 'Nobody in this fixture has completed anything this year.');

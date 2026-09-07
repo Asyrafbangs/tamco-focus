@@ -671,6 +671,42 @@ async function claimAndDeliver(
   }
 }
 
+/**
+ * `in (...)` in batches, so the query string cannot outgrow the URL.
+ *
+ * A hundred UUIDs is about 3,800 characters, comfortably inside every limit in
+ * the path. Ordering and the overall cap are applied after merging, so the
+ * result is what a single query would have returned.
+ */
+async function readCompletionReviewsInBatches(
+  client: SupabaseClient<Database>,
+  taskIds: string[],
+): Promise<{ data: Record<string, unknown>[]; error: { message: string } | null }> {
+  if (taskIds.length === 0) return { data: [], error: null };
+
+  const batches: string[][] = [];
+  for (let index = 0; index < taskIds.length; index += 100) {
+    batches.push(taskIds.slice(index, index + 100));
+  }
+
+  const rows: Record<string, unknown>[] = [];
+  for (const batch of batches) {
+    const { data, error } = await client
+      .from('completion_reviews')
+      .select('*')
+      .in('task_id', batch)
+      .order('submitted_at', { ascending: false })
+      .limit(500);
+    if (error) return { data: [], error };
+    rows.push(...((data ?? []) as Record<string, unknown>[]));
+  }
+
+  rows.sort((left, right) =>
+    String(right.submitted_at ?? '').localeCompare(String(left.submitted_at ?? '')),
+  );
+  return { data: rows.slice(0, 500), error: null };
+}
+
 async function loadPersonalSignals(
   client: Client,
   profileId: string,
@@ -708,14 +744,17 @@ async function loadPersonalSignals(
         .in('status', ['backlog', 'active', 'paused'])
         .order('occurrence_date', { ascending: false })
         .limit(500),
-      taskIds.length
-        ? client
-            .from('completion_reviews')
-            .select('*')
-            .in('task_id', taskIds)
-            .order('submitted_at', { ascending: false })
-            .limit(500)
-        : Promise.resolve({ data: [], error: null }),
+      /*
+       * In batches, because a `.in()` list travels in the URL.
+       *
+       * The task query above returns up to 500 rows, and 500 UUIDs is roughly
+       * 19,000 characters of query string — past what PostgREST accepts, which
+       * comes back as "URI too long". So the weekly summary silently stopped
+       * generating for anybody carrying enough open work, and only for them:
+       * the failure scales with how busy a person is, which is the last place
+       * anybody would look for it.
+       */
+      readCompletionReviewsInBatches(client, taskIds),
     ]);
   const error =
     shared.error ||

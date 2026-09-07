@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { MenuDropdown } from '@/components/ui/MenuDropdown';
+import { PeriodPicker } from '@/components/ui/PeriodPicker';
 import {
   EmptyState,
   FocusTabs,
@@ -16,13 +17,13 @@ import {
   TASK_LAYER_PARAMS,
 } from '@/domain/navigation';
 import { formatDue, formatDueShort, overdueAgeMs } from '@/domain/duration';
+import { DELIVERY_KIND_WORD } from '@/domain/delivery';
 import {
-  DEFAULT_DELIVERY_WINDOW,
-  DELIVERY_KIND_WORD,
-  DELIVERY_WINDOWS,
-  deliveryWindow,
-  deliveryWindowPhrase,
-} from '@/domain/delivery';
+  periodParams,
+  resolvePeriod,
+  STANDARD_PERIODS,
+  type ResolvedPeriod,
+} from '@/domain/period';
 import { activeOrder, availableOrder, teamRowOrder } from '@/domain/prioritisation';
 import {
   FOCUS_BUCKET_LABELS,
@@ -107,53 +108,6 @@ const TAB_LABEL: Record<TabKey, string> = {
   completed: 'Completed',
   bin: 'Bin',
 };
-
-/** How far back Completed looks, and what each choice is called. */
-const COMPLETED_PERIODS = [
-  { key: '30', label: 'Last 30 days', days: 30 },
-  { key: '60', label: 'Last 60 days', days: 60 },
-  { key: '90', label: 'Last 90 days', days: 90 },
-  { key: 'this-year', label: 'This year', days: null },
-  { key: 'last-year', label: 'Last year', days: null },
-] as const;
-
-type CompletedPeriodKey = (typeof COMPLETED_PERIODS)[number]['key'] | 'custom';
-
-/**
- * The window Completed reads, as an ISO pair.
- *
- * "This year" and "Last year" are calendar-bounded; the day counts are rolling
- * back from now. A custom period supplies its own dates and falls back to the
- * default whenever one of them is missing or malformed, rather than showing an
- * empty list that looks like an absence of work.
- */
-function completedWindow(
-  period: CompletedPeriodKey,
-  fromDate: string | undefined,
-  toDate: string | undefined,
-  now: Date,
-): { since: string; until: string | null } {
-  const isDate = (value: string | undefined): value is string =>
-    typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
-
-  if (period === 'custom' && isDate(fromDate)) {
-    return {
-      since: new Date(`${fromDate}T00:00:00.000Z`).toISOString(),
-      until: isDate(toDate) ? new Date(`${toDate}T23:59:59.999Z`).toISOString() : null,
-    };
-  }
-  if (period === 'this-year') {
-    return { since: new Date(Date.UTC(now.getUTCFullYear(), 0, 1)).toISOString(), until: null };
-  }
-  if (period === 'last-year') {
-    return {
-      since: new Date(Date.UTC(now.getUTCFullYear() - 1, 0, 1)).toISOString(),
-      until: new Date(Date.UTC(now.getUTCFullYear() - 1, 11, 31, 23, 59, 59, 999)).toISOString(),
-    };
-  }
-  const days = COMPLETED_PERIODS.find((entry) => entry.key === period)?.days ?? 30;
-  return { since: new Date(now.getTime() - days * 86_400_000).toISOString(), until: null };
-}
 
 /**
  * Names in a sentence: "Amer Hakim, Lim Wei Sheng and Temporary Tester".
@@ -377,17 +331,15 @@ function CompletedHistory({
   failed,
   scope,
   period,
-  fromDate,
-  toDate,
   timeZone,
+  now,
 }: {
   records: CompletedRecord[];
   failed: boolean;
   scope: 'all' | 'owned' | 'contribution';
-  period: CompletedPeriodKey;
-  fromDate?: string;
-  toDate?: string;
+  period: ResolvedPeriod;
   timeZone: string;
+  now: Date;
 }) {
   if (failed) {
     return (
@@ -405,10 +357,8 @@ function CompletedHistory({
         : record.kind === 'contribution',
   );
   const scopeHref = (next: 'all' | 'owned' | 'contribution') => {
-    const query = new URLSearchParams({ tab: 'completed', period });
+    const query = new URLSearchParams({ tab: 'completed', ...periodParams(period) });
     if (next !== 'all') query.set('show', next);
-    if (period === 'custom' && fromDate) query.set('from_date', fromDate);
-    if (period === 'custom' && toDate) query.set('to_date', toDate);
     return `/work?${query.toString()}`;
   };
   const formatDay = (iso: string | null) =>
@@ -443,51 +393,16 @@ function CompletedHistory({
           ))}
         </div>
 
-        <MenuDropdown
-          ariaLabel="Change the period"
-          className="completed-period"
-          panelClassName="completed-period-panel"
-          minWidth={220}
-          label={
-            period === 'custom'
-              ? fromDate
-                ? `${fromDate}${toDate ? ` to ${toDate}` : ' onwards'}`
-                : 'Custom period'
-              : (COMPLETED_PERIODS.find((entry) => entry.key === period)?.label ?? 'Last 30 days')
-          }
-        >
-          {COMPLETED_PERIODS.map((entry) => {
-            const query = new URLSearchParams({ tab: 'completed', period: entry.key });
-            if (scope !== 'all') query.set('show', scope);
-            return (
-              <Link
-                key={entry.key}
-                href={`/work?${query.toString()}`}
-                className={period === entry.key ? 'active' : undefined}
-              >
-                {entry.label}
-              </Link>
-            );
-          })}
-          {/* A GET form, so a custom range is a link like every other choice
-                here and survives being bookmarked or shared. */}
-          <form className="completed-custom" action="/work">
-            <input type="hidden" name="tab" value="completed" />
-            <input type="hidden" name="period" value="custom" />
-            {scope !== 'all' && <input type="hidden" name="show" value={scope} />}
-            <label>
-              <span>From</span>
-              <input type="date" name="from_date" defaultValue={fromDate} required />
-            </label>
-            <label>
-              <span>To</span>
-              <input type="date" name="to_date" defaultValue={toDate} />
-            </label>
-            <button className="btn small" type="submit">
-              Apply
-            </button>
-          </form>
-        </MenuDropdown>
+        {/* The same control My Team, Routine and Records use. It was written
+            here first and stayed here, which is how the other three ended up
+            with three different answers to one question. */}
+        <PeriodPicker
+          action="/work"
+          hidden={{ tab: 'completed', ...(scope !== 'all' ? { show: scope } : {}) }}
+          presets={STANDARD_PERIODS}
+          period={period}
+          now={now}
+        />
       </div>
 
       <p className="completed-count" role="status">
@@ -557,13 +472,19 @@ export default async function WorkPage({
     /** v48 §8 — the screen this task was opened from. */
     from?: string;
     proposal?: string;
-    /** My Team: the rolling window delivery is counted over. */
-    delivery?: string;
-    /** Completed only: which slice of history, and how far back. */
+    /** Completed only: whose work is being listed. */
     show?: string;
+    /**
+     * The reporting period, shared by Completed and My Team.
+     *
+     * One name because it is one question. My Team used to call it `delivery`
+     * and Completed called its dates `from_date` / `to_date`, so the two
+     * halves of this page disagreed about how to say the same thing. The dates
+     * are `period_*` because `from` above already means something else here.
+     */
     period?: string;
-    from_date?: string;
-    to_date?: string;
+    period_from?: string;
+    period_to?: string;
   }>;
 }) {
   const profile = await requireProfile();
@@ -625,25 +546,18 @@ export default async function WorkPage({
   const personalAttentionView = params.filter === 'attention' && params.scope !== 'team';
 
   /*
-   * The Completed window, resolved before the queries run because one of them
-   * is bounded by it. Default: everything, over the last 30 days - what
-   * somebody checking their recent work most often wants.
+   * One period for the whole page, resolved before the queries run because
+   * several of them are bounded by it.
+   *
+   * Completed and My Team used to resolve their own, from different parameters
+   * and with different options, so the same page held two answers to "over what
+   * period". Default: the last 30 days - what somebody checking recent work
+   * most often wants.
    */
-  const completedPeriod = (
-    COMPLETED_PERIODS.some((entry) => entry.key === params.period)
-      ? params.period
-      : params.period === 'custom'
-        ? 'custom'
-        : '30'
-  ) as CompletedPeriodKey;
+  const now = new Date();
+  const period = resolvePeriod(params.period, params.period_from, params.period_to, now);
   const completedScope: 'all' | 'owned' | 'contribution' =
     params.show === 'owned' ? 'owned' : params.show === 'contribution' ? 'contribution' : 'all';
-  const completedRange = completedWindow(
-    completedPeriod,
-    params.from_date,
-    params.to_date,
-    new Date(),
-  );
 
   const requested = params.tab;
   const activeTab: TabKey =
@@ -697,7 +611,7 @@ export default async function WorkPage({
     // bounded by the same visibility rules the list is, and returns nothing for
     // somebody outside this manager's scope.
     params.person && hasTeam
-      ? getTeamMemberDetail(profile.id, params.person, params.delivery)
+      ? getTeamMemberDetail(profile.id, params.person, period)
       : Promise.resolve(null),
     personalAttentionView ? getMyAttention(profile.id) : Promise.resolve([]),
     // Scoped by the viewer's own visibility, not the whole organisation
@@ -720,17 +634,17 @@ export default async function WorkPage({
     // count request whose result was never rendered.
     scope === 'team' ? getTeamAvailableCount(profile.id) : Promise.resolve(0),
     // The one number in the team snapshot that is not already on this page.
-    scope === 'team' ? getTeamDeliveryCount(profile.id, params.delivery) : Promise.resolve(0),
+    scope === 'team' ? getTeamDeliveryCount(profile.id, period) : Promise.resolve(0),
     // And what that number is made of, when the manager asks to see it. Two
     // table reads over the window, so it stays behind the click rather than
     // being paid for on every load of My Team.
     scope === 'team' && teamFilter === 'delivered'
-      ? getTeamDeliveredWork(profile.id, params.delivery)
+      ? getTeamDeliveredWork(profile.id, period)
       : Promise.resolve({ groups: [], failed: false }),
     // Only when Completed is open. Finished work is history, and history is
     // not part of anybody's day.
     activeTab === 'completed'
-      ? getMyCompletedWork(profile.id, completedRange.since, completedRange.until)
+      ? getMyCompletedWork(profile.id, period.since, period.until)
       : Promise.resolve({ records: [], failed: false }),
   ]);
 
@@ -780,7 +694,6 @@ export default async function WorkPage({
 
   // Section 35 — Everyone by default, but people who need something first.
   // A manager should see normal activity AND exceptions, not have to choose.
-  const now = new Date();
 
   /*
    * Who a manager reads first, without filtering to find out. The rule lives in
@@ -798,14 +711,9 @@ export default async function WorkPage({
    * drawer to still be showing ninety days. Dropping the parameter on every
    * navigation would silently reset the question they just asked.
    */
-  const deliveryChoice = deliveryWindow(params.delivery);
-  const teamHref = (
-    filter?: 'attention' | 'available' | 'delivered',
-    windowKey = deliveryChoice.key,
-  ) => {
-    const query = new URLSearchParams({ scope: 'team' });
+  const teamHref = (filter?: 'attention' | 'available' | 'delivered') => {
+    const query = new URLSearchParams({ scope: 'team', ...periodParams(period) });
     if (filter) query.set('filter', filter);
-    if (windowKey !== DEFAULT_DELIVERY_WINDOW) query.set('delivery', windowKey);
     return `/work?${query.toString()}`;
   };
 
@@ -1120,23 +1028,26 @@ export default async function WorkPage({
                   aria-current={teamFilter === 'delivered' ? 'page' : undefined}
                 >
                   <span className="snapshot-value">{teamDelivered}</span>
-                  <span className="snapshot-label">Completed {deliveryChoice.short}</span>
+                  <span className="snapshot-label">Completed · {period.short}</span>
                 </Link>
               </li>
             </ul>
 
-            <nav className="snapshot-window" aria-label="Delivery window">
-              {DELIVERY_WINDOWS.map((option) => (
-                <Link
-                  key={option.key}
-                  href={teamHref(teamFilter === 'everyone' ? undefined : teamFilter, option.key)}
-                  className={option.key === deliveryChoice.key ? 'active' : undefined}
-                  aria-current={option.key === deliveryChoice.key ? 'true' : undefined}
-                >
-                  {option.short}
-                </Link>
-              ))}
-            </nav>
+            {/* The same control as My Work, Routine and Records. It was a
+                segmented strip of four presets with nowhere to put a date
+                range, so My Team was the one report a manager could not ask a
+                specific question of. */}
+            <PeriodPicker
+              action="/work"
+              hidden={{
+                scope: 'team',
+                ...(teamFilter !== 'everyone' ? { filter: teamFilter } : {}),
+              }}
+              presets={STANDARD_PERIODS}
+              period={period}
+              ariaLabel="Change the reporting period"
+              now={now}
+            />
           </div>
 
           <FocusTabs
@@ -1249,9 +1160,9 @@ export default async function WorkPage({
       {scope === 'team' && teamFilter === 'delivered' && (
         <div className="focus-panel">
           <p className="focus-tab-meaning">
-            What your team closed {deliveryWindowPhrase(params.delivery)}, grouped by who delivered
-            it. Owned work, contributions to somebody else&rsquo;s task, and routine occurrences —
-            the three things the figure above counts.
+            What your team closed {period.phrase}, grouped by who delivered it. Owned work,
+            contributions to somebody else&rsquo;s task, and routine occurrences — the three things
+            the figure above counts.
           </p>
           {teamDeliveredWork.failed ? (
             <div className="notice error" role="alert">
@@ -1310,7 +1221,7 @@ export default async function WorkPage({
               */}
               {deliveredWithNone.length > 0 && deliveredWithWork.length > 0 && (
                 <p className="team-group-none" data-testid="team-delivered-none">
-                  Nothing closed {deliveryWindowPhrase(params.delivery)} by{' '}
+                  Nothing closed {period.phrase} by{' '}
                   {nameList(deliveredWithNone.map((g) => g.ownerName))}.
                 </p>
               )}
@@ -1330,9 +1241,7 @@ export default async function WorkPage({
                   person={person}
                   filter={teamFilter}
                   nowIso={now.toISOString()}
-                  deliveryWindowKey={
-                    deliveryChoice.key === DEFAULT_DELIVERY_WINDOW ? undefined : deliveryChoice.key
-                  }
+                  periodParams={periodParams(period)}
                 />
               ))}
             </>
@@ -1360,10 +1269,9 @@ export default async function WorkPage({
               records={completedWork.records}
               failed={completedWork.failed}
               scope={completedScope}
-              period={completedPeriod}
-              fromDate={params.from_date}
-              toDate={params.to_date}
+              period={period}
               timeZone={profile.timezone}
+              now={now}
             />
           ) : activeTab === 'shared' ? (
             openContributions.length > 0 ? (
