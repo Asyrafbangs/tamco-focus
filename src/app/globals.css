@@ -7740,6 +7740,18 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   font-size: 11px;
 }
 
+/* The people a grouped view has nothing to show for, named in one line rather
+   than given an empty card each. Quiet on purpose: nothing waiting is a normal
+   state and often the useful one, not an absence to apologise for. */
+.team-group-none {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: 12px;
+}
+
 /* Deleted routines sit with the routines, folded away until wanted. */
 .routine-bin {
   margin-top: 12px;

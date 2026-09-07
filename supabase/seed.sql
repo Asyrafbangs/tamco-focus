@@ -522,6 +522,33 @@ insert into public.work_proposals (kind, title, rationale, proposed_by, payload)
 );
 
 -- ---------------------------------------------------------------------------
+-- How far out a seeded Goal is aimed.
+--
+-- A Goal is set a few months ahead so the fixtures read as work in progress.
+-- Written as a bare `current_date + 120` the target walks out of the current
+-- performance period every autumn: from 3 September the date lands in January,
+-- the plan bootstrap therefore gives that employee no plan for THIS year, and
+-- `tests/integration/execution-goal-v53.test.ts` fails with "Cannot coerce the
+-- result to a single JSON object". A calendar failure that reads exactly like
+-- a code failure, months after the code was last touched.
+--
+-- So each offset is kept and clamped to 31 December, which is what a
+-- performance period runs to. The clamp has to be applied at INSERT: the
+-- trigger that derives `performance_period_id` only fills a null, and the one
+-- that creates the employee's plan is AFTER INSERT only -- so correcting a
+-- target date afterwards would leave the Goal in the wrong period with no plan
+-- at all, which is the bug this avoids rather than a fix for it.
+--
+-- Late in the year the offsets therefore bunch on 31 December. That is what an
+-- annual Goal looks like in December, so it costs the fixtures nothing: the
+-- weights, health and progress that the screens actually read still differ.
+--
+-- Repeated inline rather than wrapped in a helper, for the same reason the
+-- account loop above is a DO block: `supabase db reset` pipelines this file as
+-- a batch, so there is no temporary schema for a `pg_temp` function to live in.
+-- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
 -- Goals v33 fixtures.
 --
 -- Safety Digitalisation is the approved representative Goal from the v33
@@ -541,7 +568,7 @@ insert into public.goals (
    'f0c05000-0000-4000-a000-000000000002',
    'f0c05000-0000-4000-a000-000000000002',
    'Safety Digitalisation', 'improvement', 'active', 'support_requested',
-   20, current_date + 150, 10, now() - interval '1 day',
+   20, least(current_date + 150, make_date(extract(year from current_date)::integer, 12, 31)), 10, now() - interval '1 day',
    now() - interval '21 days', null, now() - interval '90 days', 1,
    now() - interval '100 days'),
 
@@ -550,7 +577,7 @@ insert into public.goals (
    'f0c05000-0000-4000-a000-000000000002',
    'f0c05000-0000-4000-a000-000000000002',
    'Strengthen frontline safety coaching', 'development', 'active', 'on_track',
-   25, current_date + 120, 25, now() + interval '14 days',
+   25, least(current_date + 120, make_date(extract(year from current_date)::integer, 12, 31)), 25, now() + interval '14 days',
    now() - interval '4 days', null, now() - interval '70 days', 1,
    now() - interval '75 days');
 
@@ -569,7 +596,7 @@ insert into public.goal_versions (
    'Availability of Operations users and access to non-sensitive example data.',
    'Recurring observations, reminders, and follow-ups are currently tracked across spreadsheets and messages.',
    'Reduce avoidable administration so safety time is spent on prevention and coaching.',
-   current_date + 150, 10,
+   least(current_date + 150, make_date(extract(year from current_date)::integer, 12, 31)), 10,
    'f0c05000-0000-4000-a000-000000000002', now() - interval '100 days',
    now() - interval '90 days'),
 
@@ -583,7 +610,7 @@ insert into public.goal_versions (
    'Shift coverage during the scheduled sessions.',
    'Coaching currently happens informally and is not consistent between shifts.',
    'Build confident frontline ownership of everyday safety conversations.',
-   current_date + 120, 25,
+   least(current_date + 120, make_date(extract(year from current_date)::integer, 12, 31)), 25,
    'f0c05000-0000-4000-a000-000000000002', now() - interval '75 days',
    now() - interval '70 days');
 
@@ -734,7 +761,7 @@ insert into public.goals (
    'f0c05000-0000-4000-a000-000000000002',
    'f0c05000-0000-4000-a000-000000000002',
    'BR2 Warehouse ESH Readiness and Stabilisation', 'performance', 'active', 'on_track',
-   55, current_date + 115, 30, now() + interval '5 days',
+   55, least(current_date + 115, make_date(extract(year from current_date)::integer, 12, 31)), 30, now() + interval '5 days',
    now() - interval '8 days', null, now() - interval '204 days', 1,
    now() - interval '210 days'),
 
@@ -743,7 +770,7 @@ insert into public.goals (
    'f0c05000-0000-4000-a000-000000000002',
    'f0c05000-0000-4000-a000-000000000002',
    'Field Service Safety Assurance', 'performance', 'active', 'on_track',
-   40, current_date + 146, 25, now() + interval '24 days',
+   40, least(current_date + 146, make_date(extract(year from current_date)::integer, 12, 31)), 25, now() + interval '24 days',
    now() - interval '5 days', null, now() - interval '204 days', 1,
    now() - interval '210 days');
 
@@ -762,7 +789,7 @@ insert into public.goal_versions (
    'Warehouse cooperation and Engineering availability during the handover window.',
    'Warehouse controls and operating arrangements are still being established.',
    'A safe and controlled warehouse start-up prevents unmanaged traffic, racking, emergency and operational risks.',
-   current_date + 115, 30,
+   least(current_date + 115, make_date(extract(year from current_date)::integer, 12, 31)), 30,
    'f0c05000-0000-4000-a000-000000000002', now() - interval '210 days',
    now() - interval '204 days'),
 
@@ -776,7 +803,7 @@ insert into public.goal_versions (
    'Access to customer requirements and advance notification of mobilisation dates.',
    'Reviews and site verification are conducted, but coverage and reporting are not yet consistent.',
    'Field-service work changes by site and requires consistent pre-mobilisation review, verification and follow-through.',
-   current_date + 146, 25,
+   least(current_date + 146, make_date(extract(year from current_date)::integer, 12, 31)), 25,
    'f0c05000-0000-4000-a000-000000000002', now() - interval '210 days',
    now() - interval '204 days');
 

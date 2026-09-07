@@ -179,6 +179,33 @@ test('owner completes one monthly employee session without creating an approval'
   await panel.getByRole('button', { name: 'Start monthly session' }).click();
   const session = page.getByRole('dialog', { name: /Monthly Goal session/ });
   await expect(session.getByText(/normal update needs no approval/i)).toBeVisible();
+
+  /*
+   * Explain whichever Goals the fixture has left At risk, because the product
+   * requires it — the placeholder on the box says so.
+   *
+   * This used to complete the month without touching them, which worked only
+   * while the seeded at-risk Goal happened to be outside the current
+   * performance period. Its target date is a rolling offset, so the session
+   * covered one Goal for part of the year and three for the rest, and the test
+   * passed or failed on the calendar. Reading the healths on screen makes it
+   * depend on what the session actually contains.
+   *
+   * Filling the box is not what the test is about: an explanation is a normal
+   * update. The approval path is the "Request support" checkbox, which stays
+   * untouched — which is what the last two assertions check.
+   */
+  const groups = session.getByRole('group');
+  for (let index = 0; index < (await groups.count()); index += 1) {
+    const group = groups.nth(index);
+    const health = group.getByLabel('Current health');
+    if (['at_risk', 'off_track', 'At risk', 'Off track'].includes(await health.inputValue())) {
+      await group
+        .getByLabel(/What changed\?/)
+        .fill('Recovery plan agreed with the line supervisor.');
+    }
+  }
+
   await session.getByRole('button', { name: 'Complete month' }).click();
   await expect(session).toHaveCount(0);
   await expect(panel.getByRole('button', { name: 'Month complete' })).toBeDisabled();

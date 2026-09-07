@@ -245,6 +245,12 @@ export async function getTeamAvailableWork(
     .select('id,title,work_class,primary_owner_id,due_at,due_is_date_only')
     .eq('status', 'backlog')
     .in('primary_owner_id', ownerIds)
+    // Excluded in the query, not afterwards. The count above filters routine
+    // occurrences in SQL and this filtered them in JavaScript, so the 500-row
+    // limit was applied to two different populations: a team carrying enough
+    // generated occurrences would see a headline figure the list below it
+    // could not reach.
+    .neq('work_class', 'routine_occurrence')
     .order('due_at', { ascending: true, nullsFirst: false })
     .limit(500);
 
@@ -255,7 +261,7 @@ export async function getTeamAvailableWork(
     return { groups: [], failed: true };
   }
 
-  const rows = (data ?? []).filter((row) => row.work_class !== 'routine_occurrence');
+  const rows = data ?? [];
 
   const byOwner = new Map<string, TeamAvailableGroup>();
   for (const row of rows) {
@@ -272,6 +278,20 @@ export async function getTeamAvailableWork(
       dueAt: row.due_at ? String(row.due_at) : null,
       dueIsDateOnly: Boolean(row.due_is_date_only),
     });
+  }
+
+  /*
+   * Everybody the manager can see, including the people carrying nothing.
+   *
+   * The grouping was built from the task rows, so a person with an empty
+   * backlog simply had no group and vanished from a view headed "Available
+   * work". A manager reading five names on My Team and four here cannot tell
+   * whether the fifth has nothing waiting or whether the page failed to show
+   * them — and "nothing waiting" is an answer worth giving explicitly, because
+   * it is who you assign the next thing to.
+   */
+  for (const [ownerId, ownerName] of ownerNames) {
+    if (!byOwner.has(ownerId)) byOwner.set(ownerId, { ownerId, ownerName, tasks: [] });
   }
 
   // Busiest first: the person a manager most needs to think about before
@@ -2877,6 +2897,15 @@ export interface TeamAttentionRow {
   activeCount: number;
   /** Overdue items of every kind, so an exception can be stated before a volume. */
   overdueCount: number;
+  /**
+   * What is waiting to be picked up, on the row rather than behind a view.
+   *
+   * "Who may be overloaded" cannot be answered from Active alone: somebody
+   * with two Active items and eleven waiting is carrying more than somebody
+   * with four and none. This lived only in the Available view, which replaces
+   * the people list — so reading it meant leaving the person you were reading.
+   */
+  availableCount: number;
   routineDueCount: number;
   /**
    * Their current focus: the Active item touched most recently.
@@ -3249,6 +3278,114 @@ export async function getTeamDeliveryCount(viewerId: string, windowKey?: string)
   if (owned.error) console.error(`[getTeamDeliveryCount:owned] ${owned.error.message}`);
   if (shared.error) console.error(`[getTeamDeliveryCount:shared] ${shared.error.message}`);
   return (owned.count ?? 0) + (shared.count ?? 0);
+}
+
+/** What one person closed inside the window, in the team-wide list. */
+export interface TeamDeliveredGroup {
+  ownerId: string;
+  ownerName: string;
+  records: Array<{
+    id: string;
+    taskId: string;
+    kind: 'owned' | 'shared' | 'routine';
+    title: string;
+    parentTitle: string | null;
+    at: string | null;
+  }>;
+}
+
+/**
+ * The work behind the team's Completed figure, grouped by who delivered it.
+ *
+ * The snapshot reported a number and stopped there — the other two figures
+ * were links and this one was plain text, so "what has my team actually
+ * delivered" was the one question of the four a manager could not follow.
+ * Per-person delivery already existed inside the drawer, which answers it only
+ * for somebody you have already decided to open.
+ *
+ * Reads exactly what `getTeamDeliveryCount` counts, over the same window, so
+ * the strip and the list cannot disagree. Bounded by RLS on both sources.
+ */
+export async function getTeamDeliveredWork(
+  viewerId: string,
+  windowKey?: string,
+): Promise<{ groups: TeamDeliveredGroup[]; failed: boolean }> {
+  const team = await getTeamLoad(viewerId);
+  const ownerNames = new Map(team.map((person) => [person.userId, person.fullName]));
+  const ownerIds = [...ownerNames.keys()];
+  if (ownerIds.length === 0) return { groups: [], failed: false };
+
+  const supabase = await createSupabaseServerClient();
+  const since = deliveryWindowSince(windowKey);
+
+  const [owned, shared] = await Promise.all([
+    supabase
+      .from('task_overview')
+      .select('id,title,work_class,completed_at,primary_owner_id')
+      .in('primary_owner_id', ownerIds)
+      .eq('status', 'completed')
+      .gte('completed_at', since)
+      .order('completed_at', { ascending: false })
+      .limit(500),
+    supabase
+      .from('completed_contributions')
+      .select('checklist_item_id,task_id,title,parent_title,completed_at,assignee_id')
+      .in('assignee_id', ownerIds)
+      .gte('completed_at', since)
+      .order('completed_at', { ascending: false })
+      .limit(500),
+  ]);
+
+  if (owned.error || shared.error) {
+    // Never rendered as "the team delivered nothing" — that is a claim about
+    // people, and a failed query does not support it.
+    const error = (owned.error ?? shared.error) as { message: string };
+    console.error(`[getTeamDeliveredWork] ${error.message}`);
+    return { groups: [], failed: true };
+  }
+
+  const byOwner = new Map<string, TeamDeliveredGroup>();
+  for (const [ownerId, ownerName] of ownerNames) {
+    byOwner.set(ownerId, { ownerId, ownerName, records: [] });
+  }
+
+  for (const row of owned.data ?? []) {
+    byOwner.get(String(row.primary_owner_id))?.records.push({
+      id: String(row.id),
+      taskId: String(row.id),
+      // A routine occurrence closes every week and a Major Project once a
+      // quarter. Naming which is which stops the list reading as a ranking.
+      kind: row.work_class === 'routine_occurrence' ? 'routine' : 'owned',
+      title: String(row.title),
+      parentTitle: null,
+      at: row.completed_at ? String(row.completed_at) : null,
+    });
+  }
+
+  for (const row of shared.data ?? []) {
+    byOwner.get(String(row.assignee_id))?.records.push({
+      id: String(row.checklist_item_id),
+      taskId: String(row.task_id),
+      kind: 'shared',
+      title: String(row.title),
+      parentTitle: row.parent_title ? String(row.parent_title) : null,
+      at: row.completed_at ? String(row.completed_at) : null,
+    });
+  }
+
+  for (const group of byOwner.values()) {
+    group.records.sort((left, right) => (right.at ?? '').localeCompare(left.at ?? ''));
+  }
+
+  // Most delivered first. Everybody appears, including the people who closed
+  // nothing in the window — an empty period is a fact about the period as
+  // often as it is a fact about the person, and hiding the name hides both.
+  return {
+    failed: false,
+    groups: [...byOwner.values()].sort(
+      (a, b) => b.records.length - a.records.length || a.ownerName.localeCompare(b.ownerName),
+    ),
+  };
 }
 
 export async function getTeamMemberDetail(
@@ -3925,6 +4062,12 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
       // `theirs` holds backlog, active and paused work including routine
       // occurrences, so this is every overdue thing they are carrying.
       overdueCount: theirs.filter((task) => task.isOverdue).length,
+      // The same definition the Available view and the drawer use: backlog
+      // work that is not a generated occurrence. Three surfaces reporting one
+      // person's waiting work must not each count it differently.
+      availableCount: theirs.filter(
+        (task) => task.status === 'backlog' && task.workClass !== 'routine_occurrence',
+      ).length,
       routineDueCount: person.routinesOverdue,
       workingOn: active[0] ? { taskId: active[0].id, title: active[0].title } : null,
       otherActiveCount: Math.max(0, active.length - 1),

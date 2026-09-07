@@ -9,17 +9,12 @@ import {
   ROUTINE_OCCURRENCE_LABELS,
   routineOccurrenceState,
 } from '@/domain/duration';
+import { DELIVERY_KIND_WORD } from '@/domain/delivery';
 import { GOAL_HEALTH_LABELS, GOAL_STATUS_LABELS } from '@/domain/goals';
 import { FOCUS_BUCKET_WORD, WORK_CLASS_LABELS } from '@/domain/types';
 import type { TeamMemberDetail } from '@/server/queries';
 
 /** What a delivered record was, in one word. */
-const DELIVERY_KIND_WORD: Record<'owned' | 'shared' | 'routine', string> = {
-  owned: 'Owned work',
-  shared: 'Contribution',
-  routine: 'Routine',
-};
-
 function agoWords(iso: string, now: Date): string {
   const minutes = Math.max(0, Math.round((now.getTime() - new Date(iso).getTime()) / 60_000));
   if (minutes < 1) return 'just now';

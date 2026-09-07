@@ -85,11 +85,19 @@ export function MyTeamPersonRow({
    * decides whether this person needs reading is second, behind a number that
    * is the same shape on every row. Zeroes are left out entirely — a column of
    * "0 overdue" is a column of nothing happening, said loudly.
+   *
+   * Waiting work comes last and is the reason this line has three figures
+   * rather than two. Load is what is carried plus what is queued, and the
+   * queued half was readable only in a view that replaces this table — so
+   * "who may be overloaded" could not be answered while looking at the people.
+   * A person with nothing active but nine waiting now says so here, where the
+   * line used to read "Nothing active" and mean the opposite of what it said.
    */
   const summary =
     [
       person.overdueCount > 0 ? `${person.overdueCount} overdue` : null,
       person.activeCount > 0 ? `${person.activeCount} active` : null,
+      person.availableCount > 0 ? `${person.availableCount} waiting` : null,
     ]
       .filter(Boolean)
       .join(' · ') || 'Nothing active';

@@ -16,7 +16,13 @@ import {
   TASK_LAYER_PARAMS,
 } from '@/domain/navigation';
 import { formatDue, formatDueShort, overdueAgeMs } from '@/domain/duration';
-import { DEFAULT_DELIVERY_WINDOW, DELIVERY_WINDOWS, deliveryWindow } from '@/domain/delivery';
+import {
+  DEFAULT_DELIVERY_WINDOW,
+  DELIVERY_KIND_WORD,
+  DELIVERY_WINDOWS,
+  deliveryWindow,
+  deliveryWindowPhrase,
+} from '@/domain/delivery';
 import { activeOrder, availableOrder, teamRowOrder } from '@/domain/prioritisation';
 import {
   FOCUS_BUCKET_LABELS,
@@ -45,6 +51,7 @@ import {
   getVisiblePeopleCount,
   getMajorProjectProposalDetail,
   getMajorProjectProposals,
+  getTeamDeliveredWork,
   getTeamDeliveryCount,
   getTeamMemberDetail,
   type CompletedRecord,
@@ -147,6 +154,15 @@ function completedWindow(
   const days = COMPLETED_PERIODS.find((entry) => entry.key === period)?.days ?? 30;
   return { since: new Date(now.getTime() - days * 86_400_000).toISOString(), until: null };
 }
+
+/**
+ * Names in a sentence: "Amer Hakim, Lim Wei Sheng and Temporary Tester".
+ *
+ * `Intl.ListFormat` rather than `join(', ')`, so the last name is joined the
+ * way the line is read aloud and a list of one is simply the name.
+ */
+const NAME_LIST = new Intl.ListFormat('en-GB', { style: 'long', type: 'conjunction' });
+const nameList = (names: string[]) => NAME_LIST.format(names);
 
 const SHORT_BUCKET_LABEL: Record<FocusBucket, string> = {
   major: 'Major',
@@ -596,12 +612,14 @@ export default async function WorkPage({
    * Scope is now chosen first, and the state tabs belong to My Work alone.
    */
   const scope: 'mine' | 'team' = params.scope === 'team' && hasTeam ? 'team' : 'mine';
-  const teamFilter: 'everyone' | 'attention' | 'available' =
+  const teamFilter: 'everyone' | 'attention' | 'available' | 'delivered' =
     params.filter === 'attention'
       ? 'attention'
       : params.filter === 'available'
         ? 'available'
-        : 'everyone';
+        : params.filter === 'delivered'
+          ? 'delivered'
+          : 'everyone';
 
   // `?filter=attention` outside team scope means "my own full list".
   const personalAttentionView = params.filter === 'attention' && params.scope !== 'team';
@@ -655,6 +673,7 @@ export default async function WorkPage({
     teamAvailable,
     teamAvailableCount,
     teamDelivered,
+    teamDeliveredWork,
     completedWork,
   ] = await Promise.all([
     getMyTasks(profile.id),
@@ -702,6 +721,12 @@ export default async function WorkPage({
     scope === 'team' ? getTeamAvailableCount(profile.id) : Promise.resolve(0),
     // The one number in the team snapshot that is not already on this page.
     scope === 'team' ? getTeamDeliveryCount(profile.id, params.delivery) : Promise.resolve(0),
+    // And what that number is made of, when the manager asks to see it. Two
+    // table reads over the window, so it stays behind the click rather than
+    // being paid for on every load of My Team.
+    scope === 'team' && teamFilter === 'delivered'
+      ? getTeamDeliveredWork(profile.id, params.delivery)
+      : Promise.resolve({ groups: [], failed: false }),
     // Only when Completed is open. Finished work is history, and history is
     // not part of anybody's day.
     activeTab === 'completed'
@@ -774,12 +799,36 @@ export default async function WorkPage({
    * navigation would silently reset the question they just asked.
    */
   const deliveryChoice = deliveryWindow(params.delivery);
-  const teamHref = (filter?: 'attention' | 'available', windowKey = deliveryChoice.key) => {
+  const teamHref = (
+    filter?: 'attention' | 'available' | 'delivered',
+    windowKey = deliveryChoice.key,
+  ) => {
     const query = new URLSearchParams({ scope: 'team' });
     if (filter) query.set('filter', filter);
     if (windowKey !== DEFAULT_DELIVERY_WINDOW) query.set('delivery', windowKey);
     return `/work?${query.toString()}`;
   };
+
+  /*
+   * The people each grouped view has something to show for, and the rest.
+   *
+   * Both lists cover the whole roster now, so that the reader can tell "this
+   * person has nothing" from "this person is missing" — but the people with
+   * nothing are a footnote, not five cards of white space.
+   */
+  const availableWithWork = teamAvailable.groups.filter((group) => group.tasks.length > 0);
+  const availableWithNone = teamAvailable.groups.filter((group) => group.tasks.length === 0);
+  const deliveredWithWork = teamDeliveredWork.groups.filter((group) => group.records.length > 0);
+  const deliveredWithNone = teamDeliveredWork.groups.filter((group) => group.records.length === 0);
+
+  /* Day and month only. Every row in the delivered list falls inside the
+     window named above it, so the year is the same on all of them. */
+  const completedDay = (iso: string) =>
+    new Date(iso).toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      timeZone: profile.timezone,
+    });
 
   /*
    * v46 §9, §45 — resolve what the person was sent here to do.
@@ -1056,8 +1105,23 @@ export default async function WorkPage({
                 </Link>
               </li>
               <li>
-                <span className="snapshot-value">{teamDelivered}</span>
-                <span className="snapshot-label">Completed {deliveryChoice.short}</span>
+                {/*
+                  A link, like the two figures above it.
+
+                  This one was plain text, so of the four numbers a manager
+                  reads in ten seconds, the one answering "what has the team
+                  actually delivered" was the only one they could not follow.
+                  The work behind it existed only inside a person's drawer,
+                  which answers the question for somebody you have already
+                  decided to open — the opposite of how you would use it.
+                */}
+                <Link
+                  href={teamHref('delivered')}
+                  aria-current={teamFilter === 'delivered' ? 'page' : undefined}
+                >
+                  <span className="snapshot-value">{teamDelivered}</span>
+                  <span className="snapshot-label">Completed {deliveryChoice.short}</span>
+                </Link>
               </li>
             </ul>
 
@@ -1126,41 +1190,136 @@ export default async function WorkPage({
                 that nobody has anything waiting.
               </p>
             </div>
-          ) : teamAvailable.groups.length === 0 ? (
-            <div className="empty-state">
-              <h3>Nobody has Available work waiting</h3>
-              <p>Everything visible to you has been activated, completed or not yet created.</p>
-            </div>
           ) : (
-            teamAvailable.groups.map((group) => (
-              <section key={group.ownerId} className="team-available-group">
-                <header>
-                  <strong>{group.ownerName}</strong>
-                  <span className="muted">{group.tasks.length} waiting</span>
-                  <Link href={`/work?scope=team&filter=available&person=${group.ownerId}`}>
-                    Open person
-                  </Link>
-                </header>
-                <ul className="team-available-list">
-                  {group.tasks.map((task) => (
-                    <li key={task.id} className="team-available-row">
-                      <RowPrimaryLink href={`/work?scope=team&filter=available&task=${task.id}`}>
-                        {task.title}
-                      </RowPrimaryLink>
-                      <span className="muted">
-                        {WORK_CLASS_LABELS[task.workClass]}
-                        {task.dueAt ? ` · ${formatDue(task.dueAt, task.dueIsDateOnly)}` : ''}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))
+            <>
+              {availableWithWork.map((group) => (
+                <section key={group.ownerId} className="team-available-group">
+                  <header>
+                    <strong>{group.ownerName}</strong>
+                    <span className="muted">{group.tasks.length} waiting</span>
+                    <Link href={`/work?scope=team&filter=available&person=${group.ownerId}`}>
+                      Open person
+                    </Link>
+                  </header>
+                  <ul className="team-available-list">
+                    {group.tasks.map((task) => (
+                      <li key={task.id} className="team-available-row">
+                        <RowPrimaryLink href={`/work?scope=team&filter=available&task=${task.id}`}>
+                          {task.title}
+                        </RowPrimaryLink>
+                        <span className="muted">
+                          {WORK_CLASS_LABELS[task.workClass]}
+                          {task.dueAt ? ` · ${formatDue(task.dueAt, task.dueIsDateOnly)}` : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+
+              {availableWithWork.length === 0 && (
+                <div className="empty-state">
+                  <h3>Nobody has Available work waiting</h3>
+                  <p>Everything visible to you has been activated, completed or not yet created.</p>
+                </div>
+              )}
+
+              {/*
+                One line, not a card each.
+
+                The grouping was built from the task rows, so somebody with an
+                empty backlog had no group and simply was not on a page headed
+                "Available work" — and a manager reading five people on My Team
+                and four here cannot tell "nothing waiting" from "the page did
+                not show them". Nothing waiting is also the answer to who gets
+                the next thing, so it has to be said. Saying it in an empty card
+                per person rebuilds the wall of "No action needed from you" that
+                v130 took out: five names cost five words here instead.
+              */}
+              {availableWithNone.length > 0 && availableWithWork.length > 0 && (
+                <p className="team-group-none" data-testid="team-available-none">
+                  Nothing waiting for {nameList(availableWithNone.map((g) => g.ownerName))}.
+                </p>
+              )}
+            </>
           )}
         </div>
       )}
 
-      {scope === 'team' && teamFilter !== 'available' && (
+      {scope === 'team' && teamFilter === 'delivered' && (
+        <div className="focus-panel">
+          <p className="focus-tab-meaning">
+            What your team closed {deliveryWindowPhrase(params.delivery)}, grouped by who delivered
+            it. Owned work, contributions to somebody else&rsquo;s task, and routine occurrences —
+            the three things the figure above counts.
+          </p>
+          {teamDeliveredWork.failed ? (
+            <div className="notice error" role="alert">
+              <strong>Team delivery could not be loaded</strong>
+              <p>
+                Refresh the page, and tell an administrator if it persists. This is not a statement
+                that your team has delivered nothing.
+              </p>
+            </div>
+          ) : (
+            <>
+              {deliveredWithWork.map((group) => (
+                <section key={group.ownerId} className="team-available-group">
+                  <header>
+                    <strong>{group.ownerName}</strong>
+                    <span className="muted">{group.records.length} completed</span>
+                    <Link href={`/work?scope=team&filter=delivered&person=${group.ownerId}`}>
+                      Open person
+                    </Link>
+                  </header>
+                  <ul className="team-available-list">
+                    {group.records.map((record) => (
+                      <li key={`${record.kind}-${record.id}`} className="team-available-row">
+                        <RowPrimaryLink
+                          href={`/work?scope=team&filter=delivered&task=${record.taskId}`}
+                        >
+                          {record.title}
+                        </RowPrimaryLink>
+                        <span className="muted">
+                          {DELIVERY_KIND_WORD[record.kind]}
+                          {record.parentTitle ? ` on ${record.parentTitle}` : ''}
+                          {record.at ? ` · ${completedDay(record.at)}` : ''}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+
+              {deliveredWithWork.length === 0 && (
+                <div className="empty-state">
+                  <h3>Nothing closed in this window</h3>
+                  <p>
+                    Try a wider window before reading anything into it — a team working on Major
+                    Projects can go a month without closing one.
+                  </p>
+                </div>
+              )}
+
+              {/*
+                A period with nothing closed is as often a fact about the period
+                — a fortnight of holiday, one long Major Project still running —
+                as about the person. Dropping the name shows neither, and giving
+                each of them a card of their own makes the absence the loudest
+                thing on the page.
+              */}
+              {deliveredWithNone.length > 0 && deliveredWithWork.length > 0 && (
+                <p className="team-group-none" data-testid="team-delivered-none">
+                  Nothing closed {deliveryWindowPhrase(params.delivery)} by{' '}
+                  {nameList(deliveredWithNone.map((g) => g.ownerName))}.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {scope === 'team' && teamFilter !== 'available' && teamFilter !== 'delivered' && (
         <div className="focus-panel">
           {teamRows.length > 0 ? (
             <>

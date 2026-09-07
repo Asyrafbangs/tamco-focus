@@ -81,3 +81,28 @@ export function isImplausibleDate(value: string | null | undefined, now: Date = 
 export function latestPlausibleDate(now: Date = new Date()): string {
   return `${now.getUTCFullYear() + IMPLAUSIBLE_YEARS_AHEAD}-12-31`;
 }
+
+/**
+ * What kind of record a completion is, in the manager's words.
+ *
+ * Shared between the team-wide Completed list and one person's drawer, which
+ * show the same records at two altitudes. Kept here because the distinction is
+ * the point: a routine occurrence closes every week and a Major Project once a
+ * quarter, so a list that does not name which is which reads as a ranking.
+ */
+export const DELIVERY_KIND_WORD: Record<'owned' | 'shared' | 'routine', string> = {
+  owned: 'Owned work',
+  shared: 'Contribution',
+  routine: 'Routine',
+};
+
+/**
+ * The window as a phrase a sentence can contain.
+ *
+ * `short` is a control label — "30 days", "this year" — and reads wrongly in
+ * prose: "closed in the last this year". The two forms differ, so both exist.
+ */
+export function deliveryWindowPhrase(key: string | undefined): string {
+  const window = deliveryWindow(key);
+  return window.days === null ? 'this year' : `in the last ${window.days} days`;
+}
