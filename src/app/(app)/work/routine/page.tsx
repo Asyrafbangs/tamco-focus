@@ -125,6 +125,8 @@ export default async function RoutinePage({
     params.period_to,
     now,
     'this-month',
+    // The reader's zone: "this month" means the month on their wall.
+    profile.timezone,
   );
   const completedSince = period.since;
   const managerWindow = { since: period.since, until: period.until };

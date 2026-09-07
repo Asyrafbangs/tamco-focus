@@ -19,6 +19,7 @@ import {
 import { formatDue, formatDueShort, overdueAgeMs } from '@/domain/duration';
 import { DELIVERY_KIND_WORD } from '@/domain/delivery';
 import {
+  DEFAULT_PERIOD,
   periodParams,
   resolvePeriod,
   STANDARD_PERIODS,
@@ -555,7 +556,16 @@ export default async function WorkPage({
    * most often wants.
    */
   const now = new Date();
-  const period = resolvePeriod(params.period, params.period_from, params.period_to, now);
+  const period = resolvePeriod(
+    params.period,
+    params.period_from,
+    params.period_to,
+    now,
+    DEFAULT_PERIOD,
+    // The reader's zone, not the server's: "this year" and a date range mean
+    // the calendar on their wall.
+    profile.timezone,
+  );
   const completedScope: 'all' | 'owned' | 'contribution' =
     params.show === 'owned' ? 'owned' : params.show === 'contribution' ? 'contribution' : 'all';
 

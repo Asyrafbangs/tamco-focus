@@ -106,13 +106,66 @@ test.describe('v137 the period control', () => {
       await expect(page).toHaveURL(/period=custom/);
       await expect(page).toHaveURL(/period_from=2026-01-01/);
       await expect(page).toHaveURL(/period_to=2026-03-31/);
-      // And the control says what was asked for, rather than falling back to a
-      // preset label that no longer describes the list underneath it.
+      // And the control says what was asked for, in the words the rest of the
+      // product uses for a date — not the ISO string the form submitted.
       await expect(page.locator('.period-picker').first().getByRole('button')).toContainText(
-        '2026-01-01 to 2026-03-31',
+        '1 Jan to 31 Mar',
       );
     });
   }
+
+  test('one date alone is a question, not a refusal', async ({ page }) => {
+    /*
+     * "From" was required, so filling only "To" was refused by the browser —
+     * and the menu closed on the same click, taking the message that would
+     * have explained it. Apply appeared to do nothing at all.
+     */
+    const picker = await open(page, '/work?scope=team');
+    await picker.getByRole('button').click();
+    const menu = page.locator('.period-picker-panel');
+    await menu.getByLabel('To').fill('2026-03-31');
+    await menu.getByRole('button', { name: 'Apply' }).click();
+
+    await expect(page).toHaveURL(/period_to=2026-03-31/);
+    await expect(page.locator('.period-picker').first().getByRole('button')).toContainText(
+      'up to 31 Mar',
+    );
+  });
+
+  test('a range entered the wrong way round is read as the range it describes', async ({
+    page,
+  }) => {
+    /*
+     * It used to be honoured literally, so the period began after it ended and
+     * could not contain anything. My Team then reported "0 completed" — a
+     * claim about the team, from a period that cannot hold a single record.
+     */
+    const picker = await open(page, '/work?scope=team');
+    await picker.getByRole('button').click();
+    const menu = page.locator('.period-picker-panel');
+    await menu.getByLabel('From').fill('2026-03-31');
+    await menu.getByLabel('To').fill('2026-01-01');
+    await menu.getByRole('button', { name: 'Apply' }).click();
+
+    await expect(page.locator('.period-picker').first().getByRole('button')).toContainText(
+      '1 Jan to 31 Mar',
+    );
+  });
+
+  test('an incomplete range keeps the menu open to say so', async ({ page }) => {
+    // Closing on the click discarded the browser's own validation message
+    // along with the panel it was anchored to.
+    const picker = await open(page, '/work?scope=team');
+    await picker.getByRole('button').click();
+    const menu = page.locator('.period-picker-panel');
+    await menu.getByLabel('From').fill('2099-01-01');
+    await menu.getByRole('button', { name: 'Apply' }).click();
+    await page.waitForTimeout(500);
+
+    // Refused by `max`, so nothing was applied and the control is still there.
+    await expect(page).not.toHaveURL(/period=custom/);
+    await expect(menu).toBeVisible();
+  });
 
   test('the period survives the links that carry it', async ({ page }) => {
     /*

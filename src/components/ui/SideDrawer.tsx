@@ -3,6 +3,23 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
+/**
+ * A way to find the trigger again after a re-render has replaced it.
+ *
+ * `data-focus-return` first, because a caller that knows its own identity
+ * should say so; then an id; then the href, which every row link has and which
+ * is unique per row because it is the address that row opens.
+ */
+function identifyTrigger(element: HTMLElement | null): string | null {
+  if (!element) return null;
+  const marked = element.dataset.focusReturn;
+  if (marked) return `[data-focus-return="${CSS.escape(marked)}"]`;
+  if (element.id) return `#${CSS.escape(element.id)}`;
+  const href = element.getAttribute('href');
+  if (href) return `[href="${CSS.escape(href)}"]`;
+  return null;
+}
+
 export function SideDrawer({
   closeHref,
   closeLabel = 'Close detail',
@@ -27,7 +44,18 @@ export function SideDrawer({
   const router = useRouter();
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
+  /**
+   * How to find the trigger again, when the node itself is gone.
+   *
+   * Holding the element alone is not enough: opening this drawer is a
+   * navigation, and so is closing it, and either re-render can replace the row
+   * that was clicked. Focusing a detached node does nothing and reports
+   * nothing, so the caret quietly ended up on the body — the one outcome a
+   * dialog must not have when it closes.
+   */
+  const triggerQuery = useRef<string | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settleFrame = useRef<number | null>(null);
   /*
    * Closing is guarded by its own flag, not by the transition state.
    *
@@ -42,8 +70,9 @@ export function SideDrawer({
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    triggerRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    triggerRef.current = opener;
+    triggerQuery.current = identifyTrigger(opener);
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const frame = requestAnimationFrame(() => {
@@ -67,8 +96,36 @@ export function SideDrawer({
     return () => {
       cancelAnimationFrame(frame);
       if (closeTimer.current) clearTimeout(closeTimer.current);
+      if (settleFrame.current) cancelAnimationFrame(settleFrame.current);
       document.body.style.overflow = previousOverflow;
     };
+  }, []);
+
+  /**
+   * Is the caret still the drawer's to give back?
+   *
+   * It is while it sits inside the closing panel, which is the normal case, or
+   * while nothing holds it at all. It is not once the person has put it
+   * somewhere themselves — press Escape, click into search, and the restore
+   * fired 245ms later and took the box away from under them.
+   */
+  const focusIsLoose = useCallback(() => {
+    const owner = document.activeElement;
+    if (!owner || owner === document.body) return true;
+    return panelRef.current?.contains(owner) ?? false;
+  }, []);
+
+  /** Put the caret back on the trigger, wherever that element is now. */
+  const restoreFocus = useCallback(() => {
+    const live =
+      triggerRef.current && triggerRef.current.isConnected
+        ? triggerRef.current
+        : triggerQuery.current
+          ? document.querySelector<HTMLElement>(triggerQuery.current)
+          : null;
+    if (!live) return false;
+    live.focus({ preventScroll: true });
+    return document.activeElement === live;
   }, []);
 
   const close = useCallback(() => {
@@ -79,10 +136,29 @@ export function SideDrawer({
     closing.current = true;
     setOpen(false);
     closeTimer.current = setTimeout(() => {
-      triggerRef.current?.focus({ preventScroll: true });
+      if (focusIsLoose()) restoreFocus();
       router.push(closeHref, { scroll: false });
+      /*
+       * And again, once the navigation has redrawn what is underneath.
+       *
+       * Focusing before the push is right for the common case and useless when
+       * React replaces the row while rendering the new URL: focus falls back to
+       * the body and nothing says so. This re-applies it over the next few
+       * frames — and only while nothing else has claimed the caret, so it can
+       * never take focus away from whatever the person did next.
+       */
+      let attempts = 0;
+      const settle = () => {
+        settleFrame.current = null;
+        attempts += 1;
+        const owner = document.activeElement;
+        if (owner && owner !== document.body) return;
+        if (restoreFocus()) return;
+        if (attempts < 12) settleFrame.current = requestAnimationFrame(settle);
+      };
+      settleFrame.current = requestAnimationFrame(settle);
     }, 245);
-  }, [closeHref, router]);
+  }, [closeHref, focusIsLoose, restoreFocus, router]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

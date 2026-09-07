@@ -110,35 +110,124 @@ function isDate(value: string | null | undefined): value is string {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
+/**
+ * How far the zone is from UTC at a given instant, in milliseconds.
+ *
+ * Read from `Intl` rather than kept in a table, so it is right across a
+ * daylight-saving boundary in the zones that have one.
+ */
+function zoneOffsetMs(utcMs: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(new Date(utcMs));
+  const field = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? '0');
+  const asUtc = Date.UTC(
+    field('year'),
+    field('month') - 1,
+    field('day'),
+    field('hour') % 24,
+    field('minute'),
+    field('second'),
+  );
+  return asUtc - utcMs;
+}
+
+/**
+ * The instant a local wall-clock time happens.
+ *
+ * Every boundary here used to be built with `Date.UTC`, which is only correct
+ * for somebody in UTC. In Malaysia that shifted every period by eight hours:
+ * a range "1 Jan to 31 Mar" actually ran from 08:00 on 1 January to 08:00 on
+ * 1 April, so work closed on the morning of the first day was missing and work
+ * closed on the morning after the last was counted. The report was wrong at
+ * both ends, quietly, and only by a few items.
+ *
+ * Resolved twice because the offset depends on the instant, which is what is
+ * being computed; the second pass settles a daylight-saving boundary.
+ */
+function zonedInstant(
+  timeZone: string,
+  year: number,
+  month: number,
+  day: number,
+  hour = 0,
+  minute = 0,
+  second = 0,
+  ms = 0,
+): number {
+  const naive = Date.UTC(year, month, day, hour, minute, second, ms);
+  const first = naive - zoneOffsetMs(naive, timeZone);
+  return naive - zoneOffsetMs(first, timeZone);
+}
+
+/** Today's date in the viewer's zone, as year / month / day. */
+function zonedToday(now: Date, timeZone: string) {
+  const shifted = new Date(now.getTime() + zoneOffsetMs(now.getTime(), timeZone));
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth(),
+    day: shifted.getUTCDate(),
+  };
+}
+
 function preset(key: PeriodPresetKey): Preset {
   return PERIOD_PRESETS.find((entry) => entry.key === key)!;
 }
 
-function rangeOf(key: PeriodPresetKey, now: Date): { since: string; until: string | null } {
-  const year = now.getUTCFullYear();
-  const month = now.getUTCMonth();
+function rangeOf(
+  key: PeriodPresetKey,
+  now: Date,
+  timeZone: string,
+): { since: string; until: string | null } {
+  const { year, month } = zonedToday(now, timeZone);
+  const at = (y: number, m: number, d: number) =>
+    new Date(zonedInstant(timeZone, y, m, d)).toISOString();
+  /** The last millisecond before the given local midnight. */
+  const endOfDayBefore = (y: number, m: number, d: number) =>
+    new Date(zonedInstant(timeZone, y, m, d) - 1).toISOString();
+
   switch (key) {
     case 'all':
       // Not "no filter": a resolved period always has a lower bound, so every
       // caller can read `since` without asking which kind of period it is.
       return { since: new Date(0).toISOString(), until: null };
     case 'this-month':
-      return { since: new Date(Date.UTC(year, month, 1)).toISOString(), until: null };
+      return { since: at(year, month, 1), until: null };
     case 'last-month':
-      return {
-        since: new Date(Date.UTC(year, month - 1, 1)).toISOString(),
-        until: new Date(Date.UTC(year, month, 1) - 1).toISOString(),
-      };
+      return { since: at(year, month - 1, 1), until: endOfDayBefore(year, month, 1) };
     case 'this-year':
-      return { since: new Date(Date.UTC(year, 0, 1)).toISOString(), until: null };
+      return { since: at(year, 0, 1), until: null };
     case 'last-year':
-      return {
-        since: new Date(Date.UTC(year - 1, 0, 1)).toISOString(),
-        until: new Date(Date.UTC(year, 0, 1) - 1).toISOString(),
-      };
+      return { since: at(year - 1, 0, 1), until: endOfDayBefore(year, 0, 1) };
     default:
+      // Rolling counts run back from this instant, not from a local midnight:
+      // "the last 30 days" means the last 30 days.
       return { since: new Date(now.getTime() - Number(key) * DAY_MS).toISOString(), until: null };
   }
+}
+
+/** The zone a period is read in when a caller has not said. */
+export const DEFAULT_TIME_ZONE = 'Asia/Kuala_Lumpur';
+
+/** Day and month, or the full date when it is not this year. */
+function dayWords(date: string, timeZone: string, now: Date): string {
+  const at = new Date(`${date}T12:00:00.000Z`);
+  const sameYear =
+    new Intl.DateTimeFormat('en-GB', { timeZone, year: 'numeric' }).format(at) ===
+    new Intl.DateTimeFormat('en-GB', { timeZone, year: 'numeric' }).format(now);
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    day: 'numeric',
+    month: 'short',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  }).format(at);
 }
 
 /**
@@ -157,23 +246,75 @@ export function resolvePeriod(
   to?: string,
   now: Date = new Date(),
   fallback: PeriodPresetKey = DEFAULT_PERIOD,
+  timeZone: string = DEFAULT_TIME_ZONE,
 ): ResolvedPeriod {
-  if (key === 'custom' && isDate(from)) {
-    const until = isDate(to) ? new Date(`${to}T23:59:59.999Z`).toISOString() : null;
+  if (key === 'custom' && (isDate(from) || isDate(to))) {
+    /*
+     * Two dates make a range; which box each was typed into does not.
+     *
+     * A range entered the wrong way round used to be honoured literally, so
+     * `since` came after `until` and the query could not match anything. The
+     * screen then reported "0 completed" — a statement about the team, made
+     * from a period that cannot contain anything. Ordering them says what the
+     * person meant, and the control's label shows which range was applied.
+     *
+     * One date alone is a real question too: everything since a day, or
+     * everything up to one. Which it is comes from which box it was in.
+     */
+    const both = isDate(from) && isDate(to);
+    const ordered = both ? [from!, to!].sort() : null;
+    const opensOn = ordered ? ordered[0]! : isDate(from) ? from : null;
+    const closesOn = ordered ? ordered[1]! : isDate(to) ? to : null;
+
+    const dayStart = (date: string) =>
+      new Date(
+        zonedInstant(
+          timeZone,
+          Number(date.slice(0, 4)),
+          Number(date.slice(5, 7)) - 1,
+          Number(date.slice(8, 10)),
+        ),
+      ).toISOString();
+    /* The last millisecond of the closing day: a range ending "31 March" that
+       stopped at its midnight would drop everything closed that day. */
+    const dayEnd = (date: string) =>
+      new Date(
+        zonedInstant(
+          timeZone,
+          Number(date.slice(0, 4)),
+          Number(date.slice(5, 7)) - 1,
+          Number(date.slice(8, 10)) + 1,
+        ) - 1,
+      ).toISOString();
+
+    const opensWords = opensOn ? dayWords(opensOn, timeZone, now) : null;
+    const closesWords = closesOn ? dayWords(closesOn, timeZone, now) : null;
+    const label =
+      opensWords && closesWords
+        ? `${opensWords} to ${closesWords}`
+        : opensWords
+          ? `${opensWords} onwards`
+          : `up to ${closesWords}`;
+
     return {
       key: 'custom',
-      label: isDate(to) ? `${from} to ${to}` : `${from} onwards`,
-      short: isDate(to) ? `${from} to ${to}` : `${from} onwards`,
-      phrase: isDate(to) ? `between ${from} and ${to}` : `since ${from}`,
-      since: new Date(`${from}T00:00:00.000Z`).toISOString(),
-      until,
-      from,
-      to: isDate(to) ? to : null,
+      label,
+      short: label,
+      phrase:
+        opensWords && closesWords
+          ? `between ${opensWords} and ${closesWords}`
+          : opensWords
+            ? `since ${opensWords}`
+            : `up to ${closesWords}`,
+      since: opensOn ? dayStart(opensOn) : new Date(0).toISOString(),
+      until: closesOn ? dayEnd(closesOn) : null,
+      from: opensOn,
+      to: closesOn,
     };
   }
 
   const match = PERIOD_PRESETS.find((entry) => entry.key === key) ?? preset(fallback);
-  const { since, until } = rangeOf(match.key, now);
+  const { since, until } = rangeOf(match.key, now, timeZone);
   return {
     key: match.key,
     label: match.label,

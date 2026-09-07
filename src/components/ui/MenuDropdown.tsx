@@ -214,22 +214,25 @@ export function MenuDropdown({
                filled in, not chosen. */
             onClick={(event) => {
               const target = event.target as HTMLElement;
-              /*
-               * A submit closes on the NEXT tick, not this one.
-               *
-               * Closing immediately unmounts the panel, and the form lives
-               * inside it — so the browser lost the element it was about to
-               * submit and the navigation never happened. The period menu's
-               * Apply button did nothing at all, on every screen that had one,
-               * which is easy to miss because the menu closes either way and a
-               * page that has not changed looks like a range that matched
-               * nothing.
-               */
-              if (target.closest('button[type="submit"]')) {
-                setTimeout(() => setOpen(false), 0);
-                return;
-              }
               if (target.closest('a, .menu-command')) setOpen(false);
+            }}
+            /*
+             * Closing is driven by the form's `submit`, not by the click on the
+             * button.
+             *
+             * A click closed the menu whether or not the form was valid. Enter
+             * a "To" date without a "From", press Apply, and the panel — with
+             * the validation message the browser was about to show inside it —
+             * vanished, leaving the page unchanged and nothing on screen to say
+             * why. `submit` fires only once the browser is satisfied, so an
+             * incomplete range now keeps the menu open and explains itself.
+             *
+             * Still deferred a tick: the form lives inside the panel, so
+             * unmounting it in the handler takes away the element the browser
+             * is about to act on.
+             */
+            onSubmit={() => {
+              setTimeout(() => setOpen(false), 0);
             }}
           >
             {children}

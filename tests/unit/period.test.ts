@@ -22,6 +22,8 @@ import {
  */
 
 const NOW = new Date('2026-08-31T04:00:00.000Z');
+/** The fixtures are read by people in Malaysia, eight hours ahead of UTC. */
+const KL = 'Asia/Kuala_Lumpur';
 
 describe('resolvePeriod', () => {
   it('falls back to the default rather than showing nothing', () => {
@@ -47,39 +49,77 @@ describe('resolvePeriod', () => {
      * figure would have meant "everything since last January" — twenty months
      * of work under a label promising twelve.
      */
-    const lastYear = resolvePeriod('last-year', undefined, undefined, NOW);
-    expect(lastYear.since).toBe('2025-01-01T00:00:00.000Z');
-    expect(lastYear.until).toBe('2025-12-31T23:59:59.999Z');
+    const lastYear = resolvePeriod('last-year', undefined, undefined, NOW, DEFAULT_PERIOD, KL);
+    expect(lastYear.since).toBe('2024-12-31T16:00:00.000Z');
+    expect(lastYear.until).toBe('2025-12-31T15:59:59.999Z');
 
-    const lastMonth = resolvePeriod('last-month', undefined, undefined, NOW);
-    expect(lastMonth.since).toBe('2026-07-01T00:00:00.000Z');
-    expect(lastMonth.until).toBe('2026-07-31T23:59:59.999Z');
+    const lastMonth = resolvePeriod('last-month', undefined, undefined, NOW, DEFAULT_PERIOD, KL);
+    expect(lastMonth.since).toBe('2026-06-30T16:00:00.000Z');
+    expect(lastMonth.until).toBe('2026-07-31T15:59:59.999Z');
   });
 
-  it('reads the calendar periods as the words read', () => {
-    expect(resolvePeriod('this-year', undefined, undefined, NOW).since).toBe(
-      '2026-01-01T00:00:00.000Z',
-    );
-    expect(resolvePeriod('this-year', undefined, undefined, NOW).until).toBeNull();
-    expect(resolvePeriod('this-month', undefined, undefined, NOW).since).toBe(
-      '2026-08-01T00:00:00.000Z',
-    );
+  it('starts a calendar period at local midnight, not at UTC midnight', () => {
+    /*
+     * Every boundary was built with `Date.UTC`, which is only right for
+     * somebody in UTC. Eight hours east that shifted the whole period: "this
+     * year" began at 08:00 on 1 January, so work closed that morning was
+     * missing from it, and the extra eight hours came off the far end instead.
+     */
+    const thisYear = resolvePeriod('this-year', undefined, undefined, NOW, DEFAULT_PERIOD, KL);
+    expect(thisYear.since).toBe('2025-12-31T16:00:00.000Z');
+    expect(thisYear.until).toBeNull();
+
+    const thisMonth = resolvePeriod('this-month', undefined, undefined, NOW, DEFAULT_PERIOD, KL);
+    expect(thisMonth.since).toBe('2026-07-31T16:00:00.000Z');
   });
 
-  it('takes a custom range whole, both ends inclusive', () => {
-    const range = resolvePeriod('custom', '2026-03-01', '2026-03-31', NOW);
+  it('takes a custom range whole, both ends inclusive, in the viewer zone', () => {
+    const range = resolvePeriod('custom', '2026-03-01', '2026-03-31', NOW, DEFAULT_PERIOD, KL);
     expect(range.key).toBe('custom');
-    expect(range.since).toBe('2026-03-01T00:00:00.000Z');
+    // Local midnight on 1 March, which is 16:00 the day before in UTC.
+    expect(range.since).toBe('2026-02-28T16:00:00.000Z');
     // To the last millisecond of the closing day: a range ending "31 March"
     // that stopped at midnight would silently drop everything closed that day.
-    expect(range.until).toBe('2026-03-31T23:59:59.999Z');
-    expect(range.label).toBe('2026-03-01 to 2026-03-31');
+    expect(range.until).toBe('2026-03-31T15:59:59.999Z');
+    // Written the way every other date in the product is written.
+    expect(range.label).toBe('1 Mar to 31 Mar');
   });
 
   it('allows an open-ended custom range', () => {
-    const range = resolvePeriod('custom', '2026-03-01', undefined, NOW);
+    const range = resolvePeriod('custom', '2026-03-01', undefined, NOW, DEFAULT_PERIOD, KL);
     expect(range.until).toBeNull();
-    expect(range.label).toBe('2026-03-01 onwards');
+    expect(range.label).toBe('1 Mar onwards');
+  });
+
+  it('reads a range entered the wrong way round as the range it describes', () => {
+    /*
+     * Typing the later date into "From" used to be honoured literally, so
+     * `since` came after `until` and nothing could match. The screen then
+     * reported "0 completed" — a claim about the team, made from a period that
+     * cannot contain anything.
+     */
+    const backwards = resolvePeriod('custom', '2026-03-31', '2026-01-01', NOW, DEFAULT_PERIOD, KL);
+    const forwards = resolvePeriod('custom', '2026-01-01', '2026-03-31', NOW, DEFAULT_PERIOD, KL);
+    expect(backwards.since).toBe(forwards.since);
+    expect(backwards.until).toBe(forwards.until);
+    expect(backwards.since < backwards.until!).toBe(true);
+    // And the control says which range was applied, rather than echoing the
+    // order the boxes were filled in.
+    expect(backwards.label).toBe(forwards.label);
+  });
+
+  it('reads one date as the question it is, from either box', () => {
+    // "To" alone used to be refused by the form, and the message explaining
+    // that was destroyed with the menu on the same click.
+    const upTo = resolvePeriod('custom', undefined, '2026-03-31', NOW, DEFAULT_PERIOD, KL);
+    expect(upTo.key).toBe('custom');
+    expect(upTo.until).toBe('2026-03-31T15:59:59.999Z');
+    expect(upTo.label).toBe('up to 31 Mar');
+
+    const since = resolvePeriod('custom', '2026-03-01', undefined, NOW, DEFAULT_PERIOD, KL);
+    expect(since.since).toBe('2026-02-28T16:00:00.000Z');
+    expect(since.until).toBeNull();
+    expect(since.label).toBe('1 Mar onwards');
   });
 
   it('refuses a custom range it cannot read, rather than showing an empty one', () => {

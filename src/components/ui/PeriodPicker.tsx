@@ -83,6 +83,11 @@ export function PeriodPicker({
 
         `max` is today on both boxes: this asks what has already happened, and a
         range ending next March is a typo every time.
+
+        Neither box is required. "From" used to be, so filling only "To" was
+        refused by the browser — and the menu closed on the click, taking the
+        message explaining it with it. One date is a real question either way:
+        everything since a day, or everything up to one.
       */}
       <form className="period-picker-custom" action={action}>
         {Object.entries(hidden).map(([name, value]) => (
@@ -96,7 +101,6 @@ export function PeriodPicker({
             name={PERIOD_FROM_PARAM}
             defaultValue={period.from ?? undefined}
             max={todayIso(now)}
-            required
           />
         </label>
         <label>

@@ -51,28 +51,32 @@ export default async function RecordsPage({
   const attachment = ['all', 'with', 'without'].includes(params.attachment ?? '')
     ? (params.attachment as RecordFilters['attachment'])
     : 'all';
+  /*
+   * The profile first, because the period is read in the viewer's zone and the
+   * query is bounded by the period. One request in front of the other rather
+   * than a range that is eight hours out for everybody east of UTC.
+   */
+  const profile = await requireProfile();
   const period = resolvePeriod(
     params.period,
     params.period_from,
     params.period_to,
     new Date(),
     'all',
+    profile.timezone,
   );
-  const [profile, records] = await Promise.all([
-    requireProfile(),
-    getCompletionRecords({
-      query: params.q,
-      state,
-      review,
-      ownerId: params.owner,
-      workClass,
-      attachment,
-      // Records is the archive, so its period defaults to all time rather
-      // than to a recent window: finding one old record is why it exists.
-      dateFrom: period.key === 'all' ? undefined : period.since.slice(0, 10),
-      dateTo: period.until ? period.until.slice(0, 10) : undefined,
-    }),
-  ]);
+  const records = await getCompletionRecords({
+    query: params.q,
+    state,
+    review,
+    ownerId: params.owner,
+    workClass,
+    attachment,
+    // Records is the archive, so its period defaults to all time rather than
+    // to a recent window: finding one old record is why it exists.
+    dateFrom: period.key === 'all' ? undefined : period.since.slice(0, 10),
+    dateTo: period.until ? period.until.slice(0, 10) : undefined,
+  });
   /* Everything except the period, so choosing one keeps the rest of the
      filter the reader already set. */
   const recordFilterParams = Object.fromEntries(
