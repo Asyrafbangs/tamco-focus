@@ -47,6 +47,8 @@ export async function createCaptureDraft(formData: FormData): Promise<CaptureDra
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/)
         .optional(),
+      /** §11 — why this work exists. Absent when nobody answered. */
+      workPurpose: z.enum(['reactive', 'planned_operations', 'improvement_development']).optional(),
       /** What completing this work will require as proof (v134). */
       completionEvidenceRule: z.enum(['optional', 'file_or_note', 'file']).default('optional'),
       completionEvidenceInstruction: z.string().trim().max(500).optional(),
@@ -62,6 +64,7 @@ export async function createCaptureDraft(formData: FormData): Promise<CaptureDra
       title: formData.get('title'),
       description: formData.get('description') || undefined,
       workType: formData.get('workType') || 'normal',
+      workPurpose: formData.get('workPurpose') || undefined,
       requiresFollowUp: formData.get('requiresFollowUp') || undefined,
       chosenDate: formData.get('chosenDate') || undefined,
       completionEvidenceRule: formData.get('completionEvidenceRule') || 'optional',
@@ -135,6 +138,9 @@ export async function createCaptureDraft(formData: FormData): Promise<CaptureDra
       timing_choice: parsed.data.chosenDate ? 'choose_date' : 'no_date',
       due_at: dueAt,
       due_is_date_only: true,
+      // Carried onto the task when `confirm_work_capture` links the two, so
+      // the answer given here survives whichever destination is chosen.
+      work_purpose: parsed.data.workPurpose ?? null,
       recommended_destination: recommendation.destination,
       recommendation_reason: recommendation.ruleText,
       // Section 12 — the rule travels with the capture so the task it becomes

@@ -21,6 +21,7 @@ import {
   type ResolvedPeriod,
 } from '@/domain/period';
 import { activeOrder, availableOrder, teamRowOrder } from '@/domain/prioritisation';
+import { WORK_PURPOSE_SHORT_LABELS } from '@/domain/purpose';
 import { WORK_CLASS_LABELS, WORK_CLASS_SHORT_LABELS, type TaskOverview } from '@/domain/types';
 import { requireProfile } from '@/lib/supabase/server';
 import { getTeamAttention } from '@/server/queries';
@@ -1483,11 +1484,21 @@ export default async function WorkPage({
                       <strong>{task.title}</strong>
                     </RowPrimaryLink>
                     <span className="sub">
-                      {/* One word, because every row on this page is work: the
-                          "Action" in "Operational Action" and the "Project" in
-                          "Major Project" are the same on every row and tell
-                          nobody anything. */}
-                      {WORK_CLASS_SHORT_LABELS[task.workClass]}
+                      {/*
+                        One word, because every row on this page is work: the
+                        "Action" in "Operational Action" and the "Project" in
+                        "Major Project" are the same on every row and tell
+                        nobody anything.
+
+                        Since v145 §11 the word is the PURPOSE — why this work
+                        exists — rather than what shape it is. Work registered
+                        before purposes existed still shows its class, because
+                        that is what is actually known about it; the drawer is
+                        where the gap is offered to be filled.
+                      */}
+                      {task.workPurpose
+                        ? WORK_PURPOSE_SHORT_LABELS[task.workPurpose]
+                        : WORK_CLASS_SHORT_LABELS[task.workClass]}
                       {due ? (
                         <>
                           {' · '}

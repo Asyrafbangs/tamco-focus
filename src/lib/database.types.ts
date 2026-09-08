@@ -4883,6 +4883,7 @@ export type Database = {
           updated_at: string
           weekday: number | null
           weekdays: number[] | null
+          work_purpose: Database["public"]["Enums"]["work_purpose"] | null
         }
         Insert: {
           created_at?: string
@@ -4916,6 +4917,7 @@ export type Database = {
           updated_at?: string
           weekday?: number | null
           weekdays?: number[] | null
+          work_purpose?: Database["public"]["Enums"]["work_purpose"] | null
         }
         Update: {
           created_at?: string
@@ -4949,6 +4951,7 @@ export type Database = {
           updated_at?: string
           weekday?: number | null
           weekdays?: number[] | null
+          work_purpose?: Database["public"]["Enums"]["work_purpose"] | null
         }
         Relationships: [
           {
@@ -5727,6 +5730,7 @@ export type Database = {
           urgency: Database["public"]["Enums"]["urgency_level"]
           version: number
           work_class: Database["public"]["Enums"]["work_class"]
+          work_purpose: Database["public"]["Enums"]["work_purpose"] | null
         }
         Insert: {
           activated_at?: string | null
@@ -5779,6 +5783,7 @@ export type Database = {
           urgency?: Database["public"]["Enums"]["urgency_level"]
           version?: number
           work_class: Database["public"]["Enums"]["work_class"]
+          work_purpose?: Database["public"]["Enums"]["work_purpose"] | null
         }
         Update: {
           activated_at?: string | null
@@ -5831,6 +5836,7 @@ export type Database = {
           urgency?: Database["public"]["Enums"]["urgency_level"]
           version?: number
           work_class?: Database["public"]["Enums"]["work_class"]
+          work_purpose?: Database["public"]["Enums"]["work_purpose"] | null
         }
         Relationships: [
           {
@@ -7051,6 +7057,7 @@ export type Database = {
           title: string
           urgency_question_answer: boolean | null
           urgency_question_asked: boolean
+          work_purpose: Database["public"]["Enums"]["work_purpose"] | null
         }
         Insert: {
           captured_by: string
@@ -7081,6 +7088,7 @@ export type Database = {
           title: string
           urgency_question_answer?: boolean | null
           urgency_question_asked?: boolean
+          work_purpose?: Database["public"]["Enums"]["work_purpose"] | null
         }
         Update: {
           captured_by?: string
@@ -7111,6 +7119,7 @@ export type Database = {
           title?: string
           urgency_question_answer?: boolean | null
           urgency_question_asked?: boolean
+          work_purpose?: Database["public"]["Enums"]["work_purpose"] | null
         }
         Relationships: [
           {
@@ -8964,6 +8973,7 @@ export type Database = {
           urgency: Database["public"]["Enums"]["urgency_level"] | null
           version: number | null
           work_class: Database["public"]["Enums"]["work_class"] | null
+          work_purpose: Database["public"]["Enums"]["work_purpose"] | null
         }
         Relationships: [
           {
@@ -9476,6 +9486,7 @@ export type Database = {
           p_title: string
           p_urgency?: Database["public"]["Enums"]["urgency_level"]
           p_work_class: Database["public"]["Enums"]["work_class"]
+          p_work_purpose?: Database["public"]["Enums"]["work_purpose"]
         }
         Returns: Json
       }
@@ -10065,6 +10076,15 @@ export type Database = {
         }
         Returns: Json
       }
+      set_work_purpose: {
+        Args: {
+          p_expected_version?: number
+          p_idempotency_key?: string
+          p_purpose: Database["public"]["Enums"]["work_purpose"]
+          p_task_id: string
+        }
+        Returns: Json
+      }
       submit_goal_monthly_session: {
         Args: {
           p_employee_id: string
@@ -10269,6 +10289,7 @@ export type Database = {
         | "routine_not_required_raised"
         | "routine_not_required_accepted"
         | "routine_not_required_returned"
+        | "work_purpose_set"
       barrier_action_type:
         | "decision"
         | "approval"
@@ -10411,6 +10432,10 @@ export type Database = {
         | "collaborative"
         | "meeting_generated"
         | "system_generated"
+      work_purpose:
+        | "reactive"
+        | "planned_operations"
+        | "improvement_development"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -10638,6 +10663,7 @@ export const Constants = {
         "routine_not_required_raised",
         "routine_not_required_accepted",
         "routine_not_required_returned",
+        "work_purpose_set",
       ],
       barrier_action_type: [
         "decision",
@@ -10795,6 +10821,11 @@ export const Constants = {
         "collaborative",
         "meeting_generated",
         "system_generated",
+      ],
+      work_purpose: [
+        "reactive",
+        "planned_operations",
+        "improvement_development",
       ],
     },
   },

@@ -178,6 +178,40 @@ export async function moveTaskToAvailable(input: z.input<typeof moveOutSchema>) 
   });
 }
 
+const workPurposeSchema = z.object({
+  taskId: uuid,
+  /** Null clears it: a classification chosen by mistake should be removable. */
+  purpose: z.enum(['reactive', 'planned_operations', 'improvement_development']).nullable(),
+  expectedVersion: z.number().int().positive().optional(),
+  idempotencyKey,
+});
+
+/**
+ * Records why a piece of work exists (§11).
+ *
+ * Anybody who may edit the work may classify it. The person doing it usually
+ * knows better than their manager whether the day went sideways because
+ * something broke, and §11 requires the value to stay visible and editable
+ * rather than being decided once at creation and frozen.
+ */
+export async function setWorkPurpose(input: z.input<typeof workPurposeSchema>) {
+  const parsed = workPurposeSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, code: 'validation_failed' as const, message: 'Invalid request.' };
+  }
+
+  return callProcedure(
+    'set_work_purpose',
+    {
+      p_task_id: parsed.data.taskId,
+      p_purpose: parsed.data.purpose,
+      p_expected_version: parsed.data.expectedVersion ?? null,
+      p_idempotency_key: parsed.data.idempotencyKey ?? null,
+    },
+    ['/work', '/today', '/plan'],
+  );
+}
+
 const pauseSchema = z.object({
   taskId: uuid,
   expectedVersion: z.number().int().positive(),

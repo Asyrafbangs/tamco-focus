@@ -24,6 +24,13 @@ import { latestPlausibleDate } from '@/domain/delivery';
 import { barrierAction, barrierViewLabel } from '@/domain/barriers';
 import { canOfferActivate, canOfferMoveOut } from '@/domain/focus';
 import {
+  WORK_PURPOSE_LABELS,
+  WORK_PURPOSE_MEANINGS,
+  WORK_PURPOSE_OPTIONS,
+  WORK_PURPOSE_UNSET_LABEL,
+  type WorkPurpose,
+} from '@/domain/purpose';
+import {
   BARRIER_IMPACT_LABELS,
   TASK_STATUS_LABELS,
   WORK_CLASS_LABELS,
@@ -55,6 +62,7 @@ import {
   resumeTask,
   setCurrentFocus,
   updateChecklistStep,
+  setWorkPurpose,
 } from '@/server/actions/task-actions';
 import type { TaskDetail, TaskDetailAttachment } from '@/server/queries';
 
@@ -732,7 +740,18 @@ export function TaskDetailDrawer({
       className={`task-detail-drawer${drawerExpanded ? ' expanded' : ''}${
         viewingFile ? ' viewing-file' : ''
       }`}
-      eyebrow={viewingFile ? 'Attachment' : WORK_CLASS_LABELS[task.workClass]}
+      /*
+        §11 — why this work exists, where the record type used to be. Work
+        registered before purposes existed still names its class, because that
+        is the only thing actually known about it.
+      */
+      eyebrow={
+        viewingFile
+          ? 'Attachment'
+          : task.workPurpose
+            ? WORK_PURPOSE_LABELS[task.workPurpose]
+            : WORK_CLASS_LABELS[task.workClass]
+      }
       title={viewingFile ? viewingFile.fileName : task.title}
       titleId="task-detail-title"
       actions={
@@ -2114,6 +2133,67 @@ export function TaskDetailDrawer({
                 <div>
                   <p className="eyebrow">Type</p>
                   <p>{WORK_CLASS_LABELS[task.workClass]}</p>
+                </div>
+                {/*
+                  §11 — the purpose, and the one place it can be corrected.
+                  Visible to everyone who can see the work and editable by
+                  anyone who can edit it: the person doing the work usually
+                  knows better than anybody whether the day went sideways
+                  because something broke.
+                */}
+                <div className="task-purpose-fact">
+                  <p className="eyebrow">Purpose</p>
+                  {detail.capabilities.canEdit ? (
+                    <>
+                      <label className="visually-hidden" htmlFor={`purpose-${task.id}`}>
+                        Why is this work happening?
+                      </label>
+                      <select
+                        id={`purpose-${task.id}`}
+                        value={task.workPurpose ?? ''}
+                        disabled={pending}
+                        onChange={(event) => {
+                          const chosen = (event.target.value || null) as WorkPurpose | null;
+                          startTransition(async () => {
+                            const result = await setWorkPurpose({
+                              taskId: task.id,
+                              purpose: chosen,
+                              expectedVersion: taskVersion,
+                              idempotencyKey: idempotencyKey(),
+                            });
+                            if (
+                              finish(
+                                result,
+                                chosen
+                                  ? `Recorded as ${WORK_PURPOSE_LABELS[chosen]}.`
+                                  : 'Purpose cleared.',
+                              )
+                            ) {
+                              setTaskVersion((current) => current + 1);
+                            }
+                          });
+                        }}
+                      >
+                        <option value="">{WORK_PURPOSE_UNSET_LABEL}</option>
+                        {WORK_PURPOSE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="task-purpose-meaning">
+                        {task.workPurpose
+                          ? WORK_PURPOSE_MEANINGS[task.workPurpose]
+                          : 'Recorded when the work is registered. Set it here if it was missed.'}
+                      </p>
+                    </>
+                  ) : (
+                    <p>
+                      {task.workPurpose
+                        ? WORK_PURPOSE_LABELS[task.workPurpose]
+                        : WORK_PURPOSE_UNSET_LABEL}
+                    </p>
+                  )}
                 </div>
               </div>
               {task.description && (

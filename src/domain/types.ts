@@ -1,3 +1,5 @@
+import type { WorkPurpose } from './purpose';
+
 /**
  * Domain vocabulary.
  *
@@ -104,6 +106,14 @@ export interface TaskOverview {
   status: TaskStatus;
   workClass: WorkClass;
   focusBucket: FocusBucket | null;
+  /**
+   * Why this work exists (§11), independent of what shape it is.
+   *
+   * Null means nobody has recorded one. Old rows are left that way on purpose:
+   * the migration classified only what was unambiguous, and a guess shown as a
+   * fact is worse than an honest gap.
+   */
+  workPurpose: WorkPurpose | null;
   origin: WorkOrigin;
   urgency: UrgencyLevel;
   isMandatory: boolean;

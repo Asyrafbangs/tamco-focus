@@ -893,3 +893,61 @@ where to_regclass('public.goal_success_measures') is not null
   and not exists (
     select 1 from public.goal_success_measures m where m.goal_version_id = v.id
   );
+
+-- ---------------------------------------------------------------------------
+-- v145 §11 — why each piece of fixture work exists.
+--
+-- Clean resets load fixtures AFTER migrations, so the backfill in
+-- `20260909003000_v145_work_purpose.sql` has already run against an empty
+-- table and cannot reach these rows. The two rules it applies are mirrored
+-- here, then a handful of tasks are classified by what they actually are.
+--
+-- Four rows are deliberately left with no purpose. Everything that reads a
+-- purpose has to say something sensible when there is none — the row falls
+-- back to the work class, the drawer offers the choice — and a fixture where
+-- every task is classified would let that path rot untested.
+-- ---------------------------------------------------------------------------
+
+update public.routine_templates
+   set work_purpose = 'planned_operations'
+ where work_purpose is null;
+
+update public.tasks
+   set work_purpose = 'planned_operations'
+ where work_purpose is null
+   and work_class = 'routine_occurrence';
+
+update public.tasks
+   set work_purpose = 'improvement_development'
+ where work_purpose is null
+   and focus_bucket = 'self_development';
+
+-- Something broke or went wrong, and this is the response to it.
+update public.tasks
+   set work_purpose = 'reactive'
+ where work_purpose is null
+   and title in (
+     'Isolate and tag out the faulty conveyor drive',
+     'Replace the torn warning label on tank 3',
+     'Close out corrective actions from the June audit'
+   );
+
+-- A responsibility that runs anyway: scheduled, required, recurring.
+update public.tasks
+   set work_purpose = 'planned_operations'
+ where work_purpose is null
+   and title in (
+     'Run the Q3 emergency evacuation drill',
+     'Update the chemical inventory register',
+     'Refresh the contractor induction pack'
+   );
+
+-- Making something better than it was.
+update public.tasks
+   set work_purpose = 'improvement_development'
+ where work_purpose is null
+   and title in (
+     'Reduce recordable incidents by 30% this year',
+     'Install machine guarding on press line 2',
+     'Rewrite the confined space entry procedure'
+   );

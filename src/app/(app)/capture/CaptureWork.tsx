@@ -7,6 +7,7 @@ import { latestPlausibleDate } from '@/domain/delivery';
 import { COMPLETION_EVIDENCE_LABELS, type CompletionEvidenceRule } from '@/domain/types';
 import { classifyCapture, type CaptureWorkType } from '@/domain/classification';
 import type { CaptureDestination } from '@/domain/types';
+import { WORK_PURPOSE_OPTIONS, type WorkPurpose } from '@/domain/purpose';
 import { assignWork } from '@/server/actions/assignment-actions';
 import {
   answerCaptureQuestion,
@@ -82,6 +83,15 @@ export function CaptureWork({
   const [error, setError] = useState<string | null>(null);
 
   const [workType, setWorkType] = useState<CaptureWorkType>('normal');
+  /*
+   * §11 — asked once, in plain words, and not pre-selected.
+   *
+   * A default here would be answered by nobody and recorded as if it had been:
+   * whatever it was set to would become the most common purpose in the system
+   * within a week, and the one thing this classification cannot afford is to
+   * be quietly wrong at scale.
+   */
+  const [workPurpose, setWorkPurpose] = useState<WorkPurpose | ''>('');
   const [followUp, setFollowUp] = useState<'unset' | 'yes' | 'no'>('unset');
 
   /*
@@ -194,6 +204,7 @@ export function CaptureWork({
 
     const form = new FormData(event.currentTarget);
     form.set('workType', workType);
+    if (workPurpose) form.set('workPurpose', workPurpose);
     form.set('completionEvidenceRule', evidenceRule);
     form.set('completionEvidenceInstruction', evidenceInstruction.trim());
     if (followUp !== 'unset') form.set('requiresFollowUp', followUp);
@@ -253,6 +264,7 @@ export function CaptureWork({
           ownerIds: [primaryOwnerId],
           urgency: CAPTURE_URGENCY,
           dueDate: chosenDate || undefined,
+          workPurpose: workPurpose || undefined,
           idempotencyKey: crypto.randomUUID(),
         });
         if (!assigned.ok) {
@@ -288,6 +300,13 @@ export function CaptureWork({
     const form = new FormData();
     form.set('title', title.trim());
     form.set('workType', 'normal');
+    /*
+     * §11 — an unexpected problem being reported right now IS reactive work,
+     * which is the one case where the answer is in the route rather than in a
+     * question. It is a default, not a verdict: it shows on the task like any
+     * other and whoever owns the work can change it.
+     */
+    form.set('workPurpose', 'reactive');
     if (chosenDate) form.set('chosenDate', chosenDate);
     files.forEach((file) => form.append('files', file));
 
@@ -448,6 +467,36 @@ export function CaptureWork({
               />
             </div>
           )}
+
+          {/*
+            §11 — why this work exists, asked when the work is registered.
+
+            On the main form rather than inside Add details. §11 asks for a
+            purpose selection at registration, and a question behind a
+            disclosure is not asked: whoever does not open it creates work with
+            no purpose, which is the state this feature exists to reduce.
+
+            Three radios rather than a select, because the meanings matter as
+            much as the labels and a select hides them until it is opened. Not
+            a wizard step of its own either, which §11 explicitly rules out.
+          */}
+          <fieldset className="capture-purpose">
+            <legend>Why is this work happening?</legend>
+            {WORK_PURPOSE_OPTIONS.map((option) => (
+              <label key={option.value}>
+                <input
+                  type="radio"
+                  name="workPurposeChoice"
+                  checked={workPurpose === option.value}
+                  onChange={() => setWorkPurpose(option.value)}
+                />
+                <span>
+                  <strong>{option.label}</strong>
+                  <span className="capture-purpose-meaning">{option.meaning}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
 
           {canAssign && (
             <div className="field">

@@ -10922,6 +10922,74 @@ button.attachment-row {
   margin: 0 0 10px;
 }
 
+/* ------------------------------------------------------------------------ */
+/* Work purpose (specification section 11)                                   */
+/* ------------------------------------------------------------------------ */
+
+/*
+  Three radios with their meanings, not a select.
+
+  The labels alone do not settle it — "Planned operations" and "Improvement &
+  development" both sound like things a person could reasonably pick for the
+  same task, and the sentence underneath is what decides. A select hides those
+  sentences until it is opened, which is exactly when they stop being useful.
+*/
+.capture-purpose {
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+}
+
+.capture-purpose legend {
+  margin-bottom: 6px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.capture-purpose label {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-height: 44px;
+  padding: 7px 0;
+  cursor: pointer;
+}
+
+.capture-purpose label > span {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.capture-purpose strong {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.capture-purpose-meaning {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* In the drawer the choice is a correction rather than a first answer, so it
+   is a select with one meaning under it instead of three. */
+.task-purpose-fact select {
+  width: 100%;
+  max-width: 260px;
+}
+
+.task-purpose-meaning {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
 /*
   A person, opened in place (specification section 6).
 

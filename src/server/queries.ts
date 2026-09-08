@@ -14,6 +14,7 @@ import {
   type AttentionKind,
   type AttentionSourceType,
 } from '@/domain/attention';
+import { toWorkPurpose, type WorkPurpose } from '@/domain/purpose';
 import type { FocusBucket, TaskOverview } from '@/domain/types';
 
 /**
@@ -39,6 +40,7 @@ function toTaskOverview(row: Record<string, unknown>): TaskOverview {
     urgency: row.urgency as TaskOverview['urgency'],
     isMandatory: Boolean(row.is_mandatory),
 
+    workPurpose: toWorkPurpose(row.work_purpose),
     progressPercent: Number(row.progress_percent ?? 0),
 
     reviewStatus: row.review_status as TaskOverview['reviewStatus'],
@@ -125,6 +127,7 @@ type TeamMemberTask = TeamAttentionTask &
     | 'occurrenceDate'
     | 'checklistTotal'
     | 'checklistCompleted'
+    | 'workPurpose'
   > & {
     /** Null where a row predates the column being populated. */
     stateEnteredAt: string | null;
@@ -133,6 +136,7 @@ type TeamMemberTask = TeamAttentionTask &
 function toTeamMemberTask(row: Record<string, unknown>): TeamMemberTask {
   return {
     ...toTeamAttentionTask(row),
+    workPurpose: toWorkPurpose(row.work_purpose),
     progressPercent: Number(row.progress_percent ?? 0),
     dueAt: row.due_at ? String(row.due_at) : null,
     dueIsDateOnly: Boolean(row.due_is_date_only),
@@ -3341,6 +3345,8 @@ export interface TeamMemberDetail {
     id: string;
     title: string;
     bucket: FocusBucket | null;
+    /** §11 — why the work exists, shown where the bucket used to be. */
+    workPurpose: WorkPurpose | null;
     progressPercent: number;
     dueAt: string | null;
     dueIsDateOnly: boolean;
@@ -3626,7 +3632,7 @@ export async function getTeamMemberDetail(
       supabase
         .from('task_overview')
         .select(
-          'id,title,next_action,status,work_class,focus_bucket,is_mandatory,primary_owner_id,last_meaningful_update_at,due_at,due_is_date_only,progress_percent,version,is_overdue,is_stale,occurrence_date,checklist_total,checklist_completed,state_entered_at',
+          'id,title,next_action,status,work_class,focus_bucket,work_purpose,is_mandatory,primary_owner_id,last_meaningful_update_at,due_at,due_is_date_only,progress_percent,version,is_overdue,is_stale,occurrence_date,checklist_total,checklist_completed,state_entered_at',
         )
         .eq('primary_owner_id', personId)
         .in('status', ['backlog', 'active', 'paused'])
@@ -3833,6 +3839,7 @@ export async function getTeamMemberDetail(
       id: task.id,
       title: task.title,
       bucket: task.focusBucket,
+      workPurpose: task.workPurpose,
       progressPercent: task.progressPercent,
       dueAt: task.dueAt,
       dueIsDateOnly: task.dueIsDateOnly,

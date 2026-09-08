@@ -103,6 +103,15 @@ test.describe('v130 a work row says what differs', () => {
     await expect(rows.getByText('Major Project')).toHaveCount(0);
     await expect(rows.getByText('Self-Development Plan')).toHaveCount(0);
 
+    /*
+     * Since v145 §11 the word is the PURPOSE rather than the class, which is
+     * the same rule applied to a better question: why the work exists rather
+     * than what shape it is. Asserted against the fixtures, where every active
+     * task carries one.
+     */
+    const words = (await rows.locator('.sub').allInnerTexts()).join(' ');
+    expect(words).toMatch(/Reactive|Planned|Improvement/);
+
     // The year repeated on every row is the part the eye has to step over.
     const thisYear = String(new Date().getFullYear());
     const dates = await rows.locator('.row-due').allInnerTexts();

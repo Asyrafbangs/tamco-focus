@@ -8,6 +8,7 @@ import {
 } from '@/domain/duration';
 import { DELIVERY_KIND_WORD } from '@/domain/delivery';
 import { GOAL_HEALTH_LABELS, GOAL_STATUS_LABELS } from '@/domain/goals';
+import { WORK_PURPOSE_SHORT_LABELS } from '@/domain/purpose';
 import { FOCUS_BUCKET_WORD, WORK_CLASS_LABELS } from '@/domain/types';
 import type { TeamMemberDetail } from '@/server/queries';
 
@@ -130,7 +131,12 @@ export function MyTeamPersonPanel({
       <Link key={task.id} href={taskHref(task.id)} scroll={false} className="member-work-row">
         <strong>{task.title}</strong>
         <span>
-          {task.bucket ? `${FOCUS_BUCKET_WORD[task.bucket]} · ` : ''}
+          {/* §11 — why it is being done, where the capacity bucket used to be. */}
+          {task.workPurpose
+            ? `${WORK_PURPOSE_SHORT_LABELS[task.workPurpose]} · `
+            : task.bucket
+              ? `${FOCUS_BUCKET_WORD[task.bucket]} · `
+              : ''}
           {task.progressPercent}%{task.isMandatory ? ' · Mandatory' : ''}
           {/* Short, like every other date since v130: the year is the same on
               every row and the eye has to step over it. */}

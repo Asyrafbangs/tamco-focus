@@ -35,6 +35,15 @@ const schema = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().max(4000).optional(),
   workClass: z.enum(ASSIGNABLE_WORK_CLASSES),
+  /**
+   * §11 — why the work exists, asked at registration.
+   *
+   * Optional in the schema and null in the database when it is not given: an
+   * assignment that arrives without one creates work that reads as
+   * unclassified, which is true, rather than work that silently claims to be
+   * planned operations.
+   */
+  workPurpose: z.enum(['reactive', 'planned_operations', 'improvement_development']).optional(),
   ownerIds: z.array(z.string().uuid()).min(1).max(25),
   urgency: z.enum(['low', 'normal', 'high', 'critical']).default('normal'),
   dueDate: z
@@ -89,6 +98,7 @@ export async function assignWork(
     p_due_is_date_only: true,
     p_review_at: reviewAt,
     p_idempotency_key: parsed.data.idempotencyKey,
+    p_work_purpose: parsed.data.workPurpose ?? null,
   });
 
   if (error) {
