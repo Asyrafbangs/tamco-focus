@@ -6518,6 +6518,468 @@ export type Database = {
           },
         ]
       }
+      weekly_commitment_changes: {
+        Row: {
+          commitment_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          kind: Database["public"]["Enums"]["weekly_change_kind"]
+          payload: Json
+          reason: string
+          requested_at: string
+          requested_by: string
+          state: Database["public"]["Enums"]["weekly_change_state"]
+          updated_at: string
+        }
+        Insert: {
+          commitment_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["weekly_change_kind"]
+          payload?: Json
+          reason: string
+          requested_at?: string
+          requested_by: string
+          state?: Database["public"]["Enums"]["weekly_change_state"]
+          updated_at?: string
+        }
+        Update: {
+          commitment_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["weekly_change_kind"]
+          payload?: Json
+          reason?: string
+          requested_at?: string
+          requested_by?: string
+          state?: Database["public"]["Enums"]["weekly_change_state"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_commitment_changes_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_commitment_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_changes_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_commitments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_changes_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_changes_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_changes_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_changes_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_changes_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_changes_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_changes_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_changes_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_changes_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_changes_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weekly_commitment_events: {
+        Row: {
+          actor_id: string | null
+          commitment_id: string
+          created_at: string
+          detail: Json
+          id: string
+          kind: string
+          note: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          commitment_id: string
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind: string
+          note?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          commitment_id?: string
+          created_at?: string
+          detail?: Json
+          id?: string
+          kind?: string
+          note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_commitment_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_events_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_commitment_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitment_events_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_commitments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weekly_commitments: {
+        Row: {
+          carried_from_id: string | null
+          checklist_item_id: string | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          employee_id: string
+          expected_result: string
+          id: string
+          proposed_at: string
+          proposed_by: string
+          rank: number
+          state: Database["public"]["Enums"]["weekly_commitment_state"]
+          superseded_by_id: string | null
+          target_date: string | null
+          task_id: string
+          updated_at: string
+          version: number
+          week_start: string
+        }
+        Insert: {
+          carried_from_id?: string | null
+          checklist_item_id?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          employee_id: string
+          expected_result: string
+          id?: string
+          proposed_at?: string
+          proposed_by: string
+          rank?: number
+          state?: Database["public"]["Enums"]["weekly_commitment_state"]
+          superseded_by_id?: string | null
+          target_date?: string | null
+          task_id: string
+          updated_at?: string
+          version?: number
+          week_start: string
+        }
+        Update: {
+          carried_from_id?: string | null
+          checklist_item_id?: string | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          employee_id?: string
+          expected_result?: string
+          id?: string
+          proposed_at?: string
+          proposed_by?: string
+          rank?: number
+          state?: Database["public"]["Enums"]["weekly_commitment_state"]
+          superseded_by_id?: string | null
+          target_date?: string | null
+          task_id?: string
+          updated_at?: string
+          version?: number
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_commitments_carried_from_id_fkey"
+            columns: ["carried_from_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_commitment_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_carried_from_id_fkey"
+            columns: ["carried_from_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_commitments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "completed_contributions"
+            referencedColumns: ["checklist_item_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "shared_contributions"
+            referencedColumns: ["checklist_item_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "task_checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_superseded_by_id_fkey"
+            columns: ["superseded_by_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_commitment_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_superseded_by_id_fkey"
+            columns: ["superseded_by_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_commitments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "binned_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "task_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_capture_attachments: {
         Row: {
           byte_size: number
@@ -8713,6 +9175,257 @@ export type Database = {
           },
         ]
       }
+      weekly_commitment_overview: {
+        Row: {
+          carried_from_id: string | null
+          checklist_item_id: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          delivery_outcome: string | null
+          employee_id: string | null
+          expected_result: string | null
+          id: string | null
+          is_step: boolean | null
+          open_change_count: number | null
+          primary_owner_id: string | null
+          proposed_at: string | null
+          proposed_by: string | null
+          rank: number | null
+          reference_title: string | null
+          state: Database["public"]["Enums"]["weekly_commitment_state"] | null
+          step_action: string | null
+          step_state: Database["public"]["Enums"]["checklist_item_state"] | null
+          superseded_by_id: string | null
+          target_date: string | null
+          task_due_at: string | null
+          task_id: string | null
+          task_status: Database["public"]["Enums"]["task_status"] | null
+          task_title: string | null
+          version: number | null
+          week_start: string | null
+          work_class: Database["public"]["Enums"]["work_class"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_carried_from_id_fkey"
+            columns: ["carried_from_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_commitment_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_carried_from_id_fkey"
+            columns: ["carried_from_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_commitments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "completed_contributions"
+            referencedColumns: ["checklist_item_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "shared_contributions"
+            referencedColumns: ["checklist_item_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "task_checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_superseded_by_id_fkey"
+            columns: ["superseded_by_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_commitment_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_superseded_by_id_fkey"
+            columns: ["superseded_by_id"]
+            isOneToOne: false
+            referencedRelation: "weekly_commitments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "binned_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "task_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekly_commitments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       accept_workload_review: {
@@ -8748,6 +9461,10 @@ export type Database = {
         }
         Returns: Json
       }
+      agree_weekly_commitment: {
+        Args: { p_commitment_id: string; p_note?: string }
+        Returns: Json
+      }
       assign_work_to_people: {
         Args: {
           p_description: string
@@ -8778,6 +9495,10 @@ export type Database = {
           p_reason: string
           p_task_id: string
         }
+        Returns: Json
+      }
+      carry_forward_weekly_commitment: {
+        Args: { p_commitment_id: string; p_week_start?: string }
         Returns: Json
       }
       change_task_due_date: {
@@ -8940,6 +9661,10 @@ export type Database = {
         }
         Returns: Json
       }
+      decline_weekly_commitment: {
+        Args: { p_commitment_id: string; p_note: string }
+        Returns: Json
+      }
       delete_routine_template: {
         Args: { p_idempotency_key?: string; p_template_id: string }
         Returns: Json
@@ -9083,6 +9808,18 @@ export type Database = {
           user_id: string
         }[]
       }
+      propose_weekly_commitment: {
+        Args: {
+          p_checklist_item_id?: string
+          p_employee_id: string
+          p_expected_result: string
+          p_rank?: number
+          p_target_date?: string
+          p_task_id: string
+          p_week_start?: string
+        }
+        Returns: Json
+      }
       provision_user_profile: {
         Args: {
           p_actor_id?: string
@@ -9168,12 +9905,29 @@ export type Database = {
         Args: { p_item_id: string; p_reason?: string }
         Returns: Json
       }
+      reorder_weekly_commitments: {
+        Args: {
+          p_employee_id: string
+          p_ordered_ids: string[]
+          p_week_start: string
+        }
+        Returns: Json
+      }
       request_goal_update: {
         Args: {
           p_expected_version: number
           p_goal_id: string
           p_idempotency_key?: string
           p_message?: string
+        }
+        Returns: Json
+      }
+      request_weekly_commitment_change: {
+        Args: {
+          p_commitment_id: string
+          p_kind: Database["public"]["Enums"]["weekly_change_kind"]
+          p_payload?: Json
+          p_reason: string
         }
         Returns: Json
       }
@@ -9187,6 +9941,10 @@ export type Database = {
           p_resolution_note: string
           p_support_request_id: string
         }
+        Returns: Json
+      }
+      resolve_weekly_commitment_change: {
+        Args: { p_accept: boolean; p_change_id: string; p_note?: string }
         Returns: Json
       }
       restore_routine_template: {
@@ -9405,6 +10163,10 @@ export type Database = {
         Returns: Json
       }
       user_retained_history: { Args: { p_user_id: string }; Returns: Json }
+      withdraw_weekly_commitment: {
+        Args: { p_commitment_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       account_status: "active" | "deactivated"
@@ -9625,6 +10387,14 @@ export type Database = {
       team_summary_mode: "off" | "leadership" | "detailed"
       urgency_level: "normal" | "high" | "critical"
       visibility_mode: "specific_only" | "direct_reports_plus" | "none"
+      weekly_change_kind: "amend" | "remove" | "cannot_meet"
+      weekly_change_state: "pending" | "accepted" | "rejected" | "withdrawn"
+      weekly_commitment_state:
+        | "proposed"
+        | "agreed"
+        | "declined"
+        | "withdrawn"
+        | "superseded"
       work_class:
         | "quick_action"
         | "major_project"
@@ -9999,6 +10769,15 @@ export const Constants = {
       team_summary_mode: ["off", "leadership", "detailed"],
       urgency_level: ["normal", "high", "critical"],
       visibility_mode: ["specific_only", "direct_reports_plus", "none"],
+      weekly_change_kind: ["amend", "remove", "cannot_meet"],
+      weekly_change_state: ["pending", "accepted", "rejected", "withdrawn"],
+      weekly_commitment_state: [
+        "proposed",
+        "agreed",
+        "declined",
+        "withdrawn",
+        "superseded",
+      ],
       work_class: [
         "quick_action",
         "major_project",
