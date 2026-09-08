@@ -9917,6 +9917,27 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 /* The one period control, wherever a screen reports over a window. Presets are
    links and the range is a GET form, so both are addresses rather than state
    held in a component. */
+/* v140 - what the person says they are on, above the list it describes.
+   Quiet: a statement, not a banner, and it carries the date it was made so an
+   old selection reads as old rather than as now. */
+.working-on-summary {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--blue);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.working-on-summary strong {
+  font-size: 13px;
+}
+.working-on-summary .muted {
+  font-size: 11px;
+}
+
 /* The period sits above the filter disclosure on Records, because it is the
    filter people change most and it should be readable without opening
    anything. */

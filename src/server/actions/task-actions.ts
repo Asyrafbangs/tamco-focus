@@ -1507,3 +1507,42 @@ export async function postBarrierResponse(input: {
     ['/today', '/work'],
   );
 }
+
+/* ------------------------------------------------------------------------- */
+/* v140 §8 — the work somebody says they are on                              */
+/* ------------------------------------------------------------------------- */
+
+const currentFocusSchema = z.object({
+  taskId: uuid,
+  /** Set when the selection is a step of somebody else's work. */
+  checklistItemId: uuid.optional(),
+});
+
+/**
+ * Records an explicit "Working on" selection.
+ *
+ * Deliberately thin. Whether the work has been started, whether the step
+ * belongs to this person, and what happens to the selection when the work is
+ * finished are all the database's to decide — a second copy of those rules here
+ * would drift from the one that actually runs.
+ */
+export async function setCurrentFocus(input: z.input<typeof currentFocusSchema>) {
+  const parsed = currentFocusSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, code: 'validation_failed' as const, message: 'Invalid request.' };
+  }
+
+  return callProcedure('set_current_focus', {
+    p_task_id: parsed.data.taskId,
+    p_checklist_item_id: parsed.data.checklistItemId ?? null,
+  });
+}
+
+export async function clearCurrentFocus() {
+  return callProcedure('clear_current_focus', {});
+}
+
+/** "Still on this" — moves the confirmation, not the selection. */
+export async function confirmCurrentFocus() {
+  return callProcedure('confirm_current_focus', {});
+}

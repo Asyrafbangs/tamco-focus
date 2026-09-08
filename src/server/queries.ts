@@ -2013,6 +2013,90 @@ export async function getBinnedTasks(
  * the visibility rule itself rather than a second opinion about it — reporting
  * line, administrator scope and explicit grants all included, by construction.
  */
+/** What somebody says they are working on, and when they said it. */
+export interface CurrentFocusReference {
+  taskId: string;
+  checklistItemId: string | null;
+  /** The step when a step was chosen, otherwise the task. */
+  title: string;
+  taskTitle: string;
+  isStep: boolean;
+  selectedAt: string;
+  confirmedAt: string;
+}
+
+/**
+ * One person's explicit current focus, or null when they have not set one.
+ *
+ * Null is a real answer and the screens say so: "Not set" is the honest state
+ * for somebody who has not chosen, and inventing a selection from recent
+ * activity is exactly what v140 removed.
+ */
+export async function getCurrentFocus(userId: string): Promise<CurrentFocusReference | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('current_focus_overview')
+    .select('task_id,checklist_item_id,focus_title,task_title,is_step,selected_at,confirmed_at')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error(`[getCurrentFocus] ${error.message}`);
+    return null;
+  }
+  if (!data) return null;
+
+  return {
+    taskId: String(data.task_id),
+    checklistItemId: data.checklist_item_id ? String(data.checklist_item_id) : null,
+    title: String(data.focus_title),
+    taskTitle: String(data.task_title),
+    isStep: Boolean(data.is_step),
+    selectedAt: String(data.selected_at),
+    confirmedAt: String(data.confirmed_at),
+  };
+}
+
+/**
+ * The current focus of everybody the viewer may see, keyed by person.
+ *
+ * One read for the whole team rather than one per row: My Team renders a
+ * column of these, and a query per person is how a list of ten people becomes
+ * eleven round trips.
+ */
+export async function getTeamCurrentFocus(
+  userIds: readonly string[],
+): Promise<Map<string, CurrentFocusReference>> {
+  const found = new Map<string, CurrentFocusReference>();
+  if (userIds.length === 0) return found;
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('current_focus_overview')
+    .select(
+      'user_id,task_id,checklist_item_id,focus_title,task_title,is_step,selected_at,confirmed_at',
+    )
+    .in('user_id', [...userIds]);
+
+  if (error) {
+    console.error(`[getTeamCurrentFocus] ${error.message}`);
+    return found;
+  }
+
+  for (const row of data ?? []) {
+    found.set(String(row.user_id), {
+      taskId: String(row.task_id),
+      checklistItemId: row.checklist_item_id ? String(row.checklist_item_id) : null,
+      title: String(row.focus_title),
+      taskTitle: String(row.task_title),
+      isStep: Boolean(row.is_step),
+      selectedAt: String(row.selected_at),
+      confirmedAt: String(row.confirmed_at),
+    });
+  }
+  return found;
+}
+
 export async function getVisiblePeopleCount(
   viewerId: string,
   reportingManagerId: string | null,
@@ -2908,14 +2992,24 @@ export interface TeamAttentionRow {
   availableCount: number;
   routineDueCount: number;
   /**
-   * Their current focus: the Active item touched most recently.
+   * The work this person says they are on, or null when they have not said.
    *
-   * A manager looking at "4 active" and one title needs to know which one it
-   * is, or the column is a guess. The task query orders by
-   * `last_meaningful_update_at` descending, so the first Active row is the one
-   * worked on most recently — a rule that can be stated on screen.
+   * It used to be the Active item with the most recent
+   * `last_meaningful_update_at` — a defensible guess, and still a guess:
+   * opening a task to read it, or an automated touch, could make something
+   * look chosen. v140 §8 makes it a statement, so null now means "Not set"
+   * rather than "we could not work it out".
    */
-  workingOn: { taskId: string; title: string } | null;
+  workingOn: {
+    taskId: string;
+    checklistItemId: string | null;
+    title: string;
+    /** The task around the step, when a step was chosen. */
+    taskTitle: string;
+    isStep: boolean;
+    selectedAt: string;
+    confirmedAt: string;
+  } | null;
   /** The rest of their Active work, so the one title above does not imply it is all. */
   otherActiveCount: number;
   attention: {
@@ -3783,6 +3877,9 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
   const tasks = (tasksResult.data ?? []).map((row) =>
     toTeamAttentionTask(row as Record<string, unknown>),
   );
+
+  // One read for everybody on the roster, rather than one per rendered row.
+  const currentFocus = await getTeamCurrentFocus(team.map((person) => person.userId));
   const barriers = barriersResult.data ?? [];
   const goals = goalsResult.data ?? [];
 
@@ -4092,7 +4189,7 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
         (task) => task.status === 'backlog' && task.workClass !== 'routine_occurrence',
       ).length,
       routineDueCount: person.routinesOverdue,
-      workingOn: active[0] ? { taskId: active[0].id, title: active[0].title } : null,
+      workingOn: currentFocus.get(person.userId) ?? null,
       otherActiveCount: Math.max(0, active.length - 1),
       attention: top
         ? {

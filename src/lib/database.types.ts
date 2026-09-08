@@ -1105,6 +1105,121 @@ export type Database = {
           },
         ]
       }
+      current_focus: {
+        Row: {
+          checklist_item_id: string | null
+          confirmed_at: string
+          created_at: string
+          selected_at: string
+          task_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          checklist_item_id?: string | null
+          confirmed_at?: string
+          created_at?: string
+          selected_at?: string
+          task_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          checklist_item_id?: string | null
+          confirmed_at?: string
+          created_at?: string
+          selected_at?: string
+          task_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "current_focus_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "completed_contributions"
+            referencedColumns: ["checklist_item_id"]
+          },
+          {
+            foreignKeyName: "current_focus_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "shared_contributions"
+            referencedColumns: ["checklist_item_id"]
+          },
+          {
+            foreignKeyName: "current_focus_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "task_checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "current_focus_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "binned_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "current_focus_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "current_focus_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "task_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "current_focus_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "current_focus_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "current_focus_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "current_focus_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "current_focus_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "current_focus_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delegations: {
         Row: {
           created_at: string
@@ -7186,6 +7301,145 @@ export type Database = {
           },
         ]
       }
+      current_focus_overview: {
+        Row: {
+          checklist_item_id: string | null
+          confirmed_at: string | null
+          due_at: string | null
+          due_is_date_only: boolean | null
+          focus_title: string | null
+          is_step: boolean | null
+          primary_owner_id: string | null
+          selected_at: string | null
+          step_action: string | null
+          task_id: string | null
+          task_status: Database["public"]["Enums"]["task_status"] | null
+          task_title: string | null
+          user_id: string | null
+          work_class: Database["public"]["Enums"]["work_class"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "current_focus_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "completed_contributions"
+            referencedColumns: ["checklist_item_id"]
+          },
+          {
+            foreignKeyName: "current_focus_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "shared_contributions"
+            referencedColumns: ["checklist_item_id"]
+          },
+          {
+            foreignKeyName: "current_focus_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "task_checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "current_focus_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "binned_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "current_focus_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "current_focus_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "task_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "current_focus_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "current_focus_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "current_focus_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "current_focus_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "current_focus_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "current_focus_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_primary_owner_id_fkey"
+            columns: ["primary_owner_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       focus_summary: {
         Row: {
           active_count: number | null
@@ -8542,6 +8796,7 @@ export type Database = {
         Args: { p_delivery_id: string }
         Returns: Json
       }
+      clear_current_focus: { Args: never; Returns: Json }
       complete_checklist_item: {
         Args: {
           p_completion_note?: string
@@ -8590,6 +8845,7 @@ export type Database = {
         }
         Returns: Json
       }
+      confirm_current_focus: { Args: never; Returns: Json }
       confirm_work_capture: {
         Args: {
           p_capture_id: string
@@ -9026,6 +9282,10 @@ export type Database = {
           p_participant_ids?: string[]
           p_starts_at: string
         }
+        Returns: Json
+      }
+      set_current_focus: {
+        Args: { p_checklist_item_id?: string; p_task_id: string }
         Returns: Json
       }
       set_routine_template_active: {

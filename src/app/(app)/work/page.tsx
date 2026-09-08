@@ -45,6 +45,7 @@ import {
   getAssignablePeople,
   getSharedContributions,
   getBinnedTaskCount,
+  getCurrentFocus,
   getTeamAvailableWork,
   getTeamAvailableCount,
   getBinnedTasks,
@@ -116,6 +117,13 @@ const TAB_LABEL: Record<TabKey, string> = {
  * `Intl.ListFormat` rather than `join(', ')`, so the last name is joined the
  * way the line is read aloud and a list of one is simply the name.
  */
+/** A plain day, in the reader's zone: "Set 4 Sep", never "Set 3 hours ago". */
+function formatDay(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone }).format(
+    new Date(iso),
+  );
+}
+
 const NAME_LIST = new Intl.ListFormat('en-GB', { style: 'long', type: 'conjunction' });
 const nameList = (names: string[]) => NAME_LIST.format(names);
 
@@ -599,6 +607,7 @@ export default async function WorkPage({
     teamDelivered,
     teamDeliveredWork,
     completedWork,
+    currentFocus,
   ] = await Promise.all([
     getMyTasks(profile.id),
     getFocusSummary(profile.id),
@@ -656,6 +665,9 @@ export default async function WorkPage({
     activeTab === 'completed'
       ? getMyCompletedWork(profile.id, period.since, period.until)
       : Promise.resolve({ records: [], failed: false }),
+    // What the viewer says they are on. Read on every load of this page: it
+    // heads the Active list and the task drawer offers to become it.
+    getCurrentFocus(profile.id),
   ]);
 
   const visible =
@@ -982,6 +994,40 @@ export default async function WorkPage({
             </MenuDropdown>
           </div>
           <p className="focus-tab-meaning">{TAB_MEANING[activeTab]}</p>
+          {/*
+            v140 §8 — the answer at the top of the list it is about.
+
+            Only on Active, because that is the list this describes. When it is
+            not set the line says so and offers nothing: a prompt on every visit
+            would turn a statement into a chore, and §8 is explicit that there
+            are no recurring mandatory confirmations.
+          */}
+          {activeTab === 'active' && (
+            <div className="working-on-summary">
+              {currentFocus ? (
+                <>
+                  <p className="eyebrow">Working on</p>
+                  <RowPrimaryLink
+                    href={`/work?task=${currentFocus.taskId}`}
+                    ariaLabel={`Open ${currentFocus.title}, the work you are on`}
+                  >
+                    <strong>{currentFocus.title}</strong>
+                  </RowPrimaryLink>
+                  <span className="muted">
+                    {currentFocus.isStep ? `Step of ${currentFocus.taskTitle} · ` : ''}
+                    Set {formatDay(currentFocus.confirmedAt, profile.timezone)}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <p className="eyebrow">Working on</p>
+                  <span className="muted">
+                    Not set. Open the work you are on and choose <strong>Set as working on</strong>.
+                  </span>
+                </>
+              )}
+            </div>
+          )}
         </>
       ) : (
         <>
@@ -1522,6 +1568,7 @@ export default async function WorkPage({
       {taskDetail && (
         <TaskDetailDrawer
           detail={taskDetail}
+          currentFocus={currentFocus}
           /*
            * v48 §2, §4 — close returns one layer, to wherever this was opened
            * from. This used to be a hardcoded `/work`, so a manager who opened

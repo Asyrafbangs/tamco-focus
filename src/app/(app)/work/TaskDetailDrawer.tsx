@@ -47,6 +47,7 @@ import {
   addChecklistStep,
   completeTask,
   convertQuickAction,
+  clearCurrentFocus,
   decideCompletionReview,
   moveTaskToAvailable,
   postTaskUpdate,
@@ -58,6 +59,7 @@ import {
   reopenChecklistItem,
   resolveBarrier,
   resumeTask,
+  setCurrentFocus,
   updateChecklistStep,
 } from '@/server/actions/task-actions';
 import type { TaskDetail, TaskDetailAttachment } from '@/server/queries';
@@ -69,6 +71,11 @@ import { TaskChecklistPanel } from './TaskChecklistPanel';
 import { TaskRowActions } from './TaskRowActions';
 
 interface TaskDetailDrawerProps {
+  /**
+   * What the viewer says they are working on, so this drawer can offer to
+   * become it — or say that it already is.
+   */
+  currentFocus?: { taskId: string; checklistItemId: string | null } | null;
   detail: TaskDetail;
   closeHref: string;
   timeZone: string;
@@ -146,6 +153,7 @@ export function TaskDetailDrawer({
   assignablePeople,
   viewerId,
   attentionBarrierId,
+  currentFocus,
 }: TaskDetailDrawerProps) {
   const router = useRouter();
   const task = detail.task;
@@ -159,6 +167,17 @@ export function TaskDetailDrawer({
    * on their own summary line, so the choice is informed and closing one is the
    * same gesture as opening it.
    */
+  /* This exact work, not merely this task: a step selection points elsewhere. */
+  const isCurrentFocus = currentFocus?.taskId === task.id && currentFocus?.checklistItemId === null;
+
+  const runFocusChange = (work: Promise<{ ok: boolean; message?: string }>) => {
+    startTransition(async () => {
+      const result = await work;
+      if (result.ok) router.refresh();
+      else setMessage({ tone: 'error', text: result.message ?? 'That did not work.' });
+    });
+  };
+
   const [openSection, setOpenSection] = useState<'steps' | 'updates' | 'details' | null>(null);
   const toggleSection = (section: 'steps' | 'updates' | 'details') =>
     setOpenSection((current) => (current === section ? null : section));
@@ -1756,6 +1775,37 @@ export function TaskDetailDrawer({
             >
               + Add update
             </button>
+            {/*
+              v140 §8 — the one place where saying it costs nothing.
+
+              It sits beside Add update rather than under More, because this is
+              not administration: it is the sentence the manager's row reads,
+              and burying it would leave "Not set" as the permanent answer. Only
+              offered on work that has actually been started, which is the same
+              rule `set_current_focus` enforces.
+            */}
+            {task.status === 'active' &&
+              (isCurrentFocus ? (
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={pending}
+                  aria-busy={pending}
+                  onClick={() => runFocusChange(clearCurrentFocus())}
+                >
+                  Working on this · Clear
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={pending}
+                  aria-busy={pending}
+                  onClick={() => runFocusChange(setCurrentFocus({ taskId: task.id }))}
+                >
+                  Set as working on
+                </button>
+              ))}
             {/*
               v46 §39 - not offered while a barrier is already open.
 

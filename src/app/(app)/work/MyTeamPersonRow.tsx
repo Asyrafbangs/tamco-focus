@@ -22,10 +22,10 @@ export function MyTeamListHeader() {
   return (
     <div className={styles.listHeader} aria-hidden="true">
       <span>Person</span>
-      {/* "Working on" invited the question this column could not answer: when
-          somebody has four Active items, which one is this? It is the one
-          touched most recently, and the column now says so by naming itself
-          for a single thing and counting the rest. */}
+      {/* What the person said they are on, not what the data suggests. It was
+          the most recently touched Active task until v140 §8 — a column that
+          could never be empty, never be wrong, and never quite meant anything.
+          It is now their own selection, and "Not set" is a real answer. */}
       <span>Current focus</span>
       <span>Needs you</span>
       {/* "Latest" alone could mean the latest task, the latest change or the
@@ -136,10 +136,28 @@ export function MyTeamPersonRow({
         {person.workingOn ? (
           <>
             <strong>{person.workingOn.title}</strong>
-            {person.otherActiveCount > 0 && <span>+{person.otherActiveCount} other active</span>}
+            {/*
+              When it was said, not how long ago something was touched.
+              §8: this communicates a main focus, not presence — so a selection
+              made on Tuesday says Tuesday rather than implying somebody is at
+              it right now.
+            */}
+            <span>
+              Set {agoWords(person.workingOn.confirmedAt, now)}
+              {person.otherActiveCount > 0 ? ` · +${person.otherActiveCount} other active` : ''}
+            </span>
           </>
         ) : (
-          <span className={styles.muted}>No Active focus</span>
+          /*
+            "Not set" is a real answer, and a different one from "nothing
+            active". The column used to name the most recently touched Active
+            task, so it could never be empty and never be wrong — and never
+            quite meant anything either.
+          */
+          <span className={styles.muted}>
+            Not set
+            {person.activeCount > 0 ? ` · ${person.activeCount} active` : ''}
+          </span>
         )}
       </div>
 
