@@ -800,11 +800,19 @@ export default async function WorkPage({
           view, so nobody has to work out which of the two they are creating.
         */}
         <div className="actions">
-          {/* The same flow, in the manager's word for it. From My Team the
-              thing being created is work for somebody else, and "New Work"
-              names the record rather than the act. */}
+          {/*
+            The same flow, in the manager's word for it. From My Team the thing
+            being created is work for somebody else, and "New Work" names the
+            record rather than the act.
+
+            "Assign" only for somebody who can actually assign. A person who
+            can see colleagues through a visibility grant sees the same team
+            screens, but the grant is sight of their work and nothing else — no
+            editing, no activation, no reassignment. Offering them "Assign
+            work" promised authority they do not have.
+          */}
           <Link href="/capture" className="btn primary">
-            {scope === 'team' ? '＋ Assign work' : '＋ New Work'}
+            {scope === 'team' && isManager ? '＋ Assign work' : '＋ New Work'}
           </Link>
         </div>
       </div>

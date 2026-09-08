@@ -27,7 +27,7 @@ import {
   getTeamGoalSummary,
   type GoalPlanOverview,
 } from '@/server/goal-queries';
-import { getWorkableTasks } from '@/server/queries';
+import { getTeamLoad, getVisiblePeopleCount, getWorkableTasks } from '@/server/queries';
 
 import styles from './goals.module.css';
 
@@ -92,20 +92,62 @@ export default async function GoalsPage({
   const profile = await requireProfile();
   const renderTime = new Date();
   const params = await searchParams;
+  /*
+   * Authority and sight are separate questions.
+   *
+   * `canManage` decides who may set a Goal for somebody else, review a quarter
+   * or finalise a plan. Whether there is anybody to look at is decided by
+   * visibility — an administrator can grant that to somebody who is not a
+   * manager, and the approved example is a team member supervising two
+   * interns. Reading their Goals is what the grant is for; none of the
+   * authority below comes with it.
+   */
   const canManage = profile.role === 'manager' || profile.role === 'administrator';
+  const visiblePeople = await getVisiblePeopleCount(
+    profile.id,
+    profile.reporting_manager_id ?? null,
+  );
+  const canSeeTeam = visiblePeople > 0;
 
-  const [myGoals, teamSummary, employees, activeWeights, visibleWork, myPlan, supportPeople] =
-    await Promise.all([
-      getMyGoals(profile.id),
-      canManage ? getTeamGoalSummary(profile.id) : Promise.resolve([]),
-      canManage ? getGoalEmployeeOptions(profile.id) : Promise.resolve([]),
-      canManage ? getGoalActiveWeights() : Promise.resolve<Record<string, number>>({}),
-      getWorkableTasks(),
-      getCurrentGoalPlan(profile.id),
-      getGoalSupportPeople(profile.id),
-    ]);
+  const [
+    myGoals,
+    teamSummary,
+    employees,
+    activeWeights,
+    visibleWork,
+    myPlan,
+    supportPeople,
+    grantedRoster,
+  ] = await Promise.all([
+    getMyGoals(profile.id),
+    canSeeTeam ? getTeamGoalSummary(profile.id) : Promise.resolve([]),
+    // The picker for "set a Goal for somebody", which is an authority. It
+    // reads `user_profiles`, whose policy also exposes the viewer's own
+    // reporting manager so the interface can name them — a licence to read a
+    // name, not to be offered them as a subject.
+    canManage ? getGoalEmployeeOptions(profile.id) : Promise.resolve([]),
+    canManage ? getGoalActiveWeights() : Promise.resolve<Record<string, number>>({}),
+    getWorkableTasks(),
+    getCurrentGoalPlan(profile.id),
+    getGoalSupportPeople(profile.id),
+    // The roster a viewer without authority reads: RLS-bound, and it excludes
+    // the person they report to for the same reason as above.
+    canSeeTeam && !canManage ? getTeamLoad(profile.id) : Promise.resolve([]),
+  ]);
 
-  const teamPeople = employees.map((employee) => {
+  const roster = canManage
+    ? employees.map((employee) => ({
+        id: employee.id,
+        fullName: employee.fullName,
+        employeeId: employee.employeeId,
+      }))
+    : grantedRoster.map((person) => ({
+        id: person.userId,
+        fullName: person.fullName,
+        employeeId: person.employeeId,
+      }));
+
+  const teamPeople = roster.map((employee) => {
     const summary = teamSummary.find((item) => item.userId === employee.id);
     return (
       summary ?? {
@@ -123,7 +165,7 @@ export default async function GoalsPage({
       }
     );
   });
-  const view = canManage && params.view === 'team' ? 'team' : 'my';
+  const view = canSeeTeam && params.view === 'team' ? 'team' : 'my';
   const selectedPersonId =
     view === 'team' && teamPeople.some((person) => person.userId === params.person)
       ? params.person!
@@ -250,7 +292,7 @@ export default async function GoalsPage({
         has one tab, "My Goals", which selects the page they are already on —
         a whole row of vertical space spent restating the heading above it.
       */}
-      {canManage && (
+      {canSeeTeam && (
         <WorkspaceTabs
           label="Goal workspace"
           items={[
@@ -462,17 +504,23 @@ export default async function GoalsPage({
                     <h2 id="team-person-goals">{selectedPerson.fullName}</h2>
                     <p>{selectedPerson.employeeId} · Coaching and alignment</p>
                   </div>
-                  <GoalSetupDialog
-                    owner={{
-                      id: selectedPerson.userId,
-                      fullName: selectedPerson.fullName,
-                      employeeId: selectedPerson.employeeId,
-                      activeWeight: activeWeights[selectedPerson.userId] ?? 0,
-                    }}
-                    canActivate
-                    triggerLabel="+ Add goal"
-                    returnView="team"
-                  />
+                  {/* Setting somebody a Goal is an authority, not a
+                      consequence of being able to read theirs. A viewer here
+                      through a visibility grant may see this person's Goals and
+                      nothing more. */}
+                  {canManage && (
+                    <GoalSetupDialog
+                      owner={{
+                        id: selectedPerson.userId,
+                        fullName: selectedPerson.fullName,
+                        employeeId: selectedPerson.employeeId,
+                        activeWeight: activeWeights[selectedPerson.userId] ?? 0,
+                      }}
+                      canActivate
+                      triggerLabel="+ Add goal"
+                      returnView="team"
+                    />
+                  )}
                   <div className="team-goal-summary">
                     <div>
                       <strong>{selectedPerson.activeGoalCount}</strong>

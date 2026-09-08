@@ -38,6 +38,7 @@ import {
   getRoutineOutcomes,
   getRoutineTally,
   getRoutineTemplates,
+  getVisiblePeopleCount,
   getTeamDirectory,
   getMyTasks,
   getRoutineOccurrences,
@@ -103,7 +104,26 @@ export default async function RoutinePage({
   const profile = await requireProfile();
   const params = await searchParams;
 
+  /*
+   * Two different questions, and they were being answered by one flag.
+   *
+   * `isManager` is authority: who may assign a schedule, accept an exception,
+   * decide something. Whether there is anybody to LOOK at is decided by
+   * visibility, which an administrator can grant to somebody who is not a
+   * manager at all — the approved example is a team member who supervises two
+   * interns. Gating the whole routine team layer on the role gave that person
+   * a grant with no screen to use it on.
+   *
+   * Everything the team layer reads is bound by RLS on the viewer's own
+   * session, so opening the view widens nobody's reach: it returns exactly the
+   * people the grant already allows and nothing else.
+   */
   const isManager = profile.role === 'manager' || profile.role === 'administrator';
+  const visiblePeople = await getVisiblePeopleCount(
+    profile.id,
+    profile.reporting_manager_id ?? null,
+  );
+  const canSeeTeam = visiblePeople > 0;
 
   /*
    * One period for this page, in the vocabulary every other screen uses.
@@ -133,7 +153,7 @@ export default async function RoutinePage({
   // The chosen period travels with every manager link, so opening a person or
   // a schedule does not silently reset the question that was just asked.
   const managerQuery = new URLSearchParams(periodParams(period)).toString();
-  const managerPanel = isManager && params.panel === 'manager';
+  const managerPanel = canSeeTeam && params.panel === 'manager';
   const managerPerson = managerPanel ? (params.person ?? null) : null;
   /*
    * People is the default and stays it: that is how a team is managed. Reading
@@ -170,10 +190,17 @@ export default async function RoutinePage({
     getRoutineOccurrences(profile.id),
     getMyTasks(profile.id),
     getFocusSummary(profile.id),
-    isManager ? getTeamLoad(profile.id) : Promise.resolve([]),
+    canSeeTeam ? getTeamLoad(profile.id) : Promise.resolve([]),
     // The schedules behind the occurrences. Nothing read this table and
     // nothing could write it, which is why creating a routine did nothing.
     getRoutineTemplates(),
+    /*
+     * Every active account, deliberately — `team_directory` is not
+     * `security_invoker`, because assignment needs to offer people the
+     * assigner may not otherwise see. It therefore stays behind the role, not
+     * behind visibility: handing it to a viewer with a two-person grant would
+     * hand them the whole organisation's names.
+     */
     isManager ? getTeamDirectory() : Promise.resolve([]),
     // Deleted schedules belong beside the schedules, not in the Focus Bin.
     getBinnedRoutines(profile.id),
@@ -319,7 +346,7 @@ export default async function RoutinePage({
         </div>
       </div>
 
-      {isManager && (
+      {canSeeTeam && (
         <WorkspaceTabs
           label="Work scope"
           items={[
@@ -377,7 +404,7 @@ export default async function RoutinePage({
         produces a screen serving neither - and a manager is also an employee,
         so this is a switch rather than a role.
       */}
-      {isManager && (
+      {canSeeTeam && (
         <div className="routine-audience" role="group" aria-label="Routine view">
           <Link
             href="/work/routine"

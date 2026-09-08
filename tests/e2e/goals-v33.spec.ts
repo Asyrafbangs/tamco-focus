@@ -32,16 +32,20 @@ test('Goals is a dedicated accessible workspace with whole-row drawer interactio
     page.getByText(/Agreed outcomes, visible progress, actionable milestones/),
   ).toBeVisible();
   /*
-   * No workspace tablist for somebody without reports.
+   * The workspace tablist appears only when there is somewhere else to go.
    *
    * It held a single tab, "My Goals", which selects the page it is already on —
    * a full row of vertical space restating the heading above it. Together with
    * the intro banner and the session panel it pushed the first goal to roughly
    * 690px down a 768px laptop screen, so the page about goals showed almost no
-   * goals. A manager still gets the tablist, because they have somewhere to go;
-   * that is asserted in the team test below.
+   * goals.
+   *
+   * "Somewhere to go" was read as "is a manager" until v139, which is why this
+   * used to assert on Amer. He supervises two interns through a visibility
+   * grant, so he has a team to read and now gets the tabs; the person who
+   * genuinely has nobody is Lim, whose visibility mode is `none`.
    */
-  await expect(page.getByRole('navigation', { name: 'Goal workspace' })).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: 'Goal workspace' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Goals', exact: true })).toBeVisible();
   await expect(
     page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: /Goals/ }),
