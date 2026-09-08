@@ -29,7 +29,6 @@ import {
 } from './TeamRoutineView';
 import {
   getDisplaySettings,
-  getFocusSummary,
   getBinnedRoutines,
   getRoutineExceptionQueue,
   getRoutineTeamStanding,
@@ -172,7 +171,6 @@ export default async function RoutinePage({
     settings,
     occurrences,
     tasks,
-    focus,
     team,
     routines,
     directory,
@@ -189,7 +187,6 @@ export default async function RoutinePage({
     getDisplaySettings(),
     getRoutineOccurrences(profile.id),
     getMyTasks(profile.id),
-    getFocusSummary(profile.id),
     canSeeTeam ? getTeamLoad(profile.id) : Promise.resolve([]),
     // The schedules behind the occurrences. Nothing read this table and
     // nothing could write it, which is why creating a routine did nothing.
@@ -307,8 +304,7 @@ export default async function RoutinePage({
       person.overdueCount > 0 ||
       person.decisionsPending > 0 ||
       person.routinesOverdue > 0 ||
-      person.staleCount > 0 ||
-      focus.some((bucket) => bucket.userId === person.userId && bucket.isOverTarget),
+      person.staleCount > 0,
   );
 
   const VIEW_MEANING: Record<RoutineView, string> = {

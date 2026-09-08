@@ -20,19 +20,18 @@ async function expectHydrated(page: Page) {
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 }
 
-async function completeActivationPromptIfNeeded(page: Page) {
-  const reasonModal = page.getByRole('dialog', { name: 'Over focus target' });
-  const undo = page.getByRole('button', { name: 'Undo' });
-  await expect
-    .poll(async () => (await reasonModal.isVisible()) || (await undo.isVisible()))
-    .toBe(true);
-
-  if (!(await reasonModal.isVisible())) return;
-  await reasonModal
-    .getByLabel('Why is this additional focus needed now?')
-    .selectOption('urgent_deadline');
-  await reasonModal.getByRole('button', { name: 'Activate anyway' }).click();
-  await expect(reasonModal).toHaveCount(0);
+/**
+ * Activating is one click since v144.
+ *
+ * It used to be one or two: crossing the focus target opened "Over focus
+ * target" and asked why, so every activation in this file had to be prepared
+ * for a dialog that may or may not appear. Specification §3 and §11 removed
+ * the target and the question with it, so what is left to wait for is the
+ * result — and the dialog must not come back.
+ */
+async function expectActivated(page: Page) {
+  await expect(page.getByRole('dialog', { name: 'Over focus target' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible();
 }
 
 async function signIn(page: Page, email = 'izzah@tamco.local') {
@@ -82,12 +81,11 @@ test('main employee surfaces retain prototype structure at every required viewpo
   await attachViewport(page, testInfo, 'today');
   await expectNoDocumentOverflow(page, '/today');
 
-  // v40 section 1 — Focus navigates by STATE. Major / Operational /
-  // Self-Development are still work classes and still drive the 1 / 5 / 1
-  // capacity strip, but they are no longer tabs.
+  // v40 section 1 — Focus navigates by STATE, not by work class. The 1 / 5 / 1
+  // capacity strip that used to sit above these tabs is gone entirely (v144,
+  // specification §3): it reported a ratio the product does not stand behind.
   await page.goto('/work');
-  await expect(page.locator('.capacity-strip')).toBeVisible();
-  await expect(page.locator('.capacity-strip')).toContainText('Operational');
+  await expect(page.locator('.capacity-strip')).toHaveCount(0);
   for (const tab of ['active', 'available', 'shared']) {
     await page.goto(tab === 'active' ? '/work' : `/work?tab=${tab}`);
     await expect(page.locator('.focus-tabs a.active')).toHaveAttribute(
@@ -322,7 +320,7 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
   const availableRow = page.locator('.task-row', { hasText: activationTitle });
   await expect(availableRow).toBeVisible();
   await availableRow.getByRole('button', { name: 'Activate' }).click();
-  await completeActivationPromptIfNeeded(page);
+  await expectActivated(page);
   await expect(page.locator('.task-detail')).toHaveCount(0);
   await expect(availableRow).toHaveCount(0);
 
@@ -350,7 +348,7 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
     .locator('.task-detail-footer')
     .getByRole('button', { name: 'Activate' })
     .click();
-  await completeActivationPromptIfNeeded(page);
+  await expectActivated(page);
   const drawerUndo = activationDrawer.getByRole('button', { name: 'Undo' });
   await expect(drawerUndo).toBeVisible();
   await expect(drawerUndo).toBeFocused();

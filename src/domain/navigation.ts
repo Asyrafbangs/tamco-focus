@@ -59,8 +59,8 @@ export const TASK_LAYER_PARAMS = ['task', 'attention', 'barrier', 'item'] as con
 
   `person` was a drawer parameter until v143 and had a list of its own here.
   §6 made it an expansion inside My Team: nothing closes it but the header that
-  opened it, and `review=workload` — the one layer that still sits over a
-  person — closes by dropping its own parameter and revealing them.
+  opened it. The one layer that used to sit over a person — `review=workload`,
+  the workload review — went with the focus target in v144.
 */
 
 /**

@@ -429,7 +429,13 @@ describe('manager intervention digest', () => {
     expect(text).toContain('1 routine exception awaiting review');
     expect(text).toContain('1 barrier waiting on your decision');
     expect(text).toContain('1 Goal decision or support request');
-    expect(text).toContain('workload review needed');
+    /*
+     * "workload review needed" is gone with the focus target (v144,
+     * specification §3). Asserted as an absence because a weekly email is the
+     * hardest place to notice a signal creeping back: nobody in this session
+     * reads it, and it goes to the manager rather than to whoever changed it.
+     */
+    expect(text).not.toContain('workload review needed');
     expect(text).not.toContain('Sensitive internal task title');
     expect(text).not.toContain('Team wins');
     expect(text).not.toContain('Meaningful team changes');

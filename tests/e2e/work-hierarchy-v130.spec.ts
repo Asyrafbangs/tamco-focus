@@ -72,15 +72,22 @@ test.describe('v130 the levels are told apart', () => {
     await expect(head(page).getByRole('link', { name: /New Work/ })).toHaveCount(0);
   });
 
-  test('capacity is named, and coloured only when it is full', async ({ page }) => {
+  /*
+   * v130 named the capacity strip and coloured it only where it meant
+   * something. v144 removed it (specification §3): "Major 1/1, Operational 6/5"
+   * counts items, and one Major Project is not one inspection, so the ratio was
+   * never a workload measure whatever colour it was in.
+   *
+   * The rule that outlived it is that My Work says what it is showing without
+   * a strip of numbers above the list.
+   */
+  test('no capacity ratio sits above the work', async ({ page }) => {
     await signIn(page, 'izzah@tamco.local');
     await page.goto('/work');
 
-    const strip = page.locator('.capacity-strip');
-    await expect(strip).toContainText('Capacity');
-    // A bucket with room says nothing by being quiet, so at least one bucket
-    // must be capable of being marked or the rule is unobservable.
-    await expect(strip.locator('.full, .over').first()).toBeVisible();
+    await expect(page.locator('.capacity-strip')).toHaveCount(0);
+    await expect(page.getByText(/Over focus target/i)).toHaveCount(0);
+    await expect(page.locator('.focus-tab-meaning')).toBeVisible();
   });
 });
 

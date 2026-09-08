@@ -307,13 +307,21 @@ describe('activation (section 7)', () => {
     expect(result.over_target).toBe(false);
   });
 
-  it('asks exactly one reason question when the target would be crossed', async () => {
+  /*
+   * v144 — the target no longer gates anything (specification §3, §11).
+   *
+   * Three tests lived here: the one question asked when the count crossed the
+   * target, activation proceeding once a reason was given, and "Other" being
+   * rejected without a note. They described a flow that has been removed
+   * entirely, so what replaces them is the property that matters now — the
+   * count keeps rising and nothing is ever refused for it.
+   */
+  it('activates past the target without asking anything', async () => {
     const client = await signInAs('ajmal');
 
-    // Ajmal's operational target is 5. Fill it, then attempt one more.
-    const tasks = await Promise.all(Array.from({ length: 6 }, () => fixture('ajmal')));
-
-    let reasonRequired: Rpc | null = null;
+    // Ajmal's operational target used to be 5. Seven activations therefore go
+    // well past it, and every one of them must simply succeed.
+    const tasks = await Promise.all(Array.from({ length: 7 }, () => fixture('ajmal')));
 
     for (const task of tasks) {
       const { data } = await client.rpc('activate_task', {
@@ -325,68 +333,11 @@ describe('activation (section 7)', () => {
       });
 
       const result = data as Rpc;
-      if (!result.ok && result.code === 'reason_required') {
-        reasonRequired = result;
-        break;
-      }
+      expect(result.ok, `activating "${task.id}" was refused: ${result.message}`).toBe(true);
+      expect(result.code).toBe('activated');
+      // Never `reason_required`, and never flagged as over target.
+      expect(result.over_target).toBe(false);
     }
-
-    expect(reasonRequired).not.toBeNull();
-
-    const detail = reasonRequired!.detail as { count_after: number; target: number };
-    expect(detail.count_after).toBeGreaterThan(detail.target);
-    // The message states both counts and the target (section 7.4).
-    expect(reasonRequired!.message).toContain('Why is this additional focus needed now?');
-  });
-
-  it('proceeds once a reason is given, without any approval step', async () => {
-    const client = await signInAs('ajmal');
-    const tasks = await Promise.all(Array.from({ length: 7 }, () => fixture('ajmal')));
-
-    let activatedOverTarget = false;
-
-    for (const task of tasks) {
-      const { data } = await client.rpc('activate_task', {
-        p_task_id: task.id,
-        p_expected_version: task.version,
-        p_reason_code: 'urgent_deadline',
-        p_reason_note: null,
-        p_idempotency_key: null,
-      });
-
-      const result = data as Rpc;
-      if (result.ok && result.over_target === true) {
-        activatedOverTarget = true;
-        break;
-      }
-    }
-
-    expect(activatedOverTarget).toBe(true);
-  });
-
-  it('rejects "Other" without a note', async () => {
-    const client = await signInAs('ajmal');
-    const tasks = await Promise.all(Array.from({ length: 7 }, () => fixture('ajmal')));
-
-    let noteRequired = false;
-
-    for (const task of tasks) {
-      const { data } = await client.rpc('activate_task', {
-        p_task_id: task.id,
-        p_expected_version: task.version,
-        p_reason_code: 'other',
-        p_reason_note: '   ',
-        p_idempotency_key: null,
-      });
-
-      const result = data as Rpc;
-      if (result.code === 'reason_note_required') {
-        noteRequired = true;
-        break;
-      }
-    }
-
-    expect(noteRequired).toBe(true);
   });
 });
 
@@ -395,13 +346,10 @@ describe('concurrency (PRODUCTION_LOGIC.md section 6)', () => {
     const client = await signInAs('ajmal');
     const task = await fixture('ajmal');
 
-    // A reason is supplied so this activation always proceeds. These tests are
-    // about versioning, not focus targets, and earlier tests in this file
-    // deliberately leave the owner over target.
     await client.rpc('activate_task', {
       p_task_id: task.id,
       p_expected_version: task.version,
-      p_reason_code: 'workload_peak',
+      p_reason_code: null,
       p_reason_note: null,
       p_idempotency_key: null,
     });
@@ -427,7 +375,7 @@ describe('concurrency (PRODUCTION_LOGIC.md section 6)', () => {
     const args = {
       p_task_id: task.id,
       p_expected_version: task.version,
-      p_reason_code: 'workload_peak',
+      p_reason_code: null,
       p_reason_note: null,
       p_idempotency_key: key,
     };
@@ -456,7 +404,7 @@ describe('concurrency (PRODUCTION_LOGIC.md section 6)', () => {
         client.rpc('activate_task', {
           p_task_id: task.id,
           p_expected_version: task.version,
-          p_reason_code: 'workload_peak',
+          p_reason_code: null,
           p_reason_note: null,
           p_idempotency_key: crypto.randomUUID(),
         }),
@@ -493,7 +441,7 @@ describe('undo (section 24.3)', () => {
       await client.rpc('activate_task', {
         p_task_id: task.id,
         p_expected_version: task.version,
-        p_reason_code: 'workload_peak',
+        p_reason_code: null,
         p_reason_note: null,
         p_idempotency_key: null,
       })

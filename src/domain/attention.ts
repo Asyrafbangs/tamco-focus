@@ -18,7 +18,7 @@ import { barrierAction, barrierHref } from './barriers';
  * exist — the manager arrives and has to ask what they are reviewing.
  */
 export type AttentionSourceType =
-  'barrier' | 'routine_occurrence' | 'completion_review' | 'focus_exception' | 'task' | 'goal';
+  'barrier' | 'routine_occurrence' | 'completion_review' | 'task' | 'goal';
 
 /**
  * The operation promised by an attention control.
@@ -28,12 +28,7 @@ export type AttentionSourceType =
  * rejected before a dead or misleading CTA reaches the screen.
  */
 export type AttentionCtaType =
-  | 'barrier_action'
-  | 'open_routine'
-  | 'open_task'
-  | 'review_workload'
-  | 'review_evidence'
-  | 'review_goal';
+  'barrier_action' | 'open_routine' | 'open_task' | 'review_evidence' | 'review_goal';
 
 export interface AttentionActionTarget {
   sourceType: AttentionSourceType;
@@ -68,7 +63,6 @@ const SOURCE_CTA: Record<AttentionSourceType, readonly AttentionCtaType[]> = {
   barrier: ['barrier_action'],
   routine_occurrence: ['open_routine'],
   completion_review: ['review_evidence'],
-  focus_exception: ['review_workload'],
   task: ['open_task'],
   goal: ['review_goal'],
 };
@@ -146,16 +140,6 @@ export function resolveAttentionAction(
         href: taskActionHref(taskId, context),
       };
     }
-    case 'review_workload': {
-      const search = new URLSearchParams({ scope: 'team', filter: 'attention' });
-      search.set('person', target.sourceId);
-      search.set('review', 'workload');
-      return {
-        badge: presentation.badge,
-        label: presentation.cta,
-        href: `/work?${search.toString()}`,
-      };
-    }
     case 'review_goal': {
       const goalId = target.goalId?.trim() || target.sourceId;
       if (!goalId) return invalidAttentionTarget(target, 'missing goalId');
@@ -207,7 +191,6 @@ const REASON_RANK: Record<string, number> = {
   // a Barrier (v53 §21), so it ranks with one rather than falling to awareness
   // and sitting at the bottom of a list nobody scrolls.
   goal_support_requested: 50,
-  workload_review: 55,
   // Everything else is context.
   awareness: 90,
 };
@@ -273,8 +256,6 @@ export function attentionPresentation(
       return { badge: 'Overdue routine', cta: 'Open routine' };
     case 'completion_review':
       return { badge: 'Completion review', cta: 'Review evidence' };
-    case 'focus_exception':
-      return { badge: 'Workload review needed', cta: 'Review workload' };
     case 'task':
       return {
         badge:

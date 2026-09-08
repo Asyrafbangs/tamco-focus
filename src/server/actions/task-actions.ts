@@ -30,15 +30,6 @@ const uuid = z.string().uuid();
  * (PRODUCTION_LOGIC.md section 6, item 4). */
 const idempotencyKey = z.string().min(8).max(128).optional();
 
-const activationReason = z.enum([
-  'urgent_deadline',
-  'workload_peak',
-  'cannot_move_out',
-  'external_request',
-  'dependency',
-  'other',
-]);
-
 /** Shape returned by every RPC in `20260805001100_operations.sql`. */
 type RpcResult = { ok: boolean; code: string; message?: string; [key: string]: unknown };
 
@@ -133,18 +124,18 @@ async function uploadTaskFiles(
 const activateSchema = z.object({
   taskId: uuid,
   expectedVersion: z.number().int().positive(),
-  reasonCode: activationReason.nullish(),
-  reasonNote: z.string().max(1000).nullish(),
   idempotencyKey,
 });
 
 /**
  * Activates Available Work.
  *
- * Returns `reason_required` — not an error — when this activation would cross
- * the focus target. The interface asks the single question from section 7.4 and
- * calls again with the answer. Activation is never blocked for being over
- * target; the question is the only thing that stands between the two calls.
+ * One call. It used to be able to return `reason_required` — not an error, but
+ * a question — when the activation would cross the focus target, and the
+ * interface asked it before calling again with the answer. v144 removed both
+ * (specification §3, §11): the ratio it defended is not a reliable workload
+ * measure, so demanding a justification against it was the enforcement §11
+ * asks to be taken out.
  */
 export async function activateTask(input: z.input<typeof activateSchema>) {
   const parsed = activateSchema.safeParse(input);
@@ -155,8 +146,8 @@ export async function activateTask(input: z.input<typeof activateSchema>) {
   return callProcedure('activate_task', {
     p_task_id: parsed.data.taskId,
     p_expected_version: parsed.data.expectedVersion,
-    p_reason_code: parsed.data.reasonCode ?? null,
-    p_reason_note: parsed.data.reasonNote ?? null,
+    p_reason_code: null,
+    p_reason_note: null,
     p_idempotency_key: parsed.data.idempotencyKey ?? null,
   });
 }
@@ -220,13 +211,12 @@ export async function resumeTask(input: z.input<typeof activateSchema>) {
     return { ok: false as const, code: 'validation_failed' as const, message: 'Invalid request.' };
   }
 
-  // Resuming returns work to Active, so it re-enters focus counting under the
-  // same soft-target rules and can also come back as `reason_required`.
+  // Resuming is an activation underneath, so it takes the same one-click path.
   return callProcedure('resume_task', {
     p_task_id: parsed.data.taskId,
     p_expected_version: parsed.data.expectedVersion,
-    p_reason_code: parsed.data.reasonCode ?? null,
-    p_reason_note: parsed.data.reasonNote ?? null,
+    p_reason_code: null,
+    p_reason_note: null,
     p_idempotency_key: parsed.data.idempotencyKey ?? null,
   });
 }
@@ -1274,48 +1264,6 @@ export async function addBarrierToMeetingQueue(input: {
       p_idempotency_key: parsed.data.idempotencyKey,
     },
     ['/today', '/work', '/more/records'],
-  );
-}
-
-/**
- * Records that a manager reviewed an over-target workload and accepted it
- * (v48 Â§23, fixed in v52).
- *
- * The panel previously showed a confirmation and persisted nothing, so the
- * decision existed only until the page was refreshed and the audit trail could
- * not distinguish an accepted overload from one nobody had looked at.
- */
-export async function acceptWorkloadReview(input: {
-  personId: string;
-  bucket: 'major' | 'operational' | 'self_development';
-  activeCount: number;
-  recommendedTarget: number;
-  idempotencyKey: string;
-}): Promise<OperationResult> {
-  const parsed = z
-    .object({
-      personId: uuid,
-      bucket: z.enum(['major', 'operational', 'self_development']),
-      activeCount: z.number().int().min(0).max(999),
-      recommendedTarget: z.number().int().min(0).max(999),
-      idempotencyKey,
-    })
-    .safeParse(input);
-
-  if (!parsed.success) {
-    return { ok: false, code: 'validation_failed', message: 'That review could not be recorded.' };
-  }
-
-  return callProcedure(
-    'accept_workload_review',
-    {
-      p_person_id: parsed.data.personId,
-      p_bucket: parsed.data.bucket,
-      p_active_count: parsed.data.activeCount,
-      p_recommended_target: parsed.data.recommendedTarget,
-      p_idempotency_key: parsed.data.idempotencyKey,
-    },
-    ['/work', '/today'],
   );
 }
 

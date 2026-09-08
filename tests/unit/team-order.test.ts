@@ -16,7 +16,6 @@ const row = (fullName: string, attention: TeamOrderRow['attention'] = null): Tea
   attention,
 });
 
-const workloadReview = { reasonCode: 'workload_review', sourceType: 'focus_exception' };
 const overdue = { reasonCode: 'overdue', sourceType: 'task' };
 const overdueRoutine = { reasonCode: 'overdue', sourceType: 'routine_occurrence' };
 const barrier = { reasonCode: 'support_requested', sourceType: 'barrier' };
@@ -25,7 +24,12 @@ const awareness = { reasonCode: 'awareness', sourceType: 'task' };
 
 describe('teamRowRank', () => {
   it('ranks by what the row asks of the reader', () => {
-    expect(teamRowRank(row('a', workloadReview))).toBe(0);
+    /*
+     * A barrier is the top of this list since v144. "Workload review needed"
+     * used to outrank it, generated from the focus target — so a ratio the
+     * product now says is not a reliable measure was placed above a person who
+     * was stopped and waiting for an answer only their manager could give.
+     */
     // A barrier outranks overdue work: overdue is theirs to catch up on and
     // will still be overdue tomorrow, while a barrier is somebody stopped.
     expect(teamRowRank(row('a', barrier))).toBe(1);
@@ -50,11 +54,9 @@ describe('teamRowOrder', () => {
       row('Bella Awareness', awareness),
       row('Cathy Barrier', barrier),
       row('Dan Overdue', overdue),
-      row('Erin Workload', workloadReview),
     ]);
 
     expect(ordered.map((person) => person.fullName)).toEqual([
-      'Erin Workload',
       'Cathy Barrier',
       'Dan Overdue',
       'Bella Awareness',

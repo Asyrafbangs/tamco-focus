@@ -110,6 +110,14 @@ describe('an administrator cannot act on business records', () => {
     expect(after).toMatchObject({ status: 'active', primary_owner_id: PEOPLE.izzah.id });
   });
 
+  /*
+   * The workload review panel is gone (v144, specification §3), and nothing in
+   * the product calls this any more. The function itself stays: dropping it
+   * while the previously deployed client could still reach it would break that
+   * client for the length of a deploy, and it is the recording step for
+   * decisions already in the audit trail. It is still reachable over the API,
+   * so its authorisation boundary is still worth holding.
+   */
   it('cannot record a workload decision about somebody they do not manage', async () => {
     const admin = await signInAs('admin');
     const refused = (

@@ -420,7 +420,6 @@ function teamDigest(input: RenderSummaryInput) {
 
   const overdueByPerson = new Map<string, number>();
   const reviewByPerson = new Map<string, number>();
-  const overTarget = new Set<string>();
   for (const task of input.teamTasks) {
     if (!task.primary_owner_id) continue;
     if (task.review_status === 'pending' && task.reviewer_id === input.profile.id) {
@@ -436,7 +435,6 @@ function teamDigest(input: RenderSummaryInput) {
         (overdueByPerson.get(task.primary_owner_id) ?? 0) + 1,
       );
     }
-    if (task.over_focus_target) overTarget.add(task.primary_owner_id);
   }
   for (const [userId, count] of overdueByPerson) add(userId, plural(count, 'overdue item'));
   for (const [userId, count] of reviewByPerson) {
@@ -506,7 +504,13 @@ function teamDigest(input: RenderSummaryInput) {
       plural(count, 'Goal decision or support request', 'Goal decisions or support requests'),
     );
   }
-  for (const userId of overTarget) add(userId, 'workload review needed');
+  /*
+   * "workload review needed" used to be here, raised for anybody carrying more
+   * than their focus target. v144 removed it with the target (specification §3):
+   * a weekly email telling a manager to review somebody's workload, on the
+   * strength of a ratio the product no longer trusts, is the same claim as the
+   * strip that used to make it.
+   */
 
   return [...rows.values()].sort(
     (a, b) => b.signals.length - a.signals.length || a.fullName.localeCompare(b.fullName),

@@ -119,7 +119,6 @@ export async function updateMyPreferencesAction(
 
 const orgSettingParsers: Record<string, z.ZodType> = {
   'focus.self_selection_allowed': z.boolean(),
-  'focus.reason_required_when_replacing': z.boolean(),
   'focus.urgency_requires_review_by': z.boolean(),
   'focus.stale_update_threshold_days': z.number().int().min(1).max(90),
   'review.request_changes_outcome': z.enum(['reopen_active', 'return_to_available']),

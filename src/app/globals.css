@@ -4333,61 +4333,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   font-size: 10px;
 }
 
-/* ------------------------------------------------------------------------ */
-/* Focus capacity strip (v40 section 1)                                      */
-/*                                                                           */
-/* Reports the 1 / 5 / 1 model without being somewhere to click. Quiet by     */
-/* design: it is orientation, not navigation.                                 */
-/* ------------------------------------------------------------------------ */
-
-/*
-  Readable at a glance, without becoming three cards.
-
-  This was 10.5px muted text with a 2px gap, which at a glance was a grey smear
-  under the tabs — useful information nobody could see. The label is set as a
-  small heading so the numbers after it read as values rather than as a
-  sentence, and the groups are spaced far enough apart to be counted.
-*/
-.capacity-strip {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 12px;
-  margin: 14px 0 12px;
-  color: var(--muted);
-  font-size: 11px;
-}
-.capacity-label {
-  color: var(--muted);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-/* The separator the flex gap cannot draw. Not before the first bucket, whose
-   previous sibling is the label. */
-.capacity-strip > span:not(.capacity-label) + span::before {
-  content: '\00b7';
-  margin-right: 12px;
-  color: var(--line);
-}
-.capacity-strip b {
-  color: var(--text);
-  font-weight: 650;
-}
-/*
-  Colour where it means something, and nowhere else. Full is worth knowing
-  before starting the next thing; over target is worth knowing now; a bucket
-  with room left is the ordinary case and says nothing by staying quiet.
-*/
-.capacity-strip .full,
-.capacity-strip .full b {
-  color: var(--amber);
-}
-.capacity-strip .over,
-.capacity-strip .over b {
-  color: var(--red);
-}
 /* Breathing room under the sentence, so the panel below is a separate thing
    from the tabs above rather than pressed against them. */
 .focus-tab-meaning {

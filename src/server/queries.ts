@@ -14,8 +14,7 @@ import {
   type AttentionKind,
   type AttentionSourceType,
 } from '@/domain/attention';
-import { FOCUS_BUCKET_WORD } from '@/domain/types';
-import type { FocusBucket, FocusSummary, TaskOverview } from '@/domain/types';
+import type { FocusBucket, TaskOverview } from '@/domain/types';
 
 /**
  * Read helpers.
@@ -41,10 +40,6 @@ function toTaskOverview(row: Record<string, unknown>): TaskOverview {
     isMandatory: Boolean(row.is_mandatory),
 
     progressPercent: Number(row.progress_percent ?? 0),
-    overFocusTarget: Boolean(row.over_focus_target),
-    activationReasonCode:
-      (row.activation_reason_code as TaskOverview['activationReasonCode']) ?? null,
-    activationReasonNote: (row.activation_reason_note as string) ?? null,
 
     reviewStatus: row.review_status as TaskOverview['reviewStatus'],
     reviewerId: (row.reviewer_id as string) ?? null,
@@ -1475,27 +1470,6 @@ export async function getRoutineOccurrences(
   return (data ?? []).map(toTaskOverview);
 }
 
-/** Focus counts against targets, straight from committed state. */
-export async function getFocusSummary(userId: string): Promise<FocusSummary[]> {
-  const supabase = await createSupabaseServerClient();
-
-  const { data, error } = await supabase.from('focus_summary').select('*').eq('user_id', userId);
-
-  if (error) {
-    console.error(`[getFocusSummary] ${error.message}`);
-    return [];
-  }
-
-  return (data ?? []).map((row) => ({
-    userId: row.user_id as string,
-    bucket: row.bucket as FocusBucket,
-    activeCount: Number(row.active_count ?? 0),
-    recommendedTarget: Number(row.recommended_target ?? 0),
-    isOverTarget: Boolean(row.is_over_target),
-    overTargetSince: (row.over_target_since as string) ?? null,
-  }));
-}
-
 /**
  * Task IDs where a checklist step is assigned to this person and ready to start
  * (section 13.3). Supplied to the prioritiser, which cannot query for it itself.
@@ -2447,29 +2421,6 @@ export async function getMeetingQueue(): Promise<MeetingQueueRow[]> {
   });
 }
 
-/** Focus counts against targets for everyone the caller may see. */
-async function getTeamFocusSummaryUncached(): Promise<FocusSummary[]> {
-  const supabase = await createSupabaseServerClient();
-
-  const { data, error } = await supabase.from('focus_summary').select('*').limit(600);
-
-  if (error) {
-    console.error(`[getTeamFocusSummary] ${error.message}`);
-    throw new Error('TEAM_FOCUS_UNAVAILABLE');
-  }
-
-  return (data ?? []).map((row) => ({
-    userId: row.user_id as string,
-    bucket: row.bucket as FocusBucket,
-    activeCount: Number(row.active_count ?? 0),
-    recommendedTarget: Number(row.recommended_target ?? 0),
-    isOverTarget: Boolean(row.is_over_target),
-    overTargetSince: (row.over_target_since as string) ?? null,
-  }));
-}
-
-export const getTeamFocusSummary = cache(getTeamFocusSummaryUncached);
-
 /** Active workload rows for people already authorised by task_overview RLS. */
 export async function getVisibleTeamTasks(viewerId: string): Promise<TaskOverview[]> {
   const supabase = await createSupabaseServerClient();
@@ -3370,8 +3321,7 @@ const ATTENTION_RANK = {
   goal: 2,
   overdue: 3,
   routine: 4,
-  over_target: 5,
-  stale: 6,
+  stale: 5,
 } as const;
 
 /**
@@ -3386,7 +3336,6 @@ export interface TeamMemberDetail {
   person: { id: string; fullName: string };
   /** This week's priorities, proposed and agreed. */
   commitments: WeeklyCommitment[];
-  focus: FocusSummary[];
   attention: TeamAttentionRow['attention'][];
   activeWork: Array<{
     id: string;
@@ -3671,10 +3620,9 @@ export async function getTeamMemberDetail(
   // "Last year" was chosen showed everything they had closed since.
   const completedUntil = period.until;
 
-  const [attentionRows, focusRows, tasksResult, goalsResult, completedResult, sharedResult] =
+  const [attentionRows, tasksResult, goalsResult, completedResult, sharedResult] =
     await Promise.all([
       getTeamAttention(viewerId),
-      getTeamFocusSummary(),
       supabase
         .from('task_overview')
         .select(
@@ -3878,7 +3826,6 @@ export async function getTeamMemberDetail(
   return {
     person: { id: person.userId, fullName: person.fullName },
     commitments,
-    focus: focusRows.filter((bucket) => bucket.userId === personId),
     // The list shows a person's single most costly exception; the drawer has
     // room for it in full. Both come from the same derivation.
     attention: row?.attention ? [row.attention] : [],
@@ -3963,52 +3910,50 @@ export async function getTeamMemberDetail(
 async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttentionRow[]> {
   const supabase = await createSupabaseServerClient();
 
-  const [team, focus, tasksResult, barriersResult, goalsResult, goalSupportResult] =
-    await Promise.all([
-      getTeamLoad(viewerId),
-      getTeamFocusSummary(),
-      supabase
-        .from('task_overview')
-        // Attention uses identity, state, owner and ageing only. The full view
-        // also computes checklist/evidence/attachment aggregates for every
-        // task, which made a 500-row Team read spend seconds on data it never
-        // rendered.
-        .select(
-          'id,title,next_action,status,work_class,focus_bucket,is_mandatory,primary_owner_id,last_meaningful_update_at,is_overdue,is_stale',
-        )
-        .neq('primary_owner_id', viewerId)
-        .in('status', ['backlog', 'active', 'paused'])
-        .order('last_meaningful_update_at', { ascending: false })
-        .limit(500),
-      // Barriers addressed to this manager. This is the authoritative record —
-      // My Team aggregates it, it does not copy it (section 18).
-      // v45 §37 — Needs Attention is derived from `action_pending`, not `status`.
-      // A manager who has already given their decision must drop off this list
-      // even though the barrier stays open until the blocker is actually gone.
-      supabase
-        .from('barriers')
-        .select('id, task_id, description, support_needed, action_type, raised_at')
-        .eq('action_pending', true)
-        .eq('action_required_from', viewerId)
-        .order('raised_at', { ascending: false })
-        .limit(100),
-      supabase
-        .from('goal_overview')
-        .select(
-          'id, owner_id, title, health, quarterly_requires_manager_action, manager_attention_reason',
-        )
-        .eq('status', 'active')
-        .eq('manager_id', viewerId)
-        .eq('manager_needs_attention', true)
-        .limit(100),
-      supabase
-        .from('goal_support_requests')
-        .select('goal_id, details, created_at')
-        .eq('manager_id', viewerId)
-        .eq('status', 'open')
-        .order('created_at', { ascending: false })
-        .limit(100),
-    ]);
+  const [team, tasksResult, barriersResult, goalsResult, goalSupportResult] = await Promise.all([
+    getTeamLoad(viewerId),
+    supabase
+      .from('task_overview')
+      // Attention uses identity, state, owner and ageing only. The full view
+      // also computes checklist/evidence/attachment aggregates for every
+      // task, which made a 500-row Team read spend seconds on data it never
+      // rendered.
+      .select(
+        'id,title,next_action,status,work_class,focus_bucket,is_mandatory,primary_owner_id,last_meaningful_update_at,is_overdue,is_stale',
+      )
+      .neq('primary_owner_id', viewerId)
+      .in('status', ['backlog', 'active', 'paused'])
+      .order('last_meaningful_update_at', { ascending: false })
+      .limit(500),
+    // Barriers addressed to this manager. This is the authoritative record —
+    // My Team aggregates it, it does not copy it (section 18).
+    // v45 §37 — Needs Attention is derived from `action_pending`, not `status`.
+    // A manager who has already given their decision must drop off this list
+    // even though the barrier stays open until the blocker is actually gone.
+    supabase
+      .from('barriers')
+      .select('id, task_id, description, support_needed, action_type, raised_at')
+      .eq('action_pending', true)
+      .eq('action_required_from', viewerId)
+      .order('raised_at', { ascending: false })
+      .limit(100),
+    supabase
+      .from('goal_overview')
+      .select(
+        'id, owner_id, title, health, quarterly_requires_manager_action, manager_attention_reason',
+      )
+      .eq('status', 'active')
+      .eq('manager_id', viewerId)
+      .eq('manager_needs_attention', true)
+      .limit(100),
+    supabase
+      .from('goal_support_requests')
+      .select('goal_id, details, created_at')
+      .eq('manager_id', viewerId)
+      .eq('status', 'open')
+      .order('created_at', { ascending: false })
+      .limit(100),
+  ]);
 
   const failed = [
     ['tasks', tasksResult.error],
@@ -4047,13 +3992,6 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
     else tasksByOwner.set(task.primaryOwnerId, [task]);
   }
 
-  const focusByUser = new Map<string, FocusSummary[]>();
-  for (const bucket of focus) {
-    const existing = focusByUser.get(bucket.userId);
-    if (existing) existing.push(bucket);
-    else focusByUser.set(bucket.userId, [bucket]);
-  }
-
   const barrierByOwner = new Map<string, (typeof barriers)[number]>();
   for (const barrier of barriers) {
     const ownerId = taskOwner.get(String(barrier.task_id));
@@ -4081,9 +4019,6 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
   return team.map((person) => {
     const theirs = tasksByOwner.get(person.userId) ?? [];
     const active = theirs.filter((task) => task.status === 'active');
-    const buckets = focusByUser.get(person.userId) ?? [];
-    const overTarget = buckets.find((bucket) => bucket.isOverTarget);
-
     const theirBarrier = barrierByOwner.get(person.userId);
     const theirGoal = (goalsByOwner.get(person.userId) ?? []).sort((left, right) => {
       const rank = (goal: (typeof goals)[number]) => {
@@ -4126,36 +4061,19 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
      *
      * Mandatory means the work could not wait for normal prioritisation. It has
      * already been decided; there is nothing to approve. It becomes the
-     * manager's problem only when something else is true as well, and each of
-     * those cases is handled below on its own terms: an over-target workload, a
-     * barrier addressed to them, or work that is genuinely overdue.
+     * manager's problem only when something else is true as well: a barrier
+     * addressed to them, or work that is genuinely overdue.
+     *
+     * There used to be a third case — mandatory work that had pushed the person
+     * over their focus target — and it was the loudest of them, ranked urgent.
+     * v144 removed it along with the target: §3 says these ratios are not
+     * reliable workload measures, and a critical row on somebody's manager's
+     * list is the strongest claim this product can make about a number it has
+     * just finished saying it does not trust.
      *
      * Mandatory work running normally stays visible under Everyone, where it is
      * information rather than an unanswered question.
      */
-    const mandatoryOverTarget =
-      overTarget &&
-      theirs.find(
-        (task) =>
-          task.isMandatory && task.status === 'active' && task.focusBucket === overTarget.bucket,
-      );
-
-    if (mandatoryOverTarget && overTarget) {
-      candidates.push({
-        rank: ATTENTION_RANK.urgent,
-        sourceType: 'focus_exception',
-        sourceId: person.userId,
-        ctaType: 'review_workload',
-        reasonCode: 'workload_review',
-        // §54 — the reason states the condition, in the numbers the manager
-        // recognises from the capacity strip.
-        reason:
-          `Mandatory work put ${person.fullName.split(' ')[0]} at ` +
-          `${overTarget.activeCount}/${overTarget.recommendedTarget} ${FOCUS_BUCKET_WORD[overTarget.bucket] ?? ''}`.trim(),
-        severity: 'critical',
-      });
-    }
-
     if (theirBarrier) {
       // v46 §11, §24, §58 — the same wording and the same destination as My Day
       // and the notification, because they are the same request. A manager who
@@ -4263,19 +4181,6 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
         reasonCode: 'overdue',
         taskId: overdueRoutine.id,
         reason: overdueRoutine.title,
-        severity: 'attention',
-      });
-    }
-
-    if (overTarget) {
-      candidates.push({
-        rank: ATTENTION_RANK.over_target,
-        sourceType: 'focus_exception',
-        sourceId: person.userId,
-        ctaType: 'review_workload',
-        reasonCode: 'workload_review',
-        reason:
-          `${overTarget.activeCount}/${overTarget.recommendedTarget} ${FOCUS_BUCKET_WORD[overTarget.bucket] ?? ''} — over the recommended target`.trim(),
         severity: 'attention',
       });
     }

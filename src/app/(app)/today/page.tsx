@@ -17,7 +17,6 @@ import {
   getBarriersAwaitingOthers,
   getBlockingCounts,
   getDisplaySettings,
-  getFocusSummary,
   getHandoffReadyTaskIds,
   getMyAttention,
   getMyTasks,
@@ -99,7 +98,6 @@ export default async function TodayPage({
 
   const [
     tasks,
-    focus,
     handoffReadyTaskIds,
     blockingCounts,
     settings,
@@ -111,7 +109,6 @@ export default async function TodayPage({
     awaitingOthersTaskIds,
   ] = await Promise.all([
     getMyTasks(profile.id),
-    getFocusSummary(profile.id),
     getHandoffReadyTaskIds(profile.id),
     getBlockingCounts(),
     getDisplaySettings(),
@@ -203,7 +200,6 @@ export default async function TodayPage({
   const availableCount = tasks.filter((task) => task.status === 'backlog').length;
   const overdueCount = tasks.filter((task) => task.isOverdue).length;
   const staleCount = tasks.filter((task) => task.isStale).length;
-  const overTargetBuckets = focus.filter((bucket) => bucket.isOverTarget);
   const activeGoals = myGoals.filter((goal) => goal.status === 'active');
   const goalWeight = activeGoals.reduce((total, goal) => total + goal.weightPercent, 0);
   const weightedGoalProgress = goalWeight
@@ -478,15 +474,6 @@ export default async function TodayPage({
             <strong>{staleCount}</strong> without a recent update
           </span>
         )}
-        {overTargetBuckets.map((bucket) => (
-          <span key={bucket.bucket} className="summary-item">
-            <span className="summary-dot red" aria-hidden="true" />
-            <strong>
-              {bucket.activeCount} / {bucket.recommendedTarget}
-            </strong>{' '}
-            over focus target
-          </span>
-        ))}
       </div>
 
       {/*

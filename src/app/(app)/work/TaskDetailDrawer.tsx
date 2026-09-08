@@ -22,17 +22,11 @@ import {
 } from '@/domain/duration';
 import { latestPlausibleDate } from '@/domain/delivery';
 import { barrierAction, barrierViewLabel } from '@/domain/barriers';
-import {
-  ACTIVATION_REASON_OPTIONS,
-  canOfferActivate,
-  canOfferMoveOut,
-  validateActivationReason,
-} from '@/domain/focus';
+import { canOfferActivate, canOfferMoveOut } from '@/domain/focus';
 import {
   BARRIER_IMPACT_LABELS,
   TASK_STATUS_LABELS,
   WORK_CLASS_LABELS,
-  type ActivationReason,
   type BarrierImpact,
   type OperationResult,
 } from '@/domain/types';
@@ -220,9 +214,6 @@ export function TaskDetailDrawer({
    */
   const [viewingFile, setViewingFile] = useState<TaskDetailAttachment | null>(null);
   const [taskVersion, setTaskVersion] = useState(task.version);
-  const [resumeReason, setResumeReason] = useState<ActivationReason | null>(null);
-  const [resumeNote, setResumeNote] = useState('');
-  const [resumeNeedsReason, setResumeNeedsReason] = useState(false);
   const openBarrier = detail.barriers.find((item) => item.status === 'open');
 
   /*
@@ -564,26 +555,17 @@ export function TaskDetailDrawer({
   }
 
   function runResume() {
-    const validation = resumeNeedsReason
-      ? validateActivationReason(resumeReason, resumeNote)
-      : { valid: true as const };
-    if (!validation.valid) {
-      setMessage({ tone: 'error', text: validation.message });
-      return;
-    }
+    /*
+     * One click. Resuming used to ask the same over-target question as
+     * activating, because it is the same operation underneath — and v144
+     * removed that question from both (specification §3, §11).
+     */
     startTransition(async () => {
       const result = await resumeTask({
         taskId: task.id,
         expectedVersion: task.version,
-        reasonCode: resumeReason,
-        reasonNote: resumeNote || null,
         idempotencyKey: idempotencyKey(),
       });
-      if (!result.ok && result.code === 'reason_required') {
-        setResumeNeedsReason(true);
-        setMessage({ tone: 'error', text: result.message });
-        return;
-      }
       finish(result, 'Work resumed.');
     });
   }
@@ -1121,16 +1103,15 @@ export function TaskDetailDrawer({
                   expectedVersion: taskVersion,
                   newOwnerId,
                   idempotencyKey: idempotencyKey(),
-                })) as OperationResult<{
-                  workload_review_needed?: boolean;
-                  active_count?: number;
-                  recommended_target?: number;
-                  status?: string;
-                }>;
-                const success =
-                  result.ok && result.workload_review_needed
-                    ? `Owner changed. Work remains ${result.status ?? task.status}; workload review needed (${result.active_count ?? 'over'}/${result.recommended_target ?? 'target'} Active).`
-                    : `Owner changed. Work remains ${result.ok ? (result.status ?? task.status) : task.status}.`;
+                })) as OperationResult<{ status?: string }>;
+                /*
+                 * The state, and nothing else. This used to add "workload
+                 * review needed (6/5 Active)" when the new owner came out
+                 * above their focus target — a verdict drawn from a ratio §3
+                 * says is not a reliable workload measure, delivered as the
+                 * confirmation of an unrelated action.
+                 */
+                const success = `Owner changed. Work remains ${result.ok ? (result.status ?? task.status) : task.status}.`;
                 if (finish(result, success)) {
                   setTaskVersion((current) => current + 1);
                   setReassignOpen(false);
@@ -1206,40 +1187,6 @@ export function TaskDetailDrawer({
               </button>
             </div>
             <div className="modal-body">
-              {resumeNeedsReason && (
-                <>
-                  <div className="field">
-                    <label htmlFor={`resume-reason-${task.id}`}>
-                      Why is this additional focus needed now?
-                    </label>
-                    <select
-                      id={`resume-reason-${task.id}`}
-                      value={resumeReason ?? ''}
-                      onChange={(event) =>
-                        setResumeReason((event.target.value || null) as ActivationReason | null)
-                      }
-                    >
-                      <option value="">Select a reason</option>
-                      {ACTIVATION_REASON_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {resumeReason === 'other' && (
-                    <div className="field">
-                      <label htmlFor={`resume-note-${task.id}`}>Add a short note</label>
-                      <textarea
-                        id={`resume-note-${task.id}`}
-                        value={resumeNote}
-                        onChange={(event) => setResumeNote(event.target.value)}
-                        rows={2}
-                      />
-                    </div>
-                  )}
-                </>
-              )}
               <p className="muted">It returns to your Active work.</p>
             </div>
             <div className="modal-foot">

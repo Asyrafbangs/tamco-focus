@@ -268,10 +268,19 @@ if (failures === 0) {
     return r.code;
   });
 
-  await check('crossing the target asks exactly one reason question', async () => {
+  /*
+   * v144 — the focus target no longer gates activation (specification §3, §11).
+   *
+   * Three scenarios lived here: the one reason question asked when the count
+   * crossed the target, activation proceeding once a reason was given, and
+   * "Other" rejected without a note. What replaces them is the property that
+   * matters now — the count goes past the target and nothing is ever refused,
+   * asked or flagged for it.
+   */
+  await check('activating past the target asks nothing', async () => {
     await actAs(IZZAH);
 
-    // Push Izzah to her operational target of 5, then attempt one more.
+    // Six more operational actions than her old target of five.
     for (let index = 0; index < 6; index += 1) {
       await db.exec(`
         insert into public.tasks (title, status, work_class, focus_bucket, origin,
@@ -281,91 +290,59 @@ if (failures === 0) {
       `);
     }
 
-    let sawReasonRequired = false;
-    let detail = null;
-
     const filler = await db.query(
       `select id, version from public.tasks
         where primary_owner_id = '${IZZAH}' and title like 'Filler %' order by title`,
     );
 
+    let highest = 0;
     for (const row of filler.rows) {
       const result = await db.query(
         `select public.activate_task('${row.id}', ${row.version}, null, null, null) as r`,
       );
       const r = result.rows[0].r;
-
-      if (r.ok === false && r.code === 'reason_required') {
-        sawReasonRequired = true;
-        detail = r.detail;
-        break;
-      }
+      assert(r.ok === true, `activation was refused: ${JSON.stringify(r)}`);
+      assert(r.code === 'activated', `expected 'activated', got '${r.code}'`);
+      // The count and the target are still recorded; nothing is decided on them.
+      assert(r.over_target === false, 'no activation should be flagged over target');
+      highest = Math.max(highest, r.count_after);
     }
 
-    assert(sawReasonRequired, 'never received reason_required while crossing the target');
-    assert(
-      detail.count_after > detail.target,
-      `resulting count ${detail.count_after} should exceed target ${detail.target}`,
-    );
-    return `asked at ${detail.count_before} → ${detail.count_after} of ${detail.target}`;
-  });
-
-  await check('activation proceeds once a reason is given, without approval', async () => {
-    await actAs(IZZAH);
-    const row = (
-      await db.query(
-        `select t.id, t.version from public.tasks t
-          where t.primary_owner_id = '${IZZAH}' and t.status = 'backlog'
-            and t.focus_bucket = 'operational' limit 1`,
-      )
-    ).rows[0];
-
-    const result = await db.query(
-      `select public.activate_task('${row.id}', ${row.version}, 'urgent_deadline', null, null) as r`,
-    );
-    const r = result.rows[0].r;
-    assert(r.ok === true, `expected activation to proceed, got ${JSON.stringify(r)}`);
-    assert(r.over_target === true, 'expected the over-target flag to be set');
-    return `activated at ${r.count_after} of ${r.target}, over_target=${r.over_target}`;
-  });
-
-  await check('"Other" without a note is rejected', async () => {
-    await actAs(IZZAH);
-    const row = (
-      await db.query(
-        `select id, version from public.tasks
-          where primary_owner_id = '${IZZAH}' and status = 'backlog'
-            and focus_bucket = 'operational' limit 1`,
-      )
-    ).rows[0];
-
-    const result = await db.query(
-      `select public.activate_task('${row.id}', ${row.version}, 'other', '   ', null) as r`,
-    );
-    const r = result.rows[0].r;
-    assert(r.code === 'reason_note_required', `got ${JSON.stringify(r)}`);
-    return r.code;
+    return `activated ${filler.rows.length}, reaching ${highest}, nothing asked`;
   });
 
   await check('idempotency absorbs a repeated click', async () => {
     await actAs(IZZAH);
+    /*
+     * Its own row, rather than whatever the scenario above left behind.
+     *
+     * It used to take the first backlog operational task it could find, which
+     * worked only because the over-target scenarios ahead of it created six
+     * and activated one. When v144 removed those, this failed on an undefined
+     * row — a fixture problem wearing the costume of an idempotency bug.
+     */
+    await db.exec(`
+      insert into public.tasks (title, status, work_class, focus_bucket, origin,
+                                primary_owner_id, created_by)
+      values ('Idempotency fixture', 'backlog', 'operational_action', 'operational',
+              'self_initiated', '${IZZAH}', '${IZZAH}');
+    `);
     const row = (
       await db.query(
         `select id, version from public.tasks
-          where primary_owner_id = '${IZZAH}' and status = 'backlog'
-            and focus_bucket = 'operational' limit 1`,
+          where primary_owner_id = '${IZZAH}' and title = 'Idempotency fixture'`,
       )
     ).rows[0];
 
     const key = 'double-click-test-key';
     const first = (
       await db.query(
-        `select public.activate_task('${row.id}', ${row.version}, 'workload_peak', null, '${key}') as r`,
+        `select public.activate_task('${row.id}', ${row.version}, null, null, '${key}') as r`,
       )
     ).rows[0].r;
     const second = (
       await db.query(
-        `select public.activate_task('${row.id}', ${row.version}, 'workload_peak', null, '${key}') as r`,
+        `select public.activate_task('${row.id}', ${row.version}, null, null, '${key}') as r`,
       )
     ).rows[0].r;
 

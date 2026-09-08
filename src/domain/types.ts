@@ -69,15 +69,6 @@ export const COMPLETION_EVIDENCE_DEFAULT_INSTRUCTION: Record<CompletionEvidenceR
   file: 'Attach a file or photograph as proof before completing this work.',
 };
 
-/** Section 7.4 — the approved reason list, in the approved order. */
-export type ActivationReason =
-  | 'urgent_deadline'
-  | 'workload_peak'
-  | 'cannot_move_out'
-  | 'external_request'
-  | 'dependency'
-  | 'other';
-
 export type RelationType = 'before' | 'after' | 'related';
 
 export type BarrierImpact =
@@ -118,9 +109,6 @@ export interface TaskOverview {
   isMandatory: boolean;
 
   progressPercent: number;
-  overFocusTarget: boolean;
-  activationReasonCode: ActivationReason | null;
-  activationReasonNote: string | null;
 
   reviewStatus: ReviewStatus;
   reviewerId: string | null;
@@ -174,16 +162,6 @@ export interface TaskOverview {
   collaboratorCount: number;
 }
 
-/** Section 7 — a bucket's count against its recommended target. */
-export interface FocusSummary {
-  userId: string;
-  bucket: FocusBucket;
-  activeCount: number;
-  recommendedTarget: number;
-  isOverTarget: boolean;
-  overTargetSince: string | null;
-}
-
 /**
  * The uniform result shape every transactional procedure returns.
  *
@@ -223,28 +201,12 @@ export type OperationErrorCode =
   | 'invalid_target'
   | 'unexpected_error';
 
-/** Human-readable labels for the approved activation reasons (section 7.4). */
-export const ACTIVATION_REASON_LABELS: Record<ActivationReason, string> = {
-  urgent_deadline: 'Urgent deadline or commitment',
-  workload_peak: 'Temporary workload peak',
-  cannot_move_out: 'Current work cannot reasonably be moved out',
-  external_request: 'Manager, customer, or regulatory request',
-  dependency: 'Dependency requires both tasks to remain active',
-  other: 'Other',
-};
-
-/** Section 5 — approved bucket wording. Never "limit" or "quota". */
-export const FOCUS_BUCKET_LABELS: Record<FocusBucket, string> = {
-  major: 'Major Project',
-  operational: 'Operational Actions',
-  self_development: 'Self-Development Plan',
-};
-
 /**
- * The short form, for sentences (v48 §15).
+ * Bucket wording, for sentences.
  *
- * "Amer is at 6/5 Operational" reads; "6/5 Operational Actions" does not. The
- * full labels above remain the ones used for headings and pickers.
+ * The long forms — "Major Project", "Operational Actions", "Self-Development
+ * Plan" — went with the capacity strip in v144, which was the only place that
+ * still needed a heading-length label for a bucket.
  */
 export const FOCUS_BUCKET_WORD: Record<FocusBucket, string> = {
   major: 'Major',

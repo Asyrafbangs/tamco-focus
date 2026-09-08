@@ -8,7 +8,6 @@ import { SettingsWorkspace, type SettingsKey } from './SettingsWorkspace';
 
 const supportedOrgKeys = new Set([
   'focus.self_selection_allowed',
-  'focus.reason_required_when_replacing',
   'focus.urgency_requires_review_by',
   'focus.stale_update_threshold_days',
   'review.request_changes_outcome',

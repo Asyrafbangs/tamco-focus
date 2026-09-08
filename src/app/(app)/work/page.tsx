@@ -21,19 +21,11 @@ import {
   type ResolvedPeriod,
 } from '@/domain/period';
 import { activeOrder, availableOrder, teamRowOrder } from '@/domain/prioritisation';
-import {
-  FOCUS_BUCKET_LABELS,
-  WORK_CLASS_LABELS,
-  WORK_CLASS_SHORT_LABELS,
-  type FocusBucket,
-  type FocusSummary,
-  type TaskOverview,
-} from '@/domain/types';
+import { WORK_CLASS_LABELS, WORK_CLASS_SHORT_LABELS, type TaskOverview } from '@/domain/types';
 import { requireProfile } from '@/lib/supabase/server';
 import { getTeamAttention } from '@/server/queries';
 import {
   getDisplaySettings,
-  getFocusSummary,
   getMyCompletedWork,
   getMyTasks,
   getRoutineOccurrences,
@@ -65,7 +57,6 @@ import { MyTeamPersonPanel } from './MyTeamPersonPanel';
 import { WeeklyPriorities } from './WeeklyPriorities';
 import { TaskActionFeedbackProvider } from './TaskActionFeedback';
 import { TaskDetailDrawer } from './TaskDetailDrawer';
-import { WorkloadReviewPanel } from './WorkloadReviewPanel';
 import { WorkProposalDrawer } from './WorkProposalDrawer';
 import { TaskRowActions } from './TaskRowActions';
 
@@ -137,12 +128,6 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 const NAME_LIST = new Intl.ListFormat('en-GB', { style: 'long', type: 'conjunction' });
 const nameList = (names: string[]) => NAME_LIST.format(names);
-
-const SHORT_BUCKET_LABEL: Record<FocusBucket, string> = {
-  major: 'Major',
-  operational: 'Operational',
-  self_development: 'Development',
-};
 
 const TAB_MEANING: Record<TabKey, string> = {
   active: 'Work you are currently carrying.',
@@ -286,53 +271,6 @@ function readinessCopy(item: SharedContribution): { label: string; note: string 
 }
 function isRoutine(task: TaskOverview): boolean {
   return task.workClass === 'routine_occurrence';
-}
-
-/** "Major 1/1 · Operational 4/5 · Development 1/1" — reported, never a control. */
-function CapacityStrip({ focus }: { focus: readonly FocusSummary[] }) {
-  const order: FocusBucket[] = ['major', 'operational', 'self_development'];
-  const buckets = order
-    .map((bucket) => focus.find((entry) => entry.bucket === bucket))
-    .filter((entry): entry is FocusSummary => Boolean(entry));
-
-  if (buckets.length === 0) return null;
-
-  return (
-    <p className="capacity-strip" role="status">
-      {/*
-        Named rather than left as bare numbers: "Major 0/1 · Operational 3/5"
-        reads as system metadata until something says what it counts.
-
-        Colour is spent only where it means something. A bucket with room is
-        the ordinary case and stays quiet; full is worth knowing before the
-        next thing is started; over target is worth knowing now. Marking all
-        three would leave the strip permanently lit and saying nothing.
-      */}
-      <span className="capacity-label">Capacity</span>
-      {buckets.map((bucket) => {
-        const full = bucket.activeCount >= bucket.recommendedTarget;
-        return (
-          <span
-            key={bucket.bucket}
-            className={bucket.isOverTarget ? 'over' : full ? 'full' : undefined}
-          >
-            {SHORT_BUCKET_LABEL[bucket.bucket]}{' '}
-            <b>
-              {bucket.activeCount}/{bucket.recommendedTarget}
-            </b>
-            {bucket.isOverTarget ? (
-              <span className="visually-hidden">
-                {' '}
-                — over the recommended target, which is allowed
-              </span>
-            ) : full ? (
-              <span className="visually-hidden"> — at the recommended target</span>
-            ) : null}
-          </span>
-        );
-      })}
-    </p>
-  );
 }
 
 /**
@@ -495,7 +433,6 @@ export default async function WorkPage({
      */
     person?: string;
     kept?: string;
-    review?: string;
     item?: string;
     /** v48 §8 — the screen this task was opened from. */
     from?: string;
@@ -644,7 +581,6 @@ export default async function WorkPage({
 
   const [
     tasks,
-    focus,
     settings,
     sharedContributions,
     binnedTasks,
@@ -666,7 +602,6 @@ export default async function WorkPage({
     weekStart,
   ] = await Promise.all([
     getMyTasks(profile.id),
-    getFocusSummary(profile.id),
     getDisplaySettings(),
     // Shared reads the ORIGINAL checklist items, not copies of them
     // (v41 section 23).
@@ -738,7 +673,6 @@ export default async function WorkPage({
     activeTab === 'shared' || activeTab === 'bin' || activeTab === 'completed'
       ? []
       : tasksForTab(tasks, activeTab, profile.id);
-  const overTarget = focus.filter((bucket) => bucket.isOverTarget);
 
   // Section 9 of v40 — a bare number tells nobody what it counts. Routine is
   // badged by what needs doing, not by how many occurrences exist.
@@ -812,8 +746,6 @@ export default async function WorkPage({
   const detailByPerson = new Map(
     expandedPeople.filter((detail) => detail !== null).map((detail) => [detail.person.id, detail]),
   );
-  const memberDetail = params.person ? (detailByPerson.get(params.person) ?? null) : null;
-
   /*
    * The same page with one person's expansion turned on or off.
    *
@@ -1002,7 +934,6 @@ export default async function WorkPage({
       {/* Capacity is reported here rather than being something to navigate. The
           work classes it counts are unchanged; only their role in the interface
           is (v40 section 1). */}
-      {scope === 'mine' && <CapacityStrip focus={focus} />}
 
       {scope === 'team' && pendingManagerProposals.length > 0 && (
         <section className="proposal-inbox" aria-labelledby="proposal-inbox-heading">
@@ -1251,21 +1182,6 @@ export default async function WorkPage({
           )}
         </>
       )}
-
-      {/* Section 7.4 — over target is shown in red AND in words, and is never a
-          block. It belongs to the whole page now that no tab is a bucket. */}
-      {overTarget.map((bucket) => (
-        <div key={bucket.bucket} className="notice error" role="status" style={{ marginTop: 14 }}>
-          <strong>
-            Over focus target on {FOCUS_BUCKET_LABELS[bucket.bucket]} — {bucket.activeCount} /{' '}
-            {bucket.recommendedTarget}
-          </strong>
-          <p>
-            You are carrying more than the recommended target. This is allowed. Your manager can see
-            the reason you recorded.
-          </p>
-        </div>
-      ))}
 
       {scope === 'team' && teamFilter === 'available' && (
         <div className="focus-panel">
@@ -1663,18 +1579,6 @@ export default async function WorkPage({
             </div>
           )}
         </div>
-      )}
-
-      {/*
-        §21-22 — the destination the "Review workload" CTA promises. Opened by
-        `review=workload` on top of the person it concerns, so closing it
-        reveals them rather than dropping the manager back to the list.
-      */}
-      {memberDetail && params.review === 'workload' && (
-        <WorkloadReviewPanel
-          detail={memberDetail}
-          closeHref={closeLayerHref('/work', params, ['review'])}
-        />
       )}
 
       {taskDetail && (

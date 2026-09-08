@@ -523,7 +523,13 @@ export interface TeamOrderRow {
 export function teamRowRank(row: TeamOrderRow): number {
   const attention = row.attention;
   if (!attention) return 9;
-  if (attention.reasonCode === 'workload_review') return 0;
+  /*
+   * `workload_review` used to rank above everything, including a barrier.
+   * v144 removed it with the focus target (specification §3): the loudest row
+   * on a manager's list was being generated from a ratio the product says is
+   * not a reliable workload measure, and it outranked a person who was
+   * actually stopped and waiting for an answer.
+   */
   if (attention.sourceType === 'barrier' || attention.sourceType === 'goal') return 1;
   if (attention.reasonCode === 'overdue') return 2;
   return 3;
