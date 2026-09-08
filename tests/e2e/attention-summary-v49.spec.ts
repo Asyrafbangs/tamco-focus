@@ -248,7 +248,9 @@ test('the whole team row is keyboard-openable and its exact CTA is independent',
 
     // Employee-name click.
     await row.getByText('Lim Wei Sheng').click();
-    await expect(page.locator('.team-member-drawer')).toBeVisible();
+    await expect(page.getByTestId('my-team-person-panel')).toBeVisible();
+    // §6 A01 — it expands in place. No drawer of any kind covers the list.
+    await expect(page.locator('.task-detail-layer')).toHaveCount(0);
 
     await gotoHydrated(page, '/work?scope=team');
     const blankSpaceRow = page
@@ -257,9 +259,10 @@ test('the whole team row is keyboard-openable and its exact CTA is independent',
     await expect(blankSpaceRow).toBeVisible();
     const box = (await blankSpaceRow.boundingBox())!;
     await blankSpaceRow.click({ position: { x: 8, y: box.height - 12 } });
-    await expect(page.locator('.team-member-drawer')).toBeVisible();
+    await expect(page.getByTestId('my-team-person-panel')).toBeVisible();
+    await expect(page.locator('.task-detail-layer')).toHaveCount(0);
 
-    // Enter and Space on the focused row use the same person-detail route.
+    // Enter and Space on the focused row toggle the same expansion.
     for (const key of ['Enter', 'Space']) {
       await gotoHydrated(page, '/work?scope=team');
       const keyboardRow = page
@@ -268,7 +271,8 @@ test('the whole team row is keyboard-openable and its exact CTA is independent',
       await expect(keyboardRow).toBeVisible();
       await keyboardRow.focus();
       await keyboardRow.press(key);
-      await expect(page.locator('.team-member-drawer')).toBeVisible();
+      await expect(page.getByTestId('my-team-person-panel')).toBeVisible();
+      await expect(keyboardRow).toHaveAttribute('aria-expanded', 'true');
     }
 
     /*
@@ -282,8 +286,14 @@ test('the whole team row is keyboard-openable and its exact CTA is independent',
     const detailRow = page.getByTestId('my-team-person-row').filter({ hasText: 'Lim Wei Sheng' });
     await expect(detailRow).toBeVisible();
     await detailRow.click();
-    await expect(page.locator('.team-member-drawer')).toBeVisible();
+    await expect(page.getByTestId('my-team-person-panel')).toBeVisible();
     await expect(page).toHaveURL(/person=f0c05000-0000-4000-a000-000000000006/);
+
+    // §6 A01 — and clicking the same header again closes it, because it is one
+    // control rather than an open button that needs a close button elsewhere.
+    await detailRow.click();
+    await expect(page.getByTestId('my-team-person-panel')).toHaveCount(0);
+    await expect(page).not.toHaveURL(/person=/);
 
     await gotoHydrated(page, '/work?scope=team&filter=attention');
 
@@ -292,7 +302,7 @@ test('the whole team row is keyboard-openable and its exact CTA is independent',
     const action = attentionRow.getByRole('button', { name: /Provide decision/ });
     await action.click();
     await expect(page).toHaveURL(new RegExp(`barrier=${barrierId}`));
-    await expect(page.locator('.team-member-drawer')).toHaveCount(0);
+    await expect(page.getByTestId('my-team-person-panel')).toHaveCount(0);
     await expect(page.locator('.task-detail-drawer')).toBeVisible();
     await expect(page.locator('.barrier-action-panel')).toBeVisible();
     await expect(page.getByLabel('Your decision')).toBeVisible();
@@ -309,7 +319,7 @@ test('the whole team row is keyboard-openable and its exact CTA is independent',
  * "Open" and "Open task": three labels in a column of their own for the one
  * interaction the whole row already performs. An overdue routine is the
  * person's own work to catch up on, not a decision the manager owes, so the
- * manager reads it and opens the person if they want to act.
+ * manager reads it and expands the person if they want to act.
  *
  * It costs a click, and this now proves the destination is still exactly the
  * named occurrence rather than a page the manager has to search.
@@ -326,10 +336,10 @@ test('an overdue occurrence is named on the row and opened through the person', 
   await expect(row.getByRole('button', { name: /Open routine/ })).toHaveCount(0);
 
   await row.click();
-  await expect(page.locator('.team-member-drawer')).toBeVisible();
+  await expect(page.getByTestId('my-team-person-panel')).toBeVisible();
   await expect(page).toHaveURL(/person=/);
   /*
-   * Opening the occurrence itself from that drawer is `team-member-workload-v70`,
+   * Opening the occurrence itself from that expansion is `team-member-workload-v70`,
    * which walks the routine list and checks the destination is the exact record.
    * Repeating it here would duplicate a longer test, not strengthen this one.
    */

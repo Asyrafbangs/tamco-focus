@@ -4182,9 +4182,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 
 /* Team Focus — member detail drawer (prototype `.team-member-*`). */
 
-.team-member-drawer {
-  width: min(640px, 100%);
-}
 .team-member-headline {
   display: flex;
   align-items: center;
@@ -8454,11 +8451,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .team-member-link:focus-visible {
   text-decoration: underline;
 }
-.team-member-focus {
-  margin-bottom: 10px;
-  color: var(--muted);
-  font-size: 10px;
-}
 .member-attention-row {
   display: flex;
   flex-wrap: wrap;
@@ -8531,63 +8523,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .member-update .muted {
   font-size: 9px;
-}
-.member-other-workload > summary,
-.member-completed > summary {
-  box-sizing: border-box;
-  min-height: 44px;
-  margin: -8px 0;
-  padding: 10px 0;
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 650;
-  transition: color var(--motion-fast) var(--motion-easing);
-}
-.member-other-workload > summary:hover,
-.member-completed > summary:hover {
-  color: var(--text);
-}
-.member-other-workload > summary:focus-visible {
-  border-radius: 4px;
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-.member-other-workload[open] > summary {
-  margin-bottom: 2px;
-}
-.member-other-sections {
-  display: grid;
-  gap: 14px;
-}
-.member-other-sections > section {
-  min-width: 0;
-}
-.member-other-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 5px;
-}
-.member-other-heading h4 {
-  min-width: 0;
-  margin: 0;
-  overflow-wrap: anywhere;
-  font-size: 11px;
-}
-.member-other-heading > span {
-  display: inline-flex;
-  min-width: 20px;
-  min-height: 20px;
-  align-items: center;
-  justify-content: center;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--muted);
-  font-size: 9px;
-  font-weight: 700;
 }
 .member-other-list {
   display: grid;
@@ -11043,6 +10978,128 @@ button.attachment-row {
 }
 
 /*
+  A person, opened in place (specification section 6).
+
+  Inset from the row above it and on a quieter ground, so a long expansion
+  still reads as belonging to one name rather than as the rest of the table.
+  There is no card and no shadow: this is the same list, one row taller.
+*/
+.team-person-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px 16px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface-2);
+}
+
+.team-person-panel-bar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/*
+  Every section, open or collapsed, on the same ground.
+
+  A <details> and a <section> that look different make the panel read as two
+  kinds of thing, when the only difference between them is whether the manager
+  has asked for the contents yet.
+*/
+.team-person-section {
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.team-person-section > h4,
+.team-person-section > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.team-person-section > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.team-person-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The disclosure triangle, drawn rather than inherited, so it sits on the
+   baseline of the heading instead of hanging below it. */
+.team-person-section > summary::before {
+  color: var(--muted);
+  content: '›';
+  font-size: 14px;
+  line-height: 1;
+  transition: transform var(--motion-fast) var(--motion-easing);
+}
+
+.team-person-section[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.team-person-section > summary:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.team-person-section > h4 + *,
+.team-person-section[open] > summary + * {
+  margin-top: 8px;
+}
+
+/* The count belongs to the heading, not to the content: it is what tells a
+   manager whether opening the section is worth the click. */
+.team-person-count {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.team-person-more > summary {
+  padding: 6px 2px;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Which part of this task is already spoken for by the week, so the row is
+   not read as a second, independent commitment. */
+.member-work-note {
+  color: var(--blue);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* The delivery split, without the flex row's wide gaps: three short counts
+   read better as one sentence. */
+.member-signals-plain {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* The whole panel narrows with the table it sits in. */
+@media (max-width: 720px) {
+  .team-person-panel {
+    padding: 10px 10px 14px;
+  }
+
+  .team-person-section {
+    padding: 9px 10px;
+  }
+}
+
+/*
   Observations on one line, separated rather than punctuated.
 
   Each is a fact a manager weighs for themselves: what is late, what has
@@ -11060,36 +11117,6 @@ button.attachment-row {
 
 .member-signals .tone-red {
   font-weight: 650;
-}
-
-.member-routine-signals {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--line-soft);
-}
-
-.member-signals-label {
-  color: var(--text);
-  font-weight: 650;
-}
-
-.member-delivery-total {
-  margin: 0 0 4px;
-  font-size: 13px;
-}
-
-.member-delivery-total strong {
-  font-size: 19px;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-}
-
-/* The window this section is counting, said next to the heading rather than
-   left for the reader to remember from the strip at the top of the page. */
-.member-window {
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 600;
 }
 
 .member-delivery-more {

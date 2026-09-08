@@ -14,6 +14,13 @@ import { expect, test, type Page } from '@playwright/test';
  * three. Measured before the fix, 2 of 8 attempts landed inside the window and
  * both stayed open; after it, 2 of 24 landed inside it and both closed.
  *
+ * It sampled the race through the team member drawer until v143, which §6
+ * replaced with an inline expansion. The race belongs to `SideDrawer`, not to
+ * that one caller, so this now opens the task drawer — the same component, and
+ * the one every screen in the product still opens. Signed in as somebody who
+ * has active work of their own: the admin account could open My Team but has
+ * nothing on its own Active list, so there would be no row to open.
+ *
  * This SAMPLES the race rather than forcing it — the window is a single frame
  * and cannot be opened on demand from here, and the honest alternative would
  * be a component-level test that needs a DOM test environment this repo does
@@ -34,42 +41,40 @@ async function signIn(page: Page, email: string) {
 
 test('Escape closes a drawer opened a moment ago, every time', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'One pass over the race is enough.');
-  await signIn(page, 'admin@tamco.local');
+  await signIn(page, 'izzah@tamco.local');
 
   for (let attempt = 1; attempt <= 6; attempt += 1) {
-    await page.goto('/work?scope=team');
+    await page.goto('/work');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
-    const row = page.getByTestId('my-team-person-row').filter({ hasText: 'Izzul Asyraf' });
-    await expect(row).toBeVisible();
-    await row.focus();
-    await page.keyboard.press('Enter');
+    const link = page.locator('.task-row .row-primary-link').first();
+    await expect(link).toBeVisible();
+    await link.click();
 
     /*
      * Waits for the drawer to EXIST, not for it to finish opening. Waiting for
      * the transition would step over the very window this is looking for.
      */
-    const drawer = page.locator('.team-member-drawer');
+    const drawer = page.locator('.task-detail-drawer');
     await drawer.waitFor({ state: 'attached' });
     await page.keyboard.press('Escape');
 
     await expect(drawer, `attempt ${attempt}: Escape was swallowed`).toHaveCount(0);
-    await expect(page).not.toHaveURL(/person=/);
+    await expect(page).not.toHaveURL(/task=/);
   }
 });
 
 test('a second Escape does not queue a second navigation', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'One pass is enough.');
-  await signIn(page, 'admin@tamco.local');
-  await page.goto('/work?scope=team');
+  await signIn(page, 'izzah@tamco.local');
+  await page.goto('/work');
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
-  const row = page.getByTestId('my-team-person-row').filter({ hasText: 'Izzul Asyraf' });
-  await expect(row).toBeVisible();
-  await row.focus();
-  await page.keyboard.press('Enter');
+  const link = page.locator('.task-row .row-primary-link').first();
+  await expect(link).toBeVisible();
+  await link.click();
 
-  const drawer = page.locator('.team-member-drawer');
+  const drawer = page.locator('.task-detail-drawer');
   await expect(drawer).toBeVisible();
 
   /*
@@ -80,8 +85,8 @@ test('a second Escape does not queue a second navigation', async ({ page }, test
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   await expect(drawer).toHaveCount(0);
-  await expect(page).toHaveURL(/scope=team/);
+  await expect(page).not.toHaveURL(/task=/);
 
   await page.goBack();
-  await expect(page).toHaveURL(/person=/);
+  await expect(page).toHaveURL(/task=/);
 });

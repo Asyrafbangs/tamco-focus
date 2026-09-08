@@ -41,11 +41,20 @@ export function WeeklyPriorities({
   /** The manager reading somebody else's week, rather than their own. */
   canAgree = false,
   emptyHint,
+  /**
+   * Whether to say "This week" above the list.
+   *
+   * On My Work it is the only thing naming the list. Inside a person's
+   * expansion the section is already headed "This week's priorities", and the
+   * eyebrow repeated it one line below in smaller type.
+   */
+  labelled = true,
 }: {
   commitments: readonly WeeklyCommitment[];
   timeZone: string;
   canAgree?: boolean;
   emptyHint?: string;
+  labelled?: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -70,7 +79,7 @@ export function WeeklyPriorities({
   if (commitments.length === 0) {
     return (
       <div className="weekly-priorities empty">
-        <p className="eyebrow">This week</p>
+        {labelled && <p className="eyebrow">This week</p>}
         {/*
           §8: say "No agreed priorities" rather than dressing a proposal up as
           an agreement — and never invent one for somebody who has not set any.
@@ -82,7 +91,7 @@ export function WeeklyPriorities({
 
   return (
     <div className="weekly-priorities">
-      <p className="eyebrow">This week</p>
+      {labelled && <p className="eyebrow">This week</p>}
       {error && (
         <p className="notice error" role="alert">
           {error}

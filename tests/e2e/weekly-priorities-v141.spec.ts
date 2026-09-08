@@ -120,10 +120,10 @@ test.describe('v141 the manager agrees', () => {
 
     // Agree it where the work is already being read.
     await row.getByText('Ajmal Rizani').click();
-    const drawer = page.locator('.team-member-drawer');
-    await expect(drawer).toBeVisible();
-    await expect(drawer).toContainText(title);
-    await drawer.getByRole('button', { name: 'Agree' }).first().click();
+    const panel = page.getByTestId('my-team-person-panel');
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText(title);
+    await panel.getByRole('button', { name: 'Agree' }).first().click();
 
     await openWork(page, '?scope=team');
     await expect(
@@ -161,11 +161,11 @@ test.describe('v141 the manager agrees', () => {
       .filter({ hasText: 'Amer' })
       .getByText('Amer Hakim')
       .click();
-    const drawer = page.locator('.team-member-drawer');
-    await expect(drawer).toBeVisible();
-    await drawer.getByRole('button', { name: 'Decline' }).first().click();
+    const panel = page.getByTestId('my-team-person-panel');
+    await expect(panel).toBeVisible();
+    await panel.getByRole('button', { name: 'Decline' }).first().click();
     // Declining somebody's plan without saying why is not a decision they can
     // act on, so the reason box appears rather than the action completing.
-    await expect(drawer.getByLabel('Why not this week?')).toBeVisible();
+    await expect(panel.getByLabel('Why not this week?')).toBeVisible();
   });
 });

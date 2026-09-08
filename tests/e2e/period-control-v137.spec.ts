@@ -182,9 +182,11 @@ test.describe('v137 the period control', () => {
       .filter({ hasText: 'Amer' })
       .getByText('Amer Hakim')
       .click();
-    const drawer = page.locator('.team-member-drawer');
-    await expect(drawer).toBeVisible();
-    await expect(drawer).toContainText('Last 90 days');
+    const panel = page.getByTestId('my-team-person-panel');
+    await expect(panel).toBeVisible();
+    // The window the expansion counts over, said inside it (v143 §6 puts it on
+    // the Completed section's summary rather than in a drawer heading).
+    await expect(panel).toContainText('last 90 days');
   });
 
   test('a closed period does not quietly run up to now', async ({ page }) => {

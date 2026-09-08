@@ -141,30 +141,37 @@ test('closing a drawer returns one layer, to the context it was opened from', as
   const firstBox = (await firstRow.boundingBox())!;
   await page.mouse.click(firstBox.x + 20, firstBox.y + firstBox.height / 2);
 
-  const personDrawer = page.locator('.team-member-drawer');
-  await expect(personDrawer).toBeVisible();
+  const personPanel = page.getByTestId('my-team-person-panel');
+  await expect(personPanel).toBeVisible();
   await expect(page).toHaveURL(new RegExp('person='));
   const personHref = page.url();
 
   // --- Person → task ---------------------------------------------------------
-  const taskRow = personDrawer.locator('.member-work-row').first();
+  const taskRow = personPanel.locator('.member-work-row').first();
   if (await taskRow.count()) {
     await taskRow.click();
     await expect(page.locator('.task-detail-drawer')).toBeVisible();
-    // Both layers are mounted: the person is still underneath.
-    await expect(page.locator('.task-detail-layer')).toHaveCount(2);
+    /*
+     * v143 §6 — one layer, not two. The person is an expansion in the list
+     * now, so a task opens over the list rather than over a second drawer, and
+     * "do not open another person drawer on top" is a thing the shape of the
+     * page makes impossible rather than a rule somebody has to remember.
+     */
+    await expect(page.locator('.task-detail-layer')).toHaveCount(1);
 
-    // §69 — closing the task reveals the person, not the list.
+    // §69, and §6 A02 — closing the task reveals the person, still expanded,
+    // still filtered, in the same list.
     await closeTopDrawer(page);
     await expect(page.locator('.task-detail-drawer')).toHaveCount(0);
-    await expect(page.locator('.team-member-drawer')).toBeVisible();
+    await expect(personPanel).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`person=`));
     await expect(page).not.toHaveURL(/task=/);
   }
 
-  // §69 — closing the person reveals My Team, still in team scope.
-  await closeTopDrawer(page);
-  await expect(page.locator('.team-member-drawer')).toHaveCount(0);
+  // §69 — collapsing the person leaves My Team, still in team scope. The
+  // header that opened them is the control that closes them.
+  await firstRow.locator('[data-cell="person"] strong').click();
+  await expect(personPanel).toHaveCount(0);
   await expect(page).toHaveURL(/scope=team/);
   await expect(page).not.toHaveURL(/person=/);
   expect(personHref).toContain('scope=team');
@@ -206,7 +213,8 @@ test('the Needs Attention filter survives opening and closing a task', async ({
 
     await action.click();
     await expect(page.locator('.task-detail-layer').first()).toBeVisible();
-    await expect(page.locator('.team-member-drawer')).toHaveCount(0);
+    // Straight to the decision. No person expands on the way.
+    await expect(page.getByTestId('my-team-person-panel')).toHaveCount(0);
 
     await closeTopDrawer(page);
     await expect(page).toHaveURL(/scope=team/);
@@ -226,16 +234,24 @@ test('a team member name opens their detail without leaving My Team', async ({ p
   const row = page.getByTestId('my-team-person-row').first();
   await row.locator('[data-cell="person"] strong').click();
 
-  const drawer = page.locator('.team-member-drawer');
-  await expect(drawer).toBeVisible();
-  // §35 — a drawer, not a page: My Team is still rendered underneath.
+  const panel = page.getByTestId('my-team-person-panel');
+  await expect(panel).toBeVisible();
+  // §35, and v143 §6 — in place, not over the top: My Team is still readable,
+  // and the row above the expansion is still the person it belongs to.
   await expect(page.locator('.focus-panel')).toBeVisible();
+  await expect(row).toHaveAttribute('aria-expanded', 'true');
 
-  // §74 — the sections that answer the manager's three questions.
-  await expect(drawer.getByRole('heading', { name: 'Needs your attention' })).toBeVisible();
-  await expect(drawer.getByRole('heading', { name: 'Current commitments' })).toBeVisible();
-  await expect(drawer.getByRole('heading', { name: 'Recent updates' })).toBeVisible();
-  await expect(drawer.locator('.team-member-focus')).toContainText('/');
+  /*
+   * §74 — the sections that answer the manager's questions, under the names
+   * §6 gives them. "Needs your attention" is not among them: it is rendered
+   * only where a decision is actually owed, so a person with none has no such
+   * section rather than an empty one.
+   */
+  await expect(panel.getByRole('heading', { name: 'This week’s priorities' })).toBeVisible();
+  await expect(panel.getByRole('heading', { name: /Other active work/ })).toBeVisible();
+  await expect(
+    panel.locator('.team-person-section[data-section="details"] > summary'),
+  ).toContainText('Recent updates');
 });
 
 /**

@@ -54,12 +54,19 @@ test.describe('v69 Team visibility and navigation', () => {
     await izzul.focus();
     await page.keyboard.press('Enter');
 
-    const drawer = page.locator('.team-member-drawer');
-    await expect(drawer).toBeVisible();
-    await expect(drawer.getByRole('heading', { name: 'Izzul Asyraf' })).toBeVisible();
+    const panel = page.getByTestId('my-team-person-panel');
+    await expect(panel).toBeVisible();
+    await expect(izzul).toHaveAttribute('aria-expanded', 'true');
 
-    await page.keyboard.press('Escape');
-    await expect(drawer).toHaveCount(0);
+    /*
+     * Enter again, not Escape: v143 §6 replaced the drawer with an expansion,
+     * and an accordion closes with the control that opened it. Focus staying
+     * where it was is now a property of never having moved rather than of a
+     * drawer handing it back — which is the whole reason this is cheaper for
+     * somebody working down the list on a keyboard.
+     */
+    await page.keyboard.press('Enter');
+    await expect(panel).toHaveCount(0);
     await expect(page).toHaveURL(/scope=team/);
     await expect(page).not.toHaveURL(/person=/);
     await expect(izzul).toBeFocused();

@@ -10,12 +10,7 @@ import {
   WorkspaceTabs,
   type TabItem,
 } from '@/components/ui/ParityPrimitives';
-import {
-  closeLayerHref,
-  PERSON_LAYER_PARAMS,
-  safeReturnPath,
-  TASK_LAYER_PARAMS,
-} from '@/domain/navigation';
+import { closeLayerHref, safeReturnPath, TASK_LAYER_PARAMS } from '@/domain/navigation';
 import { formatDue, formatDueShort, overdueAgeMs } from '@/domain/duration';
 import { DELIVERY_KIND_WORD } from '@/domain/delivery';
 import {
@@ -66,10 +61,10 @@ import {
 import { BinList } from './BinList';
 import { AttentionListView } from './AttentionListView';
 import { MyTeamListHeader, MyTeamPersonRow } from './MyTeamPersonRow';
+import { MyTeamPersonPanel } from './MyTeamPersonPanel';
 import { WeeklyPriorities } from './WeeklyPriorities';
 import { TaskActionFeedbackProvider } from './TaskActionFeedback';
 import { TaskDetailDrawer } from './TaskDetailDrawer';
-import { TeamMemberDrawer } from './TeamMemberDrawer';
 import { WorkloadReviewPanel } from './WorkloadReviewPanel';
 import { WorkProposalDrawer } from './WorkProposalDrawer';
 import { TaskRowActions } from './TaskRowActions';
@@ -126,6 +121,19 @@ function formatDay(iso: string, timeZone: string): string {
     new Date(iso),
   );
 }
+
+/*
+  §6 — how many people can be held open at once.
+
+  Three pinned plus the current one. Comparison is the reason Keep open exists,
+  and comparison is between two or three people; past that a manager is reading
+  a page rather than comparing, and the page is paying for four more detail
+  queries to do it.
+*/
+const MAX_KEPT_PEOPLE = 3;
+
+/** Anything arriving in `?person=` or `?kept=` that is not this is not asked about. */
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const NAME_LIST = new Intl.ListFormat('en-GB', { style: 'long', type: 'conjunction' });
 const nameList = (names: string[]) => NAME_LIST.format(names);
@@ -477,8 +485,16 @@ export default async function WorkPage({
     /** v46 §44 — "I was sent here to act", plus which request. */
     attention?: string;
     barrier?: string;
-    /** v48 §6 — the Team Member Detail layer, and its workload review. */
+    /**
+     * §6 — who is expanded in My Team.
+     *
+     * `person` is the current expansion and is replaced when another is
+     * opened; `kept` is the comma-separated list a manager has pinned through
+     * "Keep open" so two people can be compared. Both are in the URL so an
+     * expansion survives opening a task, a reload and a shared link.
+     */
     person?: string;
+    kept?: string;
     review?: string;
     item?: string;
     /** v48 §8 — the screen this task was opened from. */
@@ -544,18 +560,54 @@ export default async function WorkPage({
    * team" were a state my own work could be in. It sat one level too deep.
    * Scope is now chosen first, and the state tabs belong to My Work alone.
    */
-  const scope: 'mine' | 'team' = params.scope === 'team' && hasTeam ? 'team' : 'mine';
+  /*
+   * A link that names a person is a team link.
+   *
+   * `person` used to open a drawer over whatever was underneath, so the scope
+   * it arrived with did not matter. §6 makes it an expansion inside the list,
+   * which only exists on Team — so an older link, a notification or a bookmark
+   * carrying `?person=` has to land on the view that can show it, and on a
+   * filter that renders the people rather than their queued or closed work.
+   */
+  const namesPerson = Boolean(params.person) && hasTeam;
+  const scope: 'mine' | 'team' =
+    (params.scope === 'team' || namesPerson) && hasTeam ? 'team' : 'mine';
   const teamFilter: 'everyone' | 'attention' | 'available' | 'delivered' =
     params.filter === 'attention'
       ? 'attention'
-      : params.filter === 'available'
-        ? 'available'
-        : params.filter === 'delivered'
-          ? 'delivered'
-          : 'everyone';
+      : namesPerson
+        ? 'everyone'
+        : params.filter === 'available'
+          ? 'available'
+          : params.filter === 'delivered'
+            ? 'delivered'
+            : 'everyone';
 
   // `?filter=attention` outside team scope means "my own full list".
   const personalAttentionView = params.filter === 'attention' && params.scope !== 'team';
+
+  /*
+   * §6 — who is expanded, and how many people that is allowed to be.
+   *
+   * One person at a time by default; `kept` holds the ones pinned for
+   * comparison. The cap is on the URL rather than on the control, because the
+   * list is what bounds the work: every expanded person costs a detail query,
+   * and `?kept=` arrives from the address bar where nobody clicked anything.
+   * Anything that is not a uuid is dropped rather than sent to the database.
+   */
+  const keptIds = (params.kept ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => UUID_PATTERN.test(id))
+    .slice(0, MAX_KEPT_PEOPLE);
+  const expandedIds = hasTeam
+    ? Array.from(
+        new Set([
+          ...keptIds,
+          ...(params.person && UUID_PATTERN.test(params.person) ? [params.person] : []),
+        ]),
+      )
+    : [];
 
   /*
    * One period for the whole page, resolved before the queries run because
@@ -599,7 +651,7 @@ export default async function WorkPage({
     binnedCount,
     routineOccurrences,
     taskDetail,
-    memberDetail,
+    expandedPeople,
     myAttention,
     assignablePeople,
     team,
@@ -630,12 +682,11 @@ export default async function WorkPage({
     getBinnedTaskCount(profile.id),
     getRoutineOccurrences(profile.id),
     params.task ? getTaskDetail(params.task, profile.id) : Promise.resolve(null),
-    // §60 — the id in the URL is a request, not an authorisation. The query is
+    // §60 — an id in the URL is a request, not an authorisation. Each query is
     // bounded by the same visibility rules the list is, and returns nothing for
-    // somebody outside this manager's scope.
-    params.person && hasTeam
-      ? getTeamMemberDetail(profile.id, params.person, period)
-      : Promise.resolve(null),
+    // somebody outside this manager's scope. Bounded in number too: `expandedIds`
+    // is capped, so a hand-written `?kept=` cannot turn one page into forty.
+    Promise.all(expandedIds.map((id) => getTeamMemberDetail(profile.id, id, period))),
     personalAttentionView ? getMyAttention(profile.id) : Promise.resolve([]),
     // Scoped by the viewer's own visibility, not the whole organisation
     // (v42 sections G, S).
@@ -750,6 +801,68 @@ export default async function WorkPage({
     const query = new URLSearchParams({ scope: 'team', ...periodParams(period) });
     if (filter) query.set('filter', filter);
     return `/work?${query.toString()}`;
+  };
+
+  /*
+   * §6 — the expansions, by whose they are.
+   *
+   * A person the viewer may not see comes back null and simply does not
+   * expand; the row is not there to click in the first place.
+   */
+  const detailByPerson = new Map(
+    expandedPeople.filter((detail) => detail !== null).map((detail) => [detail.person.id, detail]),
+  );
+  const memberDetail = params.person ? (detailByPerson.get(params.person) ?? null) : null;
+
+  /*
+   * The same page with one person's expansion turned on or off.
+   *
+   * Built from the parameters already in the address bar rather than from a
+   * fresh set, so the period, the filter and everybody else's expansion all
+   * survive the click - which is most of what A02 asks for. The task layer is
+   * dropped, because expanding a person is not the same as having a task open.
+   */
+  const teamUrl = (overrides: Record<string, string | null>) => {
+    const search = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (key in overrides) continue;
+      if (value === undefined || value === null || String(value).length === 0) continue;
+      search.set(key, String(value));
+    }
+    for (const [key, value] of Object.entries(overrides)) {
+      if (value) search.set(key, value);
+    }
+    const query = search.toString();
+    return query ? `/work?${query}` : '/work';
+  };
+
+  const withoutTask = { task: null, attention: null, barrier: null, item: null, from: null };
+
+  /*
+   * A01 — one control, so one URL: the header toggles, and it toggles whether
+   * this person was opened as the current one or pinned through Keep open.
+   * Opening somebody else replaces `person` and leaves `kept` alone, which is
+   * A03's "default opening otherwise closes the previous person".
+   */
+  const personToggleHref = (personId: string) => {
+    const remaining = keptIds.filter((id) => id !== personId);
+    return expandedIds.includes(personId)
+      ? teamUrl({ ...withoutTask, person: null, kept: remaining.join(',') || null })
+      : teamUrl({ ...withoutTask, person: personId, kept: keptIds.join(',') || null });
+  };
+
+  /*
+   * Keep open, and stop keeping open.
+   *
+   * Un-pinning does not force a person closed and does not force them open: it
+   * removes the pin, and whether they stay is then the ordinary rule - the
+   * current person stays, anybody else closes when the next one opens.
+   */
+  const personKeepHref = (personId: string) => {
+    const kept = keptIds.includes(personId)
+      ? keptIds.filter((id) => id !== personId)
+      : [...keptIds, personId].slice(0, MAX_KEPT_PEOPLE);
+    return teamUrl({ ...withoutTask, kept: kept.join(',') || null });
   };
 
   /*
@@ -1175,9 +1288,7 @@ export default async function WorkPage({
                   <header>
                     <strong>{group.ownerName}</strong>
                     <span className="muted">{group.tasks.length} waiting</span>
-                    <Link href={`/work?scope=team&filter=available&person=${group.ownerId}`}>
-                      Open person
-                    </Link>
+                    <Link href={`/work?scope=team&person=${group.ownerId}`}>Open person</Link>
                   </header>
                   <ul className="team-available-list">
                     {group.tasks.map((task) => (
@@ -1246,9 +1357,7 @@ export default async function WorkPage({
                   <header>
                     <strong>{group.ownerName}</strong>
                     <span className="muted">{group.records.length} completed</span>
-                    <Link href={`/work?scope=team&filter=delivered&person=${group.ownerId}`}>
-                      Open person
-                    </Link>
+                    <Link href={`/work?scope=team&person=${group.ownerId}`}>Open person</Link>
                   </header>
                   <ul className="team-available-list">
                     {group.records.map((record) => (
@@ -1302,15 +1411,32 @@ export default async function WorkPage({
           {teamRows.length > 0 ? (
             <>
               <MyTeamListHeader />
-              {teamRows.map((person) => (
-                <MyTeamPersonRow
-                  key={person.userId}
-                  person={person}
-                  filter={teamFilter}
-                  nowIso={now.toISOString()}
-                  periodParams={periodParams(period)}
-                />
-              ))}
+              {teamRows.map((person) => {
+                const detail = detailByPerson.get(person.userId) ?? null;
+                const panelId = `team-person-${person.userId}`;
+                return (
+                  <MyTeamPersonRow
+                    key={person.userId}
+                    person={person}
+                    nowIso={now.toISOString()}
+                    expanded={detail !== null}
+                    toggleHref={personToggleHref(person.userId)}
+                    panelId={panelId}
+                  >
+                    {detail && (
+                      <MyTeamPersonPanel
+                        detail={detail}
+                        panelId={panelId}
+                        taskHrefBase={closeLayerHref('/work', params, [...TASK_LAYER_PARAMS])}
+                        keepHref={personKeepHref(person.userId)}
+                        kept={keptIds.includes(person.userId)}
+                        timeZone={profile.timezone}
+                        now={now}
+                      />
+                    )}
+                  </MyTeamPersonRow>
+                );
+              })}
             </>
           ) : (
             <div className="empty-state">
@@ -1540,10 +1666,6 @@ export default async function WorkPage({
       )}
 
       {/*
-        §35 — the person drawer sits under the task drawer, so closing the task
-        reveals the person again rather than the list.
-      */}
-      {/*
         §21-22 — the destination the "Review workload" CTA promises. Opened by
         `review=workload` on top of the person it concerns, so closing it
         reveals them rather than dropping the manager back to the list.
@@ -1552,19 +1674,6 @@ export default async function WorkPage({
         <WorkloadReviewPanel
           detail={memberDetail}
           closeHref={closeLayerHref('/work', params, ['review'])}
-        />
-      )}
-
-      {memberDetail && (
-        <TeamMemberDrawer
-          detail={memberDetail}
-          closeHref={closeLayerHref('/work', params, [
-            ...PERSON_LAYER_PARAMS,
-            ...TASK_LAYER_PARAMS,
-          ])}
-          taskHrefBase={closeLayerHref('/work', params, [...TASK_LAYER_PARAMS])}
-          timeZone={profile.timezone}
-          now={now}
         />
       )}
 

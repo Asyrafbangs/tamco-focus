@@ -101,13 +101,13 @@ test.describe('v132 the snapshot', () => {
     // put the question back to thirty.
     await openTeam(page, '&period=90');
     await page.getByTestId('my-team-person-row').first().locator('strong').first().click();
-    const drawer = page.locator('.team-member-drawer');
-    await expect(drawer).toBeVisible();
-    await expect(drawer).toContainText('Last 90 days');
+    const panel = page.getByTestId('my-team-person-panel');
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText('last 90 days');
   });
 });
 
-test.describe('v132 the person drawer', () => {
+test.describe('v132 the person expansion', () => {
   test.beforeEach(async ({ page }) => {
     await signIn(page, 'izzul@tamco.local');
     await openTeam(page);
@@ -118,52 +118,77 @@ test.describe('v132 the person drawer', () => {
       .filter({ hasText: 'Izzah' })
       .getByText('Izzah Nurul')
       .click();
-    await expect(page.locator('.team-member-drawer')).toBeVisible();
+    await expect(page.getByTestId('my-team-person-panel')).toBeVisible();
   });
 
-  test('reads attention, commitments, delivery, then updates', async ({ page }) => {
-    const headings = await page.locator('.team-member-drawer .detail-section h3').allInnerTexts();
-    const order = headings.map((text) => text.trim().split('\n')[0]);
+  test('reads the week, then the work, then what closed', async ({ page }) => {
+    const headings = await page
+      .getByTestId('my-team-person-panel')
+      .locator('.team-person-section > h4, .team-person-section > summary')
+      .allInnerTexts();
+    const order = headings.map((text) => text.trim().split('\n')[0]!.trim());
+
     /*
-     * Delivery above the update feed, because they answer different
-     * questions: a list of edits says somebody has been busy, and what closed
-     * says what came of it.
+     * v143 §6 fixes this order, and the reason is the order of the questions:
+     * what did the two of them agree, what else is being carried, what has not
+     * begun, what is the routine doing, what actually closed — and only then
+     * the running commentary. Delivery stays above the update feed because a
+     * list of edits says somebody has been busy and what closed says what came
+     * of it.
+     *
+     * "Needs your decision" is not in this list because §6 forbids rendering
+     * it for everyone. It appears only when the manager actually owes an
+     * answer, so it is dropped here rather than asserted as always-first —
+     * which is how the old drawer had it, and why every healthy person carried
+     * a panel saying nothing was needed.
      */
-    /*
-     * v141 §6 put this week's priorities directly below the attention block and
-     * above everything else: they are what the two people agreed, and the rest
-     * of the active work is context for them. The attention block stays first
-     * because it is only there when the manager actually owes something.
-     */
-    expect(order.slice(0, 5)).toEqual([
-      'Needs your attention',
+    const withoutDecision = order[0]?.startsWith('Needs your decision') ? order.slice(1) : order;
+    const expected = [
       'This week’s priorities',
-      'Current commitments',
-      expect.stringContaining('Recent delivery'),
+      'Other active work',
+      'Not started',
+      'Routines',
+      'Completed',
       'Recent updates',
-    ]);
+    ];
+    expect(withoutDecision).toHaveLength(expected.length);
+    withoutDecision.forEach((text, index) => expect(text).toContain(expected[index]!));
   });
 
   test('never renders a null update', async ({ page }) => {
     /*
      * `String(update.body)` turned a null body into the four characters
-     * "null", which appeared in the drawer as somebody's most recent
-     * meaningful change. System rows carry no body and belong to the audit
-     * trail, not to a list headed "what changed".
+     * "null", which appeared as somebody's most recent meaningful change.
+     * System rows carry no body and belong to the audit trail, not to a list
+     * headed "what changed".
+     *
+     * Counted rather than looked at, so a collapsed section is still covered:
+     * the text is in the DOM either way, and §6 collapses this one.
      */
-    const drawer = page.locator('.team-member-drawer');
-    await expect(drawer.getByText('null', { exact: true })).toHaveCount(0);
-    await expect(drawer.getByText('undefined', { exact: true })).toHaveCount(0);
+    const panel = page.getByTestId('my-team-person-panel');
+    await expect(panel.getByText('null', { exact: true })).toHaveCount(0);
+    await expect(panel.getByText('undefined', { exact: true })).toHaveCount(0);
   });
 
   test('shows load signals without turning them into a score', async ({ page }) => {
-    const drawer = page.locator('.team-member-drawer');
-    await expect(drawer.locator('.member-signals').first()).toBeVisible();
+    /*
+     * The figures moved onto the row itself in v142 §3, where they are read
+     * across the whole team rather than one person at a time. Asserted there
+     * because the expansion's own signal line is conditional — somebody with
+     * nothing overdue and nothing stalled correctly has none, and a test that
+     * demanded one would be demanding a problem.
+     */
+    const row = page.getByTestId('my-team-person-row').filter({ hasText: 'Izzah' });
+    await expect(row.locator('[data-cell="person"]')).toContainText(
+      /(overdue|active|waiting|Nothing active)/,
+    );
+
     // No percentage, no rating, no "efficiency": every one of those would have
     // to rank a Major Project against a PPE check.
-    await expect(drawer.getByText(/efficiency/i)).toHaveCount(0);
-    await expect(drawer.getByText(/productivity/i)).toHaveCount(0);
-    await expect(drawer.getByText(/score/i)).toHaveCount(0);
+    const panel = page.getByTestId('my-team-person-panel');
+    await expect(panel.getByText(/efficiency/i)).toHaveCount(0);
+    await expect(panel.getByText(/productivity/i)).toHaveCount(0);
+    await expect(panel.getByText(/score/i)).toHaveCount(0);
   });
 });
 
@@ -175,12 +200,18 @@ test('v132 delivery is split by kind, not reported as one number', async ({ page
   const rows = page.getByTestId('my-team-person-row');
   const count = await rows.count();
   for (let index = 0; index < count; index += 1) {
-    await rows.nth(index).locator('strong').first().click();
-    const drawer = page.locator('.team-member-drawer');
-    await expect(drawer).toBeVisible();
-    const delivery = drawer.locator('.detail-section', { hasText: 'Recent delivery' });
+    const row = rows.nth(index);
+    await row.locator('strong').first().click();
+    const panel = page.getByTestId('my-team-person-panel');
+    await expect(panel).toBeVisible();
 
-    if ((await delivery.locator('.member-delivery-total').count()) > 0) {
+    // §6 collapses Completed behind its count, so the count is read from the
+    // summary and the records are opened only when there is something in them.
+    const delivery = panel.locator('.team-person-section[data-section="completed"]');
+    const summary = (await delivery.locator('summary').innerText()).trim();
+
+    if (!/^Completed\s+0\b/.test(summary)) {
+      await delivery.locator('summary').click();
       /*
        * The breakdown is the point. Ten routine occurrences are generated by a
        * schedule and closed weekly; one Major Project closes once a quarter; a
@@ -188,13 +219,14 @@ test('v132 delivery is split by kind, not reported as one number', async ({ page
        * count at all. A bare total ranks the person doing the smallest work
        * highest.
        */
-      await expect(delivery.locator('.member-signals').first()).toBeVisible();
-      await page.keyboard.press('Escape');
-      await expect(drawer).toHaveCount(0);
+      await expect(delivery.locator('.member-signals-plain')).toBeVisible();
       return;
     }
-    await page.keyboard.press('Escape');
-    await expect(drawer).toHaveCount(0);
+
+    // Collapse before moving on: the header is the one control, so clicking it
+    // again is how a person closes.
+    await row.locator('strong').first().click();
+    await expect(page.getByTestId('my-team-person-panel')).toHaveCount(0);
   }
   test.skip(true, 'Nobody in this fixture has completed anything this year.');
 });

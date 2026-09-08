@@ -54,8 +54,14 @@ export function closeLayerHref(basePath: string, params: LayerParams, remove: st
  */
 export const TASK_LAYER_PARAMS = ['task', 'attention', 'barrier', 'item'] as const;
 
-/** The parameters that belong to the Team Member Detail layer. */
-export const PERSON_LAYER_PARAMS = ['person', 'review'] as const;
+/*
+  There is no Team Member Detail layer to close.
+
+  `person` was a drawer parameter until v143 and had a list of its own here.
+  §6 made it an expansion inside My Team: nothing closes it but the header that
+  opened it, and `review=workload` — the one layer that still sits over a
+  person — closes by dropping its own parameter and revealing them.
+*/
 
 /**
  * A link that opens the task drawer and remembers where it was opened from

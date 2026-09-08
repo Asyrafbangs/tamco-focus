@@ -55,8 +55,27 @@
     transform var(--motion-fast) var(--motion-easing);
 }
 
-.row:last-child {
+.block {
+  min-width: 0;
+}
+
+/*
+  The row is no longer the last thing in the panel: it sits inside a block with
+  its expansion, so "last row" is now the last block's row. When that block is
+  open the border is wanted again, because the expansion follows it.
+*/
+.block:last-child:not([data-expanded]) > .row:last-child {
   border-bottom: 0;
+}
+
+.block[data-expanded] > .row {
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface-2);
+}
+
+/* Pointing down while open, so the header states which way it goes. */
+.block[data-expanded] .chevron {
+  transform: rotate(90deg);
 }
 
 .row:hover {
@@ -216,7 +235,9 @@
 /* The affordance for a row that opens, matching the work rows on My Work.
    Quiet, because the row itself is the control. */
 .chevron {
+  display: inline-block;
   color: var(--muted);
+  transition: transform var(--motion-fast) var(--motion-easing);
   font-size: 15px;
   line-height: 1;
 }

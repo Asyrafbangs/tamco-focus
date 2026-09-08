@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import type { KeyboardEvent, MouseEvent } from 'react';
+import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 
 import { resolveAttentionAction } from '@/domain/attention';
 import type { TeamAttentionRow } from '@/server/queries';
@@ -43,27 +43,27 @@ export function MyTeamListHeader() {
 
 export function MyTeamPersonRow({
   person,
-  filter,
   nowIso,
-  periodParams,
+  expanded,
+  toggleHref,
+  panelId,
+  children,
 }: {
   person: TeamAttentionRow;
-  filter: 'everyone' | 'attention';
   nowIso: string;
+  /** Whether this person's detail is open underneath (§6). */
+  expanded: boolean;
   /**
-   * The period the page is reporting over, carried into the drawer.
-   *
-   * The row built its own URL and dropped it, so widening to ninety days and
-   * then opening somebody silently put the question back to thirty — and the
-   * drawer said "Last 30 days" while the strip above it still said 90.
+   * Where clicking the header goes: the same URL with this person expanded, or
+   * with them dropped. The page builds it because it is the page that knows
+   * the period, the filter and who else is being kept open.
    */
-  periodParams?: Record<string, string>;
+  toggleHref: string;
+  panelId: string;
+  /** The expansion itself, rendered by the server and slotted in below. */
+  children?: ReactNode;
 }) {
   const router = useRouter();
-  const personQuery = new URLSearchParams({ scope: 'team', ...periodParams });
-  if (filter === 'attention') personQuery.set('filter', 'attention');
-  personQuery.set('person', person.userId);
-  const personHref = `/work?${personQuery.toString()}`;
   const action = person.attention
     ? resolveAttentionAction(person.attention, { teamAttention: true })
     : null;
@@ -104,15 +104,24 @@ export function MyTeamPersonRow({
       .filter(Boolean)
       .join(' · ') || 'Nothing active';
 
-  function openPerson() {
-    router.push(personHref);
+  /*
+   * §6 A01 — name, whitespace and chevron all do the same thing, because they
+   * are all the same control: the header is the accordion button, and the
+   * chevron inside it is decoration rather than a second target.
+   *
+   * `scroll: false` because this is an expansion, not a navigation. Without it
+   * opening the fourth person in the list sends the page back to the top, and
+   * the manager has to find them again to read what they just opened.
+   */
+  function togglePerson() {
+    router.push(toggleHref, { scroll: false });
   }
 
   function handleRowKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.target !== event.currentTarget) return;
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
-    openPerson();
+    togglePerson();
   }
 
   function handleAction(event: MouseEvent<HTMLButtonElement>) {
@@ -121,68 +130,73 @@ export function MyTeamPersonRow({
   }
 
   return (
-    <div
-      className={styles.row}
-      data-testid="my-team-person-row"
-      role="button"
-      tabIndex={0}
-      aria-label={`Open team member detail for ${person.fullName}`}
-      onClick={openPerson}
-      onKeyDown={handleRowKeyDown}
-    >
-      <div className={styles.person} data-cell="person">
-        <strong>{person.fullName}</strong>
-        <span className={person.overdueCount > 0 ? styles.summaryAlert : undefined}>{summary}</span>
-      </div>
+    <div className={styles.block} data-expanded={expanded ? 'true' : undefined}>
+      <div
+        className={styles.row}
+        data-testid="my-team-person-row"
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        aria-label={`${expanded ? 'Collapse' : 'Expand'} team member detail for ${person.fullName}`}
+        onClick={togglePerson}
+        onKeyDown={handleRowKeyDown}
+      >
+        <div className={styles.person} data-cell="person">
+          <strong>{person.fullName}</strong>
+          <span className={person.overdueCount > 0 ? styles.summaryAlert : undefined}>
+            {summary}
+          </span>
+        </div>
 
-      <div className={styles.working} data-cell="working-on">
-        {person.workingOn ? (
-          <>
-            <strong>{person.workingOn.title}</strong>
-            {/*
+        <div className={styles.working} data-cell="working-on">
+          {person.workingOn ? (
+            <>
+              <strong>{person.workingOn.title}</strong>
+              {/*
               When it was said, not how long ago something was touched.
               §8: this communicates a main focus, not presence — so a selection
               made on Tuesday says Tuesday rather than implying somebody is at
               it right now.
             */}
-            <span>
-              Set {agoWords(person.workingOn.confirmedAt, now)}
-              {person.otherActiveCount > 0 ? ` · +${person.otherActiveCount} other active` : ''}
-            </span>
-          </>
-        ) : (
-          /*
+              <span>
+                Set {agoWords(person.workingOn.confirmedAt, now)}
+                {person.otherActiveCount > 0 ? ` · +${person.otherActiveCount} other active` : ''}
+              </span>
+            </>
+          ) : (
+            /*
             "Not set" is a real answer, and a different one from "nothing
             active". The column used to name the most recently touched Active
             task, so it could never be empty and never be wrong — and never
             quite meant anything either.
           */
-          <span className={styles.muted}>
-            Not set
-            {person.activeCount > 0 ? ` · ${person.activeCount} active` : ''}
-          </span>
-        )}
-      </div>
+            <span className={styles.muted}>
+              Not set
+              {person.activeCount > 0 ? ` · ${person.activeCount} active` : ''}
+            </span>
+          )}
+        </div>
 
-      <div className={styles.nextResult} data-cell="next-result">
-        {person.nextAgreedResult ? (
-          <>
-            <strong>{person.nextAgreedResult.expectedResult}</strong>
-            {person.nextAgreedResult.outcome === 'missed' && (
-              <span className={styles.summaryAlert}>Missed</span>
-            )}
-          </>
-        ) : (
-          // Not "nothing to do": nothing has been AGREED. Saying it this way
-          // keeps a proposal from reading as a commitment.
-          <span className={styles.muted}>No agreed priorities</span>
-        )}
-      </div>
+        <div className={styles.nextResult} data-cell="next-result">
+          {person.nextAgreedResult ? (
+            <>
+              <strong>{person.nextAgreedResult.expectedResult}</strong>
+              {person.nextAgreedResult.outcome === 'missed' && (
+                <span className={styles.summaryAlert}>Missed</span>
+              )}
+            </>
+          ) : (
+            // Not "nothing to do": nothing has been AGREED. Saying it this way
+            // keeps a proposal from reading as a commitment.
+            <span className={styles.muted}>No agreed priorities</span>
+          )}
+        </div>
 
-      <div className={styles.attention} data-cell="needs-you">
-        {person.attention ? (
-          <>
-            {/*
+        <div className={styles.attention} data-cell="needs-you">
+          {person.attention ? (
+            <>
+              {/*
               The state and the response on one line.
 
               The button used to sit under the reason, which cost the cell a
@@ -191,71 +205,74 @@ export function MyTeamPersonRow({
               test allows - and it separated "a decision is owed" from the
               control that gives it by the width of the reason text.
             */}
-            <span className={styles.attentionHead}>
-              <span
-                className={styles.flag}
-                data-tone={
-                  person.attention.kind === 'exception'
-                    ? 'neutral'
-                    : person.attention.severity === 'critical'
-                      ? 'critical'
-                      : 'attention'
-                }
-              >
-                {/* Small, and only present on an exception. The words alone
+              <span className={styles.attentionHead}>
+                <span
+                  className={styles.flag}
+                  data-tone={
+                    person.attention.kind === 'exception'
+                      ? 'neutral'
+                      : person.attention.severity === 'critical'
+                        ? 'critical'
+                        : 'attention'
+                  }
+                >
+                  {/* Small, and only present on an exception. The words alone
                     were easy to miss because a row with a problem was
                     otherwise identical to a row without one. */}
-                <span className={styles.dot} aria-hidden="true" />
-                {person.attention.headline}
-              </span>
-              {/*
+                  <span className={styles.dot} aria-hidden="true" />
+                  {person.attention.headline}
+                </span>
+                {/*
                 Not in a column of its own at the end of the row: that gave a
                 variable width to a column the header could not match, so the
                 table lost its alignment on exactly the rows a manager most
                 needs to read.
               */}
-              {managerAction ? (
-                <button
-                  type="button"
-                  className="btn small primary"
-                  onClick={handleAction}
-                  aria-label={`${managerAction.label} for ${person.fullName}: ${person.attention.reason}`}
-                >
-                  {managerAction.label}
-                </button>
-              ) : null}
-            </span>
-            <span className={styles.reason}>{person.attention.reason}</span>
-          </>
-        ) : (
-          /*
+                {managerAction ? (
+                  <button
+                    type="button"
+                    className="btn small primary"
+                    onClick={handleAction}
+                    aria-label={`${managerAction.label} for ${person.fullName}: ${person.attention.reason}`}
+                  >
+                    {managerAction.label}
+                  </button>
+                ) : null}
+              </span>
+              <span className={styles.reason}>{person.attention.reason}</span>
+            </>
+          ) : (
+            /*
             A dash, not a sentence. "No action needed from you" repeated down
             every healthy row was the loudest text in the table, and it said
             the same thing each time: nothing.
           */
-          <span className={styles.none}>
-            <span aria-hidden="true">{'—'}</span>
-            <span className="visually-hidden">Nothing needed from you</span>
+            <span className={styles.none}>
+              <span aria-hidden="true">{'—'}</span>
+              <span className="visually-hidden">Nothing needed from you</span>
+            </span>
+          )}
+        </div>
+
+        <div className={styles.latest} data-cell="latest">
+          {person.latestUpdate ? (
+            <>
+              <strong>{agoWords(person.latestUpdate.at, now)}</strong>
+              <span>{person.latestUpdate.summary}</span>
+            </>
+          ) : (
+            <span className={styles.muted}>No recent activity</span>
+          )}
+        </div>
+
+        <div className={styles.action} data-cell="action">
+          <span className={styles.chevron} aria-hidden="true">
+            ›
           </span>
-        )}
+        </div>
       </div>
 
-      <div className={styles.latest} data-cell="latest">
-        {person.latestUpdate ? (
-          <>
-            <strong>{agoWords(person.latestUpdate.at, now)}</strong>
-            <span>{person.latestUpdate.summary}</span>
-          </>
-        ) : (
-          <span className={styles.muted}>No recent activity</span>
-        )}
-      </div>
-
-      <div className={styles.action} data-cell="action">
-        <span className={styles.chevron} aria-hidden="true">
-          ›
-        </span>
-      </div>
+      {children}
     </div>
   );
 }
