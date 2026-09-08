@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { showActiveWork } from './support/work-list';
 
 /**
  * v133 — one completion pattern, learned once.
@@ -31,10 +32,12 @@ async function openCompletableTask(page: Page): Promise<boolean> {
   for (const tab of ['active', 'available']) {
     await page.goto(`/work?tab=${tab}`);
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+    await showActiveWork(page);
     const rows = page.locator('.task-row .title-link');
     const total = await rows.count();
     for (let index = 0; index < total; index += 1) {
       await page.goto(`/work?tab=${tab}`);
+      await showActiveWork(page);
       await rows.nth(index).click();
       await expect(page.locator('.task-detail-drawer')).toBeVisible();
       const complete = page.getByRole('button', { name: /^Complete work$/ }).first();
@@ -124,7 +127,7 @@ test.describe('v133 a routine occurrence is not Focus work', () => {
     await expect(drawer.locator('.task-status-state')).toContainText(
       /Overdue|Due today|Upcoming|Completed/,
     );
-    await expect(drawer.getByRole('button', { name: /^Activate/ })).toHaveCount(0);
+    await expect(drawer.getByRole('button', { name: /^Start work/ })).toHaveCount(0);
   });
 
   test('completes through the same form as Focus work', async ({ page }) => {

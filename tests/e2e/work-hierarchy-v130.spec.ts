@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { showActiveWork } from './support/work-list';
 
 /**
  * v130 — three levels of navigation, and rows that are quiet until they are not.
@@ -95,6 +96,7 @@ test.describe('v130 a work row says what differs', () => {
   test('one word for the class, a short date, and no year for this year', async ({ page }) => {
     await signIn(page, 'izzah@tamco.local');
     await page.goto('/work');
+    await showActiveWork(page);
     await expect(page.locator('.task-row').first()).toBeVisible();
 
     const rows = page.locator('.task-row');
@@ -124,6 +126,7 @@ test.describe('v130 a work row says what differs', () => {
   test('an overdue row says so once, where the date would be', async ({ page }) => {
     await signIn(page, 'izzah@tamco.local');
     await page.goto('/work');
+    await showActiveWork(page);
     await expect(page.locator('.task-row').first()).toBeVisible();
 
     const late = page.locator('.task-row', { has: page.locator('.row-due.late') });

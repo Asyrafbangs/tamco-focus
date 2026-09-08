@@ -10,10 +10,14 @@ import type { FocusBucket, TaskStatus, WorkClass } from '@/domain/types';
 import { useTaskActionFeedback, type TaskActionFeedbackOrigin } from './TaskActionFeedback';
 
 /**
- * Activate / Move out, with Undo.
+ * Start work / Move out, with Undo.
  *
  * One click either way, no confirmation and no approval, and about ten seconds
  * of Undo on both (section 7.3, 7.5).
+ *
+ * The button reads "Start work" since v146. §9 names it as the primary action
+ * on Available, and "Activate" was internal vocabulary: it describes what the
+ * record does, not what the person is about to do.
  *
  * There used to be a question in the middle of this. Crossing the focus target
  * returned `reason_required`, and the person had to choose from a list of six
@@ -137,7 +141,7 @@ export function TaskRowActions({
           data-task-feedback-action="activate"
           data-task-feedback-id={taskId}
         >
-          {pending ? 'Working…' : 'Activate'}
+          {pending ? 'Working…' : 'Start work'}
         </button>
       )}
 

@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { showActiveWork } from './support/work-list';
 
 const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
 
@@ -120,6 +121,7 @@ test('employee captures a Quick Action from desktop and mobile', async ({ page }
    * shared fixture database happens to be.
    */
   await page.goto('/work');
+  await showActiveWork(page);
   await expect(page.getByText(title, { exact: true })).toBeVisible();
   await expectAccessible(page);
 });
@@ -138,6 +140,7 @@ test('employee opens task detail and posts an update with private evidence', asy
   await expectHydrated(page);
 
   await page.goto('/work');
+  await showActiveWork(page);
   await expectHydrated(page);
   await page
     .getByRole('link', { name: 'Close out corrective actions from the June audit' })
@@ -193,6 +196,7 @@ test('employee reads a PDF in the task drawer without the browser download plug-
   await expectHydrated(page);
 
   await page.goto('/work');
+  await showActiveWork(page);
   await expectHydrated(page);
   await page
     .getByRole('link', { name: 'Close out corrective actions from the June audit' })

@@ -10923,6 +10923,65 @@ button.attachment-row {
 }
 
 /* ------------------------------------------------------------------------ */
+/* Other active work (specification section 9)                               */
+/* ------------------------------------------------------------------------ */
+
+/*
+  A section heading that happens to open, not a link.
+
+  The summary carries the two facts a collapsed list still has to tell:
+  how much is in it, and whether any of it is late. §9 asks for the second one
+  by name, because a section that hides an overdue item is worse than no
+  section at all.
+*/
+.other-active > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 650;
+  list-style: none;
+}
+
+.other-active > summary::-webkit-details-marker {
+  display: none;
+}
+
+.other-active > summary::before {
+  color: var(--muted);
+  content: '›';
+  font-size: 14px;
+  line-height: 1;
+  transition: transform var(--motion-fast) var(--motion-easing);
+}
+
+.other-active[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.other-active > summary:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+
+.other-active-count {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.other-active-overdue {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+/* ------------------------------------------------------------------------ */
 /* Work purpose (specification section 11)                                   */
 /* ------------------------------------------------------------------------ */
 
@@ -10981,6 +11040,19 @@ button.attachment-row {
 .task-purpose-fact select {
   width: 100%;
   max-width: 260px;
+}
+
+/* §12 — this work's place in the week and in the day, in the status line. */
+.task-status-week {
+  color: var(--blue);
+  font-weight: 650;
+}
+
+/* §9 — a weekly reference to Available or Shared work says so, quietly. */
+.weekly-priority-source {
+  color: var(--muted);
+  font-size: 10px;
+  font-style: italic;
 }
 
 .task-purpose-meaning {

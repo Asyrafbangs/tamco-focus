@@ -28,6 +28,21 @@ const OUTCOME_WORD: Record<WeeklyCommitment['outcome'], string> = {
   closed: 'Closed',
 };
 
+/**
+ * Where the referenced work sits, when that is not "my own Active list".
+ *
+ * Returns null for the ordinary case, because a label on every row would be
+ * the same word repeated down the list and would stop being read.
+ */
+function sourceLabel(commitment: WeeklyCommitment, viewerId?: string): string | null {
+  if (viewerId && commitment.taskOwnerId && commitment.taskOwnerId !== viewerId) {
+    return commitment.isStep ? 'A step on somebody else’s work' : 'Somebody else’s work';
+  }
+  if (commitment.taskStatus === 'backlog') return 'Not started yet — still in Available';
+  if (commitment.taskStatus === 'paused') return 'Paused';
+  return null;
+}
+
 function shortDay(iso: string | null, timeZone: string): string | null {
   if (!iso) return null;
   return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone }).format(
@@ -41,6 +56,7 @@ export function WeeklyPriorities({
   /** The manager reading somebody else's week, rather than their own. */
   canAgree = false,
   emptyHint,
+  viewerId,
   /**
    * Whether to say "This week" above the list.
    *
@@ -55,6 +71,11 @@ export function WeeklyPriorities({
   canAgree?: boolean;
   emptyHint?: string;
   labelled?: boolean;
+  /**
+   * Who is reading. Only needed to tell "a step on my own task" from "a step
+   * on somebody else's", which §9 wants said out loud.
+   */
+  viewerId?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -118,6 +139,21 @@ export function WeeklyPriorities({
                   {commitment.carriedFromId ? ' · Carried forward' : ''}
                   {commitment.openChangeCount > 0 ? ' · Change requested' : ''}
                 </span>
+                {/*
+                  §9 — where the work actually lives, said only when it is
+                  somewhere other than this person's own Active list.
+
+                  A result agreed for the week is a plan, not a state change.
+                  Without this line an Available task and a step on a
+                  colleague's work read exactly like work already running, and
+                  the employee would count four things in flight when two of
+                  them had not been started and one was not theirs.
+                */}
+                {sourceLabel(commitment, viewerId) && (
+                  <span className="weekly-priority-source">
+                    {sourceLabel(commitment, viewerId)}
+                  </span>
+                )}
               </span>
 
               <span className={`weekly-priority-outcome tone-${commitment.outcome}`}>

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { showActiveWork } from './support/work-list';
 
 /**
  * v126 — My Work shows enough to choose a row, and nothing else.
@@ -31,6 +32,7 @@ test.describe('v126 the work row is quiet until something is wrong', () => {
   test('no Open button, no Move out, no repeated status on the rows', async ({ page }) => {
     await signIn(page, 'izzah@tamco.local');
     await page.goto('/work');
+    await showActiveWork(page);
     await expect(page.locator('.task-row').first()).toBeVisible();
 
     const rows = page.locator('.task-row');
@@ -50,6 +52,7 @@ test.describe('v126 the work row is quiet until something is wrong', () => {
   test('overdue work sorts to the top on its own', async ({ page }) => {
     await signIn(page, 'izzah@tamco.local');
     await page.goto('/work');
+    await showActiveWork(page);
     await expect(page.locator('.task-row').first()).toBeVisible();
 
     /*

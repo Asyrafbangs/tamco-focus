@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { showActiveWork } from './support/work-list';
 
 /**
  * v140 §8 — the employee says what they are working on, and the manager reads
@@ -26,6 +27,9 @@ async function openWork(page: Page, query = '') {
   await page.goto(`/work${query}`);
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   await expect(page.locator('main#main')).not.toContainText('One moment');
+  // §9 collapses the Active list once a current focus is set, which is exactly
+  // what half of this file does before reaching for a row.
+  await showActiveWork(page);
 }
 
 /**

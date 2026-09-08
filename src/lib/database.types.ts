@@ -5099,6 +5099,8 @@ export type Database = {
       task_checklist_items: {
         Row: {
           action: string
+          assigned_at: string | null
+          assigned_by: string | null
           assigned_to: string | null
           completed_at: string | null
           completed_by: string | null
@@ -5115,6 +5117,8 @@ export type Database = {
         }
         Insert: {
           action: string
+          assigned_at?: string | null
+          assigned_by?: string | null
           assigned_to?: string | null
           completed_at?: string | null
           completed_by?: string | null
@@ -5131,6 +5135,8 @@ export type Database = {
         }
         Update: {
           action?: string
+          assigned_at?: string | null
+          assigned_by?: string | null
           assigned_to?: string | null
           completed_at?: string | null
           completed_by?: string | null
@@ -5146,6 +5152,41 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "task_checklist_items_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "task_checklist_items_assigned_to_fkey"
             columns: ["assigned_to"]
@@ -7625,6 +7666,7 @@ export type Database = {
       completed_contributions: {
         Row: {
           assignee_id: string | null
+          assignee_name: string | null
           checklist_item_id: string | null
           completed_at: string | null
           completed_by: string | null
@@ -8779,6 +8821,9 @@ export type Database = {
       }
       shared_contributions: {
         Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          assigned_by_name: string | null
           assignee_id: string | null
           checklist_item_id: string | null
           completed_at: string | null
@@ -8800,6 +8845,41 @@ export type Database = {
           title: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "task_checklist_items_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_checklist_items_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "task_checklist_items_assigned_to_fkey"
             columns: ["assignee_id"]

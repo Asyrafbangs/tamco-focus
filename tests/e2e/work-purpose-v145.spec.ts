@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
 import { expect, test, type Page } from '@playwright/test';
+import { showActiveWork } from './support/work-list';
 
 config({ path: '.env.local', quiet: true });
 
@@ -38,6 +39,7 @@ async function signIn(page: Page, email: string) {
 async function openWork(page: Page, query = '') {
   await page.goto(`/work${query}`);
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+  await showActiveWork(page);
 }
 
 test('§11 registering work asks why, and the row then says so', async ({ page }, testInfo) => {

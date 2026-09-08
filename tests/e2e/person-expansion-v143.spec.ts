@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { showActiveWork } from './support/work-list';
 
 /**
  * v143 §6 — a person opens in place, not over the list.
@@ -42,6 +43,7 @@ const rowFor = (page: Page, name: string) =>
 async function withdrawEveryProposal(page: Page) {
   await page.goto('/work');
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+  await showActiveWork(page);
   for (let guard = 0; guard < 6; guard += 1) {
     const withdraw = page.getByRole('button', { name: 'Withdraw' });
     const remaining = await withdraw.count();
@@ -225,6 +227,7 @@ test.describe('v143 §6 inline person expansion', () => {
       await withdrawEveryProposal(page);
       await page.goto('/work');
       await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+      await showActiveWork(page);
 
       const title = (
         await page.locator('.task-row').first().locator('strong').first().innerText()

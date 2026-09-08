@@ -317,8 +317,15 @@ export async function getTeamAvailableWork(
  * already exists.
  */
 export interface CompletedRecord {
-  /** Owned work, or a step delivered on somebody else's work. */
-  kind: 'owned' | 'contribution';
+  /**
+   * Owned work, a step this person delivered on somebody else's work, or a
+   * step somebody else delivered on theirs.
+   *
+   * §10 keeps the third apart from the first two by name. Owning the parent is
+   * not the same as doing the step, and a list that folded `received` into
+   * `owned` would credit a manager with their team's contributions.
+   */
+  kind: 'owned' | 'contribution' | 'received';
   /** Stable per row: the task for owned work, the step for a contribution. */
   key: string;
   /** What opening the row leads to. A contribution opens its parent task. */
@@ -328,6 +335,8 @@ export interface CompletedRecord {
   /** Contributions only: the work this step belonged to, and whose it was. */
   parentTitle: string | null;
   parentOwnerName: string | null;
+  /** `received` only: the colleague whose work this was. */
+  contributorName: string | null;
   completedAt: string | null;
 }
 
@@ -359,14 +368,30 @@ export async function getMyCompletedWork(
     .gte('completed_at', sinceIso);
   if (untilIso) contributionQuery = contributionQuery.lte('completed_at', untilIso);
 
-  const [owned, contributed] = await Promise.all([
+  /*
+   * §10 — what colleagues finished on work this person owns.
+   *
+   * Context, not credit. It is read separately, labelled separately and named
+   * with the person who actually did it, because the whole point of the
+   * separation is that owning the parent is not doing the step.
+   */
+  let receivedQuery = supabase
+    .from('completed_contributions')
+    .select('checklist_item_id,task_id,title,parent_title,assignee_name,completed_at')
+    .eq('primary_owner_id', userId)
+    .neq('assignee_id', userId)
+    .gte('completed_at', sinceIso);
+  if (untilIso) receivedQuery = receivedQuery.lte('completed_at', untilIso);
+
+  const [owned, contributed, received] = await Promise.all([
     ownedQuery.order('completed_at', { ascending: false }).limit(400),
     contributionQuery.order('completed_at', { ascending: false }).limit(400),
+    receivedQuery.order('completed_at', { ascending: false }).limit(400),
   ]);
 
-  if (owned.error || contributed.error) {
+  if (owned.error || contributed.error || received.error) {
     console.error(
-      `[getMyCompletedWork] ${owned.error?.message ?? ''} ${contributed.error?.message ?? ''}`.trim(),
+      `[getMyCompletedWork] ${owned.error?.message ?? ''} ${contributed.error?.message ?? ''} ${received.error?.message ?? ''}`.trim(),
     );
     return { records: [], failed: true };
   }
@@ -380,6 +405,7 @@ export async function getMyCompletedWork(
       workClass: row.work_class as TaskOverview['workClass'],
       parentTitle: null,
       parentOwnerName: null,
+      contributorName: null,
       completedAt: row.completed_at ? String(row.completed_at) : null,
     })),
     ...(contributed.data ?? []).map((row) => ({
@@ -390,6 +416,18 @@ export async function getMyCompletedWork(
       workClass: null,
       parentTitle: row.parent_title ? String(row.parent_title) : null,
       parentOwnerName: row.primary_owner_name ? String(row.primary_owner_name) : null,
+      contributorName: null,
+      completedAt: row.completed_at ? String(row.completed_at) : null,
+    })),
+    ...(received.data ?? []).map((row) => ({
+      kind: 'received' as const,
+      key: `received:${String(row.checklist_item_id)}`,
+      taskId: String(row.task_id),
+      title: String(row.title),
+      workClass: null,
+      parentTitle: row.parent_title ? String(row.parent_title) : null,
+      parentOwnerName: null,
+      contributorName: row.assignee_name ? String(row.assignee_name) : null,
       completedAt: row.completed_at ? String(row.completed_at) : null,
     })),
   ];
@@ -2007,6 +2045,16 @@ export interface WeeklyCommitment {
   referenceTitle: string;
   taskTitle: string;
   isStep: boolean;
+  /**
+   * The state of the work being referenced, and who owns it.
+   *
+   * §9 — a weekly reference to Available or Shared work has to say so. Putting
+   * something forward as this week's result does not start it and does not
+   * make it yours, and a list that showed all three the same way would be
+   * telling the employee they had four things running when they had two.
+   */
+  taskStatus: TaskOverview['status'];
+  taskOwnerId: string;
   decidedBy: string | null;
   decidedAt: string | null;
   decisionNote: string | null;
@@ -2029,6 +2077,8 @@ function toWeeklyCommitment(row: Record<string, unknown>): WeeklyCommitment {
     referenceTitle: String(row.reference_title),
     taskTitle: String(row.task_title),
     isStep: Boolean(row.is_step),
+    taskStatus: row.task_status as TaskOverview['status'],
+    taskOwnerId: String(row.primary_owner_id ?? ''),
     decidedBy: row.decided_by ? String(row.decided_by) : null,
     decidedAt: row.decided_at ? String(row.decided_at) : null,
     decisionNote: row.decision_note ? String(row.decision_note) : null,
@@ -2896,6 +2946,14 @@ export interface SharedContribution {
   parentDueIsDateOnly: boolean;
   primaryOwnerId: string;
   primaryOwnerName: string;
+  /**
+   * §10 — who asked for this contribution.
+   *
+   * Null for steps assigned before v146. The row omits the line rather than
+   * naming a plausible person, because provenance that might be wrong is worse
+   * than provenance that is missing.
+   */
+  assignedByName: string | null;
   prerequisiteTitle: string | null;
   /** Why this is or is not startable. Derived in SQL so it is worded once. */
   readiness:
@@ -2938,6 +2996,7 @@ export async function getSharedContributions(userId: string): Promise<SharedCont
     parentDueIsDateOnly: Boolean(row.parent_due_is_date_only),
     primaryOwnerId: String(row.primary_owner_id),
     primaryOwnerName: String(row.primary_owner_name),
+    assignedByName: (row.assigned_by_name as string) ?? null,
     prerequisiteTitle: (row.prerequisite_title as string) ?? null,
     readiness: row.readiness as SharedContribution['readiness'],
   }));

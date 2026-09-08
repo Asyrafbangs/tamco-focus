@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { showActiveWork } from './support/work-list';
 
 config({ path: '.env.local', quiet: true });
 
@@ -319,7 +320,7 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
   await expectHydrated(page);
   const availableRow = page.locator('.task-row', { hasText: activationTitle });
   await expect(availableRow).toBeVisible();
-  await availableRow.getByRole('button', { name: 'Activate' }).click();
+  await availableRow.getByRole('button', { name: 'Start work' }).click();
   await expectActivated(page);
   await expect(page.locator('.task-detail')).toHaveCount(0);
   await expect(availableRow).toHaveCount(0);
@@ -333,7 +334,7 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
   await expect(activationUndo).toBeFocused();
   await activationUndo.press('Enter');
   await expect(availableRow).toBeVisible();
-  await expect(availableRow.getByRole('button', { name: 'Activate' })).toBeFocused();
+  await expect(availableRow.getByRole('button', { name: 'Start work' })).toBeFocused();
 
   // The same feedback stays inside an open modal drawer. Its focus trap must
   // include Undo; closing the drawer while the window is live re-parents the
@@ -346,7 +347,7 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
   // menu. That menu is administration only: edit, move, cancel, bin.
   await activationDrawer
     .locator('.task-detail-footer')
-    .getByRole('button', { name: 'Activate' })
+    .getByRole('button', { name: 'Start work' })
     .click();
   await expectActivated(page);
   const drawerUndo = activationDrawer.getByRole('button', { name: 'Undo' });
@@ -359,7 +360,7 @@ test('rows, nested actions, drawers, checklist evidence, tabs and calendar are i
   await expect(relocatedUndo).toBeFocused();
   await relocatedUndo.press('Enter');
   await expect(availableRow).toBeVisible();
-  await expect(availableRow.getByRole('button', { name: 'Activate' })).toBeFocused();
+  await expect(availableRow.getByRole('button', { name: 'Start work' })).toBeFocused();
 
   await page.goto('/plan');
   await expectHydrated(page);
@@ -404,6 +405,7 @@ test('mobile navigation and full-width drawer retain keyboard-sized controls', a
   await expect(page.locator('.mobile-nav')).toBeVisible();
   await page.goto('/work');
   await expectHydrated(page);
+  await showActiveWork(page);
   await page.locator('.task-row').first().locator('.row-primary-link').click();
   const drawer = page.locator('.task-detail');
   await expect(drawer).toBeVisible();

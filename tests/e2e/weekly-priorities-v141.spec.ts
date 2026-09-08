@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { showActiveWork } from './support/work-list';
 
 /**
  * v141 §7 — proposing a week's result, and agreeing it.
@@ -25,6 +26,7 @@ async function openWork(page: Page, query = '') {
   await page.goto(`/work${query}`);
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   await expect(page.locator('main#main')).not.toContainText('One moment');
+  await showActiveWork(page);
 }
 
 /*
@@ -77,7 +79,17 @@ test.describe('v141 the employee proposes', () => {
 
     const row = page.locator('.task-row').first();
     const title = (await row.locator('strong').first().innerText()).trim();
-    const rowsBefore = await page.locator('.task-row').count();
+    /*
+     * The tab badge, not the visible rows.
+     *
+     * v146 §9 moved work named as this week's result out of "Other active
+     * work" and into the section above it, so the number of ROWS legitimately
+     * drops by one. What must not change is how much active work this person
+     * has — which is what the badge counts, and what would move if proposing a
+     * result had created a second task.
+     */
+    const activeCount = page.locator('.focus-tabs a[aria-current="page"] .count');
+    const before = (await activeCount.innerText()).trim();
 
     await row.locator('.row-primary-link').first().click();
     await expect(page.locator('.task-detail-drawer')).toBeVisible();
@@ -88,8 +100,10 @@ test.describe('v141 the employee proposes', () => {
     await expect(priorities).toContainText(title);
     await expect(priorities).toContainText('Proposed');
 
-    // The Active list is unchanged: a priority is a reference, not a new task.
-    expect(await page.locator('.task-row').count()).toBe(rowsBefore);
+    // A priority is a reference, not a new task.
+    await expect(activeCount).toHaveText(before);
+    // And it is in one place: the section above, not both.
+    await expect(page.getByTestId('other-active-work')).not.toContainText(title);
 
     await clearWeek(page);
   });

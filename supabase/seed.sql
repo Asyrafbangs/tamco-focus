@@ -951,3 +951,21 @@ update public.tasks
      'Install machine guarding on press line 2',
      'Rewrite the confined space entry procedure'
    );
+
+-- ---------------------------------------------------------------------------
+-- v146 §10 — who assigned each shared step in the fixtures.
+--
+-- The trigger records the acting user, and seeding acts as nobody, so these
+-- rows would otherwise carry no assigner and the Shared list would never show
+-- the line §10 asks for. The task's creator is the truthful answer here: in
+-- this fixture they are the person who set the work up and aimed its steps.
+-- ---------------------------------------------------------------------------
+
+update public.task_checklist_items item
+   set assigned_by = parent.created_by,
+       assigned_at = parent.created_at
+  from public.tasks parent
+ where parent.id = item.task_id
+   and item.assigned_by is null
+   and item.assigned_to is not null
+   and item.assigned_to <> parent.primary_owner_id;

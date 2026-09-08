@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { showActiveWork } from './support/work-list';
 
 /**
  * v135 — evidence goes up one file at a time.
@@ -26,10 +27,12 @@ async function openCompletion(page: Page): Promise<boolean> {
   for (const tab of ['active', 'available']) {
     await page.goto(`/work?tab=${tab}`);
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+    await showActiveWork(page);
     const rows = page.locator('.task-row .title-link');
     const total = await rows.count();
     for (let index = 0; index < total; index += 1) {
       await page.goto(`/work?tab=${tab}`);
+      await showActiveWork(page);
       await rows.nth(index).click();
       await expect(page.locator('.task-detail-drawer')).toBeVisible();
       const complete = page.getByRole('button', { name: /^Complete work$/ }).first();

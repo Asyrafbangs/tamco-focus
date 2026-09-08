@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import Link from 'next/link';
 
 import { MenuDropdown } from '@/components/ui/MenuDropdown';
@@ -132,7 +134,7 @@ const nameList = (names: string[]) => NAME_LIST.format(names);
 
 const TAB_MEANING: Record<TabKey, string> = {
   active: 'Work you are currently carrying.',
-  available: 'Valid work waiting for you to activate.',
+  available: 'Valid work waiting for you to start.',
   shared: "Work where you owe a contribution to somebody else's task.",
   completed: 'Your finished work and contributions.',
   bin: 'Deleted work. Nothing here counts towards anything; restore it if it was a mistake.',
@@ -270,6 +272,50 @@ function readinessCopy(item: SharedContribution): { label: string; note: string 
       return { label: 'Waiting', note: 'Not startable yet.' };
   }
 }
+/**
+ * "Other active work", collapsed (§9).
+ *
+ * §9 puts the current focus and the week's agreed results above this list and
+ * says the list itself starts collapsed with an accurate count. The reasoning
+ * is that a list of everything running is a reference, and the two things
+ * above it are the answer — a page that opens with fourteen rows makes the
+ * reader find the answer rather than read it.
+ *
+ * The count and the overdue figure live on the summary so a collapsed section
+ * is never silent about something late, which §9 asks for by name.
+ *
+ * It opens by default only when there is nothing above it. An employee with no
+ * current focus and no agreed priorities would otherwise land on a page of
+ * three empty statements and a closed disclosure, and A04 requires that work
+ * can continue.
+ */
+function WorkListShell({
+  collapsible,
+  count,
+  overdue,
+  openByDefault,
+  children,
+}: {
+  collapsible: boolean;
+  count: number;
+  overdue: number;
+  openByDefault: boolean;
+  children: ReactNode;
+}) {
+  if (!collapsible) return <>{children}</>;
+
+  return (
+    <details className="other-active" open={openByDefault} data-testid="other-active-work">
+      <summary>
+        <span>Other active work</span>
+        <span className="other-active-count">{count}</span>
+        {overdue > 0 && <span className="other-active-overdue tone-red">{overdue} overdue</span>}
+      </summary>
+      {children}
+    </details>
+  );
+}
+
 function isRoutine(task: TaskOverview): boolean {
   return task.workClass === 'routine_occurrence';
 }
@@ -285,6 +331,9 @@ function isRoutine(task: TaskOverview): boolean {
  * The count belongs here rather than on the tab. "Completed 846" is furniture;
  * "12 items" answers what the filter just did.
  */
+/** §10 — whose delivery is being listed. `received` is context, not credit. */
+type CompletedScope = 'all' | 'owned' | 'contribution' | 'received';
+
 function CompletedHistory({
   records,
   failed,
@@ -295,7 +344,7 @@ function CompletedHistory({
 }: {
   records: CompletedRecord[];
   failed: boolean;
-  scope: 'all' | 'owned' | 'contribution';
+  scope: CompletedScope;
   period: ResolvedPeriod;
   timeZone: string;
   now: Date;
@@ -308,14 +357,18 @@ function CompletedHistory({
     );
   }
 
+  /*
+   * §10 — "All" is this person's own delivery.
+   *
+   * What a colleague finished on their task is context, and it is reachable
+   * under its own heading; folding it into All would put somebody else's work
+   * in the middle of a list read as "what I got done", which is the exact
+   * mis-crediting §10 forbids.
+   */
   const shown = records.filter((record) =>
-    scope === 'all'
-      ? true
-      : scope === 'owned'
-        ? record.kind === 'owned'
-        : record.kind === 'contribution',
+    scope === 'all' ? record.kind !== 'received' : record.kind === scope,
   );
-  const scopeHref = (next: 'all' | 'owned' | 'contribution') => {
+  const scopeHref = (next: CompletedScope) => {
     const query = new URLSearchParams({ tab: 'completed', ...periodParams(period) });
     if (next !== 'all') query.set('show', next);
     return `/work?${query.toString()}`;
@@ -338,7 +391,9 @@ function CompletedHistory({
             [
               ['all', 'All'],
               ['owned', 'My work'],
-              ['contribution', 'Shared contributions'],
+              ['contribution', 'My contributions'],
+              // Not "my" anything: this is what other people finished.
+              ['received', 'On my work'],
             ] as const
           ).map(([key, label]) => (
             <Link
@@ -390,11 +445,22 @@ function CompletedHistory({
                     My work
                     {record.workClass ? ` · ${WORK_CLASS_LABELS[record.workClass]}` : ''}
                   </span>
-                ) : (
+                ) : record.kind === 'contribution' ? (
                   <span>
-                    Shared contribution
+                    My contribution
                     {record.parentTitle ? ` · in ${record.parentTitle}` : ''}
                     {record.parentOwnerName ? ` · owned by ${record.parentOwnerName}` : ''}
+                  </span>
+                ) : (
+                  /*
+                    §10 — named, and named as theirs. "Completed on my work"
+                    without a person would read as something the owner did.
+                  */
+                  <span>
+                    {record.contributorName
+                      ? `Completed by ${record.contributorName}`
+                      : 'Completed by a colleague'}
+                    {record.parentTitle ? ` · in ${record.parentTitle}` : ''}
                   </span>
                 )}
                 <span className="completed-when">Completed {formatDay(record.completedAt)}</span>
@@ -567,8 +633,14 @@ export default async function WorkPage({
     // the calendar on their wall.
     profile.timezone,
   );
-  const completedScope: 'all' | 'owned' | 'contribution' =
-    params.show === 'owned' ? 'owned' : params.show === 'contribution' ? 'contribution' : 'all';
+  const completedScope: CompletedScope =
+    params.show === 'owned'
+      ? 'owned'
+      : params.show === 'contribution'
+        ? 'contribution'
+        : params.show === 'received'
+          ? 'received'
+          : 'all';
 
   const requested = params.tab;
   const activeTab: TabKey =
@@ -665,8 +737,16 @@ export default async function WorkPage({
   ]);
 
   // Only on Active, which is the list they describe.
+  /*
+   * Also when a task drawer is open, not only on the Active list.
+   *
+   * §12 asks the drawer to show this work's weekly context, and the drawer can
+   * be opened from Available, Shared, Completed, the Bin or a notification —
+   * every one of which would otherwise say "Add to this week" about work
+   * already in it.
+   */
   const myCommitments =
-    scope === 'mine' && activeTab === 'active'
+    scope === 'mine' && (activeTab === 'active' || Boolean(params.task))
       ? await getWeeklyCommitments(profile.id, weekStart)
       : [];
 
@@ -674,6 +754,22 @@ export default async function WorkPage({
     activeTab === 'shared' || activeTab === 'bin' || activeTab === 'completed'
       ? []
       : tasksForTab(tasks, activeTab, profile.id);
+
+  /*
+   * §9 — "Other active work", and it means other.
+   *
+   * Work already named as this week's result is read above; repeating it in
+   * the list underneath would show the same commitment twice and make the
+   * section's count disagree with what is on screen. A step commitment is the
+   * exception, as it is for a manager reading somebody's expansion (§6): the
+   * priority is one part of the parent, so the parent stays in the list.
+   */
+  const weeklyTaskIds = new Set(
+    myCommitments.filter((commitment) => !commitment.isStep).map((commitment) => commitment.taskId),
+  );
+  const otherActive =
+    activeTab === 'active' ? visible.filter((task) => !weeklyTaskIds.has(task.id)) : visible;
+  const otherActiveOverdue = otherActive.filter((task) => task.isOverdue).length;
 
   // Section 9 of v40 — a bare number tells nobody what it counts. Routine is
   // badged by what needs doing, not by how many occurrences exist.
@@ -768,6 +864,19 @@ export default async function WorkPage({
     const query = search.toString();
     return query ? `/work?${query}` : '/work';
   };
+
+  /*
+   * §12 — where the open task sits in this person's week.
+   *
+   * Only a whole-task reference counts. A commitment on one STEP of this task
+   * is a statement about that step, and saying "this week's priority" over the
+   * parent would claim the whole thing was agreed.
+   */
+  const weeklyReferenceForTask = taskDetail
+    ? (myCommitments.find(
+        (commitment) => commitment.taskId === taskDetail.task.id && !commitment.isStep,
+      ) ?? null)
+    : null;
 
   const withoutTask = { task: null, attention: null, barrier: null, item: null, from: null };
 
@@ -1060,13 +1169,6 @@ export default async function WorkPage({
             would turn a statement into a chore, and §8 is explicit that there
             are no recurring mandatory confirmations.
           */}
-          {activeTab === 'active' && myCommitments.length >= 0 && (
-            <WeeklyPriorities
-              commitments={myCommitments}
-              timeZone={profile.timezone}
-              emptyHint="No agreed priorities for this week. Open a task and choose Add to this week."
-            />
-          )}
           {activeTab === 'active' && (
             <div className="working-on-summary">
               {currentFocus ? (
@@ -1092,6 +1194,23 @@ export default async function WorkPage({
                 </>
               )}
             </div>
+          )}
+          {/*
+            §9 fixes this order: what I am on now, what we agreed for the week,
+            then everything else.
+
+            It used to be the other way round. The week is an agreement between
+            two people and the current focus is one sentence about right now —
+            both belong above a list, but the sentence answers "where was I"
+            and has to be the first thing read.
+          */}
+          {activeTab === 'active' && (
+            <WeeklyPriorities
+              commitments={myCommitments}
+              timeZone={profile.timezone}
+              viewerId={profile.id}
+              emptyHint="No agreed priorities for this week. Open a task and choose Add to this week."
+            />
           )}
         </>
       ) : (
@@ -1407,15 +1526,29 @@ export default async function WorkPage({
                         <strong>{item.title}</strong>
                       </RowPrimaryLink>
                       <span className="sub">
+                        {/* Short, like every other date on this page since
+                            v130: "25 Sept 2026" prints a year every row on
+                            screen already shares. */}
                         Shared contribution ·{' '}
-                        {formatDue(
+                        {formatDueShort(
                           item.itemDueAt ?? item.parentDueAt,
                           item.itemDueAt ? true : item.parentDueIsDateOnly,
                           profile.timezone,
+                          now,
                         )}
                       </span>
                       <span className="sub">
                         Part of <b>{item.parentTitle}</b> · Owned by {item.primaryOwnerName}
+                        {/*
+                          §10 — who asked for it. A step that arrives with no
+                          name reads as something the system decided was
+                          yours, and the person who can withdraw or re-aim a
+                          request is the one who made it.
+
+                          Omitted rather than guessed where it is not known:
+                          steps assigned before v146 carry no assigner.
+                        */}
+                        {item.assignedByName ? ` · Assigned by ${item.assignedByName}` : ''}
                       </span>
                     </div>
 
@@ -1451,9 +1584,15 @@ export default async function WorkPage({
                 </p>
               </div>
             )
-          ) : visible.length > 0 ? (
-            visible.map((task) => {
-              /*
+          ) : otherActive.length > 0 ? (
+            <WorkListShell
+              collapsible={activeTab === 'active'}
+              count={otherActive.length}
+              overdue={otherActiveOverdue}
+              openByDefault={!currentFocus && myCommitments.length === 0}
+            >
+              {otherActive.map((task) => {
+                /*
                 Enough to decide which row to open, and nothing else.
 
                 The row used to carry the title, the work class, a steps
@@ -1470,21 +1609,21 @@ export default async function WorkPage({
                 genuinely exceptional, a flag. Normal work is quiet, so the
                 exceptions are the thing your eye lands on.
               */
-              const flags = exceptionFlags(task, profile.timezone);
-              const due = dueSignal(task, profile.timezone, now);
-              return (
-                <TaskRow key={task.id} className="task-row-lean">
-                  <div>
-                    <RowPrimaryLink
-                      href={`/work?tab=${activeTab}&task=${task.id}`}
-                      className="title-link"
-                      returnFocusId={`task-${task.id}`}
-                      ariaLabel={`Open ${task.title}`}
-                    >
-                      <strong>{task.title}</strong>
-                    </RowPrimaryLink>
-                    <span className="sub">
-                      {/*
+                const flags = exceptionFlags(task, profile.timezone);
+                const due = dueSignal(task, profile.timezone, now);
+                return (
+                  <TaskRow key={task.id} className="task-row-lean">
+                    <div>
+                      <RowPrimaryLink
+                        href={`/work?tab=${activeTab}&task=${task.id}`}
+                        className="title-link"
+                        returnFocusId={`task-${task.id}`}
+                        ariaLabel={`Open ${task.title}`}
+                      >
+                        <strong>{task.title}</strong>
+                      </RowPrimaryLink>
+                      <span className="sub">
+                        {/*
                         One word, because every row on this page is work: the
                         "Action" in "Operational Action" and the "Project" in
                         "Major Project" are the same on every row and tell
@@ -1496,63 +1635,64 @@ export default async function WorkPage({
                         that is what is actually known about it; the drawer is
                         where the gap is offered to be filled.
                       */}
-                      {task.workPurpose
-                        ? WORK_PURPOSE_SHORT_LABELS[task.workPurpose]
-                        : WORK_CLASS_SHORT_LABELS[task.workClass]}
-                      {due ? (
-                        <>
-                          {' · '}
-                          <span className={`row-due ${due.tone}`}>{due.label}</span>
-                        </>
-                      ) : null}
-                      {/* Who sent it is context on work you have not taken on
+                        {task.workPurpose
+                          ? WORK_PURPOSE_SHORT_LABELS[task.workPurpose]
+                          : WORK_CLASS_SHORT_LABELS[task.workClass]}
+                        {due ? (
+                          <>
+                            {' · '}
+                            <span className={`row-due ${due.tone}`}>{due.label}</span>
+                          </>
+                        ) : null}
+                        {/* Who sent it is context on work you have not taken on
                           yet, and provenance once you have. Available only. */}
-                      {task.status === 'backlog' && task.assignedByName
-                        ? ` · Assigned by ${task.assignedByName.split(' ')[0]}`
-                        : ''}
-                    </span>
-                    {task.checklistTotal > 0 ? (
-                      <span className="sub">
-                        {task.checklistCompleted}/{task.checklistTotal}{' '}
-                        {task.checklistTotal === 1 ? 'step' : 'steps'}
+                        {task.status === 'backlog' && task.assignedByName
+                          ? ` · Assigned by ${task.assignedByName.split(' ')[0]}`
+                          : ''}
                       </span>
-                    ) : null}
-                  </div>
-
-                  {flags.length > 0 && (
-                    <div className="row-flags">
-                      {flags.map((flag: { label: string; tone: string }) => (
-                        <span key={flag.label} className={`row-flag ${flag.tone}`}>
-                          {flag.label}
+                      {task.checklistTotal > 0 ? (
+                        <span className="sub">
+                          {task.checklistCompleted}/{task.checklistTotal}{' '}
+                          {task.checklistTotal === 1 ? 'step' : 'steps'}
                         </span>
-                      ))}
+                      ) : null}
                     </div>
-                  )}
 
-                  {/*
+                    {flags.length > 0 && (
+                      <div className="row-flags">
+                        {flags.map((flag: { label: string; tone: string }) => (
+                          <span key={flag.label} className={`row-flag ${flag.tone}`}>
+                            {flag.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/*
                     Activating is a real decision, so Available keeps an
                     explicit button. Active does not: moving work out is
                     administration and lives in the task's ••• menu, where it
                     reads Move to Available.
                   */}
-                  {task.status === 'backlog' ? (
-                    <TaskRowActions
-                      taskId={task.id}
-                      title={task.title}
-                      status={task.status}
-                      version={task.version}
-                      bucket={task.focusBucket}
-                      isMandatory={task.isMandatory}
-                      workClass={task.workClass}
-                    />
-                  ) : (
-                    <span className="row-chevron" aria-hidden="true">
-                      ›
-                    </span>
-                  )}
-                </TaskRow>
-              );
-            })
+                    {task.status === 'backlog' ? (
+                      <TaskRowActions
+                        taskId={task.id}
+                        title={task.title}
+                        status={task.status}
+                        version={task.version}
+                        bucket={task.focusBucket}
+                        isMandatory={task.isMandatory}
+                        workClass={task.workClass}
+                      />
+                    ) : (
+                      <span className="row-chevron" aria-hidden="true">
+                        ›
+                      </span>
+                    )}
+                  </TaskRow>
+                );
+              })}
+            </WorkListShell>
           ) : (
             /* Section 27.2 — what is empty, why, and the next useful action. */
             /*
@@ -1617,6 +1757,7 @@ export default async function WorkPage({
           staleThresholdDays={settings.staleThresholdDays}
           assignablePeople={assignablePeople}
           viewerId={profile.id}
+          weeklyReference={weeklyReferenceForTask}
           attentionBarrierId={attentionBarrierId}
         />
       )}

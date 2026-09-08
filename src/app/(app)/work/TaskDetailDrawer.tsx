@@ -80,6 +80,18 @@ interface TaskDetailDrawerProps {
    * become it — or say that it already is.
    */
   currentFocus?: { taskId: string; checklistItemId: string | null } | null;
+  /**
+   * §12 — this work's place in the week, when it has one.
+   *
+   * Passed in rather than looked up here so the drawer stays a rendering of
+   * what it was given. Null both when the work is not in anybody's week and
+   * when the reader is not the person whose week it would be.
+   */
+  weeklyReference?: {
+    expectedResult: string;
+    state: 'proposed' | 'agreed' | 'declined' | 'withdrawn' | 'superseded';
+    outcome: 'due' | 'delivered' | 'missed' | 'closed';
+  } | null;
   detail: TaskDetail;
   closeHref: string;
   timeZone: string;
@@ -158,6 +170,7 @@ export function TaskDetailDrawer({
   viewerId,
   attentionBarrierId,
   currentFocus,
+  weeklyReference,
 }: TaskDetailDrawerProps) {
   const router = useRouter();
   const task = detail.task;
@@ -1684,6 +1697,26 @@ export function TaskDetailDrawer({
             </span>
           ) : null}
           {task.isMandatory ? <span>Mandatory</span> : null}
+          {/*
+            §12 — the weekly and current-focus context, where the rest of the
+            task's state already is.
+
+            A statement, not a control. The actions on a commitment — agree,
+            decline, withdraw, carry forward — belong to the list where the
+            week is read as a whole; repeating them here would let somebody
+            change an agreement from a screen that does not show what else was
+            agreed alongside it.
+          */}
+          {weeklyReference ? (
+            <span className="task-status-week">
+              {weeklyReference.state === 'proposed'
+                ? 'Proposed for this week'
+                : "This week's priority"}
+            </span>
+          ) : null}
+          {isCurrentFocus ? (
+            <span className="task-status-week">You are working on this</span>
+          ) : null}
           <button
             type="button"
             className="task-age-info"
@@ -1761,7 +1794,13 @@ export function TaskDetailDrawer({
               the task's own title, which is what the specification means by
               deriving it from the work rather than asking for it twice.
             */}
-            {!isClosed && detail.capabilities.canContribute && (
+            {/*
+              Offered only where it means something. The unique index behind a
+              commitment refuses a second live reference to the same work, so
+              a button that was always there answered "already added" with a
+              database error the first time somebody pressed it twice.
+            */}
+            {!isClosed && !weeklyReference && detail.capabilities.canContribute && (
               <button
                 type="button"
                 className="btn"
