@@ -2013,6 +2013,135 @@ export async function getBinnedTasks(
  * the visibility rule itself rather than a second opinion about it — reporting
  * line, administrator scope and explicit grants all included, by construction.
  */
+/** One of this week's priorities, as the screens read it. */
+export interface WeeklyCommitment {
+  id: string;
+  employeeId: string;
+  weekStart: string;
+  rank: number;
+  taskId: string;
+  checklistItemId: string | null;
+  expectedResult: string;
+  targetDate: string | null;
+  state: 'proposed' | 'agreed' | 'declined' | 'withdrawn' | 'superseded';
+  /** Read from the referenced work, never stored. */
+  outcome: 'due' | 'delivered' | 'missed' | 'closed';
+  referenceTitle: string;
+  taskTitle: string;
+  isStep: boolean;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  decisionNote: string | null;
+  carriedFromId: string | null;
+  openChangeCount: number;
+}
+
+function toWeeklyCommitment(row: Record<string, unknown>): WeeklyCommitment {
+  return {
+    id: String(row.id),
+    employeeId: String(row.employee_id),
+    weekStart: String(row.week_start),
+    rank: Number(row.rank ?? 0),
+    taskId: String(row.task_id),
+    checklistItemId: row.checklist_item_id ? String(row.checklist_item_id) : null,
+    expectedResult: String(row.expected_result),
+    targetDate: row.target_date ? String(row.target_date) : null,
+    state: row.state as WeeklyCommitment['state'],
+    outcome: row.delivery_outcome as WeeklyCommitment['outcome'],
+    referenceTitle: String(row.reference_title),
+    taskTitle: String(row.task_title),
+    isStep: Boolean(row.is_step),
+    decidedBy: row.decided_by ? String(row.decided_by) : null,
+    decidedAt: row.decided_at ? String(row.decided_at) : null,
+    decisionNote: row.decision_note ? String(row.decision_note) : null,
+    carriedFromId: row.carried_from_id ? String(row.carried_from_id) : null,
+    openChangeCount: Number(row.open_change_count ?? 0),
+  };
+}
+
+/**
+ * The Monday of the current week, in the organisation's calendar.
+ *
+ * Asked of the database rather than computed here, so the screen and the
+ * procedures cannot disagree about which week "this week" is — the boundary
+ * moves eight hours earlier than UTC, and a Monday morning proposal must not
+ * land in the week before.
+ */
+export async function getCurrentWeekStart(): Promise<string> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('current_week_start');
+  if (error || !data) {
+    console.error(`[getCurrentWeekStart] ${error?.message ?? 'no value'}`);
+    // A wrong week is worse than none, so fall back to the local Monday rather
+    // than to today.
+    const now = new Date();
+    const monday = new Date(now);
+    monday.setUTCDate(now.getUTCDate() - ((now.getUTCDay() + 6) % 7));
+    return monday.toISOString().slice(0, 10);
+  }
+  return String(data);
+}
+
+/** One person's priorities for a week, ranked, live states only. */
+export async function getWeeklyCommitments(
+  employeeId: string,
+  weekStart: string,
+): Promise<WeeklyCommitment[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('weekly_commitment_overview')
+    .select('*')
+    .eq('employee_id', employeeId)
+    .eq('week_start', weekStart)
+    .in('state', ['proposed', 'agreed'])
+    .order('rank', { ascending: true })
+    .limit(50);
+
+  if (error) {
+    console.error(`[getWeeklyCommitments] ${error.message}`);
+    return [];
+  }
+  return (data ?? []).map((row) => toWeeklyCommitment(row as Record<string, unknown>));
+}
+
+/**
+ * The next agreed result for each person on the roster.
+ *
+ * The manager's row asks a narrow question: of what this person has agreed for
+ * this week, what is the highest-ranked thing still unfinished. Proposals are
+ * excluded deliberately — section 8 forbids calling a proposal an agreement.
+ */
+export async function getTeamNextAgreedResult(
+  userIds: readonly string[],
+  weekStart: string,
+): Promise<Map<string, WeeklyCommitment>> {
+  const found = new Map<string, WeeklyCommitment>();
+  if (userIds.length === 0) return found;
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('weekly_commitment_overview')
+    .select('*')
+    .in('employee_id', [...userIds])
+    .eq('week_start', weekStart)
+    .eq('state', 'agreed')
+    .order('rank', { ascending: true })
+    .limit(500);
+
+  if (error) {
+    console.error(`[getTeamNextAgreedResult] ${error.message}`);
+    return found;
+  }
+
+  for (const row of data ?? []) {
+    const commitment = toWeeklyCommitment(row as Record<string, unknown>);
+    // Ranked order, so the first unfinished one wins and later ones are skipped.
+    if (commitment.outcome === 'delivered') continue;
+    if (!found.has(commitment.employeeId)) found.set(commitment.employeeId, commitment);
+  }
+  return found;
+}
+
 /** What somebody says they are working on, and when they said it. */
 export interface CurrentFocusReference {
   taskId: string;
@@ -2990,6 +3119,19 @@ export interface TeamAttentionRow {
    * the people list — so reading it meant leaving the person you were reading.
    */
   availableCount: number;
+  /**
+   * The highest-ranked agreed result still unfinished this week, or null.
+   *
+   * Agreed only. Section 8: if no agreement exists say so, and never dress a
+   * proposal up as one.
+   */
+  nextAgreedResult: {
+    id: string;
+    taskId: string;
+    expectedResult: string;
+    targetDate: string | null;
+    outcome: 'due' | 'delivered' | 'missed' | 'closed';
+  } | null;
   routineDueCount: number;
   /**
    * The work this person says they are on, or null when they have not said.
@@ -3242,6 +3384,8 @@ const ATTENTION_RANK = {
  */
 export interface TeamMemberDetail {
   person: { id: string; fullName: string };
+  /** This week's priorities, proposed and agreed. */
+  commitments: WeeklyCommitment[];
   focus: FocusSummary[];
   attention: TeamAttentionRow['attention'][];
   activeWork: Array<{
@@ -3727,9 +3871,13 @@ export async function getTeamMemberDetail(
     (task) => task.stateEnteredAt !== null && task.stateEnteredAt < agingCutoff,
   ).length;
   const row = attentionRows.find((candidate) => candidate.userId === personId);
+  // The week this person has put forward, so the manager can agree it where
+  // they are already reading the work rather than on another screen.
+  const commitments = await getWeeklyCommitments(personId, await getCurrentWeekStart());
 
   return {
     person: { id: person.userId, fullName: person.fullName },
+    commitments,
     focus: focusRows.filter((bucket) => bucket.userId === personId),
     // The list shows a person's single most costly exception; the drawer has
     // room for it in full. Both come from the same derivation.
@@ -3878,8 +4026,12 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
     toTeamAttentionTask(row as Record<string, unknown>),
   );
 
-  // One read for everybody on the roster, rather than one per rendered row.
-  const currentFocus = await getTeamCurrentFocus(team.map((person) => person.userId));
+  // One read each for the whole roster, rather than one per rendered row.
+  const roster = team.map((person) => person.userId);
+  const [currentFocus, nextAgreed] = await Promise.all([
+    getTeamCurrentFocus(roster),
+    getCurrentWeekStart().then((week) => getTeamNextAgreedResult(roster, week)),
+  ]);
   const barriers = barriersResult.data ?? [];
   const goals = goalsResult.data ?? [];
 
@@ -4190,6 +4342,17 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
       ).length,
       routineDueCount: person.routinesOverdue,
       workingOn: currentFocus.get(person.userId) ?? null,
+      nextAgreedResult: (() => {
+        const next = nextAgreed.get(person.userId);
+        if (!next) return null;
+        return {
+          id: next.id,
+          taskId: next.taskId,
+          expectedResult: next.expectedResult,
+          targetDate: next.targetDate,
+          outcome: next.outcome,
+        };
+      })(),
       otherActiveCount: Math.max(0, active.length - 1),
       attention: top
         ? {

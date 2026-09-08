@@ -132,8 +132,15 @@ test.describe('v132 the person drawer', () => {
      * questions: a list of edits says somebody has been busy, and what closed
      * says what came of it.
      */
-    expect(order.slice(0, 4)).toEqual([
+    /*
+     * v141 §6 put this week's priorities directly below the attention block and
+     * above everything else: they are what the two people agreed, and the rest
+     * of the active work is context for them. The attention block stays first
+     * because it is only there when the manager actually owes something.
+     */
+    expect(order.slice(0, 5)).toEqual([
       'Needs your attention',
+      'This week’s priorities',
       'Current commitments',
       expect.stringContaining('Recent delivery'),
       'Recent updates',

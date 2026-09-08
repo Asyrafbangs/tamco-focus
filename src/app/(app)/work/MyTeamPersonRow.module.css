@@ -14,11 +14,13 @@
 .listHeader,
 .row {
   display: grid;
+  /* Person, current focus, next agreed result, needs you, latest, chevron. */
   grid-template-columns:
-    minmax(150px, 1.1fr)
-    minmax(190px, 1.7fr)
-    minmax(190px, 1.7fr)
-    minmax(130px, 1.2fr)
+    minmax(130px, 1fr)
+    minmax(150px, 1.3fr)
+    minmax(150px, 1.3fr)
+    minmax(170px, 1.5fr)
+    minmax(120px, 1fr)
     26px;
   gap: 14px;
   min-width: 0;
@@ -74,6 +76,7 @@
 
 .person,
 .working,
+.nextResult,
 .attention,
 .latest {
   display: grid;
@@ -83,6 +86,7 @@
 
 .person strong,
 .working strong,
+.nextResult strong,
 .latest strong,
 .person span,
 .working span,
@@ -95,7 +99,8 @@
 }
 
 .person strong,
-.working strong {
+.working strong,
+.nextResult strong {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -107,6 +112,7 @@
 
 .person span,
 .working span,
+.nextResult span,
 .reason,
 .latest span,
 .latest strong {
@@ -221,10 +227,22 @@
   }
 
   .row {
+    /*
+      Two bands, not three.
+
+      The sixth column made a third band at this width and the row grew to
+      159px against a 140px cap. Pairing the fields keeps the same height the
+      table had with four cells, and keeps current work and the next agreed
+      result on the first line where §5 wants them.
+    */
     grid-template-areas:
-      'person working action'
-      'attention latest action';
-    grid-template-columns: minmax(130px, 0.8fr) minmax(190px, 1.4fr) auto;
+      'person working next action'
+      'attention attention latest action';
+    grid-template-columns:
+      minmax(110px, 0.9fr)
+      minmax(140px, 1.2fr)
+      minmax(140px, 1.2fr)
+      auto;
     align-items: start;
   }
 
@@ -234,6 +252,10 @@
 
   .working {
     grid-area: working;
+  }
+
+  .nextResult {
+    grid-area: next;
   }
 
   .attention {
@@ -255,6 +277,7 @@
     grid-template-areas:
       'person action'
       'working working'
+      'next next'
       'attention attention'
       'latest latest';
     grid-template-columns: minmax(0, 1fr) auto;
@@ -272,10 +295,14 @@
     padding: 11px 12px;
   }
 
+  /* Five bands rather than four now, so the separator spacing gives back what
+     the extra band costs. The 44px touch target is not negotiable and is left
+     alone, exactly as in v130. */
   .working,
   .attention,
-  .latest {
-    padding-top: 6px;
+  .latest,
+  .nextResult {
+    padding-top: 4px;
     border-top: 1px solid var(--line-soft);
   }
 

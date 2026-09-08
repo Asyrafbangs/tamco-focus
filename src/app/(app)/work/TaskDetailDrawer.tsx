@@ -68,6 +68,8 @@ import { BarrierActionPanel, type BarrierResponseKind } from './BarrierActionPan
 import { BarrierDetailPanel } from './BarrierDetailPanel';
 import { TaskActivityHistory } from './TaskActivityHistory';
 import { TaskChecklistPanel } from './TaskChecklistPanel';
+import { proposeWeeklyCommitment } from '@/server/actions/commitment-actions';
+
 import { TaskRowActions } from './TaskRowActions';
 
 interface TaskDetailDrawerProps {
@@ -1784,6 +1786,34 @@ export function TaskDetailDrawer({
               offered on work that has actually been started, which is the same
               rule `set_current_focus` enforces.
             */}
+            {/*
+              §7 — the one place a priority is proposed from.
+
+              It says "Add to this week" rather than "Create a priority",
+              because nothing is created: this puts the work already on screen
+              forward as a result for the week. The expected result starts as
+              the task's own title, which is what the specification means by
+              deriving it from the work rather than asking for it twice.
+            */}
+            {!isClosed && detail.capabilities.canContribute && (
+              <button
+                type="button"
+                className="btn"
+                disabled={pending}
+                aria-busy={pending}
+                onClick={() =>
+                  runFocusChange(
+                    proposeWeeklyCommitment({
+                      employeeId: viewerId,
+                      taskId: task.id,
+                      expectedResult: task.title,
+                    }),
+                  )
+                }
+              >
+                Add to this week
+              </button>
+            )}
             {task.status === 'active' &&
               (isCurrentFocus ? (
                 <button

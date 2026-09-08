@@ -27,6 +27,9 @@ export function MyTeamListHeader() {
           could never be empty, never be wrong, and never quite meant anything.
           It is now their own selection, and "Not set" is a real answer. */}
       <span>Current focus</span>
+      {/* What they agreed to finish, which is a different question from what
+          they are on right now — §8 keeps the two independent. */}
+      <span>Next agreed result</span>
       <span>Needs you</span>
       {/* "Latest" alone could mean the latest task, the latest change or the
           latest message. */}
@@ -158,6 +161,21 @@ export function MyTeamPersonRow({
             Not set
             {person.activeCount > 0 ? ` · ${person.activeCount} active` : ''}
           </span>
+        )}
+      </div>
+
+      <div className={styles.nextResult} data-cell="next-result">
+        {person.nextAgreedResult ? (
+          <>
+            <strong>{person.nextAgreedResult.expectedResult}</strong>
+            {person.nextAgreedResult.outcome === 'missed' && (
+              <span className={styles.summaryAlert}>Missed</span>
+            )}
+          </>
+        ) : (
+          // Not "nothing to do": nothing has been AGREED. Saying it this way
+          // keeps a proposal from reading as a commitment.
+          <span className={styles.muted}>No agreed priorities</span>
         )}
       </div>
 

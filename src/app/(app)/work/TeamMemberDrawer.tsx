@@ -14,6 +14,8 @@ import { GOAL_HEALTH_LABELS, GOAL_STATUS_LABELS } from '@/domain/goals';
 import { FOCUS_BUCKET_WORD, WORK_CLASS_LABELS } from '@/domain/types';
 import type { TeamMemberDetail } from '@/server/queries';
 
+import { WeeklyPriorities } from './WeeklyPriorities';
+
 /** What a delivered record was, in one word. */
 function agoWords(iso: string, now: Date): string {
   const minutes = Math.max(0, Math.round((now.getTime() - new Date(iso).getTime()) / 60_000));
@@ -122,6 +124,21 @@ export function TeamMemberDrawer({
               ) : null,
             )
           )}
+        </section>
+
+        {/*
+          §6 — this week's priorities come first, above the rest of the active
+          work. They are what the two people agreed; everything else is context
+          for them.
+        */}
+        <section className="detail-section" aria-labelledby="member-week-heading">
+          <h3 id="member-week-heading">This week&rsquo;s priorities</h3>
+          <WeeklyPriorities
+            commitments={detail.commitments}
+            timeZone={timeZone}
+            canAgree
+            emptyHint="Nothing put forward for this week yet."
+          />
         </section>
 
         <section className="detail-section" aria-labelledby="member-active-heading">

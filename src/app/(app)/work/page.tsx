@@ -46,6 +46,8 @@ import {
   getSharedContributions,
   getBinnedTaskCount,
   getCurrentFocus,
+  getCurrentWeekStart,
+  getWeeklyCommitments,
   getTeamAvailableWork,
   getTeamAvailableCount,
   getBinnedTasks,
@@ -64,6 +66,7 @@ import {
 import { BinList } from './BinList';
 import { AttentionListView } from './AttentionListView';
 import { MyTeamListHeader, MyTeamPersonRow } from './MyTeamPersonRow';
+import { WeeklyPriorities } from './WeeklyPriorities';
 import { TaskActionFeedbackProvider } from './TaskActionFeedback';
 import { TaskDetailDrawer } from './TaskDetailDrawer';
 import { TeamMemberDrawer } from './TeamMemberDrawer';
@@ -608,6 +611,7 @@ export default async function WorkPage({
     teamDeliveredWork,
     completedWork,
     currentFocus,
+    weekStart,
   ] = await Promise.all([
     getMyTasks(profile.id),
     getFocusSummary(profile.id),
@@ -668,7 +672,16 @@ export default async function WorkPage({
     // What the viewer says they are on. Read on every load of this page: it
     // heads the Active list and the task drawer offers to become it.
     getCurrentFocus(profile.id),
+    // Asked of the database so the screen and the procedures agree on which
+    // Monday "this week" is.
+    getCurrentWeekStart(),
   ]);
+
+  // Only on Active, which is the list they describe.
+  const myCommitments =
+    scope === 'mine' && activeTab === 'active'
+      ? await getWeeklyCommitments(profile.id, weekStart)
+      : [];
 
   const visible =
     activeTab === 'shared' || activeTab === 'bin' || activeTab === 'completed'
@@ -1002,6 +1015,13 @@ export default async function WorkPage({
             would turn a statement into a chore, and §8 is explicit that there
             are no recurring mandatory confirmations.
           */}
+          {activeTab === 'active' && myCommitments.length >= 0 && (
+            <WeeklyPriorities
+              commitments={myCommitments}
+              timeZone={profile.timezone}
+              emptyHint="No agreed priorities for this week. Open a task and choose Add to this week."
+            />
+          )}
           {activeTab === 'active' && (
             <div className="working-on-summary">
               {currentFocus ? (

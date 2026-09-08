@@ -9917,6 +9917,107 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 /* The one period control, wherever a screen reports over a window. Presets are
    links and the range is a GET form, so both are addresses rather than state
    held in a component. */
+/* v141 - this week's priorities. Rows referencing work that lives elsewhere,
+   so the visual weight belongs to the result and the outcome, not to a card. */
+.weekly-priorities {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.weekly-priorities.empty .muted {
+  font-size: 12px;
+}
+.weekly-priority-list {
+  display: grid;
+  gap: 2px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.weekly-priority {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 7px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.weekly-priority:first-child {
+  border-top: 0;
+}
+.weekly-priority-rank {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+/*
+   Positioned so the row link's overlay stays over the title and nothing else.
+
+   `.row-primary-link::after` is `position: absolute; inset: 0` against the
+   nearest positioned ancestor. With that on the whole row, the overlay covered
+   Agree, Decline and Withdraw, and every click on them opened the task instead
+   — the same trap the team Available rows carry a note about. */
+.weekly-priority-copy {
+  position: relative;
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.weekly-priority-copy strong {
+  font-size: 12.5px;
+}
+.weekly-priority-copy .muted {
+  font-size: 10.5px;
+}
+/* One word, and only where it is not the ordinary case. */
+.weekly-priority-outcome {
+  font-size: 10.5px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.weekly-priority-outcome.tone-due {
+  color: var(--muted);
+}
+.weekly-priority-outcome.tone-delivered {
+  color: var(--green, #1a7f4b);
+}
+.weekly-priority-outcome.tone-missed {
+  color: var(--red);
+}
+.weekly-priority-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+}
+.weekly-priority-decline {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  padding-top: 6px;
+}
+.weekly-priority-decline label {
+  display: grid;
+  flex: 1 1 220px;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+@media (max-width: 640px) {
+  .weekly-priority {
+    grid-template-columns: 18px minmax(0, 1fr);
+  }
+  .weekly-priority-outcome,
+  .weekly-priority-actions {
+    grid-column: 2;
+  }
+}
+
 /* v140 - what the person says they are on, above the list it describes.
    Quiet: a statement, not a banner, and it carries the date it was made so an
    old selection reads as old rather than as now. */

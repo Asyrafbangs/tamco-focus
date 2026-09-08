@@ -9629,6 +9629,7 @@ export type Database = {
         }
         Returns: Json
       }
+      current_week_start: { Args: never; Returns: string }
       deactivate_user: {
         Args: { p_allow_open_work?: boolean; p_user_id: string }
         Returns: Json
