@@ -38,34 +38,33 @@ test.describe('v132 the snapshot', () => {
     await openTeam(page);
   });
 
-  test('is four numbers, and no more', async ({ page }) => {
-    const snapshot = page.locator('.team-snapshot');
-    await expect(snapshot).toBeVisible();
-    // Four. A fifth would be the start of a dashboard, which is not what a
-    // manager opened this page for.
-    await expect(snapshot.locator('.snapshot-figures li')).toHaveCount(4);
-    await expect(snapshot).toContainText('People');
-    await expect(snapshot).toContainText('Needs attention');
-    await expect(snapshot).toContainText('Available work');
-    await expect(snapshot).toContainText('Completed · 30 days');
+  test('offers three views of the team and no card row above them', async ({ page }) => {
+    /*
+     * v132 put four figures here — People / Needs attention / Available work /
+     * Completed — and section 3 of the change specification supersedes them:
+     * that card row became the central navigation, which is a dashboard in
+     * front of the list a manager came to read.
+     */
+    await expect(page.locator('.team-snapshot')).toHaveCount(0);
+
+    const views = page.getByRole('navigation', { name: 'Team views' });
+    await expect(views.getByRole('link')).toHaveCount(3);
+    await expect(views.getByRole('link', { name: /Team/ })).toBeVisible();
+    await expect(views.getByRole('link', { name: /Not started/ })).toBeVisible();
+    await expect(views.getByRole('link', { name: /Completed/ })).toBeVisible();
   });
 
-  test('the backlog is reached from the snapshot, not from a tab beside the people views', async ({
+  test('reaches unstarted work as a view, with attention a filter inside Team', async ({
     page,
   }) => {
-    /*
-     * Everyone and Needs attention browse PEOPLE. Team available work browses
-     * TASKS, and giving it equal billing made the main way to manage people a
-     * list of unstarted work — which says seven items are waiting for somebody
-     * and nothing about whether that is a problem.
-     */
-    const tabs = page.getByRole('navigation', { name: 'Team filter' });
-    await expect(tabs.getByRole('link')).toHaveCount(2);
-    await expect(tabs.getByRole('link', { name: /available/i })).toHaveCount(0);
+    // Attention narrows the people list; it is not a fourth destination.
+    const filter = page.getByRole('navigation', { name: 'Team filter' });
+    await expect(filter.getByRole('link')).toHaveCount(2);
+    await expect(filter.getByRole('link', { name: /Not started/i })).toHaveCount(0);
 
     await page
-      .locator('.team-snapshot')
-      .getByRole('link', { name: /Available work/ })
+      .getByRole('navigation', { name: 'Team views' })
+      .getByRole('link', { name: /Not started/ })
       .click();
     await expect(page).toHaveURL(/filter=available/);
     await expect(page.locator('.focus-panel')).toContainText('Work waiting to be picked up');
@@ -73,13 +72,10 @@ test.describe('v132 the snapshot', () => {
 
   test('the window is a choice, and it is never all time', async ({ page }) => {
     /*
-     * v136 replaced the segmented strip with the period control the rest of
-     * the app uses, so this now checks the same rule through the menu: five
-     * presets and a date range, and no way to ask for everything ever. A
-     * lifetime figure flatters whoever has been here longest and says nothing
-     * about now.
+     * The rule outlives the strip it was written for: a lifetime figure
+     * flatters whoever has been here longest and says nothing about now.
      */
-    const picker = page.locator('.team-snapshot .period-picker');
+    const picker = page.locator('.team-views .period-picker');
     await expect(picker.getByRole('button')).toContainText('Last 30 days');
     await picker.getByRole('button').click();
 
@@ -90,13 +86,14 @@ test.describe('v132 the snapshot', () => {
       'aria-current',
       'page',
     );
-    // The range the strip could not express at all.
     await expect(menu.getByLabel('From')).toBeVisible();
     await expect(menu.getByLabel('To')).toBeVisible();
 
     await menu.getByRole('link', { name: 'Last 90 days' }).click();
     await expect(page).toHaveURL(/period=90/);
-    await expect(page.locator('.team-snapshot')).toContainText('Completed · 90 days');
+    await expect(page.locator('.team-views .period-picker').getByRole('button')).toContainText(
+      'Last 90 days',
+    );
   });
 
   test('the chosen window survives opening a person', async ({ page }) => {

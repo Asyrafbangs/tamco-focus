@@ -57,7 +57,10 @@ test.describe('v65 team Available work', () => {
      * further and took it out of that row entirely: browsing unstarted work is
      * a planning question, not the main way to manage people.
      */
-    const figure = page.locator('.team-snapshot').getByRole('link', { name: /Available work/ });
+    // Reached as a view now rather than as a figure in a card row (v142 §3).
+    const figure = page
+      .getByRole('navigation', { name: 'Team views' })
+      .getByRole('link', { name: /Not started/ });
     await expect(figure).toBeVisible();
     const count = Number((await figure.textContent())?.replace(/\D/g, '') ?? '0');
     expect(count).toBeGreaterThan(0);
@@ -102,7 +105,12 @@ test.describe('v65 team Available work', () => {
     // And the sibling tabs still navigate.
     await page.goto('/work?scope=team&filter=available');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
-    await page.getByRole('link', { name: /^Everyone/ }).click();
+    // Back through the Team view. The Everyone / Needs attention filter lives
+    // inside Team now (v142 §3), so it is not rendered on this one.
+    await page
+      .getByRole('navigation', { name: 'Team views' })
+      .getByRole('link', { name: /^Team/ })
+      .click();
     await expect(page).toHaveURL(/scope=team$/);
     await expect(page.getByTestId('my-team-person-row').first()).toBeVisible();
   });

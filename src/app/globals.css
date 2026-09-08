@@ -11020,89 +11020,26 @@ button.attachment-row {
 /* ------------------------------------------------------------------------ */
 
 /*
-  Four numbers and a window, not a dashboard.
+  Three views of the team, with the reporting period beside them.
 
-  The strip answers "where do I look first", so it is one line of figures with
-  two of them acting as the way in to the views behind them. Anything more -
-  charts, trends, a score - would be answering a question nobody asked at the
-  top of a list they came here to read.
+  The four-figure card row this replaces is gone entirely (specification
+  section 3): it put a dashboard in front of the list a manager came to read.
+  The period sits with the tabs because Completed is read over one, and not
+  above the workload where it would look like a filter on everything.
 */
-.team-snapshot {
+.team-views {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px 24px;
-  margin: 0 0 14px;
-  padding: 12px 15px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
+  gap: 8px 16px;
+  margin: 0 0 4px;
 }
 
-.snapshot-figures {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 30px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.snapshot-figures li {
-  min-width: 0;
-}
-
-.snapshot-figures a {
-  display: block;
-  border-radius: 7px;
-  color: inherit;
-  text-decoration: none;
-}
-
-.snapshot-figures a:hover .snapshot-label,
-.snapshot-figures a:focus-visible .snapshot-label {
-  color: var(--text);
-}
-
-/* The view you are in, marked on the figure that opens it, because the tab
-   row below holds only the two views of people. */
-.snapshot-figures a[aria-current] .snapshot-label {
-  color: var(--blue);
-  font-weight: 700;
-}
-
-.snapshot-value {
-  display: block;
-  font-size: 19px;
-  font-weight: 650;
-  line-height: 1.15;
-  letter-spacing: -0.02em;
-}
-
-/* Only where somebody is waiting on the reader. A count of people is not an
-   alarm, and colouring it would spend the one colour that means something. */
-.snapshot-value.alert {
-  color: var(--red);
-}
-
-.snapshot-label {
-  display: block;
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 10px;
-}
-
-@media (max-width: 640px) {
-  .team-snapshot {
-    gap: 12px;
-  }
-  .snapshot-figures {
-    gap: 10px 22px;
-  }
-  .team-snapshot .period-picker {
-    width: 100%;
-  }
+/* Attention is a filter inside Team, so it sits under the views rather than
+   beside them, and is quieter than the row above. */
+.team-attention-filter {
+  margin: 0 0 10px;
 }
 
 /*

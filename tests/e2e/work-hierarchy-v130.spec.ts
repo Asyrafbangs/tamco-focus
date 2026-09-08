@@ -159,14 +159,16 @@ test.describe('v130 My Team is an exception list, not a table of buttons', () =>
     /*
      * v130 renamed the third tab "Team available work" because, beside two
      * views of PEOPLE, it changed the object on screen to a task without
-     * saying so. v132 removed it from this row altogether and put the figure
-     * in the snapshot above: browsing unstarted work is a planning question,
-     * not the main way to manage people.
+     * saying so. v132 took it out of this row entirely, and v142 §3 made it a
+     * view of its own called "Not started": browsing unstarted work is a
+     * planning question, not the main way to manage people.
      */
     await expect(tabs.getByRole('link')).toHaveCount(2);
-    await expect(tabs.getByRole('link', { name: /available/i })).toHaveCount(0);
+    await expect(tabs.getByRole('link', { name: /available|not started/i })).toHaveCount(0);
     await expect(
-      page.locator('.team-snapshot').getByRole('link', { name: /Available work/ }),
+      page.getByRole('navigation', { name: 'Team views' }).getByRole('link', {
+        name: /Not started/,
+      }),
     ).toBeVisible();
   });
 

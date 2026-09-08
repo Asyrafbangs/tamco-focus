@@ -56,15 +56,16 @@ test.describe('v136 completed is reachable', () => {
     await openTeam(page);
   });
 
-  test('the completed figure is a link, like the two above it', async ({ page }) => {
-    const snapshot = page.locator('.team-snapshot');
+  test('completed work is reachable, as a view of its own', async ({ page }) => {
     /*
-     * The regression this guards: the figure was a <span>. Nothing on screen
-     * said so — it sat in the same strip, in the same type, beside three
-     * numbers of which two opened something — so the only way to discover it
-     * was to click it and have nothing happen.
+     * v136 made this reachable at all: the figure was a <span> in a strip of
+     * four, so the one number answering "what has the team delivered" was the
+     * only one a manager could not follow. v142 §3 removed the strip and made
+     * it a view instead — the same rule, one level up.
      */
-    const completed = snapshot.getByRole('link', { name: /Completed/ });
+    const completed = page
+      .getByRole('navigation', { name: 'Team views' })
+      .getByRole('link', { name: /Completed/ });
     await expect(completed).toHaveCount(1);
 
     await completed.click();
@@ -90,15 +91,12 @@ test.describe('v136 completed is reachable', () => {
      * the per-person counts is the only assertion that catches that, and it
      * fails if either side changes its definition of a completion.
      */
-    const snapshot = page.locator('.team-snapshot');
-    const headline = Number(
-      (
-        await snapshot
-          .getByRole('link', { name: /Completed/ })
-          .locator('.snapshot-value')
-          .innerText()
-      ).trim(),
-    );
+    // The tab carries the count now that the card row is gone.
+    const label = await page
+      .getByRole('navigation', { name: 'Team views' })
+      .getByRole('link', { name: /Completed/ })
+      .innerText();
+    const headline = Number(label.replace(/[^0-9]/g, ''));
 
     await openTeam(page, '&filter=delivered');
     const counts = await page.locator('.team-available-group > header .muted').allInnerTexts();

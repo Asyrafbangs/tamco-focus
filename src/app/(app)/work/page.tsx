@@ -1052,75 +1052,47 @@ export default async function WorkPage({
       ) : (
         <>
           {/*
-            Four numbers, and no more.
+            Three views of the team, and no card row above them.
 
-            The question this answers is "where do I look first", not "how is
-            the team performing" - so it is a strip rather than a dashboard,
-            and two of the four are the way in to the views behind them. The
-            fourth is deliberately a rolling window: lifetime completions
-            flatter whoever has been here longest and say nothing about now.
+            The four-figure strip that stood here was the shape v132 asked for,
+            and section 3 of the change specification supersedes it: People /
+            Needs attention / Available / Completed became the central
+            navigation, which put a dashboard in front of the list a manager
+            came to read. What replaces it is the same three questions as
+            destinations — who is on the team, what has not been started, what
+            was finished — with attention as a filter inside the first rather
+            than a headline above all of them.
+
+            The period control stays, because Completed is read over one. It
+            sits with the tabs rather than above the workload, which is where
+            section 5 puts it.
           */}
-          <div className="team-snapshot">
-            <ul className="snapshot-figures">
-              <li>
-                <span className="snapshot-value">{team.length}</span>
-                <span className="snapshot-label">People</span>
-              </li>
-              <li>
-                <Link
-                  href={teamHref('attention')}
-                  aria-current={teamFilter === 'attention' ? 'page' : undefined}
-                >
-                  <span
-                    className={`snapshot-value${teamNeedingAttention.length > 0 ? ' alert' : ''}`}
-                  >
-                    {teamNeedingAttention.length}
-                  </span>
-                  <span className="snapshot-label">Needs attention</span>
-                </Link>
-              </li>
-              <li>
-                {/*
-                  The backlog view lives here rather than beside Everyone and
-                  Needs attention. Those two browse PEOPLE; this one browses
-                  TASKS, and giving it equal billing made the main way to
-                  manage people a list of unstarted work - which says there
-                  are seven items waiting for somebody, and nothing about
-                  whether that is a problem.
-                */}
-                <Link
-                  href={teamHref('available')}
-                  aria-current={teamFilter === 'available' ? 'page' : undefined}
-                >
-                  <span className="snapshot-value">{teamAvailableCount}</span>
-                  <span className="snapshot-label">Available work</span>
-                </Link>
-              </li>
-              <li>
-                {/*
-                  A link, like the two figures above it.
+          <div className="team-views">
+            <FocusTabs
+              label="Team views"
+              variant="underline"
+              items={[
+                {
+                  href: teamHref(),
+                  label: 'Team',
+                  active: teamFilter === 'everyone' || teamFilter === 'attention',
+                  count: team.length,
+                },
+                {
+                  href: teamHref('available'),
+                  label: 'Not started',
+                  active: teamFilter === 'available',
+                  count: teamAvailableCount,
+                },
+                {
+                  href: teamHref('delivered'),
+                  label: 'Completed',
+                  active: teamFilter === 'delivered',
+                  count: teamDelivered,
+                },
+              ]}
+            />
 
-                  This one was plain text, so of the four numbers a manager
-                  reads in ten seconds, the one answering "what has the team
-                  actually delivered" was the only one they could not follow.
-                  The work behind it existed only inside a person's drawer,
-                  which answers the question for somebody you have already
-                  decided to open — the opposite of how you would use it.
-                */}
-                <Link
-                  href={teamHref('delivered')}
-                  aria-current={teamFilter === 'delivered' ? 'page' : undefined}
-                >
-                  <span className="snapshot-value">{teamDelivered}</span>
-                  <span className="snapshot-label">Completed · {period.short}</span>
-                </Link>
-              </li>
-            </ul>
-
-            {/* The same control as My Work, Routine and Records. It was a
-                segmented strip of four presets with nowhere to put a date
-                range, so My Team was the one report a manager could not ask a
-                specific question of. */}
             <PeriodPicker
               action="/work"
               hidden={{
@@ -1134,25 +1106,36 @@ export default async function WorkPage({
             />
           </div>
 
-          <FocusTabs
-            label="Team filter"
-            variant="underline"
-            items={[
-              {
-                href: teamHref(),
-                label: 'Everyone',
-                active: teamFilter === 'everyone',
-                count: team.length,
-              },
-              {
-                href: teamHref('attention'),
-                label: 'Needs attention',
-                active: teamFilter === 'attention',
-                count: teamNeedingAttention.length,
-                attention: teamNeedingAttention.length > 0,
-              },
-            ]}
-          />
+          {/*
+            Attention is a filter within Team, not a view beside it.
+
+            Its scope is stated rather than assumed: "needs you" means a request
+            addressed to this manager or an exception on somebody's work, which
+            is a narrower thing than "everything that looks wrong".
+          */}
+          {(teamFilter === 'everyone' || teamFilter === 'attention') && (
+            <div className="team-attention-filter">
+              <FocusTabs
+                label="Team filter"
+                variant="underline"
+                items={[
+                  {
+                    href: teamHref(),
+                    label: 'Everyone',
+                    active: teamFilter === 'everyone',
+                    count: team.length,
+                  },
+                  {
+                    href: teamHref('attention'),
+                    label: 'Needs attention',
+                    active: teamFilter === 'attention',
+                    count: teamNeedingAttention.length,
+                    attention: teamNeedingAttention.length > 0,
+                  },
+                ]}
+              />
+            </div>
+          )}
         </>
       )}
 
