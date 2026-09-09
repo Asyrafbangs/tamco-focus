@@ -227,20 +227,26 @@ integration tests across 29 files, 264 unit tests across 21.
 
 ## 5. Deployment
 
-**Applied to production** (`ypxbykvyjjtroyftzemi`): the first twelve
-migrations, v140 through v150.
+**Applied to production** (`ypxbykvyjjtroyftzemi`): all thirteen migrations,
+v140 through v152. `npx supabase migration list --linked` reports nothing
+pending, of 126 migrations in total.
 
-**`v152` is pending.** It is the only one of the thirteen that has not run
-there, and until it does, production still refuses HEIC photographs, legacy
-Word and Excel documents and every PowerPoint file at upload — whatever the
-interface offers. Nothing else in the release depends on it, so the application
-is correct either way; the formats simply do not work yet.
+`v152` was confirmed to have taken effect rather than merely to have run. The
+bucket's allow-list is checked before RLS, so an upload attempt carrying no
+session at all reports which of the two refused it — and nothing is written
+either way. Against production: HEIC, HEIF, `application/msword`,
+`application/vnd.ms-excel` and both PowerPoint types now reach the
+row-level-security refusal, meaning they are on the list; `application/
+x-msdownload` and `application/x-sh` are still stopped by the list itself. The
+bucket is also still private, which is the thing a migration touching
+`storage.buckets` could plausibly have broken: the public object endpoint
+answers `Bucket not found`.
+
+For any future push:
 
 ```bash
 npx supabase db push --linked
 ```
-
-The same command applies to any future push.
 
 **Order matters.** Two migrations replace functions the running application
 calls (`v147` for `decide_routine_exception`, `v148` for
