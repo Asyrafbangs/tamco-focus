@@ -4,8 +4,8 @@ Against `TAMCO_Focus_Manager_Employee_Change_Specification.md` (27 sections, 38
 acceptance scenarios). This is the §27 deliverable: what changed, what the
 database now holds, what was verified, and what was not.
 
-Versions v140 through v151, shipped as seven commits between `a07dbc4` and
-`92e2a11`. Every one passed all sixteen gates in `npm run verify` before it was
+Versions v140 through v152, shipped as eight commits between `a07dbc4` and
+`eebe041`. Every one passed all sixteen gates in `npm run verify` before it was
 pushed.
 
 ---
@@ -227,14 +227,20 @@ integration tests across 29 files, 264 unit tests across 21.
 
 ## 5. Deployment
 
-**Already applied to production** (`ypxbykvyjjtroyftzemi`): all twelve
-migrations. `npx supabase migration list --linked` reports nothing pending.
+**Applied to production** (`ypxbykvyjjtroyftzemi`): the first twelve
+migrations, v140 through v150.
 
-For any future push:
+**`v152` is pending.** It is the only one of the thirteen that has not run
+there, and until it does, production still refuses HEIC photographs, legacy
+Word and Excel documents and every PowerPoint file at upload — whatever the
+interface offers. Nothing else in the release depends on it, so the application
+is correct either way; the formats simply do not work yet.
 
 ```bash
 npx supabase db push --linked
 ```
+
+The same command applies to any future push.
 
 **Order matters.** Two migrations replace functions the running application
 calls (`v147` for `decide_routine_exception`, `v148` for
