@@ -332,7 +332,7 @@ function isRoutine(task: TaskOverview): boolean {
  * "12 items" answers what the filter just did.
  */
 /** §10 — whose delivery is being listed. `received` is context, not credit. */
-type CompletedScope = 'all' | 'owned' | 'contribution' | 'received';
+type CompletedScope = 'all' | 'owned' | 'routine' | 'contribution' | 'received';
 
 function CompletedHistory({
   records,
@@ -391,6 +391,9 @@ function CompletedHistory({
             [
               ['all', 'All'],
               ['owned', 'My work'],
+              // §20 counts three delivery types and this is one of them: ten
+              // scheduled checks and one Major Project are not the same thing.
+              ['routine', 'Routine'],
               ['contribution', 'My contributions'],
               // Not "my" anything: this is what other people finished.
               ['received', 'On my work'],
@@ -440,7 +443,20 @@ function CompletedHistory({
               </span>
               <span className="completed-copy">
                 <strong>{record.title}</strong>
-                {record.kind === 'owned' ? (
+                {record.kind === 'routine' ? (
+                  /*
+                    §20 — a repeated occurrence is identified by its date and
+                    the area it was recorded in. "Weekly workplace safety walk"
+                    on its own names fifty-two different events.
+                  */
+                  <span>
+                    Routine
+                    {record.occurrenceDate
+                      ? ` · ${formatDue(record.occurrenceDate, true, timeZone)}`
+                      : ''}
+                    {record.area ? ` · ${record.area}` : ''}
+                  </span>
+                ) : record.kind === 'owned' ? (
                   <span>
                     My work
                     {record.workClass ? ` · ${WORK_CLASS_LABELS[record.workClass]}` : ''}
@@ -463,7 +479,15 @@ function CompletedHistory({
                     {record.parentTitle ? ` · in ${record.parentTitle}` : ''}
                   </span>
                 )}
-                <span className="completed-when">Completed {formatDay(record.completedAt)}</span>
+                <span className="completed-when">
+                  Completed {formatDay(record.completedAt)}
+                  {/* §20 — each record says how much proof it carries, so a
+                      manager reading a year-end review can see there is
+                      something to open before opening it. */}
+                  {record.evidenceCount > 0
+                    ? ` · ${record.evidenceCount} attachment${record.evidenceCount === 1 ? '' : 's'}`
+                    : ''}
+                </span>
               </span>
               <span className="completed-chevron" aria-hidden="true">
                 ›
@@ -636,11 +660,13 @@ export default async function WorkPage({
   const completedScope: CompletedScope =
     params.show === 'owned'
       ? 'owned'
-      : params.show === 'contribution'
-        ? 'contribution'
-        : params.show === 'received'
-          ? 'received'
-          : 'all';
+      : params.show === 'routine'
+        ? 'routine'
+        : params.show === 'contribution'
+          ? 'contribution'
+          : params.show === 'received'
+            ? 'received'
+            : 'all';
 
   const requested = params.tab;
   const activeTab: TabKey =

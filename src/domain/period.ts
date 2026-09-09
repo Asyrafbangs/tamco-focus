@@ -104,8 +104,6 @@ export interface ResolvedPeriod {
   to: string | null;
 }
 
-const DAY_MS = 86_400_000;
-
 function isDate(value: string | null | undefined): value is string {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
@@ -186,7 +184,7 @@ function rangeOf(
   now: Date,
   timeZone: string,
 ): { since: string; until: string | null } {
-  const { year, month } = zonedToday(now, timeZone);
+  const { year, month, day } = zonedToday(now, timeZone);
   const at = (y: number, m: number, d: number) =>
     new Date(zonedInstant(timeZone, y, m, d)).toISOString();
   /** The last millisecond before the given local midnight. */
@@ -207,9 +205,24 @@ function rangeOf(
     case 'last-year':
       return { since: at(year - 1, 0, 1), until: endOfDayBefore(year, 0, 1) };
     default:
-      // Rolling counts run back from this instant, not from a local midnight:
-      // "the last 30 days" means the last 30 days.
-      return { since: new Date(now.getTime() - Number(key) * DAY_MS).toISOString(), until: null };
+      /*
+       * §20 — "Rolling 30 days means today and the preceding 29 local calendar
+       * days."
+       *
+       * It used to subtract thirty times twenty-four hours from this instant,
+       * which makes the oldest day a partial one: at noon, work closed before
+       * noon thirty days ago fell outside a window whose label says that day is
+       * in it. Two people reading the same figure an hour apart got different
+       * answers about the same day's work, and a day is the unit anybody
+       * actually reasons about.
+       *
+       * A day is now either wholly in or wholly out, and the boundary is local
+       * midnight rather than an instant eight hours off it.
+       */
+      return {
+        since: new Date(zonedInstant(timeZone, year, month, day - (Number(key) - 1))).toISOString(),
+        until: null,
+      };
   }
 }
 

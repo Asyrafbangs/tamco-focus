@@ -331,7 +331,7 @@ export interface CompletedRecord {
    * not the same as doing the step, and a list that folded `received` into
    * `owned` would credit a manager with their team's contributions.
    */
-  kind: 'owned' | 'contribution' | 'received';
+  kind: 'owned' | 'contribution' | 'routine' | 'received';
   /** Stable per row: the task for owned work, the step for a contribution. */
   key: string;
   /** What opening the row leads to. A contribution opens its parent task. */
@@ -343,6 +343,11 @@ export interface CompletedRecord {
   parentOwnerName: string | null;
   /** `received` only: the colleague whose work this was. */
   contributorName: string | null;
+  /** Routine only: which occurrence, and where it was recorded (§20). */
+  occurrenceDate: string | null;
+  area: string | null;
+  /** §20 — each record shows how much proof it carries. */
+  evidenceCount: number;
   completedAt: string | null;
 }
 
@@ -355,8 +360,12 @@ export async function getMyCompletedWork(
 
   let ownedQuery = supabase
     .from('task_overview')
-    .select('id,title,work_class,completed_at')
-    .eq('primary_owner_id', userId)
+    // §20 — whoever owned it at completion, and enough to describe the record:
+    // its category, its evidence, and for a routine which occurrence it was.
+    .select(
+      'id,title,work_class,completed_at,occurrence_date,routine_area,evidence_count,completed_by',
+    )
+    .eq('completed_owner_id', userId)
     .eq('status', 'completed')
     .gte('completed_at', sinceIso);
   if (untilIso) ownedQuery = ownedQuery.lte('completed_at', untilIso);
@@ -404,7 +413,12 @@ export async function getMyCompletedWork(
 
   const records: CompletedRecord[] = [
     ...(owned.data ?? []).map((row) => ({
-      kind: 'owned' as const,
+      /*
+       * §20 counts three delivery types, and a routine occurrence is one of
+       * them. It used to be folded into owned work, so ten scheduled checks
+       * and one Major Project were the same kind of thing in the same list.
+       */
+      kind: (row.work_class === 'routine_occurrence' ? 'routine' : 'owned') as 'owned' | 'routine',
       key: `task:${String(row.id)}`,
       taskId: String(row.id),
       title: String(row.title),
@@ -412,6 +426,11 @@ export async function getMyCompletedWork(
       parentTitle: null,
       parentOwnerName: null,
       contributorName: null,
+      // §20 — an occurrence is identified by its date and where it was
+      // recorded, because the title repeats every week.
+      occurrenceDate: row.occurrence_date ? String(row.occurrence_date) : null,
+      area: row.routine_area ? String(row.routine_area) : null,
+      evidenceCount: Number(row.evidence_count ?? 0),
       completedAt: row.completed_at ? String(row.completed_at) : null,
     })),
     ...(contributed.data ?? []).map((row) => ({
@@ -423,6 +442,9 @@ export async function getMyCompletedWork(
       parentTitle: row.parent_title ? String(row.parent_title) : null,
       parentOwnerName: row.primary_owner_name ? String(row.primary_owner_name) : null,
       contributorName: null,
+      occurrenceDate: null,
+      area: null,
+      evidenceCount: 0,
       completedAt: row.completed_at ? String(row.completed_at) : null,
     })),
     ...(received.data ?? []).map((row) => ({
@@ -434,6 +456,9 @@ export async function getMyCompletedWork(
       parentTitle: row.parent_title ? String(row.parent_title) : null,
       parentOwnerName: null,
       contributorName: row.assignee_name ? String(row.assignee_name) : null,
+      occurrenceDate: null,
+      area: null,
+      evidenceCount: 0,
       completedAt: row.completed_at ? String(row.completed_at) : null,
     })),
   ];
@@ -3595,8 +3620,9 @@ export async function getTeamDeliveredWork(
 
   const ownedQuery = supabase
     .from('task_overview')
-    .select('id,title,work_class,completed_at,primary_owner_id')
-    .in('primary_owner_id', ownerIds)
+    // §20 — grouped by who owned it at completion, not by who owns it today.
+    .select('id,title,work_class,completed_at,completed_owner_id')
+    .in('completed_owner_id', ownerIds)
     .eq('status', 'completed')
     .gte('completed_at', period.since)
     .order('completed_at', { ascending: false })
@@ -3628,7 +3654,7 @@ export async function getTeamDeliveredWork(
   }
 
   for (const row of owned.data ?? []) {
-    byOwner.get(String(row.primary_owner_id))?.records.push({
+    byOwner.get(String(row.completed_owner_id))?.records.push({
       id: String(row.id),
       taskId: String(row.id),
       // A routine occurrence closes every week and a Major Project once a
@@ -3717,10 +3743,17 @@ export async function getTeamMemberDetail(
         .in('status', ['draft', 'pending_discussion', 'active'])
         .order('target_date', { ascending: true })
         .limit(100),
+      /*
+       * §20 — attributed to whoever owned it AT COMPLETION.
+       *
+       * Reading `primary_owner_id` meant a reassignment months later moved a
+       * finished piece of work out of one person's history and into another's,
+       * and last quarter's figures changed with it.
+       */
       supabase
         .from('task_overview')
-        .select('id,title,work_class,completed_at')
-        .eq('primary_owner_id', personId)
+        .select('id,title,work_class,completed_at,occurrence_date,routine_area,evidence_count')
+        .eq('completed_owner_id', personId)
         .eq('status', 'completed')
         .gte('completed_at', completedSince)
         .lte('completed_at', completedUntil ?? '9999-12-31T23:59:59.999Z')

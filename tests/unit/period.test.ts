@@ -35,11 +35,31 @@ describe('resolvePeriod', () => {
     expect(resolvePeriod('90', undefined, undefined, NOW).key).toBe('90');
   });
 
-  it('rolls day counts back from now, so a list is never empty at 00:05', () => {
-    expect(resolvePeriod('30', undefined, undefined, NOW).since).toBe('2026-08-01T04:00:00.000Z');
-    expect(resolvePeriod('90', undefined, undefined, NOW).since).toBe('2026-06-02T04:00:00.000Z');
+  it('counts whole local days, so a day is either in the window or out of it', () => {
+    /*
+     * §20 — "Rolling 30 days means today and the preceding 29 local calendar
+     * days." It used to subtract thirty times twenty-four hours from the
+     * instant, which made the oldest day a partial one: at noon, work closed
+     * that morning thirty days ago fell outside a window whose label says the
+     * day is in it, and two people reading the figure an hour apart got
+     * different answers about the same day.
+     *
+     * NOW is midday in Kuala Lumpur on 31 August. Thirty days ending today
+     * opens at local midnight on 2 August, which is 16:00 UTC on the 1st.
+     */
+    expect(resolvePeriod('30', undefined, undefined, NOW).since).toBe('2026-08-01T16:00:00.000Z');
+    expect(resolvePeriod('90', undefined, undefined, NOW).since).toBe('2026-06-02T16:00:00.000Z');
     // Open-ended: a rolling count runs up to now.
     expect(resolvePeriod('30', undefined, undefined, NOW).until).toBeNull();
+  });
+
+  it('does not move as the day goes on', () => {
+    // The same day read at 00:05 and at 23:55 covers the same thirty days.
+    const earlyLocal = new Date('2026-08-30T16:05:00.000Z');
+    const lateLocal = new Date('2026-08-31T15:55:00.000Z');
+    expect(resolvePeriod('30', undefined, undefined, earlyLocal).since).toBe(
+      resolvePeriod('30', undefined, undefined, lateLocal).since,
+    );
   });
 
   it('closes the periods that have an end, which the old window could not', () => {

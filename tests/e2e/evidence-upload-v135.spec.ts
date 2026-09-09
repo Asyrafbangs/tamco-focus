@@ -119,3 +119,62 @@ test('the completion counts what is attached, not what was chosen', async ({ pag
     timeout: 20_000,
   });
 });
+
+/**
+ * v151 §18 — a refused upload holds the completion, and says which file.
+ *
+ * "Do not complete while any selected file is pending, failed or rejected.
+ * Explain the specific blocker. The employee may retry or explicitly remove
+ * the failing file, after which remaining files must still satisfy the rule."
+ *
+ * The form used to count only the files that had succeeded, so somebody could
+ * attach three, watch two be refused, and complete on the strength of the one
+ * that landed — with the record then claiming evidence nobody could find.
+ *
+ * The refusal is forced by the allow-list rather than by timing: an executable
+ * is exactly what §19 says must never be stored, so this is a real rejection
+ * rather than a simulated one.
+ */
+test('§18 completion waits for a file that was refused, and says which', async ({ page }) => {
+  await signIn(page, 'izzah@tamco.local');
+  if (!(await openCompletion(page))) test.skip(true, 'Nothing completable in this seed.');
+
+  const dialog = page.getByRole('dialog', { name: 'Complete work' });
+  /*
+   * By type, not by name: the submit relabels itself to "N requirements
+   * remaining" while anything is outstanding, which is the behaviour under
+   * test and would make a name-based locator resolve to nothing exactly when
+   * it matters.
+   */
+  const complete = dialog.locator('button[type="submit"]');
+  const chooser = page.locator('.evidence-zone input[type="file"]').first();
+
+  // One good file and one the server will not store.
+  await chooser.setInputFiles([
+    csv('readings.csv', 'a\n1\n'),
+    { name: 'tool.exe', mimeType: 'application/x-msdownload', buffer: Buffer.from('MZ') },
+  ]);
+
+  const refused = page.locator('.evidence-item', { hasText: 'tool.exe' });
+  await expect(refused).toContainText(/not|refus|fail/i, { timeout: 20_000 });
+
+  /*
+   * §18 — blocked, and specific about why. "You cannot complete yet" leaves
+   * somebody unable to tell whether to wait or to act, and those are different
+   * sentences.
+   */
+  await expect(complete).toBeDisabled();
+  await expect(dialog).toContainText(/could not be uploaded/i);
+
+  // The good one is untouched, which is the other half of the rule: a refusal
+  // must not throw away the files that landed.
+  await expect(page.locator('.evidence-item', { hasText: 'readings.csv' })).toContainText(
+    'Attached',
+    { timeout: 20_000 },
+  );
+
+  // Removing the refused file leaves a selection that satisfies the rule.
+  await refused.getByRole('button', { name: /Remove/i }).click();
+  await expect(refused).toHaveCount(0);
+  await expect(complete).toBeEnabled();
+});

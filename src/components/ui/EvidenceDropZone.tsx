@@ -92,8 +92,15 @@ export function EvidenceDropZone({
   maxBytes?: number;
   disabled?: boolean;
   label?: string;
-  /** So the form around this can say what is still outstanding. */
-  onCountChange?: (count: number) => void;
+  /**
+   * So the form around this can say what is still outstanding.
+   *
+   * The whole picture, not just the attached count. §18: completion must not
+   * be possible "while any selected file is pending, failed or rejected", and
+   * a form that only knows how many succeeded cannot say which of those it is
+   * waiting on.
+   */
+  onCountChange?: (summary: { attached: number; pending: number; failed: number }) => void;
   /**
    * Upload each file as it arrives, rather than posting them with the form.
    *
@@ -134,7 +141,25 @@ export function EvidenceDropZone({
       const body = new FormData();
       body.set('taskId', uploadTo.taskId);
       body.set('file', file);
-      const result = await uploadTo.upload(body);
+
+      /*
+       * A refused request is a failed upload, not a permanent "Uploading…".
+       *
+       * The action returns `{ ok: false }` for anything the server decided.
+       * A connection that drops mid-request never returns at all — it throws —
+       * and without this the row stayed on "Uploading…" for ever: no Retry,
+       * no Remove, and a completion that could never be finished because the
+       * form was still waiting for a file that was never coming. §18 asks for
+       * connectivity loss to be handled without discarding the note or the
+       * files that did land, which begins with noticing it.
+       */
+      let result: { ok: boolean; message: string };
+      try {
+        result = await uploadTo.upload(body);
+      } catch {
+        result = { ok: false, message: 'Upload failed — check your connection and retry.' };
+      }
+
       setStaged((current) =>
         current.map((entry, position) =>
           position === index
@@ -220,15 +245,25 @@ export function EvidenceDropZone({
   const attachedCount = uploadTo
     ? staged.filter((entry) => entry.state === 'attached').length
     : files.length;
+  /*
+   * Chosen but not yet on the record, and chosen but refused.
+   *
+   * Without `uploadTo` nothing uploads here — the files post with the form —
+   * so there is nothing outstanding to report.
+   */
+  const pendingCount = uploadTo
+    ? staged.filter((entry) => entry.state === 'ready' || entry.state === 'uploading').length
+    : 0;
+  const failedCount = uploadTo ? staged.filter((entry) => entry.state === 'failed').length : 0;
 
   /*
    * Reported from the state rather than from inside the upload loop, so the
-   * number the form sees is always how many are actually on the record - not
-   * how far a loop had got when it last called back.
+   * numbers the form sees are always what is actually on the record - not how
+   * far a loop had got when it last called back.
    */
   useEffect(() => {
-    onCountChange?.(attachedCount);
-  }, [attachedCount, onCountChange]);
+    onCountChange?.({ attached: attachedCount, pending: pendingCount, failed: failedCount });
+  }, [attachedCount, pendingCount, failedCount, onCountChange]);
 
   return (
     <div ref={rootRef} className="evidence-zone" data-drop-zone>

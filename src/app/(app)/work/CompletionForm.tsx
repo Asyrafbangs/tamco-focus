@@ -68,7 +68,16 @@ export function CompletionForm({
 }) {
   const [busy, startTransition] = useTransition();
   const [noteOpen, setNoteOpen] = useState(false);
-  const [staged, setStaged] = useState(0);
+  /*
+   * §18 — what has been chosen, and where each one got to.
+   *
+   * Not just how many succeeded. Completion must not be possible "while any
+   * selected file is pending, failed or rejected", and a form that only counted
+   * successes let somebody attach three files, watch two fail, and complete on
+   * the strength of the one that landed.
+   */
+  const [uploads, setUploads] = useState({ attached: 0, pending: 0, failed: 0 });
+  const staged = uploads.attached;
   const [note, setNote] = useState('');
   const working = pending || busy;
   const stepsOutstanding = stepsTotal - stepsCompleted;
@@ -89,7 +98,11 @@ export function CompletionForm({
     staged > 0 ||
     (evidenceRule === 'file_or_note' && note.trim().length > 0);
 
-  const canComplete = readyToComplete && evidenceSatisfied;
+  const uploadsSettled = uploads.pending === 0 && uploads.failed === 0;
+  const canComplete = readyToComplete && evidenceSatisfied && uploadsSettled;
+  const plural = (count: number, one: string, many: string) =>
+    `${count} ${count === 1 ? one : many}`;
+
   const outstanding = [
     ...blockers,
     ...(evidenceSatisfied
@@ -99,6 +112,21 @@ export function CompletionForm({
             ? 'a file is required'
             : 'a file or a completion note is required',
         ]),
+    /*
+     * §18 — the specific blocker, not "you cannot complete yet". Somebody
+     * looking at a greyed-out button needs to know whether to wait or to act,
+     * and those are different sentences.
+     */
+    ...(uploads.pending > 0
+      ? [`${plural(uploads.pending, 'file is', 'files are')} still uploading`]
+      : []),
+    ...(uploads.failed > 0
+      ? [
+          `${plural(uploads.failed, 'file', 'files')} could not be uploaded — retry or remove ${
+            uploads.failed === 1 ? 'it' : 'them'
+          }`,
+        ]
+      : []),
   ];
 
   return (
@@ -189,7 +217,7 @@ export function CompletionForm({
             an open task, which the completion gate already counts.
           */}
           <EvidenceDropZone
-            onCountChange={setStaged}
+            onCountChange={setUploads}
             uploadTo={{ taskId, upload: uploadTaskEvidence }}
           />
         </div>

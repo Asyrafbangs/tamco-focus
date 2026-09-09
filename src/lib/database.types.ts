@@ -5742,6 +5742,8 @@ export type Database = {
           classification_rule_code: string | null
           classification_rule_text: string | null
           completed_at: string | null
+          completed_by: string | null
+          completed_owner_id: string | null
           completion_evidence_instruction: string | null
           completion_evidence_rule: string
           created_at: string
@@ -5797,6 +5799,8 @@ export type Database = {
           classification_rule_code?: string | null
           classification_rule_text?: string | null
           completed_at?: string | null
+          completed_by?: string | null
+          completed_owner_id?: string | null
           completion_evidence_instruction?: string | null
           completion_evidence_rule?: string
           created_at?: string
@@ -5852,6 +5856,8 @@ export type Database = {
           classification_rule_code?: string | null
           classification_rule_text?: string | null
           completed_at?: string | null
+          completed_by?: string | null
+          completed_owner_id?: string | null
           completion_evidence_instruction?: string | null
           completion_evidence_rule?: string
           created_at?: string
@@ -5961,6 +5967,76 @@ export type Database = {
           {
             foreignKeyName: "tasks_assigned_by_fkey"
             columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_owner_id_fkey"
+            columns: ["completed_owner_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_owner_id_fkey"
+            columns: ["completed_owner_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_owner_id_fkey"
+            columns: ["completed_owner_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_owner_id_fkey"
+            columns: ["completed_owner_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_owner_id_fkey"
+            columns: ["completed_owner_id"]
             isOneToOne: false
             referencedRelation: "user_profiles"
             referencedColumns: ["id"]
@@ -9034,6 +9110,8 @@ export type Database = {
           classification_rule_text: string | null
           collaborator_count: number | null
           completed_at: string | null
+          completed_by: string | null
+          completed_owner_id: string | null
           completion_evidence_instruction: string | null
           completion_evidence_rule: string | null
           created_at: string | null
@@ -9104,6 +9182,41 @@ export type Database = {
           {
             foreignKeyName: "tasks_assigned_by_fkey"
             columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_by_fkey"
+            columns: ["completed_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
             referencedColumns: ["id"]
