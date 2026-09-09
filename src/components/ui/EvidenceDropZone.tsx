@@ -266,7 +266,18 @@ export function EvidenceDropZone({
   }, [attachedCount, pendingCount, failedCount, onCountChange]);
 
   return (
-    <div ref={rootRef} className="evidence-zone" data-drop-zone>
+    /*
+      §18 — the whole panel takes the drop, not this box.
+      
+      This element used to carry `data-drop-zone`, which made it the target:
+      `closest('[data-drop-zone]')` finds the anchor itself first, so the zone
+      stopped at the bordered evidence area. §18 asks for "the entire
+      completion panel", because somebody dragging a photograph aims at what
+      they have been reading rather than at a control. Without the marker the
+      hook walks up to the form, which is exactly that panel — and the
+      bordered area inside stays clickable and droppable in its own right.
+    */
+    <div ref={rootRef} className="evidence-zone">
       <input
         ref={inputRef}
         id={id}
@@ -336,12 +347,24 @@ export function EvidenceDropZone({
 
       {files.length > 0 && (
         <div className="evidence-list" aria-live="polite">
+          {/*
+            §18 — the summary says what is actually happening.
+
+            It used to read "Uploading 2 of 2…" whenever the attached count was
+            short of the total, which is also true when one of them has
+            FAILED — so a list showing one attached and one refused was headed
+            by a sentence claiming both were still in flight. Nothing was
+            uploading, and the only line describing the group as a whole said
+            otherwise.
+          */}
           <p className="evidence-list-head">
-            {uploadTo
-              ? attachedCount === files.length
-                ? `${files.length} file${files.length === 1 ? '' : 's'} attached`
-                : `Uploading ${Math.min(attachedCount + 1, files.length)} of ${files.length}…`
-              : `${files.length} file${files.length === 1 ? '' : 's'} ready`}
+            {!uploadTo
+              ? `${files.length} file${files.length === 1 ? '' : 's'} ready`
+              : pendingCount > 0
+                ? `Uploading ${Math.min(attachedCount + 1, files.length)} of ${files.length}…`
+                : failedCount > 0
+                  ? `${attachedCount} of ${files.length} attached · ${failedCount} could not be uploaded`
+                  : `${files.length} file${files.length === 1 ? '' : 's'} attached`}
           </p>
           {files.map((file, index) => {
             const kind = kindOf(file);

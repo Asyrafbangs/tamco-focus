@@ -178,3 +178,78 @@ test('§18 completion waits for a file that was refused, and says which', async 
   await expect(refused).toHaveCount(0);
   await expect(complete).toBeEnabled();
 });
+
+/**
+ * v151 §18, A22 — a file dropped anywhere on the panel is uploaded once.
+ *
+ * The whole completion panel is the drop target, not the bordered evidence
+ * box inside it: somebody dragging a photograph aims at what they have been
+ * reading, not at a control. Two things have to hold for that to be safe —
+ * the browser must not navigate away from the page (its default for a dropped
+ * file, which would throw away the note), and the nested handlers must not
+ * take the same file twice.
+ */
+test('§18 a file dropped on the panel uploads once and does not navigate', async ({ page }) => {
+  await signIn(page, 'izzah@tamco.local');
+  if (!(await openCompletion(page))) test.skip(true, 'Nothing completable in this seed.');
+
+  const before = page.url();
+
+  // Dropped on the note area, which is inside the panel and outside the
+  // bordered evidence box.
+  const target = page.locator('.completion-form');
+  await expect(target).toBeVisible();
+
+  await target.evaluate((zone) => {
+    const data = new DataTransfer();
+    data.items.add(new File(['a,b\n1,2\n'], 'dropped.csv', { type: 'text/csv' }));
+    zone.dispatchEvent(new DragEvent('dragenter', { bubbles: true, dataTransfer: data }));
+    zone.dispatchEvent(new DragEvent('dragover', { bubbles: true, dataTransfer: data }));
+    zone.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: data }));
+  });
+
+  const rows = page.locator('.evidence-item', { hasText: 'dropped.csv' });
+  await expect(rows).toContainText('Attached', { timeout: 20_000 });
+  // Once, not once per handler it passed through on the way up.
+  await expect(rows).toHaveCount(1);
+
+  // And the page is still the page: the browser's default for a dropped file
+  // is to open it, which would take the note with it.
+  expect(page.url()).toBe(before);
+  await expect(page.getByRole('dialog', { name: 'Complete work' })).toBeVisible();
+});
+
+/**
+ * v151 §19, A25 — the camera is an extra route, not the only one.
+ *
+ * `capture` is what turns a chooser into the camera on a phone, and putting it
+ * on the one input would constrain every upload to a photograph — so somebody
+ * whose evidence is the completed assessment workbook would have no way to
+ * attach it. Two inputs: one for the camera, one for everything.
+ */
+test('§19 the camera route does not become the only route', async ({ page }) => {
+  await signIn(page, 'izzah@tamco.local');
+  if (!(await openCompletion(page))) test.skip(true, 'Nothing completable in this seed.');
+
+  const zone = page.locator('.evidence-zone');
+  const camera = zone.locator('input[type="file"][capture]');
+  const chooser = zone.locator('input[type="file"]:not([capture])');
+
+  await expect(camera).toHaveCount(1);
+  await expect(chooser).toHaveCount(1);
+
+  // The general chooser takes documents and takes several at once. A single
+  // input carrying `capture` could do neither.
+  await expect(chooser).toHaveAttribute('multiple', '');
+  const accept = (await chooser.getAttribute('accept')) ?? '';
+  for (const kind of ['pdf', '.xls', '.doc']) {
+    expect(accept.toLowerCase(), `the chooser refuses ${kind} files`).toContain(kind);
+  }
+
+  // And it still works after the camera has been offered.
+  await chooser.setInputFiles([csv('workbook.csv', 'a\n1\n')]);
+  await expect(page.locator('.evidence-item', { hasText: 'workbook.csv' })).toContainText(
+    'Attached',
+    { timeout: 20_000 },
+  );
+});
