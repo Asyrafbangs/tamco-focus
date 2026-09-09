@@ -9,6 +9,8 @@
 
 import { z } from 'zod';
 
+import { DEFAULT_ALLOWED_MIME_TYPES } from '@/domain/attachment-policy';
+
 const publicSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
@@ -37,33 +39,11 @@ export const attachmentPolicy = {
   maxBytes: Number(process.env.ATTACHMENT_MAX_BYTES ?? 10_485_760),
   /*
    * What an organisation actually files as proof of work: photographs, a
-   * report, a spreadsheet of readings, a deck. The list previously stopped at
-   * PDF and images, so somebody whose evidence was the completed assessment
-   * workbook had nothing they could attach.
-   *
-   * Executables and scripts are not on it and must not be added: this is the
-   * allow-list, so anything unnamed is already refused.
+   * report, a spreadsheet of readings, a deck. The list itself lives in
+   * `@/domain/attachment-policy` alongside the rules that apply it, so the
+   * file choosers and the storage bucket can be held to the same one.
    */
-  allowedMimeTypes: (
-    process.env.ATTACHMENT_ALLOWED_MIME ??
-    [
-      'image/png',
-      'image/jpeg',
-      'image/webp',
-      'image/gif',
-      'image/heic',
-      'image/heif',
-      'application/pdf',
-      'text/plain',
-      'text/csv',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-powerpoint',
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    ].join(',')
-  )
+  allowedMimeTypes: (process.env.ATTACHMENT_ALLOWED_MIME ?? DEFAULT_ALLOWED_MIME_TYPES.join(','))
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean),

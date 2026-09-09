@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useRef, useState, useTransition } from 'react';
 
+import { ATTACHMENT_ACCEPT } from '@/domain/attachment-policy';
 import { latestPlausibleDate } from '@/domain/delivery';
 import { COMPLETION_EVIDENCE_LABELS, type CompletionEvidenceRule } from '@/domain/types';
 import { classifyCapture, type CaptureWorkType } from '@/domain/classification';
@@ -593,7 +594,7 @@ export function CaptureWork({
                 type="file"
                 aria-label="Attach files"
                 multiple
-                accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/csv,.xlsx,.docx"
+                accept={ATTACHMENT_ACCEPT}
                 onChange={(event) => event.target.files && addFiles(event.target.files)}
               />
             </div>

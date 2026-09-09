@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { extensionOf, refuseAttachments, type CandidateFile } from '@/domain/attachment-policy';
+import {
+  ATTACHMENT_ACCEPT,
+  DEFAULT_ALLOWED_MIME_TYPES,
+  extensionOf,
+  REFUSED_EXTENSIONS,
+  refuseAttachments,
+  type CandidateFile,
+} from '@/domain/attachment-policy';
 
 /**
  * What may be stored as evidence.
@@ -107,5 +114,64 @@ describe('refuseAttachments', () => {
     expect(extensionOf('archive.tar.gz')).toBe('gz');
     expect(extensionOf('no-extension')).toBe('');
     expect(extensionOf('.hidden')).toBe('hidden');
+  });
+});
+
+/**
+ * v152 §19 — "Do not advertise formats the pipeline rejects."
+ *
+ * There were four lists of acceptable formats: the storage bucket's, the
+ * server allow-list, the completion panel's chooser and the task drawer's
+ * picker. They disagreed in both directions. The bucket refused HEIC, legacy
+ * .doc and .xls, and every PowerPoint file, so a panel reading "Photos · PDF ·
+ * Word · Excel · PowerPoint" could not store a deck at all — and the drawer's
+ * picker offered a narrower set again, so the same photograph was acceptable
+ * on one screen and not on the next.
+ *
+ * These assertions are cheap and they are the reason the lists cannot drift
+ * apart silently again. The bucket is held to the same list from
+ * `tests/integration/storage-object-access-v152.test.ts`, which is the only
+ * place that can actually try an upload.
+ */
+describe('the advertised formats', () => {
+  it('offers every type the server will accept', () => {
+    const offered = ATTACHMENT_ACCEPT.split(',');
+    for (const type of DEFAULT_ALLOWED_MIME_TYPES) {
+      expect(offered, `the chooser hides ${type}, which the server accepts`).toContain(type);
+    }
+  });
+
+  it('names no type the server will refuse', () => {
+    const types = ATTACHMENT_ACCEPT.split(',').filter((entry) => !entry.startsWith('.'));
+    for (const type of types) {
+      expect(
+        DEFAULT_ALLOWED_MIME_TYPES as readonly string[],
+        `the chooser offers ${type}, which the server refuses`,
+      ).toContain(type);
+    }
+  });
+
+  it('hints the extensions of the formats an operating system types poorly', () => {
+    /*
+     * Windows reports no MIME type for some legacy Office documents, and
+     * `accept` filters what the file dialogue will show: without these, the
+     * document somebody was told to attach is greyed out with no explanation.
+     */
+    const hints = ATTACHMENT_ACCEPT.split(',').filter((entry) => entry.startsWith('.'));
+    for (const extension of ['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.heic']) {
+      expect(hints).toContain(extension);
+    }
+  });
+
+  it('offers nothing that is refused by name', () => {
+    // An allow-list that named a macro-enabled document would be two rules
+    // contradicting each other, and the more permissive one would be the one
+    // people noticed.
+    const hints = ATTACHMENT_ACCEPT.split(',')
+      .filter((entry) => entry.startsWith('.'))
+      .map((entry) => entry.slice(1));
+    for (const extension of hints) {
+      expect(REFUSED_EXTENSIONS).not.toContain(extension);
+    }
   });
 });

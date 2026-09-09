@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 
+import { ATTACHMENT_ACCEPT } from '@/domain/attachment-policy';
+
 import { useFileDropZone } from './useFileDropZone';
 
 /**
@@ -21,24 +23,6 @@ import { useFileDropZone } from './useFileDropZone';
  * workflow for an inspection or a Gemba walk: open the routine, photograph
  * what you found, complete.
  */
-
-const DEFAULT_ACCEPT = [
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/gif',
-  'image/heic',
-  'image/heif',
-  'application/pdf',
-  'text/plain',
-  'text/csv',
-  '.doc',
-  '.docx',
-  '.xls',
-  '.xlsx',
-  '.ppt',
-  '.pptx',
-].join(',');
 
 const DEFAULT_MAX_BYTES = 10_485_760;
 
@@ -80,7 +64,7 @@ type Staged = {
 
 export function EvidenceDropZone({
   name = 'files',
-  accept = DEFAULT_ACCEPT,
+  accept = ATTACHMENT_ACCEPT,
   maxBytes = DEFAULT_MAX_BYTES,
   disabled = false,
   label = 'Drag and drop evidence here',

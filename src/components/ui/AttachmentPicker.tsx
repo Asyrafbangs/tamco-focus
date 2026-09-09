@@ -2,11 +2,11 @@
 
 import { useCallback, useId, useRef, useState } from 'react';
 
+import { ATTACHMENT_ACCEPT } from '@/domain/attachment-policy';
+
 import { AttachmentChip } from './ParityPrimitives';
 import { useFileDropZone } from './useFileDropZone';
 
-const DEFAULT_ACCEPT =
-  'image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/csv,.xlsx,.docx';
 const DEFAULT_MAX_BYTES = 10_485_760;
 
 function fileSize(value: number) {
@@ -28,7 +28,7 @@ export function AttachmentPicker({
   multiple = true,
   required = false,
   disabled = false,
-  accept = DEFAULT_ACCEPT,
+  accept = ATTACHMENT_ACCEPT,
   maxBytes = DEFAULT_MAX_BYTES,
   hint,
 }: {

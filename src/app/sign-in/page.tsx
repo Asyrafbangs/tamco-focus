@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
+import { safeReturnPath } from '@/domain/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 /**
@@ -22,7 +23,20 @@ export default async function SignInPage({
 
     const email = String(formData.get('email') ?? '').trim();
     const password = String(formData.get('password') ?? '');
-    const next = String(formData.get('next') ?? '/today');
+    /*
+     * The field is in the posted form, so it is chosen by whoever built the
+     * link rather than by us. `next.startsWith('/')` was the whole of the
+     * old check, and `//attacker.example` starts with a slash and is an
+     * absolute URL to somebody else's site: the real sign-in page, on the
+     * real domain, taking a real password and then handing the person to a
+     * copy of it.
+     *
+     * `safeReturnPath` already existed for exactly this, guarding the task
+     * drawer's `from` parameter. Sign-in was the one place that rolled its
+     * own, which is the more usual shape of this bug than nobody having
+     * thought about it.
+     */
+    const next = safeReturnPath(String(formData.get('next') ?? '/today'), '/today');
 
     if (!email || !password) {
       redirect('/sign-in?error=missing');
@@ -37,7 +51,7 @@ export default async function SignInPage({
       redirect('/sign-in?error=invalid');
     }
 
-    redirect(next.startsWith('/') ? next : '/today');
+    redirect(next);
   }
 
   const errorMessage =
@@ -77,7 +91,7 @@ export default async function SignInPage({
         )}
 
         <form action={signIn}>
-          <input type="hidden" name="next" value={params.next ?? '/today'} />
+          <input type="hidden" name="next" value={safeReturnPath(params.next, '/today')} />
 
           <div className="field">
             <label htmlFor="email">Email address</label>

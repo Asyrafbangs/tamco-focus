@@ -65,43 +65,47 @@ today (§14).
 In `release-shots/`, captured from the seeded local fixtures — approved test
 data, not production records. Desktop is 1280×1000, mobile 390×844.
 
-| §25 row | File |
-| --- | --- |
-| Employee Focus Active | `{desktop,mobile}-employee-focus-active.png` |
-| Employee task drawer | `{desktop,mobile}-employee-task-drawer.png` |
-| Employee Shared | `{desktop,mobile}-employee-shared.png` |
-| Employee Routine | `{desktop,mobile}-employee-routine.png` |
-| Completion empty | `{desktop,mobile}-completion-empty.png` |
-| Completion uploading/blocked | `{desktop,mobile}-completion-blocked.png` |
-| Completion ready | `{desktop,mobile}-completion-ready.png` |
-| Manager Team | `{desktop,mobile}-manager-team.png` |
-| Manager expanded person | `{desktop,mobile}-manager-person-expanded.png` |
-| Manager Not started | `{desktop,mobile}-manager-not-started.png` |
-| Manager Completed | `{desktop,mobile}-manager-completed.png` |
-| Skip review | `{desktop,mobile}-manager-skip-review.png`, `desktop-skip-awaiting-review.png` |
+| §25 row                      | File                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------ |
+| Employee Focus Active        | `{desktop,mobile}-employee-focus-active.png`                                   |
+| Employee task drawer         | `{desktop,mobile}-employee-task-drawer.png`                                    |
+| Employee Shared              | `{desktop,mobile}-employee-shared.png`                                         |
+| Employee Routine             | `{desktop,mobile}-employee-routine.png`                                        |
+| Completion empty             | `{desktop,mobile}-completion-empty.png`                                        |
+| Completion uploading/blocked | `{desktop,mobile}-completion-blocked.png`                                      |
+| Completion ready             | `{desktop,mobile}-completion-ready.png`                                        |
+| Manager Team                 | `{desktop,mobile}-manager-team.png`                                            |
+| Manager expanded person      | `{desktop,mobile}-manager-person-expanded.png`                                 |
+| Manager Not started          | `{desktop,mobile}-manager-not-started.png`                                     |
+| Manager Completed            | `{desktop,mobile}-manager-completed.png`                                       |
+| Skip review                  | `{desktop,mobile}-manager-skip-review.png`, `desktop-skip-awaiting-review.png` |
 
 ---
 
 ## 3. What the database now holds
 
-Twelve migrations, all additive. No column, enum value or row of history was
-removed; §11 asks for old values to be preserved for audit and downstream
-compatibility and they are.
+Thirteen migrations. Twelve are additive: no column, enum value or row of
+history was removed, and §11 asks for old values to be preserved for audit and
+downstream compatibility, which they are. The thirteenth, `v152`, widens the
+attachment bucket's list of acceptable file types — it changes one
+configuration row and stores nothing, and everything already in the bucket
+remains readable.
 
-| Migration | What it adds or changes |
-| --- | --- |
-| `v140_explicit_current_focus` | `current_focus` table, its RPCs and the triggers that clear a selection when the work closes or moves |
-| `v141_weekly_commitments` | `weekly_commitments`, its change requests and events, eight RPCs, and `weekly_commitment_overview` with a derived delivery outcome |
-| `v141_current_week_helper` | `public.current_week_start()` |
-| `v144_retire_focus_targets` | `activate_task` no longer gates on the focus target or demands a reason; deletes the `focus.reason_required_when_replacing` setting row |
-| `v145_work_purpose_event_type` | `work_purpose_set` audit event |
-| `v145_work_purpose` | `work_purpose` enum, the column on tasks / routine templates / work captures, the unambiguous backfill, occurrence inheritance, `set_work_purpose`, and `assign_work_to_people` accepting a purpose |
-| `v146_shared_contribution_provenance` | `assigned_by` / `assigned_at` on checklist items with a trigger, and the two contribution views exposing the names |
-| `v147_routine_exception_withdrawn_types` | `withdrawn` exception state and its audit event |
-| `v147_routine_skip_withdrawal` | `withdraw_routine_exception`, the trigger that withdraws a pending request when the occurrence closes, and the guard that refuses a decision on closed work — **plus the cast that made `decide_routine_exception` work at all** |
-| `v148_urgent_capture_audit` | the same cast in `confirm_work_capture`, **which had never created anything on the urgent route** |
-| `v149_occurrence_snapshot` | `area` and `completion_opens_days_before` on templates; `routine_area` and `routine_completion_opens_on` on tasks; one inheritance trigger for everything an occurrence takes from its schedule; the completion window check |
-| `v150_completion_attribution` | `completed_owner_id` and `completed_by`, frozen at completion and cleared on reopening |
+| Migration                                | What it adds or changes                                                                                                                                                                                                          |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `v140_explicit_current_focus`            | `current_focus` table, its RPCs and the triggers that clear a selection when the work closes or moves                                                                                                                            |
+| `v141_weekly_commitments`                | `weekly_commitments`, its change requests and events, eight RPCs, and `weekly_commitment_overview` with a derived delivery outcome                                                                                               |
+| `v141_current_week_helper`               | `public.current_week_start()`                                                                                                                                                                                                    |
+| `v144_retire_focus_targets`              | `activate_task` no longer gates on the focus target or demands a reason; deletes the `focus.reason_required_when_replacing` setting row                                                                                          |
+| `v145_work_purpose_event_type`           | `work_purpose_set` audit event                                                                                                                                                                                                   |
+| `v145_work_purpose`                      | `work_purpose` enum, the column on tasks / routine templates / work captures, the unambiguous backfill, occurrence inheritance, `set_work_purpose`, and `assign_work_to_people` accepting a purpose                              |
+| `v146_shared_contribution_provenance`    | `assigned_by` / `assigned_at` on checklist items with a trigger, and the two contribution views exposing the names                                                                                                               |
+| `v147_routine_exception_withdrawn_types` | `withdrawn` exception state and its audit event                                                                                                                                                                                  |
+| `v147_routine_skip_withdrawal`           | `withdraw_routine_exception`, the trigger that withdraws a pending request when the occurrence closes, and the guard that refuses a decision on closed work — **plus the cast that made `decide_routine_exception` work at all** |
+| `v148_urgent_capture_audit`              | the same cast in `confirm_work_capture`, **which had never created anything on the urgent route**                                                                                                                                |
+| `v149_occurrence_snapshot`               | `area` and `completion_opens_days_before` on templates; `routine_area` and `routine_completion_opens_on` on tasks; one inheritance trigger for everything an occurrence takes from its schedule; the completion window check     |
+| `v150_completion_attribution`            | `completed_owner_id` and `completed_by`, frozen at completion and cleared on reopening                                                                                                                                           |
+| `v152_storage_mime_types`                | the attachment bucket's allow-list, widened to the formats §19 names and the interface offers                                                                                                                                    |
 
 ### Three procedures that had never worked
 
@@ -118,9 +122,44 @@ mistake, and none had a test:
    created nothing.** The only existing test of that destination asserts a
    refusal and returns before reaching the audit call.
 3. **`EvidenceDropZone.send`** awaited the upload without a catch. A refusal the
-   action *returns* was handled; a connection that drops throws — and the row
+   action _returns_ was handled; a connection that drops throws — and the row
    stayed on "Uploading…" for ever, with no Retry, no Remove, and a completion
    that could never be finished.
+
+### Two more that had never worked
+
+Found while closing A27 and A30, in the same way as the first three: by
+writing the test that had never been written.
+
+4. **The storage bucket refused six of the formats the product offers.** The
+   completion panel reads "Photos · PDF · Word · Excel · PowerPoint" and the
+   file chooser offers HEIC, `.doc`, `.xls`, `.ppt` and `.pptx`; the server
+   allow-list accepts all of them; and the bucket — created a month before
+   that list was agreed — answered `mime type image/heic is not supported`.
+   So **no PowerPoint file of any kind could be stored as evidence**, nor a
+   legacy Word or Excel document, nor an iPhone photograph, which is the most
+   likely file anybody has after walking an inspection. §19 says in as many
+   words: "Do not advertise formats the pipeline rejects." There were four
+   copies of the list — bucket, server, completion panel, task drawer — and
+   they disagreed in both directions; there is now one, in
+   `src/domain/attachment-policy.ts`, with `v152` setting the bucket from it
+   and tests on both sides.
+
+5. **`/sign-in?next=` was an open redirect.** The proxy sends an unauthenticated
+   request for an evidence link to sign-in and preserves where it was heading,
+   which is right. The only check on the destination was `startsWith('/')`, and
+   `//attacker.example` starts with a slash and is an absolute URL to another
+   origin. So
+
+       https://tamco-focus.vercel.app/sign-in?next=//attacker.example
+
+   showed the genuine sign-in page on the genuine domain, took a genuine
+   password, and then handed the person to a copy of it — the whole of a
+   credential-phishing chain, and the only difficult part of it supplied by us.
+   Confirmed by driving a browser through it before the fix: it landed on
+   another origin. `safeReturnPath` in `src/domain/navigation.ts` already
+   guarded the task drawer's `from` parameter against exactly this; sign-in was
+   the one place that rolled its own, which is the usual shape of this bug.
 
 ---
 
@@ -131,56 +170,58 @@ secret scan, format, lint, type check, unit, production build, production
 smoke, database reset, generated types match, RLS/database tests, integration
 tests, reset before end-to-end, end-to-end tests, restore seed data.
 
-Suite size: 175 end-to-end tests across 41 files, 209 integration tests across
-27, 202 unit tests across 21.
+Suite size: 42 end-to-end files, run at two widths each and at five for the
+layout specs — 371 passed and 44 skipped, the skips being the mutating
+scenarios that are deliberately run once rather than once per viewport. 219
+integration tests across 29 files, 264 unit tests across 21.
 
 ### Covered by a named test
 
-| ID | Where |
-| --- | --- |
-| A01–A03 | `e2e/person-expansion-v143` |
-| A04 | `e2e/weekly-priorities-v141`, `e2e/current-focus-v140`, `e2e/employee-focus-v146` |
-| A05 | `integration/weekly-commitments-v141`, `e2e/person-expansion-v143` |
-| A06 | `integration/weekly-commitments-v141`, `e2e/weekly-priorities-v141` |
-| A07 | `integration/weekly-commitments-v141` (baseline stands, supersede, refuse) |
-| A09 | `integration/weekly-commitments-v141` (carry-forward explicit and linked) |
-| A10 | `integration/weekly-commitments-v141` (delivered on task completion; a step delivers only the step) |
-| A11 | `integration/current-focus-v140` (13 tests) |
-| A12 | `integration/notification-email-v120`, `integration/task-shared-visibility-v56`, `integration/v46-attention` |
-| A13 | `e2e/employee-focus-v146` |
-| A14 | `integration/transactions` (activates past the target), `e2e/employee-focus-v146` |
-| A15 | `integration/work-purpose-v145` |
-| A16 | `e2e/completion-pattern-v133`, `integration/occurrence-snapshot-v149` |
-| A17 | `integration/routine-skip-v147`, `e2e/routine-skip-v147` |
-| A18 | `integration/completion-evidence-v134` |
-| A19 | `integration/completion-evidence-v134`, `e2e/completion-pattern-v133` |
-| A20 | `integration/completion-evidence-v134`, `e2e/completion-pattern-v133` |
-| A21 | `integration/acceptance-gaps-v151` |
-| A22 | `e2e/evidence-upload-v135` |
-| A23 | `e2e/evidence-upload-v135` |
-| A25 | `e2e/evidence-upload-v135` |
-| A26 | `integration/transactions`, `integration/v46-attention`, `integration/v47-meeting-scheduling` |
-| A28 | `unit/period` (whole local days; a window that does not move as the day goes on) |
-| A29 | `integration/acceptance-gaps-v151`, `integration/completion-attribution-v150` |
-| A31 | `integration/v45-collaboration`, `integration/v46-attention` |
-| A32 | `integration/notification-email-v120` |
-| A34 (null half) | `e2e/team-cockpit-v132` |
-| A35 | `integration/task-bin-v57`, `integration/v52-lifecycles`, `integration/task-edit-v55` |
-| A36 | `e2e/00-ui-parity`, `e2e/responsive-overflow-v118`, `e2e/drawer-focus-return-v138` |
-| A37 | `integration/urgent-capture-v148`, `integration/v45-collaboration` |
-| A38 | `integration/work-purpose-v145`, `occurrence-snapshot-v149`, `completion-attribution-v150` |
+| ID              | Where                                                                                                                             |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| A01–A03         | `e2e/person-expansion-v143`                                                                                                       |
+| A04             | `e2e/weekly-priorities-v141`, `e2e/current-focus-v140`, `e2e/employee-focus-v146`                                                 |
+| A05             | `integration/weekly-commitments-v141`, `e2e/person-expansion-v143`                                                                |
+| A06             | `integration/weekly-commitments-v141`, `e2e/weekly-priorities-v141`                                                               |
+| A07             | `integration/weekly-commitments-v141` (baseline stands, supersede, refuse)                                                        |
+| A09             | `integration/weekly-commitments-v141` (carry-forward explicit and linked)                                                         |
+| A10             | `integration/weekly-commitments-v141` (delivered on task completion; a step delivers only the step)                               |
+| A11             | `integration/current-focus-v140` (13 tests)                                                                                       |
+| A12             | `integration/notification-email-v120`, `integration/task-shared-visibility-v56`, `integration/v46-attention`                      |
+| A13             | `e2e/employee-focus-v146`                                                                                                         |
+| A14             | `integration/transactions` (activates past the target), `e2e/employee-focus-v146`                                                 |
+| A15             | `integration/work-purpose-v145`                                                                                                   |
+| A16             | `e2e/completion-pattern-v133`, `integration/occurrence-snapshot-v149`                                                             |
+| A17             | `integration/routine-skip-v147`, `e2e/routine-skip-v147`                                                                          |
+| A18             | `integration/completion-evidence-v134`                                                                                            |
+| A19             | `integration/completion-evidence-v134`, `e2e/completion-pattern-v133`                                                             |
+| A20             | `integration/completion-evidence-v134`, `e2e/completion-pattern-v133`                                                             |
+| A21             | `integration/acceptance-gaps-v151`                                                                                                |
+| A22             | `e2e/evidence-upload-v135`                                                                                                        |
+| A23             | `e2e/evidence-upload-v135`                                                                                                        |
+| A25             | `e2e/evidence-upload-v135`                                                                                                        |
+| A26             | `integration/transactions`, `integration/v46-attention`, `integration/v47-meeting-scheduling`                                     |
+| A27             | `integration/storage-object-access-v152`, `e2e/evidence-access-v152`                                                              |
+| A28             | `unit/period` (whole local days; a window that does not move as the day goes on)                                                  |
+| A29             | `integration/acceptance-gaps-v151`, `integration/completion-attribution-v150`                                                     |
+| A30             | `integration/storage-object-access-v152`, `e2e/evidence-access-v152`, `e2e/team-member-workload-v70`, `e2e/person-expansion-v143` |
+| A31             | `integration/v45-collaboration`, `integration/v46-attention`                                                                      |
+| A32             | `integration/notification-email-v120`                                                                                             |
+| A34 (null half) | `e2e/team-cockpit-v132`                                                                                                           |
+| A35             | `integration/task-bin-v57`, `integration/v52-lifecycles`, `integration/task-edit-v55`                                             |
+| A36             | `e2e/00-ui-parity`, `e2e/responsive-overflow-v118`, `e2e/drawer-focus-return-v138`                                                |
+| A37             | `integration/urgent-capture-v148`, `integration/v45-collaboration`                                                                |
+| A38             | `integration/work-purpose-v145`, `occurrence-snapshot-v149`, `completion-attribution-v150`                                        |
 
 ### Not fully verified — disclosed
 
-| ID | Position |
-| --- | --- |
-| **A08** | Urgent work can begin regardless of the week (`integration/urgent-capture-v148`), and a commitment is never displaced — its outcome is read from the work, so nothing needs to be undone. The "traceable" half rests on the audit trail; there is no test that names A08. |
-| **A24** | **Blocked by your decision to leave scanning as-is.** The allow-list, size and batch limits are enforced and tested — the new `tool.exe` case proves a real server-side refusal. There is no scanner, so `virus_scan_state` is not driven by one. §19 says to document the dependency rather than fake an accepted result; this is that disclosure. |
-| **A27** | Evidence remains openable by authorised readers and storage is private. Not tested: that a storage object URL is unusable when unauthenticated, and there is no Office viewer — those files download, which §19 permits. |
-| **A30** | Covered for person and aggregate URLs (`team-member-workload-v70`, `person-expansion-v143`). Not covered for storage object URLs. |
-| **A33** | The person expansion is lazy and paginates its active list; completed reads are capped at 400–500 rows rather than paged server-side. No scale test exists, so behaviour with a large team is reasoned, not measured. |
-| **A34** | The null half is covered. A legacy out-of-range date is rejected at capture, but existing historical rows carrying one are not flagged for review. |
-| **A36** | Keyboard, mobile sizing and overflow are covered per route. Long filenames specifically are not asserted. |
+| ID      | Position                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A08** | Urgent work can begin regardless of the week (`integration/urgent-capture-v148`), and a commitment is never displaced — its outcome is read from the work, so nothing needs to be undone. The "traceable" half rests on the audit trail; there is no test that names A08.                                                                                                                                                                                                                 |
+| **A24** | **Blocked by your decision to leave scanning as-is.** The allow-list, size and batch limits are enforced and tested — the `tool.exe` case proves a real server-side refusal in the browser and `integration/storage-object-access-v152` proves the bucket refuses the same file independently of any application code. There is no scanner, so `virus_scan_state` is not driven by one. §19 says to document the dependency rather than fake an accepted result; this is that disclosure. |
+| **A33** | The person expansion is lazy and paginates its active list; completed reads are capped at 400–500 rows rather than paged server-side. No scale test exists, so behaviour with a large team is reasoned, not measured.                                                                                                                                                                                                                                                                     |
+| **A34** | The null half is covered. A legacy out-of-range date is rejected at capture, but existing historical rows carrying one are not flagged for review.                                                                                                                                                                                                                                                                                                                                        |
+| **A36** | Keyboard, mobile sizing and overflow are covered per route. Long filenames specifically are not asserted.                                                                                                                                                                                                                                                                                                                                                                                 |
 
 ---
 
@@ -207,12 +248,19 @@ where assignment is broken.
 `focus.reason_required_when_replacing` setting row is deleted by `v144`; the
 admin settings page no longer offers it.
 
+`v152` is the one migration that changes what production accepts rather than
+what it stores: until it runs, HEIC photographs, legacy Word and Excel
+documents and every PowerPoint file are refused at upload, whatever the
+interface says. It is safe in either order relative to the application build —
+a wider bucket accepts everything the old build sent, and the old bucket
+refuses the new formats exactly as it does today.
+
 ### Rollback
 
 Every migration is additive, so **redeploying an earlier application build is
 safe** — the extra columns are ignored by code that does not read them.
 
-Reverting the *database* is a different matter and mostly should not be done:
+Reverting the _database_ is a different matter and mostly should not be done:
 
 - `v144`, `v147` and `v148` replace function bodies. Rolling those back
   reinstates the focus-target gate and both 42883 faults. There is no reason to.
