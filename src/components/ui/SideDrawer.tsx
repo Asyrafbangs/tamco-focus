@@ -55,7 +55,7 @@ export function SideDrawer({
    */
   const triggerQuery = useRef<string | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const settleFrame = useRef<number | null>(null);
+  const settleStop = useRef<(() => void) | null>(null);
   /*
    * Closing is guarded by its own flag, not by the transition state.
    *
@@ -96,7 +96,7 @@ export function SideDrawer({
     return () => {
       cancelAnimationFrame(frame);
       if (closeTimer.current) clearTimeout(closeTimer.current);
-      if (settleFrame.current) cancelAnimationFrame(settleFrame.current);
+      settleStop.current?.();
       document.body.style.overflow = previousOverflow;
     };
   }, []);
@@ -115,18 +115,25 @@ export function SideDrawer({
     return panelRef.current?.contains(owner) ?? false;
   }, []);
 
+  /**
+   * The trigger as it exists NOW.
+   *
+   * The node captured on mount is the right answer until a re-render replaces
+   * it, after which focusing it does nothing and reports nothing. The address
+   * recorded alongside it survives that.
+   */
+  const liveTrigger = useCallback((): HTMLElement | null => {
+    if (triggerRef.current?.isConnected) return triggerRef.current;
+    return triggerQuery.current ? document.querySelector<HTMLElement>(triggerQuery.current) : null;
+  }, []);
+
   /** Put the caret back on the trigger, wherever that element is now. */
   const restoreFocus = useCallback(() => {
-    const live =
-      triggerRef.current && triggerRef.current.isConnected
-        ? triggerRef.current
-        : triggerQuery.current
-          ? document.querySelector<HTMLElement>(triggerQuery.current)
-          : null;
+    const live = liveTrigger();
     if (!live) return false;
     live.focus({ preventScroll: true });
     return document.activeElement === live;
-  }, []);
+  }, [liveTrigger]);
 
   const close = useCallback(() => {
     // Re-entrancy only: two Escapes in quick succession must not queue two
@@ -147,18 +154,81 @@ export function SideDrawer({
        * frames — and only while nothing else has claimed the caret, so it can
        * never take focus away from whatever the person did next.
        */
-      let attempts = 0;
-      const settle = () => {
-        settleFrame.current = null;
-        attempts += 1;
-        const owner = document.activeElement;
-        if (owner && owner !== document.body) return;
-        if (restoreFocus()) return;
-        if (attempts < 12) settleFrame.current = requestAnimationFrame(settle);
+      /*
+       * Watch the page settle rather than guess how long it will take.
+       *
+       * This used to be a loop of twelve animation frames that stopped at the
+       * first success. Both halves were wrong. Frames are not a unit of
+       * progress — they are a unit of time, and they stretch exactly when the
+       * render being waited for is slow — and stopping on success meant a
+       * re-render arriving AFTER the caret was put back took it away again
+       * with nothing left running to notice. That is the shape of the failure:
+       * `goals-v33` lost the caret about once per full suite run and never
+       * once on its own.
+       *
+       * So: observe the DOM for a bounded time, and re-apply whenever the
+       * caret is loose. It stops as soon as anything a person could have
+       * chosen holds it, which is the one thing this must never override.
+       */
+      const deadline = performance.now() + 1500;
+      let observer: MutationObserver | null = null;
+      let timer: ReturnType<typeof setTimeout> | null = null;
+
+      let watching = true;
+      const stop = () => {
+        watching = false;
+        observer?.disconnect();
+        observer = null;
+        if (timer) clearTimeout(timer);
+        timer = null;
+        settleStop.current = null;
       };
-      settleFrame.current = requestAnimationFrame(settle);
+      settleStop.current = stop;
+
+      const attempt = () => {
+        const owner = document.activeElement;
+        const live = liveTrigger();
+
+        /*
+         * Already where it belongs — but keep watching.
+         *
+         * This is the case the old loop got wrong. It stopped at the first
+         * success, so a re-render arriving afterwards replaced the row, the
+         * caret fell to the body, and nothing was left running to notice.
+         */
+        if (owner && live && owner === live) {
+          if (performance.now() >= deadline) stop();
+          return;
+        }
+
+        /*
+         * Loose means nobody meaningful holds it: nothing, the document, or a
+         * container parked there by a navigation. The closing panel counts as
+         * loose too — it is `tabindex="-1"` and about to be removed.
+         */
+        const loose =
+          !owner ||
+          owner === document.body ||
+          owner === document.documentElement ||
+          (owner instanceof HTMLElement && owner.tabIndex === -1 && owner !== triggerRef.current);
+        if (!loose) {
+          // Somewhere a person could have put it. Never take it back.
+          stop();
+          return;
+        }
+
+        restoreFocus();
+        if (performance.now() >= deadline) stop();
+      };
+
+      attempt();
+      if (watching) {
+        observer = new MutationObserver(attempt);
+        observer.observe(document.body, { childList: true, subtree: true });
+        timer = setTimeout(stop, 1500);
+      }
     }, 245);
-  }, [closeHref, focusIsLoose, restoreFocus, router]);
+  }, [closeHref, focusIsLoose, liveTrigger, restoreFocus, router]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

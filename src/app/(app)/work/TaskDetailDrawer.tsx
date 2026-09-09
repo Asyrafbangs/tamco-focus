@@ -23,6 +23,7 @@ import {
 import { latestPlausibleDate } from '@/domain/delivery';
 import { barrierAction, barrierViewLabel } from '@/domain/barriers';
 import { canOfferActivate, canOfferMoveOut } from '@/domain/focus';
+import { todayIsoInZone } from '@/domain/period';
 import {
   WORK_PURPOSE_LABELS,
   WORK_PURPOSE_MEANINGS,
@@ -388,7 +389,24 @@ export function TaskDetailDrawer({
    * design, so the blocking steps were invisible and the work was stuck for
    * good.
    */
+  /*
+   * §14 — the schedule decides when an occurrence may be signed off.
+   *
+   * The Upcoming tab lists future occurrences so people can plan around them.
+   * Seeing one is not permission to tick it: without this, next month's
+   * inspection could be completed today and the record would name a date
+   * nobody inspected anything. Compared as local calendar dates, because the
+   * window is a day and not an instant.
+   */
+  const completionOpensOn = task.routineCompletionOpensOn;
+  const notYetOpen = completionOpensOn !== null && todayIsoInZone(timeZone) < completionOpensOn;
+
   const completionBlockers: string[] = [
+    ...(notYetOpen && completionOpensOn
+      ? [
+          `This occurrence cannot be completed before ${formatDue(completionOpensOn, true, timeZone)}`,
+        ]
+      : []),
     ...detail.checklist
       .filter((item) => item.state !== 'completed')
       .map((item) => `“${item.action}” is not finished`),
@@ -406,6 +424,7 @@ export function TaskDetailDrawer({
 
   const readyToComplete =
     detail.capabilities.canComplete &&
+    !notYetOpen &&
     (task.status === 'active' || task.status === 'backlog' || task.status === 'paused') &&
     checklistOutstanding === 0 &&
     evidenceOutstanding.length === 0;
@@ -1686,6 +1705,10 @@ export function TaskDetailDrawer({
             {task.routineTemplateId ? 'Occurrence' : 'Due'}{' '}
             {formatDue(task.dueAt, task.dueIsDateOnly, timeZone)}
           </span>
+          {/* §14 — where the work is recorded. Only where the schedule names
+              one: a routine covering a single place would print the same
+              phrase on every occurrence and stop being read. */}
+          {task.routineArea ? <span>{task.routineArea}</span> : null}
           {taskOverdueMs > 0 ? (
             <span className="task-status-overdue">
               {formatCompactDuration(taskOverdueMs)} overdue
@@ -1750,6 +1773,7 @@ export function TaskDetailDrawer({
             stepsCompleted={checklistCompleted}
             evidenceCount={detail.attachments.filter((file) => file.isEvidence).length}
             evidenceRule={task.completionEvidenceRule}
+            evidenceInstruction={task.completionEvidenceInstruction}
             canAct={detail.capabilities.canContribute && !isClosed}
             viewerId={viewerId}
             canManage={detail.capabilities.canEdit}

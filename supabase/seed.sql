@@ -969,3 +969,34 @@ update public.task_checklist_items item
    and item.assigned_by is null
    and item.assigned_to is not null
    and item.assigned_to <> parent.primary_owner_id;
+
+-- ---------------------------------------------------------------------------
+-- v149 §14 — where each routine is recorded, and when it may be signed off.
+--
+-- Clean resets load fixtures after migrations, so the backfill in
+-- `20260909008000_v149_occurrence_snapshot.sql` has already run against an
+-- empty table. Setting the templates here and re-running the same inheritance
+-- gives the local build a fixture that actually shows the area on a repeated
+-- title, which is what §6 asks for.
+--
+-- The safety walk covers a named hall; the PPE check is at one issuing point
+-- and naming it would be noise, so it is left null on purpose — every screen
+-- that prints an area has to read well without one.
+-- ---------------------------------------------------------------------------
+
+update public.routine_templates
+   set area = 'Production Hall A'
+ where title = 'Weekly workplace safety walk';
+
+update public.tasks t
+   set routine_area = coalesce(t.routine_area, rt.area),
+       completion_evidence_rule =
+         case when rt.evidence_required then 'file' else 'optional' end,
+       completion_evidence_instruction =
+         coalesce(t.completion_evidence_instruction, rt.evidence_instruction),
+       routine_completion_opens_on =
+         coalesce(t.routine_completion_opens_on,
+                  t.occurrence_date - coalesce(rt.completion_opens_days_before, 0))
+  from public.routine_templates rt
+ where rt.id = t.routine_template_id
+   and t.work_class = 'routine_occurrence';

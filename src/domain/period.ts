@@ -357,3 +357,17 @@ export function periodParams(period: ResolvedPeriod): Record<string, string> {
 export function todayIso(now: Date = new Date()): string {
   return now.toISOString().slice(0, 10);
 }
+
+/**
+ * Today as `yyyy-mm-dd` in a named zone.
+ *
+ * Kuala Lumpur is eight hours ahead of UTC, so for most of the working day
+ * `todayIso` is a day behind what anybody there would call today. Anything
+ * comparing a calendar date somebody chose — a routine's occurrence date, the
+ * day a completion window opens — has to ask in their zone or it is wrong for
+ * eight hours out of every twenty-four.
+ */
+export function todayIsoInZone(timeZone: string, now: Date = new Date()): string {
+  const { year, month, day } = zonedToday(now, timeZone);
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}

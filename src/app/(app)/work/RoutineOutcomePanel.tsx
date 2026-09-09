@@ -49,6 +49,7 @@ export function RoutineOutcomePanel({
   stepsCompleted,
   evidenceCount,
   evidenceRule,
+  evidenceInstruction,
   canAct,
   canManage,
   viewerId,
@@ -69,11 +70,16 @@ export function RoutineOutcomePanel({
   stepsCompleted: number;
   evidenceCount: number;
   /**
-   * What this occurrence requires as proof. It comes from the schedule rather
-   * than the occurrence, so tightening a weekly inspection applies to the ones
-   * already sitting in somebody's list.
+   * What this occurrence requires as proof.
+   *
+   * The occurrence's own, snapshotted from the schedule when it was generated
+   * (v149 §14). It used to be read live from the template, so tightening a
+   * weekly inspection today rewrote what last month's completed occurrence
+   * claimed it had required.
    */
   evidenceRule: CompletionEvidenceRule;
+  /** The occurrence's own instruction, snapshotted with the rule (§14). */
+  evidenceInstruction: string | null;
   canAct: boolean;
   /**
    * Whether this person may act on the occurrence at all — the owner or their
@@ -316,13 +322,16 @@ export function RoutineOutcomePanel({
         </p>
       )}
 
-      {/* Decided once, on the schedule, so nobody doing the work has to
-          wonder whether this particular one needs a photo. */}
-      {routine.evidenceRequired ? (
+      {/* Decided once, on the schedule, and carried by this occurrence — so
+          nobody doing the work has to wonder whether this particular one needs
+          a photo, and nobody reading it later sees a rule it was never held
+          to. */}
+      {evidenceRule === 'file' ? (
         <div className="routine-evidence required">
           <strong>Evidence required</strong>
           <span>
-            {routine.evidenceInstruction ??
+            {evidenceInstruction ??
+              routine.evidenceInstruction ??
               'Attach at least one photo or record before completing this.'}
           </span>
         </div>

@@ -4855,6 +4855,8 @@ export type Database = {
       }
       routine_templates: {
         Row: {
+          area: string | null
+          completion_opens_days_before: number
           created_at: string
           created_by: string
           day_of_month: number | null
@@ -4889,6 +4891,8 @@ export type Database = {
           work_purpose: Database["public"]["Enums"]["work_purpose"] | null
         }
         Insert: {
+          area?: string | null
+          completion_opens_days_before?: number
           created_at?: string
           created_by: string
           day_of_month?: number | null
@@ -4923,6 +4927,8 @@ export type Database = {
           work_purpose?: Database["public"]["Enums"]["work_purpose"] | null
         }
         Update: {
+          area?: string | null
+          completion_opens_days_before?: number
           created_at?: string
           created_by?: string
           day_of_month?: number | null
@@ -5763,6 +5769,8 @@ export type Database = {
           review_at: string | null
           review_status: Database["public"]["Enums"]["review_status"]
           reviewer_id: string | null
+          routine_area: string | null
+          routine_completion_opens_on: string | null
           routine_template_id: string | null
           source_entity_id: string | null
           source_entity_type: string | null
@@ -5816,6 +5824,8 @@ export type Database = {
           review_at?: string | null
           review_status?: Database["public"]["Enums"]["review_status"]
           reviewer_id?: string | null
+          routine_area?: string | null
+          routine_completion_opens_on?: string | null
           routine_template_id?: string | null
           source_entity_id?: string | null
           source_entity_type?: string | null
@@ -5869,6 +5879,8 @@ export type Database = {
           review_at?: string | null
           review_status?: Database["public"]["Enums"]["review_status"]
           reviewer_id?: string | null
+          routine_area?: string | null
+          routine_completion_opens_on?: string | null
           routine_template_id?: string | null
           source_entity_id?: string | null
           source_entity_type?: string | null
@@ -9049,6 +9061,8 @@ export type Database = {
           review_at: string | null
           review_status: Database["public"]["Enums"]["review_status"] | null
           reviewer_id: string | null
+          routine_area: string | null
+          routine_completion_opens_on: string | null
           routine_template_id: string | null
           state_entered_at: string | null
           status: Database["public"]["Enums"]["task_status"] | null

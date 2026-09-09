@@ -26,6 +26,8 @@ export function makeTask(overrides: Partial<TaskOverview> = {}): TaskOverview {
     isMandatory: false,
 
     workPurpose: null,
+    routineArea: null,
+    routineCompletionOpensOn: null,
     progressPercent: 0,
 
     reviewStatus: 'not_required',

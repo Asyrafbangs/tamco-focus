@@ -334,9 +334,12 @@ export function MyTeamPersonPanel({
                 >
                   <span className="member-other-copy">
                     {/* §6 — a weekly check carries the same title every week,
-                        so the occurrence date is part of which one this is. */}
+                        so the occurrence date is part of which one this is,
+                        and §14 adds where it was recorded: two halls produce
+                        two identical rows on the same date otherwise. */}
                     <strong>
                       {routine.title} · {occurrence}
+                      {routine.area ? ` · ${routine.area}` : ''}
                     </strong>
                     <span>
                       {ROUTINE_OCCURRENCE_LABELS[state]}

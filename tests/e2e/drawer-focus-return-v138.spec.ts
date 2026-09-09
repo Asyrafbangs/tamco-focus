@@ -106,3 +106,45 @@ test.describe('v138 the caret comes back', () => {
     await expect(elsewhere).toBeFocused();
   });
 });
+
+/**
+ * v149 — and it survives a re-render that arrives late.
+ *
+ * The retry that re-applies focus after the closing navigation used to be a
+ * loop of twelve animation frames that stopped at the first success. Both
+ * halves were wrong. Frames are a unit of TIME, and they stretch exactly when
+ * the render being waited for is slow; and stopping on success meant a
+ * re-render arriving after the caret was put back took it away again with
+ * nothing left running to notice.
+ *
+ * That second half is the one this forces. The row is replaced 400ms after
+ * Escape — comfortably after the 245ms restore — which is precisely what React
+ * does when the closing navigation commits a little late. Without the fix the
+ * caret is left on nothing; with it, the observer sees the replacement and
+ * puts it back.
+ */
+test('v149 the caret survives a re-render that lands after it was restored', async ({ page }) => {
+  await signIn(page, 'amer@tamco.local');
+  await page.goto('/goals');
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+
+  const row = page.locator('.goal-row').filter({ hasText: 'Safety Digitalisation' });
+  await row.locator('.row-primary-link').click();
+  await expect(page.getByRole('dialog', { name: /Safety Digitalisation/ })).toBeVisible();
+
+  // Armed before Escape so the swap lands inside the closing sequence rather
+  // than being raced against it from the test side.
+  await page.evaluate(() => {
+    setTimeout(() => {
+      const link = document.querySelector<HTMLElement>(
+        '.goal-row a.row-primary-link[href*="f0c06000-0000-4000-a000-000000000001"]',
+      );
+      if (!link) return;
+      link.replaceWith(link.cloneNode(true));
+    }, 400);
+  });
+
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: /Safety Digitalisation/ })).toHaveCount(0);
+  await expect(row.locator('.row-primary-link')).toBeFocused({ timeout: 10_000 });
+});

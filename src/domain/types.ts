@@ -165,6 +165,17 @@ export interface TaskOverview {
   attachmentCount: number;
   /** What completing this work requires as proof. */
   completionEvidenceRule: CompletionEvidenceRule;
+  /**
+   * §14 — where a routine occurrence is recorded, and the earliest date it may
+   * be signed off.
+   *
+   * Both snapshotted from the schedule when the occurrence was generated, so
+   * editing the template later cannot rewrite what an occurrence required or
+   * when it was allowed to happen. Null on everything that is not a routine
+   * occurrence.
+   */
+  routineArea: string | null;
+  routineCompletionOpensOn: string | null;
   /** What to attach, in the words of whoever set the rule. */
   completionEvidenceInstruction: string | null;
   /** Evidence already on the work, from a step or from the work itself. */

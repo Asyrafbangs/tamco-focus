@@ -79,6 +79,10 @@ function toTaskOverview(row: Record<string, unknown>): TaskOverview {
     missingEvidenceCount: Number(row.missing_evidence_count ?? 0),
     completionEvidenceRule: (row.completion_evidence_rule ??
       'optional') as TaskOverview['completionEvidenceRule'],
+    routineArea: row.routine_area ? String(row.routine_area) : null,
+    routineCompletionOpensOn: row.routine_completion_opens_on
+      ? String(row.routine_completion_opens_on)
+      : null,
     completionEvidenceInstruction: row.completion_evidence_instruction
       ? String(row.completion_evidence_instruction)
       : null,
@@ -128,6 +132,7 @@ type TeamMemberTask = TeamAttentionTask &
     | 'checklistTotal'
     | 'checklistCompleted'
     | 'workPurpose'
+    | 'routineArea'
   > & {
     /** Null where a row predates the column being populated. */
     stateEnteredAt: string | null;
@@ -137,6 +142,7 @@ function toTeamMemberTask(row: Record<string, unknown>): TeamMemberTask {
   return {
     ...toTeamAttentionTask(row),
     workPurpose: toWorkPurpose(row.work_purpose),
+    routineArea: row.routine_area ? String(row.routine_area) : null,
     progressPercent: Number(row.progress_percent ?? 0),
     dueAt: row.due_at ? String(row.due_at) : null,
     dueIsDateOnly: Boolean(row.due_is_date_only),
@@ -3476,6 +3482,8 @@ export interface TeamMemberDetail {
     routines: Array<{
       id: string;
       title: string;
+      /** §14 — where it is recorded, so repeated titles are distinguishable. */
+      area: string | null;
       status: TaskOverview['status'];
       occurrenceDate: string | null;
       dueAt: string | null;
@@ -3694,7 +3702,7 @@ export async function getTeamMemberDetail(
       supabase
         .from('task_overview')
         .select(
-          'id,title,next_action,status,work_class,focus_bucket,work_purpose,is_mandatory,primary_owner_id,last_meaningful_update_at,due_at,due_is_date_only,progress_percent,version,is_overdue,is_stale,occurrence_date,checklist_total,checklist_completed,state_entered_at',
+          'id,title,next_action,status,work_class,focus_bucket,work_purpose,routine_area,is_mandatory,primary_owner_id,last_meaningful_update_at,due_at,due_is_date_only,progress_percent,version,is_overdue,is_stale,occurrence_date,checklist_total,checklist_completed,state_entered_at',
         )
         .eq('primary_owner_id', personId)
         .in('status', ['backlog', 'active', 'paused'])
@@ -3945,6 +3953,7 @@ export async function getTeamMemberDetail(
       routines: routines.map((task) => ({
         id: task.id,
         title: task.title,
+        area: task.routineArea,
         status: task.status,
         occurrenceDate: task.occurrenceDate,
         dueAt: task.dueAt,
