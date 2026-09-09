@@ -3,7 +3,11 @@
 import { useState, useTransition } from 'react';
 
 import { Modal } from '@/components/ui/Modal';
-import { decideRoutineException, markRoutineNotRequired } from '@/server/actions/routine-actions';
+import {
+  decideRoutineException,
+  markRoutineNotRequired,
+  withdrawRoutineException,
+} from '@/server/actions/routine-actions';
 import type { CompletionEvidenceRule } from '@/domain/types';
 import type { TaskDetail } from '@/server/queries';
 
@@ -46,7 +50,8 @@ export function RoutineOutcomePanel({
   evidenceCount,
   evidenceRule,
   canAct,
-  canDecide,
+  canManage,
+  viewerId,
   readyToComplete,
   blockers,
   pending,
@@ -70,8 +75,14 @@ export function RoutineOutcomePanel({
    */
   evidenceRule: CompletionEvidenceRule;
   canAct: boolean;
-  /** The owner's manager, who decides whether the work was really not needed. */
-  canDecide: boolean;
+  /**
+   * Whether this person may act on the occurrence at all — the owner or their
+   * manager. Not the same as being allowed to DECIDE a request, which is
+   * narrower and worked out below.
+   */
+  canManage: boolean;
+  /** Who is reading, so a request can be taken back only by whoever raised it. */
+  viewerId: string;
   readyToComplete: boolean;
   blockers: string[];
   pending: boolean;
@@ -89,6 +100,25 @@ export function RoutineOutcomePanel({
   const [returnNote, setReturnNote] = useState('');
   const working = pending || busy;
   const exception = routine.exception;
+  /*
+   * §15 — the employee can take a pending request back and do the work.
+   *
+   * Only the person who raised it, and only while nobody has answered. The
+   * database enforces both; this decides whether to draw the control, so a
+   * manager reading the same panel is offered Accept and Return rather than a
+   * button that would be refused.
+   */
+  const canWithdraw = exception?.state === 'pending' && exception.raisedBy === viewerId;
+  /*
+   * Deciding is narrower than managing, and this used to be the same thing.
+   *
+   * `canDecide` was `canEdit`, which an owner has over their own occurrence —
+   * so the person who raised the request was offered Accept and Return on it.
+   * The database refused both ("Somebody else has to accept this. You raised
+   * it."), so the only two controls on screen were ones that could not work,
+   * and the one that could — withdrawing — was never drawn.
+   */
+  const canDecide = canManage && exception?.raisedBy !== viewerId;
 
   const moment = (iso: string) =>
     new Intl.DateTimeFormat('en-GB', {
@@ -113,6 +143,21 @@ export function RoutineOutcomePanel({
             ? 'Recorded as not required.'
             : 'Sent to your manager to accept.',
         );
+      } else {
+        onFailed(result.message);
+      }
+    });
+  }
+
+  function withdraw() {
+    if (!exception) return;
+    startTransition(async () => {
+      const result = await withdrawRoutineException({
+        exceptionId: exception.id,
+        idempotencyKey: idempotencyKey(),
+      });
+      if (result.ok) {
+        onCompleted('Request withdrawn. The occurrence is yours to complete again.');
       } else {
         onFailed(result.message);
       }
@@ -204,6 +249,18 @@ export function RoutineOutcomePanel({
               onClick={() => setReturnOpen(true)}
             >
               Return
+            </button>
+          </div>
+        ) : canWithdraw ? (
+          <div className="routine-outcome-actions">
+            <span className="muted">Waiting for your manager to accept.</span>
+            {/*
+              §15 — the way back. Somebody who marked a walk as not required
+              and then found the area open has to be able to do the work
+              without asking their manager to return their own request.
+            */}
+            <button type="button" className="btn" disabled={working} onClick={withdraw}>
+              Withdraw and complete it instead
             </button>
           </div>
         ) : (

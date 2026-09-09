@@ -4685,6 +4685,7 @@ export type Database = {
           reason_note: string | null
           state: Database["public"]["Enums"]["routine_exception_state"]
           task_id: string
+          withdrawn_at: string | null
         }
         Insert: {
           decided_at?: string | null
@@ -4697,6 +4698,7 @@ export type Database = {
           reason_note?: string | null
           state?: Database["public"]["Enums"]["routine_exception_state"]
           task_id: string
+          withdrawn_at?: string | null
         }
         Update: {
           decided_at?: string | null
@@ -4709,6 +4711,7 @@ export type Database = {
           reason_note?: string | null
           state?: Database["public"]["Enums"]["routine_exception_state"]
           task_id?: string
+          withdrawn_at?: string | null
         }
         Relationships: [
           {
@@ -10264,6 +10267,10 @@ export type Database = {
         Returns: Json
       }
       user_retained_history: { Args: { p_user_id: string }; Returns: Json }
+      withdraw_routine_exception: {
+        Args: { p_exception_id: string; p_idempotency_key?: string }
+        Returns: Json
+      }
       withdraw_weekly_commitment: {
         Args: { p_commitment_id: string }
         Returns: Json
@@ -10370,6 +10377,7 @@ export type Database = {
         | "routine_not_required_accepted"
         | "routine_not_required_returned"
         | "work_purpose_set"
+        | "routine_not_required_withdrawn"
       barrier_action_type:
         | "decision"
         | "approval"
@@ -10484,7 +10492,7 @@ export type Database = {
         | "no_applicable_work"
         | "activity_cancelled"
         | "other"
-      routine_exception_state: "pending" | "accepted" | "returned"
+      routine_exception_state: "pending" | "accepted" | "returned" | "withdrawn"
       task_status: "backlog" | "active" | "paused" | "completed" | "cancelled"
       team_summary_mode: "off" | "leadership" | "detailed"
       urgency_level: "normal" | "high" | "critical"
@@ -10744,6 +10752,7 @@ export const Constants = {
         "routine_not_required_accepted",
         "routine_not_required_returned",
         "work_purpose_set",
+        "routine_not_required_withdrawn",
       ],
       barrier_action_type: [
         "decision",
@@ -10871,7 +10880,7 @@ export const Constants = {
         "activity_cancelled",
         "other",
       ],
-      routine_exception_state: ["pending", "accepted", "returned"],
+      routine_exception_state: ["pending", "accepted", "returned", "withdrawn"],
       task_status: ["backlog", "active", "paused", "completed", "cancelled"],
       team_summary_mode: ["off", "leadership", "detailed"],
       urgency_level: ["normal", "high", "critical"],

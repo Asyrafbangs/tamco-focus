@@ -1751,7 +1751,8 @@ export function TaskDetailDrawer({
             evidenceCount={detail.attachments.filter((file) => file.isEvidence).length}
             evidenceRule={task.completionEvidenceRule}
             canAct={detail.capabilities.canContribute && !isClosed}
-            canDecide={detail.capabilities.canEdit}
+            viewerId={viewerId}
+            canManage={detail.capabilities.canEdit}
             readyToComplete={readyToComplete}
             blockers={completionBlockers}
             pending={pending}

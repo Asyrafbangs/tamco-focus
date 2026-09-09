@@ -600,7 +600,9 @@ export interface TaskDetail {
       id: string;
       reasonCode: 'no_applicable_work' | 'activity_cancelled' | 'other';
       reasonNote: string | null;
-      state: 'pending' | 'accepted' | 'returned';
+      state: 'pending' | 'accepted' | 'returned' | 'withdrawn';
+      /** §15 — only the person who raised it may take it back. */
+      raisedBy: string;
       raisedByName: string;
       raisedAt: string;
       decidedByName: string | null;
@@ -790,7 +792,8 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
             id: String(raw.id),
             reasonCode: raw.reason_code as 'no_applicable_work' | 'activity_cancelled' | 'other',
             reasonNote: raw.reason_note ? String(raw.reason_note) : null,
-            state: raw.state as 'pending' | 'accepted' | 'returned',
+            state: raw.state as 'pending' | 'accepted' | 'returned' | 'withdrawn',
+            raisedBy: String(raw.raised_by),
             raisedByName: personName(raw.raised_by),
             raisedAt: String(raw.raised_at),
             decidedByName: raw.decided_by ? personName(raw.decided_by) : null,

@@ -317,3 +317,31 @@ export async function decideRoutineException(input: {
     p_idempotency_key: parsed.data.idempotencyKey ?? null,
   });
 }
+
+/**
+ * Taking a skip request back (§15).
+ *
+ * The employee's own retraction, not a second route to a decision. The
+ * database refuses it for anybody but the person who raised it, and refuses it
+ * once somebody has answered — so a manager cannot have their decision undone
+ * by whoever asked the question.
+ */
+export async function withdrawRoutineException(input: {
+  exceptionId: string;
+  idempotencyKey?: string;
+}) {
+  await requireProfile();
+  const parsed = z
+    .object({
+      exceptionId: z.string().uuid(),
+      idempotencyKey: z.string().min(8).max(128).optional(),
+    })
+    .safeParse(input);
+  if (!parsed.success) {
+    return { ok: false as const, code: 'validation_failed', message: 'Nothing changed.' };
+  }
+  return call('withdraw_routine_exception', {
+    p_exception_id: parsed.data.exceptionId,
+    p_idempotency_key: parsed.data.idempotencyKey ?? null,
+  });
+}
