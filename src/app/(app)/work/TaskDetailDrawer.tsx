@@ -2053,6 +2053,16 @@ export function TaskDetailDrawer({
                   }}
                   items={detail.checklist}
                   attachmentsByChecklist={attachmentsByChecklist}
+                  taskDueAt={task.dueAt}
+                  taskDueIsDateOnly={task.dueIsDateOnly}
+                  onOpenEvidence={(itemId) => {
+                    // v154 - a step's evidence opens where the owner is reading,
+                    // rather than having to be found again under Details.
+                    const file = detail.attachments.find(
+                      (attachment) => attachment.checklistItemId === itemId,
+                    );
+                    if (file) setViewingFile(file);
+                  }}
                   canEdit={detail.capabilities.canEdit && !isClosed}
                   readOnly={isClosed}
                   pending={pending}

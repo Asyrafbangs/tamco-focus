@@ -1257,6 +1257,14 @@ export async function addChecklistStep(input: {
   if (error) {
     // RLS refuses when the caller may not edit this task, which is the
     // authority check — this action does not re-implement it.
+    /*
+     * v154 - a step dated after its task. The rule lives in the database, in one
+     * place, and says what to do in its own words; the hint marks the message as
+     * a sentence meant for the person rather than database detail.
+     */
+    if (error.hint === 'step_due_after_task') {
+      return { ok: false, code: 'validation_failed', message: error.message };
+    }
     console.error(`[addChecklistStep] ${error.message}`);
     return {
       ok: false,

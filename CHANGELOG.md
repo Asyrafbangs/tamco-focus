@@ -1,5 +1,17 @@
 # TAMCO Focus — Change Log
 
+## v154 Trackable Steps, stage 1: a step's date holds — 11 September 2026
+
+- A step's row in its task now says who owes it and by when — "Amer Hakim · Due 10 Sep" — using the
+  task's date when the step has none of its own, and "Overdue since …" once it passes. A finished step
+  says who finished it and when, and its evidence opens from the row.
+- Add step asks **Due** up front and answers it: **Same as the task**, linked, so the step moves when
+  the task moves. **Its own date** is for work needed back earlier, and cannot be after the task.
+- The database enforces that rule for every writer, and `change_task_due_date` — the Monthly Plan's
+  drag included — refuses to move a task earlier than one of its steps' own dates, naming the step.
+- First of five stages delivering the Product Owner's Trackable Steps model (11 September 2026); see
+  `docs/trackable-steps-impact-map.md`.
+
 ## v153 Governed calendar rescheduling — 10 September 2026
 
 - A task's due date can be dragged to another day on the Monthly Plan, or moved with **Move

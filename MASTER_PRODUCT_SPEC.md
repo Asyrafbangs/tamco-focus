@@ -786,6 +786,8 @@ Each item may include:
 - due date only when different from parent task
 - dependency on another checklist item
 
+**Trackable Steps — approved by the Product Owner on 11 September 2026.** A step stays a child of its task and is never copied into a second task, but once it belongs to somebody it is trackable: assignee, due date, status, evidence and completion history. Its due date is either the task's own — "same as the task", the default, which moves when the task moves — or a date of its own, which may not fall after the task; a task cannot be moved earlier than one of its open steps' own dates. The one step record is seen in the parent task, in the assignee's Shared list and in My Team. The owner sees how many steps are with others, the next contribution due and any delegated step overdue on the Active card, and "Waiting on others" in Needs attention. The calendar shows a person's own steps, the owner's delegated steps only when they are due before the task, and step deadlines in Team scope, with the manager calendar defaulting to their own commitments. The same rules apply to anyone who may delegate a step within their own work; only permissions differ. Delivery keeps owned work, shared contributions and routine separate.
+
 ## 11.2 Completion
 
 When evidence is not required:

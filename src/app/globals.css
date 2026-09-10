@@ -6441,6 +6441,63 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   color: var(--muted);
   font-size: 9px;
 }
+/* v154 - a step past its date is the one line the owner must not miss. */
+.task-checklist-row .checklist-copy span.checklist-commitment.is-overdue {
+  color: var(--red);
+  font-weight: 600;
+}
+.checklist-evidence-link {
+  padding: 0 2px;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+/* v154 - Due, asked up front: two choices and, for the second, a date. */
+.step-due-choice {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+/* Read as one more field label, which is what it is: the form's own label
+   size and weight, not a heading of its own. */
+.step-due-choice legend {
+  margin-bottom: 2px;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 650;
+}
+/* `.field label` makes every label in a field a bold field label; these two
+   are answers, not questions, so they read at normal weight. */
+.field .step-due-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 400;
+}
+/* `.field input` dresses every input as a text box - padding, a border and a
+   control's height - which stretched each radio into a row of its own. */
+.step-due-choice input[type='radio'] {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  accent-color: var(--blue);
+}
+@media (pointer: coarse) {
+  /* The whole answer is the target on a touch screen, at fingertip height. */
+  .field .step-due-option {
+    min-height: 44px;
+  }
+}
 .task-checklist-row.completed .checklist-copy strong {
   text-decoration: line-through;
   text-decoration-color: var(--muted);

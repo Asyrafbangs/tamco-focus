@@ -1237,3 +1237,19 @@ derived-progress rules. The future ESH finding/action system remains outside the
    A `version_conflict` also refreshes the calendar so the current date is shown.
 5. Undo calls the same action back to the original date, quoting the version the move produced.
    It does not use `undo_event`: the audit trail records the move and the move back.
+
+## 49. v154 Trackable Steps — a step's date holds
+
+1. A step's `due_at` is either NULL, meaning the task's own date, or a date of its own. NULL is never
+   filled in with a copy of the parent's date, so an inherited step moves when its task moves.
+2. `focus.step_due_after_task(task, due)` is the one statement of the rule: a step's own date may not
+   be after its task's due date, compared as organisation-local days (`focus.org_time_zone()`). A task
+   with no due date constrains nothing; a completed step is never checked.
+3. The rule is applied by the `task_checklist_items_due_within_task` trigger for every writer (Add step
+   inserts under RLS), by `update_checklist_step` for a `validation_failed` sentence, and by
+   `change_task_due_date`, which refuses to move a task earlier than an open step's own date and names
+   the step. The trigger's exception carries the hint `step_due_after_task`; it is the only database
+   message the application shows a person verbatim.
+4. The parent's step list shows each open step's assignee and effective due date (its own, or the
+   task's), "Overdue since" once it passes, and a finished step's finisher, date and evidence count, the
+   evidence opening in the drawer's viewer. An evidence rule stays visible until it is satisfied.

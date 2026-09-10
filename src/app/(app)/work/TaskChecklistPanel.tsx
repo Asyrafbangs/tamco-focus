@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { Modal } from '@/components/ui/Modal';
-import { localDateString } from '@/domain/duration';
+import { formatDueShort, localDateString } from '@/domain/duration';
 import type { TaskDetailChecklistItem } from '@/server/queries';
 
 export interface ChecklistAssignee {
@@ -36,6 +36,8 @@ interface StepDraft {
   evidenceRule: NewChecklistStep['evidenceRule'];
   dueDate: string;
   dependsOnItemId: string;
+  /** v154 - "same as the task" (inherits, and moves with it) or a date of its own. */
+  dueMode: 'task' | 'own';
 }
 
 function draftToStep(draft: StepDraft, fallbackAssignee: string): NewChecklistStep {
@@ -43,17 +45,11 @@ function draftToStep(draft: StepDraft, fallbackAssignee: string): NewChecklistSt
     action: draft.action.trim(),
     assignedTo: draft.assignedTo || fallbackAssignee,
     evidenceRule: draft.evidenceRule,
-    dueDate: draft.dueDate || null,
+    // v154 - "same as the task" is stored as no date at all, which is what
+    // keeps it moving with the task. Only a date of its own is written down.
+    dueDate: draft.dueMode === 'own' ? draft.dueDate || null : null,
     dependsOnItemId: draft.dependsOnItemId || null,
   };
-}
-
-function formatMoment(value: string, timeZone: string) {
-  return new Intl.DateTimeFormat('en-GB', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone,
-  }).format(new Date(value));
 }
 
 const EVIDENCE_LABEL: Record<TaskDetailChecklistItem['evidenceRule'], string> = {
@@ -75,12 +71,18 @@ function StepFields({
   onChange,
   assignees,
   prerequisiteOptions,
+  taskDueDate,
+  taskDueLabel,
 }: {
   idPrefix: string;
   draft: StepDraft;
   onChange: (next: StepDraft) => void;
   assignees: ChecklistAssignee[];
   prerequisiteOptions: TaskDetailChecklistItem[];
+  /** The task's own due date, organisation-local `YYYY-MM-DD`; a step may not pass it. */
+  taskDueDate: string | null;
+  /** The same date as people read it, e.g. "16 Sep". */
+  taskDueLabel: string | null;
 }) {
   return (
     <>
@@ -118,6 +120,50 @@ function StepFields({
         </small>
       </div>
 
+      {/*
+        v154 - when it is due, asked every time and already answered. "Same as
+        the task" is the default and stays linked: move the task and the step
+        moves with it, so assigning a step is still one decision. A date of its
+        own is for work somebody needs back earlier, and it may not fall after
+        the task it is part of.
+      */}
+      <fieldset className="field full step-due-choice">
+        <legend>Due</legend>
+        <label className="step-due-option">
+          <input
+            type="radio"
+            name={`${idPrefix}-due-mode`}
+            checked={draft.dueMode === 'task'}
+            onChange={() => onChange({ ...draft, dueMode: 'task' })}
+          />
+          <span>
+            {taskDueLabel ? `Same as the task · ${taskDueLabel}` : 'Same as the task · no date yet'}
+          </span>
+        </label>
+        <label className="step-due-option">
+          <input
+            type="radio"
+            name={`${idPrefix}-due-mode`}
+            checked={draft.dueMode === 'own'}
+            onChange={() => onChange({ ...draft, dueMode: 'own' })}
+          />
+          <span>Its own date</span>
+        </label>
+        {draft.dueMode === 'own' ? (
+          <input
+            id={`${idPrefix}-due`}
+            type="date"
+            aria-label="Step due date"
+            value={draft.dueDate}
+            // The browser will not offer a day after the task; the database
+            // refuses one typed in anyway, and says why.
+            max={taskDueDate ?? undefined}
+            onChange={(event) => onChange({ ...draft, dueDate: event.target.value })}
+            required
+          />
+        ) : null}
+      </fieldset>
+
       <details className="field full checklist-more-options">
         <summary>More options</summary>
 
@@ -137,17 +183,6 @@ function StepFields({
             <option value="optional">Optional</option>
             <option value="required">Required</option>
           </select>
-        </div>
-
-        <div className="field">
-          <label htmlFor={`${idPrefix}-due`}>Item due date</label>
-          <input
-            id={`${idPrefix}-due`}
-            type="date"
-            value={draft.dueDate}
-            onChange={(event) => onChange({ ...draft, dueDate: event.target.value })}
-          />
-          <small>Only if it differs from the task&rsquo;s own date.</small>
         </div>
 
         <div className="field">
@@ -254,6 +289,9 @@ function StepMenu({
 export function TaskChecklistPanel({
   items,
   attachmentsByChecklist,
+  taskDueAt,
+  taskDueIsDateOnly,
+  onOpenEvidence,
   canEdit,
   readOnly = false,
   pending,
@@ -268,6 +306,11 @@ export function TaskChecklistPanel({
 }: {
   items: TaskDetailChecklistItem[];
   attachmentsByChecklist: Map<string, number>;
+  /** v154 - the task's own due date, which a step inherits unless it has one. */
+  taskDueAt: string | null;
+  taskDueIsDateOnly: boolean;
+  /** v154 - opens a completed step's evidence where the owner is reading. */
+  onOpenEvidence?: (itemId: string) => void;
   canEdit: boolean;
   /** Finished work. Every control that changes a step is withheld. */
   readOnly?: boolean;
@@ -297,7 +340,17 @@ export function TaskChecklistPanel({
     evidenceRule: 'not_required',
     dueDate: '',
     dependsOnItemId: '',
+    dueMode: 'task',
   };
+
+  // v154 - the date a step inherits, in the two forms the form needs. A step's
+  // date is a day, so a task due at 14:30 still offers its whole day.
+  const taskDueDate = taskDueAt ? localDateString(new Date(taskDueAt), timeZone) : null;
+  const taskDueLabel = taskDueAt ? formatDueShort(taskDueAt, true, timeZone) : null;
+  // Read once, when the list mounts: whether a step is overdue is a fact about
+  // the moment somebody opened the work, and re-reading the clock on every
+  // render would let a row change colour under the pointer.
+  const [now] = useState(() => Date.now());
 
   const [addOpen, setAddOpen] = useState(false);
   const [addDraft, setAddDraft] = useState<StepDraft>(emptyDraft);
@@ -346,6 +399,7 @@ export function TaskChecklistPanel({
         evidenceRule: item.evidenceRule,
         dueDate: item.dueAt ? localDateString(new Date(item.dueAt), timeZone) : '',
         dependsOnItemId: item.dependsOnItemId ?? '',
+        dueMode: item.dueAt ? 'own' : 'task',
       },
     });
   }
@@ -375,6 +429,8 @@ export function TaskChecklistPanel({
           >
             <StepFields
               idPrefix="new-step"
+              taskDueDate={taskDueDate}
+              taskDueLabel={taskDueLabel}
               draft={addDraft}
               onChange={setAddDraft}
               assignees={assignees}
@@ -424,6 +480,8 @@ export function TaskChecklistPanel({
           >
             <StepFields
               idPrefix="edit-step"
+              taskDueDate={taskDueDate}
+              taskDueLabel={taskDueLabel}
               draft={editing.draft}
               onChange={(draft) => setEditing({ item: editing.item, draft })}
               assignees={assignees}
@@ -496,6 +554,19 @@ export function TaskChecklistPanel({
       <div className="task-checklist-list">
         {items.map((item) => {
           const evidenceCount = attachmentsByChecklist.get(item.id) ?? 0;
+          // v154 - a step with no date of its own is due when its task is.
+          const effectiveDue = item.dueAt ?? taskDueAt;
+          const overdue =
+            item.state !== 'completed' &&
+            effectiveDue !== null &&
+            new Date(effectiveDue).getTime() < now;
+          const dueLabel = effectiveDue
+            ? `${overdue ? 'Overdue since' : 'Due'} ${formatDueShort(
+                effectiveDue,
+                item.dueAt ? true : taskDueIsDateOnly,
+                timeZone,
+              )}`
+            : null;
           return (
             <article key={item.id} className={`task-checklist-row ${item.state}`}>
               {!readOnly && item.canComplete && item.state === 'ready' ? (
@@ -518,19 +589,43 @@ export function TaskChecklistPanel({
               )}
               <div className="checklist-copy">
                 <strong>{item.action}</strong>
-                <span>
-                  {item.assignedName ? `${item.assignedName} · ` : ''}
-                  {EVIDENCE_LABEL[item.evidenceRule]}
+                {/*
+                  v154 - who owes it and by when, or who did it and when: the
+                  two questions the owner opens the work to answer, on one line,
+                  so a delegated step is not lost to the other person's Shared
+                  list the moment it is handed over.
+                */}
+                <span className={`checklist-commitment${overdue ? ' is-overdue' : ''}`}>
+                  {item.state === 'completed' && item.completedAt
+                    ? `${item.completedByName ?? item.assignedName ?? 'Someone'} · Completed ${formatDueShort(item.completedAt, true, timeZone)}`
+                    : [item.assignedName, dueLabel].filter(Boolean).join(' · ')}
+                  {evidenceCount > 0 ? (
+                    onOpenEvidence ? (
+                      <>
+                        {' · '}
+                        <button
+                          type="button"
+                          className="checklist-evidence-link"
+                          onClick={() => onOpenEvidence(item.id)}
+                          aria-label={`Open the evidence for ${item.action} (${evidenceCount} ${evidenceCount === 1 ? 'file' : 'files'})`}
+                        >
+                          📎 {evidenceCount}
+                        </button>
+                      </>
+                    ) : (
+                      ` · 📎 ${evidenceCount}`
+                    )
+                  ) : null}
                 </span>
-                {item.completedAt ? (
-                  <span>
-                    Completed {formatMoment(item.completedAt, timeZone)} by {item.completedByName}
-                  </span>
-                ) : null}
-                {evidenceCount > 0 ? (
-                  <span>
-                    {evidenceCount} evidence file{evidenceCount === 1 ? '' : 's'} attached
-                  </span>
+                {/*
+                  The rule stays in view until it is satisfied. A finished step
+                  with its file shows the 📎 instead; a finished step with none
+                  keeps saying what it asked for — which, for "Evidence
+                  required", is exactly why the task cannot be completed yet.
+                */}
+                {item.evidenceRule !== 'not_required' &&
+                (item.state !== 'completed' || evidenceCount === 0) ? (
+                  <span>{EVIDENCE_LABEL[item.evidenceRule]}</span>
                 ) : null}
                 {/*
                   A step with no button needs a sentence. "Waiting" on its own

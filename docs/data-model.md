@@ -72,3 +72,11 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 - `can_reschedule` is false for routine occurrences, completed or cancelled work, review
   deadlines and meetings, and otherwise `focus.can_edit_task` evaluated as the caller. It is
   advisory: the move itself goes through `change_task_due_date`, which checks again.
+
+## v154 step due dates
+
+- `task_checklist_items.due_at` NULL means the task's own date and is never back-filled, so an
+  inherited step follows its task. A non-null date is the step's own. No columns were added.
+- `focus.step_due_after_task` and the `task_checklist_items_due_within_task` trigger keep a step's own
+  date on or before its task's, by organisation-local day; `change_task_due_date` applies the same rule
+  from the task's side.
