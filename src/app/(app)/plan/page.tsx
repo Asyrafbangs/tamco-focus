@@ -1,9 +1,8 @@
 import Link from 'next/link';
 
-import { CalendarItem } from '@/components/ui/ParityPrimitives';
 import { taskDrawerHref } from '@/domain/navigation';
 import { barrierHref } from '@/domain/barriers';
-import { formatDue, localDateString } from '@/domain/duration';
+import { dueInputValue, formatDue, localDateString } from '@/domain/duration';
 import { requireProfile } from '@/lib/supabase/server';
 import {
   getMeetingQueue,
@@ -16,6 +15,7 @@ import {
 } from '@/server/queries';
 
 import { MeetingQueuePanel } from './MeetingQueuePanel';
+import { PlanCalendar, type PlanCalendarDay, type PlanCalendarMove } from './PlanCalendar';
 
 /**
  * Monthly Plan (section 17).
@@ -23,9 +23,14 @@ import { MeetingQueuePanel } from './MeetingQueuePanel';
  * An overview of due and planned work that keeps it out of My Day. Every item
  * is clickable and opens the task it belongs to (section 17.3).
  *
- * The calendar is INFORMATIONAL. Section 17.3 forbids ungoverned drag-and-drop
- * changes to due date, ownership, or state, so nothing here is draggable and
- * nothing mutates — a due date is changed on the task, where it is audited.
+ * v153 — a due date can be dragged to another day, or moved with "Move to…"
+ * beside it. Section 17.3 forbids UNGOVERNED drag-and-drop changes to due
+ * date, ownership or state, and this one is governed: the drop calls the same
+ * action as the task drawer's Edit due date, with the same authority check,
+ * version guard and audit event. Only due dates move — routine occurrences,
+ * review deadlines and meetings stay where they are — and nothing else about a
+ * task can be changed from here. The interaction lives in `PlanCalendar`; this
+ * page decides what is shown and which items may move.
  *
  * Section 17.4 asks for a date-grouped agenda on mobile rather than a squeezed
  * grid. One markup tree serves both: the CSS turns each day into a card and
@@ -74,6 +79,27 @@ const EVENT_LABELS: Record<PlanEvent['eventKind'], string> = {
   // about, because it is a commitment in the same day.
   discussion: 'Meeting',
 };
+
+/**
+ * v153 — what moving this item needs, or nothing if it may not move.
+ *
+ * `canReschedule` is the database's answer for this viewer, taken from the
+ * same authority check the procedure makes. The kind is checked as well so the
+ * rule "only due dates move" is visible where the calendar is built, not only
+ * inside a view definition.
+ */
+function movable(event: PlanEvent, timeZone: string): PlanCalendarMove | undefined {
+  if (!event.canReschedule || event.taskVersion === null) return undefined;
+  if (event.eventKind !== 'due' && event.eventKind !== 'overdue') return undefined;
+  if (event.dueIsDateOnly) return { version: event.taskVersion, dueIsDateOnly: true };
+
+  // A timed commitment keeps its time when it moves to another day, read in
+  // the organisation's zone rather than the browser's so two people dragging
+  // the same item cannot produce two different instants.
+  const localTime = dueInputValue(event.occursAt, false, timeZone).slice(11, 16);
+  if (localTime.length !== 5) return undefined;
+  return { version: event.taskVersion, dueIsDateOnly: false, localTime };
+}
 
 export default async function PlanPage({
   searchParams,
@@ -162,6 +188,50 @@ export default async function PlanPage({
   const scopeHref = (next: PlanScope) =>
     `/plan?month=${monthKey(year, month)}${next === 'mine' ? '&scope=mine' : ''}`;
 
+  const calendarDays: PlanCalendarDay[] = Array.from({ length: daysInMonth }, (_, index) => {
+    const dayNumber = index + 1;
+    const date = `${monthKey(year, month)}-${String(dayNumber).padStart(2, '0')}`;
+
+    const heading = new Intl.DateTimeFormat('en-GB', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'UTC',
+    }).format(new Date(`${date}T00:00:00Z`));
+
+    const items = (byDate.get(date) ?? []).map((event) => {
+      // Whose item this is only matters when it is not the viewer's.
+      const owner =
+        event.primaryOwnerId === profile.id
+          ? undefined
+          : (ownerNames.get(event.primaryOwnerId) ?? 'Shared with you');
+
+      return {
+        key: `${event.eventId ?? event.taskId}-${event.eventKind}-${event.occursAt}`,
+        taskId: event.taskId,
+        /*
+         * §42 — a discussion links to the request it exists to settle, not to
+         * the task in general. Somebody clicking a meeting wants the thing
+         * they are meeting about.
+         */
+        href:
+          event.eventKind === 'discussion' && event.taskId && event.barrierId
+            ? barrierHref(event.taskId, event.barrierId)
+            : taskDrawerHref(event.taskId, '/plan'),
+        kind: event.eventKind,
+        label: `${EVENT_LABELS[event.eventKind]}: ${event.title}`,
+        taskTitle: event.title,
+        owner,
+        accessibleSuffix: `${event.title} — ${EVENT_LABELS[event.eventKind]} ${formatDue(event.occursAt, event.dueIsDateOnly, timeZone)}${owner ? `, owned by ${owner}` : ''}`,
+        move: movable(event, timeZone),
+      };
+    });
+
+    return { date, dayNumber, heading, isToday: date === today, items };
+  });
+
+  const anyMovable = calendarDays.some((day) => day.items.some((item) => item.move));
+
   return (
     <>
       <div className="pagehead">
@@ -172,6 +242,9 @@ export default async function PlanPage({
             {scope === 'team'
               ? 'Due and planned work across your team for the month. Selecting an item opens it.'
               : 'Your dates for the month, including work shared with you. Selecting an item opens it.'}
+            {/* Said only when it is true: a month with nothing this person may
+                move should not advertise a gesture that will do nothing. */}
+            {anyMovable && ' Drag a due date to another day to move it.'}
           </p>
         </div>
         {/*
@@ -264,77 +337,12 @@ export default async function PlanPage({
           </div>
         </div>
       ) : (
-        <div className="calendar" role="grid" aria-label={`Commitments in ${monthLabel}`}>
-          {WEEKDAYS.map((day) => (
-            <div key={day} className="cal-head" role="columnheader">
-              {day}
-            </div>
-          ))}
-
-          {/* Leading blanks keep the 1st under its correct weekday. Hidden on
-              mobile, where the grid becomes an agenda. */}
-          {Array.from({ length: leadingBlanks }, (_, index) => (
-            <div key={`blank-${index}`} className="day is-empty" aria-hidden="true" />
-          ))}
-
-          {Array.from({ length: daysInMonth }, (_, index) => {
-            const dayNumber = index + 1;
-            const date = `${monthKey(year, month)}-${String(dayNumber).padStart(2, '0')}`;
-            const dayEvents = byDate.get(date) ?? [];
-            const isToday = date === today;
-
-            const heading = new Intl.DateTimeFormat('en-GB', {
-              weekday: 'short',
-              day: 'numeric',
-              month: 'short',
-              timeZone: 'UTC',
-            }).format(new Date(`${date}T00:00:00Z`));
-
-            return (
-              <div
-                key={date}
-                className={`day${isToday ? ' today' : ''}${dayEvents.length === 0 ? ' is-empty' : ''}`}
-                role="gridcell"
-              >
-                <div className="daynum">
-                  {/* The grid shows a bare number; the agenda needs the full
-                      date, since it has no column headers to read from. */}
-                  <span aria-hidden="true">{dayNumber}</span>
-                  <span className="visually-hidden">{heading}</span>
-                  {isToday && <span className="visually-hidden"> (today)</span>}
-                </div>
-
-                {dayEvents.map((event) => {
-                  // Whose item this is only matters when it is not the viewer's.
-                  const owner =
-                    event.primaryOwnerId === profile.id
-                      ? undefined
-                      : (ownerNames.get(event.primaryOwnerId) ?? 'Shared with you');
-
-                  return (
-                    <CalendarItem
-                      key={`${event.eventId ?? event.taskId}-${event.eventKind}-${event.occursAt}`}
-                      /*
-                       * §42 — a discussion links to the request it exists to
-                       * settle, not to the task in general. Somebody clicking a
-                       * meeting wants the thing they are meeting about.
-                       */
-                      href={
-                        event.eventKind === 'discussion' && event.taskId && event.barrierId
-                          ? barrierHref(event.taskId, event.barrierId)
-                          : taskDrawerHref(event.taskId, '/plan')
-                      }
-                      kind={event.eventKind}
-                      title={`${EVENT_LABELS[event.eventKind]}: ${event.title}`}
-                      owner={owner}
-                      accessibleSuffix={`${event.title} — ${EVENT_LABELS[event.eventKind]} ${formatDue(event.occursAt, event.dueIsDateOnly, timeZone)}${owner ? `, owned by ${owner}` : ''}`}
-                    />
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
+        <PlanCalendar
+          monthLabel={monthLabel}
+          weekdays={WEEKDAYS}
+          leadingBlanks={leadingBlanks}
+          days={calendarDays}
+        />
       )}
     </>
   );

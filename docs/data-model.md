@@ -63,3 +63,12 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
   stores its own actor/time/reason and never reuses completion fields.
 - `goal_plan_overview`, `goal_session_overview`, and `action_requests_overview` are
   security-invoker read models.
+
+## v153 calendar rescheduling
+
+- `plan_events` appends `task_version`, the task's optimistic-concurrency version (null on a
+  meeting), and `can_reschedule`, whether the caller may move this due date from the calendar.
+  Both are appended because `create or replace view` can only add columns at the end.
+- `can_reschedule` is false for routine occurrences, completed or cancelled work, review
+  deadlines and meetings, and otherwise `focus.can_edit_task` evaluated as the caller. It is
+  advisory: the move itself goes through `change_task_due_date`, which checks again.

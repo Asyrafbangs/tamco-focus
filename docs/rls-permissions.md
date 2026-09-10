@@ -80,3 +80,12 @@ the procedure. Authorised managers may read direct-report plans and complete qua
 under `department_only`, manager/administrator self-review is permitted without a fake reporting
 line. Lifecycle tables remain direct-write denied to authenticated clients. Goal completion uses
 agreement authority; cancellation allows the owner or authorised manager.
+
+## Calendar rescheduling (v153)
+
+`plan_events.can_reschedule` evaluates `focus.can_edit_task` as the viewer: the view is
+`security_invoker`, so `auth.uid()` inside the function is the caller. It is an interface
+courtesy and grants nothing. A drop on the Monthly Plan calls `change_task_due_date`, which
+re-checks authority, closed-work state and the expected version on every call. A collaborator
+therefore sees a shared due date on their calendar but is offered no move, and the procedure
+refuses one with `not_authorised`; the owner's manager may move it, as they may in the task drawer.

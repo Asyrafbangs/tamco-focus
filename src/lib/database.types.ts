@@ -8570,6 +8570,7 @@ export type Database = {
       plan_events: {
         Row: {
           barrier_id: string | null
+          can_reschedule: boolean | null
           due_is_date_only: boolean | null
           event_id: string | null
           event_kind: string | null
@@ -8577,6 +8578,7 @@ export type Database = {
           primary_owner_id: string | null
           status: Database["public"]["Enums"]["task_status"] | null
           task_id: string | null
+          task_version: number | null
           title: string | null
           work_class: Database["public"]["Enums"]["work_class"] | null
         }

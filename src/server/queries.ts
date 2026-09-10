@@ -1655,6 +1655,19 @@ export interface PlanEvent {
   /** Set on a booked discussion, so the calendar can link to the request. */
   eventId: string | null;
   barrierId: string | null;
+  /**
+   * v153 — the task's version, passed back as `expectedVersion` when the date
+   * is moved on the calendar. Null on a meeting, which has no task version of
+   * its own.
+   */
+  taskVersion: number | null;
+  /**
+   * v153 — whether this viewer may move this due date by dragging it. False
+   * for routine occurrences, review deadlines, meetings, closed work, and
+   * anything the viewer could not edit in the task drawer either. A courtesy
+   * to the interface: `change_task_due_date` decides again on every call.
+   */
+  canReschedule: boolean;
 }
 
 /**
@@ -1762,6 +1775,13 @@ export async function getPlanEvents(
     eventKind: row.event_kind as PlanEvent['eventKind'],
     eventId: row.event_id ? String(row.event_id) : null,
     barrierId: row.barrier_id ? String(row.barrier_id) : null,
+    /*
+     * Read defensively, so the order of deployment does not matter. Until v153
+     * reaches a database these columns are simply absent: the calendar then
+     * offers no dragging at all, which is exactly the behaviour it had before.
+     */
+    taskVersion: typeof row.task_version === 'number' ? row.task_version : null,
+    canReschedule: row.can_reschedule === true,
   }));
 }
 

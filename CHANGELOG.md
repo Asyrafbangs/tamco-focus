@@ -1,5 +1,28 @@
 # TAMCO Focus — Change Log
 
+## v153 Governed calendar rescheduling — 10 September 2026
+
+- A task's due date can be dragged to another day on the Monthly Plan, or moved with **Move
+  to…** beside it, as the Product Owner asked (“move freely like Outlook”).
+- Every move calls `change_task_due_date` — the task drawer's own action — so the same
+  authority check, closed-work refusal, version guard and `task_due_date_changed` audit event
+  apply. Undo is a second audited change back, offered for about ten seconds.
+- `plan_events` gained `task_version` and `can_reschedule`, so the calendar offers a drag only
+  where the server would accept it and quotes the version it was drawn with; a stale calendar
+  is refused with a plain message and refreshed.
+- Routine occurrences, review and selection deadlines, and meetings stay fixed. Ownership and
+  task state are never changed from the calendar.
+- Move to… is the keyboard and touch route (WCAG 2.5.7); on the mobile agenda it is always
+  shown at a 44px target. A timed commitment keeps its time when it changes day.
+- Spec §17.3 carries a dated amendment recording the approval; the original rule against
+  ungoverned drag-and-drop still stands.
+- Found while testing, and fixed: the calendar's owner line was faded to 3.2:1 contrast (WCAG
+  1.4.3 needs 4.5:1), and its `role="grid"` had cells with no rows around them and no arrow-key
+  navigation. The owner line is now full strength and the calendar is a table with week rows;
+  neither change moves anything on screen.
+- `scripts/run-production-smoke.mjs` takes `SMOKE_PORT` (default 3100), as the end-to-end server
+  takes `E2E_PORT`, so the suite can run beside another application holding the port.
+
 ## v120 Transactional notification email — 30 August 2026
 
 - Added one durable email-delivery record in the same transaction as every new in-app notification,

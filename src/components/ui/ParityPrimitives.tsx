@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { CSSProperties, ReactNode, Ref } from 'react';
+import type { CSSProperties, DragEventHandler, ReactNode, Ref } from 'react';
 
 type Tone = 'neutral' | 'blue' | 'green' | 'amber' | 'red' | 'purple';
 
@@ -278,6 +278,10 @@ export function CalendarItem({
   kind,
   owner,
   accessibleSuffix,
+  draggable,
+  onDragStart,
+  onDragEnd,
+  taskAnchor,
 }: {
   href: string;
   title: string;
@@ -285,9 +289,27 @@ export function CalendarItem({
   /** Shown only when the item belongs to someone other than the viewer. */
   owner?: string;
   accessibleSuffix?: string;
+  /**
+   * v153 - the Monthly Plan sets these on a due date the viewer may move, and
+   * `false` on everything else, so a fixed item cannot be picked up as a bare
+   * link. Left undefined everywhere else the item is used.
+   */
+  draggable?: boolean;
+  onDragStart?: DragEventHandler<HTMLAnchorElement>;
+  onDragEnd?: DragEventHandler<HTMLAnchorElement>;
+  /** Lets focus find a moved item again once it has been redrawn. */
+  taskAnchor?: string;
 }) {
   return (
-    <Link href={href} className={`cal-item ${kind}`} title={owner ? `${title} — ${owner}` : title}>
+    <Link
+      href={href}
+      className={`cal-item ${kind}`}
+      draggable={draggable}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      data-plan-task={taskAnchor}
+      title={owner ? `${title} — ${owner}` : title}
+    >
       <span aria-hidden="true">{title}</span>
       {owner && (
         <span className="cal-item-owner" aria-hidden="true">

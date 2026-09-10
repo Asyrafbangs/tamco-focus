@@ -1218,3 +1218,22 @@ derived-progress rules. The future ESH finding/action system remains outside the
    downgrades a partially configured relay and never exposes the service-role key to the client.
 7. This mechanism follows actual notification rows. Preference or workflow rules that suppress a
    notification naturally suppress its email; transport code never makes an independent decision.
+
+## 48. v153 governed calendar rescheduling
+
+1. The Monthly Plan offers a drag only on an item whose `plan_events.can_reschedule` is true. The
+   view computes it as the caller (`security_invoker`): false for routine occurrences, completed
+   or cancelled work, review deadlines and meetings, otherwise `focus.can_edit_task`. It is a
+   courtesy to the interface; the procedure decides again on every call.
+2. A drop, and Move to…, call the `changeTaskDueDate` server action with the item's
+   `task_version` as the expected version. That is the drawer's action, so authority, the
+   closed-work refusal, the implausible-year guard and the `task_due_date_changed` audit event
+   are shared rather than reimplemented.
+3. A date-only commitment moves to the end of the new local day. A timed one keeps its
+   organisation-local wall-clock time on the new day; the page derives that time in the
+   organisation's zone, never the browser's.
+4. The grid moves the item optimistically and marks it as saving. The server response either
+   confirms it through the revalidated page or, on refusal, the item returns to its original day.
+   A `version_conflict` also refreshes the calendar so the current date is shown.
+5. Undo calls the same action back to the original date, quoting the version the move produced.
+   It does not use `undo_event`: the audit trail records the move and the move back.

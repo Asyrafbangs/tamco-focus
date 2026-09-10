@@ -1622,8 +1622,11 @@
   display: block;
   overflow: hidden;
   font-size: 9px;
-  font-weight: 600;
-  opacity: 0.78;
+  /* Quieter than the title by weight and position, not by fading. It used to
+     be faded to 78%, which took blue on its tint from 4.5:1 to 3.2:1 - below
+     what small text needs (WCAG 1.4.3) - and nothing noticed, because no
+     accessibility scan had looked at a calendar with names on it. */
+  font-weight: 400;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -3922,8 +3925,10 @@ fieldset:disabled label,
   font-weight: 700;
 }
 
-/* Section 17.3 — the calendar is informational. Items open the task; they are
-   never draggable, because due date and ownership are governed changes. */
+/* Section 17.3 - items open the task. Since v153 a due date can also be
+   dragged to another day, through the same governed action as the task
+   drawer; see the movable due date block below. Ownership and state are
+   still never changed from the calendar. */
 .cal-item {
   position: relative;
   display: block;
@@ -3968,6 +3973,107 @@ fieldset:disabled label,
 .cal-item.discussion {
   background: var(--blue-bg);
   color: var(--blue);
+}
+
+/* ------------------------------------------------------------------------ */
+/* v153 - a movable due date                                                 */
+/* ------------------------------------------------------------------------ */
+
+/* Every entry is a row: the item, and beside a movable one its Move control.
+   A fixed item takes the whole width, which is a quiet cue in itself. */
+.cal-entry {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+  margin-top: 6px;
+}
+/* Centred in its row, so the title lines up with the Move control beside it.
+   On a phone the control is a 44px target and the row stretches to match; a
+   title pinned to the top sat visibly above its own button. The shared control
+   rule gives items `align-items: center` and a gap, which would centre the
+   text horizontally and push the owner line away, so both are reset. */
+.cal-entry > .cal-item {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  margin-top: 0;
+}
+.cal-item[draggable='true'] {
+  cursor: grab;
+}
+.cal-item[draggable='true']:active {
+  cursor: grabbing;
+}
+/* The item being carried stays in place, faded, so it is clear what will move
+   and where it came from. */
+.cal-entry.is-dragging > .cal-item {
+  opacity: 0.45;
+}
+/* On its new day while the server confirms. Dashed, because it is not settled
+   yet: a refusal puts it back where it was. */
+.cal-entry.is-saving > .cal-item {
+  opacity: 0.7;
+  border-style: dashed;
+  border-color: currentColor;
+}
+.cal-item-move {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  min-height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing),
+    color var(--motion-fast) var(--motion-easing);
+}
+/* Out of the way until the entry is pointed at or reached by keyboard: a
+   month of always-visible icons would be the loudest thing on the page. */
+.cal-entry:hover > .cal-item-move,
+.cal-entry:focus-within > .cal-item-move {
+  opacity: 1;
+}
+.cal-item-move:hover {
+  border-color: var(--line);
+  color: var(--text);
+  background: var(--surface-2);
+}
+/* A touch screen has no hover to reveal it and cannot drag either, so there it
+   is the only way to move a date, and it is always shown. */
+@media (hover: none) {
+  .cal-item-move {
+    opacity: 1;
+  }
+}
+@media (pointer: coarse) {
+  .cal-item-move {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+/* A week. `display: contents` gives the table its rows without giving the
+   layout a box: the seven days still sit in the calendar's own grid, and on a
+   phone they still stack as cards. */
+.cal-row {
+  display: contents;
+}
+/* Where the date will land if it is let go now. */
+.day.is-drop-target {
+  outline: 2px dashed var(--blue);
+  outline-offset: -4px;
+  background: color-mix(in srgb, var(--blue) 8%, var(--surface));
 }
 
 .plan-legend {

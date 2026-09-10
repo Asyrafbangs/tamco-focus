@@ -1048,6 +1048,8 @@ Every item is clickable and opens the relevant task, routine, or selection view.
 
 The calendar is primarily informational. It must not allow ungoverned drag-and-drop changes to due date, ownership, or task state.
 
+**v153 amendment — approved by the Product Owner on 10 September 2026.** A task's due date may be moved on the calendar, by dragging it to another day or with **Move to…** beside it, because that change is governed: it uses the same action, authority check, version guard and audit event as **Edit due date** in the task drawer, and **Undo** is a second audited change rather than an erasure. Only due dates move. Routine occurrences, review and selection deadlines, and meetings stay fixed on the calendar, and ownership and task state are never changed from it. Every drag has a keyboard and touch equivalent.
+
 ## 17.4 Mobile
 
 Mobile uses a date-grouped agenda rather than forcing a compressed desktop calendar grid.
