@@ -1253,3 +1253,18 @@ derived-progress rules. The future ESH finding/action system remains outside the
 4. The parent's step list shows each open step's assignee and effective due date (its own, or the
    task's), "Overdue since" once it passes, and a finished step's finisher, date and evidence count, the
    evidence opening in the drawer's viewer. An evidence rule stays visible until it is satisfied.
+
+## 50. v155 Trackable Steps — waiting on others
+
+1. A delegated step is one assigned to anybody but its task's owner and not yet completed. Its date is
+   its own, or the task's when it has none (§49), and it is late once that date has passed.
+2. `task_overview` exposes `delegated_open_count`, `delegated_overdue_count` and
+   `next_delegated_due_at`, the earliest date among the open delegated steps.
+3. The Active card appends "N with others" to its step count, and a "Next contribution due" line only
+   when that date falls before the work's own local due date. Once any delegated step is late, the
+   count reads "⚠ N delegated step(s) overdue" and the next-contribution line is withheld.
+4. `needsAttention` adds one `waiting_on_others` item per workable task with a late delegated step, so
+   the My Day banner counts it. My Day's Waiting on others section lists up to three late steps from
+   `shared_contributions` filtered to work the viewer owns, oldest date first, each opening its task.
+5. The columns are read defensively: before the migration runs they are absent, the counts read zero,
+   and Waiting on others is empty — the behaviour before v155.

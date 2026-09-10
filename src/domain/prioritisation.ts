@@ -262,6 +262,12 @@ export type AttentionKind =
   | 'overdue_routine'
   | 'completion_review_overdue'
   /**
+   * v155 — the work is not late, but a step somebody else owes on it is. The
+   * owner's own dates are all fine and the task is at risk anyway, which is
+   * exactly the case nothing else on My Day would catch.
+   */
+  | 'waiting_on_others'
+  /**
    * v40 section 5 — Available work that genuinely needs a decision today.
    * Nobody should have to open Available every morning to discover that their
    * manager asked for something reviewable this afternoon. This is exception
@@ -354,6 +360,16 @@ export function needsAttention(
         taskId: task.id,
         title: task.title,
         message: 'A barrier is open and waiting for support or a decision.',
+      });
+    }
+
+    if (task.delegatedOverdueCount > 0 && isWorkable(task)) {
+      const count = task.delegatedOverdueCount;
+      items.push({
+        kind: 'waiting_on_others',
+        taskId: task.id,
+        title: task.title,
+        message: `${count} delegated step${count === 1 ? ' is' : 's are'} past due.`,
       });
     }
 

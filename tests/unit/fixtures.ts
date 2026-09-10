@@ -58,6 +58,9 @@ export function makeTask(overrides: Partial<TaskOverview> = {}): TaskOverview {
     checklistCompleted: 0,
     checklistReady: 0,
     missingEvidenceCount: 0,
+    delegatedOpenCount: 0,
+    delegatedOverdueCount: 0,
+    nextDelegatedDueAt: null,
     attachmentCount: 0,
     collaboratorCount: 0,
     // v134 - most work asks for nothing in particular; the tests that care

@@ -255,6 +255,22 @@ describe('Needs Attention (section 9.3)', () => {
     expect(needsAttention(ordinary, context)).toHaveLength(0);
   });
 
+  it('v155 surfaces work whose delegated step is late, though the work itself is not', () => {
+    const task = makeTask({ delegatedOpenCount: 2, delegatedOverdueCount: 1 });
+    const item = needsAttention([task], context).find(
+      (entry) => entry.kind === 'waiting_on_others',
+    );
+    expect(item, 'a late delegated step went unmentioned').toBeDefined();
+    expect(item!.message).toBe('1 delegated step is past due.');
+  });
+
+  it('v155 stays quiet about delegation that is on time', () => {
+    const task = makeTask({ delegatedOpenCount: 2, delegatedOverdueCount: 0 });
+    expect(needsAttention([task], context).map((entry) => entry.kind)).not.toContain(
+      'waiting_on_others',
+    );
+  });
+
   it('reports overdue work with a written explanation', () => {
     const task = makeTask({
       isOverdue: true,

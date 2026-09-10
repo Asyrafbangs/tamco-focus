@@ -162,6 +162,15 @@ export interface TaskOverview {
   checklistCompleted: number;
   checklistReady: number;
   missingEvidenceCount: number;
+  /**
+   * v155 — steps on this work assigned to somebody other than its owner and not
+   * yet done. A step's date is its own, or the task's when it has none.
+   */
+  delegatedOpenCount: number;
+  /** v155 — of those, how many are past their date. */
+  delegatedOverdueCount: number;
+  /** v155 — the earliest date among them, or null when there are none. */
+  nextDelegatedDueAt: string | null;
   attachmentCount: number;
   /** What completing this work requires as proof. */
   completionEvidenceRule: CompletionEvidenceRule;

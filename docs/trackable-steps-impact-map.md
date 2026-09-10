@@ -68,6 +68,27 @@ their own work; only permissions differ.
   blocking); `e2e/step-due-v154` (the rows, the evidence opening in place, and
   Add step's default and limit, on desktop and phone).
 
+## Stage 2 — v155, waiting on others
+
+- **Data model:** `task_overview` appends the delegated counts and the next
+  contribution date; `shared_contributions` appends `assignee_name`. Both are
+  `create or replace view` with columns added at the end, reproduced from their
+  latest definitions.
+- **Active card:** "1/3 steps · 2 with others", with "Next contribution due
+  10 Sep" only when a step is needed back before the work itself — a step that
+  shares the task's date would repeat the date already on the row. A late step
+  turns the line into "⚠ 1 delegated step overdue".
+- **My Day:** a Waiting on others section lists the late steps by name, who
+  owes each, how late, and the work it belongs to. It counts in the Needs
+  attention banner. Nothing appears while delegation is on time.
+- **Permissions/RLS:** unchanged. The owner already could read the steps on
+  their own work; `shared_contributions` is `security_invoker`, and somebody
+  with no part in the work sees neither side.
+- **Tests:** `integration/waiting-on-others-v155` (the counts, a completed step
+  leaving them, one record seen from both sides and neither by an outsider);
+  unit tests for the attention item; `e2e/waiting-on-others-v155` (the card
+  lines and My Day's entry, on desktop and phone).
+
 ## Compatibility and rollback
 
 - Stage 1 is one forward-only migration,
@@ -76,5 +97,8 @@ their own work; only permissions differ.
   No data is transformed.
 - Existing steps that already break the rule are left alone until somebody next
   moves them or their task, and are then named.
+- Stage 2 is `20260911002000_v155_waiting_on_others.sql`, two views with
+  columns appended. The application reads them defensively, so either order of
+  deployment is safe.
 - Rollback is a redeploy of the previous build plus, if wanted, dropping the
   trigger; the procedures' extra checks only ever refuse impossible dates.

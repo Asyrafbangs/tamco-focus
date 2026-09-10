@@ -13,7 +13,7 @@ import {
   type TabItem,
 } from '@/components/ui/ParityPrimitives';
 import { closeLayerHref, safeReturnPath, TASK_LAYER_PARAMS } from '@/domain/navigation';
-import { formatDue, formatDueShort, overdueAgeMs } from '@/domain/duration';
+import { formatDue, formatDueShort, localDateString, overdueAgeMs } from '@/domain/duration';
 import { DELIVERY_KIND_WORD } from '@/domain/delivery';
 import {
   DEFAULT_PERIOD,
@@ -1680,6 +1680,39 @@ export default async function WorkPage({
                         <span className="sub">
                           {task.checklistCompleted}/{task.checklistTotal}{' '}
                           {task.checklistTotal === 1 ? 'step' : 'steps'}
+                          {/*
+                            v155 — whose steps they are. "1/3 steps" said how far
+                            through the work was and nothing about who owed the
+                            rest, so the owner had to open every task to learn
+                            whether it was waiting on somebody.
+                          */}
+                          {task.delegatedOverdueCount > 0 ? (
+                            <>
+                              {' · '}
+                              <span className="row-due late">
+                                <span aria-hidden="true">⚠ </span>
+                                {task.delegatedOverdueCount} delegated step
+                                {task.delegatedOverdueCount === 1 ? '' : 's'} overdue
+                              </span>
+                            </>
+                          ) : task.delegatedOpenCount > 0 ? (
+                            ` · ${task.delegatedOpenCount} with others`
+                          ) : null}
+                        </span>
+                      ) : null}
+                      {/*
+                        Only a contribution needed back before the work itself
+                        is worth a line: one that simply shares the task's date
+                        would repeat the date already on the row.
+                      */}
+                      {task.delegatedOverdueCount === 0 &&
+                      task.nextDelegatedDueAt &&
+                      (!task.dueAt ||
+                        localDateString(new Date(task.nextDelegatedDueAt), profile.timezone) <
+                          localDateString(new Date(task.dueAt), profile.timezone)) ? (
+                        <span className="sub">
+                          Next contribution due{' '}
+                          {formatDueShort(task.nextDelegatedDueAt, true, profile.timezone)}
                         </span>
                       ) : null}
                     </div>

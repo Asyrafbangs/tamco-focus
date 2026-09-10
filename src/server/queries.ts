@@ -77,6 +77,11 @@ function toTaskOverview(row: Record<string, unknown>): TaskOverview {
     checklistCompleted: Number(row.checklist_completed ?? 0),
     checklistReady: Number(row.checklist_ready ?? 0),
     missingEvidenceCount: Number(row.missing_evidence_count ?? 0),
+    // v155 — read defensively: until the migration reaches a database these
+    // columns are absent, and the card says exactly what it said before.
+    delegatedOpenCount: Number(row.delegated_open_count ?? 0),
+    delegatedOverdueCount: Number(row.delegated_overdue_count ?? 0),
+    nextDelegatedDueAt: row.next_delegated_due_at ? String(row.next_delegated_due_at) : null,
     completionEvidenceRule: (row.completion_evidence_rule ??
       'optional') as TaskOverview['completionEvidenceRule'],
     routineArea: row.routine_area ? String(row.routine_area) : null,
@@ -3054,6 +3059,67 @@ export async function getSharedContributions(userId: string): Promise<SharedCont
     prerequisiteTitle: (row.prerequisite_title as string) ?? null,
     readiness: row.readiness as SharedContribution['readiness'],
   }));
+}
+
+/** v155 — a step this person handed to somebody else that is now past its date. */
+export interface WaitingOnOthersItem {
+  checklistItemId: string;
+  taskId: string;
+  title: string;
+  parentTitle: string;
+  assigneeName: string;
+  /** The step's own date, or its task's when it has none (v154). */
+  dueAt: string;
+  dueIsDateOnly: boolean;
+}
+
+/**
+ * v155 — steps this person has handed to somebody else that are now late.
+ *
+ * Read from `shared_contributions`, the projection the assignee's Shared list
+ * reads, filtered to work this person owns: one step record, seen from the
+ * other side. Only late steps come back. Delegation that is on time stays
+ * quiet, which is the point — this is the list of things worth chasing.
+ */
+export async function getWaitingOnOthers(
+  userId: string,
+  now: Date = new Date(),
+): Promise<WaitingOnOthersItem[]> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from('shared_contributions')
+    .select(
+      'checklist_item_id,task_id,title,parent_title,assignee_name,item_due_at,parent_due_at,parent_due_is_date_only',
+    )
+    .eq('primary_owner_id', userId)
+    .limit(200);
+
+  if (error) {
+    // Until v155 reaches a database, `assignee_name` does not exist and this
+    // read is refused. Nothing is shown, which is what was shown before.
+    console.error(`[getWaitingOnOthers] ${error.message}`);
+    return [];
+  }
+
+  const items: WaitingOnOthersItem[] = [];
+  for (const row of data ?? []) {
+    const own = (row.item_due_at as string | null) ?? null;
+    const dueAt = own ?? (row.parent_due_at as string | null) ?? null;
+    if (!dueAt || new Date(dueAt).getTime() >= now.getTime()) continue;
+    items.push({
+      checklistItemId: String(row.checklist_item_id),
+      taskId: String(row.task_id),
+      title: String(row.title),
+      parentTitle: String(row.parent_title),
+      assigneeName: row.assignee_name ? String(row.assignee_name) : 'A colleague',
+      dueAt,
+      dueIsDateOnly: own ? true : Boolean(row.parent_due_is_date_only),
+    });
+  }
+
+  // The longest-waiting first: that is the one most likely to be forgotten.
+  return items.sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
 }
 
 /**

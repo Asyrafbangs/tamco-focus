@@ -8918,6 +8918,7 @@ export type Database = {
           assigned_by: string | null
           assigned_by_name: string | null
           assignee_id: string | null
+          assignee_name: string | null
           checklist_item_id: string | null
           completed_at: string | null
           depends_on_item_id: string | null
@@ -9117,6 +9118,8 @@ export type Database = {
           completion_evidence_instruction: string | null
           completion_evidence_rule: string | null
           created_at: string | null
+          delegated_open_count: number | null
+          delegated_overdue_count: number | null
           description: string | null
           due_at: string | null
           due_is_date_only: boolean | null
@@ -9129,6 +9132,7 @@ export type Database = {
           last_meaningful_update_at: string | null
           missing_evidence_count: number | null
           next_action: string | null
+          next_delegated_due_at: string | null
           occurrence_date: string | null
           open_barrier_count: number | null
           origin: Database["public"]["Enums"]["work_origin"] | null

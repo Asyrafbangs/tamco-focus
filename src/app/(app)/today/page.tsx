@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 import { RowPrimaryLink } from '@/components/ui/ParityPrimitives';
 import { taskDrawerHref } from '@/domain/navigation';
-import { formatDue, overdueAgeMs } from '@/domain/duration';
+import { formatDue, formatDueShort, localDateString, overdueAgeMs } from '@/domain/duration';
 import { goalExceptionMessage } from '@/domain/goals';
 import {
   comingUp,
@@ -21,6 +21,7 @@ import {
   getMyAttention,
   getMyTasks,
   getTeamDirectory,
+  getWaitingOnOthers,
 } from '@/server/queries';
 import { getGoalExceptions, getMyGoals } from '@/server/goal-queries';
 import { getAssignablePeople } from '@/server/actions/assignment-actions';
@@ -51,6 +52,21 @@ import { WhyThis } from './WhyThis';
  * to open the list to discover what the others are, which is the opposite of
  * what an exception banner is for (section 9.3).
  */
+/**
+ * v155 — how late a step somebody else owes is, in the organisation's days:
+ * "Due yesterday", or its date and how many days it has been.
+ */
+function lateness(dueAt: string, dueIsDateOnly: boolean, timeZone: string, now: Date): string {
+  const due = localDateString(new Date(dueAt), timeZone);
+  const today = localDateString(now, timeZone);
+  const days = Math.round(
+    (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${due}T00:00:00Z`)) / 86_400_000,
+  );
+  if (days <= 0) return `Due today, ${formatDueShort(dueAt, dueIsDateOnly, timeZone, now)}`;
+  if (days === 1) return 'Due yesterday';
+  return `Due ${formatDueShort(dueAt, true, timeZone, now)} · ${days} days late`;
+}
+
 function attentionSummary(items: readonly AttentionItem[]): string {
   const phrases: Partial<Record<AttentionItem['kind'], (count: number) => string>> = {
     overdue: (count) => `${count} overdue`,
@@ -62,6 +78,7 @@ function attentionSummary(items: readonly AttentionItem[]): string {
     completion_review_overdue: (count) => `${count} completion review${count === 1 ? '' : 's'} due`,
     available_needs_decision: (count) =>
       `${count} waiting in Available need${count === 1 ? 's' : ''} a decision`,
+    waiting_on_others: (count) => `${count} waiting on others`,
   };
 
   const counts = new Map<AttentionItem['kind'], number>();
@@ -107,6 +124,7 @@ export default async function TodayPage({
     actionRequests,
     teamDirectory,
     awaitingOthersTaskIds,
+    waitingOnOthers,
   ] = await Promise.all([
     getMyTasks(profile.id),
     getHandoffReadyTaskIds(profile.id),
@@ -122,6 +140,7 @@ export default async function TodayPage({
     // directory on every My Day render would be a query nobody asked for.
     params.capture === '1' ? getTeamDirectory() : Promise.resolve([]),
     getBarriersAwaitingOthers(profile.id),
+    getWaitingOnOthers(profile.id),
   ]);
 
   const context = {
@@ -263,6 +282,54 @@ export default async function TodayPage({
             Review {attention.length} item{attention.length === 1 ? '' : 's'}
           </Link>
         </div>
+      )}
+
+      {/*
+        v155 — the owner's side of a delegated step. Ordinary delegation stays
+        quiet; this appears only once a step somebody else owes has passed its
+        date, because that is when the work it belongs to is at risk even though
+        nothing of the owner's own is late yet. The same step record the
+        assignee sees in Shared, read from the other side.
+      */}
+      {waitingOnOthers.length > 0 && (
+        <section className="card coming waiting-on-others" aria-labelledby="waiting-heading">
+          <div className="sectionhead">
+            <div>
+              <h3 id="waiting-heading">Waiting on others</h3>
+              <p>
+                {waitingOnOthers.length === 1
+                  ? 'A step you handed over has passed its date.'
+                  : `${waitingOnOthers.length} steps you handed over have passed their dates.`}
+              </p>
+            </div>
+            <Link href="/work" className="btn small ghost">
+              Open Active work
+            </Link>
+          </div>
+          <div className="coming-grid">
+            {waitingOnOthers.slice(0, 3).map((item) => (
+              <Link
+                key={item.checklistItemId}
+                href={taskDrawerHref(item.taskId, '/today')}
+                className="coming-item interactive-row"
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                <strong>
+                  {item.assigneeName} · {item.title}
+                </strong>
+                <span className="waiting-late">
+                  {lateness(
+                    item.dueAt,
+                    item.dueIsDateOnly,
+                    profile.timezone ?? 'Asia/Kuala_Lumpur',
+                    now,
+                  )}
+                </span>
+                <span>Part of: {item.parentTitle}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       {/*

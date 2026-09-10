@@ -1,5 +1,16 @@
 # TAMCO Focus — Change Log
 
+## v155 Trackable Steps, stage 2: waiting on others — 11 September 2026
+
+- The Active card says whose steps are out: "1/3 steps · 2 with others", and "Next contribution due
+  10 Sep" when a step is needed back before the work itself. Once one is late the line becomes
+  "⚠ 1 delegated step overdue" — the work is not late yet, and the row says it is at risk anyway.
+- My Day gains **Waiting on others**: each late step by name, who owes it, how late, and the work it
+  belongs to, opening that work. Ordinary delegation stays quiet; only a late step appears, and it
+  counts in the Needs attention banner as "N waiting on others".
+- `task_overview` gains the delegated counts and the next contribution date; `shared_contributions`
+  gains the assignee's name. The owner reads the same step record the assignee sees in Shared.
+
 ## v154 Trackable Steps, stage 1: a step's date holds — 11 September 2026
 
 - A step's row in its task now says who owes it and by when — "Amer Hakim · Due 10 Sep" — using the

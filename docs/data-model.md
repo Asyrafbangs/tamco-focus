@@ -80,3 +80,11 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 - `focus.step_due_after_task` and the `task_checklist_items_due_within_task` trigger keep a step's own
   date on or before its task's, by organisation-local day; `change_task_due_date` applies the same rule
   from the task's side.
+
+## v155 waiting on others
+
+- `task_overview` appends `delegated_open_count`, `delegated_overdue_count` and
+  `next_delegated_due_at`, computed from steps assigned to anybody but the task's owner and not yet
+  completed, each dated by its own `due_at` or else the task's.
+- `shared_contributions` appends `assignee_name`. Both views stay `security_invoker`; nothing was
+  written or backfilled.
