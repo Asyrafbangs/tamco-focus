@@ -95,14 +95,21 @@ export function MyTeamPersonRow({
    * A person with nothing active but nine waiting now says so here, where the
    * line used to read "Nothing active" and mean the opposite of what it said.
    */
-  const summary =
-    [
-      person.overdueCount > 0 ? `${person.overdueCount} overdue` : null,
-      person.activeCount > 0 ? `${person.activeCount} active` : null,
-      person.availableCount > 0 ? `${person.availableCount} waiting` : null,
-    ]
-      .filter(Boolean)
-      .join(' · ') || 'Nothing active';
+  const summary = [
+    // Only this part is ever red: it is the figure that decides whether the row
+    // needs reading, and a whole red line would shout down the step warning.
+    person.overdueCount > 0 ? { text: `${person.overdueCount} overdue`, alert: true } : null,
+    person.activeCount > 0 ? { text: `${person.activeCount} active`, alert: false } : null,
+    // v157 - what they owe on other people's work, which their own list
+    // cannot show because the work is somebody else's.
+    person.sharedStepCount > 0
+      ? {
+          text: `${person.sharedStepCount} shared ${person.sharedStepCount === 1 ? 'step' : 'steps'}`,
+          alert: false,
+        }
+      : null,
+    person.availableCount > 0 ? { text: `${person.availableCount} waiting`, alert: false } : null,
+  ].filter((part): part is { text: string; alert: boolean } => part !== null);
 
   /*
    * §6 A01 — name, whitespace and chevron all do the same thing, because they
@@ -144,9 +151,28 @@ export function MyTeamPersonRow({
       >
         <div className={styles.person} data-cell="person">
           <strong>{person.fullName}</strong>
-          <span className={person.overdueCount > 0 ? styles.summaryAlert : undefined}>
-            {summary}
+          <span>
+            {summary.length === 0
+              ? 'Nothing active'
+              : summary.flatMap((part, index) => [
+                  index > 0 ? ' · ' : '',
+                  part.alert ? (
+                    <span key={part.text} className={styles.summaryAlert}>
+                      {part.text}
+                    </span>
+                  ) : (
+                    part.text
+                  ),
+                ])}
           </span>
+          {/* v157 - a late step is late for somebody else's work, so it is said
+              on its own line rather than folded into the count above. */}
+          {person.sharedStepOverdueCount > 0 && (
+            <span className={styles.summaryAlert} data-testid="assigned-step-overdue">
+              ⚠ {person.sharedStepOverdueCount} assigned{' '}
+              {person.sharedStepOverdueCount === 1 ? 'step' : 'steps'} overdue
+            </span>
+          )}
         </div>
 
         <div className={styles.working} data-cell="working-on">

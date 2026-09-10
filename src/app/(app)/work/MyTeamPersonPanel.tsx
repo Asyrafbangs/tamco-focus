@@ -42,6 +42,27 @@ const ACTIVE_PAGE_SIZE = 5;
 /** §6 — "expand to latest 3–5 records". */
 const DELIVERY_RECORD_LIMIT = 5;
 
+/**
+ * v157 - why a contribution has not moved, when the reason is not the person
+ * who owes it. Worded as the assignee's own Shared list words it.
+ */
+function contributionHold(step: TeamMemberDetail['contributions'][number]): string | null {
+  switch (step.readiness) {
+    case 'waiting_for_owner':
+      return `Waiting for ${step.ownerName.split(' ')[0] ?? step.ownerName} to start the work`;
+    case 'waiting_parent_paused':
+      return 'The work is paused';
+    case 'waiting_prerequisite':
+      return step.prerequisiteTitle
+        ? `Waiting for: ${step.prerequisiteTitle}`
+        : 'Waiting for an earlier step';
+    case 'waiting':
+      return 'Not startable yet';
+    default:
+      return null;
+  }
+}
+
 function agoWords(iso: string, now: Date): string {
   const minutes = Math.max(0, Math.round((now.getTime() - new Date(iso).getTime()) / 60_000));
   if (minutes < 1) return 'just now';
@@ -124,6 +145,7 @@ export function MyTeamPersonPanel({
   const activeHead = otherActive.slice(0, ACTIVE_PAGE_SIZE);
   const activeRest = otherActive.slice(ACTIVE_PAGE_SIZE);
   const overdueActive = otherActive.filter((task) => task.isOverdue).length;
+  const contributionsOverdue = detail.contributions.filter((step) => step.isOverdue).length;
 
   const activeRow = (task: TeamMemberDetail['activeWork'][number]) => {
     const inWeek = stepCommitmentTitles.get(task.id);
@@ -275,6 +297,57 @@ export function MyTeamPersonPanel({
           </div>
         )}
       </section>
+
+      {/*
+        v157 - what they owe on somebody else's work.
+
+        None of it is in the list above, because the work belongs to its owner;
+        before this, somebody carrying three colleagues' steps looked, from
+        here, as though they were carrying nothing more. Collapsed like every
+        section that is not a decision, but the count says whether any is late.
+      */}
+      <details className="team-person-section" data-section="contributions">
+        <summary>
+          Contributions to others{' '}
+          <span className="team-person-count">
+            {detail.contributions.length}
+            {contributionsOverdue > 0 ? ` · ${contributionsOverdue} overdue` : ''}
+          </span>
+        </summary>
+        {detail.contributions.length === 0 ? (
+          <p className="muted member-other-empty">No steps on other people&rsquo;s work.</p>
+        ) : (
+          <div className="member-other-list">
+            {detail.contributions.map((step) => {
+              const hold = contributionHold(step);
+              return (
+                <Link
+                  key={step.checklistItemId}
+                  href={`${taskHref(step.taskId)}&step=${step.checklistItemId}`}
+                  scroll={false}
+                  className="member-other-row"
+                >
+                  <span className="member-other-copy">
+                    <strong>{step.title}</strong>
+                    <span>
+                      For {step.ownerName} · {step.parentTitle}
+                    </span>
+                    <span className={step.isOverdue ? 'member-contribution-late' : undefined}>
+                      {step.dueAt
+                        ? `${step.isOverdue ? 'Overdue since' : 'Due'} ${formatDueShort(step.dueAt, step.dueIsDateOnly, timeZone, now)}`
+                        : 'No due date'}
+                      {hold ? ` · ${hold}` : ''}
+                    </span>
+                  </span>
+                  <span className="member-other-chevron" aria-hidden="true">
+                    ›
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </details>
 
       <details className="team-person-section" data-section="not-started">
         <summary>

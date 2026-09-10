@@ -8711,6 +8711,12 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   color: var(--muted);
   font-size: 9.5px;
 }
+/* v157 - a contribution past its date. Two classes, because the muted rule
+   above is a class and an element and would otherwise win. */
+.member-other-copy > .member-contribution-late {
+  color: var(--red);
+  font-weight: 650;
+}
 .member-other-chevron {
   color: var(--muted);
   font-size: 18px;

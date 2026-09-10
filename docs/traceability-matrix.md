@@ -38,5 +38,6 @@
 | Trackable Steps: a step's date holds                 | Task drawer step rows; Add step Due                          | `focus.step_due_after_task`: trigger, step edit, task due change          | v154 integration (7) + desktop/mobile E2E              | Implemented and verified |
 | Trackable Steps: waiting on others                   | Active card step line; My Day Waiting on others              | `task_overview` delegated counts; `shared_contributions`                  | v155 integration + unit + desktop/mobile E2E           | Implemented and verified |
 | Trackable Steps: steps on the calendar               | Monthly Plan step entries; task drawer opens at a step       | `plan_events` step branch and columns; manager default                    | v156 integration + desktop/mobile E2E; parity updated  | Implemented and verified |
+| Trackable Steps: My Team contributions               | Person row step counts; Contributions to others section      | `shared_contributions` as the viewer; binned work excluded                | v157 integration + desktop/mobile E2E                  | Implemented and verified |
 
 The approved v33 application modules are mapped above. Detailed workflow contracts remain in `MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`, and the handoff documents in this directory.

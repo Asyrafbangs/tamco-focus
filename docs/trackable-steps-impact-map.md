@@ -111,6 +111,26 @@ their own work; only permissions differ.
   phone; the owner seeing only the early step and the count); the parity test
   updated for the manager default.
 
+## Stage 4 — v157, My Team sees the steps people owe
+
+- **Data model:** My Team reads `shared_contributions`, the projection the
+  assignee's Shared list and the owner's Waiting on others already read, for
+  everybody on the roster at once. The view now leaves out steps on binned
+  work, which it never had — found by reading this section, where a step on a
+  binned fixture was listed as still owed.
+- **Row:** "N shared steps" after the person's own active work, and
+  "⚠ N assigned step overdue" on its own line when one is late.
+- **Expansion:** "Contributions to others", collapsed, late first. Each row
+  names whose work it is for, its date or lateness, and why it is held when
+  that is not the person's doing, and opens the work at the step.
+- **Permissions/RLS:** unchanged, and deliberately so. The read runs as the
+  viewer, so a step on work outside their visibility is neither counted nor
+  listed — the rule the Completed split has used since v87.
+- **Tests:** `integration/team-contributions-v157` (a report's step on visible
+  work, dated and attributed; nothing on work outside the manager's tree;
+  nothing on binned work; gone once done); `e2e/team-contributions-v157` (the row, the section and the step
+  link, on desktop and phone).
+
 ## Compatibility and rollback
 
 - Stage 1 is one forward-only migration,
@@ -124,5 +144,7 @@ their own work; only permissions differ.
   deployment is safe.
 - Stage 3 is `20260911003000_v156_calendar_steps.sql`, `plan_events` with a
   branch and columns added. Before it runs there are simply no step rows.
+- Stage 4 is `20260911003500_v157_shared_contributions_excludes_binned.sql`,
+  the same view with two conditions added and no column changes.
 - Rollback is a redeploy of the previous build plus, if wanted, dropping the
   trigger; the procedures' extra checks only ever refuse impossible dates.

@@ -1284,3 +1284,23 @@ derived-progress rules. The future ESH finding/action system remains outside the
 4. A manager's calendar defaults to their own commitments; `scope=team` is explicit.
 5. The step columns are read defensively: before the migration there are no step rows and the counts
    read zero, which is the calendar as it was.
+
+## 52. v157 Trackable Steps — My Team sees the steps people owe
+
+1. A person's row counts the open steps they owe on work somebody else owns — "3 shared steps" — after
+   their own active work, and says "⚠ N assigned step(s) overdue" on a line of its own when any is past
+   its date. A step's date is its own, or its task's when it has none (v154).
+2. The expansion lists them under "Contributions to others", collapsed, with a count that says how many
+   are late: the step, whose work it is for, its date or how late it is, and why it is held when the
+   reason is not the person (the owner has not started, the work is paused, an earlier step is open).
+   Late first, then by date. Each opens the work at the step (`&step=`, v156).
+3. Both read `shared_contributions` as the viewer — the projection the assignee's Shared list and the
+   owner's Waiting on others read. A step on work outside the viewer's visibility is neither counted nor
+   listed, the rule the Completed split has followed for shared contributions since v87.
+4. A failed read counts nothing rather than taking My Team down.
+5. The overdue count on a row is red, as it was always meant to be, and only the count:
+   `.summaryAlert` had lost to the more specific `.person span` and read as bold grey. "Missed" in the
+   next-result cell had the same fault.
+6. `shared_contributions` leaves out steps on binned or purged work, as `completed_contributions` has
+   since v87. Before this, a step on work in the Bin stayed on the assignee's Shared list, the owner's
+   Waiting on others and My Team.

@@ -1,5 +1,19 @@
 # TAMCO Focus — Change Log
 
+## v157 Trackable Steps, stage 4: My Team sees the steps people owe — 11 September 2026
+
+- A person's row on My Team counts the steps they owe on other people's work — "4 active · 3 shared
+  steps" — and says "⚠ 1 assigned step overdue" on a line of its own once one is late.
+- Opening them lists those steps under **Contributions to others**: whose work, when each is due or
+  how late it is, and why it is held when that is not their doing. Each opens the work at the step.
+- Read from the same record the assignee's Shared list and the owner's Waiting on others read, under
+  the viewer's own visibility.
+- Fixed: a step on work in the Bin stayed on the assignee's Shared list, on the owner's Waiting on
+  others and on My Team. `shared_contributions` now leaves binned work out, as every other list
+  already did.
+- Fixed: the red "N overdue" on a My Team row, and "Missed" beside it, were never red — a more
+  specific grey rule had won since they were written. Only the overdue count is red, not the line.
+
 ## v156 Trackable Steps, stage 3: a calendar that knows about steps — 11 September 2026
 
 - The Monthly Plan shows the steps people owe. Yours read "Shared step: …" on their date, with the

@@ -185,7 +185,16 @@
   line-height: 1.4;
 }
 
-/* Overdue is the one number in the summary worth a second look. */
+/*
+  Overdue is the one number in the summary worth a second look, so it is the
+  only part of that line in red.
+
+  Scoped to the cells it sits in. As a bare class it lost to `.person span` and
+  `.nextResult span`, each one element more specific, so neither the overdue
+  count nor "Missed" ever actually turned red - they were bold and grey.
+*/
+.person .summaryAlert,
+.nextResult .summaryAlert,
 .summaryAlert {
   color: var(--red);
   font-weight: 650;

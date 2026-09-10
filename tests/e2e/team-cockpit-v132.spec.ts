@@ -143,9 +143,15 @@ test.describe('v132 the person expansion', () => {
      * a panel saying nothing was needed.
      */
     const withoutDecision = order[0]?.startsWith('Needs your decision') ? order.slice(1) : order;
+    /*
+     * v157 puts "Contributions to others" straight after the person's own
+     * active work: both answer "what else is being carried", and the steps
+     * they owe on somebody else's work are the half their own list cannot show.
+     */
     const expected = [
       'This week’s priorities',
       'Other active work',
+      'Contributions to others',
       'Not started',
       'Routines',
       'Completed',

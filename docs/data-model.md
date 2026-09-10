@@ -94,3 +94,8 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 - `plan_events` adds a `step` branch — open steps assigned to anybody but their task's owner — and
   appends `step_id`, `assignee_id`, `assignee_name`, `parent_title`, `parent_due_at`,
   `step_has_own_date` and `steps_due_with_task` to every branch. It stays `security_invoker`.
+
+## v157 shared contributions
+
+- `shared_contributions` leaves out steps whose work is binned or purged, as
+  `completed_contributions` has since v87; its columns are unchanged.

@@ -3141,6 +3141,82 @@ export async function getWaitingOnOthers(
   return items.sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
 }
 
+/** v157 - a step somebody owes on work another person owns, as My Team reads it. */
+export interface OpenContribution {
+  checklistItemId: string;
+  taskId: string;
+  assigneeId: string;
+  title: string;
+  parentTitle: string;
+  ownerName: string;
+  /** The step's own date, or its task's when it has none (v154). */
+  dueAt: string | null;
+  dueIsDateOnly: boolean;
+  isOverdue: boolean;
+  readiness: SharedContribution['readiness'];
+  prerequisiteTitle: string | null;
+}
+
+/**
+ * v157 - the steps these people still owe on other people's work.
+ *
+ * The projection the assignee's Shared list reads and the owner's Waiting on
+ * others reads: one step record, seen from a third side. It is read as the
+ * viewer, so it holds what the viewer may see - a step on work outside the
+ * viewer's visibility is not counted, the rule My Team's Completed split has
+ * followed for shared contributions since v87. Late first, then by date, so the
+ * list opens on what is worth asking about.
+ *
+ * A failed read counts nothing rather than taking My Team down with it, as the
+ * current-focus read beside it does.
+ */
+export async function getOpenContributions(
+  assigneeIds: readonly string[],
+  now: Date = new Date(),
+): Promise<OpenContribution[]> {
+  if (assigneeIds.length === 0) return [];
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from('shared_contributions')
+    .select(
+      'checklist_item_id,task_id,assignee_id,title,parent_title,primary_owner_name,item_due_at,parent_due_at,parent_due_is_date_only,readiness,prerequisite_title',
+    )
+    .in('assignee_id', [...assigneeIds])
+    .limit(1000);
+
+  if (error) {
+    console.error(`[getOpenContributions] ${error.message}`);
+    return [];
+  }
+
+  const steps: OpenContribution[] = (data ?? []).map((row) => {
+    const own = (row.item_due_at as string | null) ?? null;
+    const dueAt = own ?? (row.parent_due_at as string | null) ?? null;
+    return {
+      checklistItemId: String(row.checklist_item_id),
+      taskId: String(row.task_id),
+      assigneeId: String(row.assignee_id),
+      title: String(row.title),
+      parentTitle: String(row.parent_title),
+      ownerName: String(row.primary_owner_name),
+      dueAt,
+      dueIsDateOnly: own ? true : Boolean(row.parent_due_is_date_only),
+      isOverdue: dueAt !== null && new Date(dueAt).getTime() < now.getTime(),
+      readiness: row.readiness as SharedContribution['readiness'],
+      prerequisiteTitle: (row.prerequisite_title as string | null) ?? null,
+    };
+  });
+
+  return steps.sort((left, right) => {
+    if (left.isOverdue !== right.isOverdue) return left.isOverdue ? -1 : 1;
+    if (left.dueAt === right.dueAt) return left.title.localeCompare(right.title);
+    if (left.dueAt === null) return 1;
+    if (right.dueAt === null) return -1;
+    return new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime();
+  });
+}
+
 /**
  * People a checklist step may be assigned to (v45 §1-2).
  *
@@ -3307,6 +3383,14 @@ export interface TeamAttentionRow {
   } | null;
   /** The rest of their Active work, so the one title above does not imply it is all. */
   otherActiveCount: number;
+  /**
+   * v157 - steps this person owes on work somebody else owns, and how many of
+   * those are past their date. Their own list cannot show them, because the
+   * work belongs to its owner; without these a person carrying three
+   * colleagues' steps read, from here, as carrying nothing more.
+   */
+  sharedStepCount: number;
+  sharedStepOverdueCount: number;
   attention: {
     /**
      * The state, in three words: "Decision needed", "Overdue routine".
@@ -3554,6 +3638,11 @@ export interface TeamMemberDetail {
     version: number;
   }>;
   recentUpdates: Array<{ id: string; at: string; taskTitle: string; summary: string }>;
+  /**
+   * v157 - steps this person still owes on somebody else's work, from the
+   * projection their own Shared list reads.
+   */
+  contributions: OpenContribution[];
   /**
    * What actually closed inside the chosen window, and what kind of work it was.
    *
@@ -3827,7 +3916,7 @@ export async function getTeamMemberDetail(
   // "Last year" was chosen showed everything they had closed since.
   const completedUntil = period.until;
 
-  const [attentionRows, tasksResult, goalsResult, completedResult, sharedResult] =
+  const [attentionRows, tasksResult, goalsResult, completedResult, sharedResult, contributions] =
     await Promise.all([
       getTeamAttention(viewerId),
       supabase
@@ -3879,6 +3968,8 @@ export async function getTeamMemberDetail(
         .lte('completed_at', completedUntil ?? '9999-12-31T23:59:59.999Z')
         .order('completed_at', { ascending: false })
         .limit(200),
+      // v157 - and the steps they still owe on it.
+      getOpenContributions([personId]),
     ]);
 
   if (tasksResult.error) {
@@ -4073,6 +4164,7 @@ export async function getTeamMemberDetail(
       availableCount: available.length,
       routine: routineSignals,
     },
+    contributions,
     recentUpdates: updates.map((update) => ({
       id: String(update.id),
       at: String(update.created_at),
@@ -4189,10 +4281,18 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
 
   // One read each for the whole roster, rather than one per rendered row.
   const roster = team.map((person) => person.userId);
-  const [currentFocus, nextAgreed] = await Promise.all([
+  const [currentFocus, nextAgreed, contributions] = await Promise.all([
     getTeamCurrentFocus(roster),
     getCurrentWeekStart().then((week) => getTeamNextAgreedResult(roster, week)),
+    getOpenContributions(roster),
   ]);
+  const contributionsByAssignee = new Map<string, { open: number; overdue: number }>();
+  for (const step of contributions) {
+    const tally = contributionsByAssignee.get(step.assigneeId) ?? { open: 0, overdue: 0 };
+    tally.open += 1;
+    if (step.isOverdue) tally.overdue += 1;
+    contributionsByAssignee.set(step.assigneeId, tally);
+  }
   const barriers = barriersResult.data ?? [];
   const goals = goalsResult.data ?? [];
 
@@ -4475,6 +4575,8 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
         };
       })(),
       otherActiveCount: Math.max(0, active.length - 1),
+      sharedStepCount: contributionsByAssignee.get(person.userId)?.open ?? 0,
+      sharedStepOverdueCount: contributionsByAssignee.get(person.userId)?.overdue ?? 0,
       attention: top
         ? {
             // Anything that does not say otherwise is something owed: a branch
