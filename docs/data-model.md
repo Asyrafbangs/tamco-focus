@@ -88,3 +88,9 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
   completed, each dated by its own `due_at` or else the task's.
 - `shared_contributions` appends `assignee_name`. Both views stay `security_invoker`; nothing was
   written or backfilled.
+
+## v156 calendar steps
+
+- `plan_events` adds a `step` branch — open steps assigned to anybody but their task's owner — and
+  appends `step_id`, `assignee_id`, `assignee_name`, `parent_title`, `parent_due_at`,
+  `step_has_own_date` and `steps_due_with_task` to every branch. It stays `security_invoker`.

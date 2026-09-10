@@ -102,6 +102,8 @@ interface TaskDetailDrawerProps {
   viewerId: string;
   /** Set when the viewer arrived from a notification or Needs Attention (v46 §3). */
   attentionBarrierId: string | null;
+  /** v156 — a step to open at, from the Monthly Plan or another link. */
+  focusStepId?: string | null;
 }
 
 function idempotencyKey() {
@@ -170,6 +172,7 @@ export function TaskDetailDrawer({
   assignablePeople,
   viewerId,
   attentionBarrierId,
+  focusStepId = null,
   currentFocus,
   weeklyReference,
 }: TaskDetailDrawerProps) {
@@ -196,7 +199,10 @@ export function TaskDetailDrawer({
     });
   };
 
-  const [openSection, setOpenSection] = useState<'steps' | 'updates' | 'details' | null>(null);
+  const [openSection, setOpenSection] = useState<'steps' | 'updates' | 'details' | null>(
+    // v156 — arriving at a step opens the steps it is among.
+    focusStepId ? 'steps' : null,
+  );
   const toggleSection = (section: 'steps' | 'updates' | 'details') =>
     setOpenSection((current) => (current === section ? null : section));
   // The composer is a disclosure of its own, opened by the button that names
@@ -2055,6 +2061,7 @@ export function TaskDetailDrawer({
                   attachmentsByChecklist={attachmentsByChecklist}
                   taskDueAt={task.dueAt}
                   taskDueIsDateOnly={task.dueIsDateOnly}
+                  focusStepId={focusStepId}
                   onOpenEvidence={(itemId) => {
                     // v154 - a step's evidence opens where the owner is reading,
                     // rather than having to be found again under Details.

@@ -1268,3 +1268,19 @@ derived-progress rules. The future ESH finding/action system remains outside the
    `shared_contributions` filtered to work the viewer owns, oldest date first, each opening its task.
 5. The columns are read defensively: before the migration runs they are absent, the counts read zero,
    and Waiting on others is empty — the behaviour before v155.
+
+## 51. v156 Trackable Steps — a calendar that knows about steps
+
+1. `plan_events` has a fourth branch: one `step` row per open step assigned to anybody but its task's
+   owner, dated by its own date or else the task's, on a task that is backlog, active or paused and
+   not deleted. Every branch carries `step_id`, `assignee_id`, `assignee_name`, `parent_title`,
+   `parent_due_at`, `step_has_own_date` and `steps_due_with_task`.
+2. The page shows a step row to its assignee always. The owner, and a manager's Team scope, see it
+   only when it has its own date on an earlier organisation-local day than its task's; every other open
+   step due that day is counted on the task's own row as "N steps due".
+3. Step entries are never draggable. They open `/work?task=<task>&step=<step>`; the page honours the
+   step only when it belongs to that task, and the drawer opens its Steps section with the row marked
+   and scrolled into view. `step` is a task-layer parameter, removed when the drawer closes.
+4. A manager's calendar defaults to their own commitments; `scope=team` is explicit.
+5. The step columns are read defensively: before the migration there are no step rows and the counts
+   read zero, which is the calendar as it was.

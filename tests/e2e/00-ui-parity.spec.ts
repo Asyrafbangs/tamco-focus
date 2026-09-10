@@ -187,22 +187,26 @@ test('Monthly Plan shows a manager the reporting line their settings cover', asy
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'Scope behaviour is viewport independent.');
 
-  // A manager opens the calendar to see where the team's dates collide, so Team
-  // is their default. The rows come from `plan_events`, a security_invoker view
-  // — RLS decides what exists, the scope only filters it.
+  /*
+   * v156 — a manager's own commitments are the default, and Team is one click
+   * away: once steps are on it, a team calendar is a list rather than a plan.
+   * The rows come from `plan_events`, a security_invoker view — RLS decides
+   * what exists, the scope only filters it.
+   */
   await signIn(page, 'izzul@tamco.local');
   await page.goto('/plan');
-  await expect(page.getByRole('link', { name: 'My team' })).toHaveClass(/active/);
+  await expect(page.getByRole('link', { name: 'Only me' })).toHaveClass(/active/);
+  // Their own work: nobody else's name on it.
+  await expect(page.locator('.cal-item-owner')).toHaveCount(0);
 
+  // Widening to the team shows the reporting line, and never themselves.
+  // Exact: with Only me the default, "Include my team" is on the page too.
+  await page.getByRole('link', { name: 'My team', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'My team', exact: true })).toHaveClass(/active/);
   const owned = page.locator('.cal-item-owner');
   await expect(owned.first()).toBeVisible();
   const names = await owned.allInnerTexts();
   expect(names.every((name) => name.trim() !== 'Izzul Asyraf')).toBe(true);
-
-  // Narrowing to their own work must not silently keep the team's items.
-  await page.getByRole('link', { name: 'Only me' }).click();
-  await expect(page.getByRole('link', { name: 'Only me' })).toHaveClass(/active/);
-  await expect(page.locator('.cal-item-owner')).toHaveCount(0);
 
   // An employee has no reporting line, so the control is absent rather than
   // present and empty.

@@ -89,6 +89,28 @@ their own work; only permissions differ.
   unit tests for the attention item; `e2e/waiting-on-others-v155` (the card
   lines and My Day's entry, on desktop and phone).
 
+## Stage 3 — v156, a calendar that knows about steps
+
+- **Data model:** `plan_events` gains a fourth branch, one row per open step
+  handed to anybody but its task's owner, and seven columns on every branch:
+  what the step is, who owes it, the work it belongs to and that work's date,
+  whether the step's date is its own, and — on the task's own row — how many
+  steps are due that same day.
+- **Who sees what:** the assignee always sees their own steps. The owner, and a
+  manager's Team scope, see a delegated step only when its own date is earlier
+  than the task's; the rest are counted on the task's entry ("3 steps due"),
+  which is what keeps the calendar from turning into a list.
+- **Opening a step:** step entries never drag. They open the task at the step —
+  `/work?task=…&step=…` — with the Steps section open and the row marked.
+- **Manager default:** their own commitments, with My team one click away.
+- **Permissions/RLS:** unchanged. `plan_events` is `security_invoker`; somebody
+  with no part in the work gets no step row.
+- **Tests:** `integration/calendar-steps-v156` (the assignee's rows, the count on
+  the task's row, nothing for an outsider, a completed step dropping out);
+  `e2e/calendar-steps-v156` (Amer's calendar and the step link, on desktop and
+  phone; the owner seeing only the early step and the count); the parity test
+  updated for the manager default.
+
 ## Compatibility and rollback
 
 - Stage 1 is one forward-only migration,
@@ -100,5 +122,7 @@ their own work; only permissions differ.
 - Stage 2 is `20260911002000_v155_waiting_on_others.sql`, two views with
   columns appended. The application reads them defensively, so either order of
   deployment is safe.
+- Stage 3 is `20260911003000_v156_calendar_steps.sql`, `plan_events` with a
+  branch and columns added. Before it runs there are simply no step rows.
 - Rollback is a redeploy of the previous build plus, if wanted, dropping the
   trigger; the procedures' extra checks only ever refuse impossible dates.

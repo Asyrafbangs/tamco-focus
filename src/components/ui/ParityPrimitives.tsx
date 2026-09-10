@@ -282,10 +282,11 @@ export function CalendarItem({
   onDragStart,
   onDragEnd,
   taskAnchor,
+  detail,
 }: {
   href: string;
   title: string;
-  kind: 'due' | 'overdue' | 'routine' | 'review' | 'discussion';
+  kind: 'due' | 'overdue' | 'routine' | 'review' | 'discussion' | 'step';
   /** Shown only when the item belongs to someone other than the viewer. */
   owner?: string;
   accessibleSuffix?: string;
@@ -299,6 +300,11 @@ export function CalendarItem({
   onDragEnd?: DragEventHandler<HTMLAnchorElement>;
   /** Lets focus find a moved item again once it has been redrawn. */
   taskAnchor?: string;
+  /**
+   * v156 — a second line about the work rather than its owner: what a step is
+   * part of, or how many steps share the task's date.
+   */
+  detail?: string;
 }) {
   return (
     <Link
@@ -314,6 +320,11 @@ export function CalendarItem({
       {owner && (
         <span className="cal-item-owner" aria-hidden="true">
           {owner}
+        </span>
+      )}
+      {detail && (
+        <span className="cal-item-detail" aria-hidden="true">
+          {detail}
         </span>
       )}
       <span className="visually-hidden">{accessibleSuffix ?? title}</span>

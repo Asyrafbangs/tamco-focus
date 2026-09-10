@@ -1656,7 +1656,7 @@ export interface PlanEvent {
   occursAt: string;
   dueIsDateOnly: boolean;
   /** `due`, `overdue`, `routine`, or `review`. */
-  eventKind: 'due' | 'overdue' | 'routine' | 'review' | 'discussion';
+  eventKind: 'due' | 'overdue' | 'routine' | 'review' | 'discussion' | 'step';
   /** Set on a booked discussion, so the calendar can link to the request. */
   eventId: string | null;
   barrierId: string | null;
@@ -1673,6 +1673,16 @@ export interface PlanEvent {
    * to the interface: `change_task_due_date` decides again on every call.
    */
   canReschedule: boolean;
+  /** v156 — set on a step's row: the step, who owes it, and the work it is part of. */
+  stepId: string | null;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  parentTitle: string | null;
+  parentDueAt: string | null;
+  /** v156 — whether a step's date is its own or its task's (v154). */
+  stepHasOwnDate: boolean;
+  /** v156 — on a task's own row: open steps due that same day. */
+  stepsDueWithTask: number;
 }
 
 /**
@@ -1787,6 +1797,15 @@ export async function getPlanEvents(
      */
     taskVersion: typeof row.task_version === 'number' ? row.task_version : null,
     canReschedule: row.can_reschedule === true,
+    // v156 — read defensively, like v153's: before the migration these are
+    // absent, no step rows exist, and the calendar is what it was.
+    stepId: row.step_id ? String(row.step_id) : null,
+    assigneeId: row.assignee_id ? String(row.assignee_id) : null,
+    assigneeName: row.assignee_name ? String(row.assignee_name) : null,
+    parentTitle: row.parent_title ? String(row.parent_title) : null,
+    parentDueAt: row.parent_due_at ? String(row.parent_due_at) : null,
+    stepHasOwnDate: row.step_has_own_date === true,
+    stepsDueWithTask: Number(row.steps_due_with_task ?? 0),
   }));
 }
 

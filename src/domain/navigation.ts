@@ -52,7 +52,7 @@ export function closeLayerHref(basePath: string, params: LayerParams, remove: st
  * request to expand inside it — so closing the task must drop them too, or the
  * next task opened from the same list would inherit somebody else's barrier.
  */
-export const TASK_LAYER_PARAMS = ['task', 'attention', 'barrier', 'item'] as const;
+export const TASK_LAYER_PARAMS = ['task', 'attention', 'barrier', 'item', 'step'] as const;
 
 /*
   There is no Team Member Detail layer to close.

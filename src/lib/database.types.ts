@@ -8569,14 +8569,21 @@ export type Database = {
       }
       plan_events: {
         Row: {
+          assignee_id: string | null
+          assignee_name: string | null
           barrier_id: string | null
           can_reschedule: boolean | null
           due_is_date_only: boolean | null
           event_id: string | null
           event_kind: string | null
           occurs_at: string | null
+          parent_due_at: string | null
+          parent_title: string | null
           primary_owner_id: string | null
           status: Database["public"]["Enums"]["task_status"] | null
+          step_has_own_date: boolean | null
+          step_id: string | null
+          steps_due_with_task: number | null
           task_id: string | null
           task_version: number | null
           title: string | null

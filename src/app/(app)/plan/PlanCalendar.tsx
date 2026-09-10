@@ -65,6 +65,8 @@ export interface PlanCalendarItem {
   /** The task's own title, for the dialog and the confirmation. */
   taskTitle: string;
   owner?: string;
+  /** v156 — a second line about the work: what a step is for, or steps due. */
+  detail?: string;
   accessibleSuffix: string;
   /** Present only when this viewer may move this due date. */
   move?: PlanCalendarMove;
@@ -474,6 +476,7 @@ export function PlanCalendar({
               kind={item.kind}
               title={item.label}
               owner={item.owner}
+              detail={item.detail}
               accessibleSuffix={item.accessibleSuffix}
               draggable={item.move !== undefined && !busy}
               onDragStart={(event) => startDrag(event, item, day.date)}

@@ -292,6 +292,7 @@ export function TaskChecklistPanel({
   taskDueAt,
   taskDueIsDateOnly,
   onOpenEvidence,
+  focusStepId = null,
   canEdit,
   readOnly = false,
   pending,
@@ -311,6 +312,8 @@ export function TaskChecklistPanel({
   taskDueIsDateOnly: boolean;
   /** v154 - opens a completed step's evidence where the owner is reading. */
   onOpenEvidence?: (itemId: string) => void;
+  /** v156 — the step somebody arrived at; it is marked and brought into view. */
+  focusStepId?: string | null;
   canEdit: boolean;
   /** Finished work. Every control that changes a step is withheld. */
   readOnly?: boolean;
@@ -351,6 +354,15 @@ export function TaskChecklistPanel({
   // the moment somebody opened the work, and re-reading the clock on every
   // render would let a row change colour under the pointer.
   const [now] = useState(() => Date.now());
+
+  // v156 — arriving at a step from the calendar puts it in front of the reader,
+  // once, rather than leaving them to find it in a long list.
+  useEffect(() => {
+    if (!focusStepId) return;
+    document
+      .querySelector<HTMLElement>(`[data-step-id="${focusStepId}"]`)
+      ?.scrollIntoView({ block: 'center' });
+  }, [focusStepId]);
 
   const [addOpen, setAddOpen] = useState(false);
   const [addDraft, setAddDraft] = useState<StepDraft>(emptyDraft);
@@ -568,7 +580,11 @@ export function TaskChecklistPanel({
               )}`
             : null;
           return (
-            <article key={item.id} className={`task-checklist-row ${item.state}`}>
+            <article
+              key={item.id}
+              data-step-id={item.id}
+              className={`task-checklist-row ${item.state}${item.id === focusStepId ? ' is-focused' : ''}`}
+            >
               {!readOnly && item.canComplete && item.state === 'ready' ? (
                 <button
                   type="button"

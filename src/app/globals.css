@@ -3366,6 +3366,11 @@ fieldset:disabled label,
   color: var(--amber);
   border: 1px solid color-mix(in srgb, var(--amber) 25%, var(--line));
 }
+.flag.purple {
+  background: var(--purple-bg);
+  color: var(--purple);
+  border: 1px solid color-mix(in srgb, var(--purple) 25%, var(--line));
+}
 .flag.green {
   background: var(--green-bg);
   color: var(--green);
@@ -3978,6 +3983,22 @@ fieldset:disabled label,
 .cal-item.discussion {
   background: var(--blue-bg);
   color: var(--blue);
+}
+/* v156 - a step somebody owes: a commitment inside the work, not the work's
+   own deadline, so it does not borrow the work's blue. */
+.cal-item.step {
+  background: var(--purple-bg);
+  color: var(--purple);
+}
+/* v156 - a second line about the work rather than its owner. Full strength,
+   like the owner line since v153: faded small text fails contrast. */
+.cal-item-detail {
+  display: block;
+  overflow: hidden;
+  font-size: 9px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -6432,6 +6453,11 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .task-checklist-row.waiting {
   opacity: 0.7;
+}
+/* v156 - the step somebody arrived at from the calendar. */
+.task-checklist-row.is-focused {
+  background: var(--blue-bg);
+  box-shadow: inset 3px 0 0 var(--blue);
 }
 .task-checklist-row .checklist-copy {
   display: grid;

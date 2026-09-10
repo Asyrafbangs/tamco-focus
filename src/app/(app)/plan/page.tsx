@@ -38,9 +38,9 @@ import { PlanCalendar, type PlanCalendarDay, type PlanCalendarMove } from './Pla
  *
  * A manager or an administrator can switch the calendar between their own work
  * and the reporting line their visibility settings cover (sections 3.4 and 18).
- * Team is their default, because the reason to open a shared calendar is to see
- * where the team's dates collide, and an empty month is a misleading answer
- * when the people they are responsible for have commitments in it. The scope is
+ * Since v156 their own commitments are the default and Team is one click away:
+ * once steps are on it, fifteen people's calendar is a list rather than a plan,
+ * so it is something to ask for rather than something to wade through. The scope is
  * a filter on an already-authorised query, never a widening of authority:
  * `plan_events` is a `security_invoker` view, so the same RLS that governs
  * `tasks` decides which rows exist. Dropping the owner filter asks the database
@@ -78,6 +78,8 @@ const EVENT_LABELS: Record<PlanEvent['eventKind'], string> = {
   // v47 §26 — a booked discussion sits on the same grid as the work it is
   // about, because it is a commitment in the same day.
   discussion: 'Meeting',
+  // v156 — a step somebody owes, on the day it is due.
+  step: 'Step',
 };
 
 /**
@@ -111,7 +113,8 @@ export default async function PlanPage({
   const timeZone = profile.timezone ?? 'Asia/Kuala_Lumpur';
 
   const canSeeTeam = profile.role === 'manager' || profile.role === 'administrator';
-  const scope: PlanScope = !canSeeTeam ? 'mine' : params.scope === 'mine' ? 'mine' : 'team';
+  // v156 — a manager's own commitments are the default; Team is one click away.
+  const scope: PlanScope = canSeeTeam && params.scope === 'team' ? 'team' : 'mine';
 
   const { year, month } = resolveMonth(params.month, timeZone);
 
@@ -158,8 +161,29 @@ export default async function PlanPage({
 
   // Group by the LOCAL date each event falls on, so a commitment appears on the
   // day people would say it is due.
+  /*
+   * v156 — which steps belong on this calendar. The view returns every step row
+   * the viewer may read; this decides which are worth a square. A step you owe
+   * is always yours to see. One you are waiting on — or, in Team, one in your
+   * team — is shown only when it is due before the work it belongs to: a step
+   * due with its task is counted on the task's own entry ("3 steps due")
+   * instead of drawn beside it, which is what keeps a calendar from becoming a
+   * list.
+   */
+  const dueBeforeItsTask = (event: PlanEvent) =>
+    event.stepHasOwnDate &&
+    event.parentDueAt !== null &&
+    localDateString(new Date(event.occursAt), timeZone) <
+      localDateString(new Date(event.parentDueAt), timeZone);
+  const visibleEvents = events.filter((event) => {
+    if (event.eventKind !== 'step') return true;
+    if (event.assigneeId === profile.id) return true;
+    if (!dueBeforeItsTask(event)) return false;
+    return scope === 'team' || event.primaryOwnerId === profile.id;
+  });
+
   const byDate = new Map<string, PlanEvent[]>();
-  for (const event of events) {
+  for (const event of visibleEvents) {
     const key = localDateString(new Date(event.occursAt), timeZone);
     const bucket = byDate.get(key);
     if (bucket) bucket.push(event);
@@ -184,9 +208,31 @@ export default async function PlanPage({
     date.startsWith(monthKey(year, month)),
   ).length;
 
-  const scopeSuffix = scope === 'mine' ? '&scope=mine' : '';
+  const scopeSuffix = scope === 'team' ? '&scope=team' : '';
   const scopeHref = (next: PlanScope) =>
-    `/plan?month=${monthKey(year, month)}${next === 'mine' ? '&scope=mine' : ''}`;
+    `/plan?month=${monthKey(year, month)}${next === 'team' ? '&scope=team' : ''}`;
+
+  /*
+   * v156 — a step's entry. Yours reads "Shared step: …"; somebody else's reads
+   * "↳ Amer Hakim · …", because who owes it is the point. Either way the work it
+   * belongs to is the line beneath. It opens the task at that step, and never
+   * drags: a step's date is changed in its step, where it may not pass its task
+   * (v154).
+   */
+  const stepItem = (event: PlanEvent) => {
+    const mine = event.assigneeId === profile.id;
+    const who = event.assigneeName ?? 'A colleague';
+    return {
+      key: `${event.stepId}-step-${event.occursAt}`,
+      taskId: event.taskId,
+      href: `${taskDrawerHref(event.taskId, '/plan')}&step=${event.stepId}`,
+      kind: event.eventKind,
+      label: mine ? `Shared step: ${event.title}` : `↳ ${who} · ${event.title}`,
+      taskTitle: event.title,
+      detail: event.parentTitle ? `For ${event.parentTitle}` : undefined,
+      accessibleSuffix: `${event.title} — a step ${mine ? 'you owe' : `${who} owes`}${event.parentTitle ? ` on ${event.parentTitle}` : ''}, due ${formatDue(event.occursAt, event.dueIsDateOnly, timeZone)}`,
+    };
+  };
 
   const calendarDays: PlanCalendarDay[] = Array.from({ length: daysInMonth }, (_, index) => {
     const dayNumber = index + 1;
@@ -200,6 +246,8 @@ export default async function PlanPage({
     }).format(new Date(`${date}T00:00:00Z`));
 
     const items = (byDate.get(date) ?? []).map((event) => {
+      if (event.eventKind === 'step') return stepItem(event);
+
       // Whose item this is only matters when it is not the viewer's.
       const owner =
         event.primaryOwnerId === profile.id
@@ -222,6 +270,11 @@ export default async function PlanPage({
         label: `${EVENT_LABELS[event.eventKind]}: ${event.title}`,
         taskTitle: event.title,
         owner,
+        // v156 — steps due with the task are counted here, not drawn beside it.
+        detail:
+          event.stepsDueWithTask > 0 && (event.eventKind === 'due' || event.eventKind === 'overdue')
+            ? `${event.stepsDueWithTask} step${event.stepsDueWithTask === 1 ? '' : 's'} due`
+            : undefined,
         accessibleSuffix: `${event.title} — ${EVENT_LABELS[event.eventKind]} ${formatDue(event.occursAt, event.dueIsDateOnly, timeZone)}${owner ? `, owned by ${owner}` : ''}`,
         move: movable(event, timeZone),
       };
@@ -294,7 +347,7 @@ export default async function PlanPage({
             →
           </Link>
         </div>
-        <Link href={scope === 'mine' ? '/plan?scope=mine' : '/plan'} className="btn small ghost">
+        <Link href={scope === 'team' ? '/plan?scope=team' : '/plan'} className="btn small ghost">
           This month
         </Link>
       </div>
@@ -311,6 +364,9 @@ export default async function PlanPage({
         </span>
         <span>
           <span className="flag amber">Review by</span> review or selection deadline
+        </span>
+        <span>
+          <span className="flag purple">Step</span> a step somebody owes
         </span>
       </div>
 

@@ -514,6 +514,8 @@ export default async function WorkPage({
     /** v46 §44 — "I was sent here to act", plus which request. */
     attention?: string;
     barrier?: string;
+    /** v156 — the step to open the task at, from the Monthly Plan. */
+    step?: string;
     /**
      * §6 — who is expanded in My Team.
      *
@@ -963,6 +965,16 @@ export default async function WorkPage({
    * exactly one. Guessing between two would put the wrong decision form in
    * front of somebody, which is worse than opening the task normally.
    */
+  /*
+   * v156 — "clicking it opens the Step inside the parent context". Only an id
+   * that is one of this task's own steps is honoured; anything else opens the
+   * task as it would have opened anyway.
+   */
+  const focusStepId =
+    params.step && taskDetail?.checklist.some((item) => item.id === params.step)
+      ? params.step
+      : null;
+
   const attentionBarrierId =
     params.attention === 'barrier' && taskDetail
       ? (params.barrier ??
@@ -1818,6 +1830,7 @@ export default async function WorkPage({
           viewerId={profile.id}
           weeklyReference={weeklyReferenceForTask}
           attentionBarrierId={attentionBarrierId}
+          focusStepId={focusStepId}
         />
       )}
 

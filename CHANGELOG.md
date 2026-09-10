@@ -1,5 +1,17 @@
 # TAMCO Focus — Change Log
 
+## v156 Trackable Steps, stage 3: a calendar that knows about steps — 11 September 2026
+
+- The Monthly Plan shows the steps people owe. Yours read "Shared step: …" on their date, with the
+  work they belong to beneath, and open that work at the step. A step you are waiting on appears as
+  "↳ Amer Hakim · …" only when it is due before the work itself.
+- Steps due with their task are counted on the task's own entry — "3 steps due" — instead of four
+  squares on one day. Step entries never drag; a step's date is changed in its step (v154).
+- A manager's calendar now opens on their own commitments; **My team** is one click away and shows
+  the team's early step deadlines as well.
+- `plan_events` gains a step branch and seven columns; `/work?task=…&step=…` opens a task with that
+  step marked and brought into view.
+
 ## v155 Trackable Steps, stage 2: waiting on others — 11 September 2026
 
 - The Active card says whose steps are out: "1/3 steps · 2 with others", and "Next contribution due
