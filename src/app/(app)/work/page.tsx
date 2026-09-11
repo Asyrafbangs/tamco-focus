@@ -272,6 +272,39 @@ function readinessCopy(item: SharedContribution): { label: string; note: string 
       return { label: 'Waiting', note: 'Not startable yet.' };
   }
 }
+
+/**
+ * v159 — the one date worth a second line on an Active card: the next step due
+ * before the work itself, whether the owner's own or somebody else's, and the
+ * earlier of the two. A side with a step already late says so on the line
+ * above instead.
+ */
+function nextStepBefore(
+  task: TaskOverview,
+  timeZone?: string,
+): { label: string; at: string } | null {
+  const workDay = task.dueAt ? localDateString(new Date(task.dueAt), timeZone) : null;
+  const early = (at: string | null): at is string =>
+    at !== null && (workDay === null || localDateString(new Date(at), timeZone) < workDay);
+  const candidates: Array<{ label: string; at: string }> = [];
+  if (task.ownStepOverdueCount === 0 && early(task.nextOwnStepDueAt)) {
+    candidates.push({ label: 'Next step due', at: task.nextOwnStepDueAt });
+  }
+  if (task.delegatedOverdueCount === 0 && early(task.nextDelegatedDueAt)) {
+    candidates.push({ label: 'Next contribution due', at: task.nextDelegatedDueAt });
+  }
+  candidates.sort((left, right) => new Date(left.at).getTime() - new Date(right.at).getTime());
+  return candidates[0] ?? null;
+}
+
+function NextStepLine({ task, timeZone }: { task: TaskOverview; timeZone?: string }) {
+  const next = nextStepBefore(task, timeZone);
+  return next ? (
+    <span className="sub">
+      {next.label} {formatDueShort(next.at, true, timeZone)}
+    </span>
+  ) : null;
+}
 /**
  * "Other active work", collapsed (§9).
  *
@@ -1544,6 +1577,10 @@ export default async function WorkPage({
             openContributions.length > 0 ? (
               openContributions.map((item) => {
                 const copy = readinessCopy(item);
+                // v159 — whether it is late, which the owner has been told
+                // since v155 and the person who owes it was not.
+                const dueAt = item.itemDueAt ?? item.parentDueAt;
+                const late = dueAt !== null && new Date(dueAt).getTime() < now.getTime();
                 return (
                   /*
                     The contribution leads, not the task it belongs to.
@@ -1568,12 +1605,15 @@ export default async function WorkPage({
                             v130: "25 Sept 2026" prints a year every row on
                             screen already shares. */}
                         Shared contribution ·{' '}
-                        {formatDueShort(
-                          item.itemDueAt ?? item.parentDueAt,
-                          item.itemDueAt ? true : item.parentDueIsDateOnly,
-                          profile.timezone,
-                          now,
-                        )}
+                        <span className={late ? 'row-due late' : undefined}>
+                          {late ? 'Overdue since ' : ''}
+                          {formatDueShort(
+                            dueAt,
+                            item.itemDueAt ? true : item.parentDueIsDateOnly,
+                            profile.timezone,
+                            now,
+                          )}
+                        </span>
                       </span>
                       <span className="sub">
                         Part of <b>{item.parentTitle}</b> · Owned by {item.primaryOwnerName}
@@ -1698,6 +1738,22 @@ export default async function WorkPage({
                             rest, so the owner had to open every task to learn
                             whether it was waiting on somebody.
                           */}
+                          {/*
+                            v159 — and the owner's own. A late step of yours was
+                            invisible here while a late one of somebody else's
+                            was not. Not said when the work itself is overdue:
+                            the row already says that.
+                          */}
+                          {task.ownStepOverdueCount > 0 && !task.isOverdue ? (
+                            <>
+                              {' · '}
+                              <span className="row-due late">
+                                <span aria-hidden="true">⚠ </span>
+                                {task.ownStepOverdueCount} step
+                                {task.ownStepOverdueCount === 1 ? '' : 's'} overdue
+                              </span>
+                            </>
+                          ) : null}
                           {task.delegatedOverdueCount > 0 ? (
                             <>
                               {' · '}
@@ -1713,20 +1769,12 @@ export default async function WorkPage({
                         </span>
                       ) : null}
                       {/*
-                        Only a contribution needed back before the work itself
-                        is worth a line: one that simply shares the task's date
-                        would repeat the date already on the row.
+                        Only a step needed before the work itself is worth a
+                        line: one that simply shares the task's date would
+                        repeat the date already on the row. v159 — yours as
+                        well as other people's, whichever comes first.
                       */}
-                      {task.delegatedOverdueCount === 0 &&
-                      task.nextDelegatedDueAt &&
-                      (!task.dueAt ||
-                        localDateString(new Date(task.nextDelegatedDueAt), profile.timezone) <
-                          localDateString(new Date(task.dueAt), profile.timezone)) ? (
-                        <span className="sub">
-                          Next contribution due{' '}
-                          {formatDueShort(task.nextDelegatedDueAt, true, profile.timezone)}
-                        </span>
-                      ) : null}
+                      <NextStepLine task={task} timeZone={profile.timezone} />
                     </div>
 
                     {flags.length > 0 && (

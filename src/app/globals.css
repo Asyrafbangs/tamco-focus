@@ -8653,6 +8653,12 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .member-work-next {
   color: var(--blue) !important;
 }
+/* v159 - a step on this work past its own date. Two classes, so the muted
+   `.member-work-row span` rule above does not win. */
+.member-work-row .member-step-late {
+  color: var(--red);
+  font-weight: 650;
+}
 .member-update {
   min-width: 0;
   overflow-wrap: anywhere;

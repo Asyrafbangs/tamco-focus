@@ -82,6 +82,9 @@ function toTaskOverview(row: Record<string, unknown>): TaskOverview {
     delegatedOpenCount: Number(row.delegated_open_count ?? 0),
     delegatedOverdueCount: Number(row.delegated_overdue_count ?? 0),
     nextDelegatedDueAt: row.next_delegated_due_at ? String(row.next_delegated_due_at) : null,
+    // v159 — read defensively, like v155's.
+    ownStepOverdueCount: Number(row.own_step_overdue_count ?? 0),
+    nextOwnStepDueAt: row.next_own_step_due_at ? String(row.next_own_step_due_at) : null,
     completionEvidenceRule: (row.completion_evidence_rule ??
       'optional') as TaskOverview['completionEvidenceRule'],
     routineArea: row.routine_area ? String(row.routine_area) : null,
@@ -3218,6 +3221,34 @@ export async function getOpenContributions(
 }
 
 /**
+ * v159 — how many steps on each of this person's active tasks are past their
+ * own date, whoever owes them.
+ *
+ * A read of its own rather than two more columns on the panel's task read: if
+ * the application reaches a database before the migration does, the missing
+ * column costs this one signal and not the whole panel.
+ */
+async function getStepsOverdueByTask(personId: string): Promise<Map<string, number>> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('task_overview')
+    .select('id,own_step_overdue_count,delegated_overdue_count')
+    .eq('primary_owner_id', personId)
+    .eq('status', 'active')
+    .limit(200);
+  if (error) {
+    console.error(`[getStepsOverdueByTask] ${error.message}`);
+    return new Map();
+  }
+  return new Map(
+    (data ?? []).map((row) => [
+      String(row.id),
+      Number(row.own_step_overdue_count ?? 0) + Number(row.delegated_overdue_count ?? 0),
+    ]),
+  );
+}
+
+/**
  * People a checklist step may be assigned to (v45 §1-2).
  *
  * Any active member of the team, and deliberately not a manager hierarchy.
@@ -3636,6 +3667,8 @@ export interface TeamMemberDetail {
     isMandatory: boolean;
     /** Needed by any operation on this task; optimistic concurrency is not optional. */
     version: number;
+    /** v159 — steps on it past their own date, whoever owes them. */
+    stepsOverdue: number;
   }>;
   recentUpdates: Array<{ id: string; at: string; taskTitle: string; summary: string }>;
   /**
@@ -3916,61 +3949,70 @@ export async function getTeamMemberDetail(
   // "Last year" was chosen showed everything they had closed since.
   const completedUntil = period.until;
 
-  const [attentionRows, tasksResult, goalsResult, completedResult, sharedResult, contributions] =
-    await Promise.all([
-      getTeamAttention(viewerId),
-      supabase
-        .from('task_overview')
-        .select(
-          'id,title,next_action,status,work_class,focus_bucket,work_purpose,routine_area,is_mandatory,primary_owner_id,last_meaningful_update_at,due_at,due_is_date_only,progress_percent,version,is_overdue,is_stale,occurrence_date,checklist_total,checklist_completed,state_entered_at',
-        )
-        .eq('primary_owner_id', personId)
-        .in('status', ['backlog', 'active', 'paused'])
-        .order('last_meaningful_update_at', { ascending: false })
-        .limit(200),
-      supabase
-        .from('goal_overview')
-        .select(
-          'id,title,status,health,target_date,weight_percent,success_measure_count,current_milestone_title',
-        )
-        .eq('owner_id', personId)
-        .in('status', ['draft', 'pending_discussion', 'active'])
-        .order('target_date', { ascending: true })
-        .limit(100),
-      /*
-       * §20 — attributed to whoever owned it AT COMPLETION.
-       *
-       * Reading `primary_owner_id` meant a reassignment months later moved a
-       * finished piece of work out of one person's history and into another's,
-       * and last quarter's figures changed with it.
-       */
-      supabase
-        .from('task_overview')
-        .select('id,title,work_class,completed_at,occurrence_date,routine_area,evidence_count')
-        .eq('completed_owner_id', personId)
-        .eq('status', 'completed')
-        .gte('completed_at', completedSince)
-        .lte('completed_at', completedUntil ?? '9999-12-31T23:59:59.999Z')
-        .order('completed_at', { ascending: false })
-        .limit(200),
-      /*
-       * Steps this person finished on work somebody else owns.
-       *
-       * Invisible in a count of completed tasks, because the task belongs to
-       * the owner — so a person who spends a fortnight unblocking three
-       * colleagues appeared to have delivered nothing at all.
-       */
-      supabase
-        .from('completed_contributions')
-        .select('checklist_item_id,task_id,title,parent_title,completed_at')
-        .eq('assignee_id', personId)
-        .gte('completed_at', completedSince)
-        .lte('completed_at', completedUntil ?? '9999-12-31T23:59:59.999Z')
-        .order('completed_at', { ascending: false })
-        .limit(200),
-      // v157 - and the steps they still owe on it.
-      getOpenContributions([personId]),
-    ]);
+  const [
+    attentionRows,
+    tasksResult,
+    goalsResult,
+    completedResult,
+    sharedResult,
+    contributions,
+    stepsOverdueByTask,
+  ] = await Promise.all([
+    getTeamAttention(viewerId),
+    supabase
+      .from('task_overview')
+      .select(
+        'id,title,next_action,status,work_class,focus_bucket,work_purpose,routine_area,is_mandatory,primary_owner_id,last_meaningful_update_at,due_at,due_is_date_only,progress_percent,version,is_overdue,is_stale,occurrence_date,checklist_total,checklist_completed,state_entered_at',
+      )
+      .eq('primary_owner_id', personId)
+      .in('status', ['backlog', 'active', 'paused'])
+      .order('last_meaningful_update_at', { ascending: false })
+      .limit(200),
+    supabase
+      .from('goal_overview')
+      .select(
+        'id,title,status,health,target_date,weight_percent,success_measure_count,current_milestone_title',
+      )
+      .eq('owner_id', personId)
+      .in('status', ['draft', 'pending_discussion', 'active'])
+      .order('target_date', { ascending: true })
+      .limit(100),
+    /*
+     * §20 — attributed to whoever owned it AT COMPLETION.
+     *
+     * Reading `primary_owner_id` meant a reassignment months later moved a
+     * finished piece of work out of one person's history and into another's,
+     * and last quarter's figures changed with it.
+     */
+    supabase
+      .from('task_overview')
+      .select('id,title,work_class,completed_at,occurrence_date,routine_area,evidence_count')
+      .eq('completed_owner_id', personId)
+      .eq('status', 'completed')
+      .gte('completed_at', completedSince)
+      .lte('completed_at', completedUntil ?? '9999-12-31T23:59:59.999Z')
+      .order('completed_at', { ascending: false })
+      .limit(200),
+    /*
+     * Steps this person finished on work somebody else owns.
+     *
+     * Invisible in a count of completed tasks, because the task belongs to
+     * the owner — so a person who spends a fortnight unblocking three
+     * colleagues appeared to have delivered nothing at all.
+     */
+    supabase
+      .from('completed_contributions')
+      .select('checklist_item_id,task_id,title,parent_title,completed_at')
+      .eq('assignee_id', personId)
+      .gte('completed_at', completedSince)
+      .lte('completed_at', completedUntil ?? '9999-12-31T23:59:59.999Z')
+      .order('completed_at', { ascending: false })
+      .limit(200),
+    // v157 - and the steps they still owe on it.
+    getOpenContributions([personId]),
+    // v159 - which of their active work has a step past its date.
+    getStepsOverdueByTask(personId),
+  ]);
 
   if (tasksResult.error) {
     console.error(`[getTeamMemberDetail:tasks] ${tasksResult.error.message}`);
@@ -4145,6 +4187,7 @@ export async function getTeamMemberDetail(
       isOverdue: task.isOverdue,
       isMandatory: task.isMandatory,
       version: task.version,
+      stepsOverdue: stepsOverdueByTask.get(task.id) ?? 0,
     })),
     recentDelivery: {
       windowKey: period.key,

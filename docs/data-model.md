@@ -108,3 +108,10 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
   scheduled notice run more than once.
 - `focus.short_org_date` and `focus.step_due_sentence` word dates in messages;
   `public.notify_overdue_contributions(uuid[])` raises overdue notices and is the service role's only.
+
+## v159 own steps
+
+- `task_overview` appends `own_step_overdue_count` and `next_own_step_due_at`, over the owner's open
+  steps (assigned to them or to nobody) that have a date of their own.
+- `plan_events`' step branch also returns those steps, and its `assignee_id` and `assignee_name` name
+  whoever owes a step — the owner, for an unassigned one. No columns were added to it.

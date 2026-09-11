@@ -40,5 +40,6 @@
 | Trackable Steps: steps on the calendar               | Monthly Plan step entries; task drawer opens at a step       | `plan_events` step branch and columns; manager default                    | v156 integration + desktop/mobile E2E; parity updated  | Implemented and verified |
 | Trackable Steps: My Team contributions               | Person row step counts; Contributions to others section      | `shared_contributions` as the viewer; binned work excluded                | v157 integration + desktop/mobile E2E                  | Implemented and verified |
 | Trackable Steps: step notifications                  | Assigned with date; overdue to assignee; quiet completion    | `notify_overdue_contributions`; `notifications.quiet`/`dedupe_key`        | v158 integration + unit; cron worker                   | Implemented and verified |
+| Trackable Steps: your own steps                      | Calendar own steps; Active card; Shared overdue; My Team     | `plan_events` own-step rows; `task_overview` own-step columns             | v159 integration + desktop/mobile E2E                  | Implemented and verified |
 
 The approved v33 application modules are mapped above. Detailed workflow contracts remain in `MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`, and the handoff documents in this directory.

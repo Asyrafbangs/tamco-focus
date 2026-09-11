@@ -170,14 +170,23 @@ export default async function PlanPage({
    * instead of drawn beside it, which is what keeps a calendar from becoming a
    * list.
    */
+  /*
+   * v159 — and your own steps. A step you gave yourself, or left unassigned,
+   * with a date of its own was not on the calendar at all while one handed to
+   * somebody else was. It follows the rule a step you are waiting on follows:
+   * drawn when it is due before the work, counted on the work's entry when it
+   * is due with it. Work with no date has no entry to count on, so a dated
+   * step on it is always drawn.
+   */
   const dueBeforeItsTask = (event: PlanEvent) =>
     event.stepHasOwnDate &&
-    event.parentDueAt !== null &&
-    localDateString(new Date(event.occursAt), timeZone) <
-      localDateString(new Date(event.parentDueAt), timeZone);
+    (event.parentDueAt === null ||
+      localDateString(new Date(event.occursAt), timeZone) <
+        localDateString(new Date(event.parentDueAt), timeZone));
   const visibleEvents = events.filter((event) => {
     if (event.eventKind !== 'step') return true;
-    if (event.assigneeId === profile.id) return true;
+    // Handed to you on somebody else's work: always yours to see.
+    if (event.assigneeId === profile.id && event.primaryOwnerId !== profile.id) return true;
     if (!dueBeforeItsTask(event)) return false;
     return scope === 'team' || event.primaryOwnerId === profile.id;
   });
@@ -221,13 +230,17 @@ export default async function PlanPage({
    */
   const stepItem = (event: PlanEvent) => {
     const mine = event.assigneeId === profile.id;
+    // v159 — a step on your own work is a step, not a shared one.
+    const ownWork = event.primaryOwnerId === profile.id;
     const who = event.assigneeName ?? 'A colleague';
     return {
       key: `${event.stepId}-step-${event.occursAt}`,
       taskId: event.taskId,
       href: `${taskDrawerHref(event.taskId, '/plan')}&step=${event.stepId}`,
       kind: event.eventKind,
-      label: mine ? `Shared step: ${event.title}` : `↳ ${who} · ${event.title}`,
+      label: mine
+        ? `${ownWork ? 'Step' : 'Shared step'}: ${event.title}`
+        : `↳ ${who} · ${event.title}`,
       taskTitle: event.title,
       detail: event.parentTitle ? `For ${event.parentTitle}` : undefined,
       accessibleSuffix: `${event.title} — a step ${mine ? 'you owe' : `${who} owes`}${event.parentTitle ? ` on ${event.parentTitle}` : ''}, due ${formatDue(event.occursAt, event.dueIsDateOnly, timeZone)}`,

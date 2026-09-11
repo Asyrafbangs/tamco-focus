@@ -9146,10 +9146,12 @@ export type Database = {
           missing_evidence_count: number | null
           next_action: string | null
           next_delegated_due_at: string | null
+          next_own_step_due_at: string | null
           occurrence_date: string | null
           open_barrier_count: number | null
           origin: Database["public"]["Enums"]["work_origin"] | null
           over_focus_target: boolean | null
+          own_step_overdue_count: number | null
           owner_department_id: string | null
           owner_employee_id: string | null
           owner_name: string | null

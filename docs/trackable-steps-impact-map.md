@@ -147,6 +147,23 @@ their own work; only permissions differ.
   notice once and again for a new date, nothing for work not started, and no
   person able to run it); a unit test for the owner's link.
 
+## Follow-up — v159, your own steps, too
+
+Reported after Stage 5: the due date of a step assigned to somebody else
+showed on the calendar, and one assigned to yourself did not. Every stage had
+drawn its line at "assigned to somebody other than the owner", which is right
+for delegation and wrong for the owner's own steps.
+
+- **Calendar:** the owner's own dated steps get rows and read "Step: …";
+  delegated steps dated on undated work are shown to the owner.
+- **Active card:** "⚠ N step overdue" and "Next step due" for the owner's own.
+- **Shared list:** a late contribution says "Overdue since".
+- **My Team:** active work in the expansion is marked when a step is late.
+- **Tests:** `integration/own-steps-v159` (rows and counts for the owner's own
+  steps, an undated one left to the task's count, a done one dropped, nothing
+  for an outsider); `e2e/own-steps-v159` (the calendar on desktop and phone,
+  the Active card, the Shared list and My Team).
+
 ## Compatibility and rollback
 
 - Stage 1 is one forward-only migration,
@@ -166,5 +183,8 @@ their own work; only permissions differ.
   index, four functions and a trigger. The scheduled job calls the new
   procedure, so until the migration runs that one worker reports a failure
   and the others run as before.
+- The follow-up is `20260911005000_v159_own_steps.sql`: two views, with
+  columns appended to one. Read defensively, so either order of deployment is
+  safe.
 - Rollback is a redeploy of the previous build plus, if wanted, dropping the
   trigger; the procedures' extra checks only ever refuse impossible dates.

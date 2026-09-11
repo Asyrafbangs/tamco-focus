@@ -1324,3 +1324,23 @@ derived-progress rules. The future ESH finding/action system remains outside the
    v44 notices.
 6. The procedure is executable by the service role only. `p_task_ids` narrows a run to named work; the
    schedule passes nothing.
+
+## 54. v159 Trackable Steps — your own steps, too
+
+1. A step is the owner's own when it is assigned to them or to nobody. `plan_events` has a row for each
+   of theirs that has a date of its own; an undated one is due with the work and counted on its row.
+   Rows for steps handed to anybody else are unchanged. `assignee_id` names whoever owes the step — the
+   owner, for an unassigned one.
+2. The calendar shows a step handed to you on somebody else's work always, as "Shared step: …". Every
+   other step — yours on your own work ("Step: …") or somebody else's ("↳ Amer Hakim · …") — is shown
+   only when it is due before its work, or when the work has no date to count it on; in Team scope for
+   anybody's, otherwise only on your own work. This supersedes §51.2.
+3. `task_overview.own_step_overdue_count` counts the owner's open steps whose own date has passed;
+   `next_own_step_due_at` is the earliest own date among their open steps. The Active card shows
+   "⚠ N step(s) overdue" unless the work itself is overdue, and one "Next … due" line: the earlier of
+   the owner's next step and the next contribution, each only when due before the work and when none
+   on that side is late.
+4. The Shared list marks a contribution past its date "Overdue since …". My Team's expansion marks
+   active work with steps past their own date, whoever owes them, unless the work itself is overdue.
+5. Every new column is read defensively: before the migration the card and the calendar are as they
+   were, and My Team's signal reads zero.

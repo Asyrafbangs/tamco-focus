@@ -166,6 +166,13 @@ export function MyTeamPersonPanel({
             ? ` · ${task.isOverdue ? 'Overdue' : 'Due'} ${formatDueShort(task.dueAt, task.dueIsDateOnly, timeZone, now)}`
             : ''}
         </span>
+        {/* v159 — a step on it past its own date, whoever owes it. The work's
+            own lateness already says so when the work itself is overdue. */}
+        {task.stepsOverdue > 0 && !task.isOverdue && (
+          <span className="member-step-late">
+            ⚠ {task.stepsOverdue} step{task.stepsOverdue === 1 ? '' : 's'} overdue
+          </span>
+        )}
         {inWeek && <span className="member-work-note">This week&rsquo;s priority: {inWeek}</span>}
       </Link>
     );

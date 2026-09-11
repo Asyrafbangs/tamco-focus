@@ -171,6 +171,13 @@ export interface TaskOverview {
   delegatedOverdueCount: number;
   /** v155 — the earliest date among them, or null when there are none. */
   nextDelegatedDueAt: string | null;
+  /**
+   * v159 — the owner's own open steps (assigned to them, or to nobody) whose
+   * own date has passed. An undated one is due with the work itself.
+   */
+  ownStepOverdueCount: number;
+  /** v159 — the earliest own date among the owner's open steps, or null. */
+  nextOwnStepDueAt: string | null;
   attachmentCount: number;
   /** What completing this work requires as proof. */
   completionEvidenceRule: CompletionEvidenceRule;

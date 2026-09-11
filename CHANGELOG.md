@@ -1,5 +1,19 @@
 # TAMCO Focus — Change Log
 
+## v159 Trackable Steps: your own steps, too — 11 September 2026
+
+- The calendar shows a step you gave yourself, or left unassigned, when it has a date of its own:
+  "Step: Prepare structure" on its day, opening the work at that step. Before, only steps handed to
+  somebody else appeared. An undated one is counted on the work's own entry, as other people's are.
+- A delegated step dated on work that has no date of its own now shows on the owner's calendar. There
+  was no entry to count it on, so it appeared nowhere.
+- The Active card says "⚠ 1 step overdue" when a step of your own is past its date, and "Next step
+  due 14 Sep" when yours comes before the work — the earlier of yours and other people's.
+- The Shared list says "Overdue since 10 Sep" for a contribution past its date; it used to show the
+  date alone. My Team's expansion marks active work that has a late step.
+- `task_overview` appends `own_step_overdue_count` and `next_own_step_due_at`; `plan_events`' step
+  branch adds the owner's own dated steps and names whoever owes a step.
+
 ## v158 Trackable Steps, stage 5: who is told what about a step — 11 September 2026
 
 - Assigned: the assignee's notice now says when the step is due — its own date, or its work's.
