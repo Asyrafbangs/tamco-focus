@@ -162,9 +162,11 @@ export function SideDrawer({
        * progress — they are a unit of time, and they stretch exactly when the
        * render being waited for is slow — and stopping on success meant a
        * re-render arriving AFTER the caret was put back took it away again
-       * with nothing left running to notice. That is the shape of the failure:
-       * `goals-v33` lost the caret about once per full suite run and never
-       * once on its own.
+       * with nothing left running to notice. That was one shape of the
+       * failure: `goals-v33` lost the caret about once per full suite run and
+       * never once on its own. v164 found the rest of it outside this file: a
+       * `Modal` closing a moment earlier took the caret back and handed this
+       * drawer the wrong opener.
        *
        * So: observe the DOM for a bounded time, and re-apply whenever the
        * caret is loose. It stops as soon as anything a person could have

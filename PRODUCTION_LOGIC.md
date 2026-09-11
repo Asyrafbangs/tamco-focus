@@ -1401,3 +1401,13 @@ derived-progress rules. The future ESH finding/action system remains outside the
    work is not on the calendar (v162).
 5. The kind classes (`due`, `overdue`, `routine`, `review`, `discussion`, `step`) stay on every entry
    for behaviour and tests; only `is-task`, `is-routine`, `is-step` and `is-meeting` carry colour.
+
+## 59. v164 A closed dialog leaves the caret alone
+
+1. A dialog (`Modal`) returns focus to the element that opened it when it finishes closing, 200ms
+   after it is dismissed — but only while the caret is still the dialog's to give back: inside the
+   closing layer (the dialog or its backdrop), or held by nothing. If the person has put it
+   somewhere else in the meantime, it stays there.
+2. This is the rule the side drawer already follows (v138, v149). Without it, closing a dialog and
+   opening a drawer inside those 200ms handed the drawer the dialog's trigger as its opener, and
+   closing the drawer put the caret there rather than on the row that opened it.

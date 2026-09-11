@@ -32,6 +32,7 @@ export function Modal({
    */
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
+  const layerRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
 
@@ -68,8 +69,25 @@ export function Modal({
     }
     const hideFrame = requestAnimationFrame(() => setVisible(false));
     const timer = setTimeout(() => {
+      /*
+       * v164 — give the caret back only while it is still the dialog's to give.
+       *
+       * It is while it sits inside the closing layer — the dialog, or the
+       * backdrop somebody pressed to dismiss it — or while nothing holds it.
+       * It is not once the person has put it somewhere themselves. This used
+       * to take it back regardless, 200ms after closing: close "Set a Goal",
+       * open a goal inside that window, and the caret went from the goal's row
+       * to "+ New goal" — which the goal drawer then recorded as its opener and
+       * returned to on close. The same rule as `SideDrawer`'s `focusIsLoose`.
+       */
+      const owner = document.activeElement;
+      const stillOurs =
+        !owner ||
+        owner === document.body ||
+        owner === document.documentElement ||
+        (layerRef.current?.contains(owner) ?? false);
       setMounted(false);
-      triggerRef.current?.focus({ preventScroll: true });
+      if (stillOurs) triggerRef.current?.focus({ preventScroll: true });
     }, 200);
     return () => {
       cancelAnimationFrame(hideFrame);
@@ -115,7 +133,7 @@ export function Modal({
 
   if (!mounted || typeof document === 'undefined') return null;
   return createPortal(
-    <div className="modal-layer" data-open={visible}>
+    <div ref={layerRef} className="modal-layer" data-open={visible}>
       <button
         type="button"
         className="modal-backdrop"

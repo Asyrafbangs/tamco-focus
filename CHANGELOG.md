@@ -1,5 +1,14 @@
 # TAMCO Focus — Change Log
 
+## v164 A closed dialog leaves the caret alone — 12 September 2026
+
+- Closing a dialog gives the keyboard focus back to the button that opened it only if you have not
+  already moved on. It used to take focus back 200ms later regardless, so closing "Set a Goal" and
+  opening a goal straight away left the caret on "+ New goal" — and closing the goal returned it
+  there instead of to the goal's row.
+- That is why a Goals test had failed now and then in full runs since v138: the drawer fixes in v138
+  and v149 were aimed at the drawer, and the dialog was taking the caret.
+
 ## v163 A calendar that reads at a glance — 11 September 2026
 
 - Colour now means one thing, the kind of entry: tasks neutral, routines soft green, steps soft
