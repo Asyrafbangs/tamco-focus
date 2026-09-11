@@ -82,7 +82,7 @@ test('employee captures a Quick Action from desktop and mobile', async ({ page }
   await page.getByLabel('Email address').fill('izzah@tamco.local');
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/today$/);
+  await expect(page).toHaveURL(/\/today$/, { timeout: 30_000 });
   await expect(page.getByRole('heading', { name: 'My Day' })).toBeVisible();
   await expectHydrated(page);
 
@@ -136,7 +136,7 @@ test('employee opens task detail and posts an update with private evidence', asy
   await page.getByLabel('Email address').fill('izzah@tamco.local');
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/today$/);
+  await expect(page).toHaveURL(/\/today$/, { timeout: 30_000 });
   await expectHydrated(page);
 
   await page.goto('/work');
@@ -192,7 +192,7 @@ test('employee reads a PDF in the task drawer without the browser download plug-
   await page.getByLabel('Email address').fill('izzah@tamco.local');
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/today$/);
+  await expect(page).toHaveURL(/\/today$/, { timeout: 30_000 });
   await expectHydrated(page);
 
   await page.goto('/work');

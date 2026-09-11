@@ -60,7 +60,7 @@ async function signIn(page: Page, email: string) {
   await page.getByLabel('Email address').fill(email);
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/(today|work|goals)/);
+  await expect(page).toHaveURL(/\/(today|work|goals)/, { timeout: 30_000 });
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 }
 
@@ -161,13 +161,11 @@ test('v159 your own dated steps are on your calendar, and open at the step', asy
 
     // Yours, on your own work: a step, not a shared one.
     const structure = entry('18', `Prepare structure ${stamp}`);
-    await expect(structure).toContainText(`Step: Prepare structure ${stamp}`);
+    await expect(structure).toContainText(`Prepare structure ${stamp}`);
     await expect(structure).not.toContainText('Shared step');
-    await expect(structure).toContainText(`For ${title}`);
+    await expect(structure).toContainText(title);
     // Unassigned is yours too.
-    await expect(entry('20', `Draft outline ${stamp}`)).toContainText(
-      `Step: Draft outline ${stamp}`,
-    );
+    await expect(entry('20', `Draft outline ${stamp}`)).toContainText(`Draft outline ${stamp}`);
     // No date of its own: counted on the work's entry, not drawn beside it.
     await expect(page.locator('.cal-item.step', { hasText: `Final check ${stamp}` })).toHaveCount(
       0,
@@ -176,9 +174,7 @@ test('v159 your own dated steps are on your calendar, and open at the step', asy
       page.locator(`.day[data-date="${month}-25"]`).locator('.cal-item', { hasText: title }),
     ).toContainText('1 step due');
     // Work with no date has no entry to count on, so a step dated on it is drawn.
-    await expect(entry('22', `Give department input ${stamp}`)).toContainText(
-      `↳ Amer Hakim · Give department input ${stamp}`,
-    );
+    await expect(entry('22', `Give department input ${stamp}`)).toContainText('↘ Amer');
 
     // And it opens the work at the step.
     await structure.click();

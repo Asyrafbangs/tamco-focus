@@ -60,13 +60,17 @@ export interface PlanCalendarItem {
   taskId: string;
   href: string;
   kind: PlanEvent['eventKind'];
-  /** What the cell shows, e.g. "Due: Close out the June audit". */
+  /** The title the cell shows — since v163 without a "Due:" style prefix. */
   label: string;
   /** The task's own title, for the dialog and the confirmation. */
   taskTitle: string;
   owner?: string;
-  /** v156 — a second line about the work: what a step is for, or steps due. */
-  detail?: string;
+  /** v163 — the one state worth a chip: late, or up for review. */
+  status?: 'overdue' | 'review';
+  /** v163 — the one fact beside the type: who owes a step, what it is part of, steps due. */
+  relation?: string;
+  /** v163 — the full sentence on hover. */
+  tooltip?: string;
   accessibleSuffix: string;
   /** Present only when this viewer may move this due date. */
   move?: PlanCalendarMove;
@@ -476,7 +480,9 @@ export function PlanCalendar({
               kind={item.kind}
               title={item.label}
               owner={item.owner}
-              detail={item.detail}
+              status={item.status}
+              relation={item.relation}
+              tooltip={item.tooltip}
               accessibleSuffix={item.accessibleSuffix}
               draggable={item.move !== undefined && !busy}
               onDragStart={(event) => startDrag(event, item, day.date)}

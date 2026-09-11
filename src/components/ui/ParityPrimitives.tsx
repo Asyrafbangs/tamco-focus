@@ -272,6 +272,90 @@ export function ChecklistItem({
   );
 }
 
+/** The calendar's kinds of entry, as the Monthly Plan names them. */
+export type CalendarItemKind = 'due' | 'overdue' | 'routine' | 'review' | 'discussion' | 'step';
+
+/**
+ * v163 — the four types colour distinguishes, and the only thing it does: a
+ * task, a routine occurrence, a step, and a booked meeting. Overdue and review
+ * dates are states of a task, shown as chips, not types of their own.
+ */
+export type CalendarItemType = 'task' | 'routine' | 'step' | 'meeting';
+
+const CALENDAR_TYPE_LABEL: Record<CalendarItemType, string> = {
+  task: 'Task',
+  routine: 'Routine',
+  step: 'Step',
+  meeting: 'Meeting',
+};
+
+export function calendarItemType(kind: CalendarItemKind): CalendarItemType {
+  if (kind === 'routine') return 'routine';
+  if (kind === 'step') return 'step';
+  if (kind === 'discussion') return 'meeting';
+  return 'task';
+}
+
+/**
+ * v163 — a small drawn mark for each type, so the type reads before the word
+ * does. Drawn rather than taken from a font: Windows and macOS disagree about
+ * most symbols at this size.
+ */
+export function CalendarTypeGlyph({ type }: { type: CalendarItemType }) {
+  return (
+    <svg
+      className="cal-item-glyph"
+      viewBox="0 0 10 10"
+      width="9"
+      height="9"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {type === 'task' && (
+        <rect
+          x="1.2"
+          y="1.2"
+          width="7.6"
+          height="7.6"
+          rx="1.6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.2"
+        />
+      )}
+      {type === 'routine' && (
+        <path
+          d="M8.4 5a3.4 3.4 0 1 1-1-2.4M7.6 1v1.9H5.7"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+      {type === 'step' && (
+        <path
+          d="M1.6 5.3l2.1 2.1 4.7-4.8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+      {type === 'meeting' && (
+        <path
+          d="M1.4 1.8h7.2v4.8H4.4L2.2 8.4V6.6h-.8z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.1"
+          strokeLinejoin="round"
+        />
+      )}
+    </svg>
+  );
+}
+
 export function CalendarItem({
   href,
   title,
@@ -282,11 +366,13 @@ export function CalendarItem({
   onDragStart,
   onDragEnd,
   taskAnchor,
-  detail,
+  status,
+  relation,
+  tooltip,
 }: {
   href: string;
   title: string;
-  kind: 'due' | 'overdue' | 'routine' | 'review' | 'discussion' | 'step';
+  kind: CalendarItemKind;
   /** Shown only when the item belongs to someone other than the viewer. */
   owner?: string;
   accessibleSuffix?: string;
@@ -300,33 +386,45 @@ export function CalendarItem({
   onDragEnd?: DragEventHandler<HTMLAnchorElement>;
   /** Lets focus find a moved item again once it has been redrawn. */
   taskAnchor?: string;
+  /** v163 — the one state worth a chip: late, or up for review. */
+  status?: 'overdue' | 'review';
   /**
-   * v156 — a second line about the work rather than its owner: what a step is
-   * part of, or how many steps share the task's date.
+   * v163 — the one fact beside the type: who owes a step, the work a step of
+   * yours is part of, or how many steps share the task's date.
    */
-  detail?: string;
+  relation?: string;
+  /** v163 — the full sentence on hover, since the cell holds only the essentials. */
+  tooltip?: string;
 }) {
+  const type = calendarItemType(kind);
   return (
     <Link
       href={href}
-      className={`cal-item ${kind}`}
+      className={`cal-item ${kind} is-${type}`}
       draggable={draggable}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       data-plan-task={taskAnchor}
-      title={owner ? `${title} — ${owner}` : title}
+      title={tooltip ?? (owner ? `${title} — ${owner}` : title)}
     >
-      <span aria-hidden="true">{title}</span>
-      {owner && (
-        <span className="cal-item-owner" aria-hidden="true">
-          {owner}
-        </span>
-      )}
-      {detail && (
-        <span className="cal-item-detail" aria-hidden="true">
-          {detail}
-        </span>
-      )}
+      <span className="cal-item-title" aria-hidden="true">
+        {title}
+      </span>
+      {/*
+        v163 — one line beneath the title: what kind of entry it is, at most one
+        state and at most one fact. Colour says the type and nothing else.
+      */}
+      <span className="cal-item-meta" aria-hidden="true">
+        <CalendarTypeGlyph type={type} />
+        <span className="cal-item-type">{CALENDAR_TYPE_LABEL[type]}</span>
+        {status && (
+          <span className={`cal-chip ${status}`}>
+            {status === 'overdue' ? 'Overdue' : 'Review by'}
+          </span>
+        )}
+        {relation && <span className="cal-item-relation">{relation}</span>}
+        {owner && <span className="cal-item-owner">{owner}</span>}
+      </span>
       <span className="visually-hidden">{accessibleSuffix ?? title}</span>
     </Link>
   );

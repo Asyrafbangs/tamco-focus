@@ -1,5 +1,19 @@
 # TAMCO Focus — Change Log
 
+## v163 A calendar that reads at a glance — 11 September 2026
+
+- Colour now means one thing, the kind of entry: tasks neutral, routines soft green, steps soft
+  lavender. Overdue and review dates are small chips rather than whole-card colours, so a late routine
+  still looks like a routine.
+- Each entry is its title and one short line: the type with a small mark, a chip if it is late or up
+  for review, and one fact — "↘ Amer" for a step somebody owes, the work a step of yours is part of, or
+  "2 steps due". The "Due:", "Shared step:" and "↳" prefixes are gone; the full sentence is on hover.
+- A step past its date now says "Overdue" on the calendar.
+- A shorter legend in two parts: Type, and Status.
+- The chip and the line beneath each title are the entry's own size rather than a fraction of it,
+  which had come out at 7.6px and 8.3px, off the type scale. The type-scale check now measures text
+  kept from screen readers too — where every entry's visible label lives — so it catches this.
+
 ## v162 Completed work leaves the calendar — 11 September 2026
 
 - The Monthly Plan no longer shows completed work, including completed routine occurrences. Completed

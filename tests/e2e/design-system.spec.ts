@@ -195,8 +195,14 @@ test.describe('typography', () => {
               (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim(),
             );
             if (!text || (element as HTMLElement).offsetParent === null) return false;
-            // Screen-reader-only text has no visual size to be consistent with.
-            return !element.closest('.visually-hidden, [aria-hidden="true"]');
+            /*
+             * Screen-reader-only text has no visual size to be consistent with.
+             * aria-hidden text is the opposite case - on screen, kept only from
+             * the screen reader - and it is where a calendar entry's visible
+             * label lives, so skipping it let v163's 8.3px meta lines and 7.6px
+             * chips through unmeasured.
+             */
+            return !element.closest('.visually-hidden');
           })
           .map((element) => ({
             size: Number.parseFloat(getComputedStyle(element).fontSize),

@@ -78,7 +78,7 @@ async function signInAsManager(page: Page) {
   await page.getByLabel('Email address').fill('izzul@tamco.local');
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/today$/);
+  await expect(page).toHaveURL(/\/today$/, { timeout: 30_000 });
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 }
 

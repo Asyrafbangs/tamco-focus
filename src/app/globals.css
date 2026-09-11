@@ -3945,9 +3945,10 @@ fieldset:disabled label,
   max-width: 100%;
   margin-top: 6px;
   padding: 5px 6px;
+  border: 1px solid var(--line);
   border-radius: 6px;
-  background: var(--blue-bg);
-  color: var(--blue);
+  background: var(--surface);
+  color: var(--text);
   font-size: 9px;
   text-decoration: none;
   white-space: nowrap;
@@ -3963,42 +3964,91 @@ fieldset:disabled label,
 .cal-item:hover {
   text-decoration: underline;
 }
-.cal-item.routine {
+/* v163 - colour says what kind of entry this is, and nothing else: a task is
+   neutral, a routine soft green, a step soft lavender. Being late or up for
+   review is a chip on the line beneath, so a late routine still looks like a
+   routine. The kind classes (.routine, .review, .overdue) stay for behaviour. */
+.cal-item.is-routine {
+  border-color: color-mix(in srgb, var(--green) 22%, var(--line));
   background: var(--green-bg);
+}
+.cal-item.is-step {
+  border-color: color-mix(in srgb, var(--purple) 22%, var(--line));
+  background: var(--purple-bg);
+}
+/*
+ * v47 §26 — a booked discussion: an appointment rather than a deadline. Since
+ * v163 it is neutral like a task, told apart by its dashed edge and its label.
+ */
+.cal-item.is-meeting {
+  border-style: dashed;
+}
+/* v163 - the title, then one line: the type, at most one chip, at most one
+   fact. Each ends in an ellipsis rather than wrapping, so a busy day stays a
+   column of entries. Sizes are relative, so the phone agenda's larger type
+   carries through. `span.` matches the specificity of the rule above that
+   makes every line a block. */
+.cal-item-title {
+  font-weight: 650;
+}
+/* The meta line is the title's size, set apart by weight and colour: an em
+   fraction here produced 8.28px on desktop and 11.04px on a phone, neither of
+   them a step on the type scale. */
+.cal-item > span.cal-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.cal-item-glyph,
+.cal-item-type,
+.cal-chip {
+  flex: none;
+}
+.cal-item.is-routine .cal-item-type,
+.cal-item.is-routine .cal-item-glyph {
   color: var(--green);
 }
-.cal-item.review {
-  background: var(--amber-bg);
-  color: var(--amber);
+.cal-item.is-step .cal-item-type,
+.cal-item.is-step .cal-item-glyph {
+  color: var(--purple);
 }
-.cal-item.overdue {
+.cal-item-relation,
+.cal-item-meta .cal-item-owner {
+  display: inline;
+  min-width: 0;
+  overflow: hidden;
+  font-size: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cal-item-relation::before,
+.cal-item-meta .cal-item-owner::before {
+  content: '· ';
+}
+/* The chip takes the size of whatever it sits in - a card's meta line or the
+   legend - so it stays on the type scale in both; the pill and the weight are
+   what set it apart. */
+.cal-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.cal-chip.overdue {
+  border: 1px solid color-mix(in srgb, var(--red) 25%, var(--line));
   background: var(--red-bg);
   color: var(--red);
 }
-/*
- * v47 §26 — a booked discussion. Blue because it is the one entry on this grid
- * that is an appointment rather than a deadline: nothing is late, something is
- * arranged.
- */
-.cal-item.discussion {
-  background: var(--blue-bg);
-  color: var(--blue);
-}
-/* v156 - a step somebody owes: a commitment inside the work, not the work's
-   own deadline, so it does not borrow the work's blue. */
-.cal-item.step {
-  background: var(--purple-bg);
-  color: var(--purple);
-}
-/* v156 - a second line about the work rather than its owner. Full strength,
-   like the owner line since v153: faded small text fails contrast. */
-.cal-item-detail {
-  display: block;
-  overflow: hidden;
-  font-size: 9px;
-  font-weight: 400;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.cal-chip.review {
+  border: 1px solid color-mix(in srgb, var(--amber) 25%, var(--line));
+  background: var(--amber-bg);
+  color: var(--amber);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -4109,6 +4159,40 @@ fieldset:disabled label,
   margin-top: 12px;
   font-size: 11px;
   color: var(--muted);
+}
+/* v163 - the legend answers the same two questions the entries do. */
+.plan-legend-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.plan-legend-heading {
+  color: var(--text);
+  font-weight: 700;
+}
+.legend-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+}
+.legend-type.is-routine {
+  border-color: color-mix(in srgb, var(--green) 22%, var(--line));
+  background: var(--green-bg);
+  color: var(--green);
+}
+.legend-type.is-step {
+  border-color: color-mix(in srgb, var(--purple) 22%, var(--line));
+  background: var(--purple-bg);
+  color: var(--purple);
+}
+.legend-assigned {
+  color: var(--text);
 }
 
 /* ------------------------------------------------------------------------ */

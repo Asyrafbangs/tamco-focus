@@ -1387,3 +1387,17 @@ derived-progress rules. The future ESH finding/action system remains outside the
    completed it (by `completed_by`, v150, or else the signed-in person), it is a routine occurrence,
    the assigner is the pending completion reviewer — "Completion review needed" already tells them — or
    the assigner's account is inactive. Reopening and completing again tells them again.
+
+## 58. v163 A calendar that reads at a glance
+
+1. Colour says what kind of entry it is and nothing else: a task is neutral, a routine occurrence soft
+   green, a step soft lavender; a booked meeting is neutral with a dashed edge.
+2. Each entry is its title and one line beneath it: the type, then at most one chip — "Overdue" (red)
+   or "Review by" (amber) — and at most one fact: who owes a step ("↘ Amer"), the work a step you owe
+   is part of, how many steps share a task's date, or in Team scope whose work it is. The full sentence
+   is the entry's hover text and its accessible name.
+3. A step is overdue on the calendar once its organisation-local date has passed.
+4. The legend reads Type (Task, Routine, Step) and Status (Overdue, Review by, ↘ Assigned). Completed
+   work is not on the calendar (v162).
+5. The kind classes (`due`, `overdue`, `routine`, `review`, `discussion`, `step`) stay on every entry
+   for behaviour and tests; only `is-task`, `is-routine`, `is-step` and `is-meeting` carry colour.

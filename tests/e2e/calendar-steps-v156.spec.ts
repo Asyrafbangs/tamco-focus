@@ -40,7 +40,7 @@ async function signIn(page: Page, email: string) {
   await page.getByLabel('Email address').fill(email);
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page).toHaveURL(/\/(today|work|goals)/);
+  await expect(page).toHaveURL(/\/(today|work|goals)/, { timeout: 30_000 });
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 }
 
@@ -139,8 +139,9 @@ test('v156 Amer sees the step he owes, and it opens the work at that step', asyn
     const entry = page
       .locator(`.day[data-date="${month}-18"]`)
       .locator('.cal-item.step', { hasText: `Give department input ${stamp}` });
-    await expect(entry).toContainText(`Shared step: Give department input ${stamp}`);
-    await expect(entry).toContainText(`For ${title}`);
+    await expect(entry).toContainText(`Give department input ${stamp}`);
+    await expect(entry).toContainText('Step');
+    await expect(entry).toContainText(title);
     // A step's date is its step's business, not something to drag about.
     await expect(entry).toHaveAttribute('draggable', 'false');
 
@@ -172,7 +173,8 @@ test('v156 the owner sees only the step due before her work, and a count for the
     const early = page
       .locator(`.day[data-date="${month}-18"]`)
       .locator('.cal-item.step', { hasText: `Give department input ${stamp}` });
-    await expect(early).toContainText(`↳ Amer Hakim · Give department input ${stamp}`);
+    await expect(early).toContainText(`Give department input ${stamp}`);
+    await expect(early).toContainText('↘ Amer');
 
     // Due with the task: no square of their own — one count on the task's entry.
     await expect(

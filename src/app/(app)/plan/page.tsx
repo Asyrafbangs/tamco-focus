@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { taskDrawerHref } from '@/domain/navigation';
 import { barrierHref } from '@/domain/barriers';
 import { dueInputValue, formatDue, localDateString } from '@/domain/duration';
+import { CalendarTypeGlyph } from '@/components/ui/ParityPrimitives';
 import { requireProfile } from '@/lib/supabase/server';
 import {
   getMeetingQueue,
@@ -222,28 +223,30 @@ export default async function PlanPage({
     `/plan?month=${monthKey(year, month)}${next === 'team' ? '&scope=team' : ''}`;
 
   /*
-   * v156 — a step's entry. Yours reads "Shared step: …"; somebody else's reads
-   * "↳ Amer Hakim · …", because who owes it is the point. Either way the work it
-   * belongs to is the line beneath. It opens the task at that step, and never
-   * drags: a step's date is changed in its step, where it may not pass its task
-   * (v154).
+   * v156 — a step's entry. It opens the task at that step, and never drags: a
+   * step's date is changed in its step, where it may not pass its task (v154).
+   *
+   * v163 — its title and one line: "Step", "Overdue" once its date has passed,
+   * and the one fact that matters — who owes it ("↘ Amer") when that is
+   * somebody else, or the work it is part of when it is you.
    */
   const stepItem = (event: PlanEvent) => {
     const mine = event.assigneeId === profile.id;
     // v159 — a step on your own work is a step, not a shared one.
     const ownWork = event.primaryOwnerId === profile.id;
     const who = event.assigneeName ?? 'A colleague';
+    const late = localDateString(new Date(event.occursAt), timeZone) < today;
     return {
       key: `${event.stepId}-step-${event.occursAt}`,
       taskId: event.taskId,
       href: `${taskDrawerHref(event.taskId, '/plan')}&step=${event.stepId}`,
       kind: event.eventKind,
-      label: mine
-        ? `${ownWork ? 'Step' : 'Shared step'}: ${event.title}`
-        : `↳ ${who} · ${event.title}`,
+      label: event.title,
       taskTitle: event.title,
-      detail: event.parentTitle ? `For ${event.parentTitle}` : undefined,
-      accessibleSuffix: `${event.title} — a step ${mine ? 'you owe' : `${who} owes`}${event.parentTitle ? ` on ${event.parentTitle}` : ''}, due ${formatDue(event.occursAt, event.dueIsDateOnly, timeZone)}`,
+      status: late ? ('overdue' as const) : undefined,
+      relation: mine ? (event.parentTitle ?? undefined) : `↘ ${who.split(' ')[0] ?? who}`,
+      tooltip: `${event.title} — ${mine ? (ownWork ? 'your step' : 'a step you owe') : `${who} owes this step`}${event.parentTitle ? ` on ${event.parentTitle}` : ''}`,
+      accessibleSuffix: `${event.title} — a step ${mine ? 'you owe' : `${who} owes`}${event.parentTitle ? ` on ${event.parentTitle}` : ''}, due ${formatDue(event.occursAt, event.dueIsDateOnly, timeZone)}${late ? ', overdue' : ''}`,
     };
   };
 
@@ -280,11 +283,18 @@ export default async function PlanPage({
             ? barrierHref(event.taskId, event.barrierId)
             : taskDrawerHref(event.taskId, '/plan'),
         kind: event.eventKind,
-        label: `${EVENT_LABELS[event.eventKind]}: ${event.title}`,
+        // v163 — the title alone; what kind of entry it is sits on the line beneath.
+        label: event.title,
         taskTitle: event.title,
         owner,
+        status:
+          event.eventKind === 'overdue'
+            ? ('overdue' as const)
+            : event.eventKind === 'review'
+              ? ('review' as const)
+              : undefined,
         // v156 — steps due with the task are counted here, not drawn beside it.
-        detail:
+        relation:
           event.stepsDueWithTask > 0 && (event.eventKind === 'due' || event.eventKind === 'overdue')
             ? `${event.stepsDueWithTask} step${event.stepsDueWithTask === 1 ? '' : 's'} due`
             : undefined,
@@ -365,21 +375,27 @@ export default async function PlanPage({
         </Link>
       </div>
 
+      {/*
+        v163 — the two questions the entries answer, answered here the same way:
+        what kind of entry it is, which is all colour says, and what state it is
+        in, which is a chip or who owes it. Completed work is not on the
+        calendar at all (v162).
+      */}
       <div className="plan-legend" aria-label="Calendar legend">
-        <span>
-          <span className="flag blue">Due</span> commitment date
+        <span className="plan-legend-group">
+          <span className="plan-legend-heading">Type</span>
+          {(['task', 'routine', 'step'] as const).map((type) => (
+            <span key={type} className={`legend-type is-${type}`}>
+              <CalendarTypeGlyph type={type} />
+              {type === 'task' ? 'Task' : type === 'routine' ? 'Routine' : 'Step'}
+            </span>
+          ))}
         </span>
-        <span>
-          <span className="flag red">Overdue</span> past its date and still open
-        </span>
-        <span>
-          <span className="flag green">Routine</span> scheduled occurrence
-        </span>
-        <span>
-          <span className="flag amber">Review by</span> review or selection deadline
-        </span>
-        <span>
-          <span className="flag purple">Step</span> a step somebody owes
+        <span className="plan-legend-group">
+          <span className="plan-legend-heading">Status</span>
+          <span className="cal-chip overdue">Overdue</span>
+          <span className="cal-chip review">Review by</span>
+          <span className="legend-assigned">↘ Assigned</span>
         </span>
       </div>
 
