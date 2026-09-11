@@ -160,16 +160,17 @@ describe('v153 — who the calendar offers a move to', () => {
   it('offers nothing on closed work, routine occurrences or review deadlines', async () => {
     const izzah = await signInAs('izzah');
 
-    // Completed work "cannot receive a new due date", and says so.
+    // Completed work is off the calendar altogether (v162): nothing to move.
     const completed = await datedTask({
       status: 'completed',
       completed_at: new Date().toISOString(),
       completed_owner_id: PEOPLE.izzah.id,
       completed_by: PEOPLE.izzah.id,
     });
-    const closedRow = dueRow(await planRows(izzah, completed.id));
-    expect(closedRow, 'completed work vanished from the calendar').toBeDefined();
-    expect(closedRow!.can_reschedule).toBe(false);
+    expect(
+      dueRow(await planRows(izzah, completed.id)),
+      'completed work is still on the calendar',
+    ).toBeUndefined();
 
     // A routine occurrence follows its template's schedule.
     const { data: template, error: templateError } = await serviceClient()

@@ -43,5 +43,6 @@
 | Trackable Steps: your own steps                      | Calendar own steps; Active card; Shared overdue; My Team     | `plan_events` own-step rows; `task_overview` own-step columns             | v159 integration + desktop/mobile E2E                  | Implemented and verified |
 | Trackable Steps: steps on My Day                     | Needs attention; Coming up; handoff reason                   | `plan_events` step rows as the viewer; no schema change                   | v160 unit + desktop E2E                                | Implemented and verified |
 | Trackable Steps: steps for the owner                 | Owner told of steps added for them; contributor withdrawn    | `focus.notify_step_for_owner`; assignment triggers replaced               | v161 integration                                       | Implemented and verified |
+| Completed work leaves the calendar                   | Monthly Plan hides completed work; assigner told             | `plan_events` task branch; `tasks_notify_work_completed`                  | v162 integration; v153 test updated                    | Implemented and verified |
 
 The approved v33 application modules are mapped above. Detailed workflow contracts remain in `MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`, and the handoff documents in this directory.

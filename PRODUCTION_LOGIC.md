@@ -1375,3 +1375,15 @@ derived-progress rules. The future ESH finding/action system remains outside the
 4. The contributor notices themselves are unchanged. The trigger's audit event is unchanged — written
    for an assignment to somebody other than the owner — and `update_checklist_step` still records every
    edit, including the others.
+
+## 57. v162 Completed work leaves the calendar
+
+1. `plan_events` has no row for completed or cancelled work. Review deadlines were already limited to
+   open work and step rows to open steps; booked discussions are unchanged. `can_reschedule` no longer
+   needs to refuse completed work, because none reaches the calendar.
+2. When work moves to completed, `tasks_notify_work_completed` tells `assigned_by` — "Work completed",
+   `"<title> · Completed by <name>."`, `collaboration_handoff`, digest, not requiring action, `quiet`
+   (no email, v158), linking to the work — unless nobody assigned it or its owner did, the assigner
+   completed it (by `completed_by`, v150, or else the signed-in person), it is a routine occurrence,
+   the assigner is the pending completion reviewer — "Completion review needed" already tells them — or
+   the assigner's account is inactive. Reopening and completing again tells them again.

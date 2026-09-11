@@ -120,3 +120,8 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 
 - `focus.notify_step_for_owner(step, task, actor, actor_name, verb)` writes the owner's "New step on
   your work" notice for both assignment triggers; it is callable by no client role. No table changes.
+
+## v162 completed work
+
+- `plan_events` leaves out completed work as it left out cancelled work. `focus.notify_work_completed`
+  and the `tasks_notify_work_completed` trigger tell the assigner of completed work. No table changes.

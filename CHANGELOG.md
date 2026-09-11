@@ -1,5 +1,15 @@
 # TAMCO Focus — Change Log
 
+## v162 Completed work leaves the calendar — 11 September 2026
+
+- The Monthly Plan no longer shows completed work, including completed routine occurrences. Completed
+  steps already left it.
+- Whoever assigned a piece of work is told when somebody else completes it: "Work completed", in the
+  bell only, opening the work. A task's completion used to tell nobody unless a review was asked for;
+  a step's has told its owner since v158.
+- Not for work you completed yourself, work nobody assigned, a routine occurrence, or work you are
+  asked to review — "Completion review needed" already tells you it is done.
+
 ## v161 Trackable Steps: who is told when a step is the owner's — 11 September 2026
 
 - A manager adding a step to your work for you, or handing one back to you, now tells you: "New step
