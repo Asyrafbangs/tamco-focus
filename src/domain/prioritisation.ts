@@ -268,6 +268,16 @@ export type AttentionKind =
    */
   | 'waiting_on_others'
   /**
+   * v160 — a step of the owner's own is past its date, on work that is not
+   * late itself. v155 caught the same thing for a step somebody else owes.
+   */
+  | 'step_overdue'
+  /**
+   * v160 — a step the viewer owes on somebody else's work is past its date.
+   * That work is not on their list at all, so nothing else here would say so.
+   */
+  | 'contribution_overdue'
+  /**
    * v40 section 5 — Available work that genuinely needs a decision today.
    * Nobody should have to open Available every morning to discover that their
    * manager asked for something reviewable this afternoon. This is exception
@@ -373,6 +383,24 @@ export function needsAttention(
       });
     }
 
+    /*
+     * v160 — and a step of the owner's own. A late step somebody else owes was
+     * caught above; a late one of theirs, on work not yet late itself, was
+     * caught by nothing. Not said when the work is overdue: that item says it.
+     */
+    if (task.ownStepOverdueCount > 0 && !task.isOverdue && isWorkable(task)) {
+      const count = task.ownStepOverdueCount;
+      items.push({
+        kind: 'step_overdue',
+        taskId: task.id,
+        title: task.title,
+        message:
+          count === 1
+            ? 'A step of yours is past its date.'
+            : `${count} steps of yours are past their dates.`,
+      });
+    }
+
     // Only worth surfacing once the work is otherwise finished — before that it
     // is ordinary outstanding work, not an exception.
     if (task.missingEvidenceCount > 0 && task.checklistCompleted === task.checklistTotal - 1) {
@@ -423,6 +451,70 @@ export function comingUp(
     })
     .sort((a, b) => new Date(a.dueAt!).getTime() - new Date(b.dueAt!).getTime())
     .slice(0, maxItems);
+}
+
+/**
+ * v160 — a step the viewer owes, from the calendar's step rows: one of their
+ * own dated steps on their own work, or a contribution on somebody else's.
+ */
+export interface OwedStep {
+  stepId: string;
+  taskId: string;
+  title: string;
+  parentTitle: string;
+  /** Its own date, or its work's when it has none (v154). */
+  dueAt: string;
+  dueIsDateOnly: boolean;
+  /** Whether the work it belongs to is the viewer's own. */
+  ownWork: boolean;
+  stepHasOwnDate: boolean;
+  parentDueAt: string | null;
+}
+
+/**
+ * v160 — contributions the viewer owes on somebody else's work that are past
+ * their date. Their own late steps are counted from their own work instead.
+ */
+export function overdueContributions(
+  steps: readonly OwedStep[],
+  context: PrioritisationContext,
+): AttentionItem[] {
+  const now = context.now ?? new Date();
+  return steps
+    .filter((step) => !step.ownWork && new Date(step.dueAt).getTime() < now.getTime())
+    .map((step) => ({
+      kind: 'contribution_overdue' as const,
+      taskId: step.taskId,
+      title: step.title,
+      message: `Your step on "${step.parentTitle}" is past its date.`,
+    }));
+}
+
+/**
+ * v160 — steps the viewer owes that fall due inside the upcoming window, in
+ * date order: a contribution on anybody's work, and one of their own only when
+ * it is due before its work — one due with the work is the work's own date.
+ */
+export function stepsComingUp(
+  steps: readonly OwedStep[],
+  context: PrioritisationContext,
+): OwedStep[] {
+  const now = context.now ?? new Date();
+  const timeZone = context.timeZone ?? DEFAULT_ORG_TIMEZONE;
+  const windowMs = (context.upcomingWindowDays ?? 7) * 86_400_000;
+  return steps
+    .filter((step) => {
+      const dueIn = new Date(step.dueAt).getTime() - now.getTime();
+      if (dueIn <= 0 || dueIn > windowMs) return false;
+      if (!step.ownWork) return true;
+      return (
+        step.stepHasOwnDate &&
+        (step.parentDueAt === null ||
+          localDateString(new Date(step.dueAt), timeZone) <
+            localDateString(new Date(step.parentDueAt), timeZone))
+      );
+    })
+    .sort((left, right) => new Date(left.dueAt).getTime() - new Date(right.dueAt).getTime());
 }
 
 /**

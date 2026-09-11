@@ -7,11 +7,14 @@ import { goalExceptionMessage } from '@/domain/goals';
 import {
   comingUp,
   needsAttention,
+  overdueContributions,
   startHere,
+  stepsComingUp,
   todayList,
   type AttentionItem,
+  type OwedStep,
 } from '@/domain/prioritisation';
-import { TASK_STATUS_LABELS, WORK_CLASS_LABELS } from '@/domain/types';
+import { TASK_STATUS_LABELS, WORK_CLASS_LABELS, type TaskOverview } from '@/domain/types';
 import { requireProfile } from '@/lib/supabase/server';
 import {
   getBarriersAwaitingOthers,
@@ -20,6 +23,7 @@ import {
   getHandoffReadyTaskIds,
   getMyAttention,
   getMyTasks,
+  getStepsIOwe,
   getTeamDirectory,
   getWaitingOnOthers,
 } from '@/server/queries';
@@ -79,6 +83,8 @@ function attentionSummary(items: readonly AttentionItem[]): string {
     available_needs_decision: (count) =>
       `${count} waiting in Available need${count === 1 ? 's' : ''} a decision`,
     waiting_on_others: (count) => `${count} waiting on others`,
+    step_overdue: (count) => `${count} step${count === 1 ? '' : 's'} overdue`,
+    contribution_overdue: (count) => `${count} contribution${count === 1 ? '' : 's'} overdue`,
   };
 
   const counts = new Map<AttentionItem['kind'], number>();
@@ -125,6 +131,7 @@ export default async function TodayPage({
     teamDirectory,
     awaitingOthersTaskIds,
     waitingOnOthers,
+    owedSteps,
   ] = await Promise.all([
     getMyTasks(profile.id),
     getHandoffReadyTaskIds(profile.id),
@@ -141,6 +148,8 @@ export default async function TodayPage({
     params.capture === '1' ? getTeamDirectory() : Promise.resolve([]),
     getBarriersAwaitingOthers(profile.id),
     getWaitingOnOthers(profile.id),
+    // v160 — the steps this person owes, a month ahead and any already late.
+    getStepsIOwe(profile.id, 31),
   ]);
 
   const context = {
@@ -154,7 +163,12 @@ export default async function TodayPage({
 
   const now = new Date();
 
-  const attention = needsAttention(tasks, context);
+  // v160 — and a step they owe on somebody else's work that is late: that work
+  // is not in `tasks`, so the derivation above cannot see it.
+  const attention = [
+    ...needsAttention(tasks, context),
+    ...overdueContributions(owedSteps, context),
+  ];
   const recommendation = startHere(tasks, context);
 
   /*
@@ -213,7 +227,31 @@ export default async function TodayPage({
     3,
     (entry) => entry.task,
   );
-  const upcoming = take(comingUp(tasks, context, 12), 3, (task) => task);
+  /*
+   * v160 — Coming up is dates, and a step's date is a date. The steps this
+   * person owes that fall due in the window join the work that does, in date
+   * order and three at most: a contribution on anybody's work, and one of
+   * their own only when it is due before the work it belongs to.
+   */
+  type Upcoming =
+    { kind: 'task'; at: string; task: TaskOverview } | { kind: 'step'; at: string; step: OwedStep };
+  const upcomingCandidates: Upcoming[] = [
+    ...comingUp(tasks, context, 12).map((task) => ({
+      kind: 'task' as const,
+      at: task.dueAt!,
+      task,
+    })),
+    ...stepsComingUp(owedSteps, context).map((step) => ({
+      kind: 'step' as const,
+      at: step.dueAt,
+      step,
+    })),
+  ].sort((left, right) => new Date(left.at).getTime() - new Date(right.at).getTime());
+  const upcoming: Upcoming[] = [];
+  for (const candidate of upcomingCandidates) {
+    if (upcoming.length >= 3) break;
+    if (candidate.kind === 'step' || claim(candidate.task)) upcoming.push(candidate);
+  }
 
   const activeCount = tasks.filter((task) => task.status === 'active').length;
   const availableCount = tasks.filter((task) => task.status === 'backlog').length;
@@ -595,20 +633,45 @@ export default async function TodayPage({
 
         {upcoming.length > 0 || quarterlyComingUp.length > 0 ? (
           <div className="coming-grid">
-            {upcoming.map((task) => (
-              <Link
-                key={task.id}
-                href={taskDrawerHref(task.id, '/today')}
-                className="coming-item interactive-row"
-                style={{ textDecoration: 'none', color: 'inherit' }}
-              >
-                <strong>{task.title}</strong>
-                <span>
-                  {formatDue(task.dueAt, task.dueIsDateOnly, profile.timezone ?? undefined)} ·{' '}
-                  {WORK_CLASS_LABELS[task.workClass]}
-                </span>
-              </Link>
-            ))}
+            {upcoming.map((entry) =>
+              entry.kind === 'task' ? (
+                <Link
+                  key={entry.task.id}
+                  href={taskDrawerHref(entry.task.id, '/today')}
+                  className="coming-item interactive-row"
+                  style={{ textDecoration: 'none', color: 'inherit' }}
+                >
+                  <strong>{entry.task.title}</strong>
+                  <span>
+                    {formatDue(
+                      entry.task.dueAt,
+                      entry.task.dueIsDateOnly,
+                      profile.timezone ?? undefined,
+                    )}{' '}
+                    · {WORK_CLASS_LABELS[entry.task.workClass]}
+                  </span>
+                </Link>
+              ) : (
+                <Link
+                  key={`step-${entry.step.stepId}`}
+                  href={`${taskDrawerHref(entry.step.taskId, '/today')}&step=${entry.step.stepId}`}
+                  className="coming-item interactive-row"
+                  style={{ textDecoration: 'none', color: 'inherit' }}
+                >
+                  <strong>
+                    {entry.step.ownWork ? 'Step' : 'Shared step'}: {entry.step.title}
+                  </strong>
+                  <span>
+                    {formatDue(
+                      entry.step.dueAt,
+                      entry.step.dueIsDateOnly,
+                      profile.timezone ?? undefined,
+                    )}{' '}
+                    · Part of {entry.step.parentTitle}
+                  </span>
+                </Link>
+              ),
+            )}
             {quarterlyComingUp.map((goal) => (
               <Link
                 key={`goal-${goal.id}`}

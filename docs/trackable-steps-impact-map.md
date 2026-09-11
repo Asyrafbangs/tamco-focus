@@ -164,6 +164,17 @@ for delegation and wrong for the owner's own steps.
   for an outsider); `e2e/own-steps-v159` (the calendar on desktop and phone,
   the Active card, the Shared list and My Team).
 
+## Follow-up — v160, My Day knows about steps
+
+- **Needs attention:** a late step of the owner's own ("N steps overdue") and
+  a late contribution the viewer owes ("N contributions overdue").
+- **Coming up:** steps the viewer owes that fall due in the window, beside the
+  work that does, opening at the step.
+- **Next up:** "a step was handed to you" only when somebody else did.
+- **Data model:** none; My Day reads the calendar's step rows from v159.
+- **Tests:** unit tests for the three new rules; `e2e/my-day-steps-v160`
+  (Izzah's own step, Amer's contribution).
+
 ## Compatibility and rollback
 
 - Stage 1 is one forward-only migration,
@@ -186,5 +197,6 @@ for delegation and wrong for the owner's own steps.
 - The follow-up is `20260911005000_v159_own_steps.sql`: two views, with
   columns appended to one. Read defensively, so either order of deployment is
   safe.
+- v160 has no migration; reverting it is reverting the application.
 - Rollback is a redeploy of the previous build plus, if wanted, dropping the
   trigger; the procedures' extra checks only ever refuse impossible dates.

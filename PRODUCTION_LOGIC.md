@@ -1344,3 +1344,18 @@ derived-progress rules. The future ESH finding/action system remains outside the
    active work with steps past their own date, whoever owes them, unless the work itself is overdue.
 5. Every new column is read defensively: before the migration the card and the calendar are as they
    were, and My Team's signal reads zero.
+
+## 55. v160 Trackable Steps — My Day knows about steps
+
+1. Needs attention adds `step_overdue` — an open step of the owner's own past its own date, on workable
+   work that is not overdue itself — and `contribution_overdue` — a step the viewer owes on somebody
+   else's work, past its own date or its work's. The banner reads "N step(s) overdue" and
+   "N contribution(s) overdue".
+2. Coming up merges the work due in the window with the steps the viewer owes due in it, in date order
+   and three at most: every contribution, and the viewer's own steps only when due before their work.
+   Each step opens its work at the step.
+3. Both read the `plan_events` step rows whose `assignee_id` is the viewer, to a month ahead. A failed
+   read costs My Day these lines and nothing else.
+4. The handoff band (section 13.3) counts only a ready step assigned to the viewer by somebody else. One
+   they gave themselves, or one recorded before v146 without an assigner, does not make their own work
+   a handoff.

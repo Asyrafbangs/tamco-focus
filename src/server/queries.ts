@@ -16,6 +16,7 @@ import {
 } from '@/domain/attention';
 import { toWorkPurpose, type WorkPurpose } from '@/domain/purpose';
 import type { FocusBucket, TaskOverview } from '@/domain/types';
+import type { OwedStep } from '@/domain/prioritisation';
 
 /**
  * Read helpers.
@@ -1557,6 +1558,11 @@ export async function getRoutineOccurrences(
 /**
  * Task IDs where a checklist step is assigned to this person and ready to start
  * (section 13.3). Supplied to the prioritiser, which cannot query for it itself.
+ *
+ * v160 — only a step somebody else gave them. My Day ranks the person's own
+ * work, so a step they gave themselves on it was explained as "a step was
+ * handed to you", which it was not; that work ranks as the active work it is.
+ * Steps from before v146 record no assigner and are left out with it.
  */
 export async function getHandoffReadyTaskIds(userId: string): Promise<Set<string>> {
   const supabase = await createSupabaseServerClient();
@@ -1565,7 +1571,9 @@ export async function getHandoffReadyTaskIds(userId: string): Promise<Set<string
     .from('task_checklist_items')
     .select('task_id')
     .eq('assigned_to', userId)
-    .eq('state', 'ready');
+    .eq('state', 'ready')
+    .not('assigned_by', 'is', null)
+    .neq('assigned_by', userId);
 
   if (error) {
     console.error(`[getHandoffReadyTaskIds] ${error.message}`);
@@ -1573,6 +1581,44 @@ export async function getHandoffReadyTaskIds(userId: string): Promise<Set<string
   }
 
   return new Set((data ?? []).map((row) => row.task_id as string));
+}
+
+/**
+ * v160 — the steps this person owes, from the calendar's step rows (v159):
+ * their own dated steps on their own work, and contributions on anybody's, up
+ * to `horizonDays` ahead and including late ones. Read defensively: a failure
+ * costs My Day these lines, not the page.
+ */
+export async function getStepsIOwe(userId: string, horizonDays: number): Promise<OwedStep[]> {
+  const until = new Date(Date.now() + horizonDays * 86_400_000);
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('plan_events')
+    .select(
+      'task_id,title,primary_owner_id,occurs_at,due_is_date_only,step_id,parent_title,parent_due_at,step_has_own_date',
+    )
+    .eq('event_kind', 'step')
+    .eq('assignee_id', userId)
+    .lte('occurs_at', until.toISOString())
+    .order('occurs_at', { ascending: true })
+    .limit(200);
+
+  if (error) {
+    console.error(`[getStepsIOwe] ${error.message}`);
+    return [];
+  }
+
+  return (data ?? []).map((row) => ({
+    stepId: String(row.step_id),
+    taskId: String(row.task_id),
+    title: String(row.title),
+    parentTitle: row.parent_title ? String(row.parent_title) : '',
+    dueAt: String(row.occurs_at),
+    dueIsDateOnly: Boolean(row.due_is_date_only),
+    ownWork: row.primary_owner_id === userId,
+    stepHasOwnDate: row.step_has_own_date === true,
+    parentDueAt: row.parent_due_at ? String(row.parent_due_at) : null,
+  }));
 }
 
 /**

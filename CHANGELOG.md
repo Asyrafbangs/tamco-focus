@@ -1,5 +1,17 @@
 # TAMCO Focus — Change Log
 
+## v160 Trackable Steps: My Day knows about steps — 11 September 2026
+
+- Needs attention counts a late step of your own — "1 step overdue" — as it has counted a late step
+  somebody else owes you since v155, and a late contribution you owe on somebody else's work — "1
+  contribution overdue".
+- Coming up lists the steps you owe that fall due in the window beside the work that does: "Step: …"
+  for yours, "Shared step: …" for a contribution, each with the work it is part of, opening at the
+  step.
+- "A step was handed to you" is said only when somebody else gave you the step. One you gave yourself
+  on your own work ranks as the active work it is.
+- No migration: My Day reads the calendar's step rows (v159).
+
 ## v159 Trackable Steps: your own steps, too — 11 September 2026
 
 - The calendar shows a step you gave yourself, or left unassigned, when it has a date of its own:

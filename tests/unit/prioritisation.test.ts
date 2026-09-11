@@ -4,9 +4,12 @@ import {
   activeOrder,
   comingUp,
   needsAttention,
+  overdueContributions,
   rankTasks,
   startHere,
+  stepsComingUp,
   todayList,
+  type OwedStep,
 } from '@/domain/prioritisation';
 import { makeTask, NOW } from './fixtures';
 
@@ -371,5 +374,59 @@ describe('Active ordering', () => {
     activeOrder(input, NOW, 'UTC');
 
     expect(input.map((task) => task.id)).toEqual(['first', 'second']);
+  });
+});
+
+describe('v160 — steps on My Day', () => {
+  const at = (days: number) => new Date(NOW.getTime() + days * DAY).toISOString();
+  const owed = (overrides: Partial<OwedStep>): OwedStep => ({
+    stepId: 'step',
+    taskId: 'task',
+    title: 'Give department input',
+    parentTitle: '3 Years Planning',
+    dueAt: at(2),
+    dueIsDateOnly: true,
+    ownWork: false,
+    stepHasOwnDate: true,
+    parentDueAt: at(10),
+    ...overrides,
+  });
+
+  it('surfaces a late step of the owner’s own, on work not late itself', () => {
+    const task = makeTask({ ownStepOverdueCount: 1 });
+    const item = needsAttention([task], context).find((entry) => entry.kind === 'step_overdue');
+    expect(item?.message).toBe('A step of yours is past its date.');
+  });
+
+  it('leaves a late step to the work when the work itself is overdue', () => {
+    const task = makeTask({ ownStepOverdueCount: 1, isOverdue: true, dueAt: at(-1) });
+    expect(needsAttention([task], context).map((entry) => entry.kind)).not.toContain(
+      'step_overdue',
+    );
+  });
+
+  it('names a late contribution on somebody else’s work, and only that', () => {
+    const items = overdueContributions(
+      [
+        owed({ stepId: 'late', dueAt: at(-1) }),
+        owed({ stepId: 'mine', dueAt: at(-1), ownWork: true }),
+        owed({ stepId: 'on-time', dueAt: at(2) }),
+      ],
+      context,
+    );
+    expect(items).toHaveLength(1);
+    expect(items[0]!.kind).toBe('contribution_overdue');
+    expect(items[0]!.message).toBe('Your step on "3 Years Planning" is past its date.');
+  });
+
+  it('lists steps due in the window: contributions always, own ones only before their work', () => {
+    const steps = [
+      owed({ stepId: 'later', dueAt: at(20) }),
+      owed({ stepId: 'with-work', ownWork: true, dueAt: at(3), parentDueAt: at(3) }),
+      owed({ stepId: 'early', ownWork: true, dueAt: at(2) }),
+      owed({ stepId: 'shared', dueAt: at(1), stepHasOwnDate: false, parentDueAt: at(1) }),
+      owed({ stepId: 'late', dueAt: at(-1) }),
+    ];
+    expect(stepsComingUp(steps, context).map((step) => step.stepId)).toEqual(['shared', 'early']);
   });
 });
