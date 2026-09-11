@@ -131,6 +131,22 @@ their own work; only permissions differ.
   nothing on binned work; gone once done); `e2e/team-contributions-v157` (the row, the section and the step
   link, on desktop and phone).
 
+## Stage 5 — v158, who is told what about a step
+
+- **Assigned:** the v44 notice, with the step's date added.
+- **Overdue:** a daily procedure tells the assignee once per day the step was
+  due; the owner's side is Needs attention, from Stage 2. Work not under way
+  is left alone.
+- **Completed:** a quiet notice to the owner — the bell, no email — that opens
+  their work at the step.
+- **Edits:** silent, as they already were; now tested.
+- **Data model:** `notifications.quiet` and `notifications.dedupe_key`, with a
+  partial unique index; two wording helpers; the procedure, service role only.
+- **Tests:** `integration/step-notifications-v158` (the date in the assignment,
+  silence on edits, the quiet completion and its missing email, the overdue
+  notice once and again for a new date, nothing for work not started, and no
+  person able to run it); a unit test for the owner's link.
+
 ## Compatibility and rollback
 
 - Stage 1 is one forward-only migration,
@@ -146,5 +162,9 @@ their own work; only permissions differ.
   branch and columns added. Before it runs there are simply no step rows.
 - Stage 4 is `20260911003500_v157_shared_contributions_excludes_binned.sql`,
   the same view with two conditions added and no column changes.
+- Stage 5 is `20260911004000_v158_step_notifications.sql`: two columns, an
+  index, four functions and a trigger. The scheduled job calls the new
+  procedure, so until the migration runs that one worker reports a failure
+  and the others run as before.
 - Rollback is a redeploy of the previous build plus, if wanted, dropping the
   trigger; the procedures' extra checks only ever refuse impossible dates.

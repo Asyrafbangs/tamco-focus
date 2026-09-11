@@ -69,6 +69,19 @@ describe('notification email template', () => {
     );
   });
 
+  it('opens a step on the recipient’s own work at the step, not in Shared', () => {
+    const notification = { ...taskNotification, entity_type: 'task_step' };
+    expect(notificationPath(notification)).toBe(
+      '/work?task=f0c05300-0000-4000-a000-000000000002&step=f0c05300-0000-4000-a000-000000000002',
+    );
+    const rendered = renderNotificationEmail({
+      notification,
+      recipientName: 'Izzah Nurul',
+      appBaseUrl: 'http://localhost:3000',
+    });
+    expect(rendered.html).toContain('Open step');
+  });
+
   it('refuses a non-http application origin', () => {
     const rendered = renderNotificationEmail({
       notification: taskNotification,

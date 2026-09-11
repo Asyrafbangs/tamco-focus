@@ -1304,3 +1304,23 @@ derived-progress rules. The future ESH finding/action system remains outside the
 6. `shared_contributions` leaves out steps on binned or purged work, as `completed_contributions` has
    since v87. Before this, a step on work in the Bin stayed on the assignee's Shared list, the owner's
    Waiting on others and My Team.
+
+## 53. v158 Trackable Steps — who is told what about a step
+
+1. Assigned: unchanged in who and when (v44); the message gains " Due 10 Sep." — the step's own date,
+   or its task's — and leaves it out when neither has one.
+2. Overdue: `notify_overdue_contributions`, run by the daily scheduled job, sends the assignee one
+   immediate, action-requiring notice per step and organisation-local day it was due ("It was due
+   10 Sep."). Only open steps assigned to somebody other than the owner, on active, undeleted work, to
+   active accounts. `dedupe_key` (`step_overdue:<step>:<day>`) is unique per recipient, so a second run
+   adds nothing and a step given a new date and missed again is told again. The owner is sent no notice;
+   Needs attention carries it (v155).
+3. Completed: the owner receives one quiet, informational notice — "Completed by Amer Hakim." — unless
+   they completed it themselves or the step was their own. It links to `/work?task=…&step=…`
+   (`entity_type = 'task_step'`), the owner's view of the record rather than the assignee's Shared list.
+4. Quiet means the bell only: `queue_notification_email` skips `notifications.quiet`. Every other
+   notification still queues one email, as v120 requires.
+5. Edits to a step's wording, date, evidence rule or dependency notify nobody; reassignment keeps its
+   v44 notices.
+6. The procedure is executable by the service role only. `p_task_ids` narrows a run to named work; the
+   schedule passes nothing.

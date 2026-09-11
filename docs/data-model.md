@@ -99,3 +99,12 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 
 - `shared_contributions` leaves out steps whose work is binned or purged, as
   `completed_contributions` has since v87; its columns are unchanged.
+
+## v158 step notifications
+
+- `notifications.quiet` (boolean, default false) marks a notice for the bell only; the email outbox
+  skips it. `notifications.dedupe_key` (text) with the partial unique index
+  `notifications_recipient_dedupe_key (recipient_id, dedupe_key) where dedupe_key is not null` lets a
+  scheduled notice run more than once.
+- `focus.short_org_date` and `focus.step_due_sentence` word dates in messages;
+  `public.notify_overdue_contributions(uuid[])` raises overdue notices and is the service role's only.

@@ -81,6 +81,8 @@ function actionLabel(notification: RenderNotificationEmailInput['notification'])
   switch (notification.entity_type) {
     case 'checklist_item':
       return 'Open contribution';
+    case 'task_step':
+      return 'Open step';
     case 'barrier':
       return notification.requires_action ? 'Respond to request' : 'Open request';
     case 'goal':

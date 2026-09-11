@@ -4221,11 +4221,13 @@ export type Database = {
           body: string
           channel: Database["public"]["Enums"]["notification_channel"]
           created_at: string
+          dedupe_key: string | null
           entity_id: string | null
           entity_type: string | null
           goal_id: string | null
           id: string
           kind: Database["public"]["Enums"]["notification_kind"]
+          quiet: boolean
           read_at: string | null
           recipient_id: string
           requires_action: boolean
@@ -4238,11 +4240,13 @@ export type Database = {
           body: string
           channel?: Database["public"]["Enums"]["notification_channel"]
           created_at?: string
+          dedupe_key?: string | null
           entity_id?: string | null
           entity_type?: string | null
           goal_id?: string | null
           id?: string
           kind: Database["public"]["Enums"]["notification_kind"]
+          quiet?: boolean
           read_at?: string | null
           recipient_id: string
           requires_action?: boolean
@@ -4255,11 +4259,13 @@ export type Database = {
           body?: string
           channel?: Database["public"]["Enums"]["notification_channel"]
           created_at?: string
+          dedupe_key?: string | null
           entity_id?: string | null
           entity_type?: string | null
           goal_id?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["notification_kind"]
+          quiet?: boolean
           read_at?: string | null
           recipient_id?: string
           requires_action?: boolean
@@ -9961,6 +9967,10 @@ export type Database = {
           p_idempotency_key?: string
           p_task_id: string
         }
+        Returns: Json
+      }
+      notify_overdue_contributions: {
+        Args: { p_task_ids?: string[] }
         Returns: Json
       }
       pause_task: {

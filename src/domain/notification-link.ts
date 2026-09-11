@@ -37,6 +37,11 @@ export function notificationHref(notification: NotificationLinkSource): string {
   if (entityType === 'work_proposal' && entityId) {
     return `/work?scope=team&proposal=${encodeURIComponent(entityId)}`;
   }
+  // v158 - a step on the recipient's own work: the work, at the step. The
+  // Shared list is the assignee's view of the same record, not the owner's.
+  if (entityType === 'task_step' && taskId && entityId) {
+    return `/work?task=${encodeURIComponent(taskId)}&step=${encodeURIComponent(entityId)}`;
+  }
   if (taskId) return `/work?task=${encodeURIComponent(taskId)}`;
   if (goalId) return `/goals?goal=${encodeURIComponent(goalId)}`;
   return '/today';

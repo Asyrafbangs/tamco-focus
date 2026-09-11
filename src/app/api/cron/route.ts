@@ -113,6 +113,28 @@ export async function GET(request: Request) {
   }
 
   /*
+   * v158 - steps past their date, told to the person who owes them.
+   *
+   * Before the email drain below, so a notice raised this morning goes out in
+   * this run rather than tomorrow's. Once per step and day it was due: the
+   * procedure keys every notice, so a second firing adds nothing for a step
+   * already told.
+   */
+  try {
+    const { data, error } = await client.rpc('notify_overdue_contributions', {});
+    if (error) throw new Error(error.message);
+    results.push({
+      worker: 'overdue_contributions',
+      ok: true,
+      detail: JSON.stringify(data ?? {}),
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'unknown error';
+    console.error(`[cron] overdue contribution notices failed: ${detail}`);
+    results.push({ worker: 'overdue_contributions', ok: false, detail });
+  }
+
+  /*
    * Weekly summary.
    *
    * The worker owns its own schedule — it checks the configured day and hour

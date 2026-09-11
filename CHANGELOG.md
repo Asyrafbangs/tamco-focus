@@ -1,5 +1,16 @@
 # TAMCO Focus — Change Log
 
+## v158 Trackable Steps, stage 5: who is told what about a step — 11 September 2026
+
+- Assigned: the assignee's notice now says when the step is due — its own date, or its work's.
+- Overdue: the person who owes a step is told once, the morning after it was due. The owner already
+  sees it in Needs attention. A step on work that has not started, or is paused, is left alone.
+- Completed: the owner is told quietly — in the bell, not by email — and the notice opens their work
+  at the step.
+- Small edits to a step, its wording or its date, tell nobody.
+- `notifications` gains `quiet` and `dedupe_key`; `notify_overdue_contributions` runs in the daily
+  scheduled job.
+
 ## v157 Trackable Steps, stage 4: My Team sees the steps people owe — 11 September 2026
 
 - A person's row on My Team counts the steps they owe on other people's work — "4 active · 3 shared
