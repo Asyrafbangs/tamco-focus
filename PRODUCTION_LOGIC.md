@@ -1359,3 +1359,19 @@ derived-progress rules. The future ESH finding/action system remains outside the
 4. The handoff band (section 13.3) counts only a ready step assigned to the viewer by somebody else. One
    they gave themselves, or one recorded before v146 without an assigner, does not make their own work
    a handoff.
+
+## 56. v161 Trackable Steps — who is told when a step is the owner's
+
+1. A step written for the work's owner, or moved to them, by somebody else tells the owner: "New step on
+   your work", immediate and action-requiring, with its date, "Added by …" or "Assigned to you by …",
+   linking to `/work?task=…&step=…` (`entity_type = 'task_step'`).
+2. Not when the owner did it, not when there is no signed-in actor (the system), not to an inactive
+   account, and not while the owner has an unread `ordinary_assignment`, `reassignment` or
+   `ownership_changed` notice for the same work — that notice already tells them, and would otherwise be
+   followed by one per step.
+3. A step leaving a contributor tells them wherever it went: "Contribution reassigned" when it went to
+   another contributor, as before; "Contribution withdrawn" when it went back to the owner or to nobody.
+   Both are digest and informational.
+4. The contributor notices themselves are unchanged. The trigger's audit event is unchanged — written
+   for an assignment to somebody other than the owner — and `update_checklist_step` still records every
+   edit, including the others.

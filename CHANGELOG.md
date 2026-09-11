@@ -1,5 +1,16 @@
 # TAMCO Focus — Change Log
 
+## v161 Trackable Steps: who is told when a step is the owner's — 11 September 2026
+
+- A manager adding a step to your work for you, or handing one back to you, now tells you: "New step
+  on your work", opening your work at the step. It said nothing, because a step assigned to the
+  work's owner did not count as an assignment.
+- Not for a step you gave yourself, and not while the assignment of that same work is still unread —
+  that notice already says so.
+- A contributor is told when their step goes back to the owner or to nobody — "Contribution
+  withdrawn" — as they were already told when it went to somebody else.
+- `focus.notify_step_for_owner`; the two assignment triggers are replaced.
+
 ## v160 Trackable Steps: My Day knows about steps — 11 September 2026
 
 - Needs attention counts a late step of your own — "1 step overdue" — as it has counted a late step

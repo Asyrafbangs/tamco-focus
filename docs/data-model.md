@@ -115,3 +115,8 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
   steps (assigned to them or to nobody) that have a date of their own.
 - `plan_events`' step branch also returns those steps, and its `assignee_id` and `assignee_name` name
   whoever owes a step — the owner, for an unassigned one. No columns were added to it.
+
+## v161 steps for the owner
+
+- `focus.notify_step_for_owner(step, task, actor, actor_name, verb)` writes the owner's "New step on
+  your work" notice for both assignment triggers; it is callable by no client role. No table changes.

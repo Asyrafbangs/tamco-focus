@@ -175,6 +175,18 @@ for delegation and wrong for the owner's own steps.
 - **Tests:** unit tests for the three new rules; `e2e/my-day-steps-v160`
   (Izzah's own step, Amer's contribution).
 
+## Follow-up — v161, who is told when a step is the owner's
+
+- **The owner:** told when somebody else adds a step for them to their own
+  work, or hands one back to them — unless the unread assignment of that work
+  already says so.
+- **The contributor:** told when their step goes back to the owner or to
+  nobody, as they were when it went to somebody else.
+- **Data model:** one helper function; the two assignment triggers replaced.
+- **Tests:** `integration/steps-for-the-owner-v161` (a manager's step for the
+  owner, a step the owner gives herself, the unread-assignment rule, a step
+  handed back, taken back, left to nobody, and moved to a third person).
+
 ## Compatibility and rollback
 
 - Stage 1 is one forward-only migration,
@@ -198,5 +210,7 @@ for delegation and wrong for the owner's own steps.
   columns appended to one. Read defensively, so either order of deployment is
   safe.
 - v160 has no migration; reverting it is reverting the application.
+- v161 is `20260911006000_v161_steps_for_the_owner.sql`: three functions. The
+  application does not depend on it.
 - Rollback is a redeploy of the previous build plus, if wanted, dropping the
   trigger; the procedures' extra checks only ever refuse impossible dates.
