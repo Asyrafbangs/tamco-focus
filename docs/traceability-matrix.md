@@ -46,5 +46,6 @@
 | Completed work leaves the calendar                   | Monthly Plan hides completed work; assigner told             | `plan_events` task branch; `tasks_notify_work_completed`                  | v162 integration; v153 test updated                    | Implemented and verified |
 | Calendar visual language                             | Type tints; status chips; title and one meta line            | `CalendarItem`; plan page entries and legend                              | v156/v159 E2E updated; v153 axe scan                   | Implemented and verified |
 | Dialog focus return                                  | `Modal` gives the caret back only while it still holds it    | n/a                                                                       | v164 desktop/mobile E2E (3); goals-v33                 | Implemented and verified |
+| Departments as records                               | Administrator procedures; no screen until the next stage     | `departments` parent/head/status; audited admin RPCs                      | v165 integration (6 cases)                             | Implemented and verified |
 
 The approved v33 application modules are mapped above. Detailed workflow contracts remain in `MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`, and the handoff documents in this directory.

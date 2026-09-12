@@ -1363,25 +1363,77 @@ export type Database = {
         Row: {
           code: string
           created_at: string
+          head_id: string | null
           id: string
           name: string
+          parent_id: string | null
+          status: Database["public"]["Enums"]["department_status"]
           updated_at: string
         }
         Insert: {
           code: string
           created_at?: string
+          head_id?: string | null
           id?: string
           name: string
+          parent_id?: string | null
+          status?: Database["public"]["Enums"]["department_status"]
           updated_at?: string
         }
         Update: {
           code?: string
           created_at?: string
+          head_id?: string | null
           id?: string
           name?: string
+          parent_id?: string | null
+          status?: Database["public"]["Enums"]["department_status"]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "departments_head_id_fkey"
+            columns: ["head_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "departments_head_id_fkey"
+            columns: ["head_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_head_id_fkey"
+            columns: ["head_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_head_id_fkey"
+            columns: ["head_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "departments_head_id_fkey"
+            columns: ["head_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "departments_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_deliveries: {
         Row: {
@@ -9827,6 +9879,15 @@ export type Database = {
         }
         Returns: Json
       }
+      create_department: {
+        Args: {
+          p_code: string
+          p_head_id?: string
+          p_name: string
+          p_parent_id?: string
+        }
+        Returns: Json
+      }
       create_lean_goal: {
         Args: {
           p_agreed_approach?: string
@@ -10347,6 +10408,19 @@ export type Database = {
         }
         Returns: Json
       }
+      update_department: {
+        Args: {
+          p_clear_head?: boolean
+          p_clear_parent?: boolean
+          p_code?: string
+          p_department_id: string
+          p_head_id?: string
+          p_name?: string
+          p_parent_id?: string
+          p_status?: Database["public"]["Enums"]["department_status"]
+        }
+        Returns: Json
+      }
       update_my_preferences: {
         Args: {
           p_assignment_changes: boolean
@@ -10553,6 +10627,7 @@ export type Database = {
         | "mandatory_operational_action"
       capture_status: "pending_confirmation" | "confirmed" | "discarded"
       checklist_item_state: "waiting" | "ready" | "completed"
+      department_status: "active" | "archived"
       email_delivery_status:
         | "queued"
         | "processing"
@@ -10932,6 +11007,7 @@ export const Constants = {
       ],
       capture_status: ["pending_confirmation", "confirmed", "discarded"],
       checklist_item_state: ["waiting", "ready", "completed"],
+      department_status: ["active", "archived"],
       email_delivery_status: [
         "queued",
         "processing",

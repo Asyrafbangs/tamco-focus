@@ -1411,3 +1411,23 @@ derived-progress rules. The future ESH finding/action system remains outside the
 2. This is the rule the side drawer already follows (v138, v149). Without it, closing a dialog and
    opening a drawer inside those 200ms handed the drawer the dialog's trigger as its opener, and
    closing the drawer put the caret there rather than on the row that opened it.
+
+## 60. v165 A department is a record
+
+1. `departments` carries `parent_id`, `head_id` and `status` (`active`, `archived`). A null
+   parent is the top of the organisation.
+2. `create_department` and `update_department` are administrator-only. Both validate that the
+   name is present, the code matches `^[A-Z0-9_-]{2,32}$` and is unique, and that a named parent
+   or head exists; both write the before and after to the audit trail and the administrator
+   security log as `settings_changed`, the enum having no department-specific event.
+3. No department may be its own ancestor. `focus.assert_no_department_cycle` refuses it at any
+   depth, with a 32-level cap, and `update_department` answers `parent_invalid` rather than
+   raising the exception at the caller.
+4. Archiving is refused while the department holds an active account or an unarchived
+   sub-department. Archiving is not deletion, and it is not a way to make people disappear from
+   the screens that assign work.
+5. On `update_department` a null field means "leave it alone"; `p_clear_parent` and
+   `p_clear_head` are how one is deliberately cleared. `update_user_profile` reads a null
+   manager as "clear it", which is safe only because its form always submits the field.
+6. A head is a name, not a grant. Visibility remains the per-person model of v66, v68 and v80;
+   the organisation chart is not the security model.

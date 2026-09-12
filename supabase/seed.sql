@@ -165,6 +165,22 @@ select public.provision_user_profile(
   'f0c05000-0000-4000-a000-000000000001');
 
 -- ---------------------------------------------------------------------------
+-- Department heads (v165).
+--
+-- Set after provisioning, because a head is a person and the people are
+-- created above. Operations is deliberately left without one: an organisation
+-- with no gaps in it is not a useful test of the screens that report them.
+-- ---------------------------------------------------------------------------
+
+update public.departments
+   set head_id = 'f0c05000-0000-4000-a000-000000000002'
+ where id = 'f0c05100-0000-4000-a000-000000000001';
+
+update public.departments
+   set head_id = 'f0c05000-0000-4000-a000-000000000001'
+ where id = 'f0c05100-0000-4000-a000-000000000003';
+
+-- ---------------------------------------------------------------------------
 -- The approved visibility example (MASTER_PRODUCT_SPEC.md section 22.5 and
 -- Appendix A9): Amer may VIEW Izzah and Ajmal because they are his interns.
 --

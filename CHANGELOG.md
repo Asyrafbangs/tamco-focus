@@ -1,5 +1,15 @@
 # TAMCO Focus — Change Log
 
+## v165 A department is a record, not a label — 12 September 2026
+
+- A department now has a parent, a head and a status, so the organisation has a shape the
+  product can read: which unit sits under which, and who heads one. It was a code and a name.
+- Creating or changing one is an administrator action, validated and audited: the code must be
+  unique, a department cannot end up inside itself at any depth, and archiving one that still
+  holds active people or live sub-departments is refused.
+- Naming somebody the head of a department grants them nothing. What a person may see is still
+  the visibility model, set per person (v66, v68, v80).
+
 ## v164 A closed dialog leaves the caret alone — 12 September 2026
 
 - Closing a dialog gives the keyboard focus back to the button that opened it only if you have not
