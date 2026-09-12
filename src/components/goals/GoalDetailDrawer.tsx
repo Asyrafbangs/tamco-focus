@@ -946,6 +946,7 @@ export function GoalDetailDrawer({
     <SideDrawer
       closeHref={closeHref}
       closeLabel="Close Goal detail"
+      returnFocusTo={`goal-${detail.goal.id}`}
       eyebrow={`${detail.goal.category[0]!.toUpperCase()}${detail.goal.category.slice(1)} goal`}
       title={detail.goal.title}
       titleId="goal-detail-title"

@@ -148,3 +148,79 @@ test('v149 the caret survives a re-render that lands after it was restored', asy
   await expect(page.getByRole('dialog', { name: /Safety Digitalisation/ })).toHaveCount(0);
   await expect(row.locator('.row-primary-link')).toBeFocused({ timeout: 10_000 });
 });
+
+/**
+ * v166 — and it survives the re-render that arrives WITH the drawer's removal.
+ *
+ * v149 watches the page settle for 1500ms after the closing navigation, which
+ * covers a row replaced 400ms later. It cannot cover this one: the watcher was
+ * stopped by the drawer's own unmount cleanup, and the commit that unmounts the
+ * drawer is the same commit that re-renders the page underneath it. A row
+ * replaced at that moment left the caret on the body with nothing left running
+ * to notice.
+ *
+ * That is the shape `goals-v33` kept failing with — about one full run in five
+ * — after v138, v149 and v164 had each removed a different cause. The swap here
+ * is triggered by the dialog's removal rather than by a timer, so it lands in
+ * that commit every time instead of once in five runs.
+ */
+/**
+ * v166 — a drawer opened by its address still gives the caret to its row.
+ *
+ * `SideDrawer` returns focus to whatever held it when the drawer mounted. Open
+ * one by its address and nothing held it: a notification link does exactly
+ * this, so does a bookmark, and so does any run where the press that opened the
+ * drawer did not leave the caret on the row. The restore then "succeeds" onto
+ * the body, and a keyboard user is dropped at the top of the document with the
+ * goal they were reading nowhere near them.
+ *
+ * The row is the right answer whether or not it was what opened the drawer, so
+ * the drawer is told which row is its own rather than inferring it.
+ */
+test('v166 a drawer opened by address returns the caret to its row', async ({ page }) => {
+  await signIn(page, 'amer@tamco.local');
+  await page.goto('/goals?goal=f0c06000-0000-4000-a000-000000000001');
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+  const drawer = page.getByRole('dialog', { name: /Safety Digitalisation/ });
+  await expect(drawer).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(drawer).toHaveCount(0);
+
+  const row = page.locator('.goal-row').filter({ hasText: 'Safety Digitalisation' });
+  await expect(row.locator('.row-primary-link')).toBeFocused({ timeout: 10_000 });
+});
+
+test('v166 the caret survives a re-render that lands as the drawer leaves', async ({ page }) => {
+  await signIn(page, 'amer@tamco.local');
+  await page.goto('/goals');
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+
+  const row = page.locator('.goal-row').filter({ hasText: 'Safety Digitalisation' });
+  await row.locator('.row-primary-link').click();
+  await expect(page.getByRole('dialog', { name: /Safety Digitalisation/ })).toBeVisible();
+
+  await page.evaluate(() => {
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.removedNodes) {
+          if (!(node instanceof Element)) continue;
+          const wasTheDrawer =
+            node.matches('.task-detail-layer') || Boolean(node.querySelector('[role="dialog"]'));
+          if (!wasTheDrawer) continue;
+          const link = document.querySelector<HTMLElement>(
+            '.goal-row a.row-primary-link[href*="f0c06000-0000-4000-a000-000000000001"]',
+          );
+          link?.replaceWith(link.cloneNode(true));
+          observer.disconnect();
+          return;
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  });
+
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: /Safety Digitalisation/ })).toHaveCount(0);
+  await expect(row.locator('.row-primary-link')).toBeFocused({ timeout: 10_000 });
+});

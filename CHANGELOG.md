@@ -1,5 +1,14 @@
 # TAMCO Focus — Change Log
 
+## v166 Closing a goal puts the caret back on its row — 12 September 2026
+
+- A goal opened by its address — from a notification, from a bookmark, or by any press that did
+  not leave the keyboard on the row — used to drop the keyboard at the top of the document when
+  it closed. The drawer gave focus back to whatever held it when the goal opened, which in that
+  case was nothing at all, and handing focus to nothing reports success.
+- A goal drawer now knows which row is its own, and puts the keyboard there when the row is not
+  what opened it. Where the row did open it, nothing changes.
+
 ## v165 A department is a record, not a label — 12 September 2026
 
 - A department now has a parent, a head and a status, so the organisation has a shape the

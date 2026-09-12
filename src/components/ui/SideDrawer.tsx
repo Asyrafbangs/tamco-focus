@@ -23,6 +23,7 @@ function identifyTrigger(element: HTMLElement | null): string | null {
 export function SideDrawer({
   closeHref,
   closeLabel = 'Close detail',
+  returnFocusTo,
   title,
   eyebrow,
   meta,
@@ -33,6 +34,15 @@ export function SideDrawer({
 }: {
   closeHref: string;
   closeLabel?: string;
+  /**
+   * The `data-focus-return` value of the row this drawer belongs to.
+   *
+   * Used when nothing meaningful held the caret at mount — a drawer opened by
+   * its address, from a notification or a bookmark, or by a press that did not
+   * leave the caret on the row. Without it the restore "succeeds" onto the
+   * body and the person is dropped at the top of the document.
+   */
+  returnFocusTo?: string;
   title: string;
   eyebrow?: string;
   meta?: ReactNode;
@@ -123,9 +133,32 @@ export function SideDrawer({
    * recorded alongside it survives that.
    */
   const liveTrigger = useCallback((): HTMLElement | null => {
-    if (triggerRef.current?.isConnected) return triggerRef.current;
-    return triggerQuery.current ? document.querySelector<HTMLElement>(triggerQuery.current) : null;
-  }, []);
+    const captured = triggerRef.current;
+    /*
+     * The body is not a trigger.
+     *
+     * Focusing it "succeeds" — `document.activeElement` really does become the
+     * body — so a drawer opened by its address, where nothing held the caret,
+     * restored onto nothing and reported that it had worked. Rejecting it here
+     * is what lets the row below be the answer.
+     */
+    const meaningful =
+      captured !== null &&
+      captured.isConnected &&
+      captured !== document.body &&
+      captured !== document.documentElement;
+    if (meaningful) return captured;
+
+    const byAddress = triggerQuery.current
+      ? document.querySelector<HTMLElement>(triggerQuery.current)
+      : null;
+    if (byAddress) return byAddress;
+
+    // The row this drawer belongs to, whether or not it opened it.
+    return returnFocusTo
+      ? document.querySelector<HTMLElement>(`[data-focus-return="${CSS.escape(returnFocusTo)}"]`)
+      : null;
+  }, [returnFocusTo]);
 
   /** Put the caret back on the trigger, wherever that element is now. */
   const restoreFocus = useCallback(() => {

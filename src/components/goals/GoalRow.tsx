@@ -51,7 +51,11 @@ export function GoalRow({
       <div className="goal-row-main">
         <div className="goal-row-titleline">
           <span className={`goal-health-dot ${healthTone(goal.health)}`} aria-hidden="true" />
-          <RowPrimaryLink href={href} ariaLabel={`Open goal ${goal.title}`}>
+          <RowPrimaryLink
+            href={href}
+            ariaLabel={`Open goal ${goal.title}`}
+            returnFocusId={`goal-${goal.id}`}
+          >
             <strong>{goal.title}</strong>
           </RowPrimaryLink>
         </div>

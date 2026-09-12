@@ -1431,3 +1431,17 @@ derived-progress rules. The future ESH finding/action system remains outside the
    manager as "clear it", which is safe only because its form always submits the field.
 6. A head is a name, not a grant. Visibility remains the per-person model of v66, v68 and v80;
    the organisation chart is not the security model.
+
+## 61. v166 A drawer knows which row is its own
+
+1. `SideDrawer` still returns the caret to whatever held it when the drawer opened, and still
+   never takes it back from wherever the person has since put it (v138, v149, v164).
+2. The body is not a trigger. Focusing it succeeds — `document.activeElement` really does become
+   the body — so a drawer opened by its address restored onto nothing and reported that it had
+   worked. The lookup rejects the body and the document element.
+3. `returnFocusTo` names the `data-focus-return` value of the row a drawer belongs to, and is
+   used when nothing meaningful held the caret at mount. The Goal drawer passes its goal; goal
+   rows carry the marker, as Work rows already did.
+4. Order of preference: the captured element while it is connected and meaningful, then its
+   address (`data-focus-return`, then id, then href), then the row named by `returnFocusTo`.
+5. The task drawer has the same gap and its rows already carry the marker; it is not yet passed.
