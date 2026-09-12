@@ -38,7 +38,13 @@ test('employee uses records, attachment history, audit, archive, and personal se
   await expect(page.locator('.record-list, .empty-state').first()).toBeVisible();
 
   await page.goto('/more/attachments');
-  await expect(page.getByRole('heading', { name: 'Attachments' })).toBeVisible();
+  /*
+   * Exact, because "Attachments" is a substring of "No matching attachments" —
+   * the empty state's own heading. With data present this matched one element
+   * and passed; run where that employee has none, and the same line failed on
+   * two matches rather than on the thing it is about.
+   */
+  await expect(page.getByRole('heading', { name: 'Attachments', exact: true })).toBeVisible();
   await expect(page.getByRole('table')).toBeVisible();
 
   await page.goto('/more/audit');
@@ -68,7 +74,7 @@ test('administrator provisions and safely deletes a history-free local user', as
 
   await signIn(page, 'admin@tamco.local');
   await page.goto('/more/admin/users?create=1');
-  await expect(page.getByRole('heading', { name: 'User directory' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Identity and access' })).toBeVisible();
   await page.getByLabel('Full name').fill(fullName);
   await page.getByLabel('Job title').fill('EHS Executive');
   await page.getByLabel('Employee ID', { exact: true }).fill(employeeId);
@@ -101,12 +107,12 @@ test('the old Visibility rules path lands on the person it described', async ({ 
   await signIn(page, 'admin@tamco.local');
   await page.goto('/more/admin/visibility');
   await expect(page).toHaveURL(/\/more\/admin\/users/);
-  await expect(page.getByRole('heading', { name: 'User directory' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Identity and access' })).toBeVisible();
 
   // And the More menu offers one door to this, not two.
   await page.goto('/more');
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   await expect(page.getByRole('link', { name: /Visibility rules/ })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: /User directory/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Directory and organisation/ })).toBeVisible();
   await expectAccessible(page);
 });

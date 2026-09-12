@@ -3010,6 +3010,235 @@ export async function getDirectoryData(): Promise<DirectoryData> {
   };
 }
 
+/* ------------------------------------------------------------------------ */
+/* The organisation, as the administrator screens read it (v168)             */
+/* ------------------------------------------------------------------------ */
+
+export interface OrganisationDepartment extends DirectoryDepartment {
+  headName: string | null;
+  /** Active accounts whose department this is. */
+  memberCount: number;
+}
+
+export interface OrganisationPerson {
+  id: string;
+  fullName: string;
+  employeeId: string;
+  jobTitle: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+  reportingManagerId: string | null;
+  directReportCount: number;
+}
+
+export interface OrganisationOverview {
+  departments: OrganisationDepartment[];
+  /** The top of the reporting line: nobody left to report to. */
+  roots: OrganisationPerson[];
+  /** Active accounts with no department, which the Issues panel reports. */
+  unassignedCount: number;
+}
+
+const ORGANISATION_PERSON_COLUMNS =
+  'id,full_name,employee_id,job_title,department_id,reporting_manager_id';
+
+function toOrganisationPerson(
+  row: Record<string, unknown>,
+  departmentNames: Map<string, string>,
+  reportCounts: Map<string, number>,
+): OrganisationPerson {
+  const departmentId = (row.department_id as string) ?? null;
+  return {
+    id: row.id as string,
+    fullName: row.full_name as string,
+    employeeId: row.employee_id as string,
+    jobTitle: (row.job_title as string) ?? null,
+    departmentId,
+    departmentName: departmentId ? (departmentNames.get(departmentId) ?? null) : null,
+    reportingManagerId: (row.reporting_manager_id as string) ?? null,
+    directReportCount: reportCounts.get(row.id as string) ?? 0,
+  };
+}
+
+/**
+ * One light pass over the active accounts, for both tallies.
+ *
+ * Three columns per person rather than a count query per manager and per
+ * department. The tree needs both numbers before it can draw a single branch —
+ * a row says "4 people" and a name says "3 reports" — and asking the database
+ * separately for each is what makes an organisation chart slow enough that
+ * nobody opens it.
+ */
+async function loadOrganisationTallies(): Promise<{
+  reportCounts: Map<string, number>;
+  departmentSizes: Map<string, number>;
+  unassignedCount: number;
+}> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('id,department_id,reporting_manager_id')
+    .eq('status', 'active')
+    .limit(2000);
+  if (error) throw new Error('ORGANISATION_UNAVAILABLE');
+
+  const reportCounts = new Map<string, number>();
+  const departmentSizes = new Map<string, number>();
+  let unassignedCount = 0;
+  for (const row of data ?? []) {
+    const managerId = (row.reporting_manager_id as string) ?? null;
+    if (managerId) reportCounts.set(managerId, (reportCounts.get(managerId) ?? 0) + 1);
+    const departmentId = (row.department_id as string) ?? null;
+    if (departmentId)
+      departmentSizes.set(departmentId, (departmentSizes.get(departmentId) ?? 0) + 1);
+    else unassignedCount += 1;
+  }
+  return { reportCounts, departmentSizes, unassignedCount };
+}
+
+/**
+ * The Organisation view's first screen: departments, and the top of the line.
+ *
+ * Deliberately not the whole company. A chart of six hundred people is a wall
+ * of boxes nobody can read and a page nobody waits for, so a branch is opened
+ * by asking for one manager's reports (`getOrganisationBranch`).
+ */
+export async function getOrganisationOverview(): Promise<OrganisationOverview> {
+  const supabase = await createSupabaseServerClient();
+  const [departmentsResult, rootsResult, tallies] = await Promise.all([
+    supabase.from('departments').select('id,code,name,parent_id,head_id,status').order('name'),
+    supabase
+      .from('user_profiles')
+      .select(ORGANISATION_PERSON_COLUMNS)
+      .is('reporting_manager_id', null)
+      .eq('status', 'active')
+      .order('full_name'),
+    loadOrganisationTallies(),
+  ]);
+  if (departmentsResult.error || rootsResult.error) throw new Error('ORGANISATION_UNAVAILABLE');
+
+  const departmentRows = departmentsResult.data ?? [];
+  const departmentNames = new Map(
+    departmentRows.map((row) => [row.id as string, row.name as string]),
+  );
+
+  // The heads, by name, in one query rather than one per department.
+  const headIds = [
+    ...new Set(departmentRows.map((row) => row.head_id as string | null).filter(Boolean)),
+  ] as string[];
+  const headNames = new Map<string, string>();
+  if (headIds.length > 0) {
+    const { data: heads } = await supabase
+      .from('user_profiles')
+      .select('id,full_name')
+      .in('id', headIds);
+    for (const head of heads ?? []) {
+      headNames.set(head.id as string, head.full_name as string);
+    }
+  }
+
+  return {
+    departments: departmentRows.map((row) => ({
+      id: row.id as string,
+      code: row.code as string,
+      name: row.name as string,
+      parentId: (row.parent_id as string) ?? null,
+      headId: (row.head_id as string) ?? null,
+      status: row.status as DirectoryDepartment['status'],
+      headName: row.head_id ? (headNames.get(row.head_id as string) ?? null) : null,
+      memberCount: tallies.departmentSizes.get(row.id as string) ?? 0,
+    })),
+    roots: (rootsResult.data ?? []).map((row) =>
+      toOrganisationPerson(row, departmentNames, tallies.reportCounts),
+    ),
+    unassignedCount: tallies.unassignedCount,
+  };
+}
+
+/** One manager's direct reports, for opening a branch of the tree. */
+export async function getOrganisationBranch(managerId: string): Promise<OrganisationPerson[]> {
+  const supabase = await createSupabaseServerClient();
+  const [reportsResult, departmentsResult, tallies] = await Promise.all([
+    supabase
+      .from('user_profiles')
+      .select(ORGANISATION_PERSON_COLUMNS)
+      .eq('reporting_manager_id', managerId)
+      .eq('status', 'active')
+      .order('full_name'),
+    supabase.from('departments').select('id,name'),
+    loadOrganisationTallies(),
+  ]);
+  if (reportsResult.error) throw new Error('ORGANISATION_UNAVAILABLE');
+
+  const departmentNames = new Map(
+    (departmentsResult.data ?? []).map((row) => [row.id as string, row.name as string]),
+  );
+  return (reportsResult.data ?? []).map((row) =>
+    toOrganisationPerson(row, departmentNames, tallies.reportCounts),
+  );
+}
+
+export interface OrganisationMatch extends OrganisationPerson {
+  /** Root first, ending with this person's own manager. Empty at the top. */
+  chain: Array<{ id: string; fullName: string }>;
+}
+
+/**
+ * Search that answers "where does this person sit?", not just "who is this?".
+ *
+ * A name on its own is the least useful half of the answer on an organisation
+ * screen, so each match carries the line above it — Director, then Manager,
+ * then the person — which is what the tree would have shown had somebody
+ * opened every branch down to them.
+ */
+export async function findOrganisationPeople(term: string): Promise<OrganisationMatch[]> {
+  const needle = term.trim();
+  if (needle.length === 0) return [];
+
+  const supabase = await createSupabaseServerClient();
+  const pattern = `%${needle.replace(/[%_]/g, (character) => `\\${character}`)}%`;
+  const [matchesResult, lineageResult, departmentsResult, tallies] = await Promise.all([
+    supabase
+      .from('user_profiles')
+      .select(ORGANISATION_PERSON_COLUMNS)
+      .eq('status', 'active')
+      .or(`full_name.ilike.${pattern},employee_id.ilike.${pattern},job_title.ilike.${pattern}`)
+      .order('full_name')
+      .limit(20),
+    // The whole reporting line in one light pass, so walking up to the root
+    // costs nothing per match.
+    supabase.from('user_profiles').select('id,full_name,reporting_manager_id').limit(2000),
+    supabase.from('departments').select('id,name'),
+    loadOrganisationTallies(),
+  ]);
+  if (matchesResult.error) throw new Error('ORGANISATION_UNAVAILABLE');
+
+  const managerOf = new Map<string, string | null>();
+  const nameOf = new Map<string, string>();
+  for (const row of lineageResult.data ?? []) {
+    managerOf.set(row.id as string, (row.reporting_manager_id as string) ?? null);
+    nameOf.set(row.id as string, row.full_name as string);
+  }
+  const departmentNames = new Map(
+    (departmentsResult.data ?? []).map((row) => [row.id as string, row.name as string]),
+  );
+
+  return (matchesResult.data ?? []).map((row) => {
+    const person = toOrganisationPerson(row, departmentNames, tallies.reportCounts);
+    const chain: Array<{ id: string; fullName: string }> = [];
+    const seen = new Set<string>([person.id]);
+    let cursor = person.reportingManagerId;
+    // The database forbids a reporting cycle; `seen` is here so a screen can
+    // never hang on one that somehow exists anyway.
+    while (cursor && !seen.has(cursor)) {
+      seen.add(cursor);
+      chain.unshift({ id: cursor, fullName: nameOf.get(cursor) ?? 'Unknown' });
+      cursor = managerOf.get(cursor) ?? null;
+    }
+    return { ...person, chain };
+  });
+}
+
 export interface VisibilityData {
   mode: 'specific_only' | 'direct_reports_plus' | 'none';
   /**

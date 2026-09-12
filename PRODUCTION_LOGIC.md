@@ -1458,3 +1458,21 @@ derived-progress rules. The future ESH finding/action system remains outside the
    means "clear it" — the form always submits the field, so emptying the box is a decision.
 4. A change is written to the audit trail and the administrator security log as `user_updated`,
    carrying the before and after.
+
+## 63. v168 Identity and access: Directory and Organisation
+
+1. One heading, two tabs. `/more/admin/users` is Directory; `/more/admin/organisation` is
+   Organisation. Both are administrator-only and 404 for anybody else.
+2. Organisation never loads the whole company. `getOrganisationOverview` returns the departments
+   (with head and size), the people at the top of the reporting line, and the count with no
+   department; `getOrganisationBranch` returns one manager's direct reports, fetched only when
+   a branch is opened.
+3. Both tallies — reports per manager, people per department — come from one light pass over the
+   active accounts rather than a count query per row.
+4. An open branch lives in the URL (`?open=`), so the view survives a reload and travels in a
+   shared link, and the page stays a server render that works without JavaScript.
+5. `findOrganisationPeople` matches an active person on name, employee ID or job title and
+   carries the chain of managers above them, root first. A cycle cannot hang the walk: the
+   database forbids one, and the walk stops on a repeat regardless.
+6. Archived departments are not listed. Deactivated accounts are not counted, drawn or matched.
+7. Read-only: nothing here changes a reporting line, a department or an account.

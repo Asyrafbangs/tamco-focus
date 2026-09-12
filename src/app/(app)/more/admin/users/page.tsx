@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { WorkspaceTabs } from '@/components/ui/ParityPrimitives';
 import { requireProfile } from '@/lib/supabase/server';
 import { getDirectoryData, getVisibilityData } from '@/server/queries';
 
@@ -48,13 +49,27 @@ export default async function UsersPage({
       <div className="pagehead">
         <div>
           <p className="eyebrow">Administrator</p>
-          <h1>User directory</h1>
-          <p>Create and maintain local application identities without editing database records.</p>
+          <h1>Identity and access</h1>
+          <p>Manage people, departments and reporting relationships.</p>
         </div>
         <Link className="btn primary" href="/more/admin/users?create=1">
           Create user
         </Link>
       </div>
+
+      {/*
+        Two halves of one job (v168). The Directory maintains the account — who
+        somebody is, what they may do, who they can see. Organisation answers
+        where they sit. They were one screen doing the first and guessing at the
+        second from a dropdown of names.
+      */}
+      <WorkspaceTabs
+        label="Identity and access"
+        items={[
+          { href: '/more/admin/users', label: 'Directory', active: true },
+          { href: '/more/admin/organisation', label: 'Organisation' },
+        ]}
+      />
       {params.notice === 'deleted' && (
         <div className="notice success" role="status">
           <strong>Account deleted</strong>

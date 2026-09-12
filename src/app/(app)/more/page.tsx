@@ -107,7 +107,7 @@ export default async function MorePage() {
               each person's own page, where their role and manager already are.
             */}
             <Link href="/more/admin/users" className="settings-link-card interactive-row">
-              <strong>User directory</strong>
+              <strong>Directory and organisation</strong>
               <span>
                 Create and maintain accounts, set who reports to whom, and choose who each person
                 can see.

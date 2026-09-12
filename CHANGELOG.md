@@ -1,5 +1,19 @@
 # TAMCO Focus — Change Log
 
+## v168 Identity and access shows the organisation — 12 September 2026
+
+- The administrator screen is now two halves of one job: **Directory** maintains the account —
+  who somebody is, what they may do, who they can see — and **Organisation** answers where they
+  sit. It was one screen doing the first and implying the second through a list of names.
+- Organisation names every department with its size and who heads it, and says plainly when a
+  department has no head or somebody has no department.
+- The reporting line starts at the top and opens one branch at a time, because a chart that
+  draws six hundred people at once is a wall nobody reads and a page nobody waits for. An open
+  branch is part of the address, so a reload or a shared link shows the same thing.
+- Search answers with the line above a person — Administrator → Manager → them — rather than a
+  bare name, which is the half a name cannot say.
+- Read-only for now. Changing a reporting line from here comes next.
+
 ## v167 A person has a job title — 12 September 2026
 
 - The user record now holds what somebody is called — EHS Manager, Senior Executive — which the

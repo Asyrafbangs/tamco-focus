@@ -17,7 +17,7 @@ export function MoreNavigation({ isAdmin }: { isAdmin: boolean }) {
   const items = isAdmin
     ? [
         ...links,
-        { href: '/more/admin/users', label: 'Users' },
+        { href: '/more/admin/users', label: 'Identity and access' },
         { href: '/more/admin/visibility', label: 'Visibility Rules' },
       ]
     : links;
