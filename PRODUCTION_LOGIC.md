@@ -1476,3 +1476,24 @@ derived-progress rules. The future ESH finding/action system remains outside the
    database forbids one, and the walk stops on a repeat regardless.
 6. Archived departments are not listed. Deactivated accounts are not counted, drawn or matched.
 7. Read-only: nothing here changes a reporting line, a department or an account.
+
+## 64. v169 Changing a reporting line
+
+1. `public.reporting_assignments` records every change: the subject, the previous and new
+   manager, `effective_date` (defaulting to `focus.local_today()`), an optional reason, and who
+   changed it, when. Append-only — update and delete are refused by trigger — and readable by
+   administrators alone, like the rest of the audit record.
+2. `change_reporting_manager(p_user_id, p_manager_id, p_reason, p_effective_date)` is the only
+   writer. Administrator-only. `p_manager_id` null means the top of the line, stated rather
+   than implied: this call is about the manager, so silence is not a value worth reserving.
+3. Refused: somebody as their own manager, a manager whose account is deactivated
+   (`manager_inactive`), and a line that would loop at any depth (`manager_invalid`, translated
+   from the guard trigger rather than raised at the caller). A move that changes nothing
+   answers `unchanged` and writes no history.
+4. The profile update and the history row are one transaction, so a move cannot happen
+   unrecorded, and the audit trail and administrator security log carry the before and after.
+5. The screen never saves on a drop. Dragging navigates to the same confirmation the "Change
+   manager" control opens, with the proposed manager filled in. The page is server-rendered and
+   the control works without JavaScript; dragging is an enhancement over it.
+6. A reporting line is still not permission. Moving somebody changes who manages them; what
+   they may see remains the visibility model (v66, v68, v80).

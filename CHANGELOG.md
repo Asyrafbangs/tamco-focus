@@ -1,5 +1,18 @@
 # TAMCO Focus — Change Log
 
+## v169 A reporting line you can change, and look back on — 12 September 2026
+
+- An administrator can move somebody from Organisation: drag them onto their new manager, or
+  use "Change manager" on their row — the same door for a keyboard, a phone, or a mouse.
+- Nothing moves on the drop. Both routes end at one confirmation stating who is moving, who
+  they report to now, and who they would report to instead, with Cancel beside Save.
+- A move can carry a reason and the date it took effect — a transfer agreed on the 1st and
+  entered on the 9th belongs to the 1st — and every move is written down, so "who did they
+  report to in March?" has an answer six months later.
+- Refused rather than half-done: a line that would loop back on itself, a manager who has been
+  deactivated, and anybody who is not an administrator. A move that changes nothing is not
+  recorded as a move.
+
 ## v168 Identity and access shows the organisation — 12 September 2026
 
 - The administrator screen is now two halves of one job: **Directory** maintains the account —

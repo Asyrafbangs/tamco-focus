@@ -50,5 +50,6 @@
 | Drawer focus return by address                       | `SideDrawer` returnFocusTo; goal rows carry the marker       | n/a                                                                       | v166 desktop/mobile E2E (2); goals-v33                 | Implemented and verified |
 | Job title on the identity record                     | Directory create and edit forms carry the title              | `user_profiles.job_title`; both identity procedures reissued              | v167 integration (3); directory E2E                    | Implemented and verified |
 | Organisation view, read-only                         | Identity and access: Directory and Organisation tabs         | Overview, branch and search reads; one pass for both tallies              | v168 desktop/mobile E2E (5) with Axe                   | Implemented and verified |
+| Reporting line changes, with history                 | Organisation: drag or Change manager, one confirmation       | `reporting_assignments`; `change_reporting_manager`                       | v169 integration (6); desktop/mobile E2E (5)           | Implemented and verified |
 
 The approved v33 application modules are mapped above. Detailed workflow contracts remain in `MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`, and the handoff documents in this directory.

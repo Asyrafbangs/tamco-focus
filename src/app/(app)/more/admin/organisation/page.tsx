@@ -3,8 +3,12 @@ import { notFound } from 'next/navigation';
 
 import { WorkspaceTabs } from '@/components/ui/ParityPrimitives';
 import { requireProfile } from '@/lib/supabase/server';
+
+import { MoveConfirmation } from './MoveConfirmation';
+import { OrganisationDrag } from './OrganisationDrag';
 import {
   findOrganisationPeople,
+  getDirectoryData,
   getOrganisationBranch,
   getOrganisationOverview,
   type OrganisationDepartment,
@@ -36,6 +40,15 @@ function toggleHref(openIds: string[], id: string, term: string): string {
   return query ? `/more/admin/organisation?${query}` : '/more/admin/organisation';
 }
 
+/** This same view with no move in progress: what Cancel returns to. */
+function viewHref(openIds: string[], term: string): string {
+  const params = new URLSearchParams();
+  if (openIds.length > 0) params.set('open', openIds.join(','));
+  if (term) params.set('q', term);
+  const query = params.toString();
+  return query ? `/more/admin/organisation?${query}` : '/more/admin/organisation';
+}
+
 function PersonNode({
   person,
   openIds,
@@ -51,7 +64,9 @@ function PersonNode({
   const reports = branches.get(person.id) ?? [];
   return (
     <li className="org-node">
-      <div className="org-person">
+      {/* `data-person-id` is what a drop reads: who was carried, and who
+          received them. It is inert without the enhancement. */}
+      <div className="org-person" data-person-id={person.id}>
         <div className="org-person-main">
           <strong>{person.fullName}</strong>
           <span className="sub">
@@ -60,14 +75,33 @@ function PersonNode({
               .join(' · ')}
           </span>
         </div>
-        {person.directReportCount > 0 ? (
-          <Link className="btn small ghost" href={toggleHref(openIds, person.id, term)}>
-            {isOpen ? 'Hide' : 'Show'} {person.directReportCount}{' '}
-            {person.directReportCount === 1 ? 'report' : 'reports'}
+        <div className="org-person-actions">
+          {person.directReportCount > 0 ? (
+            <Link className="btn small ghost" href={toggleHref(openIds, person.id, term)}>
+              {isOpen ? 'Hide' : 'Show'} {person.directReportCount}{' '}
+              {person.directReportCount === 1 ? 'report' : 'reports'}
+            </Link>
+          ) : (
+            <span className="sub org-person-leaf">No reports</span>
+          )}
+          {/*
+            The control that does not need a mouse (v169).
+            Dragging is offered as well, but it cannot be the only way to move
+            somebody: it is unusable on a phone and unreachable by keyboard.
+            Both routes lead to the same confirmation.
+          */}
+          <Link
+            className="btn small ghost"
+            href={`/more/admin/organisation?${new URLSearchParams({
+              ...(openIds.length > 0 ? { open: openIds.join(',') } : {}),
+              ...(term ? { q: term } : {}),
+              move: person.id,
+            }).toString()}`}
+            aria-label={`Change who ${person.fullName} reports to`}
+          >
+            Change manager
           </Link>
-        ) : (
-          <span className="sub org-person-leaf">No reports</span>
-        )}
+        </div>
       </div>
       {isOpen && reports.length > 0 && (
         <ul className="org-branch">
@@ -118,7 +152,7 @@ function DepartmentCard({
 export default async function OrganisationPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; open?: string }>;
+  searchParams: Promise<{ q?: string; open?: string; move?: string; to?: string; saved?: string }>;
 }) {
   const profile = await requireProfile();
   if (profile.role !== 'administrator') notFound();
@@ -126,11 +160,28 @@ export default async function OrganisationPage({
   const params = await searchParams;
   const term = params.q?.trim() ?? '';
   const openIds = (params.open ?? '').split(',').filter(Boolean);
+  const moveId = params.move?.trim() ?? '';
+  const proposedManagerId = params.to?.trim() ?? '';
 
-  const [overview, matches] = await Promise.all([
+  const [overview, matches, directory] = await Promise.all([
     getOrganisationOverview(),
     term ? findOrganisationPeople(term) : Promise.resolve([]),
+    /*
+     * The list of people is loaded only while a move is being confirmed.
+     *
+     * It is the one query here that is proportional to the company rather than
+     * to what is on screen, and the ordinary view has no use for it.
+     */
+    moveId ? getDirectoryData() : Promise.resolve(null),
   ]);
+
+  const subject = directory?.users.find((person) => person.id === moveId) ?? null;
+  const currentManager = subject?.reportingManagerId
+    ? (directory?.users.find((person) => person.id === subject.reportingManagerId) ?? null)
+    : null;
+  const managerOptions = (directory?.users ?? [])
+    .filter((person) => person.status === 'active' && person.id !== moveId)
+    .sort((left, right) => left.fullName.localeCompare(right.fullName));
 
   const branchEntries = await Promise.all(
     openIds.map(async (id) => [id, await getOrganisationBranch(id)] as const),
@@ -177,6 +228,43 @@ export default async function OrganisationPage({
           </Link>
         )}
       </form>
+
+      {/*
+        The confirmation, and the enhancement that can only lead to it (v169).
+
+        `OrganisationDrag` renders nothing: it attaches dragging to the tree
+        already on the page, and a drop navigates here rather than saving. So
+        the page behaves identically whether or not that script ever runs.
+      */}
+      {subject && (
+        <MoveConfirmation
+          subject={{
+            id: subject.id,
+            fullName: subject.fullName,
+            jobTitle: subject.jobTitle,
+            employeeId: subject.employeeId,
+          }}
+          currentManager={
+            currentManager
+              ? {
+                  id: currentManager.id,
+                  fullName: currentManager.fullName,
+                  jobTitle: currentManager.jobTitle,
+                  employeeId: currentManager.employeeId,
+                }
+              : null
+          }
+          proposedManagerId={proposedManagerId}
+          options={managerOptions.map((person) => ({
+            id: person.id,
+            fullName: person.fullName,
+            jobTitle: person.jobTitle,
+            employeeId: person.employeeId,
+          }))}
+          cancelHref={viewHref(openIds, term)}
+        />
+      )}
+      <OrganisationDrag query={viewHref(openIds, term).split('?')[1] ?? ''} />
 
       {term && (
         <section className="section-block" aria-labelledby="org-search-heading">

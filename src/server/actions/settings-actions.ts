@@ -567,6 +567,57 @@ export async function setVisibilityAction(
  * public endpoint and the values end up in a stylesheet, which is not a place
  * to take somebody's word for what a colour is.
  */
+/**
+ * Moves one reporting line, and nothing else (v169).
+ *
+ * Separate from `updateUserAction` because the two answer different questions.
+ * The user form asks who somebody is; this asks who they report to, from the
+ * screen where the consequence is visible. It also carries a reason and an
+ * effective date, which the form has nowhere to put — and the move itself is
+ * one procedure's job, so the history row cannot be missed.
+ */
+const reportingChangeSchema = z.object({
+  userId: z.string().uuid(),
+  // Null is the top of the line, chosen deliberately rather than left blank.
+  managerId: z.string().uuid().nullable(),
+  reason: z.string().trim().max(400),
+  effectiveDate: z.string().trim().max(10),
+});
+
+export async function changeReportingManagerAction(
+  _previous: SettingsActionState,
+  formData: FormData,
+): Promise<SettingsActionState> {
+  await requireAdministrator();
+  const parsed = reportingChangeSchema.safeParse({
+    userId: formData.get('userId'),
+    managerId: (formData.get('managerId') as string) || null,
+    reason: formData.get('reason') ?? '',
+    effectiveDate: formData.get('effectiveDate') ?? '',
+  });
+  if (!parsed.success) return initialError('Choose who this person should report to.');
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('change_reporting_manager', {
+    p_user_id: parsed.data.userId,
+    p_manager_id: parsed.data.managerId,
+    p_reason: parsed.data.reason || null,
+    p_effective_date: parsed.data.effectiveDate || null,
+  });
+  if (error) {
+    console.error(`[change_reporting_manager] ${error.message}`);
+    return {
+      ok: false,
+      code: 'unexpected_error',
+      message: 'The reporting line could not be changed. Nothing was moved.',
+    };
+  }
+
+  revalidatePath('/more/admin/organisation');
+  revalidatePath('/more/admin/users');
+  return resultState(data as RpcResult, 'Reporting line updated.');
+}
+
 export async function saveThemeColors(colors: ThemeColors): Promise<SettingsActionState> {
   await requireProfile();
   const cleaned = sanitiseTheme(colors);

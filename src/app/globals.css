@@ -4238,6 +4238,60 @@ fieldset:disabled label,
 .org-person-leaf {
   flex: none;
 }
+.org-person-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* v169 - the confirmation a move goes through, whichever way it was started. */
+.org-move-panel {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--blue) 30%, var(--line));
+  border-radius: var(--radius-sm);
+  background: var(--blue-bg);
+}
+.org-move-lines {
+  display: grid;
+  gap: 2px;
+}
+.org-move-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+/* While a row is being carried, and where it would land. */
+.org-person[data-dragging='true'] {
+  opacity: 0.5;
+}
+.org-person[data-drop-target='true'] {
+  border-color: var(--blue);
+  background: var(--blue-bg);
+}
+
+/* On a narrow screen the name and its line need the whole width: side by side
+   with the controls, "Operations Executive · EMP-203 · Operations" wraps into a
+   column two words wide. */
+@media (max-width: 700px) {
+  .org-person {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .org-person-actions {
+    flex-wrap: wrap;
+  }
+  .org-branch,
+  .org-department-children {
+    margin-left: 8px;
+    padding-left: 10px;
+  }
+}
 /* Depth is a rule and an indent rather than a diagram: the tree is read as a
    list, which is also how it is announced. */
 .org-branch,

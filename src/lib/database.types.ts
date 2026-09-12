@@ -4609,6 +4609,180 @@ export type Database = {
         }
         Relationships: []
       }
+      reporting_assignments: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          effective_date: string
+          id: string
+          new_manager_id: string | null
+          previous_manager_id: string | null
+          reason: string | null
+          subject_id: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          effective_date?: string
+          id?: string
+          new_manager_id?: string | null
+          previous_manager_id?: string | null
+          reason?: string | null
+          subject_id: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          effective_date?: string
+          id?: string
+          new_manager_id?: string | null
+          previous_manager_id?: string | null
+          reason?: string | null
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reporting_assignments_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_new_manager_id_fkey"
+            columns: ["new_manager_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_new_manager_id_fkey"
+            columns: ["new_manager_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_new_manager_id_fkey"
+            columns: ["new_manager_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_new_manager_id_fkey"
+            columns: ["new_manager_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_new_manager_id_fkey"
+            columns: ["new_manager_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_previous_manager_id_fkey"
+            columns: ["previous_manager_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_previous_manager_id_fkey"
+            columns: ["previous_manager_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_previous_manager_id_fkey"
+            columns: ["previous_manager_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_previous_manager_id_fkey"
+            columns: ["previous_manager_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_previous_manager_id_fkey"
+            columns: ["previous_manager_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "reporting_assignments_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       routine_findings: {
         Row: {
           created_task_id: string | null
@@ -9796,6 +9970,15 @@ export type Database = {
       }
       carry_forward_weekly_commitment: {
         Args: { p_commitment_id: string; p_week_start?: string }
+        Returns: Json
+      }
+      change_reporting_manager: {
+        Args: {
+          p_effective_date?: string
+          p_manager_id?: string
+          p_reason?: string
+          p_user_id: string
+        }
         Returns: Json
       }
       change_task_due_date: {
