@@ -6369,6 +6369,7 @@ export type Database = {
           first_day_of_week: number
           full_name: string
           id: string
+          job_title: string | null
           personal_summary_mode: Database["public"]["Enums"]["personal_summary_mode"]
           quiet_hours_end: number | null
           quiet_hours_start: number | null
@@ -6397,6 +6398,7 @@ export type Database = {
           first_day_of_week?: number
           full_name: string
           id: string
+          job_title?: string | null
           personal_summary_mode?: Database["public"]["Enums"]["personal_summary_mode"]
           quiet_hours_end?: number | null
           quiet_hours_start?: number | null
@@ -6425,6 +6427,7 @@ export type Database = {
           first_day_of_week?: number
           full_name?: string
           id?: string
+          job_title?: string | null
           personal_summary_mode?: Database["public"]["Enums"]["personal_summary_mode"]
           quiet_hours_end?: number | null
           quiet_hours_start?: number | null
@@ -10135,6 +10138,7 @@ export type Database = {
           p_email: string
           p_employee_id: string
           p_full_name: string
+          p_job_title?: string
           p_personal_summary_mode?: Database["public"]["Enums"]["personal_summary_mode"]
           p_reporting_manager_id?: string
           p_role: Database["public"]["Enums"]["app_role"]
@@ -10484,6 +10488,7 @@ export type Database = {
           p_department_id?: string
           p_email?: string
           p_full_name?: string
+          p_job_title?: string
           p_personal_summary_mode?: Database["public"]["Enums"]["personal_summary_mode"]
           p_reporting_manager_id?: string
           p_role?: Database["public"]["Enums"]["app_role"]

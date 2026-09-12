@@ -181,6 +181,31 @@ update public.departments
  where id = 'f0c05100-0000-4000-a000-000000000003';
 
 -- ---------------------------------------------------------------------------
+-- Job titles (v167).
+--
+-- What each person is called, which the application role cannot say: it holds
+-- three values chosen for permissions. The temporary tester is left without
+-- one, for the same reason Operations has no head.
+-- ---------------------------------------------------------------------------
+
+update public.user_profiles set job_title = case id
+    when 'f0c05000-0000-4000-a000-000000000001' then 'System Administrator'
+    when 'f0c05000-0000-4000-a000-000000000002' then 'EHS Manager'
+    when 'f0c05000-0000-4000-a000-000000000003' then 'EHS Executive'
+    when 'f0c05000-0000-4000-a000-000000000004' then 'EHS Executive'
+    when 'f0c05000-0000-4000-a000-000000000005' then 'Operations Executive'
+    when 'f0c05000-0000-4000-a000-000000000006' then 'Operations Executive'
+  end
+ where id in (
+   'f0c05000-0000-4000-a000-000000000001',
+   'f0c05000-0000-4000-a000-000000000002',
+   'f0c05000-0000-4000-a000-000000000003',
+   'f0c05000-0000-4000-a000-000000000004',
+   'f0c05000-0000-4000-a000-000000000005',
+   'f0c05000-0000-4000-a000-000000000006'
+ );
+
+-- ---------------------------------------------------------------------------
 -- The approved visibility example (MASTER_PRODUCT_SPEC.md section 22.5 and
 -- Appendix A9): Amer may VIEW Izzah and Ajmal because they are his interns.
 --

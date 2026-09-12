@@ -2944,6 +2944,8 @@ export interface DirectoryUser {
   employeeId: string;
   email: string;
   fullName: string;
+  /** What the person is called at work (v167). Descriptive; never authority. */
+  jobTitle: string | null;
   departmentId: string | null;
   departmentName: string;
   role: 'team_member' | 'manager' | 'administrator';
@@ -2954,16 +2956,26 @@ export interface DirectoryUser {
   createdAt: string;
 }
 
+export interface DirectoryDepartment {
+  id: string;
+  code: string;
+  name: string;
+  /** Null at the top of the organisation (v165). */
+  parentId: string | null;
+  headId: string | null;
+  status: 'active' | 'archived';
+}
+
 export interface DirectoryData {
   users: DirectoryUser[];
-  departments: Array<{ id: string; code: string; name: string }>;
+  departments: DirectoryDepartment[];
 }
 
 export async function getDirectoryData(): Promise<DirectoryData> {
   const supabase = await createSupabaseServerClient();
   const [usersResult, departmentsResult] = await Promise.all([
     supabase.from('user_profiles').select('*').order('full_name').limit(500),
-    supabase.from('departments').select('id,code,name').order('name'),
+    supabase.from('departments').select('id,code,name,parent_id,head_id,status').order('name'),
   ]);
   if (usersResult.error) throw new Error('DIRECTORY_UNAVAILABLE');
   const departmentNames = new Map(
@@ -2975,6 +2987,7 @@ export async function getDirectoryData(): Promise<DirectoryData> {
       employeeId: row.employee_id as string,
       email: row.email as string,
       fullName: row.full_name as string,
+      jobTitle: (row.job_title as string) ?? null,
       departmentId: (row.department_id as string) ?? null,
       departmentName: row.department_id
         ? (departmentNames.get(row.department_id as string) ?? 'Unknown department')
@@ -2990,6 +3003,9 @@ export async function getDirectoryData(): Promise<DirectoryData> {
       id: row.id as string,
       code: row.code as string,
       name: row.name as string,
+      parentId: (row.parent_id as string) ?? null,
+      headId: (row.head_id as string) ?? null,
+      status: row.status as DirectoryDepartment['status'],
     })),
   };
 }

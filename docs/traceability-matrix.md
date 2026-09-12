@@ -48,5 +48,6 @@
 | Dialog focus return                                  | `Modal` gives the caret back only while it still holds it    | n/a                                                                       | v164 desktop/mobile E2E (3); goals-v33                 | Implemented and verified |
 | Departments as records                               | Administrator procedures; no screen until the next stage     | `departments` parent/head/status; audited admin RPCs                      | v165 integration (6 cases)                             | Implemented and verified |
 | Drawer focus return by address                       | `SideDrawer` returnFocusTo; goal rows carry the marker       | n/a                                                                       | v166 desktop/mobile E2E (2); goals-v33                 | Implemented and verified |
+| Job title on the identity record                     | Directory create and edit forms carry the title              | `user_profiles.job_title`; both identity procedures reissued              | v167 integration (3); directory E2E                    | Implemented and verified |
 
 The approved v33 application modules are mapped above. Detailed workflow contracts remain in `MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`, and the handoff documents in this directory.

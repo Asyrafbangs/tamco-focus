@@ -90,7 +90,12 @@ export default async function UsersPage({
                 <span>
                   <strong>{user.fullName}</strong>
                   <small>
-                    {user.employeeId} · {user.departmentName}
+                    {/* The title is skipped rather than announced as missing:
+                        most rows have one, and "No job title" on the rest is
+                        noise in a list somebody scans. */}
+                    {[user.employeeId, user.jobTitle, user.departmentName]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </small>
                 </span>
                 <span className={`flag ${user.status === 'active' ? 'green' : 'amber'}`}>

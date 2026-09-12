@@ -322,6 +322,16 @@ export function UserCreateForm({ directory }: { directory: DirectoryData }) {
           <input name="fullName" required maxLength={120} />
         </label>
         <label>
+          <span>Job title</span>
+          {/*
+            What they are called, not what they may do. The role below decides
+            authority; this exists because three permission values cannot say
+            "Senior Executive", and an organisation chart of bare names says
+            very little.
+          */}
+          <input name="jobTitle" maxLength={120} placeholder="EHS Executive" />
+        </label>
+        <label>
           <span>Employee ID</span>
           {/*
             The dash is escaped. Unescaped it made the whole pattern fail to
@@ -421,6 +431,16 @@ export function UserEditForm({
         <label>
           <span>Full name</span>
           <input name="fullName" required defaultValue={user.fullName} />
+        </label>
+        <label>
+          <span>Job title</span>
+          {/* Emptying the box clears the title; the procedure reads blank as "none". */}
+          <input
+            name="jobTitle"
+            maxLength={120}
+            defaultValue={user.jobTitle ?? ''}
+            placeholder="EHS Executive"
+          />
         </label>
         <label>
           <span>Employee ID</span>

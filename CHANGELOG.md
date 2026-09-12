@@ -1,5 +1,15 @@
 # TAMCO Focus — Change Log
 
+## v167 A person has a job title — 12 September 2026
+
+- The user record now holds what somebody is called — EHS Manager, Senior Executive — which the
+  application role could never say: it holds three values, chosen for permissions. An
+  organisation chart of bare names says very little.
+- The title is descriptive and decides nothing. Authority is still the role, sight is still the
+  visibility model, and management powers still follow the reporting line.
+- Set it when creating somebody or on their page afterwards; emptying the box clears it, and a
+  save that does not mention it leaves it alone. Every change is on the record.
+
 ## v166 Closing a goal puts the caret back on its row — 12 September 2026
 
 - A goal opened by its address — from a notification, from a bookmark, or by any press that did

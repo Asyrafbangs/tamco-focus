@@ -180,6 +180,9 @@ const ROLE_LABELS = {
 
 const provisionSchema = z.object({
   fullName: z.string().trim().min(1).max(120),
+  // Optional, and blank is meaningful: the procedures read an empty title as
+  // "none" on create and as "clear it" on update (v167).
+  jobTitle: z.string().trim().max(120),
   employeeId: z
     .string()
     .trim()
@@ -202,6 +205,7 @@ export async function provisionUserAction(
   const actor = await requireAdministrator();
   const parsed = provisionSchema.safeParse({
     fullName: formData.get('fullName'),
+    jobTitle: formData.get('jobTitle') ?? '',
     employeeId: formData.get('employeeId'),
     email: formData.get('email'),
     password: formData.get('password'),
@@ -240,6 +244,7 @@ export async function provisionUserAction(
     p_personal_summary_mode: parsed.data.personalSummaryMode,
     p_team_summary_mode: parsed.data.teamSummaryMode,
     p_actor_id: actor.id,
+    p_job_title: parsed.data.jobTitle,
   });
 
   const result = data as RpcResult | null;
@@ -266,6 +271,7 @@ export async function updateUserAction(
   const parsed = userUpdateSchema.safeParse({
     userId: formData.get('userId'),
     fullName: formData.get('fullName'),
+    jobTitle: formData.get('jobTitle') ?? '',
     email: formData.get('email'),
     departmentId: formData.get('departmentId'),
     role: formData.get('role'),
@@ -338,6 +344,7 @@ export async function updateUserAction(
     p_reporting_manager_id: parsed.data.reportingManagerId,
     p_personal_summary_mode: parsed.data.personalSummaryMode,
     p_team_summary_mode: parsed.data.teamSummaryMode,
+    p_job_title: parsed.data.jobTitle,
   });
   const result = data as RpcResult | null;
   if (error || !result?.ok) {

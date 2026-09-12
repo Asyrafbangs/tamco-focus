@@ -70,6 +70,7 @@ test('administrator provisions and safely deletes a history-free local user', as
   await page.goto('/more/admin/users?create=1');
   await expect(page.getByRole('heading', { name: 'User directory' })).toBeVisible();
   await page.getByLabel('Full name').fill(fullName);
+  await page.getByLabel('Job title').fill('EHS Executive');
   await page.getByLabel('Employee ID', { exact: true }).fill(employeeId);
   await page.getByLabel('Email address', { exact: true }).fill(email);
   await page.getByLabel('Temporary password', { exact: true }).fill(PASSWORD);
@@ -81,6 +82,8 @@ test('administrator provisions and safely deletes a history-free local user', as
 
   await page.getByRole('link', { name: new RegExp(fullName) }).click();
   await expect(page.getByRole('heading', { name: fullName })).toBeVisible();
+  // v167 — the title given at creation is stored, not merely accepted.
+  await expect(page.getByLabel('Job title')).toHaveValue('EHS Executive');
   await page.getByPlaceholder(`Type ${employeeId}`).fill(employeeId);
   await page.getByRole('button', { name: 'Permanently delete history-free account' }).click();
   await expect(page.getByText('Account permanently deleted.')).toBeVisible();

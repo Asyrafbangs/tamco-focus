@@ -1445,3 +1445,16 @@ derived-progress rules. The future ESH finding/action system remains outside the
 4. Order of preference: the captured element while it is connected and meaningful, then its
    address (`data-focus-return`, then id, then href), then the row named by `returnFocusTo`.
 5. The task drawer has the same gap and its rows already carry the marker; it is not yet passed.
+
+## 62. v167 A person has a job title
+
+1. `user_profiles.job_title` is nullable text, non-blank when present. It is descriptive: no
+   policy, procedure or screen reads it for authority. Permission is `role`, sight is the
+   visibility model, and management follows the reporting line.
+2. `provision_user_profile` and `update_user_profile` take `p_job_title` last. Both were dropped
+   and recreated rather than replaced: a new parameter creates a second overload, and PostgREST
+   would then have two candidates for the same call. The grants were reissued with them.
+3. On create, a blank title is stored as none. On update, null means "leave it alone" and blank
+   means "clear it" — the form always submits the field, so emptying the box is a decision.
+4. A change is written to the audit trail and the administrator security log as `user_updated`,
+   carrying the before and after.
