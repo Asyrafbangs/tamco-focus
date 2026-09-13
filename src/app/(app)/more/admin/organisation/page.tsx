@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { WorkspaceTabs } from '@/components/ui/ParityPrimitives';
 import { requireProfile } from '@/lib/supabase/server';
 
+import { DepartmentForm } from './DepartmentForm';
 import { MoveConfirmation } from './MoveConfirmation';
 import { OrganisationDrag } from './OrganisationDrag';
 import {
@@ -19,10 +20,11 @@ import {
  * Administrator → Identity and access → Organisation.
  *
  * The half the Directory cannot show: who reports to whom, which department
- * sits under which, and where the gaps are. It is read-only here; changing a
- * reporting line comes next.
+ * sits under which, and where the gaps are — and, since v169 and v170, the
+ * place a reporting line is moved and a department is made or changed.
  *
- * Branches open through the URL rather than in the browser, which keeps the
+ * Everything that opens here opens through the URL rather than in the browser:
+ * a branch, a move being confirmed, a department being edited. That keeps the
  * page a server render, survives a reload and a shared link, and works without
  * JavaScript. It also means a branch is fetched only when somebody asks for it:
  * a chart that draws six hundred people at once is a wall of boxes nobody can
@@ -40,13 +42,22 @@ function toggleHref(openIds: string[], id: string, term: string): string {
   return query ? `/more/admin/organisation?${query}` : '/more/admin/organisation';
 }
 
-/** This same view with no move in progress: what Cancel returns to. */
+/** This same view with nothing open for editing: what Cancel returns to. */
 function viewHref(openIds: string[], term: string): string {
   const params = new URLSearchParams();
   if (openIds.length > 0) params.set('open', openIds.join(','));
   if (term) params.set('q', term);
   const query = params.toString();
   return query ? `/more/admin/organisation?${query}` : '/more/admin/organisation';
+}
+
+/** This same view with one more thing to open — a move, or a department. */
+function withParam(openIds: string[], term: string, key: string, value: string): string {
+  const params = new URLSearchParams();
+  if (openIds.length > 0) params.set('open', openIds.join(','));
+  if (term) params.set('q', term);
+  params.set(key, value);
+  return `/more/admin/organisation?${params.toString()}`;
 }
 
 function PersonNode({
@@ -92,11 +103,7 @@ function PersonNode({
           */}
           <Link
             className="btn small ghost"
-            href={`/more/admin/organisation?${new URLSearchParams({
-              ...(openIds.length > 0 ? { open: openIds.join(',') } : {}),
-              ...(term ? { q: term } : {}),
-              move: person.id,
-            }).toString()}`}
+            href={withParam(openIds, term, 'move', person.id)}
             aria-label={`Change who ${person.fullName} reports to`}
           >
             Change manager
@@ -123,25 +130,44 @@ function PersonNode({
 function DepartmentCard({
   department,
   subDepartments,
+  openIds,
+  term,
 }: {
   department: OrganisationDepartment;
   /* Departments sitting under this one, not React children. */
   subDepartments: OrganisationDepartment[];
+  openIds: string[];
+  term: string;
 }) {
   return (
     <li className="org-department">
-      <div className="org-department-main">
-        <strong>{department.name}</strong>
-        <span className="sub">
-          {department.code} · {department.memberCount}{' '}
-          {department.memberCount === 1 ? 'person' : 'people'} ·{' '}
-          {department.headName ? `Head: ${department.headName}` : 'No head'}
-        </span>
+      <div className="org-department-row">
+        <div className="org-department-main">
+          <strong>{department.name}</strong>
+          <span className="sub">
+            {department.code} · {department.memberCount}{' '}
+            {department.memberCount === 1 ? 'person' : 'people'} ·{' '}
+            {department.headName ? `Head: ${department.headName}` : 'No head'}
+          </span>
+        </div>
+        <Link
+          className="btn small ghost"
+          href={withParam(openIds, term, 'department', department.id)}
+          aria-label={`Edit ${department.name}`}
+        >
+          Edit
+        </Link>
       </div>
       {subDepartments.length > 0 && (
         <ul className="org-department-children">
           {subDepartments.map((child) => (
-            <DepartmentCard key={child.id} department={child} subDepartments={[]} />
+            <DepartmentCard
+              key={child.id}
+              department={child}
+              subDepartments={[]}
+              openIds={openIds}
+              term={term}
+            />
           ))}
         </ul>
       )}
@@ -152,7 +178,13 @@ function DepartmentCard({
 export default async function OrganisationPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; open?: string; move?: string; to?: string; saved?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    open?: string;
+    move?: string;
+    to?: string;
+    department?: string;
+  }>;
 }) {
   const profile = await requireProfile();
   if (profile.role !== 'administrator') notFound();
@@ -162,17 +194,19 @@ export default async function OrganisationPage({
   const openIds = (params.open ?? '').split(',').filter(Boolean);
   const moveId = params.move?.trim() ?? '';
   const proposedManagerId = params.to?.trim() ?? '';
+  const departmentParam = params.department?.trim() ?? '';
 
   const [overview, matches, directory] = await Promise.all([
     getOrganisationOverview(),
     term ? findOrganisationPeople(term) : Promise.resolve([]),
     /*
-     * The list of people is loaded only while a move is being confirmed.
+     * The list of people is loaded only while something needs a person picked:
+     * a move being confirmed, or a department's head being chosen.
      *
      * It is the one query here that is proportional to the company rather than
      * to what is on screen, and the ordinary view has no use for it.
      */
-    moveId ? getDirectoryData() : Promise.resolve(null),
+    moveId || departmentParam ? getDirectoryData() : Promise.resolve(null),
   ]);
 
   const subject = directory?.users.find((person) => person.id === moveId) ?? null;
@@ -182,6 +216,33 @@ export default async function OrganisationPage({
   const managerOptions = (directory?.users ?? [])
     .filter((person) => person.status === 'active' && person.id !== moveId)
     .sort((left, right) => left.fullName.localeCompare(right.fullName));
+
+  const creatingDepartment = departmentParam === 'new';
+  const editingDepartment =
+    departmentParam && !creatingDepartment
+      ? (overview.departments.find((department) => department.id === departmentParam) ?? null)
+      : null;
+  /*
+   * The choices keep whatever the department already points at, even when it
+   * is archived or deactivated. An uncontrolled select whose saved value is not
+   * among its options shows its first option instead — and saving would then
+   * clear a parent or a head nobody asked to clear.
+   */
+  const departmentChoices = overview.departments
+    .filter(
+      (department) =>
+        department.status === 'active' || department.id === editingDepartment?.parentId,
+    )
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((department) => ({ id: department.id, name: department.name, code: department.code }));
+  const headChoices = (directory?.users ?? [])
+    .filter((person) => person.status === 'active' || person.id === editingDepartment?.headId)
+    .sort((left, right) => left.fullName.localeCompare(right.fullName))
+    .map((person) => ({
+      id: person.id,
+      fullName: person.fullName,
+      employeeId: person.employeeId,
+    }));
 
   const branchEntries = await Promise.all(
     openIds.map(async (id) => [id, await getOrganisationBranch(id)] as const),
@@ -201,6 +262,9 @@ export default async function OrganisationPage({
           <h1>Identity and access</h1>
           <p>Manage people, departments and reporting relationships.</p>
         </div>
+        <Link className="btn" href={withParam(openIds, term, 'department', 'new')}>
+          + Department
+        </Link>
       </div>
 
       <WorkspaceTabs
@@ -230,6 +294,34 @@ export default async function OrganisationPage({
       </form>
 
       {/*
+        Keyed by what is open, for the same reason the Directory keys its form
+        by person: every field in these panels is uncontrolled and takes its
+        value on mount. Moving from one "Change manager" straight to another
+        would otherwise reuse the panel and keep the first person's choice on
+        screen — and saving writes what is on screen.
+      */}
+      {(creatingDepartment || editingDepartment) && (
+        <DepartmentForm
+          key={departmentParam}
+          department={
+            editingDepartment
+              ? {
+                  id: editingDepartment.id,
+                  name: editingDepartment.name,
+                  code: editingDepartment.code,
+                  parentId: editingDepartment.parentId,
+                  headId: editingDepartment.headId,
+                  status: editingDepartment.status,
+                }
+              : null
+          }
+          departments={departmentChoices}
+          people={headChoices}
+          cancelHref={viewHref(openIds, term)}
+        />
+      )}
+
+      {/*
         The confirmation, and the enhancement that can only lead to it (v169).
 
         `OrganisationDrag` renders nothing: it attaches dragging to the tree
@@ -238,6 +330,7 @@ export default async function OrganisationPage({
       */}
       {subject && (
         <MoveConfirmation
+          key={`${moveId}:${proposedManagerId}`}
           subject={{
             id: subject.id,
             fullName: subject.fullName,
@@ -325,6 +418,8 @@ export default async function OrganisationPage({
                 key={department.id}
                 department={department}
                 subDepartments={childrenOf(department.id)}
+                openIds={openIds}
+                term={term}
               />
             ))}
           </ul>

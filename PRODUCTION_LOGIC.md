@@ -1497,3 +1497,15 @@ derived-progress rules. The future ESH finding/action system remains outside the
    the control works without JavaScript; dragging is an enhancement over it.
 6. A reporting line is still not permission. Moving somebody changes who manages them; what
    they may see remains the visibility model (v66, v68, v80).
+
+## 65. v170 Departments from the Organisation view
+
+1. `/more/admin/organisation?department=new` opens the create form and `?department=<id>` opens
+   the edit form. Both are administrator-only, as the page is.
+2. Create asks for the name, code, parent and head; edit adds the status. Both call the v165
+   procedures and show their own sentence on a refusal rather than a translation of it.
+3. The edit form always submits the parent and the head, so an empty choice is sent as an
+   explicit clear (`p_clear_parent`, `p_clear_head`). The procedure reads a plain null as "leave
+   it alone", which is right for a caller that omits a field and wrong for one that offers it.
+4. The parent list leaves out the department itself; a deeper loop is refused by the procedure.
+5. No schema change.

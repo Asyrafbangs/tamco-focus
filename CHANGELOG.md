@@ -1,5 +1,17 @@
 # TAMCO Focus — Change Log
 
+## v170 Departments from the screen — 13 September 2026
+
+- Organisation has a "+ Department" form: the name, a code, what it sits under, and who heads
+  it. Departments became records in v165; until now the only way to make one was a database
+  call.
+- Each department has an Edit link for the same four answers, and for whether it is still in
+  use.
+- The rules the records already kept are now said on the screen: a code another department uses
+  is refused, a department cannot end up inside itself, and one that still holds people or live
+  sub-departments cannot be archived.
+- No migration.
+
 ## v169 A reporting line you can change, and look back on — 12 September 2026
 
 - An administrator can move somebody from Organisation: drag them onto their new manager, or

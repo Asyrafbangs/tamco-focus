@@ -618,6 +618,106 @@ export async function changeReportingManagerAction(
   return resultState(data as RpcResult, 'Reporting line updated.');
 }
 
+/**
+ * Departments, maintained from the Organisation view (v170).
+ *
+ * The procedures have existed since v165; this is the form an administrator
+ * actually reaches them through. A refusal returns the procedure's own
+ * sentence, because "that code is already in use" is only useful if it names
+ * the rule that was broken.
+ */
+const departmentSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  code: z.string().trim().min(2).max(32),
+  parentId: z.string().uuid().nullable(),
+  headId: z.string().uuid().nullable(),
+});
+
+export async function createDepartmentAction(
+  _previous: SettingsActionState,
+  formData: FormData,
+): Promise<SettingsActionState> {
+  await requireAdministrator();
+  const parsed = departmentSchema.safeParse({
+    name: formData.get('name'),
+    code: formData.get('code'),
+    parentId: (formData.get('parentId') as string) || null,
+    headId: (formData.get('headId') as string) || null,
+  });
+  if (!parsed.success) return initialError('Give the department a name and a code.');
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('create_department', {
+    p_name: parsed.data.name,
+    p_code: parsed.data.code,
+    p_parent_id: parsed.data.parentId,
+    p_head_id: parsed.data.headId,
+  });
+  if (error) {
+    console.error(`[create_department] ${error.message}`);
+    return {
+      ok: false,
+      code: 'unexpected_error',
+      message: 'The department could not be created. Nothing was saved.',
+    };
+  }
+
+  revalidatePath('/more/admin/organisation');
+  revalidatePath('/more/admin/users');
+  return resultState(data as RpcResult, `${parsed.data.name} created.`);
+}
+
+const departmentUpdateSchema = departmentSchema.extend({
+  departmentId: z.string().uuid(),
+  status: z.enum(['active', 'archived']),
+});
+
+export async function updateDepartmentAction(
+  _previous: SettingsActionState,
+  formData: FormData,
+): Promise<SettingsActionState> {
+  await requireAdministrator();
+  const parsed = departmentUpdateSchema.safeParse({
+    departmentId: formData.get('departmentId'),
+    name: formData.get('name'),
+    code: formData.get('code'),
+    parentId: (formData.get('parentId') as string) || null,
+    headId: (formData.get('headId') as string) || null,
+    status: formData.get('status') ?? 'active',
+  });
+  if (!parsed.success) return initialError('Give the department a name and a code.');
+
+  /*
+   * This form always submits the parent and the head, so an empty choice is a
+   * decision to clear it. The procedure reads a plain null as "leave it alone"
+   * (v165) — the right default for a caller that omits a field, and the wrong
+   * one here — so clearing is said out loud.
+   */
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('update_department', {
+    p_department_id: parsed.data.departmentId,
+    p_name: parsed.data.name,
+    p_code: parsed.data.code,
+    p_parent_id: parsed.data.parentId,
+    p_head_id: parsed.data.headId,
+    p_status: parsed.data.status,
+    p_clear_parent: parsed.data.parentId === null,
+    p_clear_head: parsed.data.headId === null,
+  });
+  if (error) {
+    console.error(`[update_department] ${error.message}`);
+    return {
+      ok: false,
+      code: 'unexpected_error',
+      message: 'The department could not be saved. Nothing was changed.',
+    };
+  }
+
+  revalidatePath('/more/admin/organisation');
+  revalidatePath('/more/admin/users');
+  return resultState(data as RpcResult, `${parsed.data.name} saved.`);
+}
+
 export async function saveThemeColors(colors: ThemeColors): Promise<SettingsActionState> {
   await requireProfile();
   const cleaned = sanitiseTheme(colors);
