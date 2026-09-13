@@ -4381,6 +4381,110 @@ fieldset:disabled label,
 .org-move-note {
   margin: 0;
 }
+
+/* v174 - the import panel. The three counts come first and big enough to read
+   at a glance; the problems follow in words and then by row; the list of
+   changes stays folded, because six hundred lines is for checking, not for
+   reading on the way to Apply. */
+/* Column names, in a face that says "type this exactly". Named fonts rather
+   than bare `monospace`, which browsers shrink to 13/16 of the size around it. */
+.org-import code {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  font-size: 11.5px;
+}
+.org-import-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.org-import-counts li {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: 12px;
+  color: var(--muted);
+}
+.org-import-counts strong {
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--text);
+}
+.org-import-counts li[data-tone='warning'] {
+  border-color: color-mix(in srgb, var(--amber) 26%, var(--line));
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+.org-import-counts li[data-tone='warning'] strong {
+  color: var(--amber);
+}
+.org-import-problems {
+  display: grid;
+  gap: 8px;
+}
+.org-import-problems h3 {
+  margin: 0;
+  font-size: 13px;
+}
+.org-import-kinds {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding-left: 18px;
+}
+.org-import-problem-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.org-import-problem-list li {
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+  gap: 4px 16px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 12px;
+}
+.org-import-problem-list li:last-child {
+  border-bottom: 0;
+}
+.org-import-where {
+  display: grid;
+  gap: 2px;
+}
+.org-import-changes ul {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.org-import-changes li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.org-import-changes summary {
+  cursor: pointer;
+  font-weight: 580;
+}
+@media (max-width: 700px) {
+  .org-import-counts,
+  .org-import-problem-list li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 /* Depth is a rule and an indent rather than a diagram: the tree is read as a
    list, which is also how it is announced. */
 .org-branch,

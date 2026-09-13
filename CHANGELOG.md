@@ -1,5 +1,23 @@
 # TAMCO Focus — Change Log
 
+## v174 Import the organisation from a file, checked first — 13 September 2026
+
+- Organisation has "Import organisation": a CSV file with one row per person, found by
+  employee ID, that sets department, job title, reporting manager and dotted-line manager for
+  hundreds of people at once. Excel saves one with Save As → CSV UTF-8.
+- Checking the file writes nothing. It says how many rows are ready to change, how many already
+  match, and what is wrong with the rest — "1 unknown department, 7 missing managers, 1
+  circular relationship" — then lists each problem by the row it is on.
+- Loops are found across the whole file, not only row by row: two rows that each put somebody
+  under the other are both refused, even though either alone would be fine.
+- "Apply N changes" writes only the rows that passed, all together or not at all, into the same
+  dated history as every other move. If the organisation changed after the check, it refuses,
+  checks the file again, and shows the new answer.
+- "Download the current organisation" gives the file to start from. Brought back unchanged, it
+  changes nobody.
+- It places people who already have an account; it does not create accounts. A row for
+  somebody who is not in the Directory is named as a problem.
+
 ## v173 A dotted line, which grants nothing — 13 September 2026
 
 - Organisation can record who somebody works for alongside their reporting manager: the dotted

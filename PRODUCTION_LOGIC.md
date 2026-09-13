@@ -1560,3 +1560,41 @@ derived-progress rules. The future ESH finding/action system remains outside the
 5. The Organisation row states the line in words. Its confirmation says the line grants nothing
    and does not offer the person or their reporting manager as choices. Dragging still draws
    only the formal line.
+
+## 69. v174 Organisation import
+
+1. The file is CSV, one row per person, with the columns `employee_id`, `name`, `email`,
+   `department_code`, `job_title`, `manager_employee_id` and `functional_manager_employee_id`.
+   `employee_id` is required, plus at least one of the last four. Headers are matched without
+   regard to case, spaces or hyphens; other columns are named as ignored. Up to 2,000 rows and
+   1 MB.
+2. A column the file lacks is left alone for everybody. A column it has with an empty cell means
+   none: no job title, the top of the reporting line, no dotted line. An empty department code is
+   a problem, since everybody belongs to a department. `name` and `email` are never written; an
+   email that differs from the Directory is a problem, because it means the employee ID points at
+   somebody else.
+3. `focus.plan_organisation_import` is the single planner. Each row is a change, unchanged, or a
+   problem, and only its first problem is named. In order: no employee ID, an employee ID on more
+   than one row (every such row), not in the Directory, deactivated, email mismatch, no
+   department, unknown department, archived department, job title over 120 characters, reporting
+   to themselves, unknown manager, deactivated manager, dotted line to themselves, unknown or
+   deactivated dotted-line manager, dotted line to the same person as the manager.
+4. A dotted line the row keeps from before that would point at its new reporting manager ends,
+   and is recorded with the reason "Became the reporting manager.", as in section 68.
+5. Loops are judged on the organisation as the file would leave it: the rows that passed, over
+   everybody they do not mention. A row on a loop is refused as `circular`, and the walk repeats,
+   because setting a row aside restores that person's current line. A line more than 64 levels
+   deep is refused as `too_deep`, and only when no true loop was found.
+6. `preview_organisation_import(p_rows)` returns every row with its status, its problem sentence
+   or its changes in names, and the counts. It writes nothing.
+7. `apply_organisation_import(p_rows, p_expected_changes, p_reason, p_effective_date)` locks the
+   people the file names, plans again, and refuses with `plan_changed` unless the number of
+   changes is the one the administrator was shown; the screen then checks the file again and
+   shows the new answer. It writes every passing row in one transaction: first everybody whose
+   reporting line changes lets go of it, then each takes their new manager, so a swap the cycle
+   guard would refuse one row at a time is applied. Each change writes `reporting_assignments`
+   rows for the lines that moved, an audit event and a security log entry.
+8. Both procedures are administrator-only. The import does not create accounts.
+9. `/more/admin/organisation/export` returns the active organisation in the import's columns,
+   UTF-8 with a byte-order mark, and a leading apostrophe on any cell a spreadsheet would run as
+   a formula, which the import removes again. Anybody but an administrator gets not found.

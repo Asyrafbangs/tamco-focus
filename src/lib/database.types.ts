@@ -9976,6 +9976,15 @@ export type Database = {
         Args: { p_commitment_id: string; p_note?: string }
         Returns: Json
       }
+      apply_organisation_import: {
+        Args: {
+          p_effective_date?: string
+          p_expected_changes: number
+          p_reason?: string
+          p_rows: Json
+        }
+        Returns: Json
+      }
       assign_work_to_people: {
         Args: {
           p_description: string
@@ -10352,6 +10361,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      preview_organisation_import: { Args: { p_rows: Json }; Returns: Json }
       propose_weekly_commitment: {
         Args: {
           p_checklist_item_id?: string

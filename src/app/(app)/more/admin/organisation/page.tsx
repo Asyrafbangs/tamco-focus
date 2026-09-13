@@ -7,6 +7,7 @@ import { requireProfile } from '@/lib/supabase/server';
 import { DepartmentForm } from './DepartmentForm';
 import { MoveConfirmation, type MovePerson } from './MoveConfirmation';
 import { OrganisationDrag } from './OrganisationDrag';
+import { OrganisationImport } from './OrganisationImport';
 import { OrganisationIssuesPanel, type IssueKind } from './OrganisationIssuesPanel';
 import {
   findOrganisationPeople,
@@ -23,12 +24,13 @@ import {
  * Administrator → Identity and access → Organisation.
  *
  * The half the Directory cannot show: who reports to whom, which department
- * sits under which, and where the gaps are — and, since v169, v170 and v173, the
- * place a reporting line is moved, a dotted line is drawn, and a department is
- * made or changed.
+ * sits under which, and where the gaps are — and, since v169, v170, v173 and
+ * v174, the place a reporting line is moved, a dotted line is drawn, a
+ * department is made or changed, and a whole organisation is imported.
  *
  * Everything that opens here opens through the URL rather than in the browser:
- * a branch, a move or a dotted line being confirmed, a department being edited.
+ * a branch, a move or a dotted line being confirmed, a department being edited,
+ * an import.
  * That keeps the page a server render, survives a reload and a shared link, and
  * works without JavaScript. It also means a branch is fetched only when somebody
  * asks for it: a chart that draws six hundred people at once is a wall of boxes
@@ -218,6 +220,7 @@ export default async function OrganisationPage({
     dotted?: string;
     department?: string;
     issue?: string;
+    import?: string;
   }>;
 }) {
   const profile = await requireProfile();
@@ -231,6 +234,7 @@ export default async function OrganisationPage({
   const dottedId = params.dotted?.trim() ?? '';
   const departmentParam = params.department?.trim() ?? '';
   const issueParam = params.issue?.trim() ?? '';
+  const importing = params.import === '1';
 
   const [overview, matches, directory, issues] = await Promise.all([
     getOrganisationOverview(),
@@ -318,9 +322,14 @@ export default async function OrganisationPage({
           <h1>Identity and access</h1>
           <p>Manage people, departments and reporting relationships.</p>
         </div>
-        <Link className="btn" href={withParam(openIds, term, 'department', 'new')}>
-          + Department
-        </Link>
+        <div className="actions">
+          <Link className="btn" href={withParam(openIds, term, 'import', '1')}>
+            Import organisation
+          </Link>
+          <Link className="btn" href={withParam(openIds, term, 'department', 'new')}>
+            + Department
+          </Link>
+        </div>
       </div>
 
       <WorkspaceTabs
@@ -371,6 +380,14 @@ export default async function OrganisationPage({
         would otherwise reuse the panel and keep the first person's choice on
         screen — and saving writes what is on screen.
       */}
+      {/* Setting up or reorganising many people at once (v174). Checked in the
+          database before anything is written; see OrganisationImport. */}
+      {importing && (
+        <OrganisationImport
+          cancelHref={viewHref(openIds, term)}
+          exportHref="/more/admin/organisation/export"
+        />
+      )}
       {(creatingDepartment || editingDepartment) && (
         <DepartmentForm
           key={departmentParam}
