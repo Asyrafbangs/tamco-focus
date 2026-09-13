@@ -1,5 +1,17 @@
 # TAMCO Focus — Change Log
 
+## v171 Organisation says where it is incomplete — 13 September 2026
+
+- Organisation opens with the gaps in the records, each stated as a sentence: people nobody
+  placed, people with no department, people still reporting to an account that has been
+  deactivated, and departments with no head or a head who has left.
+- "Nobody placed" means no manager and nobody reporting to them. Everybody at the top of a
+  reporting line has no manager, so that alone would have named the director as a problem.
+- Each line opens to the people or departments concerned, and each of those carries the control
+  that fixes it — Change manager, Edit, or Set department — rather than a report about it.
+- When there is nothing to say, it says "No organisation issues" and nothing else.
+- No migration.
+
 ## v170 Departments from the screen — 13 September 2026
 
 - Organisation has a "+ Department" form: the name, a code, what it sits under, and who heads

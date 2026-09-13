@@ -4308,6 +4308,52 @@ fieldset:disabled label,
     gap: 8px;
   }
 }
+
+/* v171 - the organisation's gaps, stated. Amber because each is something to
+   act on, not something broken: the records are valid, just incomplete. */
+.org-issue-lines,
+.org-issue-items {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.org-issue-line {
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--amber) 30%, var(--line));
+  border-radius: var(--radius-sm);
+  background: var(--amber-bg);
+}
+.org-issue-summary,
+.org-issue-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.org-issue-items {
+  margin-top: 10px;
+}
+.org-issue-item {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.org-issue-item-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+@media (max-width: 700px) {
+  .org-issue-summary,
+  .org-issue-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+}
 /* Depth is a rule and an indent rather than a diagram: the tree is read as a
    list, which is also how it is announced. */
 .org-branch,

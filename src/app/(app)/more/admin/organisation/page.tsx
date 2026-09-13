@@ -7,10 +7,12 @@ import { requireProfile } from '@/lib/supabase/server';
 import { DepartmentForm } from './DepartmentForm';
 import { MoveConfirmation } from './MoveConfirmation';
 import { OrganisationDrag } from './OrganisationDrag';
+import { OrganisationIssuesPanel, type IssueKind } from './OrganisationIssuesPanel';
 import {
   findOrganisationPeople,
   getDirectoryData,
   getOrganisationBranch,
+  getOrganisationIssues,
   getOrganisationOverview,
   type OrganisationDepartment,
   type OrganisationPerson,
@@ -184,6 +186,7 @@ export default async function OrganisationPage({
     move?: string;
     to?: string;
     department?: string;
+    issue?: string;
   }>;
 }) {
   const profile = await requireProfile();
@@ -195,8 +198,9 @@ export default async function OrganisationPage({
   const moveId = params.move?.trim() ?? '';
   const proposedManagerId = params.to?.trim() ?? '';
   const departmentParam = params.department?.trim() ?? '';
+  const issueParam = params.issue?.trim() ?? '';
 
-  const [overview, matches, directory] = await Promise.all([
+  const [overview, matches, directory, issues] = await Promise.all([
     getOrganisationOverview(),
     term ? findOrganisationPeople(term) : Promise.resolve([]),
     /*
@@ -207,6 +211,8 @@ export default async function OrganisationPage({
      * to what is on screen, and the ordinary view has no use for it.
      */
     moveId || departmentParam ? getDirectoryData() : Promise.resolve(null),
+    // Always: the gaps are what an administrator opens this screen to find.
+    getOrganisationIssues(),
   ]);
 
   const subject = directory?.users.find((person) => person.id === moveId) ?? null;
@@ -292,6 +298,21 @@ export default async function OrganisationPage({
           </Link>
         )}
       </form>
+
+      {/*
+        The gaps first (v171): they are what an administrator opens this screen
+        to find. Each entry links into the same forms the rest of the page uses,
+        so fixing a gap and maintaining the organisation are one path, not two.
+      */}
+      <OrganisationIssuesPanel
+        issues={issues}
+        openKind={issueParam}
+        issueHref={(kind: IssueKind | null) =>
+          kind ? withParam(openIds, term, 'issue', kind) : viewHref(openIds, term)
+        }
+        moveHref={(personId) => withParam(openIds, term, 'move', personId)}
+        departmentHref={(departmentId) => withParam(openIds, term, 'department', departmentId)}
+      />
 
       {/*
         Keyed by what is open, for the same reason the Directory keys its form

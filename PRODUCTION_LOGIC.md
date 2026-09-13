@@ -1509,3 +1509,18 @@ derived-progress rules. The future ESH finding/action system remains outside the
    it alone", which is right for a caller that omits a field and wrong for one that offers it.
 4. The parent list leaves out the department itself; a deeper loop is refused by the procedure.
 5. No schema change.
+
+## 66. v171 Organisation issues
+
+1. `getOrganisationIssues` reads people and departments once each and returns five lists:
+   `unplaced`, `noDepartment`, `orphanedByDeactivation`, `noHead` and `inactiveHead`.
+2. Unplaced is an active account with no reporting manager and no active direct report. No
+   manager on its own is not an issue: it is the top of the line.
+3. Orphaned by deactivation is an active account whose reporting manager is deactivated.
+   An inactive head is an active department whose head is deactivated.
+4. Deactivated accounts and archived departments are never listed as issues themselves.
+5. The panel lists only the kinds present and opens one through `?issue=`; an unknown value
+   opens nothing. Each entry links to its fix: Change manager (`?move=`) for somebody without
+   a line, Edit (`?department=`) for a department, and the person's Directory page for a
+   missing department, since the Directory maintains it.
+6. Read-only. No schema change.

@@ -3239,6 +3239,149 @@ export async function findOrganisationPeople(term: string): Promise<Organisation
   });
 }
 
+/* ------------------------------------------------------------------------ */
+/* The organisation's gaps, as an administrator should see them (v171)       */
+/* ------------------------------------------------------------------------ */
+
+export interface OrganisationIssuePerson {
+  id: string;
+  fullName: string;
+  employeeId: string;
+  jobTitle: string | null;
+  departmentName: string | null;
+  /** Filled for a deactivated manager: whose account is gone. */
+  managerName: string | null;
+}
+
+export interface OrganisationIssueDepartment {
+  id: string;
+  name: string;
+  code: string;
+  /** Filled for a deactivated head. */
+  headName: string | null;
+}
+
+export interface OrganisationIssues {
+  /** Nobody above them and nobody below: somebody nobody placed. */
+  unplaced: OrganisationIssuePerson[];
+  noDepartment: OrganisationIssuePerson[];
+  /** Active people still reporting to an account that has been deactivated. */
+  orphanedByDeactivation: OrganisationIssuePerson[];
+  noHead: OrganisationIssueDepartment[];
+  inactiveHead: OrganisationIssueDepartment[];
+  total: number;
+}
+
+/**
+ * What an administrator opens this screen to find.
+ *
+ * Each list is a fact the records already hold and nobody was shown. The one
+ * judgement in here is "unplaced". Everybody at the top of a reporting line has
+ * no manager, so "no manager" alone would name the director as a problem.
+ * Somebody with nobody above them who does carry a team is the top of the line;
+ * somebody with nobody above and nobody below is somebody nobody put anywhere.
+ *
+ * One light pass over people and one over departments, rather than a query per
+ * question: the five lists share every row they need.
+ */
+export async function getOrganisationIssues(): Promise<OrganisationIssues> {
+  const supabase = await createSupabaseServerClient();
+  const [peopleResult, departmentsResult] = await Promise.all([
+    supabase
+      .from('user_profiles')
+      .select('id,full_name,employee_id,job_title,department_id,reporting_manager_id,status')
+      .limit(2000),
+    supabase.from('departments').select('id,name,code,head_id,status'),
+  ]);
+  if (peopleResult.error || departmentsResult.error) throw new Error('ORGANISATION_UNAVAILABLE');
+
+  const people = peopleResult.data ?? [];
+  const departments = departmentsResult.data ?? [];
+  const personById = new Map(people.map((row) => [row.id as string, row]));
+  const departmentNames = new Map(departments.map((row) => [row.id as string, row.name as string]));
+  const active = people.filter((row) => row.status === 'active');
+  const managersOfSomebody = new Set(
+    active
+      .map((row) => (row.reporting_manager_id as string) ?? null)
+      .filter((id): id is string => Boolean(id)),
+  );
+
+  const byName = (left: { fullName: string }, right: { fullName: string }) =>
+    left.fullName.localeCompare(right.fullName);
+  const toPerson = (
+    row: (typeof people)[number],
+    managerName: string | null = null,
+  ): OrganisationIssuePerson => ({
+    id: row.id as string,
+    fullName: row.full_name as string,
+    employeeId: row.employee_id as string,
+    jobTitle: (row.job_title as string) ?? null,
+    departmentName: row.department_id
+      ? (departmentNames.get(row.department_id as string) ?? null)
+      : null,
+    managerName,
+  });
+
+  const unplaced = active
+    .filter((row) => !row.reporting_manager_id && !managersOfSomebody.has(row.id as string))
+    .map((row) => toPerson(row))
+    .sort(byName);
+
+  const noDepartment = active
+    .filter((row) => !row.department_id)
+    .map((row) => toPerson(row))
+    .sort(byName);
+
+  const orphanedByDeactivation = active
+    .map((row) => {
+      const manager = row.reporting_manager_id
+        ? personById.get(row.reporting_manager_id as string)
+        : undefined;
+      return manager && manager.status !== 'active'
+        ? toPerson(row, manager.full_name as string)
+        : null;
+    })
+    .filter((entry): entry is OrganisationIssuePerson => entry !== null)
+    .sort(byName);
+
+  const activeDepartments = departments.filter((row) => row.status === 'active');
+  const toDepartment = (row: (typeof departments)[number], headName: string | null = null) => ({
+    id: row.id as string,
+    name: row.name as string,
+    code: row.code as string,
+    headName,
+  });
+  const byDepartmentName = (left: { name: string }, right: { name: string }) =>
+    left.name.localeCompare(right.name);
+
+  const noHead = activeDepartments
+    .filter((row) => !row.head_id)
+    .map((row) => toDepartment(row))
+    .sort(byDepartmentName);
+
+  const inactiveHead = activeDepartments
+    .map((row) => {
+      const head = row.head_id ? personById.get(row.head_id as string) : undefined;
+      return head && head.status !== 'active' ? toDepartment(row, head.full_name as string) : null;
+    })
+    .filter((entry): entry is OrganisationIssueDepartment => entry !== null)
+    .sort(byDepartmentName);
+
+  return {
+    unplaced,
+    noDepartment,
+    orphanedByDeactivation,
+    noHead,
+    inactiveHead,
+    total:
+      unplaced.length +
+      noDepartment.length +
+      orphanedByDeactivation.length +
+      noHead.length +
+      inactiveHead.length,
+  };
+}
+
 export interface VisibilityData {
   mode: 'specific_only' | 'direct_reports_plus' | 'none';
   /**
