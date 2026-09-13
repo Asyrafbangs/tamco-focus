@@ -345,6 +345,13 @@ export async function updateUserAction(
     p_personal_summary_mode: parsed.data.personalSummaryMode,
     p_team_summary_mode: parsed.data.teamSummaryMode,
     p_job_title: parsed.data.jobTitle,
+    /*
+     * This form always submits the manager, so "None" is a decision to clear
+     * it. Since v172 the procedure reads a plain null as "leave it alone" — the
+     * safe default for a caller that says nothing — so clearing is said out
+     * loud here rather than implied by an empty value.
+     */
+    p_clear_reporting_manager: parsed.data.reportingManagerId === null,
   });
   const result = data as RpcResult | null;
   if (error || !result?.ok) {

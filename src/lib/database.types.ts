@@ -10668,6 +10668,7 @@ export type Database = {
       }
       update_user_profile: {
         Args: {
+          p_clear_reporting_manager?: boolean
           p_department_id?: string
           p_email?: string
           p_full_name?: string

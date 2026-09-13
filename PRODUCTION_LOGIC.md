@@ -1524,3 +1524,17 @@ derived-progress rules. The future ESH finding/action system remains outside the
    a line, Edit (`?department=`) for a department, and the person's Directory page for a
    missing department, since the Directory maintains it.
 6. Read-only. No schema change.
+
+## 67. v172 One way to move somebody
+
+1. `update_user_profile` hands a changed reporting manager to `change_reporting_manager`, so
+   every move — from Organisation or from the Directory — is validated, recorded in
+   `reporting_assignments` and audited by the one procedure that owns moves.
+2. A null `p_reporting_manager_id` means "leave it alone"; `p_clear_reporting_manager` clears
+   it. The Directory form always submits the field, so it sends the flag when "None" is chosen.
+3. If the delegated move is refused, `update_user_profile` returns that refusal before writing
+   anything else. The body is one block, so a later failure also rolls back a move already
+   made.
+4. The move is not repeated in `update_user_profile`'s own audit detail; the delegated call
+   records it once.
+5. The function gained a parameter, so it was dropped and recreated and its grant reissued.

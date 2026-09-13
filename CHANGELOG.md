@@ -1,5 +1,18 @@
 # TAMCO Focus — Change Log
 
+## v172 Every move is recorded, whichever screen made it — 13 September 2026
+
+- Changing somebody's manager from their Directory page now goes through the same procedure as
+  Organisation: it is written into the reporting history with its date, and refused for the same
+  reasons — a deactivated manager, or a line that would loop back on itself.
+- Before, a manager changed in the Directory was saved straight onto the profile, and the
+  history v169 added never heard of it.
+- A save that says nothing about the manager now leaves it alone. The procedure used to read a
+  missing manager as "clear it", so an update to somebody's name or job title that did not
+  resend the manager moved them to the top of the organisation. The Directory form always sent
+  it, so the screen was safe; anything else calling the procedure was not.
+- If a move is refused, nothing else in that save is applied.
+
 ## v171 Organisation says where it is incomplete — 13 September 2026
 
 - Organisation opens with the gaps in the records, each stated as a sentence: people nobody
