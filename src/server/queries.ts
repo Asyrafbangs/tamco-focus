@@ -2950,6 +2950,8 @@ export interface DirectoryUser {
   departmentName: string;
   role: 'team_member' | 'manager' | 'administrator';
   reportingManagerId: string | null;
+  /** The dotted line (v173). Grants no visibility. */
+  functionalManagerId: string | null;
   status: 'active' | 'deactivated';
   personalSummaryMode: 'off' | 'focused' | 'standard';
   teamSummaryMode: 'off' | 'leadership' | 'detailed';
@@ -2994,6 +2996,7 @@ export async function getDirectoryData(): Promise<DirectoryData> {
         : 'Unassigned',
       role: row.role as DirectoryUser['role'],
       reportingManagerId: (row.reporting_manager_id as string) ?? null,
+      functionalManagerId: (row.functional_manager_id as string) ?? null,
       status: row.status as DirectoryUser['status'],
       personalSummaryMode: row.personal_summary_mode as DirectoryUser['personalSummaryMode'],
       teamSummaryMode: row.team_summary_mode as DirectoryUser['teamSummaryMode'],
@@ -3028,6 +3031,8 @@ export interface OrganisationPerson {
   departmentId: string | null;
   departmentName: string | null;
   reportingManagerId: string | null;
+  /** Who they work for on the dotted line (v173). Grants no visibility. */
+  functionalManagerName: string | null;
   directReportCount: number;
 }
 
@@ -3039,15 +3044,40 @@ export interface OrganisationOverview {
   unassignedCount: number;
 }
 
+/*
+ * Plain columns, and the dotted-line manager's name looked up separately.
+ *
+ * The first version embedded it — `functional_manager:user_profiles!…_fkey
+ * (full_name)` — which type-checked against the generated types and failed at
+ * runtime: PostgREST answered PGRST200, finding no relationship for the second
+ * self-reference on `user_profiles`, and the whole Organisation screen went
+ * down with it. A lookup by id is how this file already names department heads,
+ * and it cannot be tripped up by how relationships happen to be detected.
+ */
 const ORGANISATION_PERSON_COLUMNS =
-  'id,full_name,employee_id,job_title,department_id,reporting_manager_id';
+  'id,full_name,employee_id,job_title,department_id,reporting_manager_id,functional_manager_id';
+
+/** Names for a handful of people, in one query rather than one each. */
+async function namesFor(ids: Array<string | null | undefined>): Promise<Map<string, string>> {
+  const wanted = [...new Set(ids.filter((id): id is string => Boolean(id)))];
+  if (wanted.length === 0) return new Map();
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('id,full_name')
+    .in('id', wanted);
+  if (error) throw new Error('ORGANISATION_UNAVAILABLE');
+  return new Map((data ?? []).map((row) => [row.id as string, row.full_name as string]));
+}
 
 function toOrganisationPerson(
   row: Record<string, unknown>,
   departmentNames: Map<string, string>,
   reportCounts: Map<string, number>,
+  personNames: Map<string, string>,
 ): OrganisationPerson {
   const departmentId = (row.department_id as string) ?? null;
+  const functionalManagerId = (row.functional_manager_id as string) ?? null;
   return {
     id: row.id as string,
     fullName: row.full_name as string,
@@ -3056,6 +3086,9 @@ function toOrganisationPerson(
     departmentId,
     departmentName: departmentId ? (departmentNames.get(departmentId) ?? null) : null,
     reportingManagerId: (row.reporting_manager_id as string) ?? null,
+    functionalManagerName: functionalManagerId
+      ? (personNames.get(functionalManagerId) ?? null)
+      : null,
     directReportCount: reportCounts.get(row.id as string) ?? 0,
   };
 }
@@ -3122,20 +3155,12 @@ export async function getOrganisationOverview(): Promise<OrganisationOverview> {
     departmentRows.map((row) => [row.id as string, row.name as string]),
   );
 
-  // The heads, by name, in one query rather than one per department.
-  const headIds = [
-    ...new Set(departmentRows.map((row) => row.head_id as string | null).filter(Boolean)),
-  ] as string[];
-  const headNames = new Map<string, string>();
-  if (headIds.length > 0) {
-    const { data: heads } = await supabase
-      .from('user_profiles')
-      .select('id,full_name')
-      .in('id', headIds);
-    for (const head of heads ?? []) {
-      headNames.set(head.id as string, head.full_name as string);
-    }
-  }
+  // Heads and dotted-line managers, by name, in one query between them.
+  const rootRows = rootsResult.data ?? [];
+  const personNames = await namesFor([
+    ...departmentRows.map((row) => row.head_id as string | null),
+    ...rootRows.map((row) => row.functional_manager_id as string | null),
+  ]);
 
   return {
     departments: departmentRows.map((row) => ({
@@ -3145,11 +3170,11 @@ export async function getOrganisationOverview(): Promise<OrganisationOverview> {
       parentId: (row.parent_id as string) ?? null,
       headId: (row.head_id as string) ?? null,
       status: row.status as DirectoryDepartment['status'],
-      headName: row.head_id ? (headNames.get(row.head_id as string) ?? null) : null,
+      headName: row.head_id ? (personNames.get(row.head_id as string) ?? null) : null,
       memberCount: tallies.departmentSizes.get(row.id as string) ?? 0,
     })),
-    roots: (rootsResult.data ?? []).map((row) =>
-      toOrganisationPerson(row, departmentNames, tallies.reportCounts),
+    roots: rootRows.map((row) =>
+      toOrganisationPerson(row, departmentNames, tallies.reportCounts, personNames),
     ),
     unassignedCount: tallies.unassignedCount,
   };
@@ -3173,8 +3198,12 @@ export async function getOrganisationBranch(managerId: string): Promise<Organisa
   const departmentNames = new Map(
     (departmentsResult.data ?? []).map((row) => [row.id as string, row.name as string]),
   );
-  return (reportsResult.data ?? []).map((row) =>
-    toOrganisationPerson(row, departmentNames, tallies.reportCounts),
+  const reportRows = reportsResult.data ?? [];
+  const personNames = await namesFor(
+    reportRows.map((row) => row.functional_manager_id as string | null),
+  );
+  return reportRows.map((row) =>
+    toOrganisationPerson(row, departmentNames, tallies.reportCounts, personNames),
   );
 }
 
@@ -3222,9 +3251,13 @@ export async function findOrganisationPeople(term: string): Promise<Organisation
   const departmentNames = new Map(
     (departmentsResult.data ?? []).map((row) => [row.id as string, row.name as string]),
   );
+  const matchRows = matchesResult.data ?? [];
+  const personNames = await namesFor(
+    matchRows.map((row) => row.functional_manager_id as string | null),
+  );
 
-  return (matchesResult.data ?? []).map((row) => {
-    const person = toOrganisationPerson(row, departmentNames, tallies.reportCounts);
+  return matchRows.map((row) => {
+    const person = toOrganisationPerson(row, departmentNames, tallies.reportCounts, personNames);
     const chain: Array<{ id: string; fullName: string }> = [];
     const seen = new Set<string>([person.id]);
     let cursor = person.reportingManagerId;

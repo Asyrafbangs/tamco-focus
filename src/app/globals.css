@@ -4283,8 +4283,23 @@ fieldset:disabled label,
     align-items: stretch;
     gap: 8px;
   }
+  /* Three controls do not fit beside each other in a branch this narrow, and
+     wrapping left "Dotted line" alone on a second line a whole button-height
+     below the others. The reports toggle, or the "No reports" that stands in for
+     it, takes its own line; the two changes sit side by side beneath it, drawn
+     as buttons so they do not read as loose words in a column. */
   .org-person-actions {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .org-person-actions > :first-child {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+  .org-person-actions .btn.ghost {
+    justify-content: center;
+    border-color: var(--line);
   }
   .org-branch,
   .org-department-children {
@@ -4353,6 +4368,18 @@ fieldset:disabled label,
     align-items: stretch;
     gap: 8px;
   }
+}
+
+/* v173 - the dotted line, said in words and drawn as what it is. The words
+   carry the meaning; the dotted underline only echoes the chart convention,
+   so nothing depends on seeing it. */
+.org-dotted-line {
+  color: var(--muted);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.org-move-note {
+  margin: 0;
 }
 /* Depth is a rule and an indent rather than a diagram: the tree is read as a
    list, which is also how it is announced. */

@@ -1538,3 +1538,25 @@ derived-progress rules. The future ESH finding/action system remains outside the
 4. The move is not repeated in `update_user_profile`'s own audit detail; the delegated call
    records it once.
 5. The function gained a parameter, so it was dropped and recreated and its grant reissued.
+
+## 68. v173 The dotted line
+
+1. `user_profiles.functional_manager_id` holds the dotted line, and nobody can be their own.
+   `reporting_assignments.relationship` is `primary` or `functional`, so both lines share one
+   effective-dated history.
+2. `change_functional_manager(p_user_id, p_manager_id, p_reason, p_effective_date)` is the only
+   writer. Administrator-only; null clears the line. Refused: the person themselves
+   (`manager_invalid`), a deactivated manager (`manager_inactive`), and their own reporting
+   manager (`manager_is_primary`). A change that changes nothing answers `unchanged` and writes
+   no history.
+3. A dotted line grants no visibility. `focus.visible_user_ids` is unchanged, and sight of the
+   person's work is granted, if at all, through the per-person visibility model (v66, v68,
+   v80). The integration test proves it against a manager-role account that does see its
+   formal reports.
+4. `change_reporting_manager` clears the dotted line when the new reporting manager is the
+   current dotted-line manager, in the same transaction, and records that ending with the
+   reason "Became the reporting manager." Same signature; `update_user_profile` (v172) delegates
+   to it and inherits the rule.
+5. The Organisation row states the line in words. Its confirmation says the line grants nothing
+   and does not offer the person or their reporting manager as choices. Dragging still draws
+   only the formal line.

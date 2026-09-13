@@ -3,16 +3,24 @@
 import Link from 'next/link';
 import { useActionState } from 'react';
 
-import { changeReportingManagerAction } from '@/server/actions/settings-actions';
+import {
+  changeFunctionalManagerAction,
+  changeReportingManagerAction,
+} from '@/server/actions/settings-actions';
 
 /**
- * The confirmation every move goes through (v169).
+ * The confirmation every change to a line goes through (v169, v173).
  *
  * Dropping somebody onto a manager and changing who they answer to are not the
  * same act, however similar they look on screen. Both routes — the drag and the
  * "Change manager" control — arrive here, where the change is stated in full
  * before anybody agrees to it: who is moving, who they report to now, and who
  * they would report to instead.
+ *
+ * The dotted line (v173) comes through the same door with its own words, and
+ * with the one sentence it must never be drawn without: it gives nobody sight
+ * of the person's work. An organisation chart that quietly granted access every
+ * time somebody drew a line would have become the security model.
  *
  * A reason and an effective date are offered because a transfer agreed on the
  * 1st and entered on the 9th belongs to the 1st, and six months later the only
@@ -28,27 +36,52 @@ export interface MovePerson {
 
 const INITIAL = { ok: false, code: '', message: '' };
 
+const COPY = {
+  primary: {
+    heading: 'Change reporting line?',
+    current: 'Current manager',
+    none: 'None — top of the line',
+    select: 'New manager',
+  },
+  functional: {
+    heading: 'Change dotted line?',
+    current: 'Current dotted line',
+    none: 'None — no dotted line',
+    select: 'Dotted-line manager',
+  },
+} as const;
+
 export function MoveConfirmation({
+  relationship = 'primary',
   subject,
   currentManager,
   proposedManagerId,
   options,
   cancelHref,
 }: {
+  relationship?: 'primary' | 'functional';
   subject: MovePerson;
+  /** Whoever holds this relationship now. */
   currentManager: MovePerson | null;
   proposedManagerId: string;
   options: MovePerson[];
   cancelHref: string;
 }) {
-  const [state, action, pending] = useActionState(changeReportingManagerAction, INITIAL);
+  // The panel is keyed by what is open, so a mounted instance never changes
+  // relationship and the hook always receives the same action.
+  const [state, action, pending] = useActionState(
+    relationship === 'functional' ? changeFunctionalManagerAction : changeReportingManagerAction,
+    INITIAL,
+  );
+  const copy = COPY[relationship];
+  const firstName = subject.fullName.split(' ')[0];
 
   return (
     <section className="org-move-panel" aria-labelledby="org-move-heading">
       <div className="section-heading">
         <div>
           <p className="eyebrow">Confirm</p>
-          <h2 id="org-move-heading">Change reporting line?</h2>
+          <h2 id="org-move-heading">{copy.heading}</h2>
         </div>
       </div>
 
@@ -58,24 +91,31 @@ export function MoveConfirmation({
           {[subject.jobTitle, subject.employeeId].filter(Boolean).join(' · ')}
         </span>
         <span className="sub">
-          Current manager: {currentManager ? currentManager.fullName : 'None — top of the line'}
+          {copy.current}: {currentManager ? currentManager.fullName : copy.none}
         </span>
       </div>
+
+      {relationship === 'functional' && (
+        <p className="sub org-move-note">
+          A dotted line gives nobody sight of {firstName}&apos;s work. If this manager needs to see
+          it, grant that on {firstName}&apos;s Directory page.
+        </p>
+      )}
 
       <form action={action} className="settings-form">
         <input type="hidden" name="userId" value={subject.id} />
         <div className="form-grid">
           <label>
-            <span>New manager</span>
+            <span>{copy.select}</span>
             {/*
-              Defaults to who they report to now, not to "None".
+              Defaults to whoever holds the line now, not to "None".
               A panel opened from the row starts with no proposal, and a select
-              that begins at "None — top of the line" turns an unconsidered Save
-              into a move to the top of the organisation. Unchanged is the only
-              safe starting point; the procedure answers `unchanged` for it.
+              that begins at "None" turns an unconsidered Save into removing the
+              line. Unchanged is the only safe starting point; the procedures
+              answer `unchanged` for it.
             */}
             <select name="managerId" defaultValue={proposedManagerId || (currentManager?.id ?? '')}>
-              <option value="">None — top of the line</option>
+              <option value="">{copy.none}</option>
               {options.map((person) => (
                 <option key={person.id} value={person.id}>
                   {person.fullName} · {person.employeeId}

@@ -626,6 +626,48 @@ export async function changeReportingManagerAction(
 }
 
 /**
+ * The dotted line, from the Organisation view (v173).
+ *
+ * Its own action rather than a flag on the reporting move, because it is a
+ * different relationship with a different consequence: it grants no sight of
+ * the person's work, and the screen that draws it says so. The fields are the
+ * same four, so the schema is the reporting move's.
+ */
+export async function changeFunctionalManagerAction(
+  _previous: SettingsActionState,
+  formData: FormData,
+): Promise<SettingsActionState> {
+  await requireAdministrator();
+  const parsed = reportingChangeSchema.safeParse({
+    userId: formData.get('userId'),
+    managerId: (formData.get('managerId') as string) || null,
+    reason: formData.get('reason') ?? '',
+    effectiveDate: formData.get('effectiveDate') ?? '',
+  });
+  if (!parsed.success) return initialError('Choose who this person works for on the dotted line.');
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('change_functional_manager', {
+    p_user_id: parsed.data.userId,
+    p_manager_id: parsed.data.managerId,
+    p_reason: parsed.data.reason || null,
+    p_effective_date: parsed.data.effectiveDate || null,
+  });
+  if (error) {
+    console.error(`[change_functional_manager] ${error.message}`);
+    return {
+      ok: false,
+      code: 'unexpected_error',
+      message: 'The dotted line could not be changed. Nothing was saved.',
+    };
+  }
+
+  revalidatePath('/more/admin/organisation');
+  revalidatePath('/more/admin/users');
+  return resultState(data as RpcResult, 'Dotted line updated.');
+}
+
+/**
  * Departments, maintained from the Organisation view (v170).
  *
  * The procedures have existed since v165; this is the form an administrator

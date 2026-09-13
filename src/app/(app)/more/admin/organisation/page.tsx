@@ -5,7 +5,7 @@ import { WorkspaceTabs } from '@/components/ui/ParityPrimitives';
 import { requireProfile } from '@/lib/supabase/server';
 
 import { DepartmentForm } from './DepartmentForm';
-import { MoveConfirmation } from './MoveConfirmation';
+import { MoveConfirmation, type MovePerson } from './MoveConfirmation';
 import { OrganisationDrag } from './OrganisationDrag';
 import { OrganisationIssuesPanel, type IssueKind } from './OrganisationIssuesPanel';
 import {
@@ -14,6 +14,7 @@ import {
   getOrganisationBranch,
   getOrganisationIssues,
   getOrganisationOverview,
+  type DirectoryUser,
   type OrganisationDepartment,
   type OrganisationPerson,
 } from '@/server/queries';
@@ -22,15 +23,16 @@ import {
  * Administrator → Identity and access → Organisation.
  *
  * The half the Directory cannot show: who reports to whom, which department
- * sits under which, and where the gaps are — and, since v169 and v170, the
- * place a reporting line is moved and a department is made or changed.
+ * sits under which, and where the gaps are — and, since v169, v170 and v173, the
+ * place a reporting line is moved, a dotted line is drawn, and a department is
+ * made or changed.
  *
  * Everything that opens here opens through the URL rather than in the browser:
- * a branch, a move being confirmed, a department being edited. That keeps the
- * page a server render, survives a reload and a shared link, and works without
- * JavaScript. It also means a branch is fetched only when somebody asks for it:
- * a chart that draws six hundred people at once is a wall of boxes nobody can
- * read and a page nobody waits for.
+ * a branch, a move or a dotted line being confirmed, a department being edited.
+ * That keeps the page a server render, survives a reload and a shared link, and
+ * works without JavaScript. It also means a branch is fetched only when somebody
+ * asks for it: a chart that draws six hundred people at once is a wall of boxes
+ * nobody can read and a page nobody waits for.
  */
 
 function toggleHref(openIds: string[], id: string, term: string): string {
@@ -53,13 +55,27 @@ function viewHref(openIds: string[], term: string): string {
   return query ? `/more/admin/organisation?${query}` : '/more/admin/organisation';
 }
 
-/** This same view with one more thing to open — a move, or a department. */
+/** This same view with one more thing to open — a move, a dotted line, a department. */
 function withParam(openIds: string[], term: string, key: string, value: string): string {
   const params = new URLSearchParams();
   if (openIds.length > 0) params.set('open', openIds.join(','));
   if (term) params.set('q', term);
   params.set(key, value);
   return `/more/admin/organisation?${params.toString()}`;
+}
+
+/** The four facts a confirmation panel shows about a person. */
+function toMovePerson(person: DirectoryUser): MovePerson {
+  return {
+    id: person.id,
+    fullName: person.fullName,
+    jobTitle: person.jobTitle,
+    employeeId: person.employeeId,
+  };
+}
+
+function byName(left: DirectoryUser, right: DirectoryUser): number {
+  return left.fullName.localeCompare(right.fullName);
 }
 
 function PersonNode({
@@ -87,6 +103,13 @@ function PersonNode({
               .filter(Boolean)
               .join(' · ')}
           </span>
+          {/* Said in words, so the relationship never depends on seeing a
+              dotted underline (v173). */}
+          {person.functionalManagerName && (
+            <span className="sub org-dotted-line">
+              Dotted line to {person.functionalManagerName}
+            </span>
+          )}
         </div>
         <div className="org-person-actions">
           {person.directReportCount > 0 ? (
@@ -109,6 +132,13 @@ function PersonNode({
             aria-label={`Change who ${person.fullName} reports to`}
           >
             Change manager
+          </Link>
+          <Link
+            className="btn small ghost"
+            href={withParam(openIds, term, 'dotted', person.id)}
+            aria-label={`Set the dotted line for ${person.fullName}`}
+          >
+            Dotted line
           </Link>
         </div>
       </div>
@@ -185,6 +215,7 @@ export default async function OrganisationPage({
     open?: string;
     move?: string;
     to?: string;
+    dotted?: string;
     department?: string;
     issue?: string;
   }>;
@@ -197,6 +228,7 @@ export default async function OrganisationPage({
   const openIds = (params.open ?? '').split(',').filter(Boolean);
   const moveId = params.move?.trim() ?? '';
   const proposedManagerId = params.to?.trim() ?? '';
+  const dottedId = params.dotted?.trim() ?? '';
   const departmentParam = params.department?.trim() ?? '';
   const issueParam = params.issue?.trim() ?? '';
 
@@ -205,23 +237,41 @@ export default async function OrganisationPage({
     term ? findOrganisationPeople(term) : Promise.resolve([]),
     /*
      * The list of people is loaded only while something needs a person picked:
-     * a move being confirmed, or a department's head being chosen.
+     * a move or a dotted line being confirmed, or a department's head chosen.
      *
      * It is the one query here that is proportional to the company rather than
      * to what is on screen, and the ordinary view has no use for it.
      */
-    moveId || departmentParam ? getDirectoryData() : Promise.resolve(null),
+    moveId || dottedId || departmentParam ? getDirectoryData() : Promise.resolve(null),
     // Always: the gaps are what an administrator opens this screen to find.
     getOrganisationIssues(),
   ]);
 
-  const subject = directory?.users.find((person) => person.id === moveId) ?? null;
-  const currentManager = subject?.reportingManagerId
-    ? (directory?.users.find((person) => person.id === subject.reportingManagerId) ?? null)
-    : null;
-  const managerOptions = (directory?.users ?? [])
+  const people = directory?.users ?? [];
+  const personById = (id: string | null | undefined) =>
+    id ? (people.find((person) => person.id === id) ?? null) : null;
+
+  const subject = personById(moveId);
+  const currentManager = personById(subject?.reportingManagerId);
+  const managerOptions = people
     .filter((person) => person.status === 'active' && person.id !== moveId)
-    .sort((left, right) => left.fullName.localeCompare(right.fullName));
+    .sort(byName);
+
+  const dottedSubject = personById(dottedId);
+  const currentDotted = personById(dottedSubject?.functionalManagerId);
+  /*
+   * Not offered: the person themselves, and their reporting manager. A dotted
+   * line to the same person as the solid one says nothing, and the procedure
+   * refuses it; a choice that can only be refused is not a choice.
+   */
+  const dottedOptions = people
+    .filter(
+      (person) =>
+        person.status === 'active' &&
+        person.id !== dottedId &&
+        person.id !== dottedSubject?.reportingManagerId,
+    )
+    .sort(byName);
 
   const creatingDepartment = departmentParam === 'new';
   const editingDepartment =
@@ -241,9 +291,9 @@ export default async function OrganisationPage({
     )
     .sort((left, right) => left.name.localeCompare(right.name))
     .map((department) => ({ id: department.id, name: department.name, code: department.code }));
-  const headChoices = (directory?.users ?? [])
+  const headChoices = people
     .filter((person) => person.status === 'active' || person.id === editingDepartment?.headId)
-    .sort((left, right) => left.fullName.localeCompare(right.fullName))
+    .sort(byName)
     .map((person) => ({
       id: person.id,
       fullName: person.fullName,
@@ -351,30 +401,25 @@ export default async function OrganisationPage({
       */}
       {subject && (
         <MoveConfirmation
-          key={`${moveId}:${proposedManagerId}`}
-          subject={{
-            id: subject.id,
-            fullName: subject.fullName,
-            jobTitle: subject.jobTitle,
-            employeeId: subject.employeeId,
-          }}
-          currentManager={
-            currentManager
-              ? {
-                  id: currentManager.id,
-                  fullName: currentManager.fullName,
-                  jobTitle: currentManager.jobTitle,
-                  employeeId: currentManager.employeeId,
-                }
-              : null
-          }
+          key={`move:${moveId}:${proposedManagerId}`}
+          relationship="primary"
+          subject={toMovePerson(subject)}
+          currentManager={currentManager ? toMovePerson(currentManager) : null}
           proposedManagerId={proposedManagerId}
-          options={managerOptions.map((person) => ({
-            id: person.id,
-            fullName: person.fullName,
-            jobTitle: person.jobTitle,
-            employeeId: person.employeeId,
-          }))}
+          options={managerOptions.map(toMovePerson)}
+          cancelHref={viewHref(openIds, term)}
+        />
+      )}
+      {/* The dotted line (v173): the same door, its own words, and no drag —
+          dragging draws the formal line, which is the one people mean. */}
+      {dottedSubject && (
+        <MoveConfirmation
+          key={`dotted:${dottedId}`}
+          relationship="functional"
+          subject={toMovePerson(dottedSubject)}
+          currentManager={currentDotted ? toMovePerson(currentDotted) : null}
+          proposedManagerId=""
+          options={dottedOptions.map(toMovePerson)}
           cancelHref={viewHref(openIds, term)}
         />
       )}

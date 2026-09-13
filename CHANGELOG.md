@@ -1,5 +1,19 @@
 # TAMCO Focus — Change Log
 
+## v173 A dotted line, which grants nothing — 13 September 2026
+
+- Organisation can record who somebody works for alongside their reporting manager: the dotted
+  line. Each person's row has a "Dotted line" control, and the line is shown on the row in
+  words — "Dotted line to Amer Hakim".
+- A dotted line gives nobody sight of anybody's work, and the screen that draws it says so. If
+  the dotted-line manager needs to see the work, that is granted on the person's Directory page,
+  on purpose, where every other grant is made.
+- It is written into the same dated history as reporting moves, and refused where it would say
+  nothing or point at somebody who has left: the person themselves, their own reporting manager,
+  or a deactivated account.
+- When somebody's dotted-line manager becomes their reporting manager, the dotted line goes, and
+  that is recorded too.
+
 ## v172 Every move is recorded, whichever screen made it — 13 September 2026
 
 - Changing somebody's manager from their Directory page now goes through the same procedure as

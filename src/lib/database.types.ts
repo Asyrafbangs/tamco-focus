@@ -4618,6 +4618,7 @@ export type Database = {
           new_manager_id: string | null
           previous_manager_id: string | null
           reason: string | null
+          relationship: string
           subject_id: string
         }
         Insert: {
@@ -4628,6 +4629,7 @@ export type Database = {
           new_manager_id?: string | null
           previous_manager_id?: string | null
           reason?: string | null
+          relationship?: string
           subject_id: string
         }
         Update: {
@@ -4638,6 +4640,7 @@ export type Database = {
           new_manager_id?: string | null
           previous_manager_id?: string | null
           reason?: string | null
+          relationship?: string
           subject_id?: string
         }
         Relationships: [
@@ -6542,6 +6545,7 @@ export type Database = {
           employee_id: string
           first_day_of_week: number
           full_name: string
+          functional_manager_id: string | null
           id: string
           job_title: string | null
           personal_summary_mode: Database["public"]["Enums"]["personal_summary_mode"]
@@ -6571,6 +6575,7 @@ export type Database = {
           employee_id: string
           first_day_of_week?: number
           full_name: string
+          functional_manager_id?: string | null
           id: string
           job_title?: string | null
           personal_summary_mode?: Database["public"]["Enums"]["personal_summary_mode"]
@@ -6600,6 +6605,7 @@ export type Database = {
           employee_id?: string
           first_day_of_week?: number
           full_name?: string
+          functional_manager_id?: string | null
           id?: string
           job_title?: string | null
           personal_summary_mode?: Database["public"]["Enums"]["personal_summary_mode"]
@@ -6624,6 +6630,41 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_profiles_functional_manager_id_fkey"
+            columns: ["functional_manager_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_profiles_functional_manager_id_fkey"
+            columns: ["functional_manager_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_profiles_functional_manager_id_fkey"
+            columns: ["functional_manager_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_profiles_functional_manager_id_fkey"
+            columns: ["functional_manager_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_profiles_functional_manager_id_fkey"
+            columns: ["functional_manager_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -9970,6 +10011,15 @@ export type Database = {
       }
       carry_forward_weekly_commitment: {
         Args: { p_commitment_id: string; p_week_start?: string }
+        Returns: Json
+      }
+      change_functional_manager: {
+        Args: {
+          p_effective_date?: string
+          p_manager_id?: string
+          p_reason?: string
+          p_user_id: string
+        }
         Returns: Json
       }
       change_reporting_manager: {

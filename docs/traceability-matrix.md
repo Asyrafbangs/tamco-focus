@@ -54,5 +54,6 @@
 | Department create and edit                           | Organisation: + Department and Edit, one short form          | `create_department`, `update_department` (v165)                           | v170 desktop/mobile E2E (3) with Axe                   | Implemented and verified |
 | Organisation issues                                  | Organisation: Issues panel, each gap linked to its fix       | Read model over profiles and departments; no schema change                | v171 desktop/mobile E2E (2) with Axe                   | Implemented and verified |
 | Directory moves recorded like Organisation moves     | Directory form: manager change delegated; clear is explicit  | `update_user_profile` delegates to `change_reporting_manager`             | v172 integration (4) with the v167 and v169 suites     | Implemented and verified |
+| Dotted-line (functional) manager                     | Organisation: Dotted line control; stated on the row         | `functional_manager_id`; `change_functional_manager`; shared history      | v173 integration (6); desktop/mobile E2E (2)           | Implemented and verified |
 
 The approved v33 application modules are mapped above. Detailed workflow contracts remain in `MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`, and the handoff documents in this directory.
