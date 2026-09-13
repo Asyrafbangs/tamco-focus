@@ -5,6 +5,7 @@ import { z } from 'zod';
 
 import { endOfLocalDay } from '@/domain/duration';
 import type { OperationResult } from '@/domain/types';
+import { readAll } from '@/lib/read-all';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
 import { scheduleNotificationEmailDispatch } from '@/server/workers/schedule-notification-email';
 
@@ -114,30 +115,41 @@ export async function assignWork(
   return result;
 }
 
-/** People this manager may assign to. RLS decides the list, not this query. */
+/**
+ * People this manager may assign to. RLS decides the list, not this query.
+ *
+ * All of them, read a page at a time (v175): this was `.limit(200)`, so in a
+ * large organisation everybody after the two-hundredth name could not be given
+ * work. Each carries whether they report to this manager, so the picker can
+ * offer the direct team first.
+ */
 export async function getAssignablePeople(): Promise<
-  Array<{ id: string; fullName: string; employeeId: string }>
+  Array<{ id: string; fullName: string; employeeId: string; directReport: boolean }>
 > {
   const profile = await requireProfile();
   if (profile.role !== 'manager' && profile.role !== 'administrator') return [];
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from('user_profiles')
-    .select('id, full_name, employee_id')
-    .eq('status', 'active')
-    .neq('id', profile.id)
-    .order('full_name')
-    .limit(200);
+  const { data, error } = await readAll((from, to) =>
+    supabase
+      .from('user_profiles')
+      .select('id, full_name, employee_id, reporting_manager_id')
+      .eq('status', 'active')
+      .neq('id', profile.id)
+      .order('full_name')
+      .order('id')
+      .range(from, to),
+  );
 
   if (error) {
     console.error(`[getAssignablePeople] ${error.message}`);
     return [];
   }
 
-  return (data ?? []).map((row) => ({
+  return data.map((row) => ({
     id: String(row.id),
     fullName: String(row.full_name),
     employeeId: String(row.employee_id),
+    directReport: row.reporting_manager_id === profile.id,
   }));
 }

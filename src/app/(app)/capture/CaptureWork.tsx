@@ -19,6 +19,7 @@ import {
 import { useFileDropZone } from '@/components/ui/useFileDropZone';
 import { addChecklistStep } from '@/server/actions/task-actions';
 import { Modal } from '@/components/ui/Modal';
+import { PeopleOptions } from '@/components/ui/PeopleOptions';
 
 /**
  * New Work.
@@ -48,6 +49,8 @@ export interface AssignablePerson {
   id: string;
   fullName: string;
   employeeId: string;
+  /** Reports to the person capturing, so is offered first (v175). */
+  directReport: boolean;
 }
 
 const WORK_TYPE_LABELS: Record<CaptureWorkType, string> = {
@@ -508,11 +511,13 @@ export function CaptureWork({
                 onChange={(event) => setPrimaryOwnerId(event.target.value)}
               >
                 <option value="">Me — {viewerName.split(' ')[0]}</option>
-                {assignablePeople.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.fullName}
-                  </option>
-                ))}
+                <PeopleOptions
+                  people={assignablePeople.map((person) => ({
+                    id: person.id,
+                    name: person.fullName,
+                    directReport: person.directReport,
+                  }))}
+                />
               </select>
             </div>
           )}

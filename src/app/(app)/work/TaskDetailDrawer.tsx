@@ -8,6 +8,7 @@ import { CompletionForm } from './CompletionForm';
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker';
 import { Modal } from '@/components/ui/Modal';
 import { MenuDropdown } from '@/components/ui/MenuDropdown';
+import { PeopleOptions } from '@/components/ui/PeopleOptions';
 import { SideDrawer } from '@/components/ui/SideDrawer';
 import { AttachmentViewer, canPreview } from './AttachmentViewer';
 import { RoutineOutcomePanel } from './RoutineOutcomePanel';
@@ -98,7 +99,13 @@ interface TaskDetailDrawerProps {
   timeZone: string;
   staleThresholdDays: number;
   /** Every active team member; empty when the viewer may not assign (v45 §1). */
-  assignablePeople: Array<{ id: string; name: string; isPrimaryOwner: boolean }>;
+  assignablePeople: Array<{
+    id: string;
+    name: string;
+    isPrimaryOwner: boolean;
+    /** Reports to the viewer, so reassignment offers them first (v175). */
+    directReport: boolean;
+  }>;
   viewerId: string;
   /** Set when the viewer arrived from a notification or Needs Attention (v46 §3). */
   attentionBarrierId: string | null;
@@ -1195,13 +1202,9 @@ export function TaskDetailDrawer({
                 <label htmlFor={`reassign-${task.id}`}>Who should carry this work?</label>
                 <select id={`reassign-${task.id}`} name="newOwnerId" defaultValue="">
                   <option value="">Choose a person</option>
-                  {assignablePeople
-                    .filter((person) => person.id !== task.primaryOwnerId)
-                    .map((person) => (
-                      <option key={person.id} value={person.id}>
-                        {person.name}
-                      </option>
-                    ))}
+                  <PeopleOptions
+                    people={assignablePeople.filter((person) => person.id !== task.primaryOwnerId)}
+                  />
                 </select>
               </div>
             </div>

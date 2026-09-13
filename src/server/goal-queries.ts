@@ -11,6 +11,7 @@ import {
   type GoalTeamSummary,
   type GoalVersionStatus,
 } from '@/domain/goals';
+import { readAll } from '@/lib/read-all';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 type Raw = Record<string, unknown>;
@@ -730,18 +731,22 @@ export async function getGoalDetail(goalId: string): Promise<GoalDetail | null> 
 
 export async function getGoalEmployeeOptions(viewerId: string) {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from('user_profiles')
-    .select('id,full_name,employee_id,role')
-    .eq('status', 'active')
-    .neq('id', viewerId)
-    .order('full_name')
-    .limit(200);
+  // Everybody, a page at a time: this was `.limit(200)` (v175).
+  const { data, error } = await readAll((from, to) =>
+    supabase
+      .from('user_profiles')
+      .select('id,full_name,employee_id,role')
+      .eq('status', 'active')
+      .neq('id', viewerId)
+      .order('full_name')
+      .order('id')
+      .range(from, to),
+  );
   if (error) {
     console.error(`[getGoalEmployeeOptions] ${error.message}`);
     return [];
   }
-  return (data ?? []).map((row) => ({
+  return data.map((row) => ({
     id: row.id,
     fullName: row.full_name,
     employeeId: row.employee_id,
@@ -884,15 +889,19 @@ export async function getGoalSessions(
 
 export async function getGoalSupportPeople(viewerId: string) {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from('team_directory')
-    .select('id,full_name')
-    .neq('id', viewerId)
-    .order('full_name')
-    .limit(200);
+  // Everybody, a page at a time: this was `.limit(200)` (v175).
+  const { data, error } = await readAll((from, to) =>
+    supabase
+      .from('team_directory')
+      .select('id,full_name')
+      .neq('id', viewerId)
+      .order('full_name')
+      .order('id')
+      .range(from, to),
+  );
   if (error) {
     console.error(`[getGoalSupportPeople] ${error.message}`);
     return [];
   }
-  return (data ?? []).map((row) => ({ id: row.id, name: row.full_name }));
+  return data.map((row) => ({ id: row.id, name: row.full_name }));
 }

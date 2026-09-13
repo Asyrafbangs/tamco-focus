@@ -1,5 +1,6 @@
 import { writeOrganisationFile } from '@/domain/organisation-import';
 import { orgConfig } from '@/lib/env';
+import { readAll } from '@/lib/read-all';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
 
 /**
@@ -12,8 +13,6 @@ import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/serve
  * Administrators only, and indistinguishable from a missing page for anybody
  * else, as the attachment route is.
  */
-
-const PAGE = 1000;
 
 interface ProfileRow {
   id: string;
@@ -40,19 +39,17 @@ export async function GET() {
   // Paged, because the API returns at most a thousand rows to a request and an
   // organisation file that silently stopped at a thousand people would import
   // as if the rest did not exist.
-  const people: ProfileRow[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
+  const { data: rows, error } = await readAll((from, to) =>
+    supabase
       .from('user_profiles')
       .select(
         'id,employee_id,full_name,email,department_id,job_title,reporting_manager_id,functional_manager_id,status',
       )
       .order('employee_id')
-      .range(from, from + PAGE - 1);
-    if (error) return new Response('The organisation could not be exported.', { status: 500 });
-    people.push(...((data ?? []) as ProfileRow[]));
-    if ((data ?? []).length < PAGE) break;
-  }
+      .range(from, to),
+  );
+  if (error) return new Response('The organisation could not be exported.', { status: 500 });
+  const people = rows as ProfileRow[];
 
   const { data: departments, error: departmentsError } = await supabase
     .from('departments')

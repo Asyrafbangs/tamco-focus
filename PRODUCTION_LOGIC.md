@@ -1598,3 +1598,19 @@ derived-progress rules. The future ESH finding/action system remains outside the
 9. `/more/admin/organisation/export` returns the active organisation in the import's columns,
    UTF-8 with a byte-order mark, and a leading apostrophe on any cell a spreadsheet would run as
    a formula, which the import removes again. Anybody but an administrator gets not found.
+
+## 70. v175 People lists
+
+1. The pickers that hand over ownership — the primary owner when assigning work, and the new
+   owner when reassigning — show the viewer's direct reports first under "Your team", then
+   everyone else under "Everyone else", each alphabetical. Direct means
+   `reporting_manager_id`; a dotted line (section 68) does not count. With no direct reports,
+   the list has no headings.
+2. Who appears is unchanged: assignment offers the people the viewer may see, and
+   reassignment the names-only `team_directory`. Only the order and the headings are new.
+3. Lists of people are read a thousand rows at a time until a page comes back short
+   (`readAll`), ordered by a unique key so no row falls between pages. This replaces fixed
+   limits of 200 (assignment, reassignment, the team directory, goal employees and supporters)
+   and 500 (the Directory), and the Organisation queries that asked for 2,000 rows from an API
+   that returns at most 1,000. A failed page is reported as a failure, never returned as a
+   shorter list.

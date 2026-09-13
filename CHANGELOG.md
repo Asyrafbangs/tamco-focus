@@ -1,5 +1,15 @@
 # TAMCO Focus — Change Log
 
+## v175 Your team first, and nobody left off the list — 14 September 2026
+
+- Giving work to somebody starts with your own team. "Primary owner" when assigning work, and
+  "Who should carry this work?" when reassigning it, list the people who report to you under
+  "Your team", then everyone else under "Everyone else". Somebody with nobody reporting to them
+  sees the plain list.
+- People lists no longer stop part-way through a large organisation. The assignment pickers
+  stopped at 200 names and the Directory at 500, so in a company of six hundred some people
+  could not be found or given work. They now read everybody.
+
 ## v174 Import the organisation from a file, checked first — 13 September 2026
 
 - Organisation has "Import organisation": a CSV file with one row per person, found by

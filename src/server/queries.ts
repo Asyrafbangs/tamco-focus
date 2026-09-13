@@ -2,6 +2,7 @@ import 'server-only';
 
 import { cache } from 'react';
 
+import { readAll } from '@/lib/read-all';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { barrierHref } from '@/domain/barriers';
 import { notificationHref } from '@/domain/notification-link';
@@ -2514,18 +2515,22 @@ export interface MeetingQueueRow {
 export async function getTeamDirectory(): Promise<Array<{ id: string; name: string }>> {
   const supabase = await createSupabaseServerClient();
 
-  const { data, error } = await supabase
-    .from('team_directory')
-    .select('id, full_name')
-    .order('full_name')
-    .limit(200);
+  // Everybody, a page at a time: this was `.limit(200)` (v175).
+  const { data, error } = await readAll((from, to) =>
+    supabase
+      .from('team_directory')
+      .select('id, full_name')
+      .order('full_name')
+      .order('id')
+      .range(from, to),
+  );
 
   if (error) {
     console.error(`[getTeamDirectory] ${error.message}`);
     return [];
   }
 
-  return (data ?? []).map((row) => ({ id: String(row.id), name: String(row.full_name) }));
+  return data.map((row) => ({ id: String(row.id), name: String(row.full_name) }));
 }
 
 export async function getMeetingQueue(): Promise<MeetingQueueRow[]> {
@@ -2976,7 +2981,12 @@ export interface DirectoryData {
 export async function getDirectoryData(): Promise<DirectoryData> {
   const supabase = await createSupabaseServerClient();
   const [usersResult, departmentsResult] = await Promise.all([
-    supabase.from('user_profiles').select('*').order('full_name').limit(500),
+    // Everybody, a page at a time. This was `.limit(500)`, so the Directory —
+    // and every picker the Organisation screen fills from it — stopped at the
+    // five-hundredth name (v175).
+    readAll((from, to) =>
+      supabase.from('user_profiles').select('*').order('full_name').order('id').range(from, to),
+    ),
     supabase.from('departments').select('id,code,name,parent_id,head_id,status').order('name'),
   ]);
   if (usersResult.error) throw new Error('DIRECTORY_UNAVAILABLE');
@@ -2984,7 +2994,7 @@ export async function getDirectoryData(): Promise<DirectoryData> {
     (departmentsResult.data ?? []).map((row) => [row.id as string, row.name as string]),
   );
   return {
-    users: (usersResult.data ?? []).map((row) => ({
+    users: usersResult.data.map((row) => ({
       id: row.id as string,
       employeeId: row.employee_id as string,
       email: row.email as string,
@@ -3108,17 +3118,22 @@ async function loadOrganisationTallies(): Promise<{
   unassignedCount: number;
 }> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from('user_profiles')
-    .select('id,department_id,reporting_manager_id')
-    .eq('status', 'active')
-    .limit(2000);
+  // A page at a time: `.limit(2000)` asked for more than the API's thousand-row
+  // cap returns, so past a thousand people the counts were quietly short (v175).
+  const { data, error } = await readAll((from, to) =>
+    supabase
+      .from('user_profiles')
+      .select('id,department_id,reporting_manager_id')
+      .eq('status', 'active')
+      .order('id')
+      .range(from, to),
+  );
   if (error) throw new Error('ORGANISATION_UNAVAILABLE');
 
   const reportCounts = new Map<string, number>();
   const departmentSizes = new Map<string, number>();
   let unassignedCount = 0;
-  for (const row of data ?? []) {
+  for (const row of data) {
     const managerId = (row.reporting_manager_id as string) ?? null;
     if (managerId) reportCounts.set(managerId, (reportCounts.get(managerId) ?? 0) + 1);
     const departmentId = (row.department_id as string) ?? null;
@@ -3235,8 +3250,14 @@ export async function findOrganisationPeople(term: string): Promise<Organisation
       .order('full_name')
       .limit(20),
     // The whole reporting line in one light pass, so walking up to the root
-    // costs nothing per match.
-    supabase.from('user_profiles').select('id,full_name,reporting_manager_id').limit(2000),
+    // costs nothing per match — all of it, a page at a time (v175).
+    readAll((from, to) =>
+      supabase
+        .from('user_profiles')
+        .select('id,full_name,reporting_manager_id')
+        .order('id')
+        .range(from, to),
+    ),
     supabase.from('departments').select('id,name'),
     loadOrganisationTallies(),
   ]);
@@ -3244,7 +3265,7 @@ export async function findOrganisationPeople(term: string): Promise<Organisation
 
   const managerOf = new Map<string, string | null>();
   const nameOf = new Map<string, string>();
-  for (const row of lineageResult.data ?? []) {
+  for (const row of lineageResult.data) {
     managerOf.set(row.id as string, (row.reporting_manager_id as string) ?? null);
     nameOf.set(row.id as string, row.full_name as string);
   }
@@ -3320,15 +3341,19 @@ export interface OrganisationIssues {
 export async function getOrganisationIssues(): Promise<OrganisationIssues> {
   const supabase = await createSupabaseServerClient();
   const [peopleResult, departmentsResult] = await Promise.all([
-    supabase
-      .from('user_profiles')
-      .select('id,full_name,employee_id,job_title,department_id,reporting_manager_id,status')
-      .limit(2000),
+    // Everybody, a page at a time (v175).
+    readAll((from, to) =>
+      supabase
+        .from('user_profiles')
+        .select('id,full_name,employee_id,job_title,department_id,reporting_manager_id,status')
+        .order('id')
+        .range(from, to),
+    ),
     supabase.from('departments').select('id,name,code,head_id,status'),
   ]);
   if (peopleResult.error || departmentsResult.error) throw new Error('ORGANISATION_UNAVAILABLE');
 
-  const people = peopleResult.data ?? [];
+  const people = peopleResult.data;
   const departments = departmentsResult.data ?? [];
   const personById = new Map(people.map((row) => [row.id as string, row]));
   const departmentNames = new Map(departments.map((row) => [row.id as string, row.name as string]));
@@ -3733,24 +3758,57 @@ async function getStepsOverdueByTask(personId: string): Promise<Map<string, numb
  */
 export async function getAssignablePeople(
   taskId: string,
-): Promise<Array<{ id: string; name: string; isPrimaryOwner: boolean }>> {
+): Promise<Array<{ id: string; name: string; isPrimaryOwner: boolean; directReport: boolean }>> {
   const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const [taskResult, peopleResult] = await Promise.all([
+  const [taskResult, peopleResult, reportsResult] = await Promise.all([
     supabase
       .from('task_overview')
       .select('primary_owner_id, owner_name')
       .eq('id', taskId)
       .maybeSingle(),
     // `team_directory` is the names-only projection: it answers "who is here"
-    // without widening who may read anybody's work (v45 sections 1-2).
-    supabase.from('team_directory').select('id, full_name').order('full_name').limit(200),
+    // without widening who may read anybody's work (v45 sections 1-2). All of
+    // it, a page at a time: this was `.limit(200)` (v175).
+    readAll((from, to) =>
+      supabase
+        .from('team_directory')
+        .select('id, full_name')
+        .order('full_name')
+        .order('id')
+        .range(from, to),
+    ),
+    /*
+     * Who reports to the viewer, so a reassignment offers their own team first
+     * (v175). Read from the profiles the viewer can already see, which include
+     * their reports; `team_directory` deliberately carries no reporting line.
+     */
+    user
+      ? readAll((from, to) =>
+          supabase
+            .from('user_profiles')
+            .select('id')
+            .eq('reporting_manager_id', user.id)
+            .eq('status', 'active')
+            .order('id')
+            .range(from, to),
+        )
+      : Promise.resolve({ data: [] as Array<{ id: string }>, error: null }),
   ]);
 
   if (!taskResult.data) return [];
 
   const ownerId = String(taskResult.data.primary_owner_id);
-  const ordered: Array<{ id: string; name: string; isPrimaryOwner: boolean }> = [];
+  const reports = new Set(reportsResult.data.map((row) => String(row.id)));
+  const ordered: Array<{
+    id: string;
+    name: string;
+    isPrimaryOwner: boolean;
+    directReport: boolean;
+  }> = [];
 
   // The owner leads and stays labelled — a step is theirs unless somebody
   // deliberately says otherwise — but is no longer the only choice.
@@ -3758,12 +3816,18 @@ export async function getAssignablePeople(
     id: ownerId,
     name: String(taskResult.data.owner_name),
     isPrimaryOwner: true,
+    directReport: reports.has(ownerId),
   });
 
-  for (const row of peopleResult.data ?? []) {
+  for (const row of peopleResult.data) {
     const id = String(row.id);
     if (id === ownerId) continue;
-    ordered.push({ id, name: String(row.full_name), isPrimaryOwner: false });
+    ordered.push({
+      id,
+      name: String(row.full_name),
+      isPrimaryOwner: false,
+      directReport: reports.has(id),
+    });
   }
 
   return ordered;
