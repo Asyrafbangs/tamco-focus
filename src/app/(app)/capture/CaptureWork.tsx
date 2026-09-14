@@ -14,7 +14,6 @@ import {
   answerCaptureQuestion,
   confirmCapture,
   createCaptureDraft,
-  discardCaptureDraft,
 } from '@/server/actions/capture-actions';
 import { useFileDropZone } from '@/components/ui/useFileDropZone';
 import { addChecklistStep } from '@/server/actions/task-actions';
@@ -250,10 +249,17 @@ export function CaptureWork({
         return;
       }
 
-      // A manager naming somebody else is assigning: assigned work waits in
-      // that person's Available list rather than starting on their behalf
-      // (v41 section 13). The draft is discarded because `assign_work` is what
-      // creates the task.
+      /*
+       * A manager naming somebody else is assigning: assigned work waits in
+       * that person's Available list rather than starting on their behalf
+       * (v41 section 13).
+       *
+       * The draft goes with it (v180). It used to be discarded here, and
+       * discarding it deleted the attached files and dropped the completion
+       * evidence rule — the task arrived optional and empty, however the form
+       * had been filled in. The procedure now takes both from the draft and
+       * resolves it.
+       */
       if (primaryOwnerId && canAssign) {
         const workClass =
           draft.recommendation.destination === 'major_project_request'
@@ -270,12 +276,12 @@ export function CaptureWork({
           dueDate: chosenDate || undefined,
           workPurpose: workPurpose || undefined,
           idempotencyKey: crypto.randomUUID(),
+          captureId: draft.captureId,
         });
         if (!assigned.ok) {
           setError(assigned.message);
           return;
         }
-        await discardCaptureDraft({ captureId: draft.captureId });
         await finishWith(assigned.task_ids?.[0], 'operational_available_work');
         return;
       }

@@ -56,6 +56,12 @@ const schema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
   idempotencyKey: z.string().min(8).max(128),
+  /**
+   * The draft New Work saved (v180). Its completion evidence rule, instruction,
+   * description and files are carried onto the task by the procedure, rather
+   * than dropped when the draft used to be discarded.
+   */
+  captureId: z.string().uuid().optional(),
 });
 
 export interface AssignmentResultData {
@@ -100,6 +106,7 @@ export async function assignWork(
     p_review_at: reviewAt,
     p_idempotency_key: parsed.data.idempotencyKey,
     p_work_purpose: parsed.data.workPurpose ?? null,
+    p_capture_id: parsed.data.captureId,
   });
 
   if (error) {

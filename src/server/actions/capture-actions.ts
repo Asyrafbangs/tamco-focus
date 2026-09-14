@@ -281,41 +281,6 @@ export async function answerCaptureQuestion(input: {
   return { ok: true, code: 'answer_saved', captureId: capture.id as string, recommendation };
 }
 
-export async function discardCaptureDraft(input: { captureId: string }): Promise<OperationResult> {
-  await requireProfile();
-  const parsed = z.object({ captureId: z.string().uuid() }).safeParse(input);
-  if (!parsed.success) return { ok: false, code: 'validation_failed', message: 'Invalid capture.' };
-
-  const supabase = await createSupabaseServerClient();
-  const { data: attachments } = await supabase
-    .from('work_capture_attachments')
-    .select('storage_path')
-    .eq('capture_id', parsed.data.captureId);
-  const paths = (attachments ?? []).map((row) => row.storage_path as string);
-  if (paths.length) {
-    const { error: storageError } = await supabase.storage.from('task-attachments').remove(paths);
-    if (storageError)
-      return {
-        ok: false,
-        code: 'unexpected_error',
-        message: 'The saved draft could not be cleared safely.',
-      };
-  }
-
-  const { error } = await supabase
-    .from('work_captures')
-    .delete()
-    .eq('id', parsed.data.captureId)
-    .eq('status', 'pending_confirmation');
-  if (error)
-    return {
-      ok: false,
-      code: 'unexpected_error',
-      message: 'The saved draft could not be cleared.',
-    };
-  return { ok: true, code: 'draft_discarded' };
-}
-
 export async function confirmCapture(input: {
   captureId: string;
   destination: CaptureDestination;

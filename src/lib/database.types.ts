@@ -9987,6 +9987,7 @@ export type Database = {
       }
       assign_work_to_people: {
         Args: {
+          p_capture_id?: string
           p_description: string
           p_due_at?: string
           p_due_is_date_only?: boolean

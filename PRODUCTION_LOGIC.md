@@ -1657,3 +1657,14 @@ derived-progress rules. The future ESH finding/action system remains outside the
 2. Visibility "Selected people" is never disabled. Ticking a person while the mode is "No team
    visibility" sets the mode to "Specific people only" with that one person; the hint says so.
 3. Discussion invitations are checkboxes carrying the same participant ids.
+
+## 75. v180 Assignment carries the New Work draft
+
+1. `assign_work_to_people` takes `p_capture_id`. Given the caller's own pending draft, it sets
+   the task's completion evidence rule and instruction and, when none is passed, its
+   description from the draft; moves the draft's attachment rows onto the task, pointing at the
+   same stored files; and resolves the draft as confirmed with the created task. Refused for
+   somebody else's draft or one no longer pending (`not_found`), and for more than one owner
+   (`validation_failed`).
+2. New Work no longer discards the draft after assigning, which is what deleted the files.
+3. Without `p_capture_id` assignment is unchanged, with evidence optional.

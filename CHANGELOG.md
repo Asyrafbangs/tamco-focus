@@ -1,5 +1,12 @@
 # TAMCO Focus — Change Log
 
+## v180 Assigned work keeps its evidence rule and files — 14 September 2026
+
+- A manager creating New Work with somebody else as Primary owner now gets exactly what the form
+  said: the Completion evidence rule and its instruction, the reason given for a project, and
+  the attached files all arrive on the assigned task. Before, the task arrived with evidence
+  optional and no files, and the files were deleted.
+
 ## v179 A chosen option does something — 14 September 2026
 
 - Filters apply as soon as an option is chosen: Directory status, the Organisation department
