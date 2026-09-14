@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { RecordRow, StatusBadge, WorkspaceTabs } from '@/components/ui/ParityPrimitives';
 import { PeriodPicker } from '@/components/ui/PeriodPicker';
+import { SubmitOnSelect } from '@/components/ui/SubmitOnSelect';
 import { periodParams, RECORD_PERIODS, resolvePeriod } from '@/domain/period';
 import { requireProfile } from '@/lib/supabase/server';
 import { getCompletionRecords, type RecordFilters } from '@/server/queries';
@@ -218,6 +219,8 @@ export default async function RecordsPage({
           <button className="btn primary" type="submit">
             Apply
           </button>
+          {/* A chosen option applies at once (v179); Apply stays for the text box. */}
+          <SubmitOnSelect />
         </form>
       </details>
 

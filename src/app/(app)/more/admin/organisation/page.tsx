@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { WorkspaceTabs } from '@/components/ui/ParityPrimitives';
+import { SubmitOnSelect } from '@/components/ui/SubmitOnSelect';
 import { requireProfile } from '@/lib/supabase/server';
 
 import { DepartmentForm } from './DepartmentForm';
@@ -412,6 +413,8 @@ export default async function OrganisationPage({
             Clear
           </Link>
         )}
+        {/* Choosing a department lists it at once (v179). */}
+        <SubmitOnSelect />
       </form>
 
       {/*

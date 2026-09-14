@@ -60,5 +60,6 @@
 | Directory: dotted line and reporting history         | Directory form: dotted-line field; Reporting history         | `change_functional_manager`; `managerOnDate`; history of both lines       | v176 unit (6); desktop/mobile E2E (2)                  | Implemented and verified |
 | Organisation: department filter, search into chart   | Department filter; People link; Show in chart                | `findOrganisationPeople(term, departmentId)`; open chain + focus          | v177 desktop/mobile E2E (2)                            | Implemented and verified |
 | Organisation import from Excel (.xlsx)               | Import organisation accepts .xlsx and CSV                    | `readXlsx` into `readOrganisationRecords`; same planner                   | v178 unit (5); desktop/mobile E2E (2)                  | Implemented and verified |
+| Filters apply on choice; ticks that tick             | Directory/Organisation/Records filters; visibility; invites  | `SubmitOnSelect` (keyboard held until Enter or blur); checkbox invites    | v179 desktop/mobile E2E (3); v47 invite ticks          | Implemented and verified |
 
 The approved v33 application modules are mapped above. Detailed workflow contracts remain in `MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`, and the handoff documents in this directory.

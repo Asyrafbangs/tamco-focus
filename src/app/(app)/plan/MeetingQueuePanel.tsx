@@ -245,31 +245,40 @@ export function MeetingQueuePanel({
               </select>
             </div>
 
-            <div className="field full">
-              <label htmlFor="schedule-participants">Also invite</label>
-              <select
-                id="schedule-participants"
-                multiple
-                size={4}
-                value={extraParticipants}
-                onChange={(event) =>
-                  setExtraParticipants(
-                    Array.from(event.target.selectedOptions).map((option) => option.value),
-                  )
-                }
-              >
+            {/*
+              Ticks, not a multiple select (v179). A multiple select replaces
+              its choice on an ordinary click and adds only with Ctrl held,
+              which nothing on screen says — so picking a second person
+              silently dropped the first, and it was reported as a selection
+              that did not work. A tick means one thing on every device.
+            */}
+            <fieldset className="field full mention-list">
+              <legend>Also invite</legend>
+              <div className="people-check-grid">
                 {people.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name}
-                  </option>
+                  <label key={person.id} className="check-row">
+                    <input
+                      type="checkbox"
+                      value={person.id}
+                      checked={extraParticipants.includes(person.id)}
+                      onChange={(event) =>
+                        setExtraParticipants((current) =>
+                          event.target.checked
+                            ? [...current, person.id]
+                            : current.filter((id) => id !== person.id),
+                        )
+                      }
+                    />
+                    <span>{person.name}</span>
+                  </label>
                 ))}
-              </select>
+              </div>
               <small>
                 {scheduling.requestedByName
                   ? `${scheduling.requestedByName} and you are already included.`
                   : 'You are already included.'}
               </small>
-            </div>
+            </fieldset>
 
             <footer className="modalfoot">
               <button type="button" className="btn" onClick={closeScheduling}>

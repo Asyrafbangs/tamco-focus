@@ -97,6 +97,15 @@ test('a request can be queued, scheduled, and only then answered', async ({ page
   // §22 — the topic arrives filled in; nobody retypes the request.
   await expect(scheduleForm.getByLabel('Topic')).toHaveValue(request);
 
+  // v179 — invitations are ticks: a second tick adds a person, where the old
+  // multiple select replaced the first choice on an ordinary click.
+  const invite = scheduleForm.getByRole('group', { name: 'Also invite' }).getByRole('checkbox');
+  expect(await invite.count()).toBeGreaterThanOrEqual(2);
+  await invite.nth(0).check();
+  await invite.nth(1).check();
+  await expect(invite.nth(0)).toBeChecked();
+  await expect(invite.nth(1)).toBeChecked();
+
   await scheduleForm.getByLabel('Date and time').fill('2026-08-12T10:00');
   await scheduleForm.getByRole('button', { name: 'Add to calendar' }).click();
   await expect(scheduleForm).toHaveCount(0);

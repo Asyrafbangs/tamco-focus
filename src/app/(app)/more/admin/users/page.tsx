@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { WorkspaceTabs } from '@/components/ui/ParityPrimitives';
+import { SubmitOnSelect } from '@/components/ui/SubmitOnSelect';
 import { requireProfile } from '@/lib/supabase/server';
 import { getDirectoryData, getReportingHistory, getVisibilityData } from '@/server/queries';
 
@@ -99,6 +100,8 @@ export default async function UsersPage({
             <button className="btn small" type="submit">
               Apply
             </button>
+            {/* Choosing a status filters the list at once (v179). */}
+            <SubmitOnSelect />
           </form>
           <div className="master-list">
             {users.map((user) => (

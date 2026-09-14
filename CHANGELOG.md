@@ -1,5 +1,16 @@
 # TAMCO Focus — Change Log
 
+## v179 A chosen option does something — 14 September 2026
+
+- Filters apply as soon as an option is chosen: Directory status, the Organisation department
+  filter, and the Records filters. Apply and Find stay for typed searches. Stepping through a
+  filter with the arrow keys waits until you press Enter or move on, so a keyboard can still
+  reach every option.
+- On a person's visibility settings, the people list no longer greys out under "No team
+  visibility". Ticking somebody switches the mode to "Specific people only", and the form says so.
+- "Also invite" when scheduling a discussion is a list of ticks. It was a multiple select, where
+  an ordinary click replaced the person already chosen.
+
 ## v178 Import the organisation from Excel — 14 September 2026
 
 - Import organisation accepts an Excel workbook (.xlsx) as well as CSV. The first sheet is read,

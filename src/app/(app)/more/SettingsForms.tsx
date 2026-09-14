@@ -709,8 +709,20 @@ export function VisibilityForm({
           </span>
         </label>
       </fieldset>
-      <fieldset disabled={mode === 'none'}>
+      {/*
+        Never disabled (v179). With "No team visibility" chosen the whole list
+        used to grey out, and ticking a name did nothing at all — reported as a
+        control that does not work. Ticking somebody now says what it means: it
+        switches the mode to "Specific people only", visibly, above.
+      */}
+      <fieldset>
         <legend>Selected people</legend>
+        {mode === 'none' && (
+          <p className="form-hint">
+            Nobody else is visible while this is set to No team visibility. Ticking a person
+            switches it to Specific people only.
+          </p>
+        )}
         <div className="people-check-grid">
           {activePeople.map((person) => (
             <label className="check-row" key={person.id}>
@@ -718,15 +730,19 @@ export function VisibilityForm({
                 name="subjectIds"
                 type="checkbox"
                 value={person.id}
-                checked={selected.has(person.id)}
-                onChange={(event) =>
+                checked={mode !== 'none' && selected.has(person.id)}
+                onChange={(event) => {
+                  const ticked = event.target.checked;
+                  if (ticked && mode === 'none') setMode('specific_only');
                   setSelected((current) => {
-                    const next = new Set(current);
-                    if (event.target.checked) next.add(person.id);
+                    // Switching out of "none" starts from this one tick, not
+                    // from people granted before the mode was turned off.
+                    const next = new Set(mode === 'none' ? [] : current);
+                    if (ticked) next.add(person.id);
                     else next.delete(person.id);
                     return next;
-                  })
-                }
+                  });
+                }}
               />
               <span>
                 {person.fullName}

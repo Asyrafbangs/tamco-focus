@@ -1647,3 +1647,13 @@ derived-progress rules. The future ESH finding/action system remains outside the
 2. The rows then go through the same reading as CSV (section 69): header matching, limits,
    blanks, and the formula guard, with the spreadsheet's own row numbers.
 3. `.xls` and any other extension are refused with a sentence naming what to save instead.
+
+## 74. v179 Choices that apply
+
+1. A filter form containing `SubmitOnSelect` submits when one of its selects changes by pointer
+   or touch. A change that follows a key press is held until Enter or until the select loses
+   focus, so arrow keys step through options without navigating. The form's own button remains.
+   Used on the Directory, Organisation and Records filter bars.
+2. Visibility "Selected people" is never disabled. Ticking a person while the mode is "No team
+   visibility" sets the mode to "Specific people only" with that one person; the hint says so.
+3. Discussion invitations are checkboxes carrying the same participant ids.
