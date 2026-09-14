@@ -3222,6 +3222,60 @@ export async function getOrganisationBranch(managerId: string): Promise<Organisa
   );
 }
 
+export interface ReportingHistoryEntry {
+  id: string;
+  relationship: 'primary' | 'functional';
+  previousManagerId: string | null;
+  previousManagerName: string | null;
+  newManagerId: string | null;
+  newManagerName: string | null;
+  effectiveDate: string;
+  changedAt: string;
+  changedByName: string | null;
+  reason: string | null;
+}
+
+/**
+ * One person's reporting history, newest first (v176): both lines, with names.
+ *
+ * Administrators only, as the table's policy already decides; anybody else
+ * reads an empty history rather than an error.
+ */
+export async function getReportingHistory(userId: string): Promise<ReportingHistoryEntry[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await readAll((from, to) =>
+    supabase
+      .from('reporting_assignments')
+      .select(
+        'id,relationship,previous_manager_id,new_manager_id,effective_date,reason,changed_by,changed_at',
+      )
+      .eq('subject_id', userId)
+      .order('effective_date', { ascending: false })
+      .order('changed_at', { ascending: false })
+      .order('id')
+      .range(from, to),
+  );
+  if (error) throw new Error('REPORTING_HISTORY_UNAVAILABLE');
+
+  const names = await namesFor(
+    data.flatMap((row) => [row.previous_manager_id, row.new_manager_id, row.changed_by]),
+  );
+  const nameOf = (id: string | null) => (id ? (names.get(id) ?? null) : null);
+
+  return data.map((row) => ({
+    id: String(row.id),
+    relationship: row.relationship === 'functional' ? 'functional' : 'primary',
+    previousManagerId: row.previous_manager_id ?? null,
+    previousManagerName: nameOf(row.previous_manager_id),
+    newManagerId: row.new_manager_id ?? null,
+    newManagerName: nameOf(row.new_manager_id),
+    effectiveDate: String(row.effective_date),
+    changedAt: String(row.changed_at),
+    changedByName: nameOf(row.changed_by),
+    reason: row.reason ?? null,
+  }));
+}
+
 export interface OrganisationMatch extends OrganisationPerson {
   /** Root first, ending with this person's own manager. Empty at the top. */
   chain: Array<{ id: string; fullName: string }>;
@@ -3235,20 +3289,37 @@ export interface OrganisationMatch extends OrganisationPerson {
  * then the person — which is what the tree would have shown had somebody
  * opened every branch down to them.
  */
-export async function findOrganisationPeople(term: string): Promise<OrganisationMatch[]> {
+export async function findOrganisationPeople(
+  term: string,
+  /**
+   * Narrows to one department (v177). Given without a term, it lists the whole
+   * department — the answer to "who is in EHS?" — rather than nothing.
+   */
+  departmentId = '',
+): Promise<OrganisationMatch[]> {
   const needle = term.trim();
-  if (needle.length === 0) return [];
+  if (needle.length === 0 && !departmentId) return [];
 
   const supabase = await createSupabaseServerClient();
   const pattern = `%${needle.replace(/[%_]/g, (character) => `\\${character}`)}%`;
-  const [matchesResult, lineageResult, departmentsResult, tallies] = await Promise.all([
-    supabase
+  // A fresh query for each request: the client's builder is mutable, and
+  // reusing one across pages would stack its ordering on every call.
+  const people = () => {
+    let query = supabase
       .from('user_profiles')
       .select(ORGANISATION_PERSON_COLUMNS)
-      .eq('status', 'active')
-      .or(`full_name.ilike.${pattern},employee_id.ilike.${pattern},job_title.ilike.${pattern}`)
-      .order('full_name')
-      .limit(20),
+      .eq('status', 'active');
+    if (departmentId) query = query.eq('department_id', departmentId);
+    if (needle) {
+      query = query.or(
+        `full_name.ilike.${pattern},employee_id.ilike.${pattern},job_title.ilike.${pattern}`,
+      );
+    }
+    return query.order('full_name').order('id');
+  };
+  const [matchesResult, lineageResult, departmentsResult, tallies] = await Promise.all([
+    // A search is a handful of names; a department is everybody in it.
+    needle ? people().limit(20) : readAll((from, to) => people().range(from, to)),
     // The whole reporting line in one light pass, so walking up to the root
     // costs nothing per match — all of it, a page at a time (v175).
     readAll((from, to) =>

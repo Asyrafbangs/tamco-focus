@@ -192,9 +192,34 @@ const provisionSchema = z.object({
   departmentId: z.string().uuid(),
   role: z.enum(['team_member', 'manager', 'administrator']),
   reportingManagerId: z.string().uuid().nullable(),
+  // The dotted line (v173), from the Directory since v176. Empty means none.
+  functionalManagerId: z.string().uuid().nullable(),
   personalSummaryMode: z.enum(['off', 'focused', 'standard']),
   teamSummaryMode: z.enum(['off', 'leadership', 'detailed']),
 });
+
+const SAME_PERSON_ON_BOTH_LINES =
+  'The dotted-line manager is already the reporting manager. A dotted line to the same person adds nothing — choose somebody else, or leave it empty.';
+
+/**
+ * Draws or clears the dotted line through the procedure that owns it (v176).
+ *
+ * The Directory's forms save the person first and the dotted line second, so a
+ * refusal here is reported as exactly that — saved, except the line — rather
+ * than folded into a success or a failure that is not quite true.
+ */
+async function setDottedLine(userId: string, managerId: string | null): Promise<RpcResult> {
+  const caller = await createSupabaseServerClient();
+  const { data, error } = await caller.rpc('change_functional_manager', {
+    p_user_id: userId,
+    p_manager_id: managerId ?? undefined,
+  });
+  if (error) {
+    console.error(`[change_functional_manager] ${error.message}`);
+    return { ok: false, code: 'unexpected_error', message: 'it could not be saved' };
+  }
+  return data as RpcResult;
+}
 
 /** Creates the local Auth identity and application profile as one compensated
  * operation. A failed profile transaction removes the just-created identity. */
@@ -212,10 +237,18 @@ export async function provisionUserAction(
     departmentId: formData.get('departmentId'),
     role: formData.get('role'),
     reportingManagerId: formData.get('reportingManagerId') || null,
+    functionalManagerId: formData.get('functionalManagerId') || null,
     personalSummaryMode: formData.get('personalSummaryMode'),
     teamSummaryMode: formData.get('teamSummaryMode'),
   });
   if (!parsed.success) return initialError('Complete every required identity field correctly.');
+  // Refused before the account exists, so a mistake here creates nothing.
+  if (
+    parsed.data.functionalManagerId &&
+    parsed.data.functionalManagerId === parsed.data.reportingManagerId
+  ) {
+    return initialError(SAME_PERSON_ON_BOTH_LINES);
+  }
 
   const service = createSupabaseServiceRoleClient();
   const created = await service.auth.admin.createUser({
@@ -256,6 +289,21 @@ export async function provisionUserAction(
   }
 
   revalidatePath('/more/admin/users');
+  revalidatePath('/more/admin/organisation');
+
+  if (parsed.data.functionalManagerId) {
+    const dotted = await setDottedLine(userId, parsed.data.functionalManagerId);
+    if (!dotted.ok) {
+      return {
+        ok: false,
+        code: 'dotted_line_not_drawn',
+        message: `${parsed.data.fullName} can now sign in, but the dotted line was not drawn: ${
+          dotted.message ?? 'it could not be saved'
+        }. Set it on their Directory page.`,
+      };
+    }
+  }
+
   return { ok: true, code: 'user_created', message: `${parsed.data.fullName} can now sign in.` };
 }
 
@@ -276,6 +324,7 @@ export async function updateUserAction(
     departmentId: formData.get('departmentId'),
     role: formData.get('role'),
     reportingManagerId: formData.get('reportingManagerId') || null,
+    functionalManagerId: formData.get('functionalManagerId') || null,
     personalSummaryMode: formData.get('personalSummaryMode'),
     teamSummaryMode: formData.get('teamSummaryMode'),
   });
@@ -284,10 +333,28 @@ export async function updateUserAction(
   const caller = await createSupabaseServerClient();
   const { data: current } = await caller
     .from('user_profiles')
-    .select('email')
+    .select('email,functional_manager_id')
     .eq('id', parsed.data.userId)
     .maybeSingle();
   if (!current) return initialError('That user no longer exists.');
+
+  /*
+   * The same person on both lines (v176).
+   *
+   * Moving somebody's reporting line onto their dotted-line manager ends the
+   * dotted line — that is the rule for every move (v173) — and the form still
+   * shows the old dotted line in its own field, untouched. Refusing that save
+   * would punish the administrator for not clearing a field the move clears
+   * anyway, so an unchanged dotted line that now matches the new manager is
+   * read as "let it end". Choosing that person afresh for both lines is a
+   * mistake, and is refused before anything is written.
+   */
+  const currentDotted = (current.functional_manager_id as string | null) ?? null;
+  let desiredDotted = parsed.data.functionalManagerId;
+  if (desiredDotted && desiredDotted === parsed.data.reportingManagerId) {
+    if (desiredDotted !== currentDotted) return initialError(SAME_PERSON_ON_BOTH_LINES);
+    desiredDotted = null;
+  }
 
   const service = createSupabaseServiceRoleClient();
   const oldEmail = String(current.email);
@@ -366,6 +433,25 @@ export async function updateUserAction(
     return resultState(result ?? {}, 'User updated.');
   }
 
+  revalidatePath('/more/admin/organisation');
+  /*
+   * Only when it changes. The procedure checks a manager is still active before
+   * it notices nothing is changing, so re-sending a dotted line to somebody who
+   * has since left would refuse a save that never touched it.
+   */
+  const dotted =
+    desiredDotted === currentDotted
+      ? ({ ok: true } as RpcResult)
+      : await setDottedLine(parsed.data.userId, desiredDotted);
+  if (!dotted.ok) {
+    revalidatePath('/more/admin/users');
+    return {
+      ok: false,
+      code: 'dotted_line_not_saved',
+      message: `Saved, except the dotted line: ${dotted.message ?? 'it could not be saved'}.`,
+    };
+  }
+
   /*
    * Report what the database now holds, not what was submitted.
    *
@@ -379,7 +465,7 @@ export async function updateUserAction(
    */
   const { data: stored } = await caller
     .from('user_profiles')
-    .select('role,reporting_manager_id')
+    .select('role,reporting_manager_id,functional_manager_id')
     .eq('id', parsed.data.userId)
     .maybeSingle();
 
@@ -391,7 +477,12 @@ export async function updateUserAction(
 
   const storedRole = String(stored.role) as keyof typeof ROLE_LABELS;
   const storedManagerId = (stored.reporting_manager_id as string | null) ?? null;
-  if (storedRole !== parsed.data.role || storedManagerId !== parsed.data.reportingManagerId) {
+  const storedDottedId = (stored.functional_manager_id as string | null) ?? null;
+  if (
+    storedRole !== parsed.data.role ||
+    storedManagerId !== parsed.data.reportingManagerId ||
+    storedDottedId !== desiredDotted
+  ) {
     return {
       ok: false,
       code: 'not_persisted',
@@ -413,10 +504,22 @@ export async function updateUserAction(
       : 'reporting to an account that no longer exists';
   }
 
+  let dottedPhrase = '';
+  if (storedDottedId) {
+    const { data: dottedManager } = await caller
+      .from('user_profiles')
+      .select('full_name')
+      .eq('id', storedDottedId)
+      .maybeSingle();
+    dottedPhrase = dottedManager
+      ? `, with a dotted line to ${String(dottedManager.full_name)}`
+      : ', with a dotted line to an account that no longer exists';
+  }
+
   return {
     ok: true,
     code: 'user_updated',
-    message: `Saved. The record now reads ${ROLE_LABELS[storedRole] ?? storedRole}, ${managerPhrase}.`,
+    message: `Saved. The record now reads ${ROLE_LABELS[storedRole] ?? storedRole}, ${managerPhrase}${dottedPhrase}.`,
   };
 }
 

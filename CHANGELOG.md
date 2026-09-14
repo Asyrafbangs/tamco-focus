@@ -1,5 +1,32 @@
 # TAMCO Focus — Change Log
 
+## v178 Import the organisation from Excel — 14 September 2026
+
+- Import organisation accepts an Excel workbook (.xlsx) as well as CSV. The first sheet is read,
+  and checked exactly as the same rows in a CSV would be.
+- The old .xls format is named as such, with how to save it as .xlsx or CSV.
+
+## v177 Find people by department, and see where they sit — 14 September 2026
+
+- Organisation's "Find a person" has a Department filter. With a name it narrows the search;
+  on its own it lists everybody in the department and says who heads it.
+- Each department has a "People" link that does the same.
+- Every result has "Show in chart", which opens the chart down to that person — the line above
+  them open and their own reports ready — and marks them.
+
+## v176 The Directory keeps both lines, and can say what they were — 14 September 2026
+
+- A person's Directory page has a "Dotted-line manager (optional)" field, on the Create user
+  form too, saying the line gives nobody sight of their work. It is the same dotted line the
+  Organisation view draws, with the same rules.
+- Moving somebody's reporting line onto their dotted-line manager ends the dotted line, as it
+  does everywhere; choosing the same person for both lines is refused before anything is saved.
+- "Reporting history" on the same page lists every change to both lines by the date it took
+  effect, who made it and why, and answers "Who did they report to on" a date you choose — saying
+  when the record cannot vouch for a date before its first change.
+- Saving a person whose manager or dotted-line manager has since been deactivated no longer
+  clears that line: the form keeps showing who it points at.
+
 ## v175 Your team first, and nobody left off the list — 14 September 2026
 
 - Giving work to somebody starts with your own team. "Primary owner" when assigning work, and

@@ -309,8 +309,45 @@ const ROLE_WORDS: Record<DirectoryUser['role'], string> = {
   administrator: 'administrator',
 };
 
-const peopleOptions = (users: DirectoryUser[], excludeId?: string) =>
-  users.filter((user) => user.status === 'active' && user.id !== excludeId);
+/**
+ * The people a manager field may point at: active, never the person themselves,
+ * and whoever it points at now even if they have since left (v176).
+ *
+ * The last is not generosity. These selects are uncontrolled, and a select
+ * whose stored value is not among its options shows its first option — "None"
+ * — so saving anything else on the form would quietly clear a line nobody asked
+ * to clear.
+ */
+const peopleOptions = (users: DirectoryUser[], excludeId?: string, keepId?: string | null) =>
+  users.filter((user) => user.id !== excludeId && (user.status === 'active' || user.id === keepId));
+
+function DottedLineField({
+  directory,
+  user,
+}: {
+  directory: DirectoryData;
+  /** Absent when creating. */
+  user?: DirectoryUser;
+}) {
+  return (
+    <label>
+      <span>Dotted-line manager (optional)</span>
+      <select name="functionalManagerId" defaultValue={user?.functionalManagerId ?? ''}>
+        <option value="">None</option>
+        {peopleOptions(directory.users, user?.id, user?.functionalManagerId).map((person) => (
+          <option key={person.id} value={person.id}>
+            {person.fullName} · {person.employeeId}
+          </option>
+        ))}
+      </select>
+      {/* Said where the line is drawn, as the Organisation view says it (v173). */}
+      <small className="form-hint">
+        Somebody they work with day to day alongside their reporting manager. It gives that person
+        no sight of their work.
+      </small>
+    </label>
+  );
+}
 
 export function UserCreateForm({ directory }: { directory: DirectoryData }) {
   const [state, action, pending] = useActionState(provisionUserAction, INITIAL_STATE);
@@ -391,6 +428,7 @@ export function UserCreateForm({ directory }: { directory: DirectoryData }) {
             ))}
           </select>
         </label>
+        <DottedLineField directory={directory} />
         <label>
           <span>Personal weekly summary</span>
           <select name="personalSummaryMode" defaultValue="standard">
@@ -483,13 +521,14 @@ export function UserEditForm({
           <span>Reporting manager</span>
           <select name="reportingManagerId" defaultValue={user.reportingManagerId ?? ''}>
             <option value="">None</option>
-            {peopleOptions(directory.users, user.id).map((person) => (
+            {peopleOptions(directory.users, user.id, user.reportingManagerId).map((person) => (
               <option key={person.id} value={person.id}>
                 {person.fullName} · {person.employeeId}
               </option>
             ))}
           </select>
         </label>
+        <DottedLineField directory={directory} user={user} />
         <label>
           <span>Personal weekly summary</span>
           <select name="personalSummaryMode" defaultValue={user.personalSummaryMode}>

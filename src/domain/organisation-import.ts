@@ -38,7 +38,7 @@ export type OrganisationImportRow = { line: number } & Partial<
 
 export const ORGANISATION_IMPORT_MAX_ROWS = 2000;
 
-interface CsvRecord {
+export interface CsvRecord {
   line: number;
   cells: string[];
 }
@@ -133,7 +133,15 @@ export type OrganisationFileResult =
   | { ok: false; message: string };
 
 export function readOrganisationFile(text: string): OrganisationFileResult {
-  const records = parseCsv(text);
+  return readOrganisationRecords(parseCsv(text));
+}
+
+/**
+ * The same reading for rows that did not come from CSV text (v178): a
+ * spreadsheet's first sheet, already split into cells. One set of rules for
+ * headers, limits and blanks, whichever format the file arrived in.
+ */
+export function readOrganisationRecords(records: CsvRecord[]): OrganisationFileResult {
   const [header, ...body] = records;
   if (!header) return { ok: false, message: 'The file is empty.' };
 

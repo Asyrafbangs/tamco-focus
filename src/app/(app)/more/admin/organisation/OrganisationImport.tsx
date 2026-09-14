@@ -72,7 +72,8 @@ export function OrganisationImport({
       ) : (
         <form action={action} className="settings-form">
           <p className="sub org-move-note">
-            A CSV file with one row per person, found by <code>employee_id</code>. It can set{' '}
+            An Excel workbook (.xlsx) or CSV file with one row per person, found by{' '}
+            <code>employee_id</code>. Only the first sheet is read. It can set{' '}
             <code>department_code</code>, <code>job_title</code>, <code>manager_employee_id</code>{' '}
             and <code>functional_manager_employee_id</code>. <code>name</code> and{' '}
             <code>email</code> are checked against the Directory and never changed. A column the
@@ -89,8 +90,13 @@ export function OrganisationImport({
           </div>
           <div className="form-grid">
             <label>
-              <span>CSV file</span>
-              <input type="file" name="file" accept=".csv,text/csv" required />
+              <span>Excel or CSV file</span>
+              <input
+                type="file"
+                name="file"
+                accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                required
+              />
             </label>
           </div>
 

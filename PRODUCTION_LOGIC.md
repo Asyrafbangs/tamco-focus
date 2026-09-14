@@ -1614,3 +1614,36 @@ derived-progress rules. The future ESH finding/action system remains outside the
    and 500 (the Directory), and the Organisation queries that asked for 2,000 rows from an API
    that returns at most 1,000. A failed page is reported as a failure, never returned as a
    shorter list.
+
+## 71. v176 Both lines in the Directory, and their history
+
+1. The Directory create and edit forms carry the dotted-line manager. It is written by
+   `change_functional_manager` (section 68) after the profile is saved, and only when it
+   changes; a refusal is reported as "Saved, except the dotted line" or, on create, as the
+   account existing without it.
+2. The same person on both lines is refused before anything is written. On edit, a dotted line
+   left unchanged that matches a new reporting manager is read as ending, as every move ends it.
+3. Manager selects include whoever the line points at now, deactivated or not, so an
+   unrelated save cannot clear it through an option that is missing.
+4. The person's page lists `reporting_assignments` for both relationships, newest first, with
+   names. A date asked about is answered from the primary line: the change in effect by that
+   date; before the first recorded change, the line that change replaced, said as such; with no
+   record, only the line as it stands now. Two changes effective the same day are ordered by
+   when they were entered.
+
+## 72. v177 Department filter and search into the chart
+
+1. `?dept=` narrows a search to one department, or with no search term lists the department's
+   active people in full, with its head named and marked.
+2. "Show in chart" opens every branch from the top of the line down to the person, and the
+   person's own, and marks the person (`?focus=`), scrolling to them.
+
+## 73. v178 Excel organisation files
+
+1. An `.xlsx` file is read without a library: its zip directory, the first worksheet in the
+   workbook's order wherever its part is stored, shared and inline strings, and numbers as
+   Excel shows them. Formulas are read as their saved values and never evaluated; styles,
+   merged cells and other sheets are ignored. Inflated content is capped at 40 MB.
+2. The rows then go through the same reading as CSV (section 69): header matching, limits,
+   blanks, and the formula guard, with the spreadsheet's own row numbers.
+3. `.xls` and any other extension are refused with a sentence naming what to save instead.

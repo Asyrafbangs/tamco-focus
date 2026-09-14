@@ -3,9 +3,10 @@ import { notFound } from 'next/navigation';
 
 import { WorkspaceTabs } from '@/components/ui/ParityPrimitives';
 import { requireProfile } from '@/lib/supabase/server';
-import { getDirectoryData, getVisibilityData } from '@/server/queries';
+import { getDirectoryData, getReportingHistory, getVisibilityData } from '@/server/queries';
 
 import { UserCreateForm, UserEditForm, UserStatusForm, VisibilityForm } from '../../SettingsForms';
+import { ReportingHistory } from './ReportingHistory';
 
 export default async function UsersPage({
   searchParams,
@@ -16,6 +17,7 @@ export default async function UsersPage({
     q?: string;
     status?: string;
     notice?: string;
+    on?: string;
   }>;
 }) {
   const profile = await requireProfile();
@@ -43,6 +45,9 @@ export default async function UsersPage({
    * manager, so it is asked in the same place.
    */
   const visibility = selected ? await getVisibilityData(selected.id) : null;
+  // The dated record of both lines (v176), and a date somebody asked about.
+  const history = selected ? await getReportingHistory(selected.id) : [];
+  const askedDate = /^\d{4}-\d{2}-\d{2}$/.test(params.on ?? '') ? (params.on as string) : '';
 
   return (
     <>
@@ -158,6 +163,13 @@ export default async function UsersPage({
                 shows the person whose row is highlighted.
               */}
               <UserEditForm key={selected.id} user={selected} directory={directory} />
+
+              <ReportingHistory
+                person={selected}
+                people={directory.users}
+                history={history}
+                askedDate={askedDate}
+              />
 
               {visibility && (
                 <section className="admin-visibility-section">

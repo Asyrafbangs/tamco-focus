@@ -6,10 +6,12 @@ import { z } from 'zod';
 import {
   emptyOrganisationImport,
   readOrganisationFile,
+  readOrganisationRecords,
   type OrganisationImportRow,
   type OrganisationImportState,
   type OrganisationImportVerdict,
 } from '@/domain/organisation-import';
+import { readXlsx } from '@/lib/read-xlsx';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
 
 /**
@@ -208,11 +210,14 @@ export async function organisationImportAction(
   if (!(file instanceof File) || file.size === 0) {
     return failed(emptyOrganisationImport(), 'validation_failed', 'Choose a CSV file to check.');
   }
-  if (!/\.csv$/i.test(file.name)) {
+  const isWorkbook = /\.xlsx$/i.test(file.name);
+  if (!isWorkbook && !/\.csv$/i.test(file.name)) {
     return failed(
       emptyOrganisationImport(),
       'validation_failed',
-      'Choose a .csv file. In Excel, use Save As and pick CSV UTF-8.',
+      /\.xls$/i.test(file.name)
+        ? 'That is the old Excel format. Save it as an Excel Workbook (.xlsx) or as CSV, and choose that file.'
+        : 'Choose an Excel workbook (.xlsx) or a CSV file.',
     );
   }
   if (file.size > MAX_FILE_BYTES) {
@@ -223,7 +228,18 @@ export async function organisationImportAction(
     );
   }
 
-  const read = readOrganisationFile(await file.text());
+  /*
+   * An Excel workbook is read to rows of cells and then through exactly the
+   * reading a CSV gets (v178): the same header matching, limits and blanks.
+   */
+  let read: ReturnType<typeof readOrganisationFile>;
+  if (isWorkbook) {
+    const sheet = readXlsx(Buffer.from(await file.arrayBuffer()));
+    if (!sheet.ok) return failed(emptyOrganisationImport(), 'validation_failed', sheet.message);
+    read = readOrganisationRecords(sheet.rows);
+  } else {
+    read = readOrganisationFile(await file.text());
+  }
   if (!read.ok) return failed(emptyOrganisationImport(), 'validation_failed', read.message);
   return check(read.rows, file.name, read.ignoredColumns);
 }

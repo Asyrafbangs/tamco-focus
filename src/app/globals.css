@@ -2693,6 +2693,51 @@ button {
   min-width: 0;
   padding: 18px;
 }
+/* v176 - reporting history on a person's Directory page: the dated question,
+   then the record, one change per line with its date first. */
+.admin-history-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+.admin-history-section .notice {
+  margin: 0;
+}
+.reporting-history {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.reporting-history li {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+  gap: 2px 12px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 12px;
+}
+.reporting-history li:last-child {
+  border-bottom: 0;
+}
+.reporting-history li > .sub {
+  grid-column: 2;
+}
+.reporting-history-when {
+  color: var(--muted);
+  font-weight: 580;
+}
+@media (max-width: 700px) {
+  .reporting-history li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .reporting-history li > .sub {
+    grid-column: 1;
+  }
+}
 .danger-zone {
   margin-top: 20px;
   padding: 14px;
@@ -4315,6 +4360,24 @@ fieldset:disabled label,
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+/* v177 - a department's People and Edit, and a search result's way into the
+   chart; and the person that way leads to, marked where the chart draws them. */
+.org-department-actions,
+.org-match-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.org-match-actions {
+  margin-top: 4px;
+}
+.org-node[data-focused='true'] > .org-person {
+  border-color: var(--blue);
+  background: var(--blue-bg);
+}
+.org-node {
+  scroll-margin-top: 90px;
 }
 @media (max-width: 700px) {
   .org-department-row {

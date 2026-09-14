@@ -17,6 +17,7 @@ import {
   getOrganisationOverview,
   type DirectoryUser,
   type OrganisationDepartment,
+  type OrganisationMatch,
   type OrganisationPerson,
 } from '@/server/queries';
 
@@ -80,21 +81,40 @@ function byName(left: DirectoryUser, right: DirectoryUser): number {
   return left.fullName.localeCompare(right.fullName);
 }
 
+/**
+ * The chart opened down to one person (v177): every branch above them, and
+ * their own, so they are drawn with the line over them and the people under
+ * them — which is what "find Amer" was asked to show.
+ */
+function chartHref(match: OrganisationMatch): string {
+  const params = new URLSearchParams();
+  params.set('open', [...match.chain.map((link) => link.id), match.id].join(','));
+  params.set('focus', match.id);
+  return `/more/admin/organisation?${params.toString()}#org-person-${match.id}`;
+}
+
 function PersonNode({
   person,
   openIds,
   branches,
   term,
+  focusId,
 }: {
   person: OrganisationPerson;
   openIds: string[];
   branches: Map<string, OrganisationPerson[]>;
   term: string;
+  /** The person a search asked to be shown, marked where the chart draws them. */
+  focusId: string;
 }) {
   const isOpen = openIds.includes(person.id);
   const reports = branches.get(person.id) ?? [];
   return (
-    <li className="org-node">
+    <li
+      className="org-node"
+      id={`org-person-${person.id}`}
+      data-focused={focusId === person.id ? 'true' : undefined}
+    >
       {/* `data-person-id` is what a drop reads: who was carried, and who
           received them. It is inert without the enhancement. */}
       <div className="org-person" data-person-id={person.id}>
@@ -153,6 +173,7 @@ function PersonNode({
               openIds={openIds}
               branches={branches}
               term={term}
+              focusId={focusId}
             />
           ))}
         </ul>
@@ -184,13 +205,24 @@ function DepartmentCard({
             {department.headName ? `Head: ${department.headName}` : 'No head'}
           </span>
         </div>
-        <Link
-          className="btn small ghost"
-          href={withParam(openIds, term, 'department', department.id)}
-          aria-label={`Edit ${department.name}`}
-        >
-          Edit
-        </Link>
+        <div className="org-department-actions">
+          {/* Who is in it (v177): the department opened, rather than a tree of
+              the whole company to be searched for its members. */}
+          <Link
+            className="btn small ghost"
+            href={`/more/admin/organisation?dept=${department.id}`}
+            aria-label={`Show the people in ${department.name}`}
+          >
+            People
+          </Link>
+          <Link
+            className="btn small ghost"
+            href={withParam(openIds, term, 'department', department.id)}
+            aria-label={`Edit ${department.name}`}
+          >
+            Edit
+          </Link>
+        </div>
       </div>
       {subDepartments.length > 0 && (
         <ul className="org-department-children">
@@ -221,6 +253,8 @@ export default async function OrganisationPage({
     department?: string;
     issue?: string;
     import?: string;
+    dept?: string;
+    focus?: string;
   }>;
 }) {
   const profile = await requireProfile();
@@ -235,10 +269,12 @@ export default async function OrganisationPage({
   const departmentParam = params.department?.trim() ?? '';
   const issueParam = params.issue?.trim() ?? '';
   const importing = params.import === '1';
+  const deptFilter = params.dept?.trim() ?? '';
+  const focusId = params.focus?.trim() ?? '';
 
   const [overview, matches, directory, issues] = await Promise.all([
     getOrganisationOverview(),
-    term ? findOrganisationPeople(term) : Promise.resolve([]),
+    term || deptFilter ? findOrganisationPeople(term, deptFilter) : Promise.resolve([]),
     /*
      * The list of people is loaded only while something needs a person picked:
      * a move or a dotted line being confirmed, or a department's head chosen.
@@ -310,6 +346,9 @@ export default async function OrganisationPage({
   const branches = new Map<string, OrganisationPerson[]>(branchEntries);
 
   const active = overview.departments.filter((department) => department.status === 'active');
+  const filteredDepartment = deptFilter
+    ? (overview.departments.find((department) => department.id === deptFilter) ?? null)
+    : null;
   const roots = active.filter((department) => department.parentId === null);
   const childrenOf = (parentId: string) =>
     active.filter((department) => department.parentId === parentId);
@@ -345,13 +384,30 @@ export default async function OrganisationPage({
           <span>Find a person</span>
           <input name="q" defaultValue={term} placeholder="Name, employee ID or job title" />
         </label>
+        <label>
+          <span>Department</span>
+          {/* Filters a search, or on its own lists the department (v177). */}
+          <select name="dept" defaultValue={deptFilter}>
+            <option value="">All departments</option>
+            {overview.departments
+              .filter(
+                (department) => department.status === 'active' || department.id === deptFilter,
+              )
+              .sort((left, right) => left.name.localeCompare(right.name))
+              .map((department) => (
+                <option key={department.id} value={department.id}>
+                  {department.name}
+                </option>
+              ))}
+          </select>
+        </label>
         {/* "Find", not "Search": the app shell already has a Search, and two
             controls with one name is a guess for anybody listening to the page
             rather than looking at it. */}
         <button className="btn small" type="submit">
           Find
         </button>
-        {term && (
+        {(term || deptFilter) && (
           <Link className="btn small ghost" href="/more/admin/organisation">
             Clear
           </Link>
@@ -442,25 +498,42 @@ export default async function OrganisationPage({
       )}
       <OrganisationDrag query={viewHref(openIds, term).split('?')[1] ?? ''} />
 
-      {term && (
+      {(term || deptFilter) && (
         <section className="section-block" aria-labelledby="org-search-heading">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">Search</p>
+              <p className="eyebrow">{term ? 'Search' : 'Department'}</p>
               <h2 id="org-search-heading">
-                {matches.length} {matches.length === 1 ? 'person' : 'people'} matching “{term}”
+                {matches.length} {matches.length === 1 ? 'person' : 'people'}{' '}
+                {term ? `matching “${term}”` : ''}
+                {term && filteredDepartment ? ' ' : ''}
+                {filteredDepartment ? `in ${filteredDepartment.name}` : ''}
               </h2>
+              {!term && filteredDepartment && (
+                <p>
+                  {filteredDepartment.headName
+                    ? `Headed by ${filteredDepartment.headName}.`
+                    : 'Nobody heads this department yet.'}
+                </p>
+              )}
             </div>
           </div>
           {matches.length === 0 ? (
             <div className="card empty-state">
-              <p>Nobody active matches that name, employee ID or job title.</p>
+              <p>
+                {term
+                  ? 'Nobody active matches that name, employee ID or job title.'
+                  : 'Nobody active is in this department.'}
+              </p>
             </div>
           ) : (
             <ul className="org-matches">
               {matches.map((match) => (
                 <li key={match.id} className="org-match">
-                  <strong>{match.fullName}</strong>
+                  <strong>
+                    {match.fullName}
+                    {filteredDepartment?.headId === match.id ? ' · Head of department' : ''}
+                  </strong>
                   <span className="sub">
                     {[match.jobTitle, match.employeeId, match.departmentName]
                       .filter(Boolean)
@@ -472,6 +545,15 @@ export default async function OrganisationPage({
                       ? 'Top of the reporting line'
                       : match.chain.map((link) => link.fullName).join(' → ') +
                         ` → ${match.fullName}`}
+                  </span>
+                  <span className="org-match-actions">
+                    <Link
+                      className="btn small ghost"
+                      href={chartHref(match)}
+                      aria-label={`Show ${match.fullName} in the chart`}
+                    >
+                      Show in chart
+                    </Link>
                   </span>
                 </li>
               ))}
@@ -533,6 +615,7 @@ export default async function OrganisationPage({
                 openIds={openIds}
                 branches={branches}
                 term={term}
+                focusId={focusId}
               />
             ))}
           </ul>
