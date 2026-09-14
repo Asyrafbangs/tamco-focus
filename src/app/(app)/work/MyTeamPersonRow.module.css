@@ -112,6 +112,18 @@
   outline: none;
 }
 
+/* A full touch target on a phone (v183): the name alone measured 15px. The
+   negative margins give the target back to the row's padding and the line
+   below, so the row keeps its height — the band layout has a height budget. */
+@media (max-width: 700px) {
+  .toggle {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    margin-block: -12px;
+  }
+}
+
 .person,
 .working,
 .nextResult,

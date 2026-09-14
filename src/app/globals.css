@@ -12171,3 +12171,58 @@ button.attachment-row {
   flex: none;
   white-space: nowrap;
 }
+
+/*
+  v183 — touch targets for every control a phone reaches.
+
+  Measured on every page rather than on Today, which was the only page the
+  touch-target check visited: filter bars and settings fields at 36-40px, the
+  period and More menus at 34-40px, drawer tabs at 38-42px, drawer header
+  buttons at 38-41px, routine fields at 25-38px and its weekday toggles at 34px,
+  the Records filter disclosure at 42px, and disclosures such as "Add details"
+  at 15-20px.
+
+  Last in the stylesheet on purpose, and with each competing rule's own
+  selector: those sizes are declared later and more specifically than the
+  mobile block above, which is why a rule there never reached them. The task
+  age "i" is left at its size: its ::after already extends the touch area to
+  44px without growing the chip strip.
+*/
+@media (max-width: 700px) {
+  .field input,
+  .field select,
+  .field textarea,
+  .filterbar input,
+  .filterbar select,
+  .settings-search input,
+  .settings-form input:not([type='checkbox']):not([type='radio']):not([type='file']),
+  .settings-form select,
+  .settings-body .settings-form label:not(.check-row) input,
+  .settings-body .settings-form label:not(.check-row) select,
+  .menu-dropdown-toggle,
+  .work-more-menu .menu-dropdown-toggle,
+  .drawer-tabs button,
+  .task-detail-drawer .drawer-tabs button,
+  .task-detail-head-actions .btn,
+  .task-detail-drawer .task-detail-head-actions .btn,
+  .weekday-toggle,
+  .recurrence-number,
+  .recurrence-line select,
+  .recurrence-line input[type='time'],
+  .recurrence-line input[type='date'],
+  .settings-form input[type='file'],
+  .record-filters > summary,
+  summary {
+    min-height: 44px;
+  }
+
+  .weekday-toggle {
+    min-width: 44px;
+  }
+
+  /* The text stays centred in the taller target, marker beside it. */
+  summary {
+    padding-block: 12px;
+    line-height: 20px;
+  }
+}

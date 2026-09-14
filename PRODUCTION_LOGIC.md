@@ -1696,3 +1696,12 @@ derived-progress rules. The future ESH finding/action system remains outside the
 3. A page request without a session redirects to `/sign-in?next=` with the full path and query,
    and none of the page's own parameters on the sign-in address.
 4. The workspace and Goals error pages do not claim a failure was a read or that nothing changed.
+
+## 78. v183 Touch targets
+
+1. Below 700px every button, `.btn` link, text field, select and disclosure summary is at least
+   44px tall. The rule is the last block in the stylesheet and names each competing selector,
+   because the smaller sizes were declared later or more specifically than the mobile block.
+2. The task age "i" keeps its 24-28px circle; its `::after` extends the touch area to 44px.
+3. The check measures layout height (`offsetHeight`) on twelve pages across two roles, so a dialog
+   still finishing its opening scale does not read short.

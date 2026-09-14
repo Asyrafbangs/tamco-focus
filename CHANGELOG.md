@@ -1,5 +1,13 @@
 # TAMCO Focus — Change Log
 
+## v183 Every control on a phone is big enough to press — 15 September 2026
+
+- On a phone, filter fields and dropdowns, Settings fields, the period and More menus, the tabs
+  and buttons at the top of task and goal drawers, the routine form's fields and weekday buttons,
+  and fold-out sections such as "Add details" are all at least 44px tall. Some were as small as
+  15-25px.
+- On My Team, the person's name is a full-size target on a phone.
+
 ## v182 When a session ends in the middle of a save — 15 September 2026
 
 - Pressing Save after your session has expired now takes you to sign-in with "Your session
