@@ -89,6 +89,11 @@ function actionLabel(notification: RenderNotificationEmailInput['notification'])
       return 'Open Goal';
     case 'work_proposal':
       return 'Review proposal';
+    case 'task_update_request':
+    case 'step_update_request':
+      return 'Add your update';
+    case 'task_update':
+      return 'Read the update';
     case 'task':
       return 'Open task';
     default:

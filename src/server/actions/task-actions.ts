@@ -975,8 +975,42 @@ export async function postTaskUpdate(formData: FormData): Promise<OperationResul
   }
   if (result.ok) {
     for (const path of ['/today', '/work']) revalidatePath(path);
+    // v184 - an update can answer somebody's request, and they are emailed.
+    await scheduleNotificationEmailDispatch();
   }
   return result;
+}
+
+const requestUpdateSchema = z.object({
+  taskId: uuid,
+  /** A step asks its assignee; none asks the work's owner. */
+  checklistItemId: uuid.nullish(),
+  message: z.string().trim().max(1000).optional(),
+  idempotencyKey,
+});
+
+/**
+ * v184 — asks for an update on somebody else's work, or on one of its steps.
+ *
+ * Who is asked, who may ask, and how often are the procedure's to decide; the
+ * notification and its email are written in the same transaction, and the
+ * email goes out as soon as this action returns.
+ */
+export async function requestTaskUpdate(input: z.input<typeof requestUpdateSchema>) {
+  const parsed = requestUpdateSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      code: 'validation_failed',
+      message: 'Keep the note to 1,000 characters.',
+    } satisfies OperationResult;
+  }
+  return callProcedure('request_task_update', {
+    p_task_id: parsed.data.taskId,
+    p_checklist_item_id: parsed.data.checklistItemId ?? null,
+    p_message: parsed.data.message || null,
+    p_idempotency_key: parsed.data.idempotencyKey ?? null,
+  });
 }
 
 // ---------------------------------------------------------------------------

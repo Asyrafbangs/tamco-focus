@@ -82,6 +82,64 @@ describe('notification email template', () => {
     expect(rendered.html).toContain('Open step');
   });
 
+  it('opens an update request at the composer, and the reply at the updates (v184)', () => {
+    const request = {
+      ...taskNotification,
+      kind: 'update_requested' as const,
+      title: 'Update requested: Inspect the fire doors',
+      body: 'Izzul Asyraf asked you for an update: "Has the contractor confirmed Friday?"',
+      entity_type: 'task_update_request',
+      entity_id: 'f0c05300-0000-4000-a000-000000000002',
+    };
+    expect(notificationPath(request)).toBe(
+      '/work?task=f0c05300-0000-4000-a000-000000000002&respond=update',
+    );
+    const asked = renderNotificationEmail({
+      notification: request,
+      recipientName: 'Amer Hakim',
+      appBaseUrl: 'https://tamco-focus.vercel.app',
+    });
+    expect(asked.subject).toBe('TAMCO Focus — Update requested: Inspect the fire doors');
+    expect(asked.html).toContain('Add your update');
+    expect(asked.html).toContain('Has the contractor confirmed Friday?');
+    expect(asked.text).toContain(
+      'Add your update: https://tamco-focus.vercel.app/work?task=f0c05300-0000-4000-a000-000000000002&respond=update',
+    );
+
+    const aboutStep = {
+      ...request,
+      entity_type: 'step_update_request',
+      entity_id: 'f0c05300-0000-4000-a000-000000000077',
+    };
+    expect(notificationPath(aboutStep)).toBe(
+      '/work?task=f0c05300-0000-4000-a000-000000000002&step=f0c05300-0000-4000-a000-000000000077&respond=update',
+    );
+    expect(
+      renderNotificationEmail({
+        notification: aboutStep,
+        recipientName: 'Amer Hakim',
+        appBaseUrl: 'http://localhost:3000',
+      }).html,
+    ).toContain('Add your update');
+
+    const reply = {
+      ...taskNotification,
+      kind: 'update_request_answered' as const,
+      requires_action: false,
+      entity_type: 'task_update',
+    };
+    expect(notificationPath(reply)).toBe(
+      '/work?task=f0c05300-0000-4000-a000-000000000002&section=updates',
+    );
+    expect(
+      renderNotificationEmail({
+        notification: reply,
+        recipientName: 'Izzul Asyraf',
+        appBaseUrl: 'http://localhost:3000',
+      }).html,
+    ).toContain('Read the update');
+  });
+
   it('refuses a non-http application origin', () => {
     const rendered = renderNotificationEmail({
       notification: taskNotification,

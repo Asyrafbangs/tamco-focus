@@ -32,11 +32,20 @@ async function undersized(page: Page) {
     ]
       .filter((element) => {
         if (element.closest('.visually-hidden, [hidden], [aria-hidden="true"]')) return false;
-        // Its ::after extends the touch area past the 24-28px circle.
-        if (element.classList.contains('task-age-info')) return false;
         // Layout size, not the painted box: a dialog still finishing its
         // opening scale reports every control a pixel short.
         const html = element as HTMLElement;
+        // Its ::after extends the touch area past the 24-28px circle.
+        if (element.classList.contains('task-age-info')) return false;
+        // v184 — the one-line Ask for update link does the same, and is
+        // measured through its ::after rather than excused by name.
+        if (element.classList.contains('ask-update-link')) {
+          const after = getComputedStyle(element, '::after');
+          return (
+            html.offsetHeight > 0 &&
+            (after.position !== 'absolute' || html.offsetHeight - 2 * parseFloat(after.top) < 44)
+          );
+        }
         return html.offsetWidth > 0 && html.offsetHeight > 0 && html.offsetHeight < 44;
       })
       .map(

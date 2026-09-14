@@ -60,6 +60,7 @@ import {
   reassignTask,
   recordRoutineFinding,
   reopenChecklistItem,
+  requestTaskUpdate,
   resolveBarrier,
   resumeTask,
   setCurrentFocus,
@@ -111,6 +112,10 @@ interface TaskDetailDrawerProps {
   attentionBarrierId: string | null;
   /** v156 — a step to open at, from the Monthly Plan or another link. */
   focusStepId?: string | null;
+  /** v184 — arrived from an update request, so the composer opens ready. */
+  respondToUpdateRequest?: boolean;
+  /** v184 — arrived from a reply, so the updates are open. */
+  openUpdates?: boolean;
 }
 
 function idempotencyKey() {
@@ -182,6 +187,8 @@ export function TaskDetailDrawer({
   focusStepId = null,
   currentFocus,
   weeklyReference,
+  respondToUpdateRequest = false,
+  openUpdates = false,
 }: TaskDetailDrawerProps) {
   const router = useRouter();
   const task = detail.task;
@@ -207,14 +214,40 @@ export function TaskDetailDrawer({
   };
 
   const [openSection, setOpenSection] = useState<'steps' | 'updates' | 'details' | null>(
-    // v156 — arriving at a step opens the steps it is among.
-    focusStepId ? 'steps' : null,
+    // v156 — arriving at a step opens the steps it is among. v184 — arriving
+    // from a reply to your request opens the updates, where the reply is.
+    focusStepId ? 'steps' : openUpdates ? 'updates' : null,
   );
   const toggleSection = (section: 'steps' | 'updates' | 'details') =>
     setOpenSection((current) => (current === section ? null : section));
   // The composer is a disclosure of its own, opened by the button that names
   // it and closed by posting, so the drawer returns to its resting shape.
-  const [composerOpen, setComposerOpen] = useState(false);
+  //
+  // v184 — arriving from an update request opens it straight away, when the
+  // viewer can still post one: the email said "Add your update", so that is
+  // what is waiting.
+  const openForRequest =
+    respondToUpdateRequest &&
+    detail.capabilities.canContribute &&
+    task.status !== 'completed' &&
+    task.status !== 'cancelled' &&
+    detail.updateRequests.some(
+      (request) => request.answererId === viewerId && request.requestedById !== viewerId,
+    );
+  const [composerOpen, setComposerOpen] = useState(openForRequest);
+  // Focus goes to the box when the composer was opened to answer a request.
+  const [composerFocus, setComposerFocus] = useState(false);
+  /*
+   * v184 — what the Ask for update dialog is about: the work, or one step, and
+   * who will be asked. Null while it is closed. What it refused is shown inside
+   * it, beside the note, so nothing written is lost.
+   */
+  const [askTarget, setAskTarget] = useState<{
+    checklistItemId: string | null;
+    recipientName: string;
+    stepAction: string | null;
+  } | null>(null);
+  const [askError, setAskError] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [barrierOpen, setBarrierOpen] = useState(false);
   const [ageInfoOpen, setAgeInfoOpen] = useState(false);
@@ -343,6 +376,46 @@ export function TaskDetailDrawer({
     detail.participants.find((person) => person.id === task.primaryOwnerId)?.fullName ??
     'Unassigned';
   /*
+   * v184 — asking for an update, from both ends, on the work and its steps.
+   *
+   * The person who can answer — the owner, or a step's assignee — sees every
+   * request waiting on them; one written update answers them all. The person
+   * who asked sees their own while it waits on whoever has it now. What may be
+   * asked, and when again, comes from the database as `updateRequestTargets`,
+   * so the drawer never offers a request the procedure would refuse.
+   */
+  const requestsForMe = detail.updateRequests.filter(
+    (request) => request.answererId === viewerId && request.requestedById !== viewerId,
+  );
+  const requesterNames = Array.from(
+    new Set(requestsForMe.map((request) => request.requestedByName)),
+  );
+  const myRequests = detail.updateRequests.filter(
+    (request) => request.requestedById === viewerId && request.requestedOfId === request.answererId,
+  );
+  const myWorkRequest = myRequests.find((request) => request.checklistItemId === null) ?? null;
+  const workTarget =
+    detail.updateRequestTargets.find((target) => target.checklistItemId === null) ?? null;
+  const canAskAboutWork = workTarget !== null && workTarget.againAt === null;
+  const stepActions = new Map(detail.checklist.map((item) => [item.id, item.action]));
+  const stepTargets = new Map(
+    detail.updateRequestTargets.flatMap((target) =>
+      target.checklistItemId ? [[target.checklistItemId, target] as const] : [],
+    ),
+  );
+  const myStepRequests = new Map(
+    myRequests.flatMap((request) =>
+      request.checklistItemId ? [[request.checklistItemId, request] as const] : [],
+    ),
+  );
+  const stepRequestsForMe = new Map<string, string[]>();
+  for (const request of requestsForMe) {
+    if (!request.checklistItemId) continue;
+    const names = stepRequestsForMe.get(request.checklistItemId) ?? [];
+    names.push(request.requestedByName);
+    stepRequestsForMe.set(request.checklistItemId, names);
+  }
+  /*
    * Finished work is a record, not a workspace.
    *
    * Opened from Completed, the drawer offered the whole working apparatus -
@@ -361,6 +434,8 @@ export function TaskDetailDrawer({
    * the general working apparatus on it turns a two-minute job into a form.
    */
   const isRoutineOccurrence = Boolean(task.routineTemplateId);
+  // The row of things to do on open work, for anybody who can act on it.
+  const showPrimaryActions = !isRoutineOccurrence && detail.capabilities.canContribute && !isClosed;
   /*
    * Mirrors what `complete_task` will accept, so the control appears exactly
    * when pressing it would succeed. The procedure refuses on incomplete
@@ -540,7 +615,20 @@ export function TaskDetailDrawer({
     setMessage(null);
     startTransition(async () => {
       const result = await postTaskUpdate(data);
-      if (finish(result, !body && hasFiles ? 'Evidence added.' : 'Update posted.')) {
+      // v184 — a written update answers whoever asked for one, and they are told.
+      const answered = body && requestsForMe.length > 0;
+      if (
+        finish(
+          result,
+          !body && hasFiles
+            ? 'Evidence added.'
+            : answered
+              ? `Update posted. ${requesterNames.join(' and ')} ${
+                  requesterNames.length === 1 ? 'has' : 'have'
+                } been told.`
+              : 'Update posted.',
+        )
+      ) {
         setTaskVersion((current) => current + 1);
         form.reset();
         // Posting is the end of the errand, so the composer folds away and the
@@ -548,6 +636,53 @@ export function TaskDetailDrawer({
         setComposerOpen(false);
       }
     });
+  }
+
+  function submitUpdateRequest(form: HTMLFormElement) {
+    if (!askTarget) return;
+    const target = askTarget;
+    const note = String(new FormData(form).get('note') ?? '').trim();
+    setAskError(null);
+    setMessage(null);
+    startTransition(async () => {
+      const result = await requestTaskUpdate({
+        taskId: task.id,
+        checklistItemId: target.checklistItemId,
+        message: note || undefined,
+        idempotencyKey: idempotencyKey(),
+      });
+      if (!result.ok) {
+        // Kept in the dialog, with the note, so nothing written is lost.
+        setAskError(result.message);
+        return;
+      }
+      form.reset();
+      setAskTarget(null);
+      setMessage({
+        tone: 'success',
+        text: `Update requested. ${target.recipientName} has been emailed, and you will be told when they reply.`,
+      });
+      router.refresh();
+    });
+  }
+
+  function openAsk(checklistItemId: string | null, recipientName: string) {
+    setAskError(null);
+    setAskTarget({
+      checklistItemId,
+      recipientName,
+      stepAction: checklistItemId ? (stepActions.get(checklistItemId) ?? null) : null,
+    });
+  }
+
+  function closeAsk() {
+    setAskTarget(null);
+    setAskError(null);
+  }
+
+  function openComposerForRequest() {
+    setComposerFocus(true);
+    setComposerOpen(true);
   }
 
   function openDueEditor() {
@@ -906,6 +1041,68 @@ export function TaskDetailDrawer({
             >
               {barrierViewLabel(openBarrier.responses.length > 0, openBarrier.actionPending)}
             </button>
+          </section>
+        ) : null}
+
+        {/*
+          v184 — somebody is waiting to hear how this is going.
+
+          Blue rather than red: a barrier stops the work, a request for an
+          update does not. It says who asked and what they asked, and its one
+          control opens the composer, because posting an update is the answer.
+        */}
+        {requestsForMe.length > 0 && !isClosed ? (
+          <section className="barrier-exception update-request" aria-label="Update requested">
+            <div className="barrier-exception-copy">
+              <strong>{requesterNames.join(' and ')} asked for an update</strong>
+              {requestsForMe.map((request) => (
+                <p key={request.id}>
+                  {request.checklistItemId
+                    ? `On the step “${stepActions.get(request.checklistItemId) ?? 'Step'}”: `
+                    : ''}
+                  {request.message ? `“${request.message}”` : 'No note added.'}
+                  {requesterNames.length > 1 ? ` — ${request.requestedByName}` : ''} ·{' '}
+                  {formatMoment(request.lastAskedAt, timeZone)}
+                </p>
+              ))}
+            </div>
+            {detail.capabilities.canContribute && !composerOpen && (
+              <button type="button" className="btn small" onClick={openComposerForRequest}>
+                Add update
+              </button>
+            )}
+          </section>
+        ) : null}
+
+        {/*
+          v184 — the other end: your request is waiting. Amber, like a barrier
+          you raised, because you are the one waiting. Asking again appears
+          here once a day has passed, beside the request it repeats.
+        */}
+        {myWorkRequest && !isClosed ? (
+          <section
+            className="barrier-exception waiting update-request-waiting"
+            aria-label="Update request status"
+          >
+            <div className="barrier-exception-copy">
+              <strong>Waiting for {myWorkRequest.requestedOfName}’s update</strong>
+              <p>
+                You asked {formatMoment(myWorkRequest.lastAskedAt, timeZone)}
+                {myWorkRequest.message ? `: “${myWorkRequest.message}”.` : '.'}
+                {workTarget?.againAt
+                  ? ` You can ask again after ${formatMoment(workTarget.againAt, timeZone)}.`
+                  : ''}
+              </p>
+            </div>
+            {canAskAboutWork && workTarget && (
+              <button
+                type="button"
+                className="ask-update-link"
+                onClick={() => openAsk(null, workTarget.requestedOfName)}
+              >
+                Ask again
+              </button>
+            )}
           </section>
         ) : null}
 
@@ -1519,6 +1716,64 @@ export function TaskDetailDrawer({
           </div>
         )}
 
+        {/*
+          v184 — one optional question. Who is asked is not a choice: it is
+          the owner, the one person who can say how the work is going.
+        */}
+        <Modal open={askTarget !== null} title="Ask for an update" onClose={closeAsk}>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              submitUpdateRequest(event.currentTarget);
+            }}
+          >
+            <div className="modal-head">
+              <div>
+                <strong>Ask {askTarget?.recipientName ?? ownerName} for an update</strong>
+                <span>
+                  {askTarget?.stepAction ? `About the step “${askTarget.stepAction}”. ` : ''}
+                  They are emailed and see your request on this work. You are told when they reply.
+                </span>
+              </div>
+              <button
+                type="button"
+                className="btn small"
+                aria-label="Close Ask for an update"
+                onClick={closeAsk}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="modal-body">
+              {askError && (
+                <div className="notice error" role="alert">
+                  <p>{askError}</p>
+                </div>
+              )}
+              <div className="field">
+                <label htmlFor={`update-request-${task.id}`}>
+                  What do you want to know? <span className="optional-label">Optional</span>
+                </label>
+                <textarea
+                  id={`update-request-${task.id}`}
+                  name="note"
+                  rows={3}
+                  maxLength={1000}
+                  placeholder="Example: Has the contractor confirmed Friday?"
+                />
+              </div>
+            </div>
+            <div className="modal-foot">
+              <button type="button" className="btn" onClick={closeAsk}>
+                Cancel
+              </button>
+              <button className="btn primary" disabled={pending} aria-busy={pending}>
+                {pending ? 'Sending…' : 'Send request'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+
         <Modal open={barrierOpen} title="Raise Barrier" onClose={() => setBarrierOpen(false)}>
           <form
             onSubmit={(event) => {
@@ -1800,7 +2055,7 @@ export function TaskDetailDrawer({
           />
         )}
 
-        {!isRoutineOccurrence && detail.capabilities.canContribute && !isClosed && (
+        {showPrimaryActions && (
           <div className="task-primary-actions">
             <button
               type="button"
@@ -1888,6 +2143,33 @@ export function TaskDetailDrawer({
                 Need support
               </button>
             )}
+            {/* v184 — last, and quiet: the buttons are the work; this is a question. */}
+            {canAskAboutWork && workTarget && !myWorkRequest && (
+              <button
+                type="button"
+                className="ask-update-link"
+                onClick={() => openAsk(null, workTarget.requestedOfName)}
+              >
+                Ask for update
+              </button>
+            )}
+          </div>
+        )}
+
+        {/*
+          v184 — for somebody who can see this work but not act on it — a
+          person given visibility, or a manager reading a routine occurrence —
+          asking is the one thing to offer, so it gets a row of its own.
+        */}
+        {canAskAboutWork && workTarget && !myWorkRequest && !showPrimaryActions && (
+          <div className="task-ask-update-row">
+            <button
+              type="button"
+              className="ask-update-link"
+              onClick={() => openAsk(null, workTarget.requestedOfName)}
+            >
+              Ask for update
+            </button>
           </div>
         )}
 
@@ -1899,6 +2181,12 @@ export function TaskDetailDrawer({
               submitUpdate(event.currentTarget);
             }}
           >
+            {requestsForMe.length > 0 && (
+              <p className="update-composer-request">
+                {requesterNames.join(' and ')} {requesterNames.length === 1 ? 'is' : 'are'} waiting
+                for this update and will be emailed it.
+              </p>
+            )}
             <div className="update-form-grid">
               <div className="field">
                 <label htmlFor={`update-${task.id}`}>What changed?</label>
@@ -1908,6 +2196,10 @@ export function TaskDetailDrawer({
                   rows={4}
                   maxLength={4000}
                   placeholder="Describe the meaningful progress, result or issue."
+                  // v184 — opened to answer a request. Arriving from the email,
+                  // the drawer puts focus here; from the banner, it lands here.
+                  data-initial-focus={openForRequest ? true : undefined}
+                  autoFocus={composerFocus}
                 />
               </div>
             </div>
@@ -1982,6 +2274,10 @@ export function TaskDetailDrawer({
               <div className="task-accordion-body" id={`task-steps-${task.id}`}>
                 <TaskChecklistPanel
                   assignees={assignablePeople}
+                  updateRequestTargets={stepTargets}
+                  waitingUpdateRequests={myStepRequests}
+                  updateRequestsForViewer={stepRequestsForMe}
+                  onAskForUpdate={(item, recipientName) => openAsk(item.id, recipientName)}
                   onAddStep={(step) => {
                     setMessage(null);
                     /*

@@ -37,6 +37,7 @@ import {
   getBinnedTaskCount,
   getCurrentFocus,
   getCurrentWeekStart,
+  getUpdateRequestsForMe,
   getWeeklyCommitments,
   getTeamAvailableWork,
   getTeamAvailableCount,
@@ -188,11 +189,17 @@ function dueSignal(
  * stop reading rows — and then the one that says something real is skipped
  * with the rest.
  */
-function exceptionFlags(task: TaskOverview, timeZone: string): { label: string; tone: string }[] {
+function exceptionFlags(
+  task: TaskOverview,
+  timeZone: string,
+  updateRequested: boolean,
+): { label: string; tone: string }[] {
   const flags: { label: string; tone: string }[] = [];
 
   if (task.isMandatory) flags.push({ label: 'Mandatory', tone: 'red' });
   if (task.openBarrierCount > 0) flags.push({ label: 'Waiting on a decision', tone: 'amber' });
+  // v184 - somebody asked for an update and is waiting for it.
+  if (updateRequested) flags.push({ label: 'Update requested', tone: 'amber' });
   if (task.urgency === 'critical') flags.push({ label: 'Critical', tone: 'red' });
   else if (task.urgency === 'high') flags.push({ label: 'High', tone: 'amber' });
   if (task.reviewAt) {
@@ -549,6 +556,10 @@ export default async function WorkPage({
     barrier?: string;
     /** v156 — the step to open the task at, from the Monthly Plan. */
     step?: string;
+    /** v184 — arrived from an update request: the composer opens with it. */
+    respond?: string;
+    /** v184 — arrived from a reply: the updates open. */
+    section?: string;
     /**
      * §6 — who is expanded in My Team.
      *
@@ -734,6 +745,7 @@ export default async function WorkPage({
     completedWork,
     currentFocus,
     weekStart,
+    updateRequestsForMe,
   ] = await Promise.all([
     getMyTasks(profile.id),
     getDisplaySettings(),
@@ -795,6 +807,10 @@ export default async function WorkPage({
     // Asked of the database so the screen and the procedures agree on which
     // Monday "this week" is.
     getCurrentWeekStart(),
+    // v184 - which of the viewer's own rows somebody is waiting to hear about.
+    scope === 'mine'
+      ? getUpdateRequestsForMe(profile.id)
+      : Promise.resolve({ taskIds: new Set<string>(), stepIds: new Set<string>() }),
   ]);
 
   // Only on Active, which is the list they describe.
@@ -1630,8 +1646,14 @@ export default async function WorkPage({
                       </span>
                     </div>
 
-                    {item.readiness !== 'ready' || item.evidenceRule === 'required' ? (
+                    {item.readiness !== 'ready' ||
+                    item.evidenceRule === 'required' ||
+                    updateRequestsForMe.stepIds.has(item.checklistItemId) ? (
                       <div className="row-flags">
+                        {/* v184 - somebody is waiting to hear how this step is going. */}
+                        {updateRequestsForMe.stepIds.has(item.checklistItemId) && (
+                          <span className="row-flag amber">Update requested</span>
+                        )}
                         {item.readiness !== 'ready' && (
                           <span className="row-flag amber">
                             {copy.label}
@@ -1687,7 +1709,11 @@ export default async function WorkPage({
                 genuinely exceptional, a flag. Normal work is quiet, so the
                 exceptions are the thing your eye lands on.
               */
-                const flags = exceptionFlags(task, profile.timezone);
+                const flags = exceptionFlags(
+                  task,
+                  profile.timezone,
+                  updateRequestsForMe.taskIds.has(task.id),
+                );
                 const due = dueSignal(task, profile.timezone, now);
                 return (
                   <TaskRow key={task.id} className="task-row-lean">
@@ -1879,6 +1905,8 @@ export default async function WorkPage({
           weeklyReference={weeklyReferenceForTask}
           attentionBarrierId={attentionBarrierId}
           focusStepId={focusStepId}
+          respondToUpdateRequest={params.respond === 'update'}
+          openUpdates={params.section === 'updates'}
         />
       )}
 

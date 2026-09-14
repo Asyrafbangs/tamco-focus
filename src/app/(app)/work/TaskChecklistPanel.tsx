@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from 'react';
 
 import { Modal } from '@/components/ui/Modal';
 import { formatDueShort, localDateString } from '@/domain/duration';
-import type { TaskDetailChecklistItem } from '@/server/queries';
+import type {
+  TaskDetailChecklistItem,
+  TaskDetailUpdateRequest,
+  UpdateRequestTarget,
+} from '@/server/queries';
 
 export interface ChecklistAssignee {
   id: string;
@@ -286,6 +290,59 @@ function StepMenu({
   );
 }
 
+/**
+ * v184 — the step's update-request state, in one quiet line, or nothing.
+ *
+ * Three things it can say: somebody is waiting on you for an update; you asked
+ * and are waiting; or, when asking would be accepted, the link to ask. Asking
+ * again after a day sits beside the request it repeats.
+ */
+function StepUpdateRequestLine({
+  item,
+  target,
+  waiting,
+  askedBy,
+  timeZone,
+  onAsk,
+}: {
+  item: TaskDetailChecklistItem;
+  target: UpdateRequestTarget | null;
+  waiting: TaskDetailUpdateRequest | null;
+  askedBy: string[];
+  timeZone: string;
+  onAsk?: (item: TaskDetailChecklistItem, recipientName: string) => void;
+}) {
+  if (item.state === 'completed') return null;
+  const canAsk = Boolean(onAsk && target && target.againAt === null);
+  if (askedBy.length === 0 && !waiting && !canAsk) return null;
+
+  return (
+    <span className="checklist-update-request">
+      {askedBy.length > 0 ? (
+        <span className="checklist-update-request-asked">
+          {askedBy.join(' and ')} asked for an update
+        </span>
+      ) : null}
+      {waiting ? (
+        <span>
+          You asked {waiting.requestedOfName.split(' ')[0]} for an update ·{' '}
+          {formatDueShort(waiting.lastAskedAt, true, timeZone)}
+        </span>
+      ) : null}
+      {canAsk && target ? (
+        <button
+          type="button"
+          className="ask-update-link"
+          aria-label={`${waiting ? 'Ask again' : 'Ask for update'} on ${item.action}`}
+          onClick={() => onAsk?.(item, target.requestedOfName)}
+        >
+          {waiting ? 'Ask again' : 'Ask for update'}
+        </button>
+      ) : null}
+    </span>
+  );
+}
+
 export function TaskChecklistPanel({
   items,
   attachmentsByChecklist,
@@ -304,6 +361,10 @@ export function TaskChecklistPanel({
   onAddStep,
   onEditStep,
   onRemoveStep,
+  updateRequestTargets,
+  waitingUpdateRequests,
+  updateRequestsForViewer,
+  onAskForUpdate,
 }: {
   items: TaskDetailChecklistItem[];
   attachmentsByChecklist: Map<string, number>;
@@ -327,6 +388,13 @@ export function TaskChecklistPanel({
   onAddStep: (step: NewChecklistStep) => void;
   onEditStep: (step: EditChecklistStep) => void;
   onRemoveStep: (item: TaskDetailChecklistItem) => void;
+  /** v184 — steps this viewer may ask about, by step id, naming who is asked. */
+  updateRequestTargets?: ReadonlyMap<string, UpdateRequestTarget>;
+  /** v184 — this viewer's own requests still waiting, by step id. */
+  waitingUpdateRequests?: ReadonlyMap<string, TaskDetailUpdateRequest>;
+  /** v184 — who is waiting on this viewer for an update, by step id. */
+  updateRequestsForViewer?: ReadonlyMap<string, string[]>;
+  onAskForUpdate?: (item: TaskDetailChecklistItem, recipientName: string) => void;
 }) {
   /*
    * v41 section 8 — Add step is a first-class control in the Steps section,
@@ -655,6 +723,21 @@ export function TaskChecklistPanel({
                   <span className="checklist-waiting-reason">
                     {item.assignedName} completes this step.
                   </span>
+                ) : null}
+                {/*
+                  v184 — asking how a step is going, on the step. A line of
+                  small text rather than a button: it is a question somebody
+                  occasionally needs to ask, not the thing the row is for.
+                */}
+                {!readOnly ? (
+                  <StepUpdateRequestLine
+                    item={item}
+                    target={updateRequestTargets?.get(item.id) ?? null}
+                    waiting={waitingUpdateRequests?.get(item.id) ?? null}
+                    askedBy={updateRequestsForViewer?.get(item.id) ?? []}
+                    timeZone={timeZone}
+                    onAsk={onAskForUpdate}
+                  />
                 ) : null}
               </div>
               <div className="task-checklist-actions">

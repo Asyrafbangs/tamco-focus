@@ -1,5 +1,20 @@
 # TAMCO Focus — Change Log
 
+## v184 Ask for an update — 15 September 2026
+
+- On somebody else's work, a small "Ask for update" link sits at the end of the task's
+  buttons: for their manager, for anyone given visibility of their work, and for whoever
+  assigned it. An optional note says what you want to know.
+- Each unfinished step has its own "Ask for update" link. It asks the person the step is
+  assigned to, or the work's owner when nobody is.
+- The person asked is emailed and sees the request at the top of the work, with Add update
+  beside it. The email opens the work with the update box ready. My Work and Shared rows show
+  "Update requested".
+- A written update answers it, and completing the step answers a step request. Either way,
+  the person who asked is emailed the reply.
+- You can ask the same person about the same thing once a day. While you wait, the work says
+  when you asked and when you can ask again.
+
 ## v183 Every control on a phone is big enough to press — 15 September 2026
 
 - On a phone, filter fields and dropdowns, Settings fields, the period and More menus, the tabs

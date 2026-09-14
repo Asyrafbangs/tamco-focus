@@ -1705,3 +1705,26 @@ derived-progress rules. The future ESH finding/action system remains outside the
 2. The task age "i" keeps its 24-28px circle; its `::after` extends the touch area to 44px.
 3. The check measures layout height (`offsetHeight`) on twelve pages across two roles, so a dialog
    still finishing its opening scale does not read short.
+
+## 79. v184 Ask for an update
+
+1. `request_task_update(task, step?, note?)` asks the work's owner, or the step's assignee (the
+   owner when the step is unassigned). The asker never chooses the recipient.
+2. What may be asked comes from `focus.update_request_targets`: open, unbinned, non-Quick-Action
+   work and unfinished steps, whose recipient is active and not the viewer. The drawer reads it
+   through `get_task_update_requests`; the procedure checks it before writing. The viewer must
+   be able to see the work.
+3. One open request per person per work or step. A second ask of the same person within 24
+   hours is refused with `already_requested` and the time it becomes allowed. After that the
+   same request is repeated: the note and time are replaced, and the previous notice is marked
+   read.
+4. The notice is immediate and requires action, so it is emailed from the outbox. It links to
+   `/work?task=…&respond=update`, with `&step=…` for a step, which opens the composer.
+5. A written (not evidence-only) update from the person asked, or from whoever can answer now,
+   resolves every open request it can answer. It clears the recipient's notices, and each
+   asker receives one emailed reply that quotes up to 300 characters. Completing a step
+   resolves requests about that step and tells each asker, except one who completed it.
+6. Completing, cancelling or binning the work resolves everything open. Reassigning the work or
+   a step clears the previous recipient's notices, and the asker may ask the new person at
+   once. Removing a step deletes its requests.
+7. The link is text, not a button. On a phone its `::after` extends the touch area to 44px.

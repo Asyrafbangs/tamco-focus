@@ -5852,6 +5852,178 @@ export type Database = {
           },
         ]
       }
+      task_update_requests: {
+        Row: {
+          checklist_item_id: string | null
+          id: string
+          last_asked_at: string
+          message: string | null
+          requested_at: string
+          requested_by: string
+          requested_of: string
+          resolution: string | null
+          resolved_at: string | null
+          task_id: string
+          times_asked: number
+          update_id: string | null
+        }
+        Insert: {
+          checklist_item_id?: string | null
+          id?: string
+          last_asked_at?: string
+          message?: string | null
+          requested_at?: string
+          requested_by: string
+          requested_of: string
+          resolution?: string | null
+          resolved_at?: string | null
+          task_id: string
+          times_asked?: number
+          update_id?: string | null
+        }
+        Update: {
+          checklist_item_id?: string | null
+          id?: string
+          last_asked_at?: string
+          message?: string | null
+          requested_at?: string
+          requested_by?: string
+          requested_of?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          task_id?: string
+          times_asked?: number
+          update_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_update_requests_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "completed_contributions"
+            referencedColumns: ["checklist_item_id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "shared_contributions"
+            referencedColumns: ["checklist_item_id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_checklist_item_id_fkey"
+            columns: ["checklist_item_id"]
+            isOneToOne: false
+            referencedRelation: "task_checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_requested_of_fkey"
+            columns: ["requested_of"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_requested_of_fkey"
+            columns: ["requested_of"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_requested_of_fkey"
+            columns: ["requested_of"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_requested_of_fkey"
+            columns: ["requested_of"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_requested_of_fkey"
+            columns: ["requested_of"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "binned_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "task_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_update_requests_update_id_fkey"
+            columns: ["update_id"]
+            isOneToOne: false
+            referencedRelation: "task_updates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_updates: {
         Row: {
           author_id: string
@@ -10246,6 +10418,7 @@ export type Database = {
       }
       get_goal_capabilities: { Args: { p_goal_id: string }; Returns: Json }
       get_task_capabilities: { Args: { p_task_id: string }; Returns: Json }
+      get_task_update_requests: { Args: { p_task_id: string }; Returns: Json }
       get_visibility_state: { Args: { p_viewer_id: string }; Returns: Json }
       get_work_proposal_capabilities: {
         Args: { p_proposal_id: string }
@@ -10475,6 +10648,15 @@ export type Database = {
           p_goal_id: string
           p_idempotency_key?: string
           p_message?: string
+        }
+        Returns: Json
+      }
+      request_task_update: {
+        Args: {
+          p_checklist_item_id?: string
+          p_idempotency_key?: string
+          p_message?: string
+          p_task_id: string
         }
         Returns: Json
       }
@@ -10854,6 +11036,7 @@ export type Database = {
         | "routine_not_required_returned"
         | "work_purpose_set"
         | "routine_not_required_withdrawn"
+        | "update_requested"
       barrier_action_type:
         | "decision"
         | "approval"
@@ -10954,6 +11137,8 @@ export type Database = {
         | "goal_manager_attention"
         | "goal_quarterly_due"
         | "goal_year_end_due"
+        | "update_requested"
+        | "update_request_answered"
       personal_summary_mode: "off" | "focused" | "standard"
       proposal_status:
         | "pending"
@@ -11230,6 +11415,7 @@ export const Constants = {
         "routine_not_required_returned",
         "work_purpose_set",
         "routine_not_required_withdrawn",
+        "update_requested",
       ],
       barrier_action_type: [
         "decision",
@@ -11340,6 +11526,8 @@ export const Constants = {
         "goal_manager_attention",
         "goal_quarterly_due",
         "goal_year_end_due",
+        "update_requested",
+        "update_request_answered",
       ],
       personal_summary_mode: ["off", "focused", "standard"],
       proposal_status: [

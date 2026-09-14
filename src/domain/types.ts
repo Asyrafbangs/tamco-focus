@@ -236,6 +236,10 @@ export type OperationErrorCode =
   | 'email_taken'
   | 'duplicate_identity'
   | 'invalid_target'
+  /** v184 — asking for an update. */
+  | 'own_work'
+  | 'owner_inactive'
+  | 'already_requested'
   | 'unexpected_error';
 
 /**

@@ -105,6 +105,15 @@ function eventPresentation(
         description: update?.body ?? null,
       };
     }
+    // v184 - who asked is the event's actor; what about, and what they wrote.
+    case 'update_requested': {
+      const action = text(detail, 'action');
+      const note = text(detail, 'message');
+      return {
+        title: action ? 'Update requested on a step' : 'Update requested',
+        description: [action, note ? `“${note}”` : null].filter(Boolean).join(' · ') || null,
+      };
+    }
     default:
       return { title: eventLabel(event.eventType), description: null };
   }

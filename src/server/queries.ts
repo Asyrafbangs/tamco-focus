@@ -549,6 +549,37 @@ export interface TaskDetailUpdate {
   mentionNames: string[];
 }
 
+/** v184 — somebody asked for an update on the work or a step, and is waiting. */
+export interface TaskDetailUpdateRequest {
+  id: string;
+  /** Null when the request is about the work itself. */
+  checklistItemId: string | null;
+  requestedById: string;
+  requestedByName: string;
+  requestedOfId: string;
+  requestedOfName: string;
+  /** Who can answer it now: the step's assignee, or the work's owner. */
+  answererId: string | null;
+  message: string | null;
+  lastAskedAt: string;
+  timesAsked: number;
+}
+
+/**
+ * v184 — something this viewer may ask about, and who would be asked.
+ *
+ * Decided in SQL (`focus.update_request_targets`) and only read here, so the
+ * drawer offers exactly what `request_task_update` accepts.
+ */
+export interface UpdateRequestTarget {
+  /** Null for the work itself. */
+  checklistItemId: string | null;
+  requestedOfId: string;
+  requestedOfName: string;
+  /** Set while the viewer's last ask is under a day old: when they may ask again. */
+  againAt: string | null;
+}
+
 export interface TaskDetailBarrier {
   id: string;
   description: string;
@@ -605,6 +636,10 @@ export interface TaskDetail {
     canReassign: boolean;
     canCancel: boolean;
   };
+  /** v184 — requests for an update still waiting, oldest first. */
+  updateRequests: TaskDetailUpdateRequest[];
+  /** v184 — what this viewer may ask for an update on. */
+  updateRequestTargets: UpdateRequestTarget[];
   checklist: TaskDetailChecklistItem[];
   updates: TaskDetailUpdate[];
   attachments: TaskDetailAttachment[];
@@ -730,23 +765,51 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
 
   if (taskResult.error || !taskResult.data) return null;
 
-  const [collaboratorsResult, relationsResult, activityResult, capabilityResult] =
-    await Promise.all([
-      supabase.from('task_collaborators').select('user_id').eq('task_id', taskId),
-      supabase
-        .from('task_relations')
-        .select('task_id,related_task_id,relation')
-        .or(`task_id.eq.${taskId},related_task_id.eq.${taskId}`),
-      supabase
-        .from('audit_events')
-        .select('id,event_type,actor_id,occurred_at,detail')
-        .eq('task_id', taskId)
-        .order('occurred_at', { ascending: false })
-        .limit(500),
-      supabase.rpc('get_task_capabilities', { p_task_id: taskId }),
-    ]);
+  const [
+    collaboratorsResult,
+    relationsResult,
+    activityResult,
+    capabilityResult,
+    updateRequestsResult,
+  ] = await Promise.all([
+    supabase.from('task_collaborators').select('user_id').eq('task_id', taskId),
+    supabase
+      .from('task_relations')
+      .select('task_id,related_task_id,relation')
+      .or(`task_id.eq.${taskId},related_task_id.eq.${taskId}`),
+    supabase
+      .from('audit_events')
+      .select('id,event_type,actor_id,occurred_at,detail')
+      .eq('task_id', taskId)
+      .order('occurred_at', { ascending: false })
+      .limit(500),
+    supabase.rpc('get_task_capabilities', { p_task_id: taskId }),
+    supabase.rpc('get_task_update_requests', { p_task_id: taskId }),
+  ]);
 
   const updates = updatesResult.data ?? [];
+  const updateRequestModel = (updateRequestsResult.data ?? {}) as {
+    open?: Array<{
+      id: string;
+      checklist_item_id: string | null;
+      requested_by: string;
+      requested_of: string;
+      answerer: string | null;
+      message: string | null;
+      last_asked_at: string;
+      times_asked: number;
+    }>;
+    targets?: Array<{
+      checklist_item_id: string | null;
+      requested_of: string;
+      again_at: string | null;
+    }>;
+  };
+  if (updateRequestsResult.error) {
+    console.error(`[getTaskDetail:update_requests] ${updateRequestsResult.error.message}`);
+  }
+  const updateRequestRows = updateRequestModel.open ?? [];
+  const updateRequestTargetRows = updateRequestModel.targets ?? [];
   const updateIds = updates.map((row) => row.id as string);
   const { data: mentions } = updateIds.length
     ? await supabase
@@ -782,6 +845,8 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
     ...(mentions ?? []).map((row) => row.user_id as string),
     ...(attachmentsResult.data ?? []).map((row) => row.uploaded_by as string),
     ...(activityResult.data ?? []).map((row) => row.actor_id as string).filter(Boolean),
+    ...updateRequestRows.flatMap((row) => [row.requested_by, row.requested_of]),
+    ...updateRequestTargetRows.map((row) => row.requested_of),
   ]);
   const { data: people } = personIds.size
     ? await supabase
@@ -857,6 +922,24 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
       canReassign: Boolean(rawCapabilities.can_reassign),
       canCancel: Boolean(rawCapabilities.can_cancel),
     },
+    updateRequests: updateRequestRows.map((row) => ({
+      id: row.id,
+      checklistItemId: row.checklist_item_id,
+      requestedById: row.requested_by,
+      requestedByName: personName(row.requested_by),
+      requestedOfId: row.requested_of,
+      requestedOfName: personName(row.requested_of),
+      answererId: row.answerer,
+      message: row.message,
+      lastAskedAt: row.last_asked_at,
+      timesAsked: row.times_asked,
+    })),
+    updateRequestTargets: updateRequestTargetRows.map((row) => ({
+      checklistItemId: row.checklist_item_id,
+      requestedOfId: row.requested_of,
+      requestedOfName: personName(row.requested_of),
+      againAt: row.again_at,
+    })),
     checklist: (checklistResult.data ?? []).map((row) => {
       const assignedTo = (row.assigned_to as string) ?? null;
       const state = row.state as TaskDetailChecklistItem['state'];
@@ -1675,6 +1758,35 @@ export async function getBlockingCounts(): Promise<Map<string, number>> {
   }
 
   return counts;
+}
+
+/**
+ * v184 — what somebody has asked this person for an update on: the work, by
+ * id, and the steps, by id, so a Shared row can say so as well as My Work.
+ *
+ * Only requests still asked of them: one left open after the work or the step
+ * moved to somebody else is not theirs to answer.
+ */
+export async function getUpdateRequestsForMe(
+  userId: string,
+): Promise<{ taskIds: Set<string>; stepIds: Set<string> }> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('task_update_requests')
+    .select('task_id,checklist_item_id')
+    .eq('requested_of', userId)
+    .is('resolved_at', null);
+
+  if (error) {
+    console.error(`[getUpdateRequestsForMe] ${error.message}`);
+    return { taskIds: new Set(), stepIds: new Set() };
+  }
+  return {
+    taskIds: new Set((data ?? []).map((row) => row.task_id)),
+    stepIds: new Set(
+      (data ?? []).flatMap((row) => (row.checklist_item_id ? [row.checklist_item_id] : [])),
+    ),
+  };
 }
 
 /** Unread notifications that genuinely require action, for the red indicator. */

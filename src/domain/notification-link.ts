@@ -42,6 +42,18 @@ export function notificationHref(notification: NotificationLinkSource): string {
   if (entityType === 'task_step' && taskId && entityId) {
     return `/work?task=${encodeURIComponent(taskId)}&step=${encodeURIComponent(entityId)}`;
   }
+  // v184 - asked for an update: the work, with the request and the composer
+  // open - at the step, when it was about one. Answered: the work, at the
+  // updates, where the reply is.
+  if (entityType === 'task_update_request' && taskId) {
+    return `/work?task=${encodeURIComponent(taskId)}&respond=update`;
+  }
+  if (entityType === 'step_update_request' && taskId && entityId) {
+    return `/work?task=${encodeURIComponent(taskId)}&step=${encodeURIComponent(entityId)}&respond=update`;
+  }
+  if (entityType === 'task_update' && taskId) {
+    return `/work?task=${encodeURIComponent(taskId)}&section=updates`;
+  }
   if (taskId) return `/work?task=${encodeURIComponent(taskId)}`;
   if (goalId) return `/goals?goal=${encodeURIComponent(goalId)}`;
   return '/today';
