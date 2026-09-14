@@ -63,5 +63,6 @@
 | Filters apply on choice; ticks that tick             | Directory/Organisation/Records filters; visibility; invites  | `SubmitOnSelect` (keyboard held until Enter or blur); checkbox invites    | v179 desktop/mobile E2E (3); v47 invite ticks          | Implemented and verified |
 | Assigned New Work keeps evidence rule and files      | New Work with a Primary owner                                | `assign_work_to_people(p_capture_id)`; draft resolved, not discarded      | v180 integration (3); desktop E2E (1)                  | Implemented and verified |
 | Crawl findings: team rows, phone width, Night text   | My Team rows; Attachments; tabs; Night mode headings, links  | Name button not row button; focusable scroll region; `--heading` token    | v181 desktop/mobile E2E (3); updated team specs        | Implemented and verified |
+| Session ended during a save: sign in and return      | Any save after the session expired; error page wording       | `requireProfile` redirects; proxy passes server actions; `signInPathFor`  | v182 unit (2); desktop E2E (1)                         | Implemented and verified |
 
 The approved v33 application modules are mapped above. Detailed workflow contracts remain in `MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`, and the handoff documents in this directory.

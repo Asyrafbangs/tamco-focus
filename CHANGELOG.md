@@ -1,5 +1,15 @@
 # TAMCO Focus — Change Log
 
+## v182 When a session ends in the middle of a save — 15 September 2026
+
+- Pressing Save after your session has expired now takes you to sign-in with "Your session
+  ended", and back to the same page afterwards. It used to show an error page saying the
+  problem was "a read, not a save" and to check the local database.
+- Signing in after following a link returns you to the same record, not just the same screen:
+  the page's address is kept whole.
+- The error page that remains for real failures no longer claims nothing was saved, and tells
+  you to check whether a save went through before repeating it.
+
 ## v181 What a crawl of every page found — 14 September 2026
 
 - My Team: each person's name is the button that opens them. The whole row was announced as one

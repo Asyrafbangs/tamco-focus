@@ -95,11 +95,27 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(callback);
   }
 
-  if (!user && !isPublic) {
+  /*
+   * A server action from a page whose session has since ended (v182).
+   *
+   * Redirecting it here answered a form's POST with the sign-in page's HTML,
+   * which the client cannot read as an action result: it threw "An unexpected
+   * response was received from the server" and the workspace error page said a
+   * read had failed. Passed through, the action's own `requireProfile` answers
+   * with a redirect the client does follow, back to this page after sign-in.
+   * Nothing is opened by it: without a session every query runs as anonymous,
+   * which RLS and the procedure grants refuse.
+   */
+  const isServerAction = request.method === 'POST' && request.headers.has('next-action');
+
+  if (!user && !isPublic && !isServerAction) {
     const signIn = request.nextUrl.clone();
     signIn.pathname = '/sign-in';
-    // Preserve where they were heading so sign-in can return them there.
-    signIn.searchParams.set('next', pathname);
+    // Where they were heading, query and all, so sign-in returns them to the
+    // same record rather than the same screen — and not the page's own
+    // parameters loose on the sign-in address.
+    signIn.search = '';
+    signIn.searchParams.set('next', `${pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(signIn);
   }
 

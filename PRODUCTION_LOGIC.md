@@ -1683,3 +1683,16 @@ derived-progress rules. The future ESH finding/action system remains outside the
    viewports and in Night mode and the largest text size: no error pages, no browser errors, no
    page wider than the screen, no serious accessibility violations; double submissions of New Work
    and updates create one record; another person's task is not readable by address or search.
+
+## 77. v182 Session ended during an action
+
+1. `requireProfile` without a signed-in, active profile redirects to
+   `/sign-in?session=ended&next=…`, where `next` is the referring page on the same host, passed
+   through `safeReturnPath`, and never the sign-in page itself. Route handlers that catch every
+   error still answer 404.
+2. The proxy does not redirect a server action (a POST carrying `Next-Action`) without a session:
+   a redirect there answered a form with HTML the client cannot read. The action runs, finds no
+   profile and redirects as above; without a session every query runs as anonymous and is refused.
+3. A page request without a session redirects to `/sign-in?next=` with the full path and query,
+   and none of the page's own parameters on the sign-in address.
+4. The workspace and Goals error pages do not claim a failure was a read or that nothing changed.

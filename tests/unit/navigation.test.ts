@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { safeReturnPath } from '@/domain/navigation';
+import { safeReturnPath, signInPathFor } from '@/domain/navigation';
 
 describe('safeReturnPath', () => {
   const fallback = '/work';
@@ -45,5 +45,23 @@ describe('safeReturnPath', () => {
 
   it('uses the fallback when no return path is provided', () => {
     expect(safeReturnPath(undefined, fallback)).toBe(fallback);
+  });
+});
+
+describe('signInPathFor (v182)', () => {
+  const host = 'tamco-focus.vercel.app';
+
+  it('returns to the page the expired request came from', () => {
+    expect(signInPathFor('https://tamco-focus.vercel.app/work?scope=team&person=izzah', host)).toBe(
+      `/sign-in?session=ended&next=${encodeURIComponent('/work?scope=team&person=izzah')}`,
+    );
+  });
+
+  it('ignores a referrer from another host, or none, and never loops to sign-in', () => {
+    const home = `/sign-in?session=ended&next=${encodeURIComponent('/today')}`;
+    expect(signInPathFor('https://evil.example/work', host)).toBe(home);
+    expect(signInPathFor(null, host)).toBe(home);
+    expect(signInPathFor('not a url', host)).toBe(home);
+    expect(signInPathFor('https://tamco-focus.vercel.app/sign-in?next=%2Fwork', host)).toBe(home);
   });
 });

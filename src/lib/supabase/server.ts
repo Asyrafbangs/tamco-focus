@@ -1,9 +1,11 @@
 import 'server-only';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 
+import { signInPathFor } from '@/domain/navigation';
 import { publicEnv } from '@/lib/env';
 
 /**
@@ -140,12 +142,21 @@ export async function getCurrentProfile(): Promise<CurrentProfile | null> {
   return profile;
 }
 
-/** Throws rather than returning null, for routes that have no anonymous path. */
+/**
+ * The signed-in profile, for routes that have no anonymous path.
+ *
+ * Without one it redirects to sign-in, returning afterwards to the page the
+ * request came from (v182). It used to throw AUTH_REQUIRED, which in a server
+ * action — a save pressed after the session expired — surfaced as the workspace
+ * error page. A redirect is a thrown value too, so route handlers that catch
+ * everything and answer 404 still do.
+ */
 export async function requireProfile() {
   const profile = await getCurrentProfile();
 
   if (!profile) {
-    throw new Error('AUTH_REQUIRED');
+    const requestHeaders = await headers();
+    redirect(signInPathFor(requestHeaders.get('referer'), requestHeaders.get('host')));
   }
 
   return profile;

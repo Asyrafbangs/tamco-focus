@@ -16,7 +16,10 @@ export default function GoalsError({
   return (
     <div className="empty-state card" role="alert">
       <h1>Goals could not be loaded</h1>
-      <p>Your existing Goal data was not changed. Check the local connection and try again.</p>
+      <p>
+        If you had just saved something, check whether it is there before doing it again. Check your
+        connection and try again.
+      </p>
       <button type="button" className="btn primary" onClick={reset}>
         Try again
       </button>

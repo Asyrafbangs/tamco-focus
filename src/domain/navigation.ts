@@ -101,3 +101,28 @@ export function safeReturnPath(from: string | undefined, fallback: string): stri
     return fallback;
   }
 }
+
+/**
+ * Where somebody whose session has ended is sent, and where they come back to
+ * (v182).
+ *
+ * A save made after the session ran out used to throw, and the workspace error
+ * page said "this was a read, not a save" and to check the local database —
+ * wrong on both counts, and silent about the one thing to do, which is sign in
+ * again. The page they were on is taken from the request's referrer, and only
+ * when it names this same host: a referrer is a header the browser sends and
+ * the path is honoured through `safeReturnPath` like any other return address.
+ */
+export function signInPathFor(referer: string | null, host: string | null): string {
+  let next = '/today';
+  if (referer && host) {
+    try {
+      const url = new URL(referer);
+      if (url.host === host) next = safeReturnPath(`${url.pathname}${url.search}`, '/today');
+    } catch {
+      next = '/today';
+    }
+  }
+  if (next.startsWith('/sign-in')) next = '/today';
+  return `/sign-in?session=ended&next=${encodeURIComponent(next)}`;
+}

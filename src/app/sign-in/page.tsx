@@ -14,7 +14,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; session?: string }>;
 }) {
   const params = await searchParams;
 
@@ -83,6 +83,13 @@ export default async function SignInPage({
           Sign in to see what needs your attention today.
         </p>
 
+        {/* Not an error: the session ran out while they were working (v182). */}
+        {params.session === 'ended' && !errorMessage && (
+          <div className="notice" role="status">
+            <strong>Your session ended</strong>
+            <p>Sign in again to carry on. If you were saving something, check it after.</p>
+          </div>
+        )}
         {errorMessage && (
           <div className="notice error" role="alert">
             <strong>Could not sign in</strong>

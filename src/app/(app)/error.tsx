@@ -34,10 +34,17 @@ export default function WorkspaceError({
 
   return (
     <div className="empty-state card" role="alert">
-      <h1>This did not load</h1>
+      <h1>Something went wrong</h1>
+      {/*
+        v182 — it used to say "this was a read, not a save" and to check the
+        local database. The same page catches a save that fails, and the live
+        site has no local database; a sentence that is wrong half the time is
+        worse than a plainer one.
+      */}
       <p>
-        Something went wrong reading your work. Nothing was changed — this was a read, not a save.
-        Try again, and if it keeps happening, check that the local database is running.
+        This page hit a problem. If you had just saved something, check whether the change is there
+        before doing it again. Try again, and if it keeps happening, tell your administrator and
+        quote the reference below.
       </p>
       {error.message && (
         <p className="muted">
