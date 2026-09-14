@@ -262,17 +262,19 @@ test('the whole team row is keyboard-openable and its exact CTA is independent',
     await expect(page.getByTestId('my-team-person-panel')).toBeVisible();
     await expect(page.locator('.task-detail-layer')).toHaveCount(0);
 
-    // Enter and Space on the focused row toggle the same expansion.
+    // Enter and Space on the focused name — the row's accordion button since
+    // v181 — toggle the same expansion.
     for (const key of ['Enter', 'Space']) {
       await gotoHydrated(page, '/work?scope=team');
       const keyboardRow = page
         .getByTestId('my-team-person-row')
         .filter({ hasText: 'Lim Wei Sheng' });
       await expect(keyboardRow).toBeVisible();
-      await keyboardRow.focus();
-      await keyboardRow.press(key);
+      const toggle = keyboardRow.getByRole('button', { name: /team member detail for Lim/ });
+      await toggle.focus();
+      await toggle.press(key);
       await expect(page.getByTestId('my-team-person-panel')).toBeVisible();
-      await expect(keyboardRow).toHaveAttribute('aria-expanded', 'true');
+      await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     }
 
     /*

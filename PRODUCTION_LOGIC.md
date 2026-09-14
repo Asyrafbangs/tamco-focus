@@ -1668,3 +1668,18 @@ derived-progress rules. The future ESH finding/action system remains outside the
    (`validation_failed`).
 2. New Work no longer discards the draft after assigning, which is what deleted the files.
 3. Without `p_capture_id` assignment is unchanged, with evidence optional.
+
+## 76. v181 Crawl findings
+
+1. A My Team row is not a button. The name is a `button` with `aria-expanded` and `aria-controls`;
+   a click elsewhere on the row toggles the same expansion unless it lands on a button, link or
+   field. The row is read as its contents, and a decision button in it is its own control.
+2. A table that scrolls sideways is a focusable, labelled region, and positions its rows' full-row
+   links against itself, so nothing hangs past it. Workspace tabs never exceed the screen width and
+   scroll within themselves.
+3. Text in the brand navy uses `--heading`, which is the navy by day and the text colour at night;
+   `--navy` remains a background. Links carry a colour of their own rather than the browser's.
+4. Checked on every reachable page as an administrator, a manager and two team members, on both
+   viewports and in Night mode and the largest text size: no error pages, no browser errors, no
+   page wider than the screen, no serious accessibility violations; double submissions of New Work
+   and updates create one record; another person's task is not readable by address or search.

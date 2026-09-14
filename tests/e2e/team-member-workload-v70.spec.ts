@@ -74,7 +74,10 @@ test.describe('v70 Team member workload detail', () => {
       // The name is on the row that opened the expansion, not repeated inside
       // it: v143 §6 makes the header the heading.
       await expect(
-        page.getByTestId('my-team-person-row').filter({ hasText: 'Izzah Nurul' }),
+        page
+          .getByTestId('my-team-person-row')
+          .filter({ hasText: 'Izzah Nurul' })
+          .locator('[aria-controls]'),
       ).toHaveAttribute('aria-expanded', 'true');
 
       /*

@@ -239,7 +239,7 @@ test('a team member name opens their detail without leaving My Team', async ({ p
   // §35, and v143 §6 — in place, not over the top: My Team is still readable,
   // and the row above the expansion is still the person it belongs to.
   await expect(page.locator('.focus-panel')).toBeVisible();
-  await expect(row).toHaveAttribute('aria-expanded', 'true');
+  await expect(row.locator('[aria-controls]')).toHaveAttribute('aria-expanded', 'true');
 
   /*
    * §74 — the sections that answer the manager's questions, under the names

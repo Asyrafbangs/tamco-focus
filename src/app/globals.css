@@ -23,6 +23,10 @@
   --line: #dfe5ec;
   --line-soft: #edf1f5;
   --navy: #0d2342;
+  /* Text drawn in the brand navy (v181). Its own token because --navy is also a
+     background, and in Night mode that background is near-black: text set in
+     --navy read at 1.09:1 on the dark surfaces. */
+  --heading: #0d2342;
   --navy-2: #17375f;
   --blue: #1668e8;
   --blue-bg: #edf4ff;
@@ -1654,6 +1658,7 @@
   --line: #2b3a4e;
   --line-soft: #233145;
   --navy: #081626;
+  --heading: #edf3fb;
   --navy-2: #1b3d67;
   --blue: #5f9dff;
   --blue-bg: #152d4f;
@@ -2311,7 +2316,7 @@ button {
 }
 .metric-card strong {
   margin-top: auto;
-  color: var(--navy);
+  color: var(--heading);
   font-size: 28px;
 }
 .section-block {
@@ -2429,7 +2434,7 @@ button {
 .record-card h2 a,
 .data-table a,
 .audit-timeline a {
-  color: var(--navy);
+  color: var(--heading);
 }
 .record-card p {
   margin: 0;
@@ -2472,6 +2477,11 @@ button {
   border-top: 1px solid var(--line-soft);
 }
 .data-table-wrap {
+  /* The containing block for each row's stretched link (v181). Without it the
+     link's full-row overlay was positioned against the page, not this box, so
+     it hung past the scroll area and the whole page scrolled sideways on a
+     phone — 734px of page in a 390px screen. */
+  position: relative;
   max-width: 100%;
   overflow-x: auto;
   border: 1px solid var(--line);
@@ -2547,7 +2557,7 @@ button {
 }
 .settings-form legend {
   padding: 0 6px;
-  color: var(--navy);
+  color: var(--heading);
   font-weight: 800;
 }
 .form-grid {
@@ -3738,11 +3748,20 @@ fieldset:disabled label,
 .workspace-tabs {
   display: flex;
   width: fit-content;
+  /* Never wider than the screen (v181). Records has four tabs that measure 474px,
+     and on a 390px phone the row pushed the whole page sideways; past the
+     width it now scrolls within itself. */
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 11px;
   padding: 4px;
   margin-bottom: 14px;
+}
+.workspace-tabs a {
+  flex: none;
 }
 .workspace-tabs a {
   border: 0;
@@ -8296,6 +8315,9 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .team-available-group > header a {
   margin-left: auto;
+  /* A colour of its own (v181): left to the browser it was link blue #0000ee,
+     1.88:1 on the header in Night mode. */
+  color: var(--blue);
   font-size: 12px;
   font-weight: 650;
 }

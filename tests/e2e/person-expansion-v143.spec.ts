@@ -63,7 +63,7 @@ test.describe('v143 §6 inline person expansion', () => {
     for (const target of ['name', 'whitespace', 'chevron'] as const) {
       await openTeam(page);
       const row = rowFor(page, 'Izzah Nurul');
-      await expect(row).toHaveAttribute('aria-expanded', 'false');
+      await expect(row.locator('[aria-controls]')).toHaveAttribute('aria-expanded', 'false');
 
       if (target === 'name') {
         await row.getByText('Izzah Nurul').click();
@@ -85,7 +85,7 @@ test.describe('v143 §6 inline person expansion', () => {
         page.getByTestId('my-team-person-panel'),
         `${target} did not expand the person`,
       ).toBeVisible();
-      await expect(row).toHaveAttribute('aria-expanded', 'true');
+      await expect(row.locator('[aria-controls]')).toHaveAttribute('aria-expanded', 'true');
       await expect(page).toHaveURL(/person=/);
       // No person drawer, and no drawer of any other kind either.
       await expect(page.locator('.task-detail-layer')).toHaveCount(0);
@@ -186,23 +186,41 @@ test.describe('v143 §6 inline person expansion', () => {
     await expect(page.getByTestId('my-team-person-panel')).toHaveCount(1);
     await rowFor(page, secondName).getByText(secondName).click();
     await expect(page.getByTestId('my-team-person-panel')).toHaveCount(1);
-    await expect(rowFor(page, firstName)).toHaveAttribute('aria-expanded', 'false');
-    await expect(rowFor(page, secondName)).toHaveAttribute('aria-expanded', 'true');
+    await expect(rowFor(page, firstName).locator('[aria-controls]')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    await expect(rowFor(page, secondName).locator('[aria-controls]')).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
 
     // With it, both stay — which is what makes them comparable.
     await page.getByRole('link', { name: 'Keep open' }).click();
     await expect(page.getByRole('link', { name: 'Stop keeping open' })).toBeVisible();
     await rowFor(page, firstName).getByText(firstName).click();
     await expect(page.getByTestId('my-team-person-panel')).toHaveCount(2);
-    await expect(rowFor(page, firstName)).toHaveAttribute('aria-expanded', 'true');
-    await expect(rowFor(page, secondName)).toHaveAttribute('aria-expanded', 'true');
+    await expect(rowFor(page, firstName).locator('[aria-controls]')).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    await expect(rowFor(page, secondName).locator('[aria-controls]')).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
 
     // Releasing the pin closes the person it was holding, and leaves the one
     // the manager is actually reading.
     await page.getByRole('link', { name: 'Stop keeping open' }).click();
     await expect(page.getByTestId('my-team-person-panel')).toHaveCount(1);
-    await expect(rowFor(page, firstName)).toHaveAttribute('aria-expanded', 'true');
-    await expect(rowFor(page, secondName)).toHaveAttribute('aria-expanded', 'false');
+    await expect(rowFor(page, firstName).locator('[aria-controls]')).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    await expect(rowFor(page, secondName).locator('[aria-controls]')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
   });
 
   /**
@@ -285,7 +303,7 @@ test.describe('v143 §6 inline person expansion', () => {
       await page.goto(target);
       await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
       await expect(page.getByTestId('my-team-person-panel')).toBeVisible();
-      await expect(row).toHaveAttribute('aria-expanded', 'true');
+      await expect(row.locator('[aria-controls]')).toHaveAttribute('aria-expanded', 'true');
     }
   });
 

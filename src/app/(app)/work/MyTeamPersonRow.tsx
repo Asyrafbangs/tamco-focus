@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
+import type { MouseEvent, ReactNode } from 'react';
 
 import { resolveAttentionAction } from '@/domain/attention';
 import type { TeamAttentionRow } from '@/server/queries';
@@ -124,10 +124,20 @@ export function MyTeamPersonRow({
     router.push(toggleHref, { scroll: false });
   }
 
-  function handleRowKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.target !== event.currentTarget) return;
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
+  /*
+   * The whole row still opens the person for a pointer, but it is no longer
+   * announced as one button (v181). As a `role="button"` with a label, a screen
+   * reader heard "Expand team member detail for Amer" and nothing else — what
+   * they are working on, their agreed priorities and their latest update were
+   * hidden inside the label — and the manager's decision button sat inside
+   * another button, where it could not be reached as itself. The accordion
+   * control is now the name, a real button; the rest of the row is read as
+   * text; a click on the row's blank space is a pointer convenience only.
+   */
+  function handleRowClick(event: MouseEvent<HTMLDivElement>) {
+    if ((event.target as HTMLElement).closest('button, a, input, select, textarea, summary')) {
+      return;
+    }
     togglePerson();
   }
 
@@ -138,19 +148,18 @@ export function MyTeamPersonRow({
 
   return (
     <div className={styles.block} data-expanded={expanded ? 'true' : undefined}>
-      <div
-        className={styles.row}
-        data-testid="my-team-person-row"
-        role="button"
-        tabIndex={0}
-        aria-expanded={expanded}
-        aria-controls={panelId}
-        aria-label={`${expanded ? 'Collapse' : 'Expand'} team member detail for ${person.fullName}`}
-        onClick={togglePerson}
-        onKeyDown={handleRowKeyDown}
-      >
+      <div className={styles.row} data-testid="my-team-person-row" onClick={handleRowClick}>
         <div className={styles.person} data-cell="person">
-          <strong>{person.fullName}</strong>
+          <button
+            type="button"
+            className={styles.toggle}
+            aria-expanded={expanded}
+            aria-controls={panelId}
+            aria-label={`${expanded ? 'Collapse' : 'Expand'} team member detail for ${person.fullName}`}
+            onClick={togglePerson}
+          >
+            <strong>{person.fullName}</strong>
+          </button>
           <span>
             {summary.length === 0
               ? 'Nothing active'

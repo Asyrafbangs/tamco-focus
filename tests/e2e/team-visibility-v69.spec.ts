@@ -51,12 +51,13 @@ test.describe('v69 Team visibility and navigation', () => {
 
     const izzul = rows.filter({ hasText: 'Izzul Asyraf' });
     await expect(izzul).toBeVisible();
-    await izzul.focus();
+    // The name is the accordion button (v181), not the whole row.
+    await izzul.locator('[aria-controls]').focus();
     await page.keyboard.press('Enter');
 
     const panel = page.getByTestId('my-team-person-panel');
     await expect(panel).toBeVisible();
-    await expect(izzul).toHaveAttribute('aria-expanded', 'true');
+    await expect(izzul.locator('[aria-controls]')).toHaveAttribute('aria-expanded', 'true');
 
     /*
      * Enter again, not Escape: v143 §6 replaced the drawer with an expansion,
@@ -69,7 +70,7 @@ test.describe('v69 Team visibility and navigation', () => {
     await expect(panel).toHaveCount(0);
     await expect(page).toHaveURL(/scope=team/);
     await expect(page).not.toHaveURL(/person=/);
-    await expect(izzul).toBeFocused();
+    await expect(izzul.locator('[aria-controls]')).toBeFocused();
 
     const horizontalOverflow = await page.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,

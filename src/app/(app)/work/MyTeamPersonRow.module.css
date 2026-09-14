@@ -86,11 +86,30 @@
   transform: translateY(1px);
 }
 
-.row:focus-visible {
+/* The name is the control (v181); the ring still draws round the whole row,
+   because the row is what it opens. */
+.row:has(.toggle:focus-visible) {
   position: relative;
   z-index: 1;
   outline: 2px solid var(--blue);
   outline-offset: -2px;
+}
+
+.toggle {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.toggle:focus-visible {
+  outline: none;
 }
 
 .person,

@@ -1,5 +1,16 @@
 # TAMCO Focus — Change Log
 
+## v181 What a crawl of every page found — 14 September 2026
+
+- My Team: each person's name is the button that opens them. The whole row was announced as one
+  button, so a screen reader heard only "Expand team member detail" and none of what the row
+  says, and the manager's decision button sat inside it. Clicking anywhere on the row still opens
+  the person.
+- Attachments no longer pushes the page sideways on a phone, and its table can be scrolled by
+  keyboard. Tab rows wider than a phone, such as Records, scroll within themselves.
+- Night mode: attachment names, the section headings on a Directory page, and the "Open person"
+  links on waiting work were nearly invisible, and are readable now.
+
 ## v180 Assigned work keeps its evidence rule and files — 14 September 2026
 
 - A manager creating New Work with somebody else as Primary owner now gets exactly what the form

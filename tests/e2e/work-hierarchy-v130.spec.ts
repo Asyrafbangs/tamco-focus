@@ -204,7 +204,9 @@ test.describe('v130 My Team is an exception list, not a table of buttons', () =>
   test('a row carries a button only where a decision is owed', async ({ page }) => {
     const rows = page.getByTestId('my-team-person-row');
     const quiet = rows.filter({ hasText: 'Nothing needed from you' }).first();
-    await expect(quiet.getByRole('button')).toHaveCount(0);
+    // One button only: the name, which opens the person (v181). No action.
+    await expect(quiet.getByRole('button')).toHaveCount(1);
+    await expect(quiet.getByRole('button', { name: /team member detail for/ })).toHaveCount(1);
     // And the chevron is on every row, because every row opens.
     await expect(quiet.locator('[class*="chevron"]')).toBeVisible();
   });

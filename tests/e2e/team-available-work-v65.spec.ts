@@ -101,10 +101,9 @@ test.describe('v65 team Available work', () => {
     // v143 §6 that means their row is expanded on the Team view rather than a
     // drawer over this one.
     await expect(page.getByTestId('my-team-person-panel')).toBeVisible();
-    await expect(page.getByTestId('my-team-person-row').filter({ hasText: owner })).toHaveAttribute(
-      'aria-expanded',
-      'true',
-    );
+    await expect(
+      page.getByTestId('my-team-person-row').filter({ hasText: owner }).locator('[aria-controls]'),
+    ).toHaveAttribute('aria-expanded', 'true');
     await expect(page.locator('.task-detail-drawer')).toHaveCount(0);
 
     // And the sibling tabs still navigate.

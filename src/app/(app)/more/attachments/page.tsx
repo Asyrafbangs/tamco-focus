@@ -39,7 +39,17 @@ export default async function AttachmentsPage({
           Search
         </button>
       </form>
-      <div className="data-table-wrap">
+      {/*
+        A region that takes focus (v181): on a phone the table is wider than the
+        screen and scrolls inside this box, and a box that scrolls must be
+        reachable by keyboard or its right-hand columns are not reachable at all.
+      */}
+      <div
+        className="data-table-wrap"
+        role="region"
+        aria-label="Authorised attachments and evidence"
+        tabIndex={0}
+      >
         <table className="data-table">
           <caption className="visually-hidden">Authorised attachments and evidence</caption>
           <thead>
