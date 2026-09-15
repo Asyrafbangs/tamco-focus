@@ -1844,3 +1844,60 @@ derived-progress rules. The future ESH finding/action system remains outside the
 2. The person panel opens with Needs attention when anything is overdue or inside the window.
    It lists active, paused and not-started work, late routine occurrences and owed steps, split
    into Overdue and Due within W days. The sections below are unchanged.
+
+## 85. v190 Step notifications
+
+This supersedes §53.2, where the owner is not sent a notice, and §53.5 for dates. "Owes" means the
+assignee, or the owner for a step assigned to nobody (v159).
+
+1. **Due tomorrow.** `notify_steps_due_tomorrow(p_task_ids)` is run by `/api/cron` before the
+   email drain.
+   - It covers open steps owed by somebody other than the owner, on active work that is not in
+     the Bin, whose own date, or else the work's, falls on tomorrow's organisation-local date.
+   - The notice goes to the assignee: "Contribution due tomorrow", `due_soon`, immediate, not
+     requiring action, `checklist_item` link.
+   - `dedupe_key` is `step_due_tomorrow:<step>:<date>`, so there is one reminder per step and due
+     date. The service role only.
+2. **Overdue.** `notify_overdue_contributions` keeps the assignee's notice (§53.2) and adds one to
+   the owner.
+   - The owner's notice is "Contribution overdue on your work", `"<step> · Waiting on <name>.
+     Part of "<work>". It was due <date>."`, immediate, not requiring action, with a `task_step`
+     link.
+   - It is sent only for a step with a date of its own. A step due with its work is late exactly
+     when the work is, and "Work overdue" (§80) already tells the owner.
+   - The same `step_overdue:<step>:<date>` key applies; it is unique per recipient. The result adds
+     `owners`.
+   - No manager notice is sent, so an owner who is also the assignee's manager hears once.
+3. **Answered.** A step completed, or given a date that is no longer past, marks both overdue
+   notices read (`checklist_items_notify_due_changed`). Moving the work to a future date does the
+   same for steps due with it (`change_task_due_date`).
+4. **Reopened.** `reopen_checklist_item` tells whoever owes the step, unless they reopened it.
+   - The title is "Contribution reopened", or "Step reopened" when the owner owes it. The body reads
+     `"<step> · Part of "<work>". Reopened by <name>. Reason: "…"."`.
+   - It is `collaboration_handoff`, immediate and requires action. The link is `checklist_item`,
+     or `task_step` for the owner.
+   - It answers to "Collaborative handoff": when that is off, the notice goes to the bell only.
+   - The drawer's Undo passes no reason. Until v190 it passed "Reopened from task detail.", which
+     recorded nothing a reader could use.
+5. **A step's date.** The trigger `checklist_items_notify_due_changed` runs on `due_at` or
+   `state` when either value really changed, since `update_checklist_step` writes every field.
+   - It tells whoever owes the step when the organisation-local day of its effective date (own,
+     else the work's) changed: "Contribution due date changed", or "Step due date changed",
+     with `"<name> moved it from <date> to <date>."`.
+   - Nothing is sent when the step was reassigned in the same save (the assignment notice carries
+     the date), when the step or its work is closed or in the Bin, or when the change was the
+     recipient's own.
+6. **The work's date.** `change_task_due_date` tells each person who owes open steps due with the
+   work, once however many they owe: `"<steps> · Part of "<work>". <name> moved the work from …
+   to …, and your step(s) with it."`.
+   - This happens only when the day changed.
+   - Nobody is told who moved it or is the owner.
+   - When the date was pushed later, nobody is told who is the owner's manager or the assigner,
+     because §80 has told them.
+7. `/work` reads `item` as it reads `step` (§51, v156): the drawer opens at that step. Every
+   `checklist_item` link (`?tab=shared&task=…&item=…`, since v44) carried it, but nothing read it.
+8. The reminder, the owner's overdue notice and both date notices answer to "Due-today and
+   selection deadlines". When it is off, nothing is written. `is_mandatory` work ignores both
+   switches.
+9. Unchanged: assignment and reassignment (§53.1, v161), the owner's quiet completion notice
+   (§53.3). Evidence attached at completion adds no notice.

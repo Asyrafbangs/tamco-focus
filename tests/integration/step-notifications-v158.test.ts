@@ -7,7 +7,8 @@ import { createTask, PEOPLE, serviceClient, signInAs, type PersonKey } from './s
  *
  * Assigned, the assignee is told, with the date. Overdue, the assignee is told
  * once per day it was due. Completed, the owner is told quietly — in the bell,
- * never by email. Small edits tell nobody.
+ * never by email. Small edits tell nobody — except, since v190, a new due day,
+ * which tells the assignee (step-notifications-v190).
  *
  * The overdue procedure is run narrowed to each test's own work, so seeded
  * people's bells are left as the rest of the suite expects them.
@@ -111,7 +112,7 @@ describe('v158 — assigned: the assignee is told, with the date', () => {
 });
 
 describe('v158 — small edits are silent', () => {
-  it('tells nobody when a step’s wording or date changes', async () => {
+  it('tells nobody when a step’s wording changes', async () => {
     const { taskId, stepId, izzah } = await workWithAmersStep(3);
     const before = await noticeCount(taskId);
 
@@ -120,7 +121,7 @@ describe('v158 — small edits are silent', () => {
       p_action: 'Give department input, with costs',
       p_assigned_to: PEOPLE.amer.id,
       p_evidence_rule: 'not_required',
-      p_due_at: endOfDay(5),
+      p_due_at: endOfDay(3),
       p_depends_on_item_id: null,
     });
     if (error) throw new Error(`Could not edit the step: ${error.message}`);
@@ -182,7 +183,8 @@ describe('v158 — overdue: the assignee is told, once per date', () => {
     expect(notice.entity_type).toBe('checklist_item');
     expect(notice.entity_id).toBe(stepId);
 
-    // The owner is not sent a notice: Needs attention carries it (v155).
+    // The owner is not sent the assignee's notice. Since v190 she has her own,
+    // "Contribution overdue on your work" (step-notifications-v190).
     expect(await notices('izzah', taskId, 'Contribution overdue')).toHaveLength(0);
 
     // Given another date and missed again, it is told again.

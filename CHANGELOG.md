@@ -1,5 +1,26 @@
 # TAMCO Focus — Change Log
 
+## v190 Everybody hears about a step at the right moment — 15 September 2026
+
+- **Due tomorrow:** the person who owes a step on somebody else's work gets one reminder, in the
+  bell and by email, the morning before it is due.
+- **Overdue:** the owner of the work is now told as well as the person who owes it: "Contribution
+  overdue on your work · Waiting on Amer Hakim". Once per step and due date. A step due with the
+  work is covered by "Work overdue" (v185), so it is not told twice.
+- **Reopened:** when somebody reopens a step, the person who owes it is told straight away, with
+  the reason when there is one. Reopening your own step tells nobody. Undo on a step no longer
+  records the invented reason "Reopened from task detail.", which would have been sent.
+- **New due date:** giving a step a different day tells the person who owes it, from and to.
+  Moving the work tells the people whose steps are due with it, once each. Changing the wording,
+  or the time on the same day, still tells nobody.
+- Opening any notice about a step you owe on somebody else's work now lands on that step. It used
+  to open the work with its steps closed, which on a phone meant another tap to find it.
+- Completing or re-dating a late step clears its overdue notices from the bell. Completion
+  still tells the owner quietly, and attaching evidence adds nothing.
+- "Due-today and selection deadlines" in My Alerts switches off the reminder, the overdue and
+  the new-date notices. "Collaborative handoff" keeps the reopened notice in the bell only.
+  Mandatory work is always told.
+
 ## v189 My Team shows what is late and what is about to be — 15 September 2026
 
 - A person's row now reads "⚠ 1 overdue · ! 2 due within 5 days". The due-soon count covers their

@@ -157,7 +157,11 @@ Decisions confirmed by the Product Owner on the same day:
 
 - Nobody is told about their own action.
 - An owner who is also the assignee's manager receives the owner's notice only.
-- Everything honours "Due-today and selection deadlines" in My Alerts.
+- The owner's overdue notice is for a step with a date of its own. A step due with its
+  work is late exactly when the work is, and v185's "Work overdue" has told the owner.
+- The reminder, the overdue and the date notices honour "Due-today and selection
+  deadlines" in My Alerts. Reopening honours "Collaborative handoff", as v186 set for a
+  step that is ready again, and stays in the bell when it is off.
 - **Supersedes:**
   - v158's "the owner is not sent a notice" for overdue steps;
   - v158's "small edits to a step's date tell nobody".
@@ -167,8 +171,9 @@ Decisions confirmed by the Product Owner on the same day:
 - **Stage 1:** a settings value (7 to 5) and its description. No other data
   changes.
 - **Stages 2–3:** read-model only.
-- **Stage 4:** new notification kinds or dedupe keys in their own enum
-  migration.
+- **Stage 4:** no new enum value. The reminder uses `due_soon`, which has been in
+  `notification_kind` since the first migration and was never written, and the
+  once-only rules are dedupe keys.
 - **Rollback:** each stage is forward-only. Restoring the window to 7 is a
   settings change, and no earlier stage depends on a later one.
 - **Communication:** people will see relative dates and a new My Day. The

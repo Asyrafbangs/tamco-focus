@@ -2670,10 +2670,7 @@ export async function getDisplaySettings(): Promise<{
   const { data } = await supabase
     .from('org_settings')
     .select('key, value')
-    .in('key', [
-      'focus.stale_update_threshold_days',
-      'day.upcoming_window_days',
-    ]);
+    .in('key', ['focus.stale_update_threshold_days', 'day.upcoming_window_days']);
 
   const byKey = new Map((data ?? []).map((row) => [row.key as string, row.value]));
 
@@ -5279,8 +5276,7 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
             task.workClass !== 'routine_occurrence' &&
             !task.isOverdue &&
             dueSoon(task.dueAt, task.dueIsDateOnly),
-        ).length +
-        (contributionsByAssignee.get(person.userId)?.dueSoon ?? 0),
+        ).length + (contributionsByAssignee.get(person.userId)?.dueSoon ?? 0),
       attention: top
         ? {
             // Anything that does not say otherwise is something owed: a branch

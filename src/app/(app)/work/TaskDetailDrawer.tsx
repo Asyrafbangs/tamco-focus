@@ -2403,10 +2403,9 @@ export function TaskDetailDrawer({
                   onReopen={(itemId) =>
                     startTransition(async () => {
                       finish(
-                        await reopenChecklistItem({
-                          itemId,
-                          reason: 'Reopened from task detail.',
-                        }),
+                        // v190 - no reason: Undo asks for none, and the person who
+                        // owes the step is now sent whatever is given here.
+                        await reopenChecklistItem({ itemId }),
                         'Step reopened.',
                       );
                     })

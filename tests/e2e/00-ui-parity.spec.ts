@@ -78,7 +78,8 @@ test('main employee surfaces retain prototype structure at every required viewpo
 
   await page.goto('/today');
   await expect(page.getByRole('heading', { name: 'My Day' })).toBeVisible();
-  await expect(page.locator('.today-grid')).toBeVisible();
+  // v188 — the Start here / Next up grid became one sentence and two sections.
+  await expect(page.locator('.day-summary')).toBeVisible();
   await attachViewport(page, testInfo, 'today');
   await expectNoDocumentOverflow(page, '/today');
 

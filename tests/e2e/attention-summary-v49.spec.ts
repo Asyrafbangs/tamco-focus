@@ -161,7 +161,13 @@ test('twelve requests still show two rows and a way to see the rest', async ({
   }
 });
 
-test('the 864px My Day reference keeps deliberate spacing and equal daily columns', async ({
+/**
+ * v188 replaced the two equal daily columns (Start here, Next up) with the
+ * Overdue and Due within N days sections, stacked. What this protected still
+ * holds: the same deliberate gap under Needs attention, sections as wide as
+ * it, and nothing wider than the page.
+ */
+test('the 864px My Day reference keeps deliberate spacing and full-width sections', async ({
   page,
 }) => {
   await signIn(page, 'izzul@tamco.local');
@@ -171,33 +177,34 @@ test('the 864px My Day reference keeps deliberate spacing and equal daily column
     .locator('section[aria-labelledby="needs-attention-heading"]')
     .evaluate((element) => {
       const attention = element.getBoundingClientRect();
-      const dailyGrid = element.nextElementSibling;
-      if (!dailyGrid) throw new Error('Today grid is missing');
-
-      const grid = dailyGrid.getBoundingClientRect();
-      const cards = Array.from(dailyGrid.children).map((child) => {
-        const bounds = child.getBoundingClientRect();
-        return {
-          height: bounds.height,
-          left: bounds.left,
-          right: bounds.right,
-          top: bounds.top,
-        };
-      });
-
+      const sections: Element[] = [];
+      for (
+        let next = element.nextElementSibling;
+        next && next.classList.contains('day-section');
+        next = next.nextElementSibling
+      ) {
+        sections.push(next);
+      }
+      const boxes = sections.map((section) => section.getBoundingClientRect());
       return {
-        gap: grid.top - attention.bottom,
-        cards,
+        attention: { left: attention.left, right: attention.right, bottom: attention.bottom },
+        sections: boxes.map((box) => ({ left: box.left, right: box.right, top: box.top })),
+        gaps: boxes.map((box, index) =>
+          index === 0 ? box.top - attention.bottom : box.top - boxes[index - 1]!.bottom,
+        ),
         pageOverflows: document.documentElement.scrollWidth > document.documentElement.clientWidth,
       };
     });
 
-  expect(layout.gap).toBeGreaterThanOrEqual(10);
-  expect(layout.gap).toBeLessThanOrEqual(14);
-  expect(layout.cards).toHaveLength(2);
-  expect(layout.cards[0]!.top).toBeCloseTo(layout.cards[1]!.top, 0);
-  expect(layout.cards[0]!.height).toBeCloseTo(layout.cards[1]!.height, 0);
-  expect(layout.cards[1]!.left - layout.cards[0]!.right).toBeGreaterThanOrEqual(12);
+  expect(layout.sections.length).toBeGreaterThanOrEqual(1);
+  for (const gap of layout.gaps) {
+    expect(gap).toBeGreaterThanOrEqual(10);
+    expect(gap).toBeLessThanOrEqual(14);
+  }
+  for (const section of layout.sections) {
+    expect(section.left).toBeCloseTo(layout.attention.left, 0);
+    expect(section.right).toBeCloseTo(layout.attention.right, 0);
+  }
   expect(layout.pageOverflows).toBe(false);
 });
 

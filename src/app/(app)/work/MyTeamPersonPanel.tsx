@@ -218,9 +218,8 @@ export function MyTeamPersonPanel({
       deadline: deadline(step.dueAt, step.dueIsDateOnly),
     })),
   ]
-    .filter(
-      (item): item is typeof item & { deadline: NonNullable<typeof item.deadline> } =>
-        Boolean(item.deadline?.needsAttention),
+    .filter((item): item is typeof item & { deadline: NonNullable<typeof item.deadline> } =>
+      Boolean(item.deadline?.needsAttention),
     )
     .sort((left, right) => compareDeadlines(left, right));
   const attentionOverdue = attentionItems.filter((item) => item.deadline.tone === 'overdue');

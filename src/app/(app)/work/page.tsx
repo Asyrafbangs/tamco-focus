@@ -1080,10 +1080,16 @@ export default async function WorkPage({
    * v156 — "clicking it opens the Step inside the parent context". Only an id
    * that is one of this task's own steps is honoured; anything else opens the
    * task as it would have opened anyway.
+   *
+   * v190 — `item` is the same thing. Every contribution notice has linked to
+   * `?tab=shared&task=…&item=<step>` since v44, and nothing read `item`, so the
+   * link opened the work but not the step: on a phone, a closed Steps section.
+   * Links already sitting in inboxes are honoured too.
    */
+  const linkedStepId = params.step ?? params.item;
   const focusStepId =
-    params.step && taskDetail?.checklist.some((item) => item.id === params.step)
-      ? params.step
+    linkedStepId && taskDetail?.checklist.some((item) => item.id === linkedStepId)
+      ? linkedStepId
       : null;
 
   const attentionBarrierId =

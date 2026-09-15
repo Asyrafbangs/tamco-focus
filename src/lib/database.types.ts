@@ -10551,6 +10551,10 @@ export type Database = {
         Returns: Json
       }
       notify_overdue_work: { Args: { p_task_ids?: string[] }; Returns: Json }
+      notify_steps_due_tomorrow: {
+        Args: { p_task_ids?: string[] }
+        Returns: Json
+      }
       pause_task: {
         Args: {
           p_expected_version: number

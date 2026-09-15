@@ -135,6 +135,21 @@ export async function GET(request: Request) {
   }
 
   /*
+   * v190 - steps due tomorrow, reminded to the person who owes them, by bell
+   * and email. Once per step and due date, so a second firing adds nothing.
+   * Also before the email drain.
+   */
+  try {
+    const { data, error } = await client.rpc('notify_steps_due_tomorrow', {});
+    if (error) throw new Error(error.message);
+    results.push({ worker: 'steps_due_tomorrow', ok: true, detail: JSON.stringify(data ?? {}) });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'unknown error';
+    console.error(`[cron] step due-tomorrow reminders failed: ${detail}`);
+    results.push({ worker: 'steps_due_tomorrow', ok: false, detail });
+  }
+
+  /*
    * v185 - the owner's own late work, told once per due date. Several at once
    * are one notice. Also before the email drain, for the same reason.
    */
