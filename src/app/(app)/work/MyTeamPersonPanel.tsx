@@ -141,11 +141,30 @@ export function MyTeamPersonPanel({
     if (commitment.isStep) stepCommitmentTitles.set(commitment.taskId, commitment.expectedResult);
   }
 
-  const otherActive = detail.activeWork.filter((task) => !committedTaskIds.has(task.id));
+  /*
+   * v185 — late work first, earliest due first, then the rest as they were.
+   *
+   * The list is paged at five and was ordered by last update, so the section
+   * could say "5 overdue" above five rows that were all on time, with the late
+   * ones behind "Show 7 more". Rescheduling a task counts as an update, which
+   * put the work just pushed back at the top and the work still late below it.
+   */
+  const otherActive = detail.activeWork
+    .filter((task) => !committedTaskIds.has(task.id))
+    .map((task, index) => ({ task, index }))
+    .sort((left, right) => {
+      if (left.task.isOverdue !== right.task.isOverdue) return left.task.isOverdue ? -1 : 1;
+      if (left.task.isOverdue) {
+        return (left.task.dueAt ?? '').localeCompare(right.task.dueAt ?? '');
+      }
+      return left.index - right.index;
+    })
+    .map(({ task }) => task);
   const activeHead = otherActive.slice(0, ACTIVE_PAGE_SIZE);
   const activeRest = otherActive.slice(ACTIVE_PAGE_SIZE);
   const overdueActive = otherActive.filter((task) => task.isOverdue).length;
   const contributionsOverdue = detail.contributions.filter((step) => step.isOverdue).length;
+  const availableOverdue = detail.otherWorkload.available.filter((task) => task.isOverdue).length;
 
   const activeRow = (task: TeamMemberDetail['activeWork'][number]) => {
     const inWeek = stepCommitmentTitles.get(task.id);
@@ -159,6 +178,7 @@ export function MyTeamPersonPanel({
             : task.bucket
               ? `${FOCUS_BUCKET_WORD[task.bucket]} · `
               : ''}
+          {task.isPaused ? 'Paused · ' : ''}
           {task.progressPercent}%{task.isMandatory ? ' · Mandatory' : ''}
           {/* Short, like every other date since v130: the year is the same on
               every row and the eye has to step over it. */}
@@ -359,7 +379,11 @@ export function MyTeamPersonPanel({
       <details className="team-person-section" data-section="not-started">
         <summary>
           Not started{' '}
-          <span className="team-person-count">{detail.otherWorkload.available.length}</span>
+          <span className="team-person-count">
+            {detail.otherWorkload.available.length}
+            {/* v185 — folded away, so the summary says when something in it is late. */}
+            {availableOverdue > 0 ? ` · ${availableOverdue} overdue` : ''}
+          </span>
         </summary>
         {detail.otherWorkload.available.length === 0 ? (
           <p className="muted member-other-empty">No Available work.</p>
@@ -377,7 +401,7 @@ export function MyTeamPersonPanel({
                   <span>
                     {WORK_CLASS_LABELS[task.workClass]}
                     {task.dueAt
-                      ? ` · ${task.isOverdue ? 'Overdue' : 'Due'} ${formatDue(task.dueAt, task.dueIsDateOnly, timeZone)}`
+                      ? ` · ${task.isOverdue ? 'Overdue' : 'Due'} ${formatDueShort(task.dueAt, task.dueIsDateOnly, timeZone, now)}`
                       : ' · No due date'}
                   </span>
                 </span>

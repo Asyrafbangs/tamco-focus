@@ -13,14 +13,16 @@ export function AgeChips({
   task,
   staleThresholdDays,
   now,
+  timeZone,
   trailingAction,
 }: {
   task: TaskOverview;
   staleThresholdDays?: number;
   now?: Date;
+  timeZone?: string;
   trailingAction?: ReactNode;
 }) {
-  const chips = ageChips(task, { staleThresholdDays, now });
+  const chips = ageChips(task, { staleThresholdDays, now, timeZone });
 
   const toneClass = {
     neutral: 'neutral',

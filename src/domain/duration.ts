@@ -288,6 +288,41 @@ export function overdueAgeMs(
 }
 
 /**
+ * Whole calendar days from `dueAt`'s local date to today's, in `timeZone`.
+ * Zero or less when it falls today or later.
+ *
+ * The one count of "days late" (v185). Seven screens used to work it out
+ * themselves, some by dividing elapsed time and some by calendar, so work due
+ * on 13 September read "overdue by 1 day" on My Day and a step due the same
+ * day read "2 days late" in the panel beside it. Dividing elapsed time also
+ * undercounts a date-only commitment by up to a day, because it ends at
+ * midnight: due 12 September was "2 days" late on the 15th.
+ */
+export function calendarDaysSince(
+  dueAt: string,
+  timeZone = DEFAULT_ORG_TIMEZONE,
+  now: Date = new Date(),
+): number {
+  const due = localDateString(new Date(dueAt), timeZone);
+  const today = localDateString(now, timeZone);
+  return Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${due}T00:00:00Z`)) / DAY);
+}
+
+/**
+ * How many days this work is late: zero when it is not overdue, and zero when
+ * it passed a due time earlier today — which callers phrase as "overdue" or
+ * "passed its due time today" rather than a number.
+ */
+export function overdueDays(
+  task: Pick<TaskOverview, 'dueAt' | 'status' | 'completedAt' | 'cancelledAt'>,
+  timeZone = DEFAULT_ORG_TIMEZONE,
+  now: Date = new Date(),
+): number {
+  if (!task.dueAt || overdueAgeMs(task, now) <= 0) return 0;
+  return Math.max(0, calendarDaysSince(task.dueAt, timeZone, now));
+}
+
+/**
  * Stale age — time since the last meaningful update, for Active work only.
  *
  * A meaningful update is a checklist completion, written update, evidence
@@ -321,9 +356,10 @@ export function staleAgeMs(
  */
 export function ageChips(
   task: TaskOverview,
-  options: { now?: Date; staleThresholdDays?: number } = {},
+  options: { now?: Date; staleThresholdDays?: number; timeZone?: string } = {},
 ): AgeChip[] {
   const now = options.now ?? new Date();
+  const timeZone = options.timeZone ?? DEFAULT_ORG_TIMEZONE;
   const staleThresholdDays = options.staleThresholdDays ?? 7;
 
   const chips: AgeChip[] = [];
@@ -360,12 +396,16 @@ export function ageChips(
   // Red is reserved for genuinely overdue work.
   if (task.isOverdue) {
     const overdue = overdueAgeMs(task, now);
+    // Counted in calendar days once it is a day or more, like every other
+    // screen (v185); hours only on the day a due time passes.
+    const days = overdueDays(task, timeZone, now);
     chips.push({
-      label: `Overdue ${formatCompactDuration(overdue)}`,
+      label: `Overdue ${days >= 1 ? `${days}d` : formatCompactDuration(overdue)}`,
       tone: 'red',
       explanation:
-        `Overdue by ${formatDurationWords(overdue)}, measured from the due ` +
-        `${task.dueIsDateOnly ? 'date, which ends at the close of that day' : 'time'}.`,
+        days >= 1
+          ? `Overdue by ${days} day${days === 1 ? '' : 's'}, counted from the due date.`
+          : `Overdue by ${formatDurationWords(overdue)}, measured from the due time.`,
       milliseconds: overdue,
     });
   }

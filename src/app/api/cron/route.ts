@@ -135,6 +135,20 @@ export async function GET(request: Request) {
   }
 
   /*
+   * v185 - the owner's own late work, told once per due date. Several at once
+   * are one notice. Also before the email drain, for the same reason.
+   */
+  try {
+    const { data, error } = await client.rpc('notify_overdue_work', {});
+    if (error) throw new Error(error.message);
+    results.push({ worker: 'overdue_work', ok: true, detail: JSON.stringify(data ?? {}) });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'unknown error';
+    console.error(`[cron] overdue work notices failed: ${detail}`);
+    results.push({ worker: 'overdue_work', ok: false, detail });
+  }
+
+  /*
    * Weekly summary.
    *
    * The worker owns its own schedule — it checks the configured day and hour

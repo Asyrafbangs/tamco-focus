@@ -4379,6 +4379,8 @@ export interface TeamMemberDetail {
     dueIsDateOnly: boolean;
     isOverdue: boolean;
     isMandatory: boolean;
+    /** v185 — paused work is listed with the rest, and says so. */
+    isPaused: boolean;
     /** Needed by any operation on this task; optimistic concurrency is not optional. */
     version: number;
     /** v159 — steps on it past their own date, whoever owes them. */
@@ -4748,8 +4750,15 @@ export async function getTeamMemberDetail(
   const tasks = (tasksResult.data ?? []).map((row) =>
     toTeamMemberTask(row as Record<string, unknown>),
   );
+  /*
+   * v185 — paused work is carried work, as it is on the person's own Active
+   * list. Leaving it out made it the one overdue item a manager could count on
+   * the row ("7 overdue") and find nowhere in the panel beneath it.
+   */
   const active = tasks.filter(
-    (task) => task.status === 'active' && task.workClass !== 'routine_occurrence',
+    (task) =>
+      (task.status === 'active' || task.status === 'paused') &&
+      task.workClass !== 'routine_occurrence',
   );
   const available = tasks.filter(
     (task) => task.status === 'backlog' && task.workClass !== 'routine_occurrence',
@@ -4900,6 +4909,7 @@ export async function getTeamMemberDetail(
       dueIsDateOnly: task.dueIsDateOnly,
       isOverdue: task.isOverdue,
       isMandatory: task.isMandatory,
+      isPaused: task.status === 'paused',
       version: task.version,
       stepsOverdue: stepsOverdueByTask.get(task.id) ?? 0,
     })),

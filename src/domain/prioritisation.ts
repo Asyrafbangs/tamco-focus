@@ -8,7 +8,7 @@
  * The recommendation guides; it never forces (section 9.4).
  */
 
-import { localDateString, overdueAgeMs, DEFAULT_ORG_TIMEZONE } from './duration';
+import { localDateString, overdueDays, DEFAULT_ORG_TIMEZONE } from './duration';
 import type { TaskOverview } from './types';
 
 /**
@@ -132,9 +132,9 @@ function explain(task: TaskOverview, band: PriorityBand, context: Prioritisation
 
     case 'overdue_or_blocked': {
       if (task.isOverdue) {
-        const overdueDays = Math.floor(overdueAgeMs(task, now) / 86_400_000);
-        return overdueDays >= 1
-          ? `Selected because this is overdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'}.`
+        const days = overdueDays(task, context.timeZone ?? DEFAULT_ORG_TIMEZONE, now);
+        return days >= 1
+          ? `Selected because this is overdue by ${days} day${days === 1 ? '' : 's'}.`
           : 'Selected because this passed its due time today.';
       }
       return 'Selected because a barrier is open and this work needs a decision before it can move.';
@@ -318,7 +318,7 @@ export function needsAttention(
     }
 
     if (task.isOverdue) {
-      const days = Math.floor(overdueAgeMs(task, now) / 86_400_000);
+      const days = overdueDays(task, context.timeZone ?? DEFAULT_ORG_TIMEZONE, now);
       items.push({
         kind: task.workClass === 'routine_occurrence' ? 'overdue_routine' : 'overdue',
         taskId: task.id,

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { formatDurationWords, staleAgeMs } from '@/domain/duration';
+import { calendarDaysSince, formatDurationWords, staleAgeMs } from '@/domain/duration';
 import { weeklyWindow, type WeeklyWindow } from '@/domain/weekly-schedule';
 import { PermanentDeliveryError } from '@/server/workers/smtp-transport';
 import type { Database } from '@/lib/database.types';
@@ -142,7 +142,12 @@ function formatDue(
   if (!dueAt) return 'No due date';
   const due = new Date(dueAt);
   if (due.getTime() < now.getTime()) {
-    return `Overdue ${formatDurationWords(now.getTime() - due.getTime())}`;
+    // v185 — whole calendar days, as every screen counts them; hours only on
+    // the day a due time passes.
+    const days = calendarDaysSince(dueAt, timeZone, now);
+    return days >= 1
+      ? `Overdue ${days} day${days === 1 ? '' : 's'}`
+      : `Overdue ${formatDurationWords(now.getTime() - due.getTime())}`;
   }
   return `Due ${new Intl.DateTimeFormat('en-MY', {
     weekday: 'short',

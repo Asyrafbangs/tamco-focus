@@ -13,7 +13,7 @@ import {
   type TabItem,
 } from '@/components/ui/ParityPrimitives';
 import { closeLayerHref, safeReturnPath, TASK_LAYER_PARAMS } from '@/domain/navigation';
-import { formatDue, formatDueShort, localDateString, overdueAgeMs } from '@/domain/duration';
+import { formatDue, formatDueShort, localDateString, overdueDays } from '@/domain/duration';
 import { DELIVERY_KIND_WORD } from '@/domain/delivery';
 import {
   DEFAULT_PERIOD,
@@ -167,7 +167,7 @@ function dueSignal(
   now: Date,
 ): { label: string; tone: 'late' | 'today' | 'plain' } | null {
   if (task.isOverdue) {
-    const days = Math.floor(overdueAgeMs(task, now) / 86_400_000);
+    const days = overdueDays(task, timeZone, now);
     return {
       label: days >= 1 ? `Overdue ${days} day${days === 1 ? '' : 's'}` : 'Overdue',
       tone: 'late',
@@ -1920,14 +1920,16 @@ export default async function WorkPage({
   );
 }
 
-/** Whether a routine occurrence falls on the viewer's local today. */
+/**
+ * Whether work falls due on the viewer's local today: a routine occurrence by
+ * its occurrence date, anything else by its due date.
+ *
+ * It read only the occurrence date, which ordinary work does not have, so a
+ * row's "Due today" (v130) never appeared on anything but a routine: work due
+ * today read "Due 15 Sep" on the fifteenth (found in v185).
+ */
 function isDueToday(task: TaskOverview, timeZone: string): boolean {
-  if (!task.occurrenceDate) return false;
-  const today = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-  return task.occurrenceDate === today;
+  const today = localDateString(new Date(), timeZone);
+  if (task.occurrenceDate) return task.occurrenceDate === today;
+  return task.dueAt !== null && localDateString(new Date(task.dueAt), timeZone) === today;
 }

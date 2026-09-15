@@ -1,5 +1,24 @@
 # TAMCO Focus — Change Log
 
+## v185 Overdue work is told, and counted the same way everywhere — 15 September 2026
+
+- The owner of late work is now emailed once, the morning after it passes its due date. Several
+  pieces of late work arrive as one email ("4 pieces of work overdue"). Before this, only someone
+  owing a step on another person's work was ever told.
+- Pushing a due date later tells the owner's manager and whoever assigned the work, by email:
+  "Amer Hakim moved it from 13 Sep to 20 Sep. It was 2 days overdue. Reason: …". When somebody
+  else moves your due date, in either direction, you are told.
+- "Due-today and selection deadlines" in My Alerts switches these off, and the step overdue
+  notice too. Until now none of the My Alerts switches did anything.
+- Days late are counted by calendar day on every screen. Work due 13 September read "overdue
+  by 1 day" on My Day beside a step due the same day reading "2 days late"; work due yesterday
+  read "11h overdue" in the task and "Overdue" with no number on My Work.
+- My Team lists a person's late work first. It said "5 overdue" above five rows that were on
+  time, with the late ones behind "Show more". Paused work is now listed, marked Paused; it was
+  counted on the row but shown nowhere. "Not started" says how many are overdue.
+- Fixed: work due today read "Due 15 Sep" rather than "Due today" on My Work, and a task with
+  no due date read "Due No date yet".
+
 ## v184 Ask for an update — 15 September 2026
 
 - On somebody else's work, a small "Ask for update" link sits at the end of the task's

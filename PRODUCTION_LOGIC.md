@@ -1728,3 +1728,26 @@ derived-progress rules. The future ESH finding/action system remains outside the
    a step clears the previous recipient's notices, and the asker may ask the new person at
    once. Removing a step deletes its requests.
 7. The link is text, not a button. On a phone its `::after` extends the touch area to 44px.
+
+## 80. v185 Overdue work: counting and telling
+
+1. Days late are calendar days between the due date and today in the viewer's zone
+   (`calendarDaysSince`, `overdueDays` in `src/domain/duration.ts`). My Work, My Day, the task
+   drawer, age chips, attention items and the weekly summary all use them. Work that passed a
+   due time earlier today is overdue with no day count, and shows hours where a duration is shown.
+2. `notify_overdue_work` runs in the daily scheduled job. It covers Active, Paused and Available
+   work, not routine occurrences, that is past its due date and not yet recorded in
+   `task_overdue_notices` for that due date. Each owner receives one notice per run: a single
+   piece of work opens that task; several list up to three by name and open My Day. A new due
+   date can be told about again. Rows are recorded even when the owner's alert is off.
+3. The owner's overdue notice is marked read when the work is completed, cancelled, binned, or
+   given a due date in the future.
+4. `change_task_due_date` notifies, never the actor:
+   - when the date moves later, the owner's reporting manager and the assigner, with the old
+     and new dates, how many days late it already was, and the reason;
+   - when anyone else moves it in either direction, the owner.
+   A person in more than one role is told once. Bringing your own date earlier tells nobody.
+5. These notices, and the step overdue notice, are sent only when the recipient's
+   `due_today_and_deadlines` alert is on, which is the default.
+6. My Team's person panel lists paused work with active work, late work first by earliest
+   due date, and counts overdue Available work in the Not started summary.

@@ -5675,6 +5675,101 @@ export type Database = {
           },
         ]
       }
+      task_overdue_notices: {
+        Row: {
+          due_at: string
+          notification_id: string | null
+          notified_at: string
+          recipient_id: string
+          task_id: string
+        }
+        Insert: {
+          due_at: string
+          notification_id?: string | null
+          notified_at?: string
+          recipient_id: string
+          task_id: string
+        }
+        Update: {
+          due_at?: string
+          notification_id?: string | null
+          notified_at?: string
+          recipient_id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_overdue_notices_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_overdue_notices_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_overdue_notices_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_overdue_notices_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_overdue_notices_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "task_overdue_notices_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_overdue_notices_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "binned_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_overdue_notices_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "routine_occurrence_outcomes"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "task_overdue_notices_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "task_overview"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_overdue_notices_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_relations: {
         Row: {
           created_at: string
@@ -10455,6 +10550,7 @@ export type Database = {
         Args: { p_task_ids?: string[] }
         Returns: Json
       }
+      notify_overdue_work: { Args: { p_task_ids?: string[] }; Returns: Json }
       pause_task: {
         Args: {
           p_expected_version: number
@@ -11139,6 +11235,8 @@ export type Database = {
         | "goal_year_end_due"
         | "update_requested"
         | "update_request_answered"
+        | "work_overdue"
+        | "due_date_changed"
       personal_summary_mode: "off" | "focused" | "standard"
       proposal_status:
         | "pending"
@@ -11528,6 +11626,8 @@ export const Constants = {
         "goal_year_end_due",
         "update_requested",
         "update_request_answered",
+        "work_overdue",
+        "due_date_changed",
       ],
       personal_summary_mode: ["off", "focused", "standard"],
       proposal_status: [

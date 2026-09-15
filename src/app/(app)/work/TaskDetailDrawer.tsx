@@ -19,6 +19,7 @@ import {
   formatCompactDuration,
   formatDue,
   overdueAgeMs,
+  overdueDays,
   routineOccurrenceState,
 } from '@/domain/duration';
 import { latestPlausibleDate } from '@/domain/delivery';
@@ -518,7 +519,10 @@ export function TaskDetailDrawer({
     evidenceOutstanding.length === 0;
 
   const taskOverdueMs = overdueAgeMs(task);
-  const ageDetails = ageChips(task, { staleThresholdDays });
+  // v185 — days on the calendar, like every other screen; hours only on the
+  // day a due time passes.
+  const taskOverdueDays = overdueDays(task, timeZone);
+  const ageDetails = ageChips(task, { staleThresholdDays, timeZone });
 
   /**
    * The one place a barrier response is submitted (v46 §29, §52).
@@ -1966,8 +1970,10 @@ export function TaskDetailDrawer({
               : TASK_STATUS_LABELS[task.status]}
           </span>
           <span>
-            {task.routineTemplateId ? 'Occurrence' : 'Due'}{' '}
-            {formatDue(task.dueAt, task.dueIsDateOnly, timeZone)}
+            {/* "Due No date yet" read as a date called "No date yet". */}
+            {task.dueAt
+              ? `${task.routineTemplateId ? 'Occurrence' : 'Due'} ${formatDue(task.dueAt, task.dueIsDateOnly, timeZone)}`
+              : 'No due date'}
           </span>
           {/* §14 — where the work is recorded. Only where the schedule names
               one: a routine covering a single place would print the same
@@ -1975,7 +1981,8 @@ export function TaskDetailDrawer({
           {task.routineArea ? <span>{task.routineArea}</span> : null}
           {taskOverdueMs > 0 ? (
             <span className="task-status-overdue">
-              {formatCompactDuration(taskOverdueMs)} overdue
+              {taskOverdueDays >= 1 ? `${taskOverdueDays}d` : formatCompactDuration(taskOverdueMs)}{' '}
+              overdue
             </span>
           ) : null}
           {detail.checklist.length > 0 ? (

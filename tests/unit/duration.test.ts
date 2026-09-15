@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ageChips,
+  calendarDaysSince,
   currentStateAgeMs,
   dueInputValue,
   endOfLocalDay,
@@ -11,6 +12,7 @@ import {
   localDateString,
   openAgeMs,
   overdueAgeMs,
+  overdueDays,
   staleAgeMs,
   startOfLocalDay,
   timeZoneOffsetMs,
@@ -220,5 +222,51 @@ describe('due date presentation', () => {
 
   it('says so plainly when there is no date', () => {
     expect(formatDue(null, true, KL)).toBe('No date yet');
+  });
+});
+
+describe('days late, one count for every screen (v185)', () => {
+  const at = new Date('2026-09-15T03:07:00Z'); // 11:07 on 15 September in Kuala Lumpur
+  const work = (dueAt: string, status: 'active' | 'completed' = 'active') =>
+    makeTask({
+      dueAt,
+      status,
+      isOverdue: status === 'active',
+      completedAt: status === 'completed' ? at.toISOString() : null,
+    });
+
+  it('counts calendar days from a date-only due date, not elapsed time', () => {
+    // Due 12 September ends at 23:59:59.999 local: 2 days 11 hours ago, 3 days late.
+    const dueTwelfth = endOfLocalDay('2026-09-12', KL).toISOString();
+    expect(calendarDaysSince(dueTwelfth, KL, at)).toBe(3);
+    expect(overdueDays(work(dueTwelfth), KL, at)).toBe(3);
+    // Due yesterday is a day late, eleven hours after it ended.
+    expect(overdueDays(work(endOfLocalDay('2026-09-14', KL).toISOString()), KL, at)).toBe(1);
+  });
+
+  it('is zero for work due today, a due time passed earlier today, or finished work', () => {
+    expect(overdueDays(work(endOfLocalDay('2026-09-15', KL).toISOString()), KL, at)).toBe(0);
+    expect(overdueDays(work('2026-09-15T01:07:00Z'), KL, at)).toBe(0);
+    expect(
+      overdueDays(work(endOfLocalDay('2026-09-12', KL).toISOString(), 'completed'), KL, at),
+    ).toBe(0);
+  });
+
+  it('reads the day in the viewer’s zone', () => {
+    // 20:00 UTC on the 14th is already the 15th in Kuala Lumpur, still the 14th in London.
+    expect(calendarDaysSince('2026-09-14T20:00:00Z', KL, new Date('2026-09-16T01:00:00Z'))).toBe(1);
+    expect(
+      calendarDaysSince('2026-09-14T20:00:00Z', 'Europe/London', new Date('2026-09-16T01:00:00Z')),
+    ).toBe(2);
+  });
+
+  it('labels the age chip in days once a day has passed, and in hours on the day', () => {
+    const late = ageChips(work(endOfLocalDay('2026-09-14', KL).toISOString()), {
+      now: at,
+      timeZone: KL,
+    });
+    expect(late.find((chip) => chip.tone === 'red')!.label).toBe('Overdue 1d');
+    const hours = ageChips(work('2026-09-15T01:07:00Z'), { now: at, timeZone: KL });
+    expect(hours.find((chip) => chip.tone === 'red')!.label).toBe('Overdue 2h');
   });
 });

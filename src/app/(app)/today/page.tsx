@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 import { RowPrimaryLink } from '@/components/ui/ParityPrimitives';
 import { taskDrawerHref } from '@/domain/navigation';
-import { formatDue, formatDueShort, localDateString, overdueAgeMs } from '@/domain/duration';
+import { calendarDaysSince, formatDue, formatDueShort, overdueDays } from '@/domain/duration';
 import { goalExceptionMessage } from '@/domain/goals';
 import {
   comingUp,
@@ -61,11 +61,7 @@ import { WhyThis } from './WhyThis';
  * "Due yesterday", or its date and how many days it has been.
  */
 function lateness(dueAt: string, dueIsDateOnly: boolean, timeZone: string, now: Date): string {
-  const due = localDateString(new Date(dueAt), timeZone);
-  const today = localDateString(now, timeZone);
-  const days = Math.round(
-    (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${due}T00:00:00Z`)) / 86_400_000,
-  );
+  const days = calendarDaysSince(dueAt, timeZone, now);
   if (days <= 0) return `Due today, ${formatDueShort(dueAt, dueIsDateOnly, timeZone, now)}`;
   if (days === 1) return 'Due yesterday';
   return `Due ${formatDueShort(dueAt, true, timeZone, now)} · ${days} days late`;
@@ -108,7 +104,7 @@ function dueLine(
 ): string {
   const due = formatDue(task.dueAt, task.dueIsDateOnly, timeZone);
   if (!task.isOverdue) return due;
-  const days = Math.floor(overdueAgeMs(task as never, now) / 86_400_000);
+  const days = overdueDays(task as never, timeZone, now);
   return days >= 1 ? `${due} · ${days} day${days === 1 ? '' : 's'} overdue` : `${due} · overdue`;
 }
 export default async function TodayPage({
