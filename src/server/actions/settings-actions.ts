@@ -127,7 +127,6 @@ const orgSettingParsers: Record<string, z.ZodType> = {
   'routine.ordinary_auto_archive': z.boolean(),
   'alerts.barrier_escalation_hours': z.number().int().min(1).max(720),
   'day.upcoming_window_days': z.number().int().min(1).max(90),
-  'day.today_list_max_items': z.number().int().min(3).max(5),
   'retention.completed_task_years': z.number().int().min(1).max(50),
 };
 

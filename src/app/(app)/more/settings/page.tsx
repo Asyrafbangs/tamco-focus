@@ -16,7 +16,6 @@ const supportedOrgKeys = new Set([
   'routine.ordinary_auto_archive',
   'alerts.barrier_escalation_hours',
   'day.upcoming_window_days',
-  'day.today_list_max_items',
   'retention.completed_task_years',
 ]);
 

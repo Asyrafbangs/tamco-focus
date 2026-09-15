@@ -199,7 +199,7 @@ test('v154 the task keeps every step in view: who owes it, by when, and what the
 
     // Who owes it and by when — the date it was given.
     await expect(row(`Give department input ${stamp}`)).toContainText(
-      `Amer Hakim · Due ${shortLabel(5)}`,
+      'Amer Hakim · ! Due in 5 days',
     );
     // And one that simply follows the task shows the task's date, not nothing.
     await expect(row(`Review final proposal ${stamp}`)).toContainText(

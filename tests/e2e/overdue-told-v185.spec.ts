@@ -113,18 +113,17 @@ test('v185 every screen counts days late the same way', async ({ page }, testInf
     await expect(row(today)).toContainText('Due today');
 
     await visit(page, '/today');
-    await expect(
-      page.getByText('Selected because this is overdue by 3 days.').first(),
-    ).toBeVisible();
-    await expect(page.getByText('passed its due time today')).toHaveCount(0);
+    // v188 — My Day's card for it says the same.
+    await expect(page.locator('.day-card', { hasText: three })).toContainText('Overdue 3 days');
+    await expect(page.locator('.day-card', { hasText: one })).toContainText('Overdue 1 day');
 
     await visit(page, `/work?task=${ids[1]}`);
     const drawer = page.getByRole('dialog', { name: one });
-    await expect(drawer.locator('.task-status-line')).toContainText('1d overdue');
+    await expect(drawer.locator('.task-status-line')).toContainText('Overdue 1 day');
     await visit(page, `/work?task=${ids[0]}`);
     await expect(
       page.getByRole('dialog', { name: three }).locator('.task-status-line'),
-    ).toContainText('3d overdue');
+    ).toContainText('Overdue 3 days');
   } finally {
     await removeTasks(ids);
   }
@@ -213,7 +212,7 @@ test('v185 pushing a late due date back tells the manager, and the owner hears a
 
     // He pushes it back from the drawer, with a reason.
     const drawer = page.getByRole('dialog', { name: title });
-    await expect(drawer.locator('.task-status-line')).toContainText('2d overdue');
+    await expect(drawer.locator('.task-status-line')).toContainText('Overdue 2 days');
     await drawer.getByRole('button', { name: 'More task actions' }).click();
     await page.getByRole('button', { name: 'Change due date' }).click();
     const editor = page.getByRole('dialog', { name: 'Edit due date' });
@@ -221,7 +220,7 @@ test('v185 pushing a late due date back tells the manager, and the owner hears a
     await editor.getByLabel('Reason (optional)').fill('Vendor delivery moved');
     await editor.getByRole('button', { name: 'Save' }).click();
     await expect(editor).toHaveCount(0);
-    await expect(drawer.locator('.task-status-line')).not.toContainText('overdue');
+    await expect(drawer.locator('.task-status-line')).not.toContainText('Overdue');
 
     // Izzul is told, by email as well as the bell.
     const { data: moved } = await admin

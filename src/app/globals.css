@@ -3462,100 +3462,6 @@ fieldset:disabled label,
   background: var(--blue);
 }
 
-/* ------------------------------------------------------------------------ */
-/* Today (section 9)                                                         */
-/* ------------------------------------------------------------------------ */
-
-.attention-banner {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 14px;
-  border: 1px solid color-mix(in srgb, var(--red) 28%, var(--line));
-  background: var(--red-bg);
-  border-radius: 12px;
-  padding: 12px 14px;
-  margin-bottom: 14px;
-}
-.attention-banner strong {
-  display: block;
-}
-.attention-banner span {
-  font-size: 11px;
-  color: var(--muted);
-}
-.attention-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--red);
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-  flex: 0 0 auto;
-}
-
-.today-grid {
-  display: grid;
-  align-items: stretch;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-.start-next-action {
-  margin: 10px 0 12px;
-  padding-left: 11px;
-  border-left: 3px solid var(--blue);
-}
-.start-next-action .eyebrow {
-  margin: 0 0 3px;
-}
-.start-next-action p {
-  margin: 0;
-  font-size: 12px;
-}
-.start-meta .pill.overdue {
-  border-color: color-mix(in srgb, var(--red) 30%, var(--line));
-  background: var(--red-bg);
-  color: var(--red);
-  font-weight: 600;
-}
-.start-card {
-  padding: 18px;
-}
-.start-card .reasonline {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--blue);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-/* The recommendation's reason, said rather than hidden behind a control. */
-.start-reason {
-  margin: 10px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 18px;
-}
-.start-card h2 {
-  margin: 8px 0 5px;
-  font-size: 20px;
-  font-weight: 650;
-}
-.start-card p {
-  margin: 0;
-  color: var(--muted);
-}
-.start-meta {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 13px;
-}
-
 .sectionhead {
   display: flex;
   justify-content: space-between;
@@ -3628,18 +3534,6 @@ fieldset:disabled label,
   font-size: 10px;
   margin-top: 2px;
 }
-.today-meta {
-  text-align: right;
-}
-.today-meta strong {
-  display: block;
-  font-size: 11px;
-}
-.today-meta span {
-  display: block;
-  color: var(--muted);
-  font-size: 9px;
-}
 
 .summary-strip {
   display: flex;
@@ -3698,42 +3592,6 @@ fieldset:disabled label,
 .coming {
   margin-top: 14px;
   overflow: hidden;
-}
-.coming-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-}
-.coming-item {
-  padding: 13px 16px;
-  border-right: 1px solid var(--line-soft);
-}
-.coming-item:last-child {
-  border-right: 0;
-}
-.coming-item strong {
-  display: block;
-  font-weight: 600;
-}
-.coming-item span {
-  display: block;
-  font-size: 10px;
-  color: var(--muted);
-  margin-top: 3px;
-}
-/* v155 - how late a step somebody else owes is: the line to chase. */
-.coming-item span.waiting-late {
-  color: var(--red);
-  font-weight: 600;
-}
-
-.why-btn {
-  border: 0;
-  background: transparent;
-  color: var(--blue);
-  padding: 0;
-  font-weight: 600;
-  font-size: 11px;
-  text-decoration: underline;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -5557,13 +5415,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   .day {
     min-height: 90px;
   }
-  .coming-grid {
-    grid-template-columns: 1fr;
-  }
-  .coming-item {
-    border-right: 0;
-    border-bottom: 1px solid var(--line-soft);
-  }
   /*
    * Three visible children below 900px — person, attention, action — so the
    * grid needs three columns. With two, the action wrapped onto a second row
@@ -5583,10 +5434,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 
 @media (max-width: 700px) {
-  .today-grid {
-    grid-template-columns: 1fr;
-  }
-
   .rail {
     display: none;
   }
@@ -5624,18 +5471,11 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   .pagehead .actions .btn {
     flex: 1;
   }
-
-  .attention-banner {
-    align-items: flex-start;
-  }
   .today-item {
     grid-template-columns: 34px minmax(0, 1fr);
   }
-  .today-meta {
-    grid-column: 2;
-    text-align: left;
-    display: flex;
-    gap: 8px;
+  .day-card {
+    grid-template-columns: 34px minmax(0, 1fr) auto;
   }
 
   .focus-tabs {
@@ -5692,7 +5532,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
      alone left them at 36px. */
   .btn,
   .btn.small,
-  .why-btn,
   /* Sets an explicit height rather than a min-height, so it needs both. */
   .theme-toggle,
   .field input,
@@ -5708,8 +5547,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   }
 
   /* Icon-only and inline controls need the width too, not just the height. */
-  .btn.small,
-  .why-btn {
+  .btn.small {
     padding-inline: 12px;
   }
 
@@ -6946,11 +6784,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   color: var(--muted);
   font-size: 9px;
 }
-/* v154 - a step past its date is the one line the owner must not miss. */
-.task-checklist-row .checklist-copy span.checklist-commitment.is-overdue {
-  color: var(--red);
-  font-weight: 600;
-}
 .checklist-evidence-link {
   padding: 0 2px;
   border: 0;
@@ -7165,7 +6998,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
  */
 /*
  * `.card` in this stylesheet carries the border and the radius and no padding
- * at all — each card class sets its own, the way `.start-card` does. Omitting
+ * at all — each card class sets its own. Omitting
  * it here put the heading, the rows and the separators flat against the border.
  */
 .action-queue {
@@ -7518,7 +7351,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
  */
 /*
  * `.card` in this stylesheet carries the border and the radius and no padding
- * at all — each card class sets its own, the way `.start-card` does. Omitting
+ * at all — each card class sets its own. Omitting
  * it here put the heading, the rows and the separators flat against the border.
  */
 .action-queue {
@@ -7695,7 +7528,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
  */
 /*
  * `.card` in this stylesheet carries the border and the radius and no padding
- * at all — each card class sets its own, the way `.start-card` does. Omitting
+ * at all — each card class sets its own. Omitting
  * it here put the heading, the rows and the separators flat against the border.
  */
 .action-queue {
@@ -8010,7 +7843,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
  */
 /*
  * `.card` in this stylesheet carries the border and the radius and no padding
- * at all — each card class sets its own, the way `.start-card` does. Omitting
+ * at all — each card class sets its own. Omitting
  * it here put the heading, the rows and the separators flat against the border.
  */
 .action-queue {
@@ -9194,12 +9027,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   color: var(--muted);
   font-size: 9.5px;
 }
-/* v157 - a contribution past its date. Two classes, because the muted rule
-   above is a class and an element and would otherwise win. */
-.member-other-copy > .member-contribution-late {
-  color: var(--red);
-  font-weight: 650;
-}
 .member-other-chevron {
   color: var(--muted);
   font-size: 18px;
@@ -9999,10 +9826,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   align-items: center;
   gap: 6px;
   color: var(--text);
-  font-weight: 650;
-}
-.task-status-overdue {
-  color: var(--red);
   font-weight: 650;
 }
 
@@ -11551,24 +11374,6 @@ button.attachment-row {
 }
 
 /*
-  The date is what people scan a work list for, so it is the part of the meta
-  line that is not muted. Tone only where the date has become a problem: an
-  ordinary due date is information, not an alarm.
-*/
-.row-due.plain {
-  color: var(--text);
-  font-weight: 600;
-}
-.row-due.today {
-  color: var(--amber);
-  font-weight: 650;
-}
-.row-due.late {
-  color: var(--red);
-  font-weight: 650;
-}
-
-/*
   Tighter, so eight or ten Active items fit on a screen without scrolling.
   Three short lines and a chevron do not need 78px; they need enough room to
   stay legible, which is what the padding is for.
@@ -12250,6 +12055,131 @@ button.attachment-row {
   color: var(--blue);
   font-size: 11px;
   font-weight: 650;
+}
+
+/*
+  v187 — one deadline language.
+
+  Red with ⚠ once late; amber with ! today, tomorrow and inside the attention
+  window, heavier today and tomorrow than further out; the plain text colour
+  beyond it. Written as `span.deadline.deadline-*` and placed late so it wins
+  over the muted, small spans of the rows it sits in — the step list, My Team's
+  panel and the task rows each paint every span inside them grey.
+*/
+span.deadline {
+  font-weight: 600;
+}
+span.deadline.deadline-overdue,
+.task-checklist-row .checklist-copy span.deadline.deadline-overdue,
+.member-work-row span.deadline.deadline-overdue,
+.member-other-copy > span span.deadline.deadline-overdue {
+  color: var(--red);
+  font-weight: 650;
+}
+span.deadline.deadline-today,
+span.deadline.deadline-tomorrow,
+.task-checklist-row .checklist-copy span.deadline.deadline-today,
+.task-checklist-row .checklist-copy span.deadline.deadline-tomorrow,
+.member-work-row span.deadline.deadline-today,
+.member-work-row span.deadline.deadline-tomorrow,
+.member-other-copy > span span.deadline.deadline-today,
+.member-other-copy > span span.deadline.deadline-tomorrow {
+  color: var(--amber);
+  font-weight: 700;
+}
+span.deadline.deadline-soon,
+.task-checklist-row .checklist-copy span.deadline.deadline-soon,
+.member-work-row span.deadline.deadline-soon,
+.member-other-copy > span span.deadline.deadline-soon {
+  color: var(--amber);
+  font-weight: 600;
+}
+span.deadline.deadline-later,
+.task-row .sub span.deadline.deadline-later {
+  color: var(--text);
+}
+/* The glyph takes its label's colour and size, whatever the row says spans are. */
+span.deadline span.deadline-glyph,
+.task-checklist-row .checklist-copy span.deadline span.deadline-glyph,
+.member-work-row span.deadline span.deadline-glyph,
+.member-other-copy > span span.deadline span.deadline-glyph {
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+/*
+  v188 — My Day as the action view.
+
+  One sentence at the top, then Overdue and Due within N days as cards. The
+  sentence takes the weight of the worst thing it reports: red when something
+  is late, amber when something is due soon, quiet when neither.
+*/
+.day-summary {
+  margin: 0 0 14px;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+}
+.day-summary-late {
+  border-color: color-mix(in srgb, var(--red) 28%, var(--line));
+  background: var(--red-bg);
+}
+.day-summary-soon {
+  border-color: color-mix(in srgb, var(--amber) 30%, var(--line));
+  background: var(--amber-bg);
+}
+.day-section-count {
+  margin-left: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.day-card-list {
+  display: grid;
+}
+.day-card {
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+}
+.day-icon {
+  font-weight: 800;
+}
+.day-icon-overdue {
+  background: var(--red-bg);
+  color: var(--red);
+}
+.day-icon-today,
+.day-icon-tomorrow,
+.day-icon-soon {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+.day-card-chevron {
+  color: var(--muted);
+  font-size: 18px;
+}
+/* The deadline sits inside a line, not on one of its own. */
+.today-copy span span.deadline,
+.today-copy span span.deadline span.deadline-glyph {
+  display: inline;
+  margin-top: 0;
+}
+
+/* v189 — My Team's Needs attention: the two groups inside one section. */
+.member-deadline-group + .member-deadline-group {
+  margin-top: 10px;
+}
+.member-deadline-heading {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 /*

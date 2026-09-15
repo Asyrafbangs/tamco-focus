@@ -1,11 +1,8 @@
 import Link from 'next/link';
 
-import {
-  formatDue,
-  formatDueShort,
-  ROUTINE_OCCURRENCE_LABELS,
-  routineOccurrenceState,
-} from '@/domain/duration';
+import { formatDue, ROUTINE_OCCURRENCE_LABELS, routineOccurrenceState } from '@/domain/duration';
+import { DeadlineLabel } from '@/components/ui/DeadlineLabel';
+import { compareDeadlines, deadlineFor } from '@/domain/deadline';
 import { DELIVERY_KIND_WORD } from '@/domain/delivery';
 import { GOAL_HEALTH_LABELS, GOAL_STATUS_LABELS } from '@/domain/goals';
 import { WORK_PURPOSE_SHORT_LABELS } from '@/domain/purpose';
@@ -87,6 +84,7 @@ export function MyTeamPersonPanel({
   kept,
   timeZone,
   now,
+  attentionWindowDays,
 }: {
   detail: TeamMemberDetail;
   panelId: string;
@@ -95,7 +93,13 @@ export function MyTeamPersonPanel({
   kept: boolean;
   timeZone: string;
   now: Date;
+  /** v187 — the organisation's attention window, in days. */
+  attentionWindowDays?: number;
 }) {
+  /* v187 — every date in the panel in the words the lists use. */
+  const deadline = (dueAt: string | null, dueIsDateOnly: boolean) =>
+    deadlineFor(dueAt, { dueIsDateOnly, timeZone, now, windowDays: attentionWindowDays });
+  const windowDays = attentionWindowDays ?? 5;
   const completedOn = (iso: string) =>
     new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone });
 
@@ -151,11 +155,17 @@ export function MyTeamPersonPanel({
    */
   const otherActive = detail.activeWork
     .filter((task) => !committedTaskIds.has(task.id))
-    .map((task, index) => ({ task, index }))
+    .map((task, index) => ({ task, index, deadline: deadline(task.dueAt, task.dueIsDateOnly) }))
     .sort((left, right) => {
-      if (left.task.isOverdue !== right.task.isOverdue) return left.task.isOverdue ? -1 : 1;
-      if (left.task.isOverdue) {
-        return (left.task.dueAt ?? '').localeCompare(right.task.dueAt ?? '');
+      // v187 — and work due soon next, nearest first, before the rest.
+      const leftUrgent = Boolean(left.deadline?.needsAttention);
+      const rightUrgent = Boolean(right.deadline?.needsAttention);
+      if (leftUrgent !== rightUrgent) return leftUrgent ? -1 : 1;
+      if (leftUrgent) {
+        return compareDeadlines(
+          { deadline: left.deadline, dueAt: left.task.dueAt },
+          { deadline: right.deadline, dueAt: right.task.dueAt },
+        );
       }
       return left.index - right.index;
     })
@@ -165,6 +175,56 @@ export function MyTeamPersonPanel({
   const overdueActive = otherActive.filter((task) => task.isOverdue).length;
   const contributionsOverdue = detail.contributions.filter((step) => step.isOverdue).length;
   const availableOverdue = detail.otherWorkload.available.filter((task) => task.isOverdue).length;
+
+  /* v189 — the person's deadlines inside the attention window, one list. */
+  const attentionItems = [
+    ...detail.activeWork.map((task) => ({
+      key: `task:${task.id}`,
+      kind: task.isPaused ? 'Paused task' : 'Task',
+      title: task.title,
+      href: taskHref(task.id),
+      parentTitle: null as string | null,
+      dueAt: task.dueAt,
+      deadline: deadline(task.dueAt, task.dueIsDateOnly),
+    })),
+    ...detail.otherWorkload.available.map((task) => ({
+      key: `task:${task.id}`,
+      kind: 'Not started',
+      title: task.title,
+      href: taskHref(task.id),
+      parentTitle: null as string | null,
+      dueAt: task.dueAt,
+      deadline: deadline(task.dueAt, task.dueIsDateOnly),
+    })),
+    // Late routine occurrences, which the row's overdue count includes.
+    ...detail.otherWorkload.routines
+      .filter((task) => task.isOverdue)
+      .map((task) => ({
+        key: `routine:${task.id}`,
+        kind: 'Routine',
+        title: task.title,
+        href: taskHref(task.id),
+        parentTitle: null as string | null,
+        dueAt: task.dueAt,
+        deadline: deadline(task.dueAt, task.dueIsDateOnly),
+      })),
+    ...detail.contributions.map((step) => ({
+      key: `step:${step.checklistItemId}`,
+      kind: 'Shared step',
+      title: step.title,
+      href: `${taskHref(step.taskId)}&step=${step.checklistItemId}`,
+      parentTitle: step.parentTitle as string | null,
+      dueAt: step.dueAt,
+      deadline: deadline(step.dueAt, step.dueIsDateOnly),
+    })),
+  ]
+    .filter(
+      (item): item is typeof item & { deadline: NonNullable<typeof item.deadline> } =>
+        Boolean(item.deadline?.needsAttention),
+    )
+    .sort((left, right) => compareDeadlines(left, right));
+  const attentionOverdue = attentionItems.filter((item) => item.deadline.tone === 'overdue');
+  const attentionSoon = attentionItems.filter((item) => item.deadline.tone !== 'overdue');
 
   const activeRow = (task: TeamMemberDetail['activeWork'][number]) => {
     const inWeek = stepCommitmentTitles.get(task.id);
@@ -182,9 +242,12 @@ export function MyTeamPersonPanel({
           {task.progressPercent}%{task.isMandatory ? ' · Mandatory' : ''}
           {/* Short, like every other date since v130: the year is the same on
               every row and the eye has to step over it. */}
-          {task.dueAt
-            ? ` · ${task.isOverdue ? 'Overdue' : 'Due'} ${formatDueShort(task.dueAt, task.dueIsDateOnly, timeZone, now)}`
-            : ''}
+          {task.dueAt ? (
+            <>
+              {' · '}
+              <DeadlineLabel deadline={deadline(task.dueAt, task.dueIsDateOnly)!} />
+            </>
+          ) : null}
         </span>
         {/* v159 — a step on it past its own date, whoever owes it. The work's
             own lateness already says so when the work itself is overdue. */}
@@ -236,6 +299,46 @@ export function MyTeamPersonPanel({
           {kept ? 'Stop keeping open' : 'Keep open'}
         </Link>
       </div>
+
+      {/*
+        v189 — what is late and what is about to be, before anything else the
+        manager reads about this person: their own work, Active, Paused or not
+        started, and the steps they owe on other people's. The lists below stay
+        the full reference; this is where to step in before it is late.
+      */}
+      {(attentionOverdue.length > 0 || attentionSoon.length > 0) && (
+        <section className="team-person-section" aria-labelledby={id('deadlines')}>
+          <h4 id={id('deadlines')}>Needs attention</h4>
+          {(
+            [
+              ['Overdue', attentionOverdue],
+              [`Due within ${windowDays} day${windowDays === 1 ? '' : 's'}`, attentionSoon],
+            ] as const
+          ).map(([label, items]) =>
+            items.length > 0 ? (
+              <div key={label} className="member-deadline-group">
+                <p className="member-deadline-heading">{label}</p>
+                <div className="member-work-list">
+                  {items.map((item) => (
+                    <Link
+                      key={item.key}
+                      href={item.href}
+                      scroll={false}
+                      className="member-work-row"
+                    >
+                      <strong>{item.title}</strong>
+                      <span>
+                        {item.kind} · <DeadlineLabel deadline={item.deadline} />
+                        {item.parentTitle ? ` · For ${item.parentTitle}` : ''}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : null,
+          )}
+        </section>
+      )}
 
       {decisions.length > 0 && (
         <section className="team-person-section" aria-labelledby={id('decisions')}>
@@ -359,10 +462,12 @@ export function MyTeamPersonPanel({
                     <span>
                       For {step.ownerName} · {step.parentTitle}
                     </span>
-                    <span className={step.isOverdue ? 'member-contribution-late' : undefined}>
-                      {step.dueAt
-                        ? `${step.isOverdue ? 'Overdue since' : 'Due'} ${formatDueShort(step.dueAt, step.dueIsDateOnly, timeZone, now)}`
-                        : 'No due date'}
+                    <span>
+                      {step.dueAt ? (
+                        <DeadlineLabel deadline={deadline(step.dueAt, step.dueIsDateOnly)!} />
+                      ) : (
+                        'No due date'
+                      )}
                       {hold ? ` · ${hold}` : ''}
                     </span>
                   </span>
@@ -400,9 +505,14 @@ export function MyTeamPersonPanel({
                   <strong>{task.title}</strong>
                   <span>
                     {WORK_CLASS_LABELS[task.workClass]}
-                    {task.dueAt
-                      ? ` · ${task.isOverdue ? 'Overdue' : 'Due'} ${formatDueShort(task.dueAt, task.dueIsDateOnly, timeZone, now)}`
-                      : ' · No due date'}
+                    {task.dueAt ? (
+                      <>
+                        {' · '}
+                        <DeadlineLabel deadline={deadline(task.dueAt, task.dueIsDateOnly)!} />
+                      </>
+                    ) : (
+                      ' · No due date'
+                    )}
                   </span>
                 </span>
                 <span className="member-other-chevron" aria-hidden="true">

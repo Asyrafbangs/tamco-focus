@@ -85,7 +85,7 @@ test.describe('v146 §9 the Active tab', () => {
     const count = await rows.count();
     await expect(summary).toContainText(String(count));
 
-    const overdue = await shell.locator('.row-due.red, .row-due.overdue').count();
+    const overdue = await shell.locator('.deadline-overdue').count();
     if (overdue > 0) await expect(summary).toContainText('overdue');
   });
 

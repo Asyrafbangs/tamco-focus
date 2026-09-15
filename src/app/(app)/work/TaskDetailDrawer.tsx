@@ -6,6 +6,7 @@ import { useState, useTransition } from 'react';
 
 import { CompletionForm } from './CompletionForm';
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker';
+import { DeadlineLabel } from '@/components/ui/DeadlineLabel';
 import { Modal } from '@/components/ui/Modal';
 import { MenuDropdown } from '@/components/ui/MenuDropdown';
 import { PeopleOptions } from '@/components/ui/PeopleOptions';
@@ -16,12 +17,10 @@ import {
   ROUTINE_OCCURRENCE_LABELS,
   ageChips,
   dueInputValue,
-  formatCompactDuration,
   formatDue,
-  overdueAgeMs,
-  overdueDays,
   routineOccurrenceState,
 } from '@/domain/duration';
+import { deadlineFor } from '@/domain/deadline';
 import { latestPlausibleDate } from '@/domain/delivery';
 import { barrierAction, barrierViewLabel } from '@/domain/barriers';
 import { canOfferActivate, canOfferMoveOut } from '@/domain/focus';
@@ -100,6 +99,8 @@ interface TaskDetailDrawerProps {
   closeHref: string;
   timeZone: string;
   staleThresholdDays: number;
+  /** v187 — the organisation's attention window, in days. */
+  attentionWindowDays?: number;
   /** Every active team member; empty when the viewer may not assign (v45 §1). */
   assignablePeople: Array<{
     id: string;
@@ -182,6 +183,7 @@ export function TaskDetailDrawer({
   closeHref,
   timeZone,
   staleThresholdDays,
+  attentionWindowDays,
   assignablePeople,
   viewerId,
   attentionBarrierId,
@@ -518,10 +520,16 @@ export function TaskDetailDrawer({
     checklistOutstanding === 0 &&
     evidenceOutstanding.length === 0;
 
-  const taskOverdueMs = overdueAgeMs(task);
-  // v185 — days on the calendar, like every other screen; hours only on the
-  // day a due time passes.
-  const taskOverdueDays = overdueDays(task, timeZone);
+  // v187 — the drawer's deadline, in the words every list uses. A routine
+  // occurrence says Upcoming / Due today / Overdue in its own vocabulary.
+  const taskDeadline = isRoutineOccurrence
+    ? null
+    : deadlineFor(task.dueAt, {
+        dueIsDateOnly: task.dueIsDateOnly,
+        timeZone,
+        windowDays: attentionWindowDays,
+        closed: isClosed,
+      });
   const ageDetails = ageChips(task, { staleThresholdDays, timeZone });
 
   /**
@@ -1975,16 +1983,16 @@ export function TaskDetailDrawer({
               ? `${task.routineTemplateId ? 'Occurrence' : 'Due'} ${formatDue(task.dueAt, task.dueIsDateOnly, timeZone)}`
               : 'No due date'}
           </span>
+          {/*
+            v187 — how close it is, beside the exact date, in the words every
+            list uses: late, today, tomorrow, or inside the attention window.
+            Further out the date says enough on its own.
+          */}
+          {taskDeadline?.needsAttention ? <DeadlineLabel deadline={taskDeadline} /> : null}
           {/* §14 — where the work is recorded. Only where the schedule names
               one: a routine covering a single place would print the same
               phrase on every occurrence and stop being read. */}
           {task.routineArea ? <span>{task.routineArea}</span> : null}
-          {taskOverdueMs > 0 ? (
-            <span className="task-status-overdue">
-              {taskOverdueDays >= 1 ? `${taskOverdueDays}d` : formatCompactDuration(taskOverdueMs)}{' '}
-              overdue
-            </span>
-          ) : null}
           {detail.checklist.length > 0 ? (
             <span>
               {checklistCompleted}/{detail.checklist.length} complete
@@ -2281,6 +2289,7 @@ export function TaskDetailDrawer({
               <div className="task-accordion-body" id={`task-steps-${task.id}`}>
                 <TaskChecklistPanel
                   assignees={assignablePeople}
+                  attentionWindowDays={attentionWindowDays}
                   updateRequestTargets={stepTargets}
                   waitingUpdateRequests={myStepRequests}
                   updateRequestsForViewer={stepRequestsForMe}

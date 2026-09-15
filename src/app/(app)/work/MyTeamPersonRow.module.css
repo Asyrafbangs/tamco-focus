@@ -231,6 +231,13 @@
   font-weight: 650;
 }
 
+/* v189 — due inside the attention window: amber, as it is everywhere else. */
+.person .summarySoon,
+.summarySoon {
+  color: var(--amber);
+  font-weight: 650;
+}
+
 .dot {
   width: 5px;
   height: 5px;

@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { DeadlineLabel } from '@/components/ui/DeadlineLabel';
 import { Modal } from '@/components/ui/Modal';
+import { deadlineFor } from '@/domain/deadline';
 import { formatDueShort, localDateString } from '@/domain/duration';
 import type {
   TaskDetailChecklistItem,
@@ -361,6 +363,7 @@ export function TaskChecklistPanel({
   onAddStep,
   onEditStep,
   onRemoveStep,
+  attentionWindowDays,
   updateRequestTargets,
   waitingUpdateRequests,
   updateRequestsForViewer,
@@ -388,6 +391,8 @@ export function TaskChecklistPanel({
   onAddStep: (step: NewChecklistStep) => void;
   onEditStep: (step: EditChecklistStep) => void;
   onRemoveStep: (item: TaskDetailChecklistItem) => void;
+  /** v187 — the organisation's attention window, in days. */
+  attentionWindowDays?: number;
   /** v184 — steps this viewer may ask about, by step id, naming who is asked. */
   updateRequestTargets?: ReadonlyMap<string, UpdateRequestTarget>;
   /** v184 — this viewer's own requests still waiting, by step id. */
@@ -636,17 +641,19 @@ export function TaskChecklistPanel({
           const evidenceCount = attachmentsByChecklist.get(item.id) ?? 0;
           // v154 - a step with no date of its own is due when its task is.
           const effectiveDue = item.dueAt ?? taskDueAt;
-          const overdue =
-            item.state !== 'completed' &&
-            effectiveDue !== null &&
-            new Date(effectiveDue).getTime() < now;
-          const dueLabel = effectiveDue
-            ? `${overdue ? 'Overdue since' : 'Due'} ${formatDueShort(
-                effectiveDue,
-                item.dueAt ? true : taskDueIsDateOnly,
-                timeZone,
-              )}`
-            : null;
+          /*
+           * v187 — the same words as the task: "Due in 2 days", "Due today",
+           * "Overdue 1 day". "Overdue since 13 Sep" made the reader count.
+           */
+          const deadline =
+            item.state === 'completed'
+              ? null
+              : deadlineFor(effectiveDue, {
+                  dueIsDateOnly: item.dueAt ? true : taskDueIsDateOnly,
+                  timeZone,
+                  now: new Date(now),
+                  windowDays: attentionWindowDays,
+                });
           return (
             <article
               key={item.id}
@@ -679,10 +686,16 @@ export function TaskChecklistPanel({
                   so a delegated step is not lost to the other person's Shared
                   list the moment it is handed over.
                 */}
-                <span className={`checklist-commitment${overdue ? ' is-overdue' : ''}`}>
-                  {item.state === 'completed' && item.completedAt
-                    ? `${item.completedByName ?? item.assignedName ?? 'Someone'} · Completed ${formatDueShort(item.completedAt, true, timeZone)}`
-                    : [item.assignedName, dueLabel].filter(Boolean).join(' · ')}
+                <span className="checklist-commitment">
+                  {item.state === 'completed' && item.completedAt ? (
+                    `${item.completedByName ?? item.assignedName ?? 'Someone'} · Completed ${formatDueShort(item.completedAt, true, timeZone)}`
+                  ) : (
+                    <>
+                      {item.assignedName}
+                      {item.assignedName && deadline ? ' · ' : ''}
+                      {deadline ? <DeadlineLabel deadline={deadline} /> : null}
+                    </>
+                  )}
                   {evidenceCount > 0 ? (
                     onOpenEvidence ? (
                       <>

@@ -44,6 +44,7 @@ export function MyTeamListHeader() {
 export function MyTeamPersonRow({
   person,
   nowIso,
+  attentionWindowDays = 5,
   expanded,
   toggleHref,
   panelId,
@@ -51,6 +52,8 @@ export function MyTeamPersonRow({
 }: {
   person: TeamAttentionRow;
   nowIso: string;
+  /** v189 — the organisation's attention window, in days. */
+  attentionWindowDays?: number;
   /** Whether this person's detail is open underneath (§6). */
   expanded: boolean;
   /**
@@ -98,7 +101,16 @@ export function MyTeamPersonRow({
   const summary = [
     // Only this part is ever red: it is the figure that decides whether the row
     // needs reading, and a whole red line would shout down the step warning.
-    person.overdueCount > 0 ? { text: `${person.overdueCount} overdue`, alert: true } : null,
+    person.overdueCount > 0
+      ? { text: `⚠ ${person.overdueCount} overdue`, alert: true as const }
+      : null,
+    // v189 — and what is about to be: the manager can step in before it is late.
+    person.dueSoonCount > 0
+      ? {
+          text: `! ${person.dueSoonCount} due within ${attentionWindowDays} day${attentionWindowDays === 1 ? '' : 's'}`,
+          alert: 'soon' as const,
+        }
+      : null,
     person.activeCount > 0 ? { text: `${person.activeCount} active`, alert: false } : null,
     // v157 - what they owe on other people's work, which their own list
     // cannot show because the work is somebody else's.
@@ -109,7 +121,7 @@ export function MyTeamPersonRow({
         }
       : null,
     person.availableCount > 0 ? { text: `${person.availableCount} waiting`, alert: false } : null,
-  ].filter((part): part is { text: string; alert: boolean } => part !== null);
+  ].filter((part): part is { text: string; alert: boolean | 'soon' } => part !== null);
 
   /*
    * §6 A01 — name, whitespace and chevron all do the same thing, because they
@@ -166,7 +178,10 @@ export function MyTeamPersonRow({
               : summary.flatMap((part, index) => [
                   index > 0 ? ' · ' : '',
                   part.alert ? (
-                    <span key={part.text} className={styles.summaryAlert}>
+                    <span
+                      key={part.text}
+                      className={part.alert === 'soon' ? styles.summarySoon : styles.summaryAlert}
+                    >
                       {part.text}
                     </span>
                   ) : (

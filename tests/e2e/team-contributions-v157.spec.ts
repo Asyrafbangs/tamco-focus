@@ -150,7 +150,7 @@ test('v157 My Team shows the steps Amer owes, and opens one at the step', async 
 
     const lateRow = section.locator('.member-other-row', { hasText: late });
     await expect(lateRow).toContainText(`For Izzah Nurul · ${title}`);
-    await expect(lateRow).toContainText(`Overdue since ${shortLabel(-1)}`);
+    await expect(lateRow).toContainText('Overdue 1 day');
     const onTimeRow = section.locator('.member-other-row', { hasText: onTime });
     // No date of its own: due when the work is.
     await expect(onTimeRow).toContainText(`Due ${shortLabel(10)}`);

@@ -1,5 +1,43 @@
 # TAMCO Focus — Change Log
 
+## v189 My Team shows what is late and what is about to be — 15 September 2026
+
+- A person's row now reads "⚠ 1 overdue · ! 2 due within 5 days". The due-soon count covers their
+  own work and the steps they owe on other people's. Routine occurrences count only once late.
+- Opening a person starts with **Needs attention**: Overdue, then Due within 5 days. It lists their
+  tasks, paused and not-started work, late routines and the steps they owe, so a manager can step in
+  before the work is late.
+
+## v188 My Day is the action view — 15 September 2026
+
+- My Day opens with one sentence, "2 overdue · 3 due within 5 days", then two sections: **Overdue**
+  and **Due within 5 days**.
+- Each problem is one card:
+  - A task of yours carries its own late or close steps, and the steps others owe on it, as lines:
+    "Your step overdue 1 day", "Waiting on Amer · due tomorrow".
+  - Work that is not due soon itself still appears when one of its steps is.
+  - A step you owe on somebody else's work is its own card and opens at the step.
+  - A routine appears once, and a quarterly goal discussion inside the window is a card.
+- Start here, Next up, Waiting on others and Coming up are gone, replaced by the two sections, as
+  the Product Owner decided. The overdue count left the workload strip, because the sentence says it.
+- Settings loses the "today list max items" policy, which nothing reads any more.
+
+## v187 One deadline language — 15 September 2026
+
+- Every deadline now says how close it is:
+  - "⚠ Overdue 3 days" in red once late;
+  - "! Due today", "! Due tomorrow" and "! Due in 3 days" in amber inside the attention window;
+  - the date, as before, further out.
+- The same words appear on My Work, Shared, a task's steps, the task drawer and My Team's panel.
+- The attention window is five days, an organisation setting. It was seven, and meant only how far
+  ahead Coming up looked.
+- Shared lists what you owe in order of urgency: overdue, today, tomorrow, due soon, later.
+- On My Work a task shows "! Delegated step due tomorrow" when somebody else's step on it falls
+  inside the window, even when the task itself is weeks away. Your own step reads "! Your step due in
+  2 days".
+- A step reads "Amer Hakim · ! Due in 2 days" rather than "Due 17 Sep", and "Overdue 1 day" rather
+  than "Overdue since 14 Sep". My Team's panel lists late work first, then work due soon.
+
 ## v186 My Alerts does what it says — 15 September 2026
 
 - "Barrier or support involving me", "Assignment and reassignment" and "Collaborative handoff" in

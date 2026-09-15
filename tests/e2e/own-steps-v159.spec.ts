@@ -43,17 +43,6 @@ function endOf(day: string | number): string {
   return new Date(`${date}T23:59:59.999+08:00`).toISOString();
 }
 
-/** How the application writes a date on a row: "16 Sep". */
-function shortLabel(days: number): string {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: ZONE,
-    day: 'numeric',
-    month: 'short',
-  }).formatToParts(new Date(Date.now() + days * 86_400_000));
-  const read = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
-  return `${read('day')} ${read('month')}`;
-}
-
 async function signIn(page: Page, email: string) {
   await page.context().clearCookies();
   await page.goto('/sign-in');
@@ -211,9 +200,9 @@ test('v159 the card says when your own step is next or late, and so does My Team
     await showActiveWork(page);
 
     const row = (title: string) => page.locator('.task-row', { hasText: title });
-    await expect(row(upcoming)).toContainText(`Next step due ${shortLabel(3)}`);
+    await expect(row(upcoming)).toContainText('Your step due in 3 days');
     await expect(row(late)).toContainText('1 step overdue');
-    await expect(row(late)).not.toContainText('Next step due');
+    await expect(row(late)).not.toContainText('Your step due');
 
     // Her manager sees the same thing on her active work.
     await signIn(page, 'izzul@tamco.local');
@@ -251,7 +240,7 @@ test('v159 a late contribution says so on the Shared list', async ({ page }, tes
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
     await expect(
       page.locator('.task-row', { hasText: `Collect training data ${stamp}` }),
-    ).toContainText(`Overdue since ${shortLabel(-1)}`);
+    ).toContainText('Overdue 1 day');
   } finally {
     await removeTasks(work.taskId);
   }

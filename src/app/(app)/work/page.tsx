@@ -13,7 +13,9 @@ import {
   type TabItem,
 } from '@/components/ui/ParityPrimitives';
 import { closeLayerHref, safeReturnPath, TASK_LAYER_PARAMS } from '@/domain/navigation';
-import { formatDue, formatDueShort, localDateString, overdueDays } from '@/domain/duration';
+import { formatDue, formatDueShort, localDateString } from '@/domain/duration';
+import { compareDeadlines, deadlineFor, type Deadline } from '@/domain/deadline';
+import { DeadlineLabel } from '@/components/ui/DeadlineLabel';
 import { DELIVERY_KIND_WORD } from '@/domain/delivery';
 import {
   DEFAULT_PERIOD,
@@ -165,20 +167,20 @@ function dueSignal(
   task: TaskOverview,
   timeZone: string,
   now: Date,
-): { label: string; tone: 'late' | 'today' | 'plain' } | null {
-  if (task.isOverdue) {
-    const days = overdueDays(task, timeZone, now);
-    return {
-      label: days >= 1 ? `Overdue ${days} day${days === 1 ? '' : 's'}` : 'Overdue',
-      tone: 'late',
-    };
-  }
-  if (isDueToday(task, timeZone)) return { label: 'Due today', tone: 'today' };
-  if (!task.dueAt) return null;
-  return {
-    label: `Due ${formatDueShort(task.dueAt, task.dueIsDateOnly, timeZone, now)}`,
-    tone: 'plain',
-  };
+  windowDays: number,
+): Deadline | null {
+  /*
+   * v187 — the one deadline language: "Overdue 3 days", "Due today", "Due
+   * tomorrow", "Due in 3 days" inside the attention window, and the date
+   * further out.
+   */
+  return deadlineFor(task.dueAt, {
+    dueIsDateOnly: task.dueIsDateOnly,
+    timeZone,
+    now,
+    windowDays,
+    closed: task.status === 'completed' || task.status === 'cancelled',
+  });
 }
 
 /**
@@ -288,29 +290,68 @@ function readinessCopy(item: SharedContribution): { label: string; note: string 
  */
 function nextStepBefore(
   task: TaskOverview,
-  timeZone?: string,
-): { label: string; at: string } | null {
+  timeZone: string,
+  now: Date,
+  windowDays: number,
+): { kind: 'own' | 'delegated'; at: string; deadline: Deadline | null } | null {
   const workDay = task.dueAt ? localDateString(new Date(task.dueAt), timeZone) : null;
   const early = (at: string | null): at is string =>
     at !== null && (workDay === null || localDateString(new Date(at), timeZone) < workDay);
-  const candidates: Array<{ label: string; at: string }> = [];
+  const soon = (at: string | null): at is string =>
+    at !== null && Boolean(deadlineFor(at, { timeZone, now, windowDays })?.needsAttention);
+  const candidates: Array<{ kind: 'own' | 'delegated'; at: string }> = [];
   if (task.ownStepOverdueCount === 0 && early(task.nextOwnStepDueAt)) {
-    candidates.push({ label: 'Next step due', at: task.nextOwnStepDueAt });
+    candidates.push({ kind: 'own', at: task.nextOwnStepDueAt });
   }
-  if (task.delegatedOverdueCount === 0 && early(task.nextDelegatedDueAt)) {
-    candidates.push({ label: 'Next contribution due', at: task.nextDelegatedDueAt });
+  /*
+   * v187 — somebody else's step inside the attention window is worth the
+   * line whatever the task's own date: the work is waiting on them, and the
+   * owner should hear it before the parent is endangered.
+   */
+  if (
+    task.delegatedOverdueCount === 0 &&
+    (early(task.nextDelegatedDueAt) || soon(task.nextDelegatedDueAt))
+  ) {
+    candidates.push({ kind: 'delegated', at: task.nextDelegatedDueAt! });
   }
   candidates.sort((left, right) => new Date(left.at).getTime() - new Date(right.at).getTime());
-  return candidates[0] ?? null;
+  const next = candidates[0];
+  if (!next) return null;
+  const deadline = deadlineFor(next.at, { timeZone, now, windowDays });
+  return { ...next, deadline };
 }
 
-function NextStepLine({ task, timeZone }: { task: TaskOverview; timeZone?: string }) {
-  const next = nextStepBefore(task, timeZone);
-  return next ? (
+function NextStepLine({
+  task,
+  timeZone,
+  now,
+  windowDays,
+}: {
+  task: TaskOverview;
+  timeZone: string;
+  now: Date;
+  windowDays: number;
+}) {
+  const next = nextStepBefore(task, timeZone, now, windowDays);
+  if (!next) return null;
+  // Inside the window it takes the deadline's words and weight; further out
+  // it stays the plain date it has been since v155.
+  if (next.deadline?.needsAttention) {
+    return (
+      <span className="sub">
+        <DeadlineLabel
+          deadline={next.deadline}
+          prefix={next.kind === 'own' ? 'Your step' : 'Delegated step'}
+        />
+      </span>
+    );
+  }
+  return (
     <span className="sub">
-      {next.label} {formatDueShort(next.at, true, timeZone)}
+      {next.kind === 'own' ? 'Next step due' : 'Next contribution due'}{' '}
+      {formatDueShort(next.at, true, timeZone, now)}
     </span>
-  ) : null;
+  );
 }
 /**
  * "Other active work", collapsed (§9).
@@ -855,7 +896,28 @@ export default async function WorkPage({
   );
   const routineOverdue = routineDue.filter((task) => task.isOverdue);
 
-  const openContributions = sharedContributions.filter((item) => item.state !== 'completed');
+  /*
+   * v187 — Shared in order of urgency, with no sort control: overdue, due
+   * today, tomorrow, inside the attention window, then later.
+   */
+  const contributionDeadline = (item: SharedContribution) =>
+    deadlineFor(item.itemDueAt ?? item.parentDueAt, {
+      dueIsDateOnly: item.itemDueAt ? true : item.parentDueIsDateOnly,
+      timeZone: profile.timezone,
+      now,
+      windowDays: settings.upcomingWindowDays,
+    });
+  const openContributions = sharedContributions
+    .filter((item) => item.state !== 'completed')
+    .map((item, index) => ({ item, index, deadline: contributionDeadline(item) }))
+    .sort(
+      (left, right) =>
+        compareDeadlines(
+          { deadline: left.deadline, dueAt: left.item.itemDueAt ?? left.item.parentDueAt },
+          { deadline: right.deadline, dueAt: right.item.itemDueAt ?? right.item.parentDueAt },
+        ) || left.index - right.index,
+    )
+    .map(({ item }) => item);
 
   // The query decides who needs attention, because only it can also say why
   // and where. A row that cannot answer those does not appear as actionable
@@ -1542,6 +1604,7 @@ export default async function WorkPage({
                     key={person.userId}
                     person={person}
                     nowIso={now.toISOString()}
+                    attentionWindowDays={settings.upcomingWindowDays}
                     expanded={detail !== null}
                     toggleHref={personToggleHref(person.userId)}
                     panelId={panelId}
@@ -1555,6 +1618,7 @@ export default async function WorkPage({
                         kept={keptIds.includes(person.userId)}
                         timeZone={profile.timezone}
                         now={now}
+                        attentionWindowDays={settings.upcomingWindowDays}
                       />
                     )}
                   </MyTeamPersonRow>
@@ -1593,10 +1657,9 @@ export default async function WorkPage({
             openContributions.length > 0 ? (
               openContributions.map((item) => {
                 const copy = readinessCopy(item);
-                // v159 — whether it is late, which the owner has been told
-                // since v155 and the person who owes it was not.
-                const dueAt = item.itemDueAt ?? item.parentDueAt;
-                const late = dueAt !== null && new Date(dueAt).getTime() < now.getTime();
+                // v159 — whether it is late; v187 — or close, in the same words
+                // the owner reads on the parent.
+                const deadline = contributionDeadline(item);
                 return (
                   /*
                     The contribution leads, not the task it belongs to.
@@ -1620,16 +1683,15 @@ export default async function WorkPage({
                         {/* Short, like every other date on this page since
                             v130: "25 Sept 2026" prints a year every row on
                             screen already shares. */}
-                        Shared contribution ·{' '}
-                        <span className={late ? 'row-due late' : undefined}>
-                          {late ? 'Overdue since ' : ''}
-                          {formatDueShort(
-                            dueAt,
-                            item.itemDueAt ? true : item.parentDueIsDateOnly,
-                            profile.timezone,
-                            now,
-                          )}
-                        </span>
+                        Shared contribution
+                        {deadline ? (
+                          <>
+                            {' · '}
+                            <DeadlineLabel deadline={deadline} />
+                          </>
+                        ) : (
+                          ' · No due date'
+                        )}
                       </span>
                       <span className="sub">
                         Part of <b>{item.parentTitle}</b> · Owned by {item.primaryOwnerName}
@@ -1714,7 +1776,7 @@ export default async function WorkPage({
                   profile.timezone,
                   updateRequestsForMe.taskIds.has(task.id),
                 );
-                const due = dueSignal(task, profile.timezone, now);
+                const due = dueSignal(task, profile.timezone, now, settings.upcomingWindowDays);
                 return (
                   <TaskRow key={task.id} className="task-row-lean">
                     <div>
@@ -1745,7 +1807,7 @@ export default async function WorkPage({
                         {due ? (
                           <>
                             {' · '}
-                            <span className={`row-due ${due.tone}`}>{due.label}</span>
+                            <DeadlineLabel deadline={due} />
                           </>
                         ) : null}
                         {/* Who sent it is context on work you have not taken on
@@ -1773,8 +1835,10 @@ export default async function WorkPage({
                           {task.ownStepOverdueCount > 0 && !task.isOverdue ? (
                             <>
                               {' · '}
-                              <span className="row-due late">
-                                <span aria-hidden="true">⚠ </span>
+                              <span className="deadline deadline-overdue">
+                                <span className="deadline-glyph" aria-hidden="true">
+                                  ⚠{' '}
+                                </span>
                                 {task.ownStepOverdueCount} step
                                 {task.ownStepOverdueCount === 1 ? '' : 's'} overdue
                               </span>
@@ -1783,8 +1847,10 @@ export default async function WorkPage({
                           {task.delegatedOverdueCount > 0 ? (
                             <>
                               {' · '}
-                              <span className="row-due late">
-                                <span aria-hidden="true">⚠ </span>
+                              <span className="deadline deadline-overdue">
+                                <span className="deadline-glyph" aria-hidden="true">
+                                  ⚠{' '}
+                                </span>
                                 {task.delegatedOverdueCount} delegated step
                                 {task.delegatedOverdueCount === 1 ? '' : 's'} overdue
                               </span>
@@ -1800,7 +1866,12 @@ export default async function WorkPage({
                         repeat the date already on the row. v159 — yours as
                         well as other people's, whichever comes first.
                       */}
-                      <NextStepLine task={task} timeZone={profile.timezone} />
+                      <NextStepLine
+                        task={task}
+                        timeZone={profile.timezone}
+                        now={now}
+                        windowDays={settings.upcomingWindowDays}
+                      />
                     </div>
 
                     {flags.length > 0 && (
@@ -1900,6 +1971,7 @@ export default async function WorkPage({
           )}
           timeZone={profile.timezone}
           staleThresholdDays={settings.staleThresholdDays}
+          attentionWindowDays={settings.upcomingWindowDays}
           assignablePeople={assignablePeople}
           viewerId={profile.id}
           weeklyReference={weeklyReferenceForTask}

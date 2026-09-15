@@ -1797,3 +1797,50 @@ derived-progress rules. The future ESH finding/action system remains outside the
    notice, about the mandatory work. The rest is recorded as told.
 6. The three-argument `post_barrier_response` (v44) is unchanged. Every call that fits it also
    fits the v53 overload, so PostgREST refuses it (PGRST203), and nothing in the database calls it.
+
+## 82. v187 One deadline language
+
+1. `deadlineFor(dueAt, …)` in `src/domain/deadline.ts` gives every deadline a tone:
+   - `overdue` once the due instant has passed: "Overdue N days" in calendar days, or "Overdue" when
+     it passed earlier today;
+   - `today` and `tomorrow` on those local dates, with the time for date-time work;
+   - `soon` for 2 to N days, "Due in N days";
+   - `later` beyond, which shows the date.
+   `needsAttention` is true from overdue to soon.
+2. N is `day.upcoming_window_days`, the attention window. The default is 5, and the v187 migration
+   moved an untouched 7 to 5. There is one organisation value and no per-person override.
+3. `DeadlineLabel` draws every tone: ⚠ and red for overdue, ! and amber inside the window, heavier
+   today and tomorrow, plain later. The words carry the meaning. `compareDeadlines` orders by tone,
+   then by date.
+4. My Work's steps line says "! Delegated step due …" when the next delegated step is inside the
+   window, whatever the task's date. The owner's own next step shows only when it is due before the
+   task. Outside the window the v155/v159 "Next … due" text stands.
+5. Shared sorts by urgency, with no control. The drawer adds the label beside the exact date only
+   inside the window.
+
+## 83. v188 My Day
+
+1. `buildMyDay` (`src/domain/my-day.ts`) returns Overdue and Due-soon cards, each section ordered
+   by urgency, then date.
+2. Open work the viewer owns, other than routine occurrences, is a card when its own deadline, one
+   of its own dated steps, or a step somebody else owes on it needs attention. The card's section
+   is its most urgent signal. Step lines show the two most urgent and "and N more".
+3. A step the viewer owes on somebody else's work is its own card. A routine is one card, for its
+   most urgent open occurrence. A quarterly goal discussion still ahead and inside the window is a
+   card.
+4. The summary is "N overdue · M due within W days", "Nothing overdue · M due …", or "Nothing
+   overdue, and nothing due in the next W days". It is followed by other exception kinds (barrier
+   decisions, mandatory, evidence, paused review, completion review, Available decisions) for work
+   that has no card.
+5. Start here, Next up, Waiting on others, Coming up, the ranking and "Why this?" behind them, and
+   `day.today_list_max_items` are removed. Requests waiting on the viewer, the workload strip and
+   the goal strip stay.
+
+## 84. v189 My Team
+
+1. `dueSoonCount` counts open work whose deadline is inside the window and not late, excluding
+   routine occurrences, plus steps the person owes that are inside the window and not late. The row
+   reads "⚠ overdue · ! due within W days" beside the existing counts.
+2. The person panel opens with Needs attention when anything is overdue or inside the window.
+   It lists active, paused and not-started work, late routine occurrences and owed steps, split
+   into Overdue and Due within W days. The sections below are unchanged.

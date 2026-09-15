@@ -2585,3 +2585,38 @@ notifications.
    notifications are not bulk-emailed when this feature is introduced.
 6. One unique delivery record per notification prevents duplicate queue creation. The recipient may
    read their own delivery history; only the service-role worker may claim or mutate delivery state.
+
+## V187–V190 — Deadline attention: overdue and due soon (15 September 2026)
+
+Approved by the Product Owner on 15 September 2026. It supersedes §9.2 (Start here), §9.4–§9.7 (the
+recommendation, Today list and Coming up), v158's "the owner is not sent a notice" for overdue
+steps, and v158's "small edits to a step's date tell nobody". See
+`docs/deadline-attention-impact-map.md`.
+
+1. **Overdue** is already late. **Due soon** is due within the attention window, an organisation
+   setting defaulting to five days. **Normal** is further away. The same rule applies to tasks and
+   steps.
+2. Close dates read relatively: "Due today", "Due tomorrow", "Due in 3 days". Further out they read
+   as a date, "Due 28 Sep". Late ones read "Overdue 3 days". Three weights only: red for overdue,
+   stronger amber for today and tomorrow, quiet amber inside the window.
+3. **My Day** is the action view: one summary sentence, then Overdue and Due within N days.
+   - It holds overdue and due-soon tasks, steps assigned to the viewer, and routine occurrences.
+   - A delegated step appears only on the parent task the viewer owns.
+   - One problem, one card: a task carries its late or close steps as lines, and a task not due
+     soon itself appears when one of its steps is.
+   - Start here, Next up, Waiting on others and Coming up are replaced.
+4. **My Work** shows the same status in context. Shared sorts by urgency without a control. A
+   delegated step due soon surfaces on its parent. The calendar keeps its type and date
+   presentation, with overdue accented and no urgency heatmap.
+5. **My Team** shows "⚠ overdue · ! due within N days" per person, and opens with the same two
+   sections.
+6. **Step notifications:**
+   - the assignee is told on assignment;
+   - the old and new assignees are told on reassignment;
+   - the assignee gets one bell-and-email reminder the day before the step is due;
+   - when the step is overdue, the assignee and the parent owner are each told once per due date;
+   - on completion the parent owner is told quietly;
+   - on reopening the assignee is told immediately;
+   - a material change of due date tells the assignee.
+   Nobody is told about their own act, an owner who is also the manager is told once, and every
+   notice honours My Alerts.

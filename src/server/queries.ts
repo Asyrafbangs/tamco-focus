@@ -17,7 +17,9 @@ import {
 } from '@/domain/attention';
 import { toWorkPurpose, type WorkPurpose } from '@/domain/purpose';
 import type { FocusBucket, TaskOverview } from '@/domain/types';
+import { deadlineFor } from '@/domain/deadline';
 import type { OwedStep } from '@/domain/prioritisation';
+import type { DelegatedStep } from '@/domain/my-day';
 
 /**
  * Read helpers.
@@ -114,6 +116,8 @@ type TeamAttentionTask = Pick<
   | 'lastMeaningfulUpdateAt'
   | 'isOverdue'
   | 'isStale'
+  | 'dueAt'
+  | 'dueIsDateOnly'
 >;
 
 function toTeamAttentionTask(row: Record<string, unknown>): TeamAttentionTask {
@@ -128,6 +132,8 @@ function toTeamAttentionTask(row: Record<string, unknown>): TeamAttentionTask {
     lastMeaningfulUpdateAt: String(row.last_meaningful_update_at),
     isOverdue: Boolean(row.is_overdue),
     isStale: Boolean(row.is_stale),
+    dueAt: (row.due_at as string | null) ?? null,
+    dueIsDateOnly: row.due_is_date_only !== false,
   };
 }
 
@@ -1640,34 +1646,6 @@ export async function getRoutineOccurrences(
 }
 
 /**
- * Task IDs where a checklist step is assigned to this person and ready to start
- * (section 13.3). Supplied to the prioritiser, which cannot query for it itself.
- *
- * v160 — only a step somebody else gave them. My Day ranks the person's own
- * work, so a step they gave themselves on it was explained as "a step was
- * handed to you", which it was not; that work ranks as the active work it is.
- * Steps from before v146 record no assigner and are left out with it.
- */
-export async function getHandoffReadyTaskIds(userId: string): Promise<Set<string>> {
-  const supabase = await createSupabaseServerClient();
-
-  const { data, error } = await supabase
-    .from('task_checklist_items')
-    .select('task_id')
-    .eq('assigned_to', userId)
-    .eq('state', 'ready')
-    .not('assigned_by', 'is', null)
-    .neq('assigned_by', userId);
-
-  if (error) {
-    console.error(`[getHandoffReadyTaskIds] ${error.message}`);
-    return new Set();
-  }
-
-  return new Set((data ?? []).map((row) => row.task_id as string));
-}
-
-/**
  * v160 — the steps this person owes, from the calendar's step rows (v159):
  * their own dated steps on their own work, and contributions on anybody's, up
  * to `horizonDays` ahead and including late ones. Read defensively: a failure
@@ -1703,61 +1681,6 @@ export async function getStepsIOwe(userId: string, horizonDays: number): Promise
     stepHasOwnDate: row.step_has_own_date === true,
     parentDueAt: row.parent_due_at ? String(row.parent_due_at) : null,
   }));
-}
-
-/**
- * Tasks whose open barrier is waiting on somebody else.
- *
- * My Day ranks a blocked task highly, which is right when the blockage is the
- * viewer's to clear and wrong when it is not: recommending somebody "start"
- * work that is sitting on another person's decision asks them to do the one
- * thing they cannot. This is the difference, and it needs the barrier's
- * `action_required_from`, which the task overview does not carry.
- *
- * A barrier with no named actor is not counted: nobody specific owes an answer,
- * so the viewer is as able to move it forward as anyone.
- */
-export async function getBarriersAwaitingOthers(userId: string): Promise<Set<string>> {
-  const supabase = await createSupabaseServerClient();
-
-  const { data, error } = await supabase
-    .from('barriers')
-    .select('task_id, action_required_from')
-    .eq('status', 'open')
-    .eq('action_pending', true)
-    .not('task_id', 'is', null)
-    .not('action_required_from', 'is', null)
-    .neq('action_required_from', userId);
-
-  if (error) {
-    console.error(`[getBarriersAwaitingOthers] ${error.message}`);
-    return new Set();
-  }
-
-  return new Set((data ?? []).map((row) => String(row.task_id)));
-}
-
-/** How many other tasks each task blocks, for My Day tie-breaking. */
-export async function getBlockingCounts(): Promise<Map<string, number>> {
-  const supabase = await createSupabaseServerClient();
-
-  const { data, error } = await supabase
-    .from('task_relations')
-    .select('task_id')
-    .eq('relation', 'before');
-
-  if (error) {
-    console.error(`[getBlockingCounts] ${error.message}`);
-    return new Map();
-  }
-
-  const counts = new Map<string, number>();
-  for (const row of data ?? []) {
-    const id = row.task_id as string;
-    counts.set(id, (counts.get(id) ?? 0) + 1);
-  }
-
-  return counts;
 }
 
 /**
@@ -2741,7 +2664,6 @@ export async function getVisibleTeamTasks(viewerId: string): Promise<TaskOvervie
 export async function getDisplaySettings(): Promise<{
   staleThresholdDays: number;
   upcomingWindowDays: number;
-  todayListMaxItems: number;
 }> {
   const supabase = await createSupabaseServerClient();
 
@@ -2751,15 +2673,14 @@ export async function getDisplaySettings(): Promise<{
     .in('key', [
       'focus.stale_update_threshold_days',
       'day.upcoming_window_days',
-      'day.today_list_max_items',
     ]);
 
   const byKey = new Map((data ?? []).map((row) => [row.key as string, row.value]));
 
   return {
     staleThresholdDays: Number(byKey.get('focus.stale_update_threshold_days') ?? 7),
-    upcomingWindowDays: Number(byKey.get('day.upcoming_window_days') ?? 7),
-    todayListMaxItems: Number(byKey.get('day.today_list_max_items') ?? 5),
+    // v187 — the attention window. Five days unless the organisation says otherwise.
+    upcomingWindowDays: Number(byKey.get('day.upcoming_window_days') ?? 5),
   };
 }
 
@@ -3759,64 +3680,45 @@ export async function getSharedContributions(userId: string): Promise<SharedCont
 }
 
 /** v155 — a step this person handed to somebody else that is now past its date. */
-export interface WaitingOnOthersItem {
-  checklistItemId: string;
-  taskId: string;
-  title: string;
-  parentTitle: string;
-  assigneeName: string;
-  /** The step's own date, or its task's when it has none (v154). */
-  dueAt: string;
-  dueIsDateOnly: boolean;
-}
-
 /**
- * v155 — steps this person has handed to somebody else that are now late.
+ * v188 — the steps other people owe on this person's work, with a date: the
+ * owner's side of the same step record the assignee reads in Shared.
  *
- * Read from `shared_contributions`, the projection the assignee's Shared list
- * reads, filtered to work this person owns: one step record, seen from the
- * other side. Only late steps come back. Delegation that is on time stays
- * quiet, which is the point — this is the list of things worth chasing.
+ * All of them, not only the late ones (v155's Waiting on others). My Day
+ * decides which are overdue or inside the attention window and folds those
+ * into the card of the work they belong to.
  */
-export async function getWaitingOnOthers(
-  userId: string,
-  now: Date = new Date(),
-): Promise<WaitingOnOthersItem[]> {
+export async function getStepsOthersOwe(userId: string): Promise<DelegatedStep[]> {
   const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase
     .from('shared_contributions')
     .select(
-      'checklist_item_id,task_id,title,parent_title,assignee_name,item_due_at,parent_due_at,parent_due_is_date_only',
+      'checklist_item_id,task_id,title,assignee_name,item_due_at,parent_due_at,parent_due_is_date_only',
     )
     .eq('primary_owner_id', userId)
-    .limit(200);
+    .limit(500);
 
   if (error) {
-    // Until v155 reaches a database, `assignee_name` does not exist and this
-    // read is refused. Nothing is shown, which is what was shown before.
-    console.error(`[getWaitingOnOthers] ${error.message}`);
+    console.error(`[getStepsOthersOwe] ${error.message}`);
     return [];
   }
 
-  const items: WaitingOnOthersItem[] = [];
+  const steps: DelegatedStep[] = [];
   for (const row of data ?? []) {
     const own = (row.item_due_at as string | null) ?? null;
     const dueAt = own ?? (row.parent_due_at as string | null) ?? null;
-    if (!dueAt || new Date(dueAt).getTime() >= now.getTime()) continue;
-    items.push({
-      checklistItemId: String(row.checklist_item_id),
+    if (!dueAt) continue;
+    steps.push({
+      stepId: String(row.checklist_item_id),
       taskId: String(row.task_id),
       title: String(row.title),
-      parentTitle: String(row.parent_title),
       assigneeName: row.assignee_name ? String(row.assignee_name) : 'A colleague',
       dueAt,
       dueIsDateOnly: own ? true : Boolean(row.parent_due_is_date_only),
     });
   }
-
-  // The longest-waiting first: that is the one most likely to be forgotten.
-  return items.sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
+  return steps.sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
 }
 
 /** v157 - a step somebody owes on work another person owns, as My Team reads it. */
@@ -4136,6 +4038,11 @@ export interface TeamAttentionRow {
    */
   sharedStepCount: number;
   sharedStepOverdueCount: number;
+  /**
+   * v189 — what falls due inside the attention window and is not yet late:
+   * their own open work and the steps they owe on anybody else's.
+   */
+  dueSoonCount: number;
   attention: {
     /**
      * The state, in three words: "Decision needed", "Overdue routine".
@@ -4994,7 +4901,7 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
       // task, which made a 500-row Team read spend seconds on data it never
       // rendered.
       .select(
-        'id,title,next_action,status,work_class,focus_bucket,is_mandatory,primary_owner_id,last_meaningful_update_at,is_overdue,is_stale',
+        'id,title,next_action,status,work_class,focus_bucket,is_mandatory,primary_owner_id,last_meaningful_update_at,is_overdue,is_stale,due_at,due_is_date_only',
       )
       .neq('primary_owner_id', viewerId)
       .in('status', ['backlog', 'active', 'paused'])
@@ -5048,16 +4955,35 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
 
   // One read each for the whole roster, rather than one per rendered row.
   const roster = team.map((person) => person.userId);
-  const [currentFocus, nextAgreed, contributions] = await Promise.all([
+  const [currentFocus, nextAgreed, contributions, settings] = await Promise.all([
     getTeamCurrentFocus(roster),
     getCurrentWeekStart().then((week) => getTeamNextAgreedResult(roster, week)),
     getOpenContributions(roster),
+    getDisplaySettings(),
   ]);
-  const contributionsByAssignee = new Map<string, { open: number; overdue: number }>();
+  // v189 — the attention window, as My Day and My Work count it.
+  const now = new Date();
+  const dueSoon = (dueAt: string | null, dueIsDateOnly: boolean) => {
+    const deadline = deadlineFor(dueAt, {
+      dueIsDateOnly,
+      now,
+      windowDays: settings.upcomingWindowDays,
+    });
+    return Boolean(deadline?.needsAttention) && deadline?.tone !== 'overdue';
+  };
+  const contributionsByAssignee = new Map<
+    string,
+    { open: number; overdue: number; dueSoon: number }
+  >();
   for (const step of contributions) {
-    const tally = contributionsByAssignee.get(step.assigneeId) ?? { open: 0, overdue: 0 };
+    const tally = contributionsByAssignee.get(step.assigneeId) ?? {
+      open: 0,
+      overdue: 0,
+      dueSoon: 0,
+    };
     tally.open += 1;
     if (step.isOverdue) tally.overdue += 1;
+    else if (dueSoon(step.dueAt, step.dueIsDateOnly)) tally.dueSoon += 1;
     contributionsByAssignee.set(step.assigneeId, tally);
   }
   const barriers = barriersResult.data ?? [];
@@ -5344,6 +5270,17 @@ async function getTeamAttentionUncached(viewerId: string): Promise<TeamAttention
       otherActiveCount: Math.max(0, active.length - 1),
       sharedStepCount: contributionsByAssignee.get(person.userId)?.open ?? 0,
       sharedStepOverdueCount: contributionsByAssignee.get(person.userId)?.overdue ?? 0,
+      // Not routine occurrences: a daily check is always due within the week,
+      // and saying so on every row would drown the work that is actually close.
+      // Late ones are already in `overdueCount`.
+      dueSoonCount:
+        theirs.filter(
+          (task) =>
+            task.workClass !== 'routine_occurrence' &&
+            !task.isOverdue &&
+            dueSoon(task.dueAt, task.dueIsDateOnly),
+        ).length +
+        (contributionsByAssignee.get(person.userId)?.dueSoon ?? 0),
       attention: top
         ? {
             // Anything that does not say otherwise is something owed: a branch

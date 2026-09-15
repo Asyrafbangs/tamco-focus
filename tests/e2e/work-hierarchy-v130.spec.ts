@@ -116,7 +116,7 @@ test.describe('v130 a work row says what differs', () => {
 
     // The year repeated on every row is the part the eye has to step over.
     const thisYear = String(new Date().getFullYear());
-    const dates = await rows.locator('.row-due').allInnerTexts();
+    const dates = await rows.locator('.deadline').allInnerTexts();
     expect(dates.length, 'no dated work to check').toBeGreaterThan(0);
     for (const date of dates) {
       expect(date, `"${date}" still prints the current year`).not.toContain(thisYear);
@@ -129,11 +129,11 @@ test.describe('v130 a work row says what differs', () => {
     await showActiveWork(page);
     await expect(page.locator('.task-row').first()).toBeVisible();
 
-    const late = page.locator('.task-row', { has: page.locator('.row-due.late') });
+    const late = page.locator('.task-row', { has: page.locator('.deadline-overdue') });
     if ((await late.count()) === 0) test.skip(true, 'Nothing overdue in this seed.');
 
     const row = late.first();
-    await expect(row.locator('.row-due.late')).toContainText(/Overdue/);
+    await expect(row.locator('.deadline-overdue')).toContainText(/Overdue/);
     /*
      * It used to be both: "27 Aug 2026" on the left and an "Overdue 4 days"
      * chip on the right, in two vocabularies, for the reader to reconcile.

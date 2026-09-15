@@ -273,7 +273,12 @@ test.describe('v143 §6 inline person expansion', () => {
       // It is in the week…
       await expect(panel.locator('.weekly-priority')).toContainText(title);
       // …and therefore not also below it as a separate thing being carried.
-      const active = (await panel.locator('.member-work-row > strong').allInnerTexts()).map(
+      // Other active work itself: Needs attention (v189) lists anything late or
+      // due soon, a weekly priority included, and that is a different question.
+      const otherActive = panel.locator('section', {
+        has: page.getByRole('heading', { name: /Other active work/ }),
+      });
+      const active = (await otherActive.locator('.member-work-row > strong').allInnerTexts()).map(
         (text) => text.trim(),
       );
       expect(active, `"${title}" is counted twice`).not.toContain(title);

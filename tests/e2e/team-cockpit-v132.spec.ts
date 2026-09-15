@@ -142,7 +142,14 @@ test.describe('v132 the person expansion', () => {
      * which is how the old drawer had it, and why every healthy person carried
      * a panel saying nothing was needed.
      */
-    const withoutDecision = order[0]?.startsWith('Needs your decision') ? order.slice(1) : order;
+    /*
+     * v189 — "Needs attention" (what is late or due soon) is conditional in the
+     * same way, and comes first when it is there.
+     */
+    const withoutAttention = order[0]?.startsWith('Needs attention') ? order.slice(1) : order;
+    const withoutDecision = withoutAttention[0]?.startsWith('Needs your decision')
+      ? withoutAttention.slice(1)
+      : withoutAttention;
     /*
      * v157 puts "Contributions to others" straight after the person's own
      * active work: both answer "what else is being carried", and the steps
