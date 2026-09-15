@@ -1901,3 +1901,18 @@ assignee, or the owner for a step assigned to nobody (v159).
    switches.
 9. Unchanged: assignment and reassignment (§53.1, v161), the owner's quiet completion notice
    (§53.3). Evidence attached at completion adds no notice.
+
+## 86. v191 The calendar and the owner's overdue notice
+
+1. **Only me includes work the viewer assigned.** `getAssignedTaskIds` returns open (backlog,
+   active, paused), undeleted work whose `assigned_by` is the viewer and whose owner is somebody
+   else, as RLS lets the viewer read it. `getPlanEvents` adds those tasks to Only me.
+   - Only their `due` and `overdue` rows are kept; review dates, steps and discussions are the
+     owner's. Work that is also shared with the viewer (§51) keeps the shared rules.
+   - The entry's one fact is "↘ <first name>", its tooltip "<title> — assigned to <name>", and its
+     accessible text ends ", assigned to <name>". Dragging follows `can_reschedule`, as on My team.
+   - My team is unchanged.
+2. **The owner's overdue step notice (§85.2) covers new lateness only:** a step whose own date
+   passed within the last three organisation-local days. The assignee's notice is unchanged. This
+   stops a first run from telling owners about every step already late, and bounds what a missed
+   scheduled run can delay.

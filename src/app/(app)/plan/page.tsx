@@ -269,6 +269,11 @@ export default async function PlanPage({
         event.primaryOwnerId === profile.id
           ? undefined
           : (ownerNames.get(event.primaryOwnerId) ?? 'Shared with you');
+      // v191 — work the viewer assigned reads like a step they handed out: who
+      // owes it, in the same "↘" the legend explains.
+      const assignee = event.assignedByViewer
+        ? (ownerNames.get(event.primaryOwnerId) ?? 'A colleague')
+        : null;
 
       return {
         key: `${event.eventId ?? event.taskId}-${event.eventKind}-${event.occursAt}`,
@@ -286,7 +291,8 @@ export default async function PlanPage({
         // v163 — the title alone; what kind of entry it is sits on the line beneath.
         label: event.title,
         taskTitle: event.title,
-        owner,
+        owner: assignee ? undefined : owner,
+        tooltip: assignee ? `${event.title} — assigned to ${assignee}` : undefined,
         status:
           event.eventKind === 'overdue'
             ? ('overdue' as const)
@@ -294,11 +300,13 @@ export default async function PlanPage({
               ? ('review' as const)
               : undefined,
         // v156 — steps due with the task are counted here, not drawn beside it.
-        relation:
-          event.stepsDueWithTask > 0 && (event.eventKind === 'due' || event.eventKind === 'overdue')
+        relation: assignee
+          ? `↘ ${assignee.split(' ')[0] ?? assignee}`
+          : event.stepsDueWithTask > 0 &&
+              (event.eventKind === 'due' || event.eventKind === 'overdue')
             ? `${event.stepsDueWithTask} step${event.stepsDueWithTask === 1 ? '' : 's'} due`
             : undefined,
-        accessibleSuffix: `${event.title} — ${EVENT_LABELS[event.eventKind]} ${formatDue(event.occursAt, event.dueIsDateOnly, timeZone)}${owner ? `, owned by ${owner}` : ''}`,
+        accessibleSuffix: `${event.title} — ${EVENT_LABELS[event.eventKind]} ${formatDue(event.occursAt, event.dueIsDateOnly, timeZone)}${assignee ? `, assigned to ${assignee}` : owner ? `, owned by ${owner}` : ''}`,
         move: movable(event, timeZone),
       };
     });
@@ -317,7 +325,7 @@ export default async function PlanPage({
           <p>
             {scope === 'team'
               ? 'Due and planned work across your team for the month. Selecting an item opens it.'
-              : 'Your dates for the month, including work shared with you. Selecting an item opens it.'}
+              : 'Your dates for the month, including work shared with you and work you assigned. Selecting an item opens it.'}
             {/* Said only when it is true: a month with nothing this person may
                 move should not advertise a gesture that will do nothing. */}
             {anyMovable && ' Drag a due date to another day to move it.'}

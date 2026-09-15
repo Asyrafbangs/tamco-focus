@@ -1,5 +1,15 @@
 # TAMCO Focus — Change Log
 
+## v191 Your calendar keeps the work you handed out — 15 September 2026
+
+- **Only me** on the Monthly Plan now shows work you assigned to somebody else, on its due date,
+  marked with who owes it: "↘ Amer". Until now it disappeared from your calendar the moment you
+  assigned it, and could only be found under My team, or nowhere when the person is outside your
+  team. Its review date and its steps stay on the owner's calendar, not yours.
+- The owner's "Contribution overdue on your work" notice (v190) is sent when a step has just gone
+  late, within three days. Without this, the first morning after v190 would have emailed owners
+  once for every step left late on their work, however long ago. My Day still lists all of them.
+
 ## v190 Everybody hears about a step at the right moment — 15 September 2026
 
 - **Due tomorrow:** the person who owes a step on somebody else's work gets one reminder, in the

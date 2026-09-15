@@ -659,3 +659,18 @@ describe('v190 — the work’s date moved: steps due with it are told', () => {
     expect((await told('amer', task.id, 'Contribution overdue'))[0]!.read_at).not.toBeNull();
   });
 });
+
+describe('v191 — the owner is told about new lateness, not old', () => {
+  it('tells the owner about steps late within three days, and the assignee about all', async () => {
+    const task = await work('izzah', 10);
+    const recent = await step(task.id, { assignee: 'amer', due: -1 });
+    const edge = await step(task.id, { assignee: 'amer', due: -3 });
+    await step(task.id, { assignee: 'amer', due: -4 });
+    await step(task.id, { assignee: 'amer', due: -20 });
+
+    // The first run after v190 on Production: steps late for weeks included.
+    expect(await overdue(task.id)).toEqual({ ok: true, notified: 4, owners: 2 });
+    const owner = await told('izzah', task.id, 'Contribution overdue on your work');
+    expect(owner.map((notice) => notice.entity_id).sort()).toEqual([recent.id, edge.id].sort());
+  });
+});

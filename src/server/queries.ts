@@ -1768,6 +1768,11 @@ export interface PlanEvent {
   stepHasOwnDate: boolean;
   /** v156 — on a task's own row: open steps due that same day. */
   stepsDueWithTask: number;
+  /**
+   * v191 — on Only me: work the viewer assigned to somebody else. The calendar
+   * shows its due date and who owes it, and nothing else about it.
+   */
+  assignedByViewer: boolean;
 }
 
 /**
@@ -1808,6 +1813,30 @@ export async function getSharedTaskIds(userId: string): Promise<string[]> {
   return [...ids];
 }
 
+/**
+ * v191 — open work this person assigned to somebody else.
+ *
+ * Handing work to a colleague does not end the assigner's interest in its date;
+ * it is the date they are waiting on. RLS still decides: an assigner who can no
+ * longer see the owner's work gets nothing back for it.
+ */
+export async function getAssignedTaskIds(userId: string): Promise<string[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('id')
+    .eq('assigned_by', userId)
+    .neq('primary_owner_id', userId)
+    .in('status', ['backlog', 'active', 'paused'])
+    .is('deleted_at', null)
+    .limit(400);
+  if (error) {
+    console.error(`[getAssignedTaskIds] ${error.message}`);
+    return [];
+  }
+  return (data ?? []).map((row) => String(row.id));
+}
+
 /** Display names for a specific set of people, from the active directory. */
 export async function getUserNames(userIds: readonly string[]): Promise<Map<string, string>> {
   if (userIds.length === 0) return new Map();
@@ -1842,14 +1871,26 @@ export async function getPlanEvents(
   const supabase = await createSupabaseServerClient();
 
   let request = supabase.from('plan_events').select('*');
+  let shared = new Set<string>();
+  let assigned = new Set<string>();
   if (scope === 'mine') {
     // "Mine" means work this person is committed to, which includes work
     // somebody else owns but shares with them. A contributor who cannot see the
     // date cannot plan around it.
-    const shared = await getSharedTaskIds(userId);
+    //
+    // v191 — and work they assigned to somebody else, whose date they are
+    // waiting on. Until v191 it left the assigner's calendar the moment it was
+    // assigned.
+    const [sharedIds, assignedIds] = await Promise.all([
+      getSharedTaskIds(userId),
+      getAssignedTaskIds(userId),
+    ]);
+    shared = new Set(sharedIds);
+    assigned = new Set(assignedIds);
+    const others = [...new Set([...sharedIds, ...assignedIds])];
     request =
-      shared.length > 0
-        ? request.or(`primary_owner_id.eq.${userId},task_id.in.(${shared.join(',')})`)
+      others.length > 0
+        ? request.or(`primary_owner_id.eq.${userId},task_id.in.(${others.join(',')})`)
         : request.eq('primary_owner_id', userId);
   }
 
@@ -1864,34 +1905,51 @@ export async function getPlanEvents(
     throw new Error('PLAN_UNAVAILABLE');
   }
 
-  return (data ?? []).map((row) => ({
-    taskId: row.task_id as string,
-    title: row.title as string,
-    primaryOwnerId: row.primary_owner_id as string,
-    status: row.status as string,
-    workClass: row.work_class as string,
-    occursAt: row.occurs_at as string,
-    dueIsDateOnly: Boolean(row.due_is_date_only),
-    eventKind: row.event_kind as PlanEvent['eventKind'],
-    eventId: row.event_id ? String(row.event_id) : null,
-    barrierId: row.barrier_id ? String(row.barrier_id) : null,
-    /*
-     * Read defensively, so the order of deployment does not matter. Until v153
-     * reaches a database these columns are simply absent: the calendar then
-     * offers no dragging at all, which is exactly the behaviour it had before.
-     */
-    taskVersion: typeof row.task_version === 'number' ? row.task_version : null,
-    canReschedule: row.can_reschedule === true,
-    // v156 — read defensively, like v153's: before the migration these are
-    // absent, no step rows exist, and the calendar is what it was.
-    stepId: row.step_id ? String(row.step_id) : null,
-    assigneeId: row.assignee_id ? String(row.assignee_id) : null,
-    assigneeName: row.assignee_name ? String(row.assignee_name) : null,
-    parentTitle: row.parent_title ? String(row.parent_title) : null,
-    parentDueAt: row.parent_due_at ? String(row.parent_due_at) : null,
-    stepHasOwnDate: row.step_has_own_date === true,
-    stepsDueWithTask: Number(row.steps_due_with_task ?? 0),
-  }));
+  const isAssignedByViewer = (row: { task_id: unknown; primary_owner_id: unknown }) =>
+    scope === 'mine' && row.primary_owner_id !== userId && assigned.has(String(row.task_id));
+
+  return (
+    (data ?? [])
+      // v191 — of work only assigned, its due date: the owner's review date,
+      // steps and meetings are theirs to plan. Work also shared with the viewer
+      // keeps the shared rules.
+      .filter(
+        (row) =>
+          !isAssignedByViewer(row) ||
+          shared.has(String(row.task_id)) ||
+          row.event_kind === 'due' ||
+          row.event_kind === 'overdue',
+      )
+      .map((row) => ({
+        taskId: row.task_id as string,
+        title: row.title as string,
+        primaryOwnerId: row.primary_owner_id as string,
+        status: row.status as string,
+        workClass: row.work_class as string,
+        occursAt: row.occurs_at as string,
+        dueIsDateOnly: Boolean(row.due_is_date_only),
+        eventKind: row.event_kind as PlanEvent['eventKind'],
+        eventId: row.event_id ? String(row.event_id) : null,
+        barrierId: row.barrier_id ? String(row.barrier_id) : null,
+        /*
+         * Read defensively, so the order of deployment does not matter. Until v153
+         * reaches a database these columns are simply absent: the calendar then
+         * offers no dragging at all, which is exactly the behaviour it had before.
+         */
+        taskVersion: typeof row.task_version === 'number' ? row.task_version : null,
+        canReschedule: row.can_reschedule === true,
+        // v156 — read defensively, like v153's: before the migration these are
+        // absent, no step rows exist, and the calendar is what it was.
+        stepId: row.step_id ? String(row.step_id) : null,
+        assigneeId: row.assignee_id ? String(row.assignee_id) : null,
+        assigneeName: row.assignee_name ? String(row.assignee_name) : null,
+        parentTitle: row.parent_title ? String(row.parent_title) : null,
+        parentDueAt: row.parent_due_at ? String(row.parent_due_at) : null,
+        stepHasOwnDate: row.step_has_own_date === true,
+        stepsDueWithTask: Number(row.steps_due_with_task ?? 0),
+        assignedByViewer: isAssignedByViewer(row) && row.event_kind !== 'step',
+      }))
+  );
 }
 
 /** One person's row in Team Focus (section 18.3). */
