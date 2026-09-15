@@ -1,5 +1,18 @@
 # TAMCO Focus — Change Log
 
+## v186 My Alerts does what it says — 15 September 2026
+
+- "Barrier or support involving me", "Assignment and reassignment" and "Collaborative handoff" in
+  My Alerts now work. Switch one off and its emails stop. The notice still appears in
+  Notifications, because each of them asks you to do something. Until now these switches changed
+  nothing.
+- A barrier about a safety or compliance risk, and anything about mandatory work, is always sent.
+  That now includes overdue and moved-due-date notices on mandatory work, which "Due-today and
+  selection deadlines" could switch off.
+- "Routine work coming up" is no longer listed. Nothing ever sent a notice for it, so switching it
+  did nothing. Whatever you had chosen is kept.
+- My Alerts now says what switching an alert off does.
+
 ## v185 Overdue work is told, and counted the same way everywhere — 15 September 2026
 
 - The owner of late work is now emailed once, the morning after it passes its due date. Several

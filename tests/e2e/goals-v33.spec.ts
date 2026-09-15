@@ -52,11 +52,21 @@ test('Goals is a dedicated accessible workspace with whole-row drawer interactio
   ).toBeVisible();
   await page.getByRole('button', { name: '+ New goal' }).click();
   const selfSetup = page.getByRole('dialog', { name: 'Set a Goal' });
+  /*
+   * Wait for the dialog to hold focus. `Modal` listens for Escape only once it
+   * is visible, two animation frames after opening, and focuses itself in the
+   * same step. The counts below pass before the dialog even renders, so without
+   * this Escape could arrive first and be ignored, leaving the dialog over the
+   * lifecycle links (mobile, 15 Sep 2026). Pressing Escape straight after the
+   * click left it open 10 times in 10.
+   */
+  await expect(selfSetup).toBeFocused();
   await expect(selfSetup.getByLabel('Employee', { exact: true })).toHaveCount(0);
   await expect(selfSetup.getByLabel('Measure type')).toHaveCount(0);
   await expect(selfSetup.getByLabel('Target state')).toHaveCount(0);
   await expect(selfSetup.getByLabel('Period')).toHaveCount(0);
   await page.keyboard.press('Escape');
+  await expect(selfSetup).toHaveCount(0);
   const row = page.locator('.goal-row').filter({ hasText: 'Safety Digitalisation' });
   await expect(row).toBeVisible();
   await expect(row).toContainText(/success measure/);
@@ -339,6 +349,8 @@ test('mobile Goals navigation and My Team avoid document overflow', async ({ pag
 
   await page.getByRole('button', { name: '+ Add goal' }).click();
   const setup = page.getByRole('dialog', { name: 'Set a Goal' });
+  // Focused means Escape is being listened for; see "+ New goal" in the first test.
+  await expect(setup).toBeFocused();
   await expect(setup.getByRole('heading', { name: 'Set the expectation' })).toBeVisible();
   expect(await setup.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(
     true,

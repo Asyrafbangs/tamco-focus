@@ -160,8 +160,10 @@ export function PersonalSettingsForm({
         <fieldset>
           <legend>My alerts</legend>
           <p className="form-hint">
-            Each notification recorded for these alerts also arrives by email, with a secure link to
-            the exact task, contribution, Goal, or request.
+            These alerts arrive by email, with a secure link to the exact task, contribution, Goal,
+            or request. Switch one off and its emails stop, but its notices still appear in
+            Notifications. Deadline alerts are the exception: switched off, they are not sent at
+            all. A safety or compliance barrier, or anything about mandatory work, is always sent.
           </p>
           <label className="check-row">
             <input
@@ -195,14 +197,12 @@ export function PersonalSettingsForm({
             />
             <span>Due-today and selection deadlines</span>
           </label>
-          <label className="check-row">
-            <input
-              name="routineUpcoming"
-              type="checkbox"
-              defaultChecked={data.alerts.routineUpcoming}
-            />
-            <span>Routine work coming up</span>
-          </label>
+          {/*
+           * v186 — "Routine work coming up" is not offered: nothing sends a
+           * routine-upcoming notice for it to switch off. The stored value is
+           * carried so saving this form does not change it.
+           */}
+          {data.alerts.routineUpcoming && <input type="hidden" name="routineUpcoming" value="on" />}
           <label>
             <span>Weekly email summary</span>
             <select name="personalSummaryMode" defaultValue={profile.personal_summary_mode}>

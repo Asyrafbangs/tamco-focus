@@ -1751,3 +1751,49 @@ derived-progress rules. The future ESH finding/action system remains outside the
    `due_today_and_deadlines` alert is on, which is the default.
 6. My Team's person panel lists paused work with active work, late work first by earliest
    due date, and counts overdue Available work in the Not started summary.
+
+## 81. v186 My Alerts
+
+1. `user_alert_preferences` holds five switches, on by default; a person with no row counts as
+   on. What each governs, and what switching it off does:
+   - `barrier_involving_me` — **email stops; the notice stays in the bell** (written `quiet`):
+     the person asked, on work or a Goal (`barriers_notify_action_required`); the owner, when
+     somebody else raised it (`raise_barrier`); the raiser, on a reply (`post_barrier_response`)
+     and on resolution (`resolve_barrier`, `resolve_goal_support`); the owner, when somebody
+     else resolved it (`barriers_notify_resolved`).
+   - `assignment_changes` — **email stops; the notice stays in the bell**: "New work assigned to
+     you" (`assign_work_to_people`); "Work assigned to you" and "Work reassigned"
+     (`reassign_task`); "Follow-up work created" from a routine finding (`record_routine_finding`).
+   - `collaboration_handoff` — **email stops; the notice stays in the bell**: "New contribution
+     assigned", "Contribution reassigned", "Contribution withdrawn" (the step triggers); "Your
+     contribution is ready" (`checklist_items_notify_ready`) and "Your step is ready"
+     (`complete_checklist_item`, `complete_checklist_item_with_evidence`); "New step on your
+     work" (`focus.notify_step_for_owner`); "Contribution removed" (`remove_checklist_step`).
+     "Contribution completed" and "Work completed" were already bell-only (v158, v162).
+     "Contribution overdue" answers to `due_today_and_deadlines`, not to this switch.
+   - `due_today_and_deadlines` — **no notice at all**, as v185 set: "Work overdue", the due-date
+     notices, "Contribution overdue".
+   - `routine_upcoming` — nothing. No procedure, trigger or job writes a `routine_upcoming`
+     notice, so My Alerts does not offer it. The form carries the stored value, so a save keeps
+     it.
+2. Why the bell stays for three of them: each asks somebody to act. The bell entry is the written
+   explanation of the red count (§23.4). v161 also reads an unread assignment notice to hold back
+   "New step on your work", so removing the notice would send more notices, not fewer. Deadline
+   alerts can leave the bell entirely because My Day's Needs attention already lists late work.
+3. No switch silences (§23.2):
+   - a barrier whose impact is `safety_or_compliance_risk`;
+   - any notice about work with `is_mandatory`, including the overdue, due-date and step overdue
+     notices;
+   - `mandatory_action` notices (urgent capture, immediate-risk findings), which answer to no
+     switch.
+   Completion reviews, manager decisions, routine exceptions and "Discussion scheduled" answer to
+   no switch either, and are unchanged.
+4. `focus.notify` and `focus.notify_goal` take `p_alert`, the switch a notice answers to, and
+   write `quiet = not focus.alert_is_on(recipient, p_alert)`. A notice with no alert is never made
+   quiet. `focus.work_alert(task, alert)` returns no alert for mandatory work.
+   `focus.barrier_alert(impact, task)` also returns none for a safety or compliance risk. The two
+   trigger inserts that do not use the helpers set `quiet` the same way.
+5. With deadline alerts off, an owner with late mandatory work among ordinary late work is sent one
+   notice, about the mandatory work. The rest is recorded as told.
+6. The three-argument `post_barrier_response` (v44) is unchanged. Every call that fits it also
+   fits the v53 overload, so PostgREST refuses it (PGRST203), and nothing in the database calls it.

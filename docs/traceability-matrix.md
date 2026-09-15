@@ -67,5 +67,6 @@
 | Every phone control is a 44px touch target           | Filters, settings, menus, drawer tabs, routines, disclosures | Last-in-cascade mobile block with competing selectors; layout-size check  | v183 mobile E2E (2, twelve pages)                      | Implemented and verified |
 | Ask for an update on work or a step                  | Drawer and step link; email; answer by update or step        | task_update_requests; targets in SQL; 24h rule; settle triggers           | v184 integration (26), unit, E2E (3)                   | Implemented and verified |
 | Overdue work is told, and counted alike everywhere   | Owner overdue email; manager told of postponement; My Team   | notify_overdue_work; change_task_due_date notices; calendarDaysSince      | v185 integration (13), unit (4), E2E (3)               | Implemented and verified |
+| My Alerts switches do what they say                  | My alerts: four switches and what off does; routine hidden   | `focus.alert_is_on`, `work_alert`, `barrier_alert`; quiet notices         | v186 integration (17); desktop/mobile E2E (1)          | Implemented and verified |
 
 The approved v33 application modules are mapped above. Detailed workflow contracts remain in `MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`, and the handoff documents in this directory.
