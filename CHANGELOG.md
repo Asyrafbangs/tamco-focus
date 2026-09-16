@@ -1,5 +1,21 @@
 # TAMCO Focus — Change Log
 
+## v192 Found by the debug crawl — 16 September 2026
+
+Every page was crawled as each role, on desktop and phone, in light and Night mode, checking for
+errors, failed requests, pages wider than the screen, deadline wording that reads wrong, and
+accessibility faults. It found no errors, no failed requests, no overflow and no bad deadline
+wording. It found two accessibility faults, fixed here.
+
+- **Night mode:** the red count badges were white on a light red, about 2.7:1 and hard to read.
+  Affected: "My Team 1" and "Routine 2 overdue", the bell's unread count, the navigation badge
+  and a completed step's tick. They now use dark text in Night mode; the day theme is unchanged.
+- **Phone calendar:** after hiding the weekday headers and empty days, the agenda still marked
+  every empty week as a table row. A screen reader read that as a broken table. Those rows are
+  now hidden too.
+- The Alerts & escalation settings section described itself as the "Today window", which v188
+  removed. It now says "Attention window".
+
 ## v191 Your calendar keeps the work you handed out — 15 September 2026
 
 - **Only me** on the Monthly Plan now shows work you assigned to somebody else, on its due date,

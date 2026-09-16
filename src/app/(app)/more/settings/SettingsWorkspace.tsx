@@ -77,7 +77,7 @@ const ITEMS: SettingsItem[] = [
   {
     key: 'reminders',
     label: 'Alerts & escalation',
-    description: 'Today window, reminders and barrier escalation',
+    description: 'Attention window, reminders and barrier escalation',
     group: 'Organisation',
     editable: true,
   },

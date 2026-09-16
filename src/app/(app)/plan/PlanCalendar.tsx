@@ -532,7 +532,10 @@ export function PlanCalendar({
           if (enterDepth.current === 0) setOverDate(null);
         }}
       >
-        <div className="cal-row" role="row">
+        {/* v192 - on a phone the headers and empty days are hidden, so a row
+            with nothing left in it goes too: a row with no cells is a broken
+            table to a screen reader (axe aria-required-children). */}
+        <div className="cal-row cal-head-row" role="row">
           {weekdays.map((day) => (
             <div key={day} className="cal-head" role="columnheader">
               {day}
@@ -541,7 +544,11 @@ export function PlanCalendar({
         </div>
 
         {weeksOf(shown, leadingBlanks).map((week) => (
-          <div key={week.find((slot) => slot !== null)?.date} className="cal-row" role="row">
+          <div
+            key={week.find((slot) => slot !== null)?.date}
+            className={`cal-row${week.every((slot) => slot === null || slot.items.length === 0) ? ' is-empty-week' : ''}`}
+            role="row"
+          >
             {week.map((slot, index) =>
               slot === null ? (
                 /* Leading blanks keep the 1st under its correct weekday.

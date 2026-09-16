@@ -1916,3 +1916,17 @@ assignee, or the owner for a step assigned to nobody (v159).
    passed within the last three organisation-local days. The assignee's notice is unchanged. This
    stops a first run from telling owners about every step already late, and bounds what a missed
    scheduled run can delay.
+
+## 87. v192 Accessibility fixes from the crawl
+
+1. Text on a filled `--red` or `--green` badge uses `--on-accent`: `#fff` by day and `#0b1220`
+   in Night mode, as `.btn.primary` and `.btn.danger` already did.
+   - It applies to `.workspace-tabs a .count.over`, `.focus-tabs .count.over`, `.navbadge`,
+     `.notification-bell-count`, and the completed `.checklist-state` in the drawer and in
+     `.task-checklist-row`.
+   - White on the Night-mode red `#ff6b77` is about 2.7:1; the dark label is about 6.8:1.
+2. On a phone the Monthly Plan is an agenda. The weekday header row (`.cal-head-row`) and any
+   week whose days are all empty (`.cal-row.is-empty-week`) are `display: none`, so no
+   `role="row"` is left without cells. The desktop grid is unchanged.
+3. `day.upcoming_window_days` is saved from Settings, Alerts & escalation, with "Save changes",
+   and My Day's sentence uses the saved value on the next load.

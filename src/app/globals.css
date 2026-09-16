@@ -325,7 +325,7 @@
   opacity: 1;
 }
 .task-detail-drawer .checklist-item.completed .checklist-state {
-  color: #fff;
+  color: var(--on-accent);
   background: var(--green);
 }
 .task-detail-drawer .checklist-item.completed .checklist-copy > strong {
@@ -3023,7 +3023,7 @@ button {
   height: 17px;
   border-radius: 9px;
   background: var(--red);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 9px;
   font-weight: 700;
   display: grid;
@@ -3646,7 +3646,9 @@ fieldset:disabled label,
 }
 .workspace-tabs a .count.over {
   background: var(--red);
-  color: #fff;
+  /* v192 - --on-accent: white by day, dark in Night mode, where white on the
+     lightened accent was about 2.6:1. */
+  color: var(--on-accent);
 }
 .workspace-tabs a.active {
   background: var(--surface);
@@ -3712,7 +3714,7 @@ fieldset:disabled label,
    accompanied by written text. */
 .focus-tabs .count.over {
   background: var(--red);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .focus-panel {
@@ -4998,7 +5000,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   padding: 0 4px;
   border-radius: 999px;
   background: var(--red);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 9.5px;
   font-weight: 700;
   line-height: 17px;
@@ -5514,6 +5516,10 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
     background: var(--surface);
   }
   .day.is-empty {
+    display: none;
+  }
+  .cal-head-row,
+  .cal-row.is-empty-week {
     display: none;
   }
   .cal-item {
@@ -6761,7 +6767,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .task-checklist-row.completed .checklist-state {
   border-color: var(--green);
   background: var(--green);
-  color: white;
+  color: var(--on-accent);
 }
 .task-checklist-row.waiting {
   opacity: 0.7;
