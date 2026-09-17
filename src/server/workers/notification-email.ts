@@ -77,6 +77,15 @@ function safeAppLink(base: string, path: string) {
   }
 }
 
+/** The titles of a barrier notice that asks its recipient to act (focus.notify_barrier_action_required). */
+const BARRIER_ASKS = new Set([
+  'Decision needed',
+  'Approval required',
+  'Escalation requested',
+  'Support requested',
+  'Response requested',
+]);
+
 function actionLabel(notification: RenderNotificationEmailInput['notification']) {
   switch (notification.entity_type) {
     case 'checklist_item':
@@ -84,7 +93,15 @@ function actionLabel(notification: RenderNotificationEmailInput['notification'])
     case 'task_step':
       return 'Open step';
     case 'barrier':
-      return notification.requires_action ? 'Respond to request' : 'Open request';
+      // v193 - only the person asked to act responds. The owner told a barrier
+      // was raised or resolved, and the raiser told of a reply, open it.
+      return notification.requires_action && BARRIER_ASKS.has(notification.title)
+        ? 'Respond to request'
+        : 'Open request';
+    case 'released_task':
+      return 'Open My Work';
+    case 'released_contribution':
+      return 'Open Shared';
     case 'goal':
       return 'Open Goal';
     case 'work_proposal':

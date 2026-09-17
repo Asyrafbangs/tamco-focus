@@ -140,6 +140,75 @@ describe('notification email template', () => {
     ).toContain('Read the update');
   });
 
+  it('sends somebody who lost the work to their own list, not to a page they cannot open (v193)', () => {
+    const reassigned = {
+      ...taskNotification,
+      kind: 'ownership_changed' as const,
+      requires_action: false,
+      title: 'Work reassigned',
+      body: '"Inspect the fire doors" was reassigned to Ajmal Rizani.',
+      entity_type: 'released_task',
+    };
+    expect(notificationPath(reassigned)).toBe('/work');
+    const email = renderNotificationEmail({
+      notification: reassigned,
+      recipientName: 'Lim Wei Sheng',
+      appBaseUrl: 'https://tamco-focus.vercel.app',
+    });
+    expect(email.text).toContain('Open My Work: https://tamco-focus.vercel.app/work');
+    expect(email.html).not.toContain('Open task');
+
+    const handedOn = {
+      ...reassigned,
+      kind: 'collaboration_handoff' as const,
+      title: 'Contribution reassigned',
+      body: '"Collect permits" has been reassigned. It is no longer on your Shared list.',
+      entity_type: 'released_contribution',
+    };
+    expect(notificationPath(handedOn)).toBe('/work?tab=shared');
+    expect(
+      renderNotificationEmail({
+        notification: handedOn,
+        recipientName: 'Lim Wei Sheng',
+        appBaseUrl: 'https://tamco-focus.vercel.app',
+      }).text,
+    ).toContain('Open Shared: https://tamco-focus.vercel.app/work?tab=shared');
+  });
+
+  it('opens a barrier at the barrier, and asks only the person it asks to respond (v193)', () => {
+    const barrierId = 'f0c05300-0000-4000-a000-000000000099';
+    const asked = {
+      ...taskNotification,
+      kind: 'barrier_raised' as const,
+      title: 'Decision needed',
+      body: 'Ajmal Rizani needs you on "Contractor safety audit": Approve a delay',
+      entity_type: 'barrier',
+      entity_id: barrierId,
+    };
+    const askedEmail = renderNotificationEmail({
+      notification: asked,
+      recipientName: 'Izzul Asyraf',
+      appBaseUrl: 'https://tamco-focus.vercel.app',
+    });
+    expect(askedEmail.href).toContain(`attention=barrier&barrier=${barrierId}`);
+    expect(askedEmail.html).toContain('Respond to request');
+
+    for (const title of [
+      'Barrier raised on your work',
+      'Barrier resolved — review your work',
+      'Decision received',
+    ]) {
+      const told = renderNotificationEmail({
+        notification: { ...asked, title },
+        recipientName: 'Izzah Nurul',
+        appBaseUrl: 'https://tamco-focus.vercel.app',
+      });
+      expect(told.href, title).toContain(`barrier=${barrierId}`);
+      expect(told.html, title).toContain('Open request');
+      expect(told.html, title).not.toContain('Respond to request');
+    }
+  });
+
   it('refuses a non-http application origin', () => {
     const rendered = renderNotificationEmail({
       notification: taskNotification,

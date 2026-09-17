@@ -1,5 +1,20 @@
 # TAMCO Focus — Change Log
 
+## v193 Every notice opens the right place — 17 September 2026
+
+The notices and emails sent to everybody were checked against Production's records and a replay
+of every notifying event (docs/notification-debug-v193.md). The right people were told and every
+email went out within a minute. Three things about where a notice leads were wrong:
+
+- A notice you had not read yet could be re-pointed at a step when somebody handed you a step on
+  the same work. A "Decision needed" or "Work reassigned" then opened a step instead. Notices
+  already affected are corrected.
+- "Work reassigned", "Contribution reassigned", "Contribution withdrawn" and "Contribution removed"
+  said "Open task" for work you no longer have. They now open My Work or Shared, and say so.
+- "Decision needed" and the other barrier notices open the barrier itself, with the decision form
+  ready. Only the person asked to act sees "Respond to request"; everybody else sees "Open
+  request".
+
 ## v192 Found by the debug crawl — 16 September 2026
 
 Every page was crawled as each role, on desktop and phone, in light and Night mode, checking for

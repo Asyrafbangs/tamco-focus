@@ -1930,3 +1930,28 @@ assignee, or the owner for a step assigned to nobody (v159).
    `role="row"` is left without cells. The desktop grid is unchanged.
 3. `day.upcoming_window_days` is saved from Settings, Alerts & escalation, with "Save changes",
    and My Day's sentence uses the saved value on the next load.
+
+## 88. v193 Notice links
+
+1. `focus.notify_notice(...)` takes `focus.notify`'s arguments plus `p_entity_type` and
+   `p_entity_id`, and returns the notice id, or null when nothing was written (own act, inactive
+   recipient). `focus.notify` keeps its signature and calls it.
+   - A notice with `barrier_id` and no explicit link is linked to the barrier.
+   - `focus.notify_notice` is not executable by `anon` or `authenticated`.
+2. `notify_contribution_created`, `notify_contribution_ready` and `notify_contribution_assigned`
+   write the step link with the notice. The update that linked every unread, unlinked notice for
+   the person on that work is removed.
+3. `released_task` (`reassign_task`, to the previous owner) links to `/work`, with the button "Open
+   My Work".
+4. `released_contribution` links to `/work?tab=shared`, with the button "Open Shared". It is used
+   by `notify_contribution_assigned` for "Contribution reassigned" and "Contribution withdrawn",
+   and by `remove_checklist_step` for "Contribution removed".
+5. The email button for a barrier notice says "Respond to request" only when the notice requires
+   action and its title is one of the asks `notify_barrier_action_required` writes: Decision
+   needed, Approval required, Escalation requested, Support requested, Response requested.
+   Otherwise it says "Open request".
+6. Migration backfill:
+   - notices with a `barrier_id` that were unlinked, or linked to a step, are linked to their
+     barrier;
+   - the four "left somebody" titles get the released links;
+   - any other notice linked to a step whose kind is not a step kind is unlinked back to its work.

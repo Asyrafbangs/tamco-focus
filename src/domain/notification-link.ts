@@ -54,6 +54,11 @@ export function notificationHref(notification: NotificationLinkSource): string {
   if (entityType === 'task_update' && taskId) {
     return `/work?task=${encodeURIComponent(taskId)}&section=updates`;
   }
+  // v193 - work or a step that has left the recipient: reassigned, withdrawn or
+  // removed. They can usually no longer open it, so the link is the list it
+  // left rather than a page that says it does not exist.
+  if (entityType === 'released_task') return '/work';
+  if (entityType === 'released_contribution') return '/work?tab=shared';
   if (taskId) return `/work?task=${encodeURIComponent(taskId)}`;
   if (goalId) return `/goals?goal=${encodeURIComponent(goalId)}`;
   return '/today';
