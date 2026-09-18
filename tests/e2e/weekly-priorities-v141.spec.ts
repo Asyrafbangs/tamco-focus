@@ -94,6 +94,8 @@ test.describe('v141 the employee proposes', () => {
     await row.locator('.row-primary-link').first().click();
     await expect(page.locator('.task-detail-drawer')).toBeVisible();
     await page.getByRole('button', { name: 'Add to this week' }).click();
+    // Saved once the drawer says so; navigating sooner can cancel the save.
+    await expect(page.locator('.task-detail-drawer')).toContainText('Proposed for this week');
 
     await openWork(page);
     const priorities = page.locator('.weekly-priorities');
@@ -123,6 +125,8 @@ test.describe('v141 the manager agrees', () => {
     await page.locator('.task-row').first().locator('.row-primary-link').first().click();
     await expect(page.locator('.task-detail-drawer')).toBeVisible();
     await page.getByRole('button', { name: 'Add to this week' }).click();
+    // Saved once the drawer says so; navigating sooner can cancel the save.
+    await expect(page.locator('.task-detail-drawer')).toContainText('Proposed for this week');
     await openWork(page);
     await expect(page.locator('.weekly-priorities')).toContainText('Proposed');
 
@@ -138,6 +142,9 @@ test.describe('v141 the manager agrees', () => {
     await expect(panel).toBeVisible();
     await expect(panel).toContainText(title);
     await panel.getByRole('button', { name: 'Agree' }).first().click();
+    await expect(panel.locator('.weekly-priority').filter({ hasText: title })).toContainText(
+      'Agreed',
+    );
 
     await openWork(page, '?scope=team');
     await expect(
@@ -162,6 +169,8 @@ test.describe('v141 the manager agrees', () => {
     await page.locator('.task-row').first().locator('.row-primary-link').first().click();
     await expect(page.locator('.task-detail-drawer')).toBeVisible();
     await page.getByRole('button', { name: 'Add to this week' }).click();
+    // Saved once the drawer says so; navigating sooner can cancel the save.
+    await expect(page.locator('.task-detail-drawer')).toContainText('Proposed for this week');
     await openWork(page);
     // Confirm the proposal exists before handing over, rather than assuming it:
     // a conditional that quietly did nothing left the manager with no decision

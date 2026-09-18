@@ -1976,3 +1976,56 @@ assignee, or the owner for a step assigned to nobody (v159).
 3. The three drawers are keyed by the record they show (`taskDetail.task.id`,
    `goalDetail.goal.id`, `proposalDetail.id`). Without a key React reuses one drawer for the
    next record, carrying over its closing flag, its pending navigation and its scroll lock.
+
+## 90. v195 Opening a drawer without waiting
+
+1. `PendingDrawer` (`src/components/ui/PendingDrawer.tsx`, in the app shell) listens for clicks
+   the router has taken (`defaultPrevented`, primary button, no modifier keys). If
+   `drawerOpenedBy(target, current)` (`src/domain/drawer-links.ts`) names a drawer, it shows a
+   stand-in at once: the same box and motion as the drawer, titled from the row's "Open <title>"
+   label or the link's text.
+   - Only on the same page: `/work` with `task` or `proposal`, `/goals` with `goal`. A link to
+     another page swaps the page through its loading state first, so there is no single moment
+     at which the drawer can be known not to be coming.
+   - Never for the drawer already open (same id), which stays or is brought back by the rule in
+     point 4.
+   - It takes no focus and has none of the drawer's classes or roles.
+   - It is cleared by the next navigation that lands. If a drawer arrived with it, that drawer
+     has taken over first. Otherwise nothing is coming (the work has gone, or is not the
+     viewer's to see).
+   - Escape, its backdrop and Cancel abandon the open with `router.replace` back to where it
+     was pressed. The newer navigation discards the one on its way.
+   - It gives up after 20 s whatever happens.
+2. `SideDrawer` arriving while a stand-in is on screen renders open from its first frame
+   (`pendingDrawer()` in its initial state). In a layout effect, before paint, it takes the
+   stand-in's computed transform and finishes that movement rather than sliding in again.
+   Module state, not context, because the drawer must know on its first render.
+3. Who is signed in is asked of the auth server once per request, by the proxy.
+   - The proxy strips `x-tamco-session-user` from every request and sets it to the user id
+     only after `getUser` succeeds (`forwardedRequestHeaders`).
+   - `getCurrentProfile` accepts that id only when `getClaims()` verifies the session's token
+     against the project's published key (ES256) and it names the same person. In every other
+     case it calls `getUser` as before: no header (a server action on an ended session, v182),
+     a mismatch, or an unverifiable token.
+   - `getCurrentProfile` is wrapped in React `cache`, so the shell and the page share one read.
+   - `getAssignablePeople` takes the viewer's id instead of calling `getUser`. Its call used to
+     be served free by Next reusing the page's identical request; with that request gone it
+     would have become a round trip of its own.
+4. `SideDrawer`'s listener for a press on its own address stays until the drawer unmounts, not
+   until its close is pushed. A press after the push sends the router back to this address, so
+   the close never lands and the drawer is never removed. It must reopen, or it stays mounted
+   closed and every later press on that row changes nothing.
+5. Reads that do not depend on each other run together:
+   - `getTaskDetail`: one round keyed by the task. Mentions are read through `task_updates`,
+     barrier replies through `barriers`, and queue items by `task_id`. Then one round for
+     names, related titles and the routine's evidence rule.
+   - `/work`: the visible-people count runs with everything else unless the link asks for
+     Team (`scope=team`, `person`, `kept`). This week's commitments follow straight on from
+     `current_week_start`.
+   - `/goals`: the open goal, the count and the viewer's own sessions start together.
+6. `data-app-hydrated` (`AppHydration`, root layout) goes up after DOMContentLoaded and then an
+   idle callback, not when the shell hydrates.
+   - The pages stream in behind their loading state, so the old marker went up 320-520 ms
+     before a drawer opened by its address was listening.
+   - It is a floor, not a promise: the browser also idles while scripts download.
+   - A journey that needs a drawer listening waits for `data-open="true"`.

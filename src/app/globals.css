@@ -560,6 +560,93 @@
 .task-detail[data-open='true'] {
   transform: translateX(0);
 }
+
+/* v195 — the drawer a press has asked for, until its content arrives
+   (PendingDrawer). The drawer's box and motion under classes of its own, so
+   nothing that looks for the drawer finds the stand-in. One layer above the
+   drawer, so a task opened from inside another visibly slides in over it. */
+.drawer-pending-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 91;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+.drawer-pending-layer[data-open='true'] {
+  pointer-events: auto;
+}
+.drawer-pending-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(13, 35, 66, 0.34);
+  backdrop-filter: blur(2px);
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--motion-standard) var(--motion-easing);
+}
+.drawer-pending-layer[data-open='true'] .drawer-pending-backdrop {
+  opacity: 1;
+  pointer-events: auto;
+}
+.drawer-pending {
+  position: relative;
+  width: min(620px, calc(100vw - 72px));
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  box-shadow: -18px 0 44px rgba(13, 35, 66, 0.18);
+  transform: translateX(100%);
+  transition: transform var(--motion-drawer) var(--motion-easing);
+}
+.drawer-pending-layer[data-kind='goal'] .drawer-pending {
+  width: min(650px, calc(100vw - 72px));
+}
+.drawer-pending[data-open='true'] {
+  transform: translateX(0);
+}
+.drawer-pending-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 80px;
+  padding: 15px 17px;
+  border-bottom: 1px solid var(--line);
+}
+.drawer-pending-eyebrow {
+  display: block;
+  width: 96px;
+  height: 10px;
+  border-radius: 4px;
+}
+.drawer-pending-title {
+  margin: 8px 0 0;
+  font-size: 20px;
+  font-weight: 650;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.drawer-pending-head .btn {
+  min-height: 44px;
+}
+.drawer-pending-body {
+  padding: 16px 17px;
+}
+@media (max-width: 720px) {
+  .drawer-pending,
+  .drawer-pending-layer[data-kind='goal'] .drawer-pending {
+    width: 100%;
+    border-left: 0;
+  }
+  .drawer-pending-head {
+    padding: 15px 14px 13px;
+  }
+}
 .task-detail-head {
   position: sticky;
   top: 0;

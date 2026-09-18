@@ -183,6 +183,9 @@ test('v166 a drawer opened by address returns the caret to its row', async ({ pa
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   const drawer = page.getByRole('dialog', { name: /Safety Digitalisation/ });
   await expect(drawer).toBeVisible();
+  // Rendered by the server off-screen, which Playwright still calls visible:
+  // it is on screen, and listening, once it has slid in (v195).
+  await expect(drawer).toHaveAttribute('data-open', 'true');
 
   await page.keyboard.press('Escape');
   await expect(drawer).toHaveCount(0);

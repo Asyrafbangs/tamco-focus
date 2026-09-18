@@ -1,5 +1,25 @@
 # TAMCO Focus — Change Log
 
+## v195 A task opens the moment you press it — 18 September 2026
+
+Reported: "when I click, it loads slowly and takes time. It is not as smooth." Opening a task
+redrew the whole page on the server, and nothing moved until that finished. With Production's
+network hop that was about half a second of the page seeming to ignore the press, and longer
+when the server had been idle.
+
+- **The window starts opening straight away.** It slides in with the task's title the moment
+  the row is pressed, and the details fill in when they arrive. Escape or Cancel stops an open
+  that has not arrived yet. Goals and proposals open the same way.
+- **The details arrive sooner.** Measured with Production's delay: about 0.3 seconds instead
+  of 0.5. Sign-in is now checked once per click, not twice, and the task's details, the team
+  count and this week's priorities are read side by side rather than one after another. Saves
+  and closes get the same saving.
+- **"This week" rows no longer reload the whole page.** They open the task window like every
+  other row.
+- **Pressing a task just after closing it brings it back.** Pressed after the close had set
+  off but before it finished, the window used to stay on the page closed and invisible, and
+  further presses did nothing. The v194 fix only covered the first quarter of a second.
+
 ## v194 The task window survives being opened again and again — 18 September 2026
 
 Reported: "after I open the pop up task windows many times, it becomes unresponsive. I have to

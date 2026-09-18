@@ -653,17 +653,19 @@ export default async function WorkPage({
    * The role check stays in front of the count so that no non-manager causes
    * the extra query.
    */
-  const visiblePeople = await getVisiblePeopleCount(
-    profile.id,
-    profile.reporting_manager_id ?? null,
-  );
+  const visiblePeopleRead = getVisiblePeopleCount(profile.id, profile.reporting_manager_id ?? null);
   /*
-   * My Team exists when there is somebody else to look at, which is what
-   * visibility decides — not the job title and not the reporting tree. Gated
-   * on `isManager && directReports > 0`, an explicit grant gave the recipient
-   * no screen to use it on.
+   * v195 — the count no longer holds up every other read.
+   *
+   * It was awaited before anything else started, which put one full round trip
+   * in front of every open, close and save on this page. Only a link that asks
+   * for Team — by scope, or by naming people to expand — needs the answer
+   * before choosing what to read. Without one, every decision below comes out
+   * the same whatever the count is (no scope, no person, nobody kept), so the
+   * count is read alongside everything else instead.
    */
-  const hasTeam = visiblePeople > 0;
+  const asksForTeam = params.scope === 'team' || Boolean(params.person) || Boolean(params.kept);
+  const teamAvailableToLink = asksForTeam && (await visiblePeopleRead) > 0;
 
   /*
    * v43 sections 2 and 3 — two different dimensions, two different controls.
@@ -684,9 +686,9 @@ export default async function WorkPage({
    * carrying `?person=` has to land on the view that can show it, and on a
    * filter that renders the people rather than their queued or closed work.
    */
-  const namesPerson = Boolean(params.person) && hasTeam;
+  const namesPerson = Boolean(params.person) && teamAvailableToLink;
   const scope: 'mine' | 'team' =
-    (params.scope === 'team' || namesPerson) && hasTeam ? 'team' : 'mine';
+    (params.scope === 'team' || namesPerson) && teamAvailableToLink ? 'team' : 'mine';
   const teamFilter: 'everyone' | 'attention' | 'available' | 'delivered' =
     params.filter === 'attention'
       ? 'attention'
@@ -715,7 +717,7 @@ export default async function WorkPage({
     .map((id) => id.trim())
     .filter((id) => UUID_PATTERN.test(id))
     .slice(0, MAX_KEPT_PEOPLE);
-  const expandedIds = hasTeam
+  const expandedIds = teamAvailableToLink
     ? Array.from(
         new Set([
           ...keptIds,
@@ -766,6 +768,7 @@ export default async function WorkPage({
       : 'active';
 
   const [
+    visiblePeople,
     tasks,
     settings,
     sharedContributions,
@@ -785,9 +788,10 @@ export default async function WorkPage({
     teamDeliveredWork,
     completedWork,
     currentFocus,
-    weekStart,
+    myCommitments,
     updateRequestsForMe,
   ] = await Promise.all([
+    visiblePeopleRead,
     getMyTasks(profile.id),
     getDisplaySettings(),
     // Shared reads the ORIGINAL checklist items, not copies of them
@@ -812,13 +816,13 @@ export default async function WorkPage({
     personalAttentionView ? getMyAttention(profile.id) : Promise.resolve([]),
     // Scoped by the viewer's own visibility, not the whole organisation
     // (v42 sections G, S).
-    params.task ? getAssignablePeople(params.task) : Promise.resolve([]),
+    params.task ? getAssignablePeople(params.task, profile.id) : Promise.resolve([]),
     // Reused wholesale from Team Focus. Nothing about who needs attention
     // changes — only where a manager reads it.
     // One query answering all three manager questions. It aggregates the
     // authoritative records — tasks, barriers, routines, focus counts — and
     // copies none of them (v44 sections 18, 32).
-    hasTeam ? getTeamAttention(profile.id) : Promise.resolve([]),
+    visiblePeopleRead.then((count) => (count > 0 ? getTeamAttention(profile.id) : [])),
     getMajorProjectProposals(),
     params.proposal ? getMajorProjectProposalDetail(params.proposal) : Promise.resolve(null),
     // What everybody the viewer can see already has waiting. Only when asked
@@ -845,28 +849,35 @@ export default async function WorkPage({
     // What the viewer says they are on. Read on every load of this page: it
     // heads the Active list and the task drawer offers to become it.
     getCurrentFocus(profile.id),
-    // Asked of the database so the screen and the procedures agree on which
-    // Monday "this week" is.
-    getCurrentWeekStart(),
+    // Only on Active, which is the list they describe.
+    /*
+     * Also when a task drawer is open, not only on the Active list.
+     *
+     * §12 asks the drawer to show this work's weekly context, and the drawer can
+     * be opened from Available, Shared, Completed, the Bin or a notification —
+     * every one of which would otherwise say "Add to this week" about work
+     * already in it.
+     *
+     * The week is asked of the database so the screen and the procedures agree
+     * on which Monday "this week" is — and the commitments follow straight on
+     * from it, rather than after every other read had finished (v195).
+     */
+    scope === 'mine' && (activeTab === 'active' || Boolean(params.task))
+      ? getCurrentWeekStart().then((weekStart) => getWeeklyCommitments(profile.id, weekStart))
+      : Promise.resolve([]),
     // v184 - which of the viewer's own rows somebody is waiting to hear about.
     scope === 'mine'
       ? getUpdateRequestsForMe(profile.id)
       : Promise.resolve({ taskIds: new Set<string>(), stepIds: new Set<string>() }),
   ]);
 
-  // Only on Active, which is the list they describe.
   /*
-   * Also when a task drawer is open, not only on the Active list.
-   *
-   * §12 asks the drawer to show this work's weekly context, and the drawer can
-   * be opened from Available, Shared, Completed, the Bin or a notification —
-   * every one of which would otherwise say "Add to this week" about work
-   * already in it.
+   * My Team exists when there is somebody else to look at, which is what
+   * visibility decides — not the job title and not the reporting tree. Gated
+   * on `isManager && directReports > 0`, an explicit grant gave the recipient
+   * no screen to use it on.
    */
-  const myCommitments =
-    scope === 'mine' && (activeTab === 'active' || Boolean(params.task))
-      ? await getWeeklyCommitments(profile.id, weekStart)
-      : [];
+  const hasTeam = visiblePeople > 0;
 
   const visible =
     activeTab === 'shared' || activeTab === 'bin' || activeTab === 'completed'

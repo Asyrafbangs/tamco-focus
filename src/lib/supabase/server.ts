@@ -2,11 +2,13 @@ import 'server-only';
 
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { cache } from 'react';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 
 import { signInPathFor } from '@/domain/navigation';
 import { publicEnv } from '@/lib/env';
+import { SESSION_USER_HEADER } from '@/lib/supabase/session-header';
 
 /**
  * The request-scoped client every server component and server action uses.
@@ -109,25 +111,55 @@ const PROFILE_COLUMNS =
   'id, employee_id, email, full_name, role, status, department_id, reporting_manager_id, theme_preference, text_size, reduced_motion, default_landing_page, daily_brief_mode, daily_brief_hour, quiet_hours_start, quiet_hours_end, first_day_of_week, timezone, status_labels_always_visible, shortcut_hints, personal_summary_mode, team_summary_mode, theme_colors';
 
 /**
+ * Who is signed in, asking the auth server only when nobody has yet (v195).
+ *
+ * The proxy has already asked it, on this same request, and says what it was
+ * told in `SESSION_USER_HEADER`. That is accepted only when the session's own
+ * token — whose signature is checked here against the project's published key,
+ * without a round trip — names the same person. Anything else is asked again
+ * the slow way: a request the proxy found no session on (a server action is let
+ * through, v182), a token that has expired, or one that does not match.
+ */
+async function signedInUserId(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+): Promise<string | null> {
+  const confirmedByProxy = (await headers()).get(SESSION_USER_HEADER);
+  if (confirmedByProxy) {
+    // Failures come back as `error`; anything thrown (a key WebCrypto will not
+    // import) is treated the same way — asked again, never let through.
+    const verified = await supabase.auth.getClaims().catch(() => null);
+    if (!verified?.error && verified?.data?.claims.sub === confirmedByProxy) {
+      return confirmedByProxy;
+    }
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user?.id ?? null;
+}
+
+/**
  * The signed-in person's profile, or null.
  *
  * A deactivated account is treated as signed out here as well as in the
  * database (section 31B.2: deactivation prevents sign-in and revokes access),
  * so a still-valid JWT cannot be used to keep working.
+ *
+ * Read once per request: the shell and the page both need it, and on a full
+ * load they used to ask for it separately.
  */
-export async function getCurrentProfile(): Promise<CurrentProfile | null> {
+export const getCurrentProfile = cache(async (): Promise<CurrentProfile | null> => {
   const supabase = await createSupabaseServerClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = await signedInUserId(supabase);
 
-  if (!user) return null;
+  if (!userId) return null;
 
   const { data, error } = await supabase
     .from('user_profiles')
     .select(PROFILE_COLUMNS)
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle();
 
   if (error) {
@@ -140,7 +172,7 @@ export async function getCurrentProfile(): Promise<CurrentProfile | null> {
   if (!profile || profile.status !== 'active') return null;
 
   return profile;
-}
+});
 
 /**
  * The signed-in profile, for routes that have no anonymous path.

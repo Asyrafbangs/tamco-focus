@@ -81,5 +81,6 @@
 | Lost work links to the person's own list             | Reassigned, withdrawn, removed: Open My Work / Open Shared   | released_task and released_contribution links; backfill                   | v193 integration, unit (2)                             | Implemented and verified |
 | Barrier notices open the barrier                     | Decision needed opens the decision form; labels corrected    | Notice about a barrier links to it; Respond only when asked               | v193 integration, unit                                 | Implemented and verified |
 | Opening task windows repeatedly keeps working        | A task opened while the last closes stays open; page scrolls | Close cancelled by a navigation; drawer keyed per record                  | v194 E2E (5), unit (4)                                 | Implemented and verified |
+| A task window opens the moment it is pressed         | Stand-in slides in at once; content 0.5 s → 0.3 s            | PendingDrawer hand-off; one auth check per request; parallel reads        | v195 E2E (6), unit (17)                                | Implemented and verified |
 
 The approved v33 application modules are mapped above. Detailed workflow contracts remain in `MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`, and the handoff documents in this directory.

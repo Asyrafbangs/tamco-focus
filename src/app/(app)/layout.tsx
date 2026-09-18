@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 
 import { sanitiseTheme, themeStyleSheet } from '@/lib/theme';
 
@@ -6,6 +7,7 @@ import { ThemeAttribute } from './ThemeAttribute';
 
 import { MobileNavigation, NavigationRail } from '@/components/Navigation';
 import { NotificationBell } from '@/components/NotificationBell';
+import { PendingDrawer } from '@/components/ui/PendingDrawer';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { getCurrentProfile } from '@/lib/supabase/server';
 import { getActionRequiredCount, getNotifications } from '@/server/queries';
@@ -62,6 +64,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <a className="skip-link" href="#main">
         Skip to main content
       </a>
+
+      {/* v195 - the drawer a press has asked for, until its content arrives.
+          Suspense because it reads the address, which a shell must not wait on. */}
+      <Suspense fallback={null}>
+        <PendingDrawer />
+      </Suspense>
 
       <NavigationRail role={role} actionRequiredCount={actionRequiredCount} initials={initials} />
 

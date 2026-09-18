@@ -702,6 +702,21 @@ export interface TaskDetail {
  */
 export async function getTaskDetail(taskId: string, viewerId: string): Promise<TaskDetail | null> {
   const supabase = await createSupabaseServerClient();
+  /*
+   * v195 — two rounds of reads, not five.
+   *
+   * Opening a task waited on five rounds, each starting only once the last had
+   * finished: the task and its records, then its people and history, then the
+   * mentions in its updates, then the titles of related work, then everybody's
+   * names. The second round never needed the first — the task id is all any of
+   * it filters on — and the mentions can be found through the task they belong
+   * to instead of a list of update ids read beforehand. What is left is one
+   * round for everything keyed by the task, and one for the names and titles
+   * those rows point at.
+   *
+   * The price is a few reads wasted when the id names no task the viewer may
+   * see, which still returns null exactly as before.
+   */
   const [
     taskResult,
     checklistResult,
@@ -712,6 +727,12 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
     barrierResponsesResult,
     findingsResult,
     meetingQueueResult,
+    collaboratorsResult,
+    relationsResult,
+    activityResult,
+    capabilityResult,
+    updateRequestsResult,
+    mentionsResult,
   ] = await Promise.all([
     supabase.from('task_overview').select('*').eq('id', taskId).maybeSingle(),
     supabase.from('task_checklist_items').select('*').eq('task_id', taskId).order('position'),
@@ -733,10 +754,13 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
       ascending: false,
     }),
     // Fetched with the barriers rather than on demand: a manager about to
-    // reply needs to see what has already been said.
+    // reply needs to see what has already been said. This task's replies only:
+    // it read every reply the viewer could see, on every task, and kept the
+    // few that matched (v195).
     supabase
       .from('barrier_responses')
-      .select('id, barrier_id, author_id, message, created_at, kind')
+      .select('id, barrier_id, author_id, message, created_at, kind, barriers!inner(task_id)')
+      .eq('barriers.task_id', taskId)
       .order('created_at', { ascending: true }),
     // Read with the barriers so the Add to Meeting Queue control knows its own
     // state on first paint, rather than offering an action already taken.
@@ -750,7 +774,29 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
       .select(
         'barrier_id, status, calendar_events!meeting_queue_items_scheduled_event_id_fkey(starts_at)',
       )
+      // A barrier's queue item carries the barrier's task (v195: this read the
+      // whole queue).
+      .eq('task_id', taskId)
       .in('status', ['open', 'queued', 'scheduled']),
+    supabase.from('task_collaborators').select('user_id').eq('task_id', taskId),
+    supabase
+      .from('task_relations')
+      .select('task_id,related_task_id,relation')
+      .or(`task_id.eq.${taskId},related_task_id.eq.${taskId}`),
+    supabase
+      .from('audit_events')
+      .select('id,event_type,actor_id,occurred_at,detail')
+      .eq('task_id', taskId)
+      .order('occurred_at', { ascending: false })
+      .limit(500),
+    supabase.rpc('get_task_capabilities', { p_task_id: taskId }),
+    supabase.rpc('get_task_update_requests', { p_task_id: taskId }),
+    // Through the update each mention belongs to, so no list of update ids has
+    // to be read first.
+    supabase
+      .from('task_update_mentions')
+      .select('update_id,user_id,task_updates!inner(task_id)')
+      .eq('task_updates.task_id', taskId),
   ]);
 
   const queuedBarrierIds = new Set(
@@ -770,28 +816,6 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
   }
 
   if (taskResult.error || !taskResult.data) return null;
-
-  const [
-    collaboratorsResult,
-    relationsResult,
-    activityResult,
-    capabilityResult,
-    updateRequestsResult,
-  ] = await Promise.all([
-    supabase.from('task_collaborators').select('user_id').eq('task_id', taskId),
-    supabase
-      .from('task_relations')
-      .select('task_id,related_task_id,relation')
-      .or(`task_id.eq.${taskId},related_task_id.eq.${taskId}`),
-    supabase
-      .from('audit_events')
-      .select('id,event_type,actor_id,occurred_at,detail')
-      .eq('task_id', taskId)
-      .order('occurred_at', { ascending: false })
-      .limit(500),
-    supabase.rpc('get_task_capabilities', { p_task_id: taskId }),
-    supabase.rpc('get_task_update_requests', { p_task_id: taskId }),
-  ]);
 
   const updates = updatesResult.data ?? [];
   const updateRequestModel = (updateRequestsResult.data ?? {}) as {
@@ -816,13 +840,7 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
   }
   const updateRequestRows = updateRequestModel.open ?? [];
   const updateRequestTargetRows = updateRequestModel.targets ?? [];
-  const updateIds = updates.map((row) => row.id as string);
-  const { data: mentions } = updateIds.length
-    ? await supabase
-        .from('task_update_mentions')
-        .select('update_id,user_id')
-        .in('update_id', updateIds)
-    : { data: [] };
+  const mentions = mentionsResult.data ?? [];
 
   const relatedIds = Array.from(
     new Set(
@@ -831,10 +849,6 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
       ),
     ),
   );
-  const { data: relatedTasks } = relatedIds.length
-    ? await supabase.from('task_overview').select('id,title').in('id', relatedIds)
-    : { data: [] };
-  const relatedById = new Map((relatedTasks ?? []).map((row) => [row.id as string, row]));
 
   const personIds = new Set<string>([
     taskResult.data.primary_owner_id as string,
@@ -848,18 +862,35 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
     ),
     ...(barrierResponsesResult.data ?? []).map((row) => row.author_id as string),
     ...updates.map((row) => row.author_id as string),
-    ...(mentions ?? []).map((row) => row.user_id as string),
+    ...mentions.map((row) => row.user_id as string),
     ...(attachmentsResult.data ?? []).map((row) => row.uploaded_by as string),
     ...(activityResult.data ?? []).map((row) => row.actor_id as string).filter(Boolean),
     ...updateRequestRows.flatMap((row) => [row.requested_by, row.requested_of]),
     ...updateRequestTargetRows.map((row) => row.requested_of),
   ]);
-  const { data: people } = personIds.size
-    ? await supabase
-        .from('team_directory')
-        .select('id,full_name,employee_id')
-        .in('id', Array.from(personIds))
-    : { data: [] };
+  const overview = toTaskOverview(taskResult.data as Record<string, unknown>);
+
+  // The second round: names, related titles and the routine's evidence rule,
+  // together, since none of them waits on another.
+  const [{ data: people }, { data: relatedTasks }, { data: template }] = await Promise.all([
+    personIds.size
+      ? supabase
+          .from('team_directory')
+          .select('id,full_name,employee_id')
+          .in('id', Array.from(personIds))
+      : Promise.resolve({ data: [] }),
+    relatedIds.length
+      ? supabase.from('task_overview').select('id,title').in('id', relatedIds)
+      : Promise.resolve({ data: [] }),
+    overview.routineTemplateId
+      ? supabase
+          .from('routine_template_overview')
+          .select('evidence_required,evidence_instruction')
+          .eq('id', overview.routineTemplateId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const relatedById = new Map((relatedTasks ?? []).map((row) => [row.id as string, row]));
   const peopleById = new Map((people ?? []).map((row) => [row.id as string, row]));
   const personName = (id: unknown): string => {
     if (typeof id !== 'string') return 'Team member';
@@ -867,7 +898,7 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
     return typeof fullName === 'string' && fullName ? fullName : 'Team member';
   };
   const mentionNames = new Map<string, string[]>();
-  for (const mention of mentions ?? []) {
+  for (const mention of mentions) {
     const names = mentionNames.get(mention.update_id as string) ?? [];
     names.push(personName(mention.user_id));
     mentionNames.set(mention.update_id as string, names);
@@ -884,15 +915,9 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
     ]),
   );
   const rawCapabilities = (capabilityResult.data ?? {}) as Record<string, unknown>;
-  const overview = toTaskOverview(taskResult.data as Record<string, unknown>);
 
   let routine: TaskDetail['routine'] = null;
   if (overview.routineTemplateId) {
-    const { data: template } = await supabase
-      .from('routine_template_overview')
-      .select('evidence_required,evidence_instruction')
-      .eq('id', overview.routineTemplateId)
-      .maybeSingle();
     const raw = (exceptionResult.data ?? [])[0] as Record<string, unknown> | undefined;
     routine = {
       evidenceRequired: Boolean(template?.evidence_required),
@@ -3898,12 +3923,13 @@ async function getStepsOverdueByTask(personId: string): Promise<Map<string, numb
  */
 export async function getAssignablePeople(
   taskId: string,
+  viewerId: string,
 ): Promise<Array<{ id: string; name: string; isPrimaryOwner: boolean; directReport: boolean }>> {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
+  // The viewer comes from the caller, which has already established it. This
+  // asked the auth server again, and was cheap only because Next happened to
+  // reuse the page's identical request for it (v195).
   const [taskResult, peopleResult, reportsResult] = await Promise.all([
     supabase
       .from('task_overview')
@@ -3926,17 +3952,15 @@ export async function getAssignablePeople(
      * (v175). Read from the profiles the viewer can already see, which include
      * their reports; `team_directory` deliberately carries no reporting line.
      */
-    user
-      ? readAll((from, to) =>
-          supabase
-            .from('user_profiles')
-            .select('id')
-            .eq('reporting_manager_id', user.id)
-            .eq('status', 'active')
-            .order('id')
-            .range(from, to),
-        )
-      : Promise.resolve({ data: [] as Array<{ id: string }>, error: null }),
+    readAll((from, to) =>
+      supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('reporting_manager_id', viewerId)
+        .eq('status', 'active')
+        .order('id')
+        .range(from, to),
+    ),
   ]);
 
   if (!taskResult.data) return [];

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
@@ -127,9 +128,11 @@ export function WeeklyPriorities({
                 {commitment.rank}
               </span>
               <span className="weekly-priority-copy">
-                <a className="row-primary-link" href={`/work?task=${commitment.taskId}`}>
+                {/* A client link, like every other row: a plain anchor reloaded
+                    the whole application to open one drawer (v195). */}
+                <Link className="row-primary-link" href={`/work?task=${commitment.taskId}`}>
                   <strong>{commitment.expectedResult}</strong>
-                </a>
+                </Link>
                 <span className="muted">
                   {/* A step names its parent, so "Finalise vendor drawing
                       review" is read under "BR2 sprinkler installation". */}

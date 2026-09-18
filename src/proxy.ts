@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
 import { publicEnv } from '@/lib/env';
+import { forwardedRequestHeaders } from '@/lib/supabase/session-header';
 
 /** Paths reachable without a session. Everything else requires one. */
 const PUBLIC_PATHS = ['/sign-in', '/auth/callback', '/forgot-password'];
@@ -35,10 +36,12 @@ export async function proxy(request: NextRequest) {
   // refresh, and asking the auth server about a user that cannot exist only
   // adds latency to a job that must not be redirected anyway.
   if (SELF_AUTHENTICATING_PATHS.some((path) => request.nextUrl.pathname.startsWith(path))) {
-    return NextResponse.next({ request });
+    return NextResponse.next({
+      request: { headers: forwardedRequestHeaders(request.headers, null) },
+    });
   }
 
-  let response = NextResponse.next({ request });
+  let refreshedCookies: Array<{ name: string; value: string; options: CookieOptions }> = [];
 
   const supabase = createServerClient(
     publicEnv.NEXT_PUBLIC_SUPABASE_URL,
@@ -52,10 +55,7 @@ export async function proxy(request: NextRequest) {
           for (const { name, value } of cookiesToSet) {
             request.cookies.set(name, value);
           }
-          response = NextResponse.next({ request });
-          for (const { name, value, options } of cookiesToSet) {
-            response.cookies.set(name, value, options);
-          }
+          refreshedCookies = cookiesToSet;
         },
       },
     },
@@ -66,6 +66,15 @@ export async function proxy(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // Built after `getUser`, so the page receives the refreshed cookies and,
+  // once the auth server has answered, who it said this is (v195).
+  const response = NextResponse.next({
+    request: { headers: forwardedRequestHeaders(request.headers, user?.id ?? null) },
+  });
+  for (const { name, value, options } of refreshedCookies) {
+    response.cookies.set(name, value, options);
+  }
 
   const { pathname } = request.nextUrl;
   const isPublic = PUBLIC_PATHS.some((path) => pathname.startsWith(path));

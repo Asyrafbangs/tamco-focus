@@ -51,8 +51,13 @@ async function clearFocus(page: Page) {
   if ((await summary.innerText()).includes('Not set')) return;
   const link = summary.locator('.row-primary-link');
   await link.click();
-  await expect(page.locator('.task-detail-drawer')).toBeVisible();
+  const drawer = page.locator('.task-detail-drawer');
+  await expect(drawer).toBeVisible();
   await page.getByRole('button', { name: /Working on this . Clear/ }).click();
+  // The save is on its way until the drawer says so; navigating before then
+  // cancels it in the browser (seen in a v195 full run: the POST was aborted
+  // 17ms after it left, and the focus was never cleared).
+  await expect(drawer.getByRole('button', { name: 'Set as working on' })).toBeVisible();
   await openWork(page);
   await expect(summary).toContainText('Not set');
 }

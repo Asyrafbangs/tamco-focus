@@ -1,8 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 
+import { pendingDrawer, takeOverPendingDrawer } from '@/components/ui/drawer-handoff';
 import { lockBodyScroll } from '@/components/ui/scroll-lock';
 
 /**
@@ -81,7 +82,28 @@ export function SideDrawer({
    * team-visibility spec about one run in three.
    */
   const closing = useRef(false);
-  const [open, setOpen] = useState(false);
+  /*
+   * v195 — arriving onto a placeholder, the drawer is already on screen.
+   *
+   * The press started the slide before this drawer's content existed
+   * (`PendingDrawer`), so it must not start it again from off-screen: it
+   * renders open, and the layout effect below finishes whatever part of the
+   * movement the placeholder had not.
+   */
+  const [open, setOpen] = useState(() => pendingDrawer() !== null);
+
+  useLayoutEffect(() => {
+    const reached = takeOverPendingDrawer();
+    const panel = panelRef.current;
+    if (!reached || reached === 'none' || !panel) return;
+    // Start exactly where the placeholder was, then let the transition run to
+    // the open position. Before paint, so the two are never seen side by side.
+    panel.style.transition = 'none';
+    panel.style.transform = reached;
+    void panel.offsetWidth;
+    panel.style.transition = '';
+    panel.style.transform = '';
+  }, []);
 
   useEffect(() => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -189,15 +211,24 @@ export function SideDrawer({
      * page looked like it had stopped responding. So a press on any internal
      * link cancels it, and a press on the link this drawer is already showing
      * brings it back rather than leaving an invisible drawer behind.
+     *
+     * v195 - and that holds until this drawer has actually gone, not only
+     * until the push. Between the push and the moment it lands, a press on
+     * this same row sends the router straight back to this address: the close
+     * never lands, so this drawer is never removed — and it stayed on the page
+     * closed, invisible, and deaf to every further press on that row. Found by
+     * v194's own test once the page answered a little faster.
      */
+    const shownAt = window.location.href;
     const onNavigationIntent = (event: MouseEvent) => {
       const target = event.target instanceof Element ? event.target : null;
       const link = target?.closest('a[href]');
       const href = link?.getAttribute('href');
       if (!href || !href.startsWith('/')) return;
-      const goingBackHere = new URL(href, window.location.origin).href === window.location.href;
+      const goingBackHere = new URL(href, window.location.origin).href === shownAt;
       stopWaiting();
       if (goingBackHere) {
+        settleStop.current?.();
         closing.current = false;
         setOpen(true);
       }
@@ -213,9 +244,8 @@ export function SideDrawer({
     window.addEventListener('popstate', stopWaiting);
     closeWatchStop.current = stopWaiting;
     closeTimer.current = setTimeout(() => {
-      closeWatchStop.current = null;
-      document.removeEventListener('click', onNavigationIntent, true);
-      window.removeEventListener('popstate', stopWaiting);
+      // The listeners stay until this drawer unmounts or a press overtakes it.
+      closeTimer.current = null;
       if (focusIsLoose()) restoreFocus();
       router.push(closeHref, { scroll: false });
       /*

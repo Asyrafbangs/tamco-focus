@@ -103,13 +103,28 @@ export default async function GoalsPage({
    * authority below comes with it.
    */
   const canManage = profile.role === 'manager' || profile.role === 'administrator';
-  const visiblePeople = await getVisiblePeopleCount(
-    profile.id,
-    profile.reporting_manager_id ?? null,
-  );
-  const canSeeTeam = visiblePeople > 0;
+
+  /*
+   * v195 — started together, not one after another.
+   *
+   * The count of visible people was awaited before anything else began, and
+   * the open goal and the viewer's own sessions only after everything else had
+   * finished, so opening a goal waited on four rounds in a row. None of them
+   * needs the others: the goal is named by the address, the reads that depend
+   * on the count follow straight on from it, and your own sessions follow from
+   * your own plan.
+   */
+  const visiblePeopleRead = getVisiblePeopleCount(profile.id, profile.reporting_manager_id ?? null);
+  const goalDetailRead = params.goal ? getGoalDetail(params.goal) : Promise.resolve(null);
+  const myPlanRead = getCurrentGoalPlan(profile.id);
+  // Only the viewer's own view can know its sessions before the team is read.
+  const mySessionsRead =
+    params.view === 'team'
+      ? null
+      : myPlanRead.then((plan) => getGoalSessions(profile.id, plan?.performancePeriodId ?? null));
 
   const [
+    visiblePeople,
     myGoals,
     teamSummary,
     employees,
@@ -119,8 +134,9 @@ export default async function GoalsPage({
     supportPeople,
     grantedRoster,
   ] = await Promise.all([
+    visiblePeopleRead,
     getMyGoals(profile.id),
-    canSeeTeam ? getTeamGoalSummary(profile.id) : Promise.resolve([]),
+    visiblePeopleRead.then((count) => (count > 0 ? getTeamGoalSummary(profile.id) : [])),
     // The picker for "set a Goal for somebody", which is an authority. It
     // reads `user_profiles`, whose policy also exposes the viewer's own
     // reporting manager so the interface can name them — a licence to read a
@@ -128,12 +144,13 @@ export default async function GoalsPage({
     canManage ? getGoalEmployeeOptions(profile.id) : Promise.resolve([]),
     canManage ? getGoalActiveWeights() : Promise.resolve<Record<string, number>>({}),
     getWorkableTasks(),
-    getCurrentGoalPlan(profile.id),
+    myPlanRead,
     getGoalSupportPeople(profile.id),
     // The roster a viewer without authority reads: RLS-bound, and it excludes
     // the person they report to for the same reason as above.
-    canSeeTeam && !canManage ? getTeamLoad(profile.id) : Promise.resolve([]),
+    visiblePeopleRead.then((count) => (count > 0 && !canManage ? getTeamLoad(profile.id) : [])),
   ]);
+  const canSeeTeam = visiblePeople > 0;
 
   const roster = canManage
     ? employees.map((employee) => ({
@@ -177,13 +194,17 @@ export default async function GoalsPage({
     ? await Promise.all([getGoalsForOwner(selectedPersonId), getCurrentGoalPlan(selectedPersonId)])
     : [[], null];
   const selectedPerson = teamPeople.find((person) => person.userId === selectedPersonId);
-  const goalDetail = params.goal ? await getGoalDetail(params.goal) : null;
   const rows = view === 'team' ? teamGoals : myGoals;
   const currentPlan = view === 'team' ? teamPlan : myPlan;
-  const goalSessions = await getGoalSessions(
-    view === 'team' ? (selectedPersonId ?? profile.id) : profile.id,
-    currentPlan?.performancePeriodId ?? null,
-  );
+  const [goalDetail, goalSessions] = await Promise.all([
+    goalDetailRead,
+    view === 'my' && mySessionsRead
+      ? mySessionsRead
+      : getGoalSessions(
+          view === 'team' ? (selectedPersonId ?? profile.id) : profile.id,
+          currentPlan?.performancePeriodId ?? null,
+        ),
+  ]);
 
   const requestedLifecycle = params.lifecycle === 'discussion' ? 'draft' : params.lifecycle;
   const lifecycle: GoalLifecycleView = GOAL_LIFECYCLE_VIEWS.includes(
