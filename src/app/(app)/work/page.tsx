@@ -1956,6 +1956,12 @@ export default async function WorkPage({
 
       {taskDetail && (
         <TaskDetailDrawer
+          /*
+           * v194 - one instance per task. Without this React reuses the drawer
+           * for the next task opened, which kept the closing flag, the pending
+           * close navigation and the scroll lock of the task before it.
+           */
+          key={taskDetail.task.id}
           detail={taskDetail}
           currentFocus={currentFocus}
           /*
@@ -1990,6 +1996,7 @@ export default async function WorkPage({
 
       {proposalDetail && (
         <WorkProposalDrawer
+          key={proposalDetail.id}
           proposal={proposalDetail}
           closeHref={scope === 'team' ? '/work?scope=team' : '/work'}
         />

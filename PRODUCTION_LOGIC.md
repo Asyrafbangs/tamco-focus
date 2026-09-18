@@ -1955,3 +1955,24 @@ assignee, or the owner for a step assigned to nobody (v159).
      barrier;
    - the four "left somebody" titles get the released links;
    - any other notice linked to a step whose kind is not a step kind is unlinked back to its work.
+
+## 89. v194 Opening one task window after another
+
+1. `lockBodyScroll()` (`src/components/ui/scroll-lock.ts`) is the only thing that touches
+   `document.body.style.overflow`. The first holder records what the page had and locks it;
+   each later holder only counts; the page is restored when the last releases. A repeated
+   release from one holder is ignored, so a component may release in cleanup freely.
+   `SideDrawer` and `Modal` both use it.
+   - Why: React unmounts a parent before its children, so a drawer closed under an open dialog
+     restored the scrollable value first and the dialog put `hidden` back after it.
+2. `SideDrawer` still waits 245ms before `router.push(closeHref)`, for the slide out. While it
+   waits it listens for a press on any internal link, and for `popstate`.
+   - A press on a different address cancels the close: that navigation is the person's
+     instruction, and this one is stale. An address only changes when a client navigation
+     commits, which is later than the timer, so the press is what has to be watched.
+   - A press on the address already open cancels the close and reopens the drawer, rather than
+     leaving it invisible behind a URL that cannot change.
+   - Unmounting cancels the wait, the timer and the settle observer.
+3. The three drawers are keyed by the record they show (`taskDetail.task.id`,
+   `goalDetail.goal.id`, `proposalDetail.id`). Without a key React reuses one drawer for the
+   next record, carrying over its closing flag, its pending navigation and its scroll lock.

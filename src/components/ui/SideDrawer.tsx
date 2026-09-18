@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
+import { lockBodyScroll } from '@/components/ui/scroll-lock';
+
 /**
  * A way to find the trigger again after a re-render has replaced it.
  *
@@ -66,6 +68,8 @@ export function SideDrawer({
   const triggerQuery = useRef<string | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const settleStop = useRef<(() => void) | null>(null);
+  /** v194 - stops waiting to navigate away, when this drawer goes first. */
+  const closeWatchStop = useRef<(() => void) | null>(null);
   /*
    * Closing is guarded by its own flag, not by the transition state.
    *
@@ -83,8 +87,7 @@ export function SideDrawer({
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     triggerRef.current = opener;
     triggerQuery.current = identifyTrigger(opener);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const releaseScroll = lockBodyScroll();
     const frame = requestAnimationFrame(() => {
       // Escape can arrive before this frame. If it has, do not slide a drawer
       // in that is already on its way out.
@@ -106,8 +109,9 @@ export function SideDrawer({
     return () => {
       cancelAnimationFrame(frame);
       if (closeTimer.current) clearTimeout(closeTimer.current);
+      closeWatchStop.current?.();
       settleStop.current?.();
-      document.body.style.overflow = previousOverflow;
+      releaseScroll();
     };
   }, []);
 
@@ -175,7 +179,43 @@ export function SideDrawer({
     if (closing.current) return;
     closing.current = true;
     setOpen(false);
+    /*
+     * v194 - a close that is overtaken is dropped.
+     *
+     * The push below runs 245ms later, whatever happened in between, and a
+     * client navigation only changes the address once it commits — later than
+     * that. Opening another task inside the window was therefore undone by
+     * this close: the task flashed and vanished, and after a few tries the
+     * page looked like it had stopped responding. So a press on any internal
+     * link cancels it, and a press on the link this drawer is already showing
+     * brings it back rather than leaving an invisible drawer behind.
+     */
+    const onNavigationIntent = (event: MouseEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      const link = target?.closest('a[href]');
+      const href = link?.getAttribute('href');
+      if (!href || !href.startsWith('/')) return;
+      const goingBackHere = new URL(href, window.location.origin).href === window.location.href;
+      stopWaiting();
+      if (goingBackHere) {
+        closing.current = false;
+        setOpen(true);
+      }
+    };
+    const stopWaiting = () => {
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+      closeWatchStop.current = null;
+      document.removeEventListener('click', onNavigationIntent, true);
+      window.removeEventListener('popstate', stopWaiting);
+    };
+    document.addEventListener('click', onNavigationIntent, true);
+    window.addEventListener('popstate', stopWaiting);
+    closeWatchStop.current = stopWaiting;
     closeTimer.current = setTimeout(() => {
+      closeWatchStop.current = null;
+      document.removeEventListener('click', onNavigationIntent, true);
+      window.removeEventListener('popstate', stopWaiting);
       if (focusIsLoose()) restoreFocus();
       router.push(closeHref, { scroll: false });
       /*

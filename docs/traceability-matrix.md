@@ -80,5 +80,6 @@
 | Each notice links only to its own step               | An unread barrier or reassignment notice keeps its link      | focus.notify_notice returns the id; step triggers link their own notice   | v193 integration (5)                                   | Implemented and verified |
 | Lost work links to the person's own list             | Reassigned, withdrawn, removed: Open My Work / Open Shared   | released_task and released_contribution links; backfill                   | v193 integration, unit (2)                             | Implemented and verified |
 | Barrier notices open the barrier                     | Decision needed opens the decision form; labels corrected    | Notice about a barrier links to it; Respond only when asked               | v193 integration, unit                                 | Implemented and verified |
+| Opening task windows repeatedly keeps working        | A task opened while the last closes stays open; page scrolls | Close cancelled by a navigation; drawer keyed per record                  | v194 E2E (5), unit (4)                                 | Implemented and verified |
 
 The approved v33 application modules are mapped above. Detailed workflow contracts remain in `MASTER_PRODUCT_SPEC.md`, `PRODUCTION_LOGIC.md`, and the handoff documents in this directory.

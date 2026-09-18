@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
+import { lockBodyScroll } from '@/components/ui/scroll-lock';
+
 export function Modal({
   open,
   title,
@@ -98,8 +100,7 @@ export function Modal({
   useEffect(() => {
     if (!visible) return;
     dialogRef.current?.focus();
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const releaseScroll = lockBodyScroll();
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -126,7 +127,7 @@ export function Modal({
     }
     document.addEventListener('keydown', onKeyDown, true);
     return () => {
-      document.body.style.overflow = previousOverflow;
+      releaseScroll();
       document.removeEventListener('keydown', onKeyDown, true);
     };
   }, [requestClose, visible]);

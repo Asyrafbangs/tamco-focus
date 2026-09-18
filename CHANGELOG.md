@@ -1,5 +1,18 @@
 # TAMCO Focus — Change Log
 
+## v194 The task window survives being opened again and again — 18 September 2026
+
+Reported: "after I open the pop up task windows many times, it becomes unresponsive. I have to
+refresh the page." Two faults, both from closing one window as another opens:
+
+- **A task opened while the last one was closing was cancelled.** Closing waits 245ms before
+  returning to the list, so it could open a task and then navigate away from it. The task
+  flashed and vanished; doing it a few times looked like the page had stopped responding. A
+  press on any link now cancels the close, and pressing the same task again brings it back.
+- **The page could be left unable to scroll.** The window and the dialogs inside it each saved
+  and restored the page's scrolling on their own, so whichever left last could restore
+  "locked" for good. They now share one counted lock, released when the last one closes.
+
 ## v193 Every notice opens the right place — 17 September 2026
 
 The notices and emails sent to everybody were checked against Production's records and a replay

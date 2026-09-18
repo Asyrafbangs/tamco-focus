@@ -596,6 +596,7 @@ export default async function GoalsPage({
 
       {goalDetail && (
         <GoalDetailDrawer
+          key={goalDetail.goal.id}
           detail={goalDetail}
           closeHref={closeHref}
           timeZone={profile.timezone}
