@@ -22,7 +22,9 @@ Removed from `can_edit_task`, `can_review_task`, `can_update_goal`,
 `cancel_task`, `reassign_task`, `accept_workload_review` and `cancel_goal`.
 
 Kept in `can_view_task`, `can_view_goal` and `can_view_user`: an administrator
-has to see an account to administer it, and seeing is not acting. Account
+has to see an account to administer it, and seeing is not acting. (Since v196
+the task rule itself lives in `focus.visible_task_id_array`, which
+`can_view_task` reads; the administrator branch moved with it unchanged.) Account
 lifecycle — provision, deactivate, reactivate, profile correction, visibility —
 remains admin-gated.
 
@@ -45,6 +47,7 @@ output.
 | Boundary                                                             | Result | Evidence                                                                                                                   |
 | -------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------- |
 | Every application table has RLS enabled                              | PASS   | `check:schema` gate                                                                                                        |
+| Visibility computed once per query matches the per-row rules (v196)  | PASS   | `rls_visibility_sets_v196.test.sql`: every user, every task, request and person; two deliberate mutations caught           |
 | Direct table writes are refused for lifecycle state                  | PASS   | `lean-goal-v51.test.ts`, `goal-lifecycle-v50.test.ts`, pgTAP `throws_ok`                                                   |
 | A view-only participant cannot write against another employee's Goal | PASS   | `rls_visibility.test.sql`                                                                                                  |
 | A Goal owner may act on their own Goal                               | PASS   | `rls_visibility.test.sql`                                                                                                  |

@@ -1,5 +1,34 @@
 # TAMCO Focus — Change Log
 
+## v196 The database answers in milliseconds — 19 September 2026
+
+Reported after v195: "it is getting smooth now, but it still loads and takes time. Is it because
+of the server?" It was the database. Production's own statistics showed the reads behind every
+page averaging 120 to 480 milliseconds for 166 tasks. The cause was the check that decides who may
+see a piece of work. It was worked out again for every single task, step, attachment and update a
+page touched, and each time it rebuilt the whole picture of who reports to whom. For a manager,
+just counting 154 steps took 134 milliseconds.
+
+- **Who may see what is now worked out once per request, not once per row.** Measured at
+  Production's size, as a manager:
+
+  | Read                                  | Before | After |
+  | ------------------------------------- | -----: | ----: |
+  | Every task                            | 126 ms |  4 ms |
+  | Every step                            | 129 ms |  1 ms |
+  | The team's work list                  |  99 ms |  3 ms |
+  | The team summary                      | 110 ms |  7 ms |
+  | One person's tasks with their details | 189 ms | 13 ms |
+
+- **Nobody sees anything different.** The rules are the same rules. A new database test keeps
+  the old ones as the specification and checks every user against every task, request and person.
+  It also checks that each person reads exactly the rows they could read before. When the new
+  rules were broken on purpose, the test caught it.
+- **Closing a window leaves the keyboard on its row, even when the page redraws just afterwards.**
+  The faster database let the page finish redrawing sooner, which exposed a case where the
+  keyboard focus was dropped. It now stays on the row, and never leaves a window you have just
+  reopened.
+
 ## v195 A task opens the moment you press it — 18 September 2026
 
 Reported: "when I click, it loads slowly and takes time. It is not as smooth." Opening a task

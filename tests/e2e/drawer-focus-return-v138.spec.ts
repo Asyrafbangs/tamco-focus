@@ -227,3 +227,47 @@ test('v166 the caret survives a re-render that lands as the drawer leaves', asyn
   await expect(page.getByRole('dialog', { name: /Safety Digitalisation/ })).toHaveCount(0);
   await expect(row.locator('.row-primary-link')).toBeFocused({ timeout: 10_000 });
 });
+
+/**
+ * v196 — the restore outlives the drawer, so it must stand aside for the next.
+ *
+ * The observer that puts the caret back used to stop when the drawer
+ * unmounted, which is also the moment its own close lands — so once the
+ * database answered quickly, a re-render just after the close left the caret
+ * on nothing (the v149 test above, failing on both layouts). It now runs on
+ * after the drawer has gone, for up to a second and a half.
+ *
+ * Pressing Back straight after closing reopens the drawer inside that time,
+ * with nothing a person chose holding the caret in between. The reopened
+ * panel is `tabindex="-1"` — the same shape as a container a navigation parks
+ * the caret on — and without a rule for it the observer pulled the caret out
+ * of the drawer being read and back onto the row behind it.
+ */
+test('v196 the caret stays in a drawer reopened as the last one leaves', async ({ page }) => {
+  await signIn(page, 'amer@tamco.local');
+  await page.goto('/goals');
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+  const row = page.locator('.goal-row').filter({ hasText: 'Safety Digitalisation' });
+
+  await row.locator('.row-primary-link').click();
+  const drawer = page.getByRole('dialog', { name: /Safety Digitalisation/ });
+  await expect(drawer).toHaveAttribute('data-open', 'true');
+  await page.keyboard.press('Escape');
+  // Gone: from here the first drawer's observer runs on its own.
+  await expect(page.locator('.task-detail-layer')).toHaveCount(0);
+
+  await page.goBack();
+  await expect(drawer).toHaveAttribute('data-open', 'true');
+  await expect
+    .poll(() => page.evaluate(() => document.activeElement?.getAttribute('role')))
+    .toBe('dialog');
+  // Something re-renders while the observer is still running — content
+  // streaming in, a badge updating — which is what wakes it.
+  await page.evaluate(() => document.body.appendChild(document.createElement('div')));
+  // Past the observer's deadline, the caret is still inside the drawer.
+  await page.waitForTimeout(1_800);
+  expect(
+    await page.evaluate(() => Boolean(document.activeElement?.closest('[role="dialog"]'))),
+    'the caret was taken out of the drawer being read',
+  ).toBe(true);
+});

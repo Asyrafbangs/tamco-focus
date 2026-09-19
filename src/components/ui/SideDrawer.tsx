@@ -132,7 +132,17 @@ export function SideDrawer({
       cancelAnimationFrame(frame);
       if (closeTimer.current) clearTimeout(closeTimer.current);
       closeWatchStop.current?.();
-      settleStop.current?.();
+      /*
+       * v196 - the settle observer is NOT stopped here.
+       *
+       * This drawer unmounts when its own close lands, and a re-render arriving
+       * just after that is exactly what the observer exists for. It was stopped
+       * here, so it only ever covered re-renders that beat the close: once
+       * v196 made the database fast enough for the close to land first, the row
+       * was replaced 20ms later and the caret was left on nothing. It ends by
+       * itself — at its deadline, or as soon as the caret is somewhere a person
+       * put it, including another dialog.
+       */
       releaseScroll();
     };
   }, []);
@@ -303,6 +313,20 @@ export function SideDrawer({
          */
         if (owner && live && owner === live) {
           if (performance.now() >= deadline) stop();
+          return;
+        }
+
+        /*
+         * Another dialog has it — the next task, opened as this one left.
+         * Its panel is `tabindex="-1"` like this one, so the rule below would
+         * call it loose and take the caret out of the drawer being read.
+         */
+        const inAnotherDialog =
+          owner instanceof Element &&
+          owner.closest('[role="dialog"]') !== null &&
+          !(panelRef.current?.contains(owner) ?? false);
+        if (inAnotherDialog) {
+          stop();
           return;
         }
 

@@ -2029,3 +2029,43 @@ assignee, or the owner for a step assigned to nobody (v159).
      before a drawer opened by its address was listening.
    - It is a floor, not a promise: the browser also idles while scripts download.
    - A journey that needs a drawer listening waits for `data-open="true"`.
+
+## 91. v196 Visibility once per query
+
+1. Task and request visibility are each defined once, as sets:
+   - `focus.visible_task_id_array()`: the conditions `can_view_task` had, in the same order.
+   - `focus.visible_request_id_array()`: the same for `can_view_request`.
+   - `focus.visible_user_id_array()`: the array form of `focus.visible_user_ids()`, which is
+     still the definition of who may see whom.
+   - `can_view_task(id)` and `can_view_request(id)` are membership of those sets, so a single
+     check costs what it did and there is no second copy of either rule.
+2. A read policy never calls a visibility function per row.
+   - It asks once per query and tests each row against the answer:
+     `coalesce(task_id = any ((select focus.visible_task_id_array())::uuid[]), false)`.
+   - The `::uuid[]` cast is required. Without it `= any ((select ...))` parses as a subquery
+     comparing uuid with uuid[].
+   - `coalesce(..., false)` keeps a null key meaning "not visible", as the functions returned.
+   - Argument-free helpers (`is_active_account`, `is_admin`, `current_user_id`, `auth.uid`, ...)
+     are wrapped as `(select ...)` so they are asked once.
+   - 28 read policies were rewritten from the live policy text; nothing else in them changed.
+     Goal policies still call `can_view_goal` per row: goals are few, and the goal rule is its
+     own.
+   - Why: at Production's size a per-row call cost about 0.9 ms, because each one rebuilt the
+     viewer's reporting tree, grants and mode.
+3. `supabase/tests/rls_visibility_sets_v196.test.sql` holds the v195 rules verbatim as the
+   specification. For every user it checks:
+   - the sets against those rules on every task, request and person;
+   - the real policies return exactly the tasks, steps, requests and people those rules allowed;
+   - fixtures exercise every path: collaborator, reviewer, step assignee, completion reviewer,
+     binned own work, a request asked of the viewer on hidden work, a goal request and a
+     deactivated account that owns work.
+   - It fails if any read policy goes back to calling a visibility function per row.
+4. `SideDrawer`'s settle observer is no longer stopped when the drawer unmounts.
+   - The drawer unmounts when its own close lands, and a re-render just after that is what the
+     observer exists for. Once v196 made the close land sooner, the v149 test (row replaced
+     400 ms after Escape) found the caret left on nothing.
+   - The observer ends by itself: at its deadline, or once the caret is somewhere a person put
+     it.
+   - Since it now outlives its drawer, a caret inside another dialog also ends it. A drawer
+     reopened by Back has a `tabindex="-1"` panel, which the loose rule would otherwise treat as
+     a parked container and take the caret out of (`drawer-focus-return-v138`, v196 test).
