@@ -25,6 +25,9 @@ README.md
 UPDATE_EXISTING_APP_TO_V37_PROMPT.md
 AGENTS.md
 CLAUDE.md
+# Approved module specifications and their visual packs (Finding Management
+# v1.3 onwards), for the same reason.
+docs/specs/
 
 # SQL is formatted by hand to keep migration diffs readable.
 supabase/migrations/

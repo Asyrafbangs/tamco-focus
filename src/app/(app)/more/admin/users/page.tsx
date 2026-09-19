@@ -5,8 +5,10 @@ import { WorkspaceTabs } from '@/components/ui/ParityPrimitives';
 import { SubmitOnSelect } from '@/components/ui/SubmitOnSelect';
 import { requireProfile } from '@/lib/supabase/server';
 import { getDirectoryData, getReportingHistory, getVisibilityData } from '@/server/queries';
+import { getStaffEshAccessForAdmin } from '@/server/esh/queries';
 
 import { UserCreateForm, UserEditForm, UserStatusForm, VisibilityForm } from '../../SettingsForms';
+import { EshAccessForm } from './EshAccessForm';
 import { ReportingHistory } from './ReportingHistory';
 
 export default async function UsersPage({
@@ -48,6 +50,8 @@ export default async function UsersPage({
   const visibility = selected ? await getVisibilityData(selected.id) : null;
   // The dated record of both lines (v176), and a date somebody asked about.
   const history = selected ? await getReportingHistory(selected.id) : [];
+  // v197 - Finding Management access, beside everything else about this person.
+  const eshAccess = selected ? await getStaffEshAccessForAdmin(selected.id) : null;
   const askedDate = /^\d{4}-\d{2}-\d{2}$/.test(params.on ?? '') ? (params.on as string) : '';
 
   return (
@@ -194,6 +198,31 @@ export default async function UsersPage({
                     initialSubjectIds={visibility.selectedSubjectIds}
                     configured={visibility.configured}
                     effectiveNow={visibility.effective}
+                  />
+                </section>
+              )}
+
+              {eshAccess && (
+                <section className="admin-esh-access-section" aria-labelledby="esh-access-heading">
+                  <div className="section-heading">
+                    <div>
+                      <p className="eyebrow">Module access</p>
+                      <h3 id="esh-access-heading">Finding Management access</h3>
+                      <p>
+                        Separate from the TAMCO Focus role above. Job title, manager and department
+                        grant nothing here.
+                      </p>
+                    </div>
+                  </div>
+                  <EshAccessForm
+                    key={selected.id}
+                    userId={selected.id}
+                    firstName={selected.fullName.split(' ')[0] ?? selected.fullName}
+                    access={eshAccess.access}
+                    rolloutConfigured={eshAccess.rolloutConfigured}
+                    departments={directory.departments
+                      .filter((department) => department.status === 'active')
+                      .map((department) => ({ id: department.id, name: department.name }))}
                   />
                 </section>
               )}

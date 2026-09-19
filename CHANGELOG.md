@@ -1,5 +1,27 @@
 # TAMCO Focus — Change Log
 
+## v197 Finding Management begins, behind a locked door — 19 September 2026
+
+The first stage of the ESH Finding Management module (specification v1.3, attached 19 September).
+Nothing changes for the team: the module is hidden from everybody who has not been given access,
+and at the start that is everybody except Izzul.
+
+- **ESH Home.** `/esh` shows TAMCO Focus and Finding Management side by side. For someone with
+  Finding access, TAMCO Focus's top bar gains an ESH Home link and a module switcher where the
+  product name was. For everyone else it looks exactly as before.
+- **Access, one person at a time.** Identity & Access has a Finding Management section for each
+  person. An administrator switches access on and chooses a role (Viewer, Coordinator or Verifier)
+  and the departments it covers. Being a manager or an administrator grants nothing by itself.
+  Production enables only `izzul.asyraf@tamco.com.my`, and only to view; the administrator gives
+  Coordinator or Verifier when it is time to create and verify.
+- **New finding.** What was found, where, which department is accountable, the required outcome,
+  the evidence expected, the Action Owner's email, the due date, priority, reviewer, and escalation
+  addresses by level. Drafts can be saved half-finished. Assigning records everything together.
+- **The owner is not emailed yet.** Owners have no account. Their emails are held until their
+  access is enabled, which comes with secure links in the next stage.
+- **Finding Register.** Needs attention, All open, Overdue and Closed, with search, a department
+  filter and the full detail of each finding.
+
 ## v196 The database answers in milliseconds — 19 September 2026
 
 Reported after v195: "it is getting smooth now, but it still loads and takes time. Is it because

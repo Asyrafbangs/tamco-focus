@@ -7,10 +7,12 @@ import { ThemeAttribute } from './ThemeAttribute';
 
 import { MobileNavigation, NavigationRail } from '@/components/Navigation';
 import { NotificationBell } from '@/components/NotificationBell';
+import { ModuleSwitcher } from '@/components/esh/ModuleSwitcher';
 import { PendingDrawer } from '@/components/ui/PendingDrawer';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { getCurrentProfile } from '@/lib/supabase/server';
 import { getActionRequiredCount, getNotifications } from '@/server/queries';
+import { getEshAccess } from '@/server/esh/access';
 import type { AppRole } from '@/domain/types';
 
 import { SignOutButton } from './SignOutButton';
@@ -30,9 +32,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!profile) redirect('/sign-in');
 
   const role = profile.role as AppRole;
-  const [actionRequiredCount, notifications] = await Promise.all([
+  const [actionRequiredCount, notifications, eshAccess] = await Promise.all([
     getActionRequiredCount(profile.id),
     getNotifications(profile.id),
+    getEshAccess(),
   ]);
 
   const initials = profile.full_name
@@ -76,10 +79,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <div className="shell">
         <header className="topbar">
           <div className="top-left">
-            <div className="product">
-              <strong>TAMCO Focus</strong>
-              <span>Tasks, routines and support</span>
-            </div>
+            {/* v197 - somebody with more than one module switches here (§4).
+                Everybody else, including the whole team during the restricted
+                rollout, keeps the product name exactly as it was. */}
+            {eshAccess.enabled ? (
+              <ModuleSwitcher focusHref={`/${profile.default_landing_page ?? 'today'}`} />
+            ) : (
+              <div className="product">
+                <strong>TAMCO Focus</strong>
+                <span>Tasks, routines and support</span>
+              </div>
+            )}
             <form className="global-search" action="/more/records" role="search">
               <label className="visually-hidden" htmlFor="global-search">
                 Search tasks, routines or people

@@ -2069,3 +2069,35 @@ assignee, or the owner for a step assigned to nobody (v159).
    - Since it now outlives its drawer, a caret inside another dialog also ends it. A drawer
      reopened by Back has a `tabindex="-1"` panel, which the loose rule would otherwise treat as
      a parked container and take the caret out of (`drawer-focus-return-v138`, v196 test).
+
+## 92. v197 ESH Finding Management foundations
+
+1. The gate is data, checked in the database. `focus.esh_my_access()` is the intersection of an
+   active account, a row in `esh_rollout_settings` and an enabled `esh_staff_access` entitlement.
+   Every Finding read policy and procedure asks it, so the module fails closed: without the
+   rollout row nobody is in.
+2. First setup, in the v197 migration: the rollout row is created with mode `restricted` (the
+   only value the column accepts), and the one identity §43.1 names is resolved from a confirmed
+   auth address and an active profile. Exactly one match is enabled as an organisation-wide
+   Viewer; anything else records `unresolved` and enables nobody. It runs once, so a routine
+   deployment never re-enables somebody an administrator switched off. The local seed enables
+   Izzul's local account as a Verifier, because no local account uses the production address.
+3. `esh_set_staff_access` is administrator-only, audited, bumps the authorisation version, and
+   refuses an enabled permission with no department unless the whole organisation is chosen.
+   Switching access off keeps the role and scope, so switching it on restores them.
+4. Scope: findings are read when their accountable department is in
+   `focus.esh_visible_department_ids()` (all departments for organisation-wide scope; chosen ones
+   plus descendants only where `include_descendants` is set). Drafts are read by coordinators in
+   scope and by whoever started them.
+5. `esh_save_finding` is the only write. Save draft keeps whatever is there; Assign validates the
+   whole form and returns every problem at once. It creates the contact
+   (`focus.esh_principal_for`, matched on `focus.esh_canonical_email`: trimmed, case-insensitive,
+   nothing else merged), the ownership interval, the escalation route (duplicates at one level
+   dropped), the audit and the owner's outbox row together. The outbox row is `held_rollout`
+   while the contact's access is off. A date-only due date is 17:00 in the organisation's zone.
+6. `esh_register_rows` is the register's one definition. Needs attention is a draft, an
+   unassigned finding, owner work past due, or a held notification. Last update is the last
+   event a person caused, never a reminder.
+7. Pages: `/esh`, `/findings` (redirects to the Register until the Overview stage),
+   `/findings/register`, `/findings/new`, `/findings/{id}`, `/findings/closed` (the Register with
+   Closed selected). Every `/findings` route returns 404 to a disabled person.

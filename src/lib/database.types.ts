@@ -1642,6 +1642,1298 @@ export type Database = {
           },
         ]
       }
+      esh_action_assignments: {
+        Row: {
+          action_id: string
+          assigned_by: string
+          ended_at: string | null
+          id: string
+          organization_id: string
+          principal_id: string
+          reason: string | null
+          started_at: string
+          version: number
+        }
+        Insert: {
+          action_id: string
+          assigned_by: string
+          ended_at?: string | null
+          id?: string
+          organization_id: string
+          principal_id: string
+          reason?: string | null
+          started_at?: string
+          version: number
+        }
+        Update: {
+          action_id?: string
+          assigned_by?: string
+          ended_at?: string | null
+          id?: string
+          organization_id?: string
+          principal_id?: string
+          reason?: string | null
+          started_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_action_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_action_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_action_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_action_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_action_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_action_assignments_organization_id_action_id_fkey"
+            columns: ["organization_id", "action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_finding_actions"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_action_assignments_organization_id_principal_id_fkey"
+            columns: ["organization_id", "principal_id"]
+            isOneToOne: false
+            referencedRelation: "esh_email_principals"
+            referencedColumns: ["organization_id", "id"]
+          },
+        ]
+      }
+      esh_action_escalation_recipients: {
+        Row: {
+          action_id: string
+          added_at: string
+          added_by: string
+          id: string
+          level: number
+          organization_id: string
+          principal_id: string
+          removed_at: string | null
+          removed_by: string | null
+        }
+        Insert: {
+          action_id: string
+          added_at?: string
+          added_by: string
+          id?: string
+          level: number
+          organization_id: string
+          principal_id: string
+          removed_at?: string | null
+          removed_by?: string | null
+        }
+        Update: {
+          action_id?: string
+          added_at?: string
+          added_by?: string
+          id?: string
+          level?: number
+          organization_id?: string
+          principal_id?: string
+          removed_at?: string | null
+          removed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_action_escalation_recipie_organization_id_principal_id_fkey"
+            columns: ["organization_id", "principal_id"]
+            isOneToOne: false
+            referencedRelation: "esh_email_principals"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_action_escalation_recipients_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_action_escalation_recipients_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_action_escalation_recipients_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_action_escalation_recipients_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_action_escalation_recipients_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_action_escalation_recipients_organization_id_action_id_fkey"
+            columns: ["organization_id", "action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_finding_actions"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_action_escalation_recipients_removed_by_fkey"
+            columns: ["removed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_action_escalation_recipients_removed_by_fkey"
+            columns: ["removed_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_action_escalation_recipients_removed_by_fkey"
+            columns: ["removed_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_action_escalation_recipients_removed_by_fkey"
+            columns: ["removed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_action_escalation_recipients_removed_by_fkey"
+            columns: ["removed_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_audit_events: {
+        Row: {
+          action_id: string | null
+          actor_kind: string
+          actor_principal_id: string | null
+          actor_user_id: string | null
+          detail: Json
+          event_type: string
+          finding_id: string | null
+          id: string
+          occurred_at: string
+          organization_id: string
+          subject_principal_id: string | null
+          subject_user_id: string | null
+        }
+        Insert: {
+          action_id?: string | null
+          actor_kind: string
+          actor_principal_id?: string | null
+          actor_user_id?: string | null
+          detail?: Json
+          event_type: string
+          finding_id?: string | null
+          id?: string
+          occurred_at?: string
+          organization_id: string
+          subject_principal_id?: string | null
+          subject_user_id?: string | null
+        }
+        Update: {
+          action_id?: string | null
+          actor_kind?: string
+          actor_principal_id?: string | null
+          actor_user_id?: string | null
+          detail?: Json
+          event_type?: string
+          finding_id?: string | null
+          id?: string
+          occurred_at?: string
+          organization_id?: string
+          subject_principal_id?: string | null
+          subject_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_audit_events_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_audit_events_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_audit_events_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_audit_events_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_audit_events_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_audit_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_audit_events_subject_user_id_fkey"
+            columns: ["subject_user_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_audit_events_subject_user_id_fkey"
+            columns: ["subject_user_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_audit_events_subject_user_id_fkey"
+            columns: ["subject_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_audit_events_subject_user_id_fkey"
+            columns: ["subject_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_audit_events_subject_user_id_fkey"
+            columns: ["subject_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_email_principals: {
+        Row: {
+          access_enabled: boolean
+          access_enabled_at: string | null
+          access_enabled_by: string | null
+          canonical_email: string
+          created_at: string
+          created_by: string | null
+          display_email: string
+          display_name: string | null
+          id: string
+          identity_version: number
+          organization_id: string
+          staff_user_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          access_enabled?: boolean
+          access_enabled_at?: string | null
+          access_enabled_by?: string | null
+          canonical_email: string
+          created_at?: string
+          created_by?: string | null
+          display_email: string
+          display_name?: string | null
+          id?: string
+          identity_version?: number
+          organization_id: string
+          staff_user_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          access_enabled?: boolean
+          access_enabled_at?: string | null
+          access_enabled_by?: string | null
+          canonical_email?: string
+          created_at?: string
+          created_by?: string | null
+          display_email?: string
+          display_name?: string | null
+          id?: string
+          identity_version?: number
+          organization_id?: string
+          staff_user_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_email_principals_access_enabled_by_fkey"
+            columns: ["access_enabled_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_access_enabled_by_fkey"
+            columns: ["access_enabled_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_access_enabled_by_fkey"
+            columns: ["access_enabled_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_access_enabled_by_fkey"
+            columns: ["access_enabled_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_access_enabled_by_fkey"
+            columns: ["access_enabled_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_finding_actions: {
+        Row: {
+          accepted_at: string | null
+          assigned_at: string | null
+          assignment_version: number
+          baseline_due_at: string | null
+          created_at: string
+          created_by: string
+          draft_escalation: Json
+          draft_owner_email: string | null
+          due_at: string | null
+          due_is_date_only: boolean
+          evidence_exception_reason: string | null
+          evidence_instruction: string | null
+          evidence_rule: string
+          finding_id: string
+          id: string
+          no_further_escalation_reason: string | null
+          organization_id: string
+          owner_principal_id: string | null
+          priority: string | null
+          required_outcome: string | null
+          reviewer_user_id: string | null
+          row_version: number
+          sequence: number
+          state: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          assigned_at?: string | null
+          assignment_version?: number
+          baseline_due_at?: string | null
+          created_at?: string
+          created_by: string
+          draft_escalation?: Json
+          draft_owner_email?: string | null
+          due_at?: string | null
+          due_is_date_only?: boolean
+          evidence_exception_reason?: string | null
+          evidence_instruction?: string | null
+          evidence_rule?: string
+          finding_id: string
+          id?: string
+          no_further_escalation_reason?: string | null
+          organization_id: string
+          owner_principal_id?: string | null
+          priority?: string | null
+          required_outcome?: string | null
+          reviewer_user_id?: string | null
+          row_version?: number
+          sequence?: number
+          state?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          assigned_at?: string | null
+          assignment_version?: number
+          baseline_due_at?: string | null
+          created_at?: string
+          created_by?: string
+          draft_escalation?: Json
+          draft_owner_email?: string | null
+          due_at?: string | null
+          due_is_date_only?: boolean
+          evidence_exception_reason?: string | null
+          evidence_instruction?: string | null
+          evidence_rule?: string
+          finding_id?: string
+          id?: string
+          no_further_escalation_reason?: string | null
+          organization_id?: string
+          owner_principal_id?: string | null
+          priority?: string | null
+          required_outcome?: string | null
+          reviewer_user_id?: string | null
+          row_version?: number
+          sequence?: number
+          state?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_finding_actions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_finding_actions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_finding_actions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_finding_actions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_finding_actions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_finding_actions_organization_id_finding_id_fkey"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_findings"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_finding_actions_organization_id_finding_id_fkey"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
+          },
+          {
+            foreignKeyName: "esh_finding_actions_organization_id_owner_principal_id_fkey"
+            columns: ["organization_id", "owner_principal_id"]
+            isOneToOne: false
+            referencedRelation: "esh_email_principals"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_finding_actions_reviewer_user_id_fkey"
+            columns: ["reviewer_user_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_finding_actions_reviewer_user_id_fkey"
+            columns: ["reviewer_user_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_finding_actions_reviewer_user_id_fkey"
+            columns: ["reviewer_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_finding_actions_reviewer_user_id_fkey"
+            columns: ["reviewer_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_finding_actions_reviewer_user_id_fkey"
+            columns: ["reviewer_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_findings: {
+        Row: {
+          accountable_department_id: string | null
+          closed_at: string | null
+          closed_by: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          is_restricted: boolean
+          location: string | null
+          organization_id: string
+          reference: string
+          reported_on: string | null
+          risk_assessed_at: string | null
+          risk_assessed_by: string | null
+          risk_level: string
+          row_version: number
+          source: string
+          source_reference: string | null
+          status: string
+          status_reason: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          accountable_department_id?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          is_restricted?: boolean
+          location?: string | null
+          organization_id: string
+          reference: string
+          reported_on?: string | null
+          risk_assessed_at?: string | null
+          risk_assessed_by?: string | null
+          risk_level?: string
+          row_version?: number
+          source?: string
+          source_reference?: string | null
+          status?: string
+          status_reason?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          accountable_department_id?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          is_restricted?: boolean
+          location?: string | null
+          organization_id?: string
+          reference?: string
+          reported_on?: string | null
+          risk_assessed_at?: string | null
+          risk_assessed_by?: string | null
+          risk_level?: string
+          row_version?: number
+          source?: string
+          source_reference?: string | null
+          status?: string
+          status_reason?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_findings_accountable_department_id_fkey"
+            columns: ["accountable_department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_findings_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_findings_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_findings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_findings_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_risk_assessed_by_fkey"
+            columns: ["risk_assessed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_findings_risk_assessed_by_fkey"
+            columns: ["risk_assessed_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_risk_assessed_by_fkey"
+            columns: ["risk_assessed_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_risk_assessed_by_fkey"
+            columns: ["risk_assessed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_findings_risk_assessed_by_fkey"
+            columns: ["risk_assessed_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_notification_outbox: {
+        Row: {
+          action_id: string | null
+          attempts: number
+          created_at: string
+          event_type: string
+          finding_id: string | null
+          id: string
+          idempotency_key: string
+          last_error: string | null
+          link_intents: Json
+          next_attempt_at: string | null
+          organization_id: string
+          provider_message_id: string | null
+          recipient_principal_id: string | null
+          sent_at: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          action_id?: string | null
+          attempts?: number
+          created_at?: string
+          event_type: string
+          finding_id?: string | null
+          id?: string
+          idempotency_key: string
+          last_error?: string | null
+          link_intents?: Json
+          next_attempt_at?: string | null
+          organization_id: string
+          provider_message_id?: string | null
+          recipient_principal_id?: string | null
+          sent_at?: string | null
+          state: string
+          updated_at?: string
+        }
+        Update: {
+          action_id?: string | null
+          attempts?: number
+          created_at?: string
+          event_type?: string
+          finding_id?: string | null
+          id?: string
+          idempotency_key?: string
+          last_error?: string | null
+          link_intents?: Json
+          next_attempt_at?: string | null
+          organization_id?: string
+          provider_message_id?: string | null
+          recipient_principal_id?: string | null
+          sent_at?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_notification_outbox_organization_id_action_id_fkey"
+            columns: ["organization_id", "action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_finding_actions"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_notification_outbox_organization_id_finding_id_fkey"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_findings"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_notification_outbox_organization_id_finding_id_fkey"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
+          },
+          {
+            foreignKeyName: "esh_notification_outbox_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_notification_outbox_organization_id_recipient_principa_fkey"
+            columns: ["organization_id", "recipient_principal_id"]
+            isOneToOne: false
+            referencedRelation: "esh_email_principals"
+            referencedColumns: ["organization_id", "id"]
+          },
+        ]
+      }
+      esh_reference_counters: {
+        Row: {
+          next_value: number
+          organization_id: string
+        }
+        Insert: {
+          next_value?: number
+          organization_id: string
+        }
+        Update: {
+          next_value?: number
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_reference_counters_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_rollout_settings: {
+        Row: {
+          bootstrap_email: string
+          bootstrap_outcome: string
+          bootstrap_user_id: string | null
+          initialized_at: string
+          mode: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          bootstrap_email: string
+          bootstrap_outcome: string
+          bootstrap_user_id?: string | null
+          initialized_at?: string
+          mode?: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          bootstrap_email?: string
+          bootstrap_outcome?: string
+          bootstrap_user_id?: string | null
+          initialized_at?: string
+          mode?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_rollout_settings_bootstrap_user_id_fkey"
+            columns: ["bootstrap_user_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_rollout_settings_bootstrap_user_id_fkey"
+            columns: ["bootstrap_user_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_rollout_settings_bootstrap_user_id_fkey"
+            columns: ["bootstrap_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_rollout_settings_bootstrap_user_id_fkey"
+            columns: ["bootstrap_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_rollout_settings_bootstrap_user_id_fkey"
+            columns: ["bootstrap_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_rollout_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_staff_access: {
+        Row: {
+          authorization_version: number
+          can_manage_reports: boolean
+          created_at: string
+          disabled_at: string | null
+          disabled_by: string | null
+          enabled: boolean
+          enabled_at: string | null
+          enabled_by: string | null
+          id: string
+          organization_id: string
+          preset: string
+          scope_all_departments: boolean
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          authorization_version?: number
+          can_manage_reports?: boolean
+          created_at?: string
+          disabled_at?: string | null
+          disabled_by?: string | null
+          enabled?: boolean
+          enabled_at?: string | null
+          enabled_by?: string | null
+          id?: string
+          organization_id: string
+          preset?: string
+          scope_all_departments?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          authorization_version?: number
+          can_manage_reports?: boolean
+          created_at?: string
+          disabled_at?: string | null
+          disabled_by?: string | null
+          enabled?: boolean
+          enabled_at?: string | null
+          enabled_by?: string | null
+          id?: string
+          organization_id?: string
+          preset?: string
+          scope_all_departments?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_staff_access_disabled_by_fkey"
+            columns: ["disabled_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_disabled_by_fkey"
+            columns: ["disabled_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_disabled_by_fkey"
+            columns: ["disabled_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_disabled_by_fkey"
+            columns: ["disabled_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_disabled_by_fkey"
+            columns: ["disabled_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_enabled_by_fkey"
+            columns: ["enabled_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_enabled_by_fkey"
+            columns: ["enabled_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_enabled_by_fkey"
+            columns: ["enabled_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_enabled_by_fkey"
+            columns: ["enabled_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_enabled_by_fkey"
+            columns: ["enabled_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_staff_access_departments: {
+        Row: {
+          access_id: string
+          department_id: string
+          include_descendants: boolean
+        }
+        Insert: {
+          access_id: string
+          department_id: string
+          include_descendants?: boolean
+        }
+        Update: {
+          access_id?: string
+          department_id?: string
+          include_descendants?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_staff_access_departments_access_id_fkey"
+            columns: ["access_id"]
+            isOneToOne: false
+            referencedRelation: "esh_staff_access"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_staff_access_departments_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       focus_targets: {
         Row: {
           bucket: Database["public"]["Enums"]["focus_bucket"]
@@ -4578,6 +5870,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          slug: string
+          timezone: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+          timezone?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+          timezone?: string
+        }
+        Relationships: []
       }
       performance_periods: {
         Row: {
@@ -8587,6 +9903,50 @@ export type Database = {
           },
         ]
       }
+      esh_register_rows: {
+        Row: {
+          accountable_department_id: string | null
+          action_count: number | null
+          action_id: string | null
+          action_state: string | null
+          closed_at: string | null
+          created_at: string | null
+          department_name: string | null
+          due_at: string | null
+          due_is_date_only: boolean | null
+          finding_id: string | null
+          is_overdue: boolean | null
+          is_restricted: boolean | null
+          last_update_at: string | null
+          last_update_type: string | null
+          location: string | null
+          needs_attention: boolean | null
+          notification_held: boolean | null
+          organization_id: string | null
+          owner_email: string | null
+          priority: string | null
+          reference: string | null
+          risk_level: string | null
+          status: string | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_findings_accountable_department_id_fkey"
+            columns: ["accountable_department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       focus_summary: {
         Row: {
           active_count: number | null
@@ -10496,6 +11856,37 @@ export type Database = {
       }
       delete_user_permanently: {
         Args: { p_employee_id_confirmation: string; p_user_id: string }
+        Returns: Json
+      }
+      esh_current_access: { Args: never; Returns: Json }
+      esh_list_verifiers: {
+        Args: never
+        Returns: {
+          email: string
+          full_name: string
+          user_id: string
+        }[]
+      }
+      esh_save_finding: {
+        Args: {
+          p_assign?: boolean
+          p_finding_id: string
+          p_idempotency_key?: string
+          p_payload: Json
+        }
+        Returns: Json
+      }
+      esh_set_staff_access: {
+        Args: {
+          p_can_manage_reports?: boolean
+          p_department_ids: string[]
+          p_enabled: boolean
+          p_include_descendants?: boolean
+          p_preset: string
+          p_reason?: string
+          p_scope_all: boolean
+          p_user_id: string
+        }
         Returns: Json
       }
       finalize_goal_plan: {

@@ -2620,3 +2620,27 @@ steps, and v158's "small edits to a step's date tell nobody". See
    - a material change of due date tells the assignee.
    Nobody is told about their own act, an owner who is also the manager is told once, and every
    notice honours My Alerts.
+
+## V197 onwards — ESH platform and Finding Management (19 September 2026)
+
+Approved by the Product Owner on 19 September 2026 as
+`docs/specs/TAMCO_ESH_Finding_Management_Agent_Specification_v1.3.md`, with the design references
+in `docs/specs/finding-management-visual-pack/`. That specification is the authority for the new
+module; this section records how it sits beside TAMCO Focus. Intake, decisions and the stage plan
+are in `docs/esh-finding-management-impact-map.md`.
+
+1. **One platform, separate modules.** ESH Home (`/esh`) opens TAMCO Focus and Finding
+   Management. Switching modules replaces the local menu; TAMCO Focus keeps its own menu, routes
+   and workflows unchanged. No Focus task is created from a finding.
+2. **Restricted rollout.** Finding Management is visible to nobody until enabled. Production's
+   first setup enables only the uniquely resolved, verified identity
+   `izzul.asyraf@tamco.com.my`, with organisation-wide visibility and no other capability.
+   Everybody else, staff and email contacts, starts Off; an administrator enables people one at a
+   time in Identity & Access, with a role and an explicit department scope. The module is hidden
+   from a disabled person entirely, and fails closed if its configuration is missing.
+3. **Finding permissions are separate from the Focus role.** Viewer reads, Coordinator creates
+   and assigns, Verifier also verifies and closes; report management is separate. None is implied
+   by Manager, Administrator, job title, department or reporting line.
+4. **Owners are email addresses.** A corrective action has one owner, identified by email; no
+   account, password or registration is needed. Escalation routes are email addresses per level.
+   While a contact's access is off, their notifications are held, not sent.

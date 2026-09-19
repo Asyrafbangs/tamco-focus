@@ -1041,3 +1041,21 @@ update public.tasks t
   from public.routine_templates rt
  where rt.id = t.routine_template_id
    and t.work_class = 'routine_occurrence';
+
+-- ---------------------------------------------------------------------------
+-- v197 — ESH Finding Management, local stand-in for the rollout identity.
+--
+-- Production's first setup resolves izzul.asyraf@tamco.com.my, which no local
+-- account uses, so a clean local reset leaves the module restricted to nobody.
+-- Local work needs somebody inside it: Izzul's local account is enabled here as
+-- a Verifier across every department. Everybody else stays Off, exactly as the
+-- rollout starts, and tests enable whoever they need through the same
+-- administrator procedure the screen uses.
+-- ---------------------------------------------------------------------------
+
+insert into public.esh_staff_access
+  (organization_id, user_id, enabled, preset, scope_all_departments, enabled_at)
+values
+  ('e5e50000-0000-4000-8000-000000000001', 'f0c05000-0000-4000-a000-000000000002',
+   true, 'verifier', true, now())
+on conflict (organization_id, user_id) do nothing;
