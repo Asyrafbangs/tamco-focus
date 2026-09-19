@@ -1,7 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
+import { Conversation } from '@/components/esh/Conversation';
 import { FindingForm } from '@/components/esh/FindingForm';
+import { ReleaseNotificationButton } from '@/components/esh/ReleaseNotificationButton';
+import { StaffMessageForm } from '@/components/esh/StaffMessageForm';
 import {
   ACTION_STATE_LABELS,
   FINDING_STATUS_LABELS,
@@ -25,6 +28,26 @@ const HISTORY_LABELS: Record<string, string> = {
   finding_created: 'Finding recorded',
   finding_draft_saved: 'Draft saved',
   action_assigned: 'Action assigned',
+  action_started: 'Owner started the work',
+  owner_message: 'Owner sent an update',
+  esh_message: 'ESH wrote to the owner',
+  notification_released: 'Email released',
+  notification_sent: 'Email accepted by the mail server',
+  guest_link_redeemed: 'Owner opened a secure link',
+  guest_link_requested: 'New link requested',
+};
+
+const NOTIFICATION_KIND_LABELS: Record<string, string> = {
+  owner_assignment: 'Assignment email',
+  esh_reply: 'Reply notice',
+  access_link: 'Requested link',
+};
+
+const NOTIFICATION_REASON_LABELS: Record<string, string> = {
+  covered_by_assignment_email: 'Not needed: the assignment email opens the same conversation.',
+  no_longer_the_owner: 'Not sent: the address no longer owns the action.',
+  access_not_enabled: 'Not sent: the contact’s access is off.',
+  access_disabled: 'Stopped: the contact’s access was switched off.',
 };
 
 const NOTIFICATION_STATE_LABELS: Record<string, string> = {
@@ -72,7 +95,7 @@ export default async function FindingPage({
             {finding.reference} is open.{' '}
             {finding.notifications.some((entry) => entry.state === 'held_rollout')
               ? 'The owner has not been emailed yet: their access is not enabled.'
-              : ''}
+              : 'The owner is being emailed a secure link.'}
           </p>
         </div>
       )}
@@ -174,12 +197,20 @@ export default async function FindingPage({
         </span>
       </div>
       {notices}
-      <FindingSummary finding={finding} timeZone={timeZone} />
+      <FindingSummary finding={finding} timeZone={timeZone} canCoordinate={access.canCoordinate} />
     </>
   );
 }
 
-function FindingSummary({ finding, timeZone }: { finding: FindingDetail; timeZone: string }) {
+function FindingSummary({
+  finding,
+  timeZone,
+  canCoordinate,
+}: {
+  finding: FindingDetail;
+  timeZone: string;
+  canCoordinate: boolean;
+}) {
   const dateTime = (instant: string, dateOnly = false) =>
     new Intl.DateTimeFormat('en-MY', {
       day: 'numeric',
@@ -189,6 +220,15 @@ function FindingSummary({ finding, timeZone }: { finding: FindingDetail; timeZon
       timeZone,
     }).format(new Date(instant));
   const action = finding.action;
+  const actionOpen =
+    finding.status === 'open' &&
+    Boolean(action && ['assigned', 'in_progress', 'awaiting_verification'].includes(action.state));
+  // The owner can read a reply only once their access is on and the
+  // assignment email has actually been released to them.
+  const assignmentHeld = finding.notifications.some(
+    (entry) => entry.eventType === 'owner_assignment' && entry.state === 'held_rollout',
+  );
+  const ownerReachable = Boolean(action?.ownerAccessEnabled) && !assignmentHeld;
 
   return (
     <div className="esh-detail">
@@ -304,6 +344,28 @@ function FindingSummary({ finding, timeZone }: { finding: FindingDetail; timeZon
         </section>
       )}
 
+      {action && action.state !== 'draft' && (
+        <section className="esh-form-card" aria-labelledby="esh-detail-conversation">
+          <h2 id="esh-detail-conversation" className="esh-form-card-title">
+            Conversation with the owner
+          </h2>
+          <Conversation
+            entries={finding.conversation}
+            viewer="staff"
+            timeZone={timeZone}
+            now={new Date()}
+            emptyText="No messages yet. The owner’s updates and ESH replies appear here."
+          />
+          {canCoordinate && actionOpen && (
+            <StaffMessageForm
+              actionId={action.id}
+              findingId={finding.id}
+              ownerReachable={ownerReachable}
+            />
+          )}
+        </section>
+      )}
+
       {finding.notifications.length > 0 && (
         <section className="esh-form-card" aria-labelledby="esh-detail-notices">
           <h2 id="esh-detail-notices" className="esh-form-card-title">
@@ -311,13 +373,38 @@ function FindingSummary({ finding, timeZone }: { finding: FindingDetail; timeZon
           </h2>
           <ul className="esh-route">
             {finding.notifications.map((entry) => (
-              <li key={`${entry.eventType}-${entry.createdAt}`}>
-                <span>{entry.recipient ?? 'Recipient'}</span>
+              <li key={entry.id}>
                 <span>
-                  {NOTIFICATION_STATE_LABELS[entry.state] ?? entry.state}
-                  {entry.state === 'held_rollout'
+                  {entry.recipient ?? 'Recipient'}
+                  <small className="esh-notice-kind">
+                    {NOTIFICATION_KIND_LABELS[entry.eventType] ?? entry.eventType}
+                  </small>
+                </span>
+                <span>
+                  {entry.stoppedRetrying
+                    ? 'Failed — the mail server refused it. Check the address.'
+                    : entry.state === 'held_rollout' && entry.recipientEnabled
+                      ? 'Held — not yet released. Their access is on; release it when ready.'
+                      : (NOTIFICATION_STATE_LABELS[entry.state] ?? entry.state)}
+                  {entry.state === 'held_rollout' && !entry.recipientEnabled
                     ? '. Sent once an administrator enables this contact and ESH releases it.'
                     : ''}
+                  {entry.state === 'suppressed' && entry.stateReason
+                    ? ` · ${NOTIFICATION_REASON_LABELS[entry.stateReason] ?? entry.stateReason}`
+                    : ''}
+                  {entry.state === 'held_rollout' &&
+                    entry.recipientEnabled &&
+                    canCoordinate &&
+                    entry.recipient &&
+                    // A reply notice follows the assignment email, never leads it.
+                    (entry.eventType === 'owner_assignment' || !assignmentHeld) && (
+                      <ReleaseNotificationButton
+                        outboxId={entry.id}
+                        findingId={finding.id}
+                        recipient={entry.recipient}
+                        kind={(NOTIFICATION_KIND_LABELS[entry.eventType] ?? 'email').toLowerCase()}
+                      />
+                    )}
                 </span>
               </li>
             ))}

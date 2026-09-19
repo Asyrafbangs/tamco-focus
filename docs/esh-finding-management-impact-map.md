@@ -74,7 +74,9 @@ DEFINER` procedures that take the principal explicitly and re-check the live ass
 
 ## 5. Stages
 
-v197 is built and verified (19 September 2026).
+v197 is built and verified (19 September 2026). v198 is built and verified (20 September 2026).
+Owner-reply notifications to ESH staff by email are not sent in v198: owner updates show on the
+finding and in the register's Last update. They join the follow-up notifications in v201.
 
 Each stage ships behind the rollout gate, so nothing new is visible to the team until an
 administrator enables them. Each ends with the full verify and, where it adds a migration, a

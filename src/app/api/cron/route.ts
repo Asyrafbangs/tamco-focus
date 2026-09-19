@@ -213,6 +213,31 @@ export async function GET(request: Request) {
     }
 
     /*
+     * v198 - Finding Management email. The same drain for the ESH outbox:
+     * whatever a Server Action's after-commit send left behind, retries that
+     * are due, and abandoned claims. The worker re-checks the rollout and
+     * each contact's access before it sends anything, and links point only
+     * at an approved origin.
+     */
+    try {
+      const { eshLinkOrigin, runEshOutboxWorker } = await import('@/server/esh/dispatch');
+      const eshSummary = await runEshOutboxWorker(client, {
+        appBaseUrl: eshLinkOrigin(null),
+        transport: transport.name,
+        send: transport.send,
+      });
+      results.push({
+        worker: 'esh_email',
+        ok: eshSummary.failed === 0,
+        detail: JSON.stringify({ transport: transport.name, ...eshSummary }),
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'unknown error';
+      console.error(`[cron] Finding Management email failed: ${detail}`);
+      results.push({ worker: 'esh_email', ok: false, detail });
+    }
+
+    /*
      * One message, to one address, to prove this deployment can reach the
      * relay.
      *

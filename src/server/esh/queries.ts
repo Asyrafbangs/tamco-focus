@@ -10,6 +10,8 @@ import type {
   RegisterFilter,
   RiskLevel,
 } from '@/domain/esh-findings';
+import type { ConversationEntry } from '@/domain/esh-guest';
+import type { Database } from '@/lib/database.types';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 /**
@@ -222,13 +224,20 @@ export interface FindingDetail {
     noFurtherEscalationReason: string | null;
     escalation: EscalationRecipient[];
     assignedAt: string | null;
+    ownerAccessEnabled: boolean;
   } | null;
   notifications: Array<{
+    id: string;
     eventType: string;
     state: string;
+    stateReason: string | null;
+    stoppedRetrying: boolean;
     createdAt: string;
     recipient: string | null;
+    recipientEnabled: boolean;
   }>;
+  /** v198 - the owner conversation of the first action, oldest first. */
+  conversation: ConversationEntry[];
   history: Array<{
     eventType: string;
     occurredAt: string;
@@ -261,12 +270,14 @@ export async function getFindingDetail(findingId: string): Promise<FindingDetail
       .maybeSingle(),
     supabase
       .from('esh_notification_outbox')
-      .select('event_type, state, created_at, recipient_principal_id')
+      .select(
+        'id, event_type, state, state_reason, next_attempt_at, created_at, recipient_principal_id',
+      )
       .eq('finding_id', findingId)
       .order('created_at'),
     supabase
       .from('esh_audit_events')
-      .select('event_type, occurred_at, actor_user_id, detail')
+      .select('event_type, occurred_at, actor_kind, actor_user_id, detail')
       .eq('finding_id', findingId)
       .order('occurred_at'),
     finding.accountable_department_id
@@ -279,7 +290,7 @@ export async function getFindingDetail(findingId: string): Promise<FindingDetail
   ]);
 
   const action = actionResult.data;
-  const [escalationResult, peopleResult] = await Promise.all([
+  const [escalationResult, peopleResult, messagesResult] = await Promise.all([
     action
       ? supabase
           .from('esh_action_escalation_recipients')
@@ -299,6 +310,23 @@ export async function getFindingDetail(findingId: string): Promise<FindingDetail
           ...(auditResult.data ?? []).map((row) => row.actor_user_id),
         ].filter((id): id is string => Boolean(id)),
       ),
+    action
+      ? supabase
+          .from('esh_action_messages')
+          .select('id, author_kind, author_name, author_email, body, sent_at')
+          .eq('action_id', action.id)
+          .order('sent_at')
+          .limit(500)
+      : Promise.resolve({
+          data: [] as Array<{
+            id: string;
+            author_kind: string;
+            author_name: string | null;
+            author_email: string;
+            body: string;
+            sent_at: string;
+          }>,
+        }),
   ]);
 
   const principalIds = [
@@ -307,9 +335,24 @@ export async function getFindingDetail(findingId: string): Promise<FindingDetail
     ...(outboxResult.data ?? []).map((row) => row.recipient_principal_id),
   ].filter((id): id is string => Boolean(id));
   const { data: principals } = principalIds.length
-    ? await supabase.from('esh_email_principals').select('id, display_email').in('id', principalIds)
-    : { data: [] as Array<{ id: string; display_email: string }> };
+    ? await supabase
+        .from('esh_email_principals')
+        .select('id, display_email, access_enabled, status')
+        .in('id', principalIds)
+    : {
+        data: [] as Array<{
+          id: string;
+          display_email: string;
+          access_enabled: boolean;
+          status: string;
+        }>,
+      };
   const emailOf = new Map((principals ?? []).map((row) => [row.id, row.display_email]));
+  const reachable = new Set(
+    (principals ?? [])
+      .filter((row) => row.access_enabled && row.status === 'active')
+      .map((row) => row.id),
+  );
   const nameOf = new Map(
     (peopleResult.data ?? []).map((row) => [String(row.id), String(row.full_name)]),
   );
@@ -364,20 +407,41 @@ export async function getFindingDetail(findingId: string): Promise<FindingDetail
                   email: emailOf.get(row.principal_id) ?? '',
                 })),
           assignedAt: action.assigned_at ?? null,
+          ownerAccessEnabled: Boolean(
+            action.owner_principal_id && reachable.has(action.owner_principal_id),
+          ),
         }
       : null,
     notifications: (outboxResult.data ?? []).map((row) => ({
+      id: String(row.id),
       eventType: String(row.event_type),
       state: String(row.state),
+      stateReason: row.state_reason ?? null,
+      stoppedRetrying: row.state === 'failed' && !row.next_attempt_at,
       createdAt: String(row.created_at),
       recipient: row.recipient_principal_id
         ? (emailOf.get(row.recipient_principal_id) ?? null)
         : null,
+      recipientEnabled: Boolean(
+        row.recipient_principal_id && reachable.has(row.recipient_principal_id),
+      ),
+    })),
+    conversation: (messagesResult.data ?? []).map((row) => ({
+      id: String(row.id),
+      authorKind: row.author_kind === 'owner' ? 'owner' : 'staff',
+      authorName: row.author_name ?? null,
+      authorEmail: row.author_email ?? null,
+      body: String(row.body),
+      sentAt: String(row.sent_at),
     })),
     history: (auditResult.data ?? []).map((row) => ({
       eventType: String(row.event_type),
       occurredAt: String(row.occurred_at),
-      actorName: row.actor_user_id ? (nameOf.get(String(row.actor_user_id)) ?? 'ESH') : 'System',
+      actorName: row.actor_user_id
+        ? (nameOf.get(String(row.actor_user_id)) ?? 'ESH')
+        : row.actor_kind === 'principal'
+          ? 'Action Owner'
+          : 'System',
       detail: (row.detail ?? {}) as Record<string, unknown>,
     })),
   };
@@ -438,4 +502,47 @@ export async function getStaffEshAccessForAdmin(userId: string): Promise<{
       bootstrap: Boolean(row.enabled) && !row.enabled_by,
     },
   };
+}
+
+export interface EmailContact {
+  id: string;
+  email: string;
+  displayName: string | null;
+  status: string;
+  accessEnabled: boolean;
+  accessChangedAt: string | null;
+  accessChangedBy: string | null;
+  accessReason: string | null;
+  openActions: number;
+  escalationRoutes: number;
+  heldNotifications: number;
+  createdAt: string;
+}
+
+/**
+ * Email contacts, for an administrator maintaining their access (v198,
+ * §31.3). Counts only: administration is not a view of the findings (§43.1).
+ */
+export async function listEmailContacts(search: string): Promise<EmailContact[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_admin_contacts', { p_search: search });
+  if (error) {
+    console.error(`[listEmailContacts] ${error.message}`);
+    return [];
+  }
+  const rows = (data ?? []) as Database['public']['Functions']['esh_admin_contacts']['Returns'];
+  return rows.map((row) => ({
+    id: String(row.id),
+    email: String(row.display_email),
+    displayName: row.display_name ?? null,
+    status: String(row.status),
+    accessEnabled: Boolean(row.access_enabled),
+    accessChangedAt: row.access_changed_at ?? null,
+    accessChangedBy: row.access_changed_by ?? null,
+    accessReason: row.access_reason ?? null,
+    openActions: Number(row.open_actions ?? 0),
+    escalationRoutes: Number(row.escalation_routes ?? 0),
+    heldNotifications: Number(row.held_notifications ?? 0),
+    createdAt: String(row.created_at),
+  }));
 }

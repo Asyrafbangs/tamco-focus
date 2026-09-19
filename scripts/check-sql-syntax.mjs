@@ -14,10 +14,17 @@
  *    statement, and it avoids a serialisation limit in the WASM build that
  *    trips on very large parse trees.
  *
- *  * A fresh parser instance is created per file. The WASM heap is never
- *    reclaimed between calls, so a single instance aborts fatally partway
- *    through a schema this size.
+ *  * A parser instance is replaced before its heap fills. The WASM heap is
+ *    never reclaimed between calls, so a single instance aborts fatally
+ *    partway through a schema this size. Once per file was enough until one
+ *    migration (v198, 63 KB) overflowed on its own: the instance threw on one
+ *    statement and then hung for good on the next, so the verify stalled with
+ *    no error at all. Now an instance is also replaced after a set amount of
+ *    SQL, and after any statement it failed to handle.
  */
+
+/** SQL characters one parser instance is trusted with. */
+const PARSER_BUDGET = 24_000;
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -57,11 +64,17 @@ for (const directory of directories) {
     const statements = splitStatements(readFileSync(path, 'utf8'));
     filesChecked += 1;
 
-    const parser = await new PgQuery();
+    let parser = await new PgQuery();
+    let spent = 0;
     const errors = [];
 
     for (const statement of statements) {
       statementsChecked += 1;
+      if (spent + statement.text.length > PARSER_BUDGET && spent > 0) {
+        parser = await new PgQuery();
+        spent = 0;
+      }
+      spent += statement.text.length;
       try {
         const parsed = parser.parse(statement.text);
         if (parsed?.error) {
@@ -73,6 +86,9 @@ for (const directory of directories) {
           message: `parser could not serialise this statement (${cause.message}) — not checked`,
           inconclusive: true,
         });
+        // An instance that has thrown is not trusted with another statement.
+        parser = await new PgQuery();
+        spent = 0;
       }
     }
 

@@ -24,6 +24,15 @@ const PUBLIC_PATHS = ['/sign-in', '/auth/callback', '/forgot-password'];
 const SELF_AUTHENTICATING_PATHS = ['/api/cron'];
 
 /**
+ * v198 - an Action Owner's pages. Owners have no account: these carry their
+ * own session, a separate cookie the database checks on every request, and
+ * have nothing to do with the staff login. So the staff session is neither
+ * refreshed nor consulted here, and nobody is sent to sign-in (§18: separate
+ * guest and staff contexts).
+ */
+const GUEST_PATHS = ['/respond'];
+
+/**
  * Refreshes the Supabase session on every request and gates the application
  * behind authentication.
  *
@@ -36,6 +45,13 @@ export async function proxy(request: NextRequest) {
   // refresh, and asking the auth server about a user that cannot exist only
   // adds latency to a job that must not be redirected anyway.
   if (SELF_AUTHENTICATING_PATHS.some((path) => request.nextUrl.pathname.startsWith(path))) {
+    return NextResponse.next({
+      request: { headers: forwardedRequestHeaders(request.headers, null) },
+    });
+  }
+
+  const path = request.nextUrl.pathname;
+  if (GUEST_PATHS.some((guest) => path === guest || path.startsWith(`${guest}/`))) {
     return NextResponse.next({
       request: { headers: forwardedRequestHeaders(request.headers, null) },
     });

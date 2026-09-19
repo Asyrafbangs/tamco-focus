@@ -78,6 +78,7 @@ export default async function UsersPage({
         items={[
           { href: '/more/admin/users', label: 'Directory', active: true },
           { href: '/more/admin/organisation', label: 'Organisation' },
+          { href: '/more/admin/contacts', label: 'Email contacts' },
         ]}
       />
       {params.notice === 'deleted' && (

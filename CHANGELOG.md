@@ -1,5 +1,32 @@
 # TAMCO Focus — Change Log
 
+## v198 Action Owners answer from a link in their email — 20 September 2026
+
+The second stage of ESH Finding Management. Still behind the rollout: nobody outside the people
+an administrator enables sees any of it, and no email goes to an owner until ESH releases it.
+
+- **No account, two links.** When ESH assigns an action, the owner is emailed View finding &
+  respond (that action) and View All My Actions (every open action for their address). Each link
+  is a one-time secret: pressing Open on the page it lands on swaps it for a session on that
+  device, for up to 12 hours. Opening the page alone spends nothing, so an email scanner cannot
+  use the link up. The page never asks for a password.
+- **My Actions.** The owner's own list: Needs my action (Urgent first, then the earliest due
+  date) and Awaiting ESH review, with counts, search and pages. Late work says how late. End
+  access on this device closes it on a shared computer.
+- **One conversation.** The owner's action page is the finding, the required outcome and a
+  conversation with ESH. Send update writes to ESH; the first update marks the action In
+  progress. ESH replies from the finding, and the owner is emailed that ESH replied.
+- **A fresh link when one has expired.** A used or expired link offers Send me a new link, to the
+  address on record only, valid 30 minutes, at most three an hour. Asking by email gives the same
+  answer whether or not the address has work.
+- **Contacts are switched on one at a time.** Identity and access has a new Email contacts tab.
+  An administrator switches a contact's access on; that sends nothing. ESH then releases the held
+  assignment email from the finding. Switching a contact off ends their links and sessions at
+  once and holds anything waiting to be sent.
+- **Email is sent and retried.** After ESH assigns or replies, and daily from the scheduled job.
+  A failed send cancels the links it contained; a refused address stops retrying and shows on the
+  register as needing attention.
+
 ## v197 Finding Management begins, behind a locked door — 19 September 2026
 
 The first stage of the ESH Finding Management module (specification v1.3, attached 19 September).

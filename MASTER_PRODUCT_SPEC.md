@@ -2644,3 +2644,7 @@ are in `docs/esh-finding-management-impact-map.md`.
 4. **Owners are email addresses.** A corrective action has one owner, identified by email; no
    account, password or registration is needed. Escalation routes are email addresses per level.
    While a contact's access is off, their notifications are held, not sent.
+5. **An owner answers from their email (v198).** Two one-time links per assignment — the action,
+   and My Actions — exchanged on a button press for a session on that device. The owner's page is
+   the action and one conversation with ESH. Switching a contact on sends nothing; ESH releases
+   held email deliberately.

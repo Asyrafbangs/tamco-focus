@@ -1642,6 +1642,102 @@ export type Database = {
           },
         ]
       }
+      esh_access_grants: {
+        Row: {
+          action_id: string | null
+          assignment_version: number | null
+          consumed_at: string | null
+          consumed_session_id: string | null
+          expires_at: string
+          id: string
+          issued_at: string
+          issued_reason: string
+          organization_id: string
+          outbox_id: string | null
+          principal_id: string
+          purpose: string
+          receipt_expires_at: string | null
+          receipt_hash: string | null
+          revoked_at: string | null
+          revoked_reason: string | null
+          token_hash: string
+        }
+        Insert: {
+          action_id?: string | null
+          assignment_version?: number | null
+          consumed_at?: string | null
+          consumed_session_id?: string | null
+          expires_at: string
+          id?: string
+          issued_at?: string
+          issued_reason: string
+          organization_id: string
+          outbox_id?: string | null
+          principal_id: string
+          purpose: string
+          receipt_expires_at?: string | null
+          receipt_hash?: string | null
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          token_hash: string
+        }
+        Update: {
+          action_id?: string | null
+          assignment_version?: number | null
+          consumed_at?: string | null
+          consumed_session_id?: string | null
+          expires_at?: string
+          id?: string
+          issued_at?: string
+          issued_reason?: string
+          organization_id?: string
+          outbox_id?: string | null
+          principal_id?: string
+          purpose?: string
+          receipt_expires_at?: string | null
+          receipt_hash?: string | null
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_access_grants_organization_id_action_id_fkey"
+            columns: ["organization_id", "action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_finding_actions"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_access_grants_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_access_grants_organization_id_principal_id_fkey"
+            columns: ["organization_id", "principal_id"]
+            isOneToOne: false
+            referencedRelation: "esh_email_principals"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_access_grants_outbox_id_fkey"
+            columns: ["outbox_id"]
+            isOneToOne: false
+            referencedRelation: "esh_notification_outbox"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_grants_consumed_session_fk"
+            columns: ["consumed_session_id"]
+            isOneToOne: false
+            referencedRelation: "esh_guest_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       esh_action_assignments: {
         Row: {
           action_id: string
@@ -1849,6 +1945,98 @@ export type Database = {
           },
         ]
       }
+      esh_action_messages: {
+        Row: {
+          action_id: string
+          author_email: string
+          author_kind: string
+          author_name: string | null
+          author_principal_id: string | null
+          author_user_id: string | null
+          body: string
+          client_key: string
+          id: string
+          organization_id: string
+          sent_at: string
+        }
+        Insert: {
+          action_id: string
+          author_email: string
+          author_kind: string
+          author_name?: string | null
+          author_principal_id?: string | null
+          author_user_id?: string | null
+          body: string
+          client_key: string
+          id?: string
+          organization_id: string
+          sent_at?: string
+        }
+        Update: {
+          action_id?: string
+          author_email?: string
+          author_kind?: string
+          author_name?: string | null
+          author_principal_id?: string | null
+          author_user_id?: string | null
+          body?: string
+          client_key?: string
+          id?: string
+          organization_id?: string
+          sent_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_action_messages_author_user_id_fkey"
+            columns: ["author_user_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_action_messages_author_user_id_fkey"
+            columns: ["author_user_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_action_messages_author_user_id_fkey"
+            columns: ["author_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_action_messages_author_user_id_fkey"
+            columns: ["author_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_action_messages_author_user_id_fkey"
+            columns: ["author_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_action_messages_organization_id_action_id_fkey"
+            columns: ["organization_id", "action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_finding_actions"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_action_messages_organization_id_author_principal_id_fkey"
+            columns: ["organization_id", "author_principal_id"]
+            isOneToOne: false
+            referencedRelation: "esh_email_principals"
+            referencedColumns: ["organization_id", "id"]
+          },
+        ]
+      }
       esh_audit_events: {
         Row: {
           action_id: string | null
@@ -1974,9 +2162,13 @@ export type Database = {
       }
       esh_email_principals: {
         Row: {
+          access_disabled_at: string | null
+          access_disabled_by: string | null
           access_enabled: boolean
           access_enabled_at: string | null
           access_enabled_by: string | null
+          access_reason: string | null
+          authorization_version: number
           canonical_email: string
           created_at: string
           created_by: string | null
@@ -1990,9 +2182,13 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          access_disabled_at?: string | null
+          access_disabled_by?: string | null
           access_enabled?: boolean
           access_enabled_at?: string | null
           access_enabled_by?: string | null
+          access_reason?: string | null
+          authorization_version?: number
           canonical_email: string
           created_at?: string
           created_by?: string | null
@@ -2006,9 +2202,13 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          access_disabled_at?: string | null
+          access_disabled_by?: string | null
           access_enabled?: boolean
           access_enabled_at?: string | null
           access_enabled_by?: string | null
+          access_reason?: string | null
+          authorization_version?: number
           canonical_email?: string
           created_at?: string
           created_by?: string | null
@@ -2022,6 +2222,41 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "esh_email_principals_access_disabled_by_fkey"
+            columns: ["access_disabled_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_access_disabled_by_fkey"
+            columns: ["access_disabled_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_access_disabled_by_fkey"
+            columns: ["access_disabled_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_access_disabled_by_fkey"
+            columns: ["access_disabled_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_email_principals_access_disabled_by_fkey"
+            columns: ["access_disabled_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "esh_email_principals_access_enabled_by_fkey"
             columns: ["access_enabled_by"]
@@ -2510,6 +2745,113 @@ export type Database = {
           },
         ]
       }
+      esh_guest_session_actions: {
+        Row: {
+          action_id: string
+          assignment_version: number
+          session_id: string
+        }
+        Insert: {
+          action_id: string
+          assignment_version: number
+          session_id: string
+        }
+        Update: {
+          action_id?: string
+          assignment_version?: number
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_guest_session_actions_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_finding_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_guest_session_actions_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_rows"
+            referencedColumns: ["action_id"]
+          },
+          {
+            foreignKeyName: "esh_guest_session_actions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "esh_guest_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_guest_sessions: {
+        Row: {
+          absolute_expires_at: string
+          grant_id: string | null
+          id: string
+          identity_version: number
+          inbox_scope: boolean
+          issued_at: string
+          last_used_at: string
+          organization_id: string
+          principal_id: string
+          revoked_at: string | null
+          revoked_reason: string | null
+          session_hash: string
+        }
+        Insert: {
+          absolute_expires_at: string
+          grant_id?: string | null
+          id?: string
+          identity_version: number
+          inbox_scope?: boolean
+          issued_at?: string
+          last_used_at?: string
+          organization_id: string
+          principal_id: string
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          session_hash: string
+        }
+        Update: {
+          absolute_expires_at?: string
+          grant_id?: string | null
+          id?: string
+          identity_version?: number
+          inbox_scope?: boolean
+          issued_at?: string
+          last_used_at?: string
+          organization_id?: string
+          principal_id?: string
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          session_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_guest_sessions_grant_id_fkey"
+            columns: ["grant_id"]
+            isOneToOne: false
+            referencedRelation: "esh_access_grants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_guest_sessions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_guest_sessions_organization_id_principal_id_fkey"
+            columns: ["organization_id", "principal_id"]
+            isOneToOne: false
+            referencedRelation: "esh_email_principals"
+            referencedColumns: ["organization_id", "id"]
+          },
+        ]
+      }
       esh_notification_outbox: {
         Row: {
           action_id: string | null
@@ -2525,8 +2867,11 @@ export type Database = {
           organization_id: string
           provider_message_id: string | null
           recipient_principal_id: string | null
+          released_at: string | null
+          released_by: string | null
           sent_at: string | null
           state: string
+          state_reason: string | null
           updated_at: string
         }
         Insert: {
@@ -2543,8 +2888,11 @@ export type Database = {
           organization_id: string
           provider_message_id?: string | null
           recipient_principal_id?: string | null
+          released_at?: string | null
+          released_by?: string | null
           sent_at?: string | null
           state: string
+          state_reason?: string | null
           updated_at?: string
         }
         Update: {
@@ -2561,8 +2909,11 @@ export type Database = {
           organization_id?: string
           provider_message_id?: string | null
           recipient_principal_id?: string | null
+          released_at?: string | null
+          released_by?: string | null
           sent_at?: string | null
           state?: string
+          state_reason?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2600,6 +2951,41 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "esh_email_principals"
             referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_notification_outbox_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_notification_outbox_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_notification_outbox_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_notification_outbox_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_notification_outbox_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -9921,8 +10307,10 @@ export type Database = {
           last_update_type: string | null
           location: string | null
           needs_attention: boolean | null
+          notification_failed: boolean | null
           notification_held: boolean | null
           organization_id: string | null
+          owner_access_enabled: boolean | null
           owner_email: string | null
           priority: string | null
           reference: string | null
@@ -11858,7 +12246,81 @@ export type Database = {
         Args: { p_employee_id_confirmation: string; p_user_id: string }
         Returns: Json
       }
+      esh_admin_contacts: {
+        Args: { p_search: string }
+        Returns: {
+          access_changed_at: string
+          access_changed_by: string
+          access_enabled: boolean
+          access_reason: string
+          created_at: string
+          display_email: string
+          display_name: string
+          escalation_routes: number
+          held_notifications: number
+          id: string
+          open_actions: number
+          status: string
+        }[]
+      }
       esh_current_access: { Args: never; Returns: Json }
+      esh_dispatch_claim: {
+        Args: { p_outbox_id: string; p_secrets: Json }
+        Returns: Json
+      }
+      esh_dispatch_complete: {
+        Args: {
+          p_error?: string
+          p_ok: boolean
+          p_outbox_id: string
+          p_permanent?: boolean
+          p_provider_message_id?: string
+        }
+        Returns: Json
+      }
+      esh_guest_action: {
+        Args: { p_action_id: string; p_before?: string; p_session: string }
+        Returns: Json
+      }
+      esh_guest_end_session: { Args: { p_session: string }; Returns: Json }
+      esh_guest_exchange: {
+        Args: {
+          p_challenge: string
+          p_consume: boolean
+          p_existing_session: string
+          p_new_session: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      esh_guest_my_actions: {
+        Args: {
+          p_filter: string
+          p_limit: number
+          p_offset: number
+          p_search: string
+          p_session: string
+        }
+        Returns: Json
+      }
+      esh_guest_request_link: {
+        Args: {
+          p_email: string
+          p_organization_slug: string
+          p_session: string
+          p_token: string
+        }
+        Returns: Json
+      }
+      esh_guest_send_message: {
+        Args: {
+          p_action_id: string
+          p_body: string
+          p_client_key: string
+          p_session: string
+        }
+        Returns: Json
+      }
       esh_list_verifiers: {
         Args: never
         Returns: {
@@ -11867,6 +12329,11 @@ export type Database = {
           user_id: string
         }[]
       }
+      esh_post_message: {
+        Args: { p_action_id: string; p_body: string; p_client_key: string }
+        Returns: Json
+      }
+      esh_release_notification: { Args: { p_outbox_id: string }; Returns: Json }
       esh_save_finding: {
         Args: {
           p_assign?: boolean
@@ -11874,6 +12341,10 @@ export type Database = {
           p_idempotency_key?: string
           p_payload: Json
         }
+        Returns: Json
+      }
+      esh_set_contact_access: {
+        Args: { p_enabled: boolean; p_principal_id: string; p_reason: string }
         Returns: Json
       }
       esh_set_staff_access: {

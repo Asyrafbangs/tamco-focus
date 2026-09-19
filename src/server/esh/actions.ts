@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import { findingProblem, FINDING_WARNING_MESSAGES } from '@/domain/esh-findings';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
+import { scheduleEshDispatch } from '@/server/esh/schedule-dispatch';
 
 /**
  * Finding Management writes (v197).
@@ -117,6 +118,7 @@ export async function saveFinding(
     problems?: string[];
     warnings?: string[];
     finding_id?: string;
+    notification?: string;
   };
 
   if (!result.ok || !result.finding_id) {
@@ -137,6 +139,8 @@ export async function saveFinding(
     return { ok: false, problems, warnings: [] };
   }
 
+  // v198 - an owner whose access is on is emailed now, after this commits.
+  if (result.notification === 'queued') await scheduleEshDispatch();
   revalidatePath('/findings', 'layout');
   const warnings = (result.warnings ?? []).filter((code) => FINDING_WARNING_MESSAGES[code]);
   const query = new URLSearchParams({ saved: assign ? 'assigned' : 'draft' });

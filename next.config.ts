@@ -53,6 +53,20 @@ const nextConfig: NextConfig = {
       { source: '/:path((?!api/attachments).*)', headers: securityHeaders },
       {
         /*
+         * v198 - an Action Owner's pages, reached from an email link. Never
+         * indexed or cached, and no address from here is passed on as a
+         * referrer (§18). Later entries win, so this replaces the general
+         * Referrer-Policy above for these paths only.
+         */
+        source: '/respond/:path*',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+          { key: 'Cache-Control', value: 'private, no-store' },
+        ],
+      },
+      {
+        /*
          * A file is not a page. `DENY` refuses framing even by our own origin,
          * which is exactly what the in-drawer viewer does - so a PDF opened in
          * the app was refused by the browser before it was ever drawn.

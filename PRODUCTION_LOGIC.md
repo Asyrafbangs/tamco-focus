@@ -2101,3 +2101,50 @@ assignee, or the owner for a step assigned to nobody (v159).
 7. Pages: `/esh`, `/findings` (redirects to the Register until the Overview stage),
    `/findings/register`, `/findings/new`, `/findings/{id}`, `/findings/closed` (the Register with
    Closed selected). Every `/findings` route returns 404 to a disabled person.
+
+## 93. v198 Email-link access for Action Owners
+
+1. An owner is an `esh_email_principals` row, never an auth user. Their access is
+   `access_enabled`, switched only by `esh_set_contact_access` (administrators, audited,
+   authorisation version bumped). Switching it on sends nothing (FM106). Switching it off revokes
+   every guest session and unspent grant for the contact and returns queued or failed email to
+   `held_rollout` (requested links to `suppressed`); the work is untouched (FM107).
+2. Email is written as an outbox row by the business transaction and sent after commit
+   (`scheduleEshDispatch`) and by the daily cron (`esh_email`). `esh_dispatch_claim` re-checks
+   the rollout row, the contact's access and the live assignment at send time, then stores the
+   SHA-256 of one fresh 256-bit secret per link (`esh_access_grants`): 24 hours for a
+   notification, 30 minutes for a requested link. The secrets exist only in the email. A failed
+   send revokes that attempt's grants and retries with backoff; after eight attempts or a
+   permanent refusal it stops, and the register's Needs attention shows it (`notification_failed`).
+   `provider_accepted` means the mail server took it, never that anyone read it.
+3. Links are `/respond/access?for=action|actions#<secret>`: the secret is in the fragment, so no
+   request, log or proxy sees it. The origin is approved, never the request's Host:
+   `VERCEL_PROJECT_PRODUCTION_URL`, else `APP_BASE_URL`.
+4. GET never spends a link. The page shows one button; pressing it calls `esh_guest_exchange`,
+   which locks the grant, spends it once and creates a new session (12 hours absolute, 2 hours
+   idle) whose secret is set as an HttpOnly, SameSite=Lax cookie scoped to `/respond`. A session
+   of the same contact in that browser is folded in and ended; another contact's is ended. The
+   same tab may repeat the exchange for two minutes if the answer was lost (`receipt_hash`); any
+   other browser gets `used` and the recovery page. A browser whose session already reaches the
+   destination goes straight there without spending the link.
+5. Scope: an action link reaches one action at the assignment version it was sent for; an inbox
+   link reaches every open action the contact owns now, so new work appears and reassigned work
+   disappears on the next request (FM12-FM14). Every guest read and write is an `esh_guest_*`
+   procedure, executable only by the service role, which re-derives the session, the contact's
+   access and the live ownership on each call. Guests reach no table.
+6. `/respond` pages skip the staff session entirely in the proxy and are served with
+   `Referrer-Policy: no-referrer`, `X-Robots-Tag: noindex` and `Cache-Control: private,
+   no-store`. A staff login grants nothing there, and a guest session grants nothing elsewhere
+   (FM45).
+7. Recovery (`esh_guest_request_link`): from a session (inbox link), from a spent or expired link
+   (same purpose if the action is still theirs, otherwise their inbox), or by typed email in the
+   `tamco` organisation. Sent only to the stored address, only when access is on and there is open
+   work, at most three an hour per contact; the answer is identical in every case (FM44).
+8. The conversation is `esh_action_messages`, idempotent on a client key, with the author's name
+   and address as they were when sent. An owner's first message moves Assigned to In progress
+   (`action_started`); a message never submits anything. ESH writes with `esh_post_message`
+   (Coordinators and Verifiers in scope); the owner gets one pending `esh_reply` notice at a time,
+   held while their access is off or while their assignment email is still held, because a reply
+   carries a link and must not open the conversation before ESH releases the assignment. Releasing
+   the assignment email (`esh_release_notification`) settles held reply notices, since it opens
+   the same conversation; a reply notice cannot be released ahead of it.
