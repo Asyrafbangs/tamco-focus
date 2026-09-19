@@ -18,6 +18,13 @@ import { useEffect, useRef } from 'react';
  * leave a keyboard user unable to reach the third option. A change that
  * follows a key press is held until they press Enter or leave the field; a
  * change made by pointer or touch applies at once.
+ *
+ * And one caught late (v199). The filter bar is on screen and answering the
+ * pointer while the page's scripts are still arriving, so a quick choice can
+ * be made before this is listening: the event is gone, and the list sits there
+ * showing everything while the field says Operations. The select still holds
+ * the answer, so on arrival we compare each one against the option the server
+ * marked and apply a choice already made.
  */
 export function SubmitOnSelect() {
   const marker = useRef<HTMLSpanElement>(null);
@@ -57,6 +64,15 @@ export function SubmitOnSelect() {
     form.addEventListener('keydown', onKeyDown);
     form.addEventListener('change', onChange);
     form.addEventListener('focusout', onFocusOut);
+
+    // A choice made before those listeners existed left no event to hear.
+    const chosenAlready = Array.from(form.querySelectorAll('select')).some((select) => {
+      const marked = Array.from(select.options).find((option) => option.defaultSelected);
+      const served = marked ? marked.value : (select.options[0]?.value ?? '');
+      return select.value !== served;
+    });
+    if (chosenAlready) form.requestSubmit();
+
     return () => {
       form.removeEventListener('keydown', onKeyDown);
       form.removeEventListener('change', onChange);

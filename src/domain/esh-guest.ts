@@ -196,6 +196,10 @@ export interface ConversationEntry {
   authorEmail: string | null;
   body: string;
   sentAt: string;
+  /** v199 - the files sent with it. */
+  files?: EvidenceFile[];
+  /** v199 - an update of the owner's own that they may submit as it is. */
+  submittable?: boolean;
 }
 
 /**
@@ -242,4 +246,51 @@ export function contactAccessProblem(code: string | undefined): string {
     code,
     'Something went wrong and nothing was changed. Try again.',
   );
+}
+
+/** Why Submit for review did not go through, in words beside the composer (§12, FM20). */
+export const SUBMIT_PROBLEMS: Record<string, string> = {
+  already_submitted: 'Your work is already with ESH for review.',
+  nothing_pending: 'Nothing is waiting for ESH review now.',
+  reuse_or_new:
+    'Submit either the update you chose or what is in the box, not both. Clear the box, or submit from the box.',
+  message_not_yours: 'Only an update you sent for this action can be submitted.',
+  files_not_ready: 'Finish, retry or remove the files before submitting.',
+  too_many_files: 'Up to 10 files can go with one submission.',
+  body_too_long: `Keep the result under ${MESSAGE_MAX_LENGTH.toLocaleString('en-GB')} characters.`,
+};
+
+const EVIDENCE_PROBLEMS: Record<string, string> = {
+  result_required: 'write a short result',
+  file_required: 'attach at least one file showing the correction',
+};
+
+export function submitProblems(code: string | undefined, problems?: string[]): string {
+  if (code === 'evidence_incomplete' && problems?.length) {
+    const parts = problems.map((problem) => EVIDENCE_PROBLEMS[problem]).filter(Boolean);
+    if (parts.length) {
+      const joined =
+        parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0];
+      return `To submit for review, ${joined}.`;
+    }
+  }
+  return (
+    (code ? (SUBMIT_PROBLEMS[code] ?? OWNER_MESSAGE_PROBLEMS[code]) : undefined) ??
+    ownerMessageProblem('invalid')
+  );
+}
+
+/** A file on a message or a finding, as the pages show it. */
+export interface EvidenceFile {
+  id: string;
+  name: string;
+  type: string;
+  size: number;
+}
+
+/** Where a submission sits in the conversation: under the message it came from. */
+export interface SubmissionMark {
+  messageId: string;
+  version: number;
+  state: 'pending' | 'withdrawn' | 'accepted' | 'changes_requested';
 }

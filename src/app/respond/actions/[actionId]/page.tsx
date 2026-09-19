@@ -5,6 +5,7 @@ import { EndAccessButton } from '@/components/esh/guest/EndAccessButton';
 import { GuestTopBar } from '@/components/esh/guest/GuestTopBar';
 import { OwnerComposer } from '@/components/esh/guest/OwnerComposer';
 import { RequestLinkForm } from '@/components/esh/guest/RequestLinkForm';
+import { evidenceLabel } from '@/domain/esh-evidence';
 import { ACTION_STATE_LABELS } from '@/domain/esh-findings';
 import { firstName } from '@/domain/esh-guest';
 import { orgConfig } from '@/lib/env';
@@ -107,6 +108,7 @@ export default async function GuestActionPage({
     : null;
   const identity = `${data.displayName ?? data.email} · Action Owner`;
   const earliest = data.messages[0]?.sentAt;
+  const awaitingReview = data.action.state === 'awaiting_verification';
 
   return (
     <>
@@ -131,7 +133,7 @@ export default async function GuestActionPage({
           <p className="guest-outcome">{data.action.requiredOutcome}</p>
         )}
         <details className="guest-original">
-          <summary>Original finding</summary>
+          <summary>Original finding &amp; evidence</summary>
           <dl className="esh-facts">
             <div>
               <dt>Finding</dt>
@@ -149,12 +151,15 @@ export default async function GuestActionPage({
                 <dd>{data.finding.department}</dd>
               </div>
             )}
-            {data.action.evidenceInstruction && (
-              <div>
-                <dt>Evidence ESH needs</dt>
-                <dd>{data.action.evidenceInstruction}</dd>
-              </div>
-            )}
+            <div>
+              <dt>Evidence ESH needs</dt>
+              <dd>
+                {data.action.evidenceInstruction ??
+                  (data.action.evidenceRule === 'file_required'
+                    ? 'A short result and at least one file'
+                    : 'A short result')}
+              </dd>
+            </div>
             {(data.eshContact.name || data.eshContact.email) && (
               <div>
                 <dt>ESH contact</dt>
@@ -169,6 +174,23 @@ export default async function GuestActionPage({
               </div>
             )}
           </dl>
+          {data.originalEvidence.length > 0 && (
+            <ul className="esh-file-list guest-original-files" aria-label="Original evidence">
+              {data.originalEvidence.map((file) => (
+                <li key={file.id} className="esh-file">
+                  <a href={`/respond/files/${file.id}`} target="_blank" rel="noopener noreferrer">
+                    <span className="esh-file-icon" aria-hidden="true">
+                      ▧
+                    </span>
+                    <span>
+                      <strong>{file.name}</strong>
+                      <small>{evidenceLabel(file.name, file.size)}</small>
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </details>
 
         <section className="guest-thread" aria-label="Conversation with ESH">
@@ -190,11 +212,21 @@ export default async function GuestActionPage({
             viewer="owner"
             timeZone={timeZone}
             now={new Date()}
+            fileBase="/respond/files"
+            submissions={data.submissions}
+            submitFor={awaitingReview ? null : data.action.id}
             emptyText="No messages yet. Send ESH an update when you start, or ask a question."
           />
         </section>
 
-        {!before && <OwnerComposer actionId={data.action.id} />}
+        {!before && (
+          <OwnerComposer
+            actionId={data.action.id}
+            awaitingReview={awaitingReview}
+            fileRequired={data.action.evidenceRule === 'file_required'}
+            drafts={data.drafts}
+          />
+        )}
         <EndAccessButton />
       </main>
     </>

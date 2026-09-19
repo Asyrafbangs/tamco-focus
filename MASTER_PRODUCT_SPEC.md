@@ -2648,3 +2648,6 @@ are in `docs/esh-finding-management-impact-map.md`.
    and My Actions — exchanged on a button press for a session on that device. The owner's page is
    the action and one conversation with ESH. Switching a contact on sends nothing; ESH releases
    held email deliberately.
+6. **Evidence and submission (v199).** Files travel in the conversation, checked for what they are
+   and labelled Not scanned. Submit for review fixes one message and its files as a snapshot that
+   ESH verifies; the owner can withdraw it to revise, and the old version stays in history.

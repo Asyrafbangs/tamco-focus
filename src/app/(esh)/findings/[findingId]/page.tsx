@@ -2,9 +2,11 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { Conversation } from '@/components/esh/Conversation';
+import { OriginalEvidence } from '@/components/esh/OriginalEvidence';
 import { FindingForm } from '@/components/esh/FindingForm';
 import { ReleaseNotificationButton } from '@/components/esh/ReleaseNotificationButton';
 import { StaffMessageForm } from '@/components/esh/StaffMessageForm';
+import { evidenceLabel } from '@/domain/esh-evidence';
 import {
   ACTION_STATE_LABELS,
   FINDING_STATUS_LABELS,
@@ -35,17 +37,25 @@ const HISTORY_LABELS: Record<string, string> = {
   notification_sent: 'Email accepted by the mail server',
   guest_link_redeemed: 'Owner opened a secure link',
   guest_link_requested: 'New link requested',
+  submission_created: 'Owner submitted for review',
+  submission_withdrawn: 'Owner withdrew a submission',
+  original_evidence_added: 'Original evidence added',
+  original_evidence_removed: 'Original evidence removed',
 };
 
 const NOTIFICATION_KIND_LABELS: Record<string, string> = {
   owner_assignment: 'Assignment email',
   esh_reply: 'Reply notice',
   access_link: 'Requested link',
+  submission_received: 'Review request',
+  submission_withdrawn: 'Withdrawal notice',
 };
 
 const NOTIFICATION_REASON_LABELS: Record<string, string> = {
   covered_by_assignment_email: 'Not needed: the assignment email opens the same conversation.',
   no_longer_the_owner: 'Not sent: the address no longer owns the action.',
+  no_longer_pending: 'Not sent: the submission was withdrawn first.',
+  no_longer_esh: 'Not sent: they can no longer review this finding.',
   access_not_enabled: 'Not sent: the contact’s access is off.',
   access_disabled: 'Stopped: the contact’s access was switched off.',
 };
@@ -276,6 +286,48 @@ function FindingSummary({
         </dl>
       </section>
 
+      <section className="esh-form-card" aria-labelledby="esh-detail-original">
+        <h2 id="esh-detail-original" className="esh-form-card-title">
+          Original evidence
+        </h2>
+        <OriginalEvidence
+          findingId={finding.id}
+          files={finding.originalEvidence}
+          canChange={canCoordinate && ['draft', 'new', 'open'].includes(finding.status)}
+        />
+      </section>
+
+      {finding.pendingSubmission && (
+        <section className="esh-form-card esh-submission" aria-labelledby="esh-detail-submission">
+          <h2 id="esh-detail-submission" className="esh-form-card-title">
+            Submitted for review · version {finding.pendingSubmission.version}
+          </h2>
+          <p className="form-hint">
+            {finding.pendingSubmission.ownerEmail} ·{' '}
+            {dateTime(finding.pendingSubmission.submittedAt)}. The submission is fixed: messages
+            sent since do not change it.
+          </p>
+          <p className="esh-detail-text">{finding.pendingSubmission.resultText}</p>
+          {finding.pendingSubmission.files.length > 0 && (
+            <ul className="esh-file-list" aria-label="Submitted files">
+              {finding.pendingSubmission.files.map((file) => (
+                <li key={file.id} className="esh-file">
+                  <a href={`/findings/files/${file.id}`} target="_blank" rel="noopener noreferrer">
+                    <span className="esh-file-icon" aria-hidden="true">
+                      ▧
+                    </span>
+                    <span>
+                      <strong>{file.name}</strong>
+                      <small>{evidenceLabel(file.name, file.size)}</small>
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
       {action && (
         <section className="esh-form-card" aria-labelledby="esh-detail-action">
           <h2 id="esh-detail-action" className="esh-form-card-title">
@@ -354,6 +406,8 @@ function FindingSummary({
             viewer="staff"
             timeZone={timeZone}
             now={new Date()}
+            fileBase="/findings/files"
+            submissions={finding.submissions}
             emptyText="No messages yet. The owner’s updates and ESH replies appear here."
           />
           {canCoordinate && actionOpen && (

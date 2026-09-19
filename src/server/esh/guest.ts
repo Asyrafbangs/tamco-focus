@@ -6,8 +6,10 @@ import type { ActionPriority, ActionState } from '@/domain/esh-findings';
 import {
   MY_ACTIONS_PAGE_SIZE,
   type ConversationEntry,
+  type EvidenceFile,
   type MyActionRow,
   type MyActionsFilter,
+  type SubmissionMark,
 } from '@/domain/esh-guest';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 
@@ -124,6 +126,7 @@ export interface GuestAction {
     priority: ActionPriority | null;
     requiredOutcome: string | null;
     evidenceInstruction: string | null;
+    evidenceRule: 'file_required' | 'no_file_exception';
     dueAt: string | null;
     dueIsDateOnly: boolean;
     assignedAt: string | null;
@@ -139,6 +142,19 @@ export interface GuestAction {
   eshContact: { name: string | null; email: string | null };
   messages: ConversationEntry[];
   hasMore: boolean;
+  /** v199 - the finding's own evidence, the owner's unsent files, and what was submitted. */
+  originalEvidence: EvidenceFile[];
+  drafts: EvidenceFile[];
+  submissions: SubmissionMark[];
+}
+
+function evidenceFiles(value: unknown): EvidenceFile[] {
+  return ((Array.isArray(value) ? value : []) as Array<Record<string, unknown>>).map((file) => ({
+    id: String(file.id),
+    name: String(file.name),
+    type: String(file.type ?? ''),
+    size: Number(file.size ?? 0),
+  }));
 }
 
 export type GuestActionResult =
@@ -184,6 +200,8 @@ export async function loadGuestAction(
         priority: (action.priority as ActionPriority | null) ?? null,
         requiredOutcome: (action.required_outcome as string | null) ?? null,
         evidenceInstruction: (action.evidence_instruction as string | null) ?? null,
+        evidenceRule:
+          action.evidence_rule === 'no_file_exception' ? 'no_file_exception' : 'file_required',
         dueAt: (action.due_at as string | null) ?? null,
         dueIsDateOnly: Boolean(action.due_is_date_only),
         assignedAt: (action.assigned_at as string | null) ?? null,
@@ -207,8 +225,19 @@ export async function loadGuestAction(
         authorEmail: (message.author_email as string | null) ?? null,
         body: String(message.body),
         sentAt: String(message.sent_at),
+        submittable: Boolean(message.submittable),
+        files: evidenceFiles(
+          (result.files as Record<string, unknown> | null)?.[String(message.id)],
+        ),
       })),
       hasMore: Boolean(result.has_more),
+      originalEvidence: evidenceFiles(result.original_evidence),
+      drafts: evidenceFiles(result.drafts),
+      submissions: ((result.submissions ?? []) as Array<Record<string, unknown>>).map((mark) => ({
+        messageId: String(mark.message_id),
+        version: Number(mark.version),
+        state: mark.state as SubmissionMark['state'],
+      })),
     },
   };
 }

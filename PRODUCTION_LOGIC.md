@@ -2148,3 +2148,35 @@ assignee, or the owner for a step assigned to nobody (v159).
    carries a link and must not open the conversation before ESH releases the assignment. Releasing
    the assignment email (`esh_release_notification`) settles held reply notices, since it opens
    the same conversation; a reply notice cannot be released ahead of it.
+
+## 94. v199 Evidence and submissions
+
+1. Files live in the private `finding-evidence` bucket (10 MB, the accepted types only). No
+   storage policy names it, so anonymous and signed-in callers reach nothing; the service role
+   signs uploads and downloads only after a procedure agrees. Uploads go straight from the browser
+   through a one-time signed URL (Vercel refuses request bodies over 4.5 MB); downloads are
+   five-minute signed links, inline for photos and PDFs and downloads for everything else.
+2. An upload is three steps: `esh_guest_start_upload` / `esh_start_upload` check the person, the
+   action or finding, the extension, the size and the rate, record the file as `uploading` and
+   name the object by ids (`<finding>/<action or original>/<file id>.<ext>`); the browser uploads;
+   the server confirms whose upload it is (`esh_guest_upload_target`, or RLS for staff), reads the
+   bytes back, checks the content against the name (`sniffEvidenceType`), hashes it and records
+   `ready` or `rejected` — deleting a rejected object at once.
+3. `scan_state` is always `not_scanned`: there is no scanner, and the pages say so.
+4. A file sent in a message cannot change or be removed (trigger); an unsent draft file and a
+   finding's original evidence can be marked removed, with who and when. Rows are never deleted.
+5. `esh_guest_submit` takes the composer's text and files, or one update the owner chose
+   (`p_reuse_message_id`, which must be theirs and sent under the current assignment) — never both.
+   It checks the evidence rule (`file_required`: a result and at least one file) before writing
+   anything, then writes the message if new, an immutable `esh_action_submissions` snapshot
+   (version, message, text, file ids, due dates), moves the action to Awaiting verification, and
+   emails ESH (`submission_received`). A second press with the same key returns the same
+   submission. One submission can be pending per action (unique index).
+6. `esh_guest_withdraw` marks the pending snapshot `withdrawn` (it can never be accepted), returns
+   the action to In progress and emails ESH (`submission_withdrawn`); a queued review request for
+   a withdrawn submission is suppressed at send time.
+7. Staff emails go to the reviewer named on the action, or every Verifier whose scope covers the
+   finding (at most twenty), re-checked at send time (`focus.esh_user_can_coordinate`). They carry
+   the finding's address in the application, no link secret.
+8. The register counts an action awaiting verification as needing ESH's attention, and a
+   submission or withdrawal as the last update.

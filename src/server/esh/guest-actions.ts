@@ -152,13 +152,20 @@ export async function requestInboxLink(): Promise<{ ok: true }> {
   return { ok: true };
 }
 
-export type SendUpdateResult = { ok: true } | { ok: false; code: string };
+export type SendUpdateResult = { ok: true; messageId: string } | { ok: false; code: string };
 
-/** Send update (§12): a message, never a submission. */
+function assetIdsFrom(value: unknown): string[] {
+  return (Array.isArray(value) ? value : [])
+    .filter((id): id is string => typeof id === 'string' && uuid.safeParse(id).success)
+    .slice(0, 10);
+}
+
+/** Send update (§12): a message, with files or without, never a submission. */
 export async function sendOwnerUpdate(input: {
   actionId: string;
   body: string;
   clientKey: string;
+  assetIds?: string[];
 }): Promise<SendUpdateResult> {
   const actionId = uuid.safeParse(input.actionId);
   if (!actionId.success) return { ok: false, code: 'not_available' };
@@ -169,13 +176,81 @@ export async function sendOwnerUpdate(input: {
     p_action_id: actionId.data,
     p_body: String(input.body ?? ''),
     p_client_key: String(input.clientKey ?? ''),
+    p_asset_ids: assetIdsFrom(input.assetIds),
   });
   if (error) {
     console.error(`[esh_guest_send_message] ${error.code ?? 'unknown'}: ${error.message}`);
     return { ok: false, code: 'invalid' };
   }
+  const result = (data ?? {}) as { ok?: boolean; code?: string; message_id?: string };
+  if (!result.ok || !result.message_id) return { ok: false, code: result.code ?? 'invalid' };
+  revalidatePath(`/respond/actions/${actionId.data}`);
+  return { ok: true, messageId: result.message_id };
+}
+
+export type SubmitResult = { ok: true } | { ok: false; code: string; problems?: string[] };
+
+/**
+ * Submit for review (§12): the draft in the composer, or one update already
+ * sent, chosen by the owner. ESH is emailed after it commits.
+ */
+export async function submitOwnerWork(input: {
+  actionId: string;
+  body: string;
+  assetIds: string[];
+  reuseMessageId: string | null;
+  clientKey: string;
+}): Promise<SubmitResult> {
+  const actionId = uuid.safeParse(input.actionId);
+  if (!actionId.success) return { ok: false, code: 'not_available' };
+  const reuse = input.reuseMessageId ? uuid.safeParse(input.reuseMessageId) : null;
+  if (reuse && !reuse.success) return { ok: false, code: 'message_not_yours' };
+  const secret = await guestSecret();
+  if (!secret) return { ok: false, code: 'no_session' };
+  const { data, error } = await guestClient().rpc('esh_guest_submit', {
+    p_session: secret,
+    p_action_id: actionId.data,
+    p_body: String(input.body ?? ''),
+    p_asset_ids: assetIdsFrom(input.assetIds),
+    p_reuse_message_id: (reuse?.success ? reuse.data : null) as string,
+    p_client_key: String(input.clientKey ?? ''),
+  });
+  if (error) {
+    console.error(`[esh_guest_submit] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false, code: 'invalid' };
+  }
+  const result = (data ?? {}) as {
+    ok?: boolean;
+    code?: string;
+    problems?: string[];
+    duplicate?: boolean;
+  };
+  if (!result.ok) return { ok: false, code: result.code ?? 'invalid', problems: result.problems };
+  if (!result.duplicate) await scheduleEshDispatch();
+  revalidatePath(`/respond/actions/${actionId.data}`);
+  return { ok: true };
+}
+
+/** Withdraw to revise (§12, FM22). The submitted version stays in history. */
+export async function withdrawOwnerSubmission(input: {
+  actionId: string;
+}): Promise<{ ok: true } | { ok: false; code: string }> {
+  const actionId = uuid.safeParse(input.actionId);
+  if (!actionId.success) return { ok: false, code: 'not_available' };
+  const secret = await guestSecret();
+  if (!secret) return { ok: false, code: 'no_session' };
+  const { data, error } = await guestClient().rpc('esh_guest_withdraw', {
+    p_session: secret,
+    p_action_id: actionId.data,
+    p_reason: null as unknown as string,
+  });
+  if (error) {
+    console.error(`[esh_guest_withdraw] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false, code: 'invalid' };
+  }
   const result = (data ?? {}) as { ok?: boolean; code?: string };
   if (!result.ok) return { ok: false, code: result.code ?? 'invalid' };
+  await scheduleEshDispatch();
   revalidatePath(`/respond/actions/${actionId.data}`);
   return { ok: true };
 }

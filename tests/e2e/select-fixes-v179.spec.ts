@@ -64,6 +64,33 @@ test.describe('v179 a chosen option does something', () => {
     await expect(page).toHaveURL(/status=/);
   });
 
+  test('a department chosen before the scripts arrive still applies', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'Timing, not layout.');
+    await signIn(page, 'admin@tamco.local');
+
+    // The filter bar is on screen and answering the pointer while the page's
+    // scripts are still coming down, so a quick choice arrives before anything
+    // is listening and the change is simply lost. Holding the scripts back
+    // makes that window wide enough to choose in; under a loaded full suite it
+    // opened on its own once, and the list stayed as it was (v199).
+    await page.route('**/*.js', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 1_500));
+      await route.continue();
+    });
+    await page.goto('/more/admin/organisation', { waitUntil: 'commit' });
+
+    const dept = page.locator('select[name="dept"]');
+    await dept.waitFor();
+    await dept.selectOption({ label: 'Operations' });
+    await expect(page).not.toHaveURL(/dept=/);
+
+    await page.unroute('**/*.js');
+    await expect(page).toHaveURL(/dept=/, { timeout: 20_000 });
+    await expect(page.getByRole('heading', { name: /in Operations/ })).toBeVisible();
+  });
+
   test('ticking a person under "No team visibility" switches the mode, visibly', async ({
     page,
   }, testInfo) => {

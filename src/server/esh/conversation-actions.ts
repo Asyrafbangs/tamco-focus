@@ -23,6 +23,7 @@ export async function postEshMessage(input: {
   findingId: string;
   body: string;
   clientKey: string;
+  assetIds?: string[];
 }): Promise<StaffResult> {
   await requireProfile();
   const actionId = uuid.safeParse(input.actionId);
@@ -32,6 +33,9 @@ export async function postEshMessage(input: {
     p_action_id: actionId.data,
     p_body: String(input.body ?? ''),
     p_client_key: String(input.clientKey ?? ''),
+    p_asset_ids: (Array.isArray(input.assetIds) ? input.assetIds : [])
+      .filter((id) => uuid.safeParse(id).success)
+      .slice(0, 10),
   });
   if (error) {
     console.error(`[esh_post_message] ${error.code ?? 'unknown'}: ${error.message}`);

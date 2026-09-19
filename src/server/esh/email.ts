@@ -11,7 +11,12 @@ import { escapeNotificationHtml as escape } from '@/server/workers/notification-
  */
 
 export interface EshEmailInput {
-  eventType: 'owner_assignment' | 'esh_reply' | 'access_link';
+  eventType:
+    | 'owner_assignment'
+    | 'esh_reply'
+    | 'access_link'
+    | 'submission_received'
+    | 'submission_withdrawn';
   reference: string | null;
   actionTitle: string | null;
   location: string | null;
@@ -21,6 +26,10 @@ export interface EshEmailInput {
   actionUrl: string | null;
   inboxUrl: string | null;
   expiresMinutes: number;
+  /** v199 - for ESH staff: the finding in the application, and who submitted. */
+  findingUrl?: string | null;
+  ownerEmail?: string | null;
+  submissionVersion?: number | null;
 }
 
 export interface RenderedEmail {
@@ -76,6 +85,18 @@ export function renderEshEmail(input: EshEmailInput): RenderedEmail {
       lead = 'Open the conversation to read the reply and respond.';
       if (input.actionUrl) links.push({ href: input.actionUrl, label: 'Open the conversation' });
       break;
+    case 'submission_received':
+      subject = `Ready for review: ${heading}`;
+      headline = 'An action is ready for your review';
+      lead = `${input.ownerEmail ?? 'The Action Owner'} submitted version ${input.submissionVersion ?? 1} for ESH verification.`;
+      if (input.findingUrl) links.push({ href: input.findingUrl, label: 'Open the finding' });
+      break;
+    case 'submission_withdrawn':
+      subject = `Submission withdrawn: ${heading}`;
+      headline = 'A submission was withdrawn';
+      lead = `${input.ownerEmail ?? 'The Action Owner'} withdrew version ${input.submissionVersion ?? 1} to revise it. Nothing is waiting for review until they submit again.`;
+      if (input.findingUrl) links.push({ href: input.findingUrl, label: 'Open the finding' });
+      break;
     default:
       subject = 'Your TAMCO ESH link';
       headline = 'Here is your new link';
@@ -88,20 +109,24 @@ export function renderEshEmail(input: EshEmailInput): RenderedEmail {
   }
   subject = oneLine(subject).slice(0, 180);
 
-  const validity =
-    input.eventType === 'access_link'
+  const forStaff =
+    input.eventType === 'submission_received' || input.eventType === 'submission_withdrawn';
+  const validity = forStaff
+    ? 'Sign in to TAMCO Focus as usual to open it.'
+    : input.eventType === 'access_link'
       ? `This link works once and for ${lifetime(input.expiresMinutes)}. If it has expired, ask for another from the page it opens.`
       : `Your secure links open ${links.length > 1 ? 'the assigned action or your list of open actions' : 'the assigned action'}. No account creation or password is needed. Each link works once on a device, for ${lifetime(input.expiresMinutes)}; after that the page offers a new one.`;
   const contact =
-    input.eshContactName || input.eshContactEmail
+    !forStaff && (input.eshContactName || input.eshContactEmail)
       ? `ESH contact: ${[input.eshContactName, input.eshContactEmail].filter(Boolean).join(', ')}.`
       : '';
   const verification =
-    input.eventType === 'access_link'
+    input.eventType === 'access_link' || forStaff
       ? ''
       : 'ESH verifies the correction before the finding is closed.';
-  const unmonitored =
-    'Please respond through the secure link. Email replies are not added to the conversation.';
+  const unmonitored = forStaff
+    ? 'This mailbox is not monitored. Reply in the finding’s conversation.'
+    : 'Please respond through the secure link. Email replies are not added to the conversation.';
 
   const text = [
     headline,

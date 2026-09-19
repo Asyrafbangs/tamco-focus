@@ -1,5 +1,28 @@
 # TAMCO Focus — Change Log
 
+## v199 Evidence, and Submit for review — 20 September 2026
+
+The third stage of ESH Finding Management, still behind the rollout.
+
+- **Photos and documents in the conversation.** Owners and ESH attach files with Attach or Photo,
+  or by dropping them on the composer. Each file shows its own progress, and one that fails can be
+  retried or removed without losing the others. Photos, PDFs, Word, Excel, PowerPoint, CSV and
+  text, up to 10 MB each and ten per message.
+- **A file is what it says it is.** The server reads every file back and checks its content against
+  its name; a renamed program or a PDF calling itself a photo is refused and deleted. There is no
+  virus scanner in this deployment, so every file is labelled Not scanned, never "clean".
+- **Private files.** Evidence sits in a private store nobody can read directly. Each file opens
+  through a link made for that person, valid for five minutes, only if they may see it.
+- **Submit for review.** The owner submits the result from the composer, or presses Submit on an
+  update they already sent, and it is used as it was: no retyping, no second upload. The action
+  needs a short result and at least one file unless ESH made an exception. The submission is fixed:
+  later messages do not change it. While ESH reviews, the owner can withdraw it to revise; the
+  withdrawn version stays in the history.
+- **ESH is told.** The named reviewer, or every Verifier who covers the finding, is emailed when
+  something is submitted or withdrawn. The finding shows the submission, fixed, with its files.
+- **Original evidence.** ESH adds the photos of what was found to the finding; the owner sees them
+  under Original finding & evidence.
+
 ## v198 Action Owners answer from a link in their email — 20 September 2026
 
 The second stage of ESH Finding Management. Still behind the rollout: nobody outside the people

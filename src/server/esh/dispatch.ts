@@ -73,6 +73,9 @@ interface ClaimResult {
   esh_contact_name?: string | null;
   esh_contact_email?: string | null;
   expires_minutes?: number;
+  finding_id?: string | null;
+  owner_email?: string | null;
+  submission_version?: number | null;
 }
 
 async function dispatchOne(
@@ -116,6 +119,12 @@ async function dispatchOne(
         ? accessLinkUrl(options.appBaseUrl, 'owner_inbox', secrets.owner_inbox)
         : null,
       expiresMinutes: claim.expires_minutes ?? 1440,
+      // v199 - staff are sent to the finding, where they sign in as usual.
+      findingUrl: claim.finding_id
+        ? `${options.appBaseUrl.replace(/\/+$/, '')}/findings/${claim.finding_id}`
+        : null,
+      ownerEmail: claim.owner_email ?? null,
+      submissionVersion: claim.submission_version ?? null,
     });
     if (options.send) {
       await options.send({

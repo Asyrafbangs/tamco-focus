@@ -13446,3 +13446,174 @@ span.deadline span.deadline-glyph,
     width: 100%;
   }
 }
+
+/* ------------------------------------------------------------------------ */
+/* ESH Finding Management: evidence files and submissions (v199).          */
+/* ------------------------------------------------------------------------ */
+
+.esh-message-body p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.esh-message-body p + .esh-file-list {
+  margin-top: 10px;
+}
+.esh-file-list,
+.esh-upload-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.esh-file,
+.esh-upload {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.esh-file > a {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  text-decoration: none;
+}
+.esh-file > a:hover {
+  border-color: color-mix(in srgb, var(--blue) 35%, var(--line));
+}
+.esh-file > a:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.esh-file a > span:last-child,
+.esh-upload-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.esh-file strong,
+.esh-upload-text strong {
+  color: var(--heading);
+  overflow-wrap: anywhere;
+}
+.esh-file small,
+.esh-upload-text small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.esh-file-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+.esh-file-thumb {
+  flex: none;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--surface-2);
+}
+.esh-upload {
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.esh-upload[data-status='failed'] {
+  border-color: var(--red);
+}
+.esh-upload[data-status='failed'] small {
+  color: var(--red);
+}
+.esh-upload-text {
+  flex: 1 1 auto;
+}
+.esh-upload-actions {
+  display: inline-flex;
+  flex: none;
+  gap: 6px;
+}
+.guest-composer[data-dragging='true'],
+.esh-staff-composer[data-dragging='true'] {
+  outline: 2px dashed var(--blue);
+  outline-offset: 6px;
+  border-radius: var(--radius-sm);
+}
+.esh-drop-hint {
+  margin: 0;
+  color: var(--blue);
+  font-weight: 700;
+}
+.guest-composer-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.esh-attach-buttons {
+  display: inline-flex;
+  gap: 6px;
+}
+.esh-attach-buttons .btn {
+  min-height: 44px;
+}
+.esh-submit-sent {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  justify-self: end;
+}
+.esh-submission-mark {
+  margin: 0;
+  padding: 12px 16px;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 12px;
+}
+.esh-submission-mark[data-state='withdrawn'] {
+  color: var(--muted);
+}
+.guest-withdraw {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.guest-original-files {
+  margin-top: 10px;
+}
+.esh-original-evidence {
+  display: grid;
+  gap: 10px;
+}
+.esh-submission {
+  border-color: color-mix(in srgb, var(--blue) 35%, var(--line));
+}
+
+@media (max-width: 720px) {
+  .guest-composer-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .esh-attach-buttons .btn {
+    flex: 1 1 0;
+  }
+}

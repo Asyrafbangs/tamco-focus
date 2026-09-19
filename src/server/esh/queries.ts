@@ -10,7 +10,7 @@ import type {
   RegisterFilter,
   RiskLevel,
 } from '@/domain/esh-findings';
-import type { ConversationEntry } from '@/domain/esh-guest';
+import type { ConversationEntry, EvidenceFile, SubmissionMark } from '@/domain/esh-guest';
 import type { Database } from '@/lib/database.types';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -238,6 +238,16 @@ export interface FindingDetail {
   }>;
   /** v198 - the owner conversation of the first action, oldest first. */
   conversation: ConversationEntry[];
+  /** v199 - the finding's own evidence, and what the owner submitted. */
+  originalEvidence: EvidenceFile[];
+  submissions: SubmissionMark[];
+  pendingSubmission: {
+    version: number;
+    submittedAt: string;
+    ownerEmail: string;
+    resultText: string;
+    files: EvidenceFile[];
+  } | null;
   history: Array<{
     eventType: string;
     occurredAt: string;
@@ -271,7 +281,7 @@ export async function getFindingDetail(findingId: string): Promise<FindingDetail
     supabase
       .from('esh_notification_outbox')
       .select(
-        'id, event_type, state, state_reason, next_attempt_at, created_at, recipient_principal_id',
+        'id, event_type, state, state_reason, next_attempt_at, created_at, recipient_principal_id, recipient_user_id',
       )
       .eq('finding_id', findingId)
       .order('created_at'),
@@ -290,44 +300,87 @@ export async function getFindingDetail(findingId: string): Promise<FindingDetail
   ]);
 
   const action = actionResult.data;
-  const [escalationResult, peopleResult, messagesResult] = await Promise.all([
-    action
-      ? supabase
-          .from('esh_action_escalation_recipients')
-          .select('level, principal_id')
-          .eq('action_id', action.id)
-          .is('removed_at', null)
-          .order('level')
-      : Promise.resolve({ data: [] as Array<{ level: number; principal_id: string }> }),
-    supabase
-      .from('user_profiles')
-      .select('id, full_name')
-      .in(
-        'id',
-        [
-          finding.created_by,
-          action?.reviewer_user_id,
-          ...(auditResult.data ?? []).map((row) => row.actor_user_id),
-        ].filter((id): id is string => Boolean(id)),
-      ),
-    action
-      ? supabase
-          .from('esh_action_messages')
-          .select('id, author_kind, author_name, author_email, body, sent_at')
-          .eq('action_id', action.id)
-          .order('sent_at')
-          .limit(500)
-      : Promise.resolve({
-          data: [] as Array<{
-            id: string;
-            author_kind: string;
-            author_name: string | null;
-            author_email: string;
-            body: string;
-            sent_at: string;
-          }>,
-        }),
-  ]);
+  const [escalationResult, peopleResult, messagesResult, evidenceResult, submissionsResult] =
+    await Promise.all([
+      action
+        ? supabase
+            .from('esh_action_escalation_recipients')
+            .select('level, principal_id')
+            .eq('action_id', action.id)
+            .is('removed_at', null)
+            .order('level')
+        : Promise.resolve({ data: [] as Array<{ level: number; principal_id: string }> }),
+      supabase
+        .from('user_profiles')
+        .select('id, full_name')
+        .in(
+          'id',
+          [
+            finding.created_by,
+            action?.reviewer_user_id,
+            ...(auditResult.data ?? []).map((row) => row.actor_user_id),
+            ...(outboxResult.data ?? []).map((row) => row.recipient_user_id),
+          ].filter((id): id is string => Boolean(id)),
+        ),
+      action
+        ? supabase
+            .from('esh_action_messages')
+            .select('id, author_kind, author_name, author_email, body, sent_at')
+            .eq('action_id', action.id)
+            .order('sent_at')
+            .limit(500)
+        : Promise.resolve({
+            data: [] as Array<{
+              id: string;
+              author_kind: string;
+              author_name: string | null;
+              author_email: string;
+              body: string;
+              sent_at: string;
+            }>,
+          }),
+      supabase
+        .from('esh_evidence_assets')
+        .select('id, original_name, content_type, size_bytes, purpose, message_id, created_at')
+        .eq('finding_id', findingId)
+        .eq('state', 'ready')
+        .order('created_at'),
+      action
+        ? supabase
+            .from('esh_action_submissions')
+            .select(
+              'version, state, message_id, submitted_at, owner_email, result_text, evidence_asset_ids',
+            )
+            .eq('action_id', action.id)
+            .order('version')
+        : Promise.resolve({
+            data: [] as Array<{
+              version: number;
+              state: string;
+              message_id: string;
+              submitted_at: string;
+              owner_email: string;
+              result_text: string;
+              evidence_asset_ids: string[];
+            }>,
+          }),
+    ]);
+  const evidence = (evidenceResult.data ?? []).map((row) => ({
+    id: String(row.id),
+    name: String(row.original_name),
+    type: String(row.content_type ?? ''),
+    size: Number(row.size_bytes ?? 0),
+    purpose: String(row.purpose),
+    messageId: row.message_id ? String(row.message_id) : null,
+  }));
+  const fileOf = new Map(evidence.map((file) => [file.id, file]));
+  const toFile = ({ id, name, type, size }: (typeof evidence)[number]): EvidenceFile => ({
+    id,
+    name,
+    type,
+    size,
+  });
+  const pending = (submissionsResult.data ?? []).find((row) => row.state === 'pending') ?? null;
 
   const principalIds = [
     action?.owner_principal_id,
@@ -419,9 +472,12 @@ export async function getFindingDetail(findingId: string): Promise<FindingDetail
       stateReason: row.state_reason ?? null,
       stoppedRetrying: row.state === 'failed' && !row.next_attempt_at,
       createdAt: String(row.created_at),
+      // v199 - a review request goes to a member of ESH, not to a contact.
       recipient: row.recipient_principal_id
         ? (emailOf.get(row.recipient_principal_id) ?? null)
-        : null,
+        : row.recipient_user_id
+          ? (nameOf.get(String(row.recipient_user_id)) ?? null)
+          : null,
       recipientEnabled: Boolean(
         row.recipient_principal_id && reachable.has(row.recipient_principal_id),
       ),
@@ -433,7 +489,26 @@ export async function getFindingDetail(findingId: string): Promise<FindingDetail
       authorEmail: row.author_email ?? null,
       body: String(row.body),
       sentAt: String(row.sent_at),
+      files: evidence.filter((file) => file.messageId === String(row.id)).map(toFile),
     })),
+    originalEvidence: evidence.filter((file) => file.purpose === 'original').map(toFile),
+    submissions: (submissionsResult.data ?? []).map((row) => ({
+      messageId: String(row.message_id),
+      version: Number(row.version),
+      state: row.state as SubmissionMark['state'],
+    })),
+    pendingSubmission: pending
+      ? {
+          version: Number(pending.version),
+          submittedAt: String(pending.submitted_at),
+          ownerEmail: String(pending.owner_email),
+          resultText: String(pending.result_text),
+          files: ((pending.evidence_asset_ids ?? []) as string[])
+            .map((id) => fileOf.get(String(id)))
+            .filter((file): file is (typeof evidence)[number] => Boolean(file))
+            .map(toFile),
+        }
+      : null,
     history: (auditResult.data ?? []).map((row) => ({
       eventType: String(row.event_type),
       occurredAt: String(row.occurred_at),

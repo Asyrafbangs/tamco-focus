@@ -2037,6 +2037,88 @@ export type Database = {
           },
         ]
       }
+      esh_action_submissions: {
+        Row: {
+          action_id: string
+          assignment_version: number
+          baseline_due_at_snapshot: string | null
+          client_key: string
+          closed_at: string | null
+          closed_reason: string | null
+          due_at_snapshot: string | null
+          evidence_asset_ids: string[]
+          id: string
+          message_id: string
+          organization_id: string
+          owner_email: string
+          principal_id: string
+          result_text: string
+          state: string
+          submitted_at: string
+          version: number
+        }
+        Insert: {
+          action_id: string
+          assignment_version: number
+          baseline_due_at_snapshot?: string | null
+          client_key: string
+          closed_at?: string | null
+          closed_reason?: string | null
+          due_at_snapshot?: string | null
+          evidence_asset_ids?: string[]
+          id?: string
+          message_id: string
+          organization_id: string
+          owner_email: string
+          principal_id: string
+          result_text: string
+          state?: string
+          submitted_at?: string
+          version: number
+        }
+        Update: {
+          action_id?: string
+          assignment_version?: number
+          baseline_due_at_snapshot?: string | null
+          client_key?: string
+          closed_at?: string | null
+          closed_reason?: string | null
+          due_at_snapshot?: string | null
+          evidence_asset_ids?: string[]
+          id?: string
+          message_id?: string
+          organization_id?: string
+          owner_email?: string
+          principal_id?: string
+          result_text?: string
+          state?: string
+          submitted_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_action_submissions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_action_submissions_organization_id_action_id_fkey"
+            columns: ["organization_id", "action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_finding_actions"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_action_submissions_organization_id_principal_id_fkey"
+            columns: ["organization_id", "principal_id"]
+            isOneToOne: false
+            referencedRelation: "esh_email_principals"
+            referencedColumns: ["organization_id", "id"]
+          },
+        ]
+      }
       esh_audit_events: {
         Row: {
           action_id: string | null
@@ -2371,6 +2453,194 @@ export type Database = {
           },
         ]
       }
+      esh_evidence_assets: {
+        Row: {
+          action_id: string | null
+          content_sha256: string | null
+          content_type: string | null
+          created_at: string
+          declared_size: number
+          finding_id: string
+          id: string
+          message_id: string | null
+          object_key: string
+          organization_id: string
+          original_name: string
+          purpose: string
+          ready_at: string | null
+          rejected_reason: string | null
+          removed_at: string | null
+          removed_by: string | null
+          scan_state: string
+          size_bytes: number | null
+          state: string
+          uploader_kind: string
+          uploader_principal_id: string | null
+          uploader_user_id: string | null
+        }
+        Insert: {
+          action_id?: string | null
+          content_sha256?: string | null
+          content_type?: string | null
+          created_at?: string
+          declared_size: number
+          finding_id: string
+          id?: string
+          message_id?: string | null
+          object_key: string
+          organization_id: string
+          original_name: string
+          purpose: string
+          ready_at?: string | null
+          rejected_reason?: string | null
+          removed_at?: string | null
+          removed_by?: string | null
+          scan_state?: string
+          size_bytes?: number | null
+          state?: string
+          uploader_kind: string
+          uploader_principal_id?: string | null
+          uploader_user_id?: string | null
+        }
+        Update: {
+          action_id?: string | null
+          content_sha256?: string | null
+          content_type?: string | null
+          created_at?: string
+          declared_size?: number
+          finding_id?: string
+          id?: string
+          message_id?: string | null
+          object_key?: string
+          organization_id?: string
+          original_name?: string
+          purpose?: string
+          ready_at?: string | null
+          rejected_reason?: string | null
+          removed_at?: string | null
+          removed_by?: string | null
+          scan_state?: string
+          size_bytes?: number | null
+          state?: string
+          uploader_kind?: string
+          uploader_principal_id?: string | null
+          uploader_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_evidence_assets_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_organization_id_action_id_fkey"
+            columns: ["organization_id", "action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_finding_actions"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_organization_id_finding_id_fkey"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_findings"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_organization_id_finding_id_fkey"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_organization_id_uploader_principal_id_fkey"
+            columns: ["organization_id", "uploader_principal_id"]
+            isOneToOne: false
+            referencedRelation: "esh_email_principals"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_removed_by_fkey"
+            columns: ["removed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_removed_by_fkey"
+            columns: ["removed_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_removed_by_fkey"
+            columns: ["removed_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_removed_by_fkey"
+            columns: ["removed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_removed_by_fkey"
+            columns: ["removed_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_uploader_user_id_fkey"
+            columns: ["uploader_user_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_uploader_user_id_fkey"
+            columns: ["uploader_user_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_uploader_user_id_fkey"
+            columns: ["uploader_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_uploader_user_id_fkey"
+            columns: ["uploader_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_uploader_user_id_fkey"
+            columns: ["uploader_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       esh_finding_actions: {
         Row: {
           accepted_at: string | null
@@ -2379,6 +2649,7 @@ export type Database = {
           baseline_due_at: string | null
           created_at: string
           created_by: string
+          current_submission_id: string | null
           draft_escalation: Json
           draft_owner_email: string | null
           due_at: string | null
@@ -2407,6 +2678,7 @@ export type Database = {
           baseline_due_at?: string | null
           created_at?: string
           created_by: string
+          current_submission_id?: string | null
           draft_escalation?: Json
           draft_owner_email?: string | null
           due_at?: string | null
@@ -2435,6 +2707,7 @@ export type Database = {
           baseline_due_at?: string | null
           created_at?: string
           created_by?: string
+          current_submission_id?: string | null
           draft_escalation?: Json
           draft_owner_email?: string | null
           due_at?: string | null
@@ -2490,6 +2763,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_finding_actions_current_submission_id_fkey"
+            columns: ["current_submission_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_submissions"
             referencedColumns: ["id"]
           },
           {
@@ -2867,11 +3147,13 @@ export type Database = {
           organization_id: string
           provider_message_id: string | null
           recipient_principal_id: string | null
+          recipient_user_id: string | null
           released_at: string | null
           released_by: string | null
           sent_at: string | null
           state: string
           state_reason: string | null
+          submission_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2888,11 +3170,13 @@ export type Database = {
           organization_id: string
           provider_message_id?: string | null
           recipient_principal_id?: string | null
+          recipient_user_id?: string | null
           released_at?: string | null
           released_by?: string | null
           sent_at?: string | null
           state: string
           state_reason?: string | null
+          submission_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2909,11 +3193,13 @@ export type Database = {
           organization_id?: string
           provider_message_id?: string | null
           recipient_principal_id?: string | null
+          recipient_user_id?: string | null
           released_at?: string | null
           released_by?: string | null
           sent_at?: string | null
           state?: string
           state_reason?: string | null
+          submission_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2953,6 +3239,41 @@ export type Database = {
             referencedColumns: ["organization_id", "id"]
           },
           {
+            foreignKeyName: "esh_notification_outbox_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_notification_outbox_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_notification_outbox_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_notification_outbox_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_notification_outbox_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "esh_notification_outbox_released_by_fkey"
             columns: ["released_by"]
             isOneToOne: false
@@ -2985,6 +3306,13 @@ export type Database = {
             columns: ["released_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_notification_outbox_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_submissions"
             referencedColumns: ["id"]
           },
         ]
@@ -12278,6 +12606,17 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_finish_upload: {
+        Args: {
+          p_asset_id: string
+          p_ok: boolean
+          p_reason: string
+          p_sha256: string
+          p_size: number
+          p_type: string
+        }
+        Returns: Json
+      }
       esh_guest_action: {
         Args: { p_action_id: string; p_before?: string; p_session: string }
         Returns: Json
@@ -12293,6 +12632,22 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_guest_file: {
+        Args: { p_asset_id: string; p_session: string }
+        Returns: Json
+      }
+      esh_guest_finish_upload: {
+        Args: {
+          p_asset_id: string
+          p_ok: boolean
+          p_reason: string
+          p_session: string
+          p_sha256: string
+          p_size: number
+          p_type: string
+        }
+        Returns: Json
+      }
       esh_guest_my_actions: {
         Args: {
           p_filter: string
@@ -12301,6 +12656,10 @@ export type Database = {
           p_search: string
           p_session: string
         }
+        Returns: Json
+      }
+      esh_guest_remove_upload: {
+        Args: { p_asset_id: string; p_session: string }
         Returns: Json
       }
       esh_guest_request_link: {
@@ -12315,10 +12674,39 @@ export type Database = {
       esh_guest_send_message: {
         Args: {
           p_action_id: string
+          p_asset_ids?: string[]
           p_body: string
           p_client_key: string
           p_session: string
         }
+        Returns: Json
+      }
+      esh_guest_start_upload: {
+        Args: {
+          p_action_id: string
+          p_name: string
+          p_session: string
+          p_size: number
+        }
+        Returns: Json
+      }
+      esh_guest_submit: {
+        Args: {
+          p_action_id: string
+          p_asset_ids: string[]
+          p_body: string
+          p_client_key: string
+          p_reuse_message_id: string
+          p_session: string
+        }
+        Returns: Json
+      }
+      esh_guest_upload_target: {
+        Args: { p_asset_id: string; p_session: string }
+        Returns: Json
+      }
+      esh_guest_withdraw: {
+        Args: { p_action_id: string; p_reason: string; p_session: string }
         Returns: Json
       }
       esh_list_verifiers: {
@@ -12330,10 +12718,16 @@ export type Database = {
         }[]
       }
       esh_post_message: {
-        Args: { p_action_id: string; p_body: string; p_client_key: string }
+        Args: {
+          p_action_id: string
+          p_asset_ids?: string[]
+          p_body: string
+          p_client_key: string
+        }
         Returns: Json
       }
       esh_release_notification: { Args: { p_outbox_id: string }; Returns: Json }
+      esh_remove_upload: { Args: { p_asset_id: string }; Returns: Json }
       esh_save_finding: {
         Args: {
           p_assign?: boolean
@@ -12357,6 +12751,16 @@ export type Database = {
           p_reason?: string
           p_scope_all: boolean
           p_user_id: string
+        }
+        Returns: Json
+      }
+      esh_start_upload: {
+        Args: {
+          p_action_id: string
+          p_finding_id: string
+          p_name: string
+          p_purpose: string
+          p_size: number
         }
         Returns: Json
       }
