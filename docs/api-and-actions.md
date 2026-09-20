@@ -67,3 +67,22 @@ the service role. These operations remain local-only in this stage.
   is what made a single Goal request blank every heading on the screen.
 - The superseded v33 Goal authoring and per-Goal cadence procedures have no application caller. They
   are listed, with what replaced each one, in `docs/execution-goal-lifecycle-v52-impact-map.md`.
+
+## ESH Finding Management through v201
+
+- Staff mutations validate transport input, then call `esh_*` procedures as the signed-in user.
+  Database procedures re-check the ESH preset, department scope, live version and workflow state.
+- Guest Server Actions send a random session secret to `esh_guest_*` procedures through a
+  server-only service client. The procedure resolves the secret hash and re-derives current owner
+  or escalation scope on every read and write; a guest never receives an Auth session.
+- `POST /respond/actions/[actionId]/reply` is the same-origin, no-JavaScript fallback for escalation
+  reply and acknowledgement. It uses the guest cookie and the same procedures as the hydrated
+  form. It cannot upload evidence or invoke owner/verification operations.
+- `esh_run_followups(now)` is the daily scheduler contract. It records idempotent follow-up facts,
+  coalesces missed escalation levels and queues mail. `esh_dispatch_claim` locks and revalidates the
+  live assignment, deadline, workflow and entitlement before minting any link.
+- `esh_set_followup_policy` and `esh_set_working_calendar` require Verifier authority. Policy edits
+  apply only to future assignments; the working calendar is shared for review-reminder arithmetic.
+- `POST /api/esh/delivery` accepts an authenticated provider-neutral delivery event and calls
+  `esh_record_delivery_event`. Provider event IDs are idempotent; later bounces do not erase the
+  earlier provider-accepted fact.

@@ -1743,8 +1743,14 @@ export type Database = {
           action_id: string
           assigned_by: string
           ended_at: string | null
+          followup_level_days: number[]
+          followup_overdue_every_days: number
+          followup_pre_due_days: number
+          followup_remind_on_due: boolean
+          followup_review_reminder_days: number
           id: string
           organization_id: string
+          policy_version: number
           principal_id: string
           reason: string | null
           started_at: string
@@ -1754,8 +1760,14 @@ export type Database = {
           action_id: string
           assigned_by: string
           ended_at?: string | null
+          followup_level_days: number[]
+          followup_overdue_every_days: number
+          followup_pre_due_days: number
+          followup_remind_on_due: boolean
+          followup_review_reminder_days: number
           id?: string
           organization_id: string
+          policy_version: number
           principal_id: string
           reason?: string | null
           started_at?: string
@@ -1765,8 +1777,14 @@ export type Database = {
           action_id?: string
           assigned_by?: string
           ended_at?: string | null
+          followup_level_days?: number[]
+          followup_overdue_every_days?: number
+          followup_pre_due_days?: number
+          followup_remind_on_due?: boolean
+          followup_review_reminder_days?: number
           id?: string
           organization_id?: string
+          policy_version?: number
           principal_id?: string
           reason?: string | null
           started_at?: string
@@ -2245,6 +2263,57 @@ export type Database = {
           },
         ]
       }
+      esh_delivery_events: {
+        Row: {
+          detail: string | null
+          event_type: string
+          id: string
+          occurred_at: string
+          organization_id: string
+          outbox_id: string
+          provider_event_id: string
+          provider_message_id: string | null
+          received_at: string
+        }
+        Insert: {
+          detail?: string | null
+          event_type: string
+          id?: string
+          occurred_at: string
+          organization_id: string
+          outbox_id: string
+          provider_event_id: string
+          provider_message_id?: string | null
+          received_at?: string
+        }
+        Update: {
+          detail?: string | null
+          event_type?: string
+          id?: string
+          occurred_at?: string
+          organization_id?: string
+          outbox_id?: string
+          provider_event_id?: string
+          provider_message_id?: string | null
+          received_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_delivery_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_delivery_events_outbox_id_fkey"
+            columns: ["outbox_id"]
+            isOneToOne: false
+            referencedRelation: "esh_notification_outbox"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       esh_due_date_changes: {
         Row: {
           action_id: string
@@ -2541,6 +2610,70 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user_profiles"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_escalation_entitlements: {
+        Row: {
+          acknowledged_at: string | null
+          action_id: string
+          activated_at: string
+          activated_event_id: string | null
+          assignment_version: number
+          id: string
+          level: number
+          organization_id: string
+          principal_id: string
+          revoked_at: string | null
+          revoked_reason: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          action_id: string
+          activated_at?: string
+          activated_event_id?: string | null
+          assignment_version: number
+          id?: string
+          level: number
+          organization_id: string
+          principal_id: string
+          revoked_at?: string | null
+          revoked_reason?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          action_id?: string
+          activated_at?: string
+          activated_event_id?: string | null
+          assignment_version?: number
+          id?: string
+          level?: number
+          organization_id?: string
+          principal_id?: string
+          revoked_at?: string | null
+          revoked_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_escalation_entitlements_activated_event_id_fkey"
+            columns: ["activated_event_id"]
+            isOneToOne: false
+            referencedRelation: "esh_followup_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_escalation_entitlements_organization_id_action_id_fkey"
+            columns: ["organization_id", "action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_finding_actions"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_escalation_entitlements_organization_id_principal_id_fkey"
+            columns: ["organization_id", "principal_id"]
+            isOneToOne: false
+            referencedRelation: "esh_email_principals"
+            referencedColumns: ["organization_id", "id"]
           },
         ]
       }
@@ -3163,6 +3296,138 @@ export type Database = {
           },
         ]
       }
+      esh_followup_events: {
+        Row: {
+          action_id: string
+          assignment_version: number | null
+          created_at: string
+          detail: Json
+          due_at_snapshot: string | null
+          id: string
+          kind: string
+          organization_id: string
+          policy_version: number | null
+          stage: number | null
+          state: string
+          trigger_key: string
+        }
+        Insert: {
+          action_id: string
+          assignment_version?: number | null
+          created_at?: string
+          detail?: Json
+          due_at_snapshot?: string | null
+          id?: string
+          kind: string
+          organization_id: string
+          policy_version?: number | null
+          stage?: number | null
+          state?: string
+          trigger_key: string
+        }
+        Update: {
+          action_id?: string
+          assignment_version?: number | null
+          created_at?: string
+          detail?: Json
+          due_at_snapshot?: string | null
+          id?: string
+          kind?: string
+          organization_id?: string
+          policy_version?: number | null
+          stage?: number | null
+          state?: string
+          trigger_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_followup_events_organization_id_action_id_fkey"
+            columns: ["organization_id", "action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_finding_actions"
+            referencedColumns: ["organization_id", "id"]
+          },
+        ]
+      }
+      esh_followup_policies: {
+        Row: {
+          level_days: number[]
+          organization_id: string
+          overdue_every_days: number
+          pre_due_days: number
+          remind_on_due: boolean
+          review_reminder_days: number
+          updated_at: string
+          updated_by: string | null
+          version: number
+        }
+        Insert: {
+          level_days?: number[]
+          organization_id: string
+          overdue_every_days?: number
+          pre_due_days?: number
+          remind_on_due?: boolean
+          review_reminder_days?: number
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Update: {
+          level_days?: number[]
+          organization_id?: string
+          overdue_every_days?: number
+          pre_due_days?: number
+          remind_on_due?: boolean
+          review_reminder_days?: number
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_followup_policies_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_followup_policies_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_followup_policies_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_followup_policies_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_followup_policies_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_followup_policies_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       esh_guest_session_actions: {
         Row: {
           action_id: string
@@ -3196,6 +3461,49 @@ export type Database = {
           },
           {
             foreignKeyName: "esh_guest_session_actions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "esh_guest_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_guest_session_escalations: {
+        Row: {
+          action_id: string
+          assignment_version: number
+          level: number
+          session_id: string
+        }
+        Insert: {
+          action_id: string
+          assignment_version: number
+          level: number
+          session_id: string
+        }
+        Update: {
+          action_id?: string
+          assignment_version?: number
+          level?: number
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_guest_session_escalations_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_finding_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_guest_session_escalations_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_rows"
+            referencedColumns: ["action_id"]
+          },
+          {
+            foreignKeyName: "esh_guest_session_escalations_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "esh_guest_sessions"
@@ -3275,8 +3583,10 @@ export type Database = {
           action_id: string | null
           attempts: number
           created_at: string
+          escalation_level: number | null
           event_type: string
           finding_id: string | null
+          followup_event_id: string | null
           id: string
           idempotency_key: string
           last_error: string | null
@@ -3298,8 +3608,10 @@ export type Database = {
           action_id?: string | null
           attempts?: number
           created_at?: string
+          escalation_level?: number | null
           event_type: string
           finding_id?: string | null
+          followup_event_id?: string | null
           id?: string
           idempotency_key: string
           last_error?: string | null
@@ -3321,8 +3633,10 @@ export type Database = {
           action_id?: string | null
           attempts?: number
           created_at?: string
+          escalation_level?: number | null
           event_type?: string
           finding_id?: string | null
+          followup_event_id?: string | null
           id?: string
           idempotency_key?: string
           last_error?: string | null
@@ -3341,6 +3655,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "esh_notification_outbox_followup_event_id_fkey"
+            columns: ["followup_event_id"]
+            isOneToOne: false
+            referencedRelation: "esh_followup_events"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "esh_notification_outbox_organization_id_action_id_fkey"
             columns: ["organization_id", "action_id"]
@@ -3869,6 +4190,143 @@ export type Database = {
           {
             foreignKeyName: "esh_verification_events_verifier_user_id_fkey"
             columns: ["verifier_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_working_calendar_exceptions: {
+        Row: {
+          calendar_date: string
+          is_working_day: boolean
+          label: string
+          organization_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          calendar_date: string
+          is_working_day: boolean
+          label: string
+          organization_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          calendar_date?: string
+          is_working_day?: boolean
+          label?: string
+          organization_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_working_calendar_exceptions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_working_calendar_exceptions_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_working_calendar_exceptions_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_working_calendar_exceptions_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_working_calendar_exceptions_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_working_calendar_exceptions_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_working_calendars: {
+        Row: {
+          confirmed_through: string | null
+          organization_id: string
+          updated_at: string
+          updated_by: string | null
+          working_weekdays: number[]
+        }
+        Insert: {
+          confirmed_through?: string | null
+          organization_id: string
+          updated_at?: string
+          updated_by?: string | null
+          working_weekdays?: number[]
+        }
+        Update: {
+          confirmed_through?: string | null
+          organization_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          working_weekdays?: number[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_working_calendars_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_working_calendars_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_working_calendars_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_working_calendars_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_working_calendars_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_working_calendars_updated_by_fkey"
+            columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
             referencedColumns: ["id"]
@@ -12853,6 +13311,10 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_guest_acknowledge: {
+        Args: { p_action_id: string; p_session: string }
+        Returns: Json
+      }
       esh_guest_action: {
         Args: { p_action_id: string; p_before?: string; p_session: string }
         Returns: Json
@@ -12966,6 +13428,16 @@ export type Database = {
         Args: { p_action_id: string; p_owner_email: string; p_reason: string }
         Returns: Json
       }
+      esh_record_delivery_event: {
+        Args: {
+          p_detail?: string
+          p_event_type: string
+          p_occurred_at: string
+          p_provider_event_id: string
+          p_provider_message_id: string
+        }
+        Returns: Json
+      }
       esh_release_notification: { Args: { p_outbox_id: string }; Returns: Json }
       esh_remove_upload: { Args: { p_asset_id: string }; Returns: Json }
       esh_reopen_finding: {
@@ -12977,6 +13449,7 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_run_followups: { Args: { p_now?: string }; Returns: Json }
       esh_save_finding: {
         Args: {
           p_assign?: boolean
@@ -12990,6 +13463,16 @@ export type Database = {
         Args: { p_enabled: boolean; p_principal_id: string; p_reason: string }
         Returns: Json
       }
+      esh_set_followup_policy: {
+        Args: {
+          p_level_days: number[]
+          p_overdue_every_days: number
+          p_pre_due_days: number
+          p_remind_on_due: boolean
+          p_review_reminder_days: number
+        }
+        Returns: Json
+      }
       esh_set_staff_access: {
         Args: {
           p_can_manage_reports?: boolean
@@ -13000,6 +13483,14 @@ export type Database = {
           p_reason?: string
           p_scope_all: boolean
           p_user_id: string
+        }
+        Returns: Json
+      }
+      esh_set_working_calendar: {
+        Args: {
+          p_confirmed_through: string
+          p_exceptions: Json
+          p_working_weekdays: number[]
         }
         Returns: Json
       }

@@ -1,5 +1,31 @@
 # TAMCO Focus — Change Log
 
+## v201 Follow-up, escalation and delivery evidence — 20 September 2026
+
+The fifth Finding Management stage remains behind the restricted rollout.
+
+- **Policy snapshots.** Verifiers configure owner reminders, escalation timing and ESH review
+  follow-up. Every assignment keeps the complete policy it started with, so a later edit never
+  rewrites live work.
+- **An honest working-day calendar.** ESH maintains normal working weekdays, labelled exceptions
+  and a confirmed-through date. The product does not silently claim Malaysian public-holiday
+  coverage.
+- **Daily, duplicate-safe follow-up.** The existing local cron evaluates pre-due, due-day and
+  repeating overdue reminders, coalesces missed escalation levels, and stops owner chasing while a
+  submission is with ESH. Every trigger is recorded and can run again without duplicating mail.
+- **Escalation without reassignment.** A reached recipient gets a link to that one action. They can
+  read, reply and acknowledge, but cannot upload, submit, change the deadline, reassign, verify or
+  close. Their reply never changes the action state or owner.
+- **ESH is kept in the loop.** Meaningful owner and escalation replies notify the named reviewer,
+  or covering Verifiers when none is named. Stale reminders are suppressed at dispatch after a
+  due-date, assignment or workflow change.
+- **Delivery is not guessed.** Provider acceptance, delivery, bounce and terminal failure are
+  separate facts. An idempotent authenticated callback records provider delivery evidence; bounce
+  or terminal failure raises Needs attention.
+- **Hydration-safe guest forms.** The escalation reply and acknowledgement form has a same-origin
+  POST fallback, so a fast first click before the client island hydrates is not lost.
+- pgTAP (52), unit, integration, and desktop/mobile end-to-end coverage.
+
 ## v200 ESH verifies, closes and reopens — 20 September 2026
 
 The fourth stage of ESH Finding Management, still behind the rollout.

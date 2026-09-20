@@ -60,5 +60,18 @@ meeting or audit history. Shared work is a view over checklist assignment, not a
 Goals are performance agreements, not Tasks. A performance period contains one employee plan; one
 monthly or quarterly session header owns the per-Goal snapshots for that employee and period. Goal
 support deliberately enters the existing Barrier/request engine. Completion and cancellation remain
-separate terminal transactions. The future ESH domain and a generic management module are outside
-this repository boundary.
+separate terminal transactions.
+
+## ESH Finding Management boundary
+
+Finding Management is a separate application module in this repository. Signed-in staff keep their
+Supabase Auth identity, but ESH presets and department scope—not Focus role or reporting line—grant
+its authority. External Action Owners and escalation recipients are email principals, never shadow
+Auth users. They reach only server-side guest procedures through random, hashed, expiring grants and
+sessions; no ESH guest table is exposed to `anon` or `authenticated`.
+
+The database owns every finding/action transition, policy snapshot, entitlement and notification
+recipient. The daily cron records idempotent follow-up events before queueing mail. The outbox worker
+then locks the row and re-checks the live assignment, deadline, submission and entitlement before it
+mints any one-time link. Provider callbacks append delivery evidence; they do not overwrite the
+business event that originally queued the mail.

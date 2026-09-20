@@ -805,3 +805,51 @@ export async function countAwaitingVerification(): Promise<number> {
   }
   return count ?? 0;
 }
+
+export interface FollowupSettings {
+  version: number;
+  preDueDays: number;
+  remindOnDue: boolean;
+  overdueEveryDays: number;
+  levelDays: number[];
+  reviewReminderDays: number;
+  timeZone: string;
+  workingWeekdays: number[];
+  calendarConfirmedThrough: string | null;
+  calendarExceptions: Array<{ date: string; isWorkingDay: boolean; label: string }>;
+}
+
+/** The complete policy screen, including the calendar behind “working day”. */
+export async function getFollowupSettings(): Promise<FollowupSettings | null> {
+  const supabase = await createSupabaseServerClient();
+  const [policy, calendar, exceptions, organization] = await Promise.all([
+    supabase.from('esh_followup_policies').select('*').maybeSingle(),
+    supabase.from('esh_working_calendars').select('*').maybeSingle(),
+    supabase
+      .from('esh_working_calendar_exceptions')
+      .select('calendar_date, is_working_day, label')
+      .order('calendar_date'),
+    supabase.from('organizations').select('timezone').maybeSingle(),
+  ]);
+  const error = policy.error ?? calendar.error ?? exceptions.error ?? organization.error;
+  if (error || !policy.data || !calendar.data) {
+    if (error) console.error(`[getFollowupSettings] ${error.message}`);
+    return null;
+  }
+  return {
+    version: Number(policy.data.version),
+    preDueDays: Number(policy.data.pre_due_days),
+    remindOnDue: Boolean(policy.data.remind_on_due),
+    overdueEveryDays: Number(policy.data.overdue_every_days),
+    levelDays: (policy.data.level_days ?? []).map(Number),
+    reviewReminderDays: Number(policy.data.review_reminder_days),
+    timeZone: organization.data?.timezone ?? 'Asia/Kuala_Lumpur',
+    workingWeekdays: (calendar.data.working_weekdays ?? []).map(Number),
+    calendarConfirmedThrough: calendar.data.confirmed_through ?? null,
+    calendarExceptions: (exceptions.data ?? []).map((row) => ({
+      date: String(row.calendar_date),
+      isWorkingDay: Boolean(row.is_working_day),
+      label: String(row.label),
+    })),
+  };
+}

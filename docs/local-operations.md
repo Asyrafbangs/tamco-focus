@@ -27,6 +27,15 @@ npm.cmd run worker:tick
 
 Run `worker:tick` at least daily through Windows Task Scheduler or an equivalent local scheduler. The routine procedure and email period key are idempotent, so additional invocations are safe. Weekly delivery occurs only after the configured local day and hour; `npm.cmd run worker:weekly -- --force` is for local verification.
 
+The authenticated `/api/cron` route also runs `esh_run_followups` before draining the ESH outbox.
+The local default policy evaluates owner reminders and escalation once per day in the organisation
+timezone. Verifiers maintain that policy and the labelled working-day calendar at
+`/findings/settings`; do not mark the calendar confirmed beyond the dates actually reviewed.
+
+`POST /api/esh/delivery` is available for a future provider adapter. Locally it remains unused
+unless `ESH_DELIVERY_WEBHOOK_SECRET` is set. Never treat SMTP acceptance as delivery and never put
+the callback secret in a browser-visible variable.
+
 ## Database changes
 
 Add a forward-only timestamped migration, then run:
@@ -56,4 +65,6 @@ Open `http://localhost:3000/sign-in`, sign in, and verify Today, Work, Plan, Tea
 - If the stack is unavailable, start Docker Desktop and run `npm.cmd run supabase:start`.
 - If migrations drift, run `npm.cmd run db:reset`; local fixture data is intentionally recreated.
 - If an email delivery fails, retain its `failed` row. A later worker run retries after `next_retry_at` with bounded backoff.
+- If an ESH message bounces or reaches a terminal failure, keep the outbox and delivery-event rows;
+  Needs attention is the operator's cue to correct or disable the contact.
 - If a user has retained history, deactivate rather than trying to remove records.

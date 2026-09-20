@@ -164,6 +164,22 @@ export async function GET(request: Request) {
   }
 
   /*
+   * v201 - Finding Management follow-up. The procedure records each trigger
+   * before it queues mail, so reruns and recovery after downtime are safe.
+   * It runs before the mail drain below so today's reminders can leave in
+   * this invocation.
+   */
+  try {
+    const { data, error } = await client.rpc('esh_run_followups', {});
+    if (error) throw new Error(error.message);
+    results.push({ worker: 'esh_followups', ok: true, detail: JSON.stringify(data ?? {}) });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'unknown error';
+    console.error(`[cron] Finding Management follow-up failed: ${detail}`);
+    results.push({ worker: 'esh_followups', ok: false, detail });
+  }
+
+  /*
    * Weekly summary.
    *
    * The worker owns its own schedule — it checks the configured day and hour

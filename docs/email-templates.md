@@ -172,3 +172,26 @@ address in the To line is enough.
 **One link, one use.** Clicking twice fails, and the second click shows the
 generic "no longer valid" message on the sign-in page — deliberately the same
 message as an expired or tampered link.
+
+---
+
+## ESH Finding Management email
+
+ESH application email is rendered in `src/server/esh/email.ts`, not in the Supabase Auth template
+editor. It has HTML and plain-text variants and deliberately carries only enough context to identify
+the action. Finding detail and evidence stay behind staff or guest access checks.
+
+v201 adds these events:
+
+- owner pre-due, due-day and repeating overdue reminders;
+- reached escalation level, with a link scoped to that recipient and action;
+- submission still waiting for ESH review;
+- final configured escalation level exhausted;
+- owner update and escalation-recipient response for the responsible ESH staff.
+
+Assignment/reminder/escalation links are random one-time grants minted only when the outbox row is
+claimed. A stale due date, assignment, submission or escalation is suppressed before any link is
+created. Mail to ESH staff links to the signed-in finding; it never gives staff a guest link.
+
+`provider_accepted` means the transport accepted the message. Only a delivery callback records
+`delivered`; a bounce or terminal callback records `bounced` and raises operational attention.

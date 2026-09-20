@@ -482,6 +482,71 @@
   }
 }
 
+/* v201 — policy, working calendar and escalation guest response. */
+.esh-policy-stack,
+.esh-policy-form {
+  display: grid;
+  gap: 20px;
+}
+.esh-policy-form + .esh-policy-form {
+  margin-top: 12px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
+}
+.esh-policy-levels {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.esh-policy-level {
+  display: grid;
+  grid-template-columns: 90px minmax(100px, 180px) minmax(140px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.esh-policy-level > span {
+  font-weight: 700;
+}
+.esh-policy-level > small {
+  color: var(--muted);
+}
+.esh-weekdays {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px 14px;
+  margin: 18px 0;
+  padding: 0;
+  border: 0;
+}
+.esh-weekdays legend {
+  grid-column: 1 / -1;
+  margin-bottom: 4px;
+  font-weight: 700;
+}
+.esh-calendar-confirmed {
+  max-width: 420px;
+  margin-top: 16px;
+}
+.guest-role-notice {
+  margin: 14px 0;
+}
+
+@media (max-width: 720px) {
+  .esh-policy-level {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+  .esh-policy-level > small {
+    grid-column: 2;
+  }
+  .esh-policy-level > .btn {
+    grid-column: 2;
+    justify-self: start;
+  }
+  .esh-weekdays {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 440px) {
   /* Expand, and only Expand. A phone drawer is already full width, so the
      control has nothing to do - but this was written as "the first button",

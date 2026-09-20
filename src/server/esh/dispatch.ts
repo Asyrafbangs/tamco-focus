@@ -76,6 +76,9 @@ interface ClaimResult {
   finding_id?: string | null;
   owner_email?: string | null;
   submission_version?: number | null;
+  followup_kind?: string | null;
+  days_overdue?: number | null;
+  escalation_level?: number | null;
 }
 
 async function dispatchOne(
@@ -114,7 +117,9 @@ async function dispatchOne(
       eshContactEmail: claim.esh_contact_email ?? null,
       actionUrl: secrets.owner_action
         ? accessLinkUrl(options.appBaseUrl, 'owner_action', secrets.owner_action)
-        : null,
+        : secrets.escalation_action
+          ? accessLinkUrl(options.appBaseUrl, 'escalation_action', secrets.escalation_action)
+          : null,
       inboxUrl: secrets.owner_inbox
         ? accessLinkUrl(options.appBaseUrl, 'owner_inbox', secrets.owner_inbox)
         : null,
@@ -125,6 +130,9 @@ async function dispatchOne(
         : null,
       ownerEmail: claim.owner_email ?? null,
       submissionVersion: claim.submission_version ?? null,
+      followupKind: claim.followup_kind ?? null,
+      daysOverdue: claim.days_overdue ?? null,
+      escalationLevel: claim.escalation_level ?? null,
     });
     if (options.send) {
       await options.send({
@@ -211,7 +219,8 @@ export async function runEshOutboxWorker(
   };
   for (const candidate of candidates) {
     const intents = (Array.isArray(candidate.link_intents) ? candidate.link_intents : []).filter(
-      (intent): intent is AccessPurpose => intent === 'owner_action' || intent === 'owner_inbox',
+      (intent): intent is AccessPurpose =>
+        intent === 'owner_action' || intent === 'owner_inbox' || intent === 'escalation_action',
     );
     const outcome = await dispatchOne(client, candidate.id, intents, options);
     result[outcome] += 1;

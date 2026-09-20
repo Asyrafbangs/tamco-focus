@@ -8,12 +8,12 @@ import { countAwaitingVerification } from '@/server/esh/queries';
  * well; this only keeps the page from rendering around nothing.
  */
 export default async function FindingsLayout({ children }: { children: React.ReactNode }) {
-  await requireEshAccess();
+  const access = await requireEshAccess();
   // v200 - how much is waiting for ESH, counted by the same rule the queue uses.
   const waitingToVerify = await countAwaitingVerification();
   return (
     <div className="esh-module">
-      <FindingNav waitingToVerify={waitingToVerify} />
+      <FindingNav waitingToVerify={waitingToVerify} canManageSettings={access.canVerify} />
       <main id="esh-main" className="esh-content">
         {children}
       </main>

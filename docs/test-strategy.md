@@ -75,3 +75,13 @@ The E2E gate builds its own `.next-e2e` production output and serves it with `ne
 not keep the development compiler alive across the desktop/mobile suite; this prevents CI heap
 growth from killing the application server and verifies the same production artifact model used by
 the deployment gate.
+
+## ESH Finding Management v201 coverage
+
+`esh_followup_v201.test.sql` drives the scheduler with fixed instants and proves policy snapshots,
+working-day review timing, duplicate prevention, missed-level coalescing, escalation scope,
+acknowledgement, staff reply notifications, stale dispatch suppression and idempotent delivery
+callbacks. The real-stack integration test opens a recipient-specific escalation link, proves it
+cannot submit owner work, checks the staff notification worker and verifies a due-date change
+suppresses queued mail. Playwright repeats the Verifier settings page and escalation response on
+1440 × 900 and 390 × 844, including a first interaction before hydration.

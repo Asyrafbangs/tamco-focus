@@ -21,7 +21,13 @@ export interface EshEmailInput {
     | 'due_changed'
     | 'finding_closed'
     | 'finding_reopened'
-    | 'reassigned_away';
+    | 'reassigned_away'
+    | 'owner_reminder'
+    | 'escalation'
+    | 'review_reminder'
+    | 'escalation_exhausted'
+    | 'owner_reply'
+    | 'escalation_reply';
   reference: string | null;
   actionTitle: string | null;
   location: string | null;
@@ -35,6 +41,9 @@ export interface EshEmailInput {
   findingUrl?: string | null;
   ownerEmail?: string | null;
   submissionVersion?: number | null;
+  followupKind?: string | null;
+  daysOverdue?: number | null;
+  escalationLevel?: number | null;
 }
 
 export interface RenderedEmail {
@@ -89,6 +98,58 @@ export function renderEshEmail(input: EshEmailInput): RenderedEmail {
       headline = 'ESH replied about your action';
       lead = 'Open the conversation to read the reply and respond.';
       if (input.actionUrl) links.push({ href: input.actionUrl, label: 'Open the conversation' });
+      break;
+    case 'owner_reminder': {
+      const days = input.daysOverdue ?? 0;
+      if (input.followupKind === 'owner_pre_due') {
+        subject = `Due soon: ${heading}`;
+        headline = 'Your action is due soon';
+        lead = `A reminder while there is still time.${input.dueLabel ? ` ${input.dueLabel}.` : ''} Send ESH what you have done and they will review it.`;
+      } else if (input.followupKind === 'owner_due') {
+        subject = `Due today: ${heading}`;
+        headline = 'Your action is due today';
+        lead = 'Send ESH what you have done, or tell them in the conversation where it stands.';
+      } else {
+        subject = `Overdue: ${heading}`;
+        headline = days === 1 ? 'Your action is a day overdue' : 'Your action is overdue';
+        lead = `${days > 1 ? `This action passed its due date ${days} days ago. ` : 'This action has passed its due date. '}Send ESH what you have done, or tell them in the conversation what is holding it up.`;
+      }
+      if (input.actionUrl) links.push({ href: input.actionUrl, label: 'View finding & respond' });
+      if (input.inboxUrl) links.push({ href: input.inboxUrl, label: 'View All My Actions' });
+      break;
+    }
+    case 'escalation': {
+      const level = input.escalationLevel ?? 1;
+      const days = input.daysOverdue ?? 0;
+      subject = `Escalation level ${level}: ${heading}`;
+      headline = `An overdue action has been escalated to you (level ${level})`;
+      lead = `${input.ownerEmail ?? 'The Action Owner'} was asked to correct this${days > 0 ? ` and is ${days} ${days === 1 ? 'day' : 'days'} past the due date` : ''}. ESH is asking for your support to get it done. The action stays with its owner: you are not being asked to do the work or to close it.`;
+      if (input.actionUrl) links.push({ href: input.actionUrl, label: 'Open the action' });
+      break;
+    }
+    case 'review_reminder':
+      subject = `Still waiting for review: ${heading}`;
+      headline = 'A submission is still waiting for you';
+      lead = `${input.ownerEmail ?? 'The Action Owner'} sent version ${input.submissionVersion ?? 1} for verification and nothing has been decided yet. The owner is not being chased while it sits with ESH.`;
+      if (input.findingUrl) links.push({ href: input.findingUrl, label: 'Open the finding' });
+      break;
+    case 'escalation_exhausted':
+      subject = `Escalation exhausted: ${heading}`;
+      headline = 'The last escalation level has been reached';
+      lead = `${input.ownerEmail ?? 'The Action Owner'} is ${(input.daysOverdue ?? 0) > 0 ? `${input.daysOverdue} ${input.daysOverdue === 1 ? 'day' : 'days'} ` : ''}overdue and every configured level has been told. There is no further level: this is now a decision for ESH.`;
+      if (input.findingUrl) links.push({ href: input.findingUrl, label: 'Open the finding' });
+      break;
+    case 'owner_reply':
+      subject = `Owner update: ${heading}`;
+      headline = 'The Action Owner sent an update';
+      lead = `${input.ownerEmail ?? 'The Action Owner'} added a message to the conversation. It is an update, not a submission for verification.`;
+      if (input.findingUrl) links.push({ href: input.findingUrl, label: 'Open the finding' });
+      break;
+    case 'escalation_reply':
+      subject = `Escalation response: ${heading}`;
+      headline = 'An escalation recipient responded';
+      lead = `A person supporting ${input.ownerEmail ?? 'the Action Owner'} added a message to the conversation. The action still belongs to its owner.`;
+      if (input.findingUrl) links.push({ href: input.findingUrl, label: 'Open the finding' });
       break;
     case 'changes_requested':
       subject = `More needed: ${heading}`;
@@ -147,7 +208,12 @@ export function renderEshEmail(input: EshEmailInput): RenderedEmail {
   subject = oneLine(subject).slice(0, 180);
 
   const forStaff =
-    input.eventType === 'submission_received' || input.eventType === 'submission_withdrawn';
+    input.eventType === 'submission_received' ||
+    input.eventType === 'submission_withdrawn' ||
+    input.eventType === 'review_reminder' ||
+    input.eventType === 'escalation_exhausted' ||
+    input.eventType === 'owner_reply' ||
+    input.eventType === 'escalation_reply';
   const noLinks = links.length === 0;
   const validity = noLinks
     ? 'This is for your records; there is nothing to open.'
@@ -163,7 +229,9 @@ export function renderEshEmail(input: EshEmailInput): RenderedEmail {
   const verification =
     input.eventType === 'access_link' || forStaff || noLinks
       ? ''
-      : 'ESH verifies the correction before the finding is closed.';
+      : input.eventType === 'escalation'
+        ? 'You can read the action and reply, or acknowledge that you have seen it. Submitting the evidence and closing the finding stay with the owner and ESH.'
+        : 'ESH verifies the correction before the finding is closed.';
   const unmonitored = noLinks
     ? 'This mailbox is not monitored. Contact ESH if anything looks wrong.'
     : forStaff

@@ -7,7 +7,13 @@ import { usePathname } from 'next/navigation';
  * Finding Management's own navigation (§4, §33.1). Overview joins this list
  * in the stage that builds it, never as an empty page first.
  */
-export function FindingNav({ waitingToVerify }: { waitingToVerify: number }) {
+export function FindingNav({
+  waitingToVerify,
+  canManageSettings,
+}: {
+  waitingToVerify: number;
+  canManageSettings: boolean;
+}) {
   const pathname = usePathname();
   const inRegister =
     pathname.startsWith('/findings/register') ||
@@ -44,6 +50,16 @@ export function FindingNav({ waitingToVerify }: { waitingToVerify: number }) {
             Closed
           </Link>
         </li>
+        {canManageSettings && (
+          <li>
+            <Link
+              href="/findings/settings"
+              aria-current={pathname.startsWith('/findings/settings') ? 'page' : undefined}
+            >
+              Follow-up settings
+            </Link>
+          </li>
+        )}
       </ul>
       <Link href="/esh" className="esh-sidenav-home">
         ← ESH Home

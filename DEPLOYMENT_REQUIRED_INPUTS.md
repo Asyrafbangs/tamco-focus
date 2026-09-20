@@ -48,6 +48,7 @@ into Git.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | local key           | Staging key              | Production key     | Browser-visible; constrained by RLS           |
 | `SUPABASE_SERVICE_ROLE_KEY`     | local key           | Staging key              | Production key     | **Server only.** Never `NEXT_PUBLIC_`         |
 | `CRON_SECRET`                   | —                   | generate                 | generate           | Distinct per environment                      |
+| `ESH_DELIVERY_WEBHOOK_SECRET`   | optional            | provider secret          | provider secret    | Server-only delivery callback authentication  |
 | `APP_BASE_URL`                  | localhost           | Preview URL              | Production URL     | Absolute links in email                       |
 | `ORG_TIMEZONE`                  | `Asia/Kuala_Lumpur` | same                     | same               |                                               |
 | `EMAIL_TRANSPORT`               | `log`               | `log`                    | `log` until SMTP   | Honest default; nothing is faked              |
@@ -78,3 +79,9 @@ variable with the environment checkbox for that environment only.
 present `Authorization: Bearer $CRON_SECRET`; Vercel does this automatically
 from the project's `CRON_SECRET` variable. Without it the endpoint returns 503
 and logs that it is unconfigured — it does not run unauthenticated.
+
+The ESH delivery callback is provider-neutral application infrastructure, not a configured mail
+provider integration. Before using it outside local development, choose a provider, map only that
+provider's signed delivery/bounce events to the documented payload, and keep
+`ESH_DELIVERY_WEBHOOK_SECRET` in the hosting secret store. Until then, outbox state stops honestly at
+`provider_accepted` or a transport failure.

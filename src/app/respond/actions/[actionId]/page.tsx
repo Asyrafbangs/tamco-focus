@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { Conversation } from '@/components/esh/Conversation';
+import { EscalationComposer } from '@/components/esh/guest/EscalationComposer';
 import { EndAccessButton } from '@/components/esh/guest/EndAccessButton';
 import { GuestTopBar } from '@/components/esh/guest/GuestTopBar';
 import { OwnerComposer } from '@/components/esh/guest/OwnerComposer';
@@ -24,7 +25,7 @@ export default async function GuestActionPage({
   searchParams,
 }: {
   params: Promise<{ actionId: string }>;
-  searchParams: Promise<{ before?: string }>;
+  searchParams: Promise<{ before?: string; acknowledged?: string }>;
 }) {
   const { actionId } = await params;
   const query = await searchParams;
@@ -106,7 +107,11 @@ export default async function GuestActionPage({
         timeZone,
       }).format(new Date(data.action.dueAt))
     : null;
-  const identity = `${data.displayName ?? data.email} · Action Owner`;
+  const escalation = data.mode === 'escalation';
+  const acknowledgedLevel = /^[1-9]$/.test(query.acknowledged ?? '')
+    ? Number(query.acknowledged)
+    : null;
+  const identity = `${data.displayName ?? data.email} · ${escalation ? 'Escalation recipient' : 'Action Owner'}`;
   const earliest = data.messages[0]?.sentAt;
   const awaitingReview = data.action.state === 'awaiting_verification';
 
@@ -114,9 +119,11 @@ export default async function GuestActionPage({
     <>
       <GuestTopBar identity={identity} />
       <main id="guest-main" className="guest-main">
-        <Link href="/respond/my-actions" className="esh-back-link">
-          ← My Actions
-        </Link>
+        {!escalation && (
+          <Link href="/respond/my-actions" className="esh-back-link">
+            ← My Actions
+          </Link>
+        )}
         <p className="guest-eyebrow">
           {[data.finding.reference, data.finding.location ?? data.finding.department]
             .filter(Boolean)
@@ -125,10 +132,33 @@ export default async function GuestActionPage({
         <h1 className="guest-title">{data.action.title}</h1>
         <span className="flag neutral guest-state">{ACTION_STATE_LABELS[data.action.state]}</span>
         <p className="guest-meta">
-          {[due ? `Due ${due}` : null, `Owner: ${data.displayName ?? data.email}`]
+          {[
+            due ? `Due ${due}` : null,
+            `Owner: ${escalation ? (data.ownerEmail ?? 'Action Owner') : (data.displayName ?? data.email)}`,
+          ]
             .filter(Boolean)
             .join(' · ')}
         </p>
+        {escalation && (
+          <div className="notice amber guest-role-notice">
+            <strong>Escalation level {data.escalationLevel ?? 1}</strong>
+            <p>
+              ESH is asking for your support because this action is overdue. It remains assigned to
+              the Action Owner; you can respond or acknowledge, but cannot submit or close it.
+            </p>
+          </div>
+        )}
+        {escalation && acknowledgedLevel && (
+          <p className="notice success compact" role="status">
+            Level {acknowledgedLevel} acknowledged. The action remains with its owner.
+          </p>
+        )}
+        {data.readOnly && (
+          <div className="notice neutral guest-role-notice">
+            <strong>Closed action receipt</strong>
+            <p>This record is read-only. ESH has already accepted the correction.</p>
+          </div>
+        )}
         {data.action.requiredOutcome && (
           <p className="guest-outcome">{data.action.requiredOutcome}</p>
         )}
@@ -209,17 +239,21 @@ export default async function GuestActionPage({
           )}
           <Conversation
             entries={data.messages}
-            viewer="owner"
+            viewer={data.mode}
+            viewerPrincipalId={data.principalId}
             timeZone={timeZone}
             now={new Date()}
             fileBase="/respond/files"
             submissions={data.submissions}
-            submitFor={awaitingReview ? null : data.action.id}
+            submitFor={awaitingReview || escalation || data.readOnly ? null : data.action.id}
             emptyText="No messages yet. Send ESH an update when you start, or ask a question."
           />
         </section>
 
-        {!before && (
+        {!before && escalation && !data.readOnly && (
+          <EscalationComposer actionId={data.action.id} level={data.escalationLevel ?? 1} />
+        )}
+        {!before && !escalation && !data.readOnly && (
           <OwnerComposer
             actionId={data.action.id}
             awaitingReview={awaitingReview}

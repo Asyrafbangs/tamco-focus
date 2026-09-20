@@ -27,9 +27,11 @@ export function Conversation({
   fileBase,
   submissions = [],
   submitFor = null,
+  viewerPrincipalId = null,
 }: {
   entries: ConversationEntry[];
-  viewer: 'owner' | 'staff';
+  viewer: 'owner' | 'staff' | 'escalation';
+  viewerPrincipalId?: string | null;
   timeZone: string;
   now: Date;
   emptyText: string;
@@ -59,15 +61,21 @@ export function Conversation({
     <ol className="esh-conversation" aria-label="Conversation">
       {entries.map((entry, index) => {
         const heading = index === 0 || days[index] !== days[index - 1] ? days[index] : null;
-        const mine = viewer === entry.authorKind;
+        const mine =
+          viewer === entry.authorKind &&
+          (viewer !== 'escalation' || entry.authorPrincipalId === viewerPrincipalId);
         const author =
           entry.authorKind === 'staff'
             ? viewer === 'owner'
               ? `${firstName(entry.authorName)} · ESH`
               : `${entry.authorName ?? 'ESH'} · ESH`
-            : viewer === 'owner'
-              ? 'You'
-              : `${entry.authorEmail ?? 'Action Owner'} · Action Owner`;
+            : entry.authorKind === 'escalation'
+              ? mine
+                ? 'You · Escalation recipient'
+                : `${entry.authorName ?? entry.authorEmail ?? 'Escalation recipient'} · Escalation recipient`
+              : viewer === 'owner'
+                ? 'You'
+                : `${entry.authorEmail ?? 'Action Owner'} · Action Owner`;
         const files = entry.files ?? [];
         return (
           <li key={entry.id} className="esh-message-item">

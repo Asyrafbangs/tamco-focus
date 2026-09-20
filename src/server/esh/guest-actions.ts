@@ -182,10 +182,41 @@ export async function sendOwnerUpdate(input: {
     console.error(`[esh_guest_send_message] ${error.code ?? 'unknown'}: ${error.message}`);
     return { ok: false, code: 'invalid' };
   }
-  const result = (data ?? {}) as { ok?: boolean; code?: string; message_id?: string };
+  const result = (data ?? {}) as {
+    ok?: boolean;
+    code?: string;
+    message_id?: string;
+    notifications?: number;
+  };
   if (!result.ok || !result.message_id) return { ok: false, code: result.code ?? 'invalid' };
+  if ((result.notifications ?? 0) > 0) await scheduleEshDispatch();
   revalidatePath(`/respond/actions/${actionId.data}`);
   return { ok: true, messageId: result.message_id };
+}
+
+/**
+ * Record that an activated escalation recipient has seen the request. This
+ * never changes the action state, owner, due date or submission (§15).
+ */
+export async function acknowledgeEscalation(input: {
+  actionId: string;
+}): Promise<{ ok: true; level: number | null } | { ok: false; code: string }> {
+  const actionId = uuid.safeParse(input.actionId);
+  if (!actionId.success) return { ok: false, code: 'not_available' };
+  const secret = await guestSecret();
+  if (!secret) return { ok: false, code: 'no_session' };
+  const { data, error } = await guestClient().rpc('esh_guest_acknowledge', {
+    p_session: secret,
+    p_action_id: actionId.data,
+  });
+  if (error) {
+    console.error(`[esh_guest_acknowledge] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false, code: 'invalid' };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string; level?: number };
+  if (!result.ok) return { ok: false, code: result.code ?? 'invalid' };
+  revalidatePath(`/respond/actions/${actionId.data}`);
+  return { ok: true, level: result.level ?? null };
 }
 
 export type SubmitResult = { ok: true } | { ok: false; code: string; problems?: string[] };

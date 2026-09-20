@@ -119,6 +119,10 @@ export interface GuestAction {
   displayName: string | null;
   principalId: string;
   inboxScope: boolean;
+  readOnly: boolean;
+  mode: 'owner' | 'escalation';
+  escalationLevel: number | null;
+  ownerEmail: string | null;
   action: {
     id: string;
     title: string;
@@ -193,6 +197,10 @@ export async function loadGuestAction(
       displayName: (result.display_name as string | null) ?? null,
       principalId: String(result.principal_id ?? ''),
       inboxScope: Boolean(result.inbox_scope),
+      readOnly: Boolean(result.read_only),
+      mode: result.mode === 'escalation' ? 'escalation' : 'owner',
+      escalationLevel: typeof result.escalation_level === 'number' ? result.escalation_level : null,
+      ownerEmail: (result.owner_email as string | null) ?? null,
       action: {
         id: String(action.id),
         title: String(action.title),
@@ -220,9 +228,10 @@ export async function loadGuestAction(
       },
       messages: ((result.messages ?? []) as Array<Record<string, unknown>>).map((message) => ({
         id: String(message.id),
-        authorKind: message.author_kind as 'owner' | 'staff',
+        authorKind: message.author_kind as ConversationEntry['authorKind'],
         authorName: (message.author_name as string | null) ?? null,
         authorEmail: (message.author_email as string | null) ?? null,
+        authorPrincipalId: (message.author_principal_id as string | null) ?? null,
         body: String(message.body),
         sentAt: String(message.sent_at),
         submittable: Boolean(message.submittable),

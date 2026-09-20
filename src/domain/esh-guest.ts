@@ -11,8 +11,8 @@
 
 import { daysOverdue, type ActionPriority, type ActionState } from '@/domain/esh-findings';
 
-/** The two kinds of link an owner receives (§9). */
-export type AccessPurpose = 'owner_action' | 'owner_inbox';
+/** Purpose-specific links: owner scopes never double as escalation scopes. */
+export type AccessPurpose = 'owner_action' | 'owner_inbox' | 'escalation_action';
 
 /**
  * A link secret: 32 random bytes, base64url, 43 characters. Anything else in
@@ -191,9 +191,10 @@ export const CONTACT_ACCESS_PROBLEMS: Record<string, string> = {
 /** A conversation entry as both sides render it. */
 export interface ConversationEntry {
   id: string;
-  authorKind: 'owner' | 'staff' | 'system';
+  authorKind: 'owner' | 'staff' | 'escalation' | 'system';
   authorName: string | null;
   authorEmail: string | null;
+  authorPrincipalId?: string | null;
   body: string;
   sentAt: string;
   /** v199 - the files sent with it. */

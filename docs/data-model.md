@@ -125,3 +125,23 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 
 - `plan_events` leaves out completed work as it left out cancelled work. `focus.notify_work_completed`
   and the `tasks_notify_work_completed` trigger tell the assigner of completed work. No table changes.
+
+## ESH Finding Management through v201
+
+- `organizations`, `esh_rollout_settings` and `esh_staff_access` form a separate, fail-closed ESH
+  authority model. Findings, actions, assignments, escalation recipients, messages, evidence,
+  submissions, verification and due-date history are organisation-scoped and `esh_`-prefixed.
+- External contacts are `esh_email_principals`, not Auth users. One-time `esh_access_grants` exchange
+  for bounded `esh_guest_sessions`; action and escalation scope are separate join tables. Guest
+  tables have no anonymous or authenticated client grants.
+- `esh_followup_policies` is the current organisation policy. Each `esh_action_assignments` row
+  snapshots its full timing policy and version. `esh_working_calendars` plus labelled exceptions
+  define working days explicitly; `confirmed_through` states how far ESH has reviewed them.
+- `esh_followup_events` makes each scheduled trigger idempotent. `esh_escalation_entitlements`
+  activates one recipient, level and assignment without transferring ownership.
+- `esh_notification_outbox` stores business intent and delivery state. Provider acceptance is not
+  delivery; immutable `esh_delivery_events` record delivered, bounced or failed callbacks and use
+  provider event IDs for replay protection.
+- `esh_register_rows` is a security-invoker operational read model. It raises Needs attention for
+  open work with a held notification, terminal failure or bounce as well as ordinary workflow
+  attention.

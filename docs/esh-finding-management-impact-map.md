@@ -68,7 +68,7 @@ DEFINER` procedures that take the principal explicitly and re-check the live ass
 | ----------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Malware scanning  | No scanning service exists (Focus attachments are not scanned either) | Evidence records carry scan state `not_scanned`, shown as such; allowed types are restricted and Office files are download-only. Never shown as "clean". Needs an approved scanner before claiming FM47 fully |
 | Scheduler         | Vercel Hobby: daily cron only                                         | Follow-up evaluated once a day at 09:00 MYT; immediate events (assignment, submission, replies) dispatch after commit. Hour-level reminder precision needs a paid plan or an external scheduler               |
-| Delivery webhooks | SMTP gives provider acceptance only; no delivery/bounce webhook       | States recorded honestly: `provider_accepted` is never shown as delivered or read. Bounces surface only if the mailbox returns them to a monitored inbox, which this release does not read                    |
+| Delivery webhooks | No production provider adapter or signing scheme has been selected    | v201 exposes an authenticated, idempotent provider-neutral callback and records acceptance, delivery, bounce and failure separately. Production still needs an approved provider adapter and secret           |
 | Email prefetchers | Outlook Safe Links will prefetch                                      | Covered by decision 5; verified with a HEAD/GET that consumes nothing                                                                                                                                         |
 | Backlog workbook  | Not yet supplied                                                      | Import is built against a representative 100-row fixture; real mapping happens when the workbook arrives                                                                                                      |
 
@@ -77,8 +77,9 @@ DEFINER` procedures that take the principal explicitly and re-check the live ass
 v197 is built and verified (19 September 2026). v198 is built and verified (20 September 2026). v199 is built and verified (20 September 2026): evidence is limited to 10 MB a file
 (the Focus attachment limit and this deployment's storage ceiling), not the 25 MB default §23
 suggests, and is never scanned. v200 is built and verified (20 September 2026).
-Owner-reply notifications to ESH staff by email are not sent in v198: owner updates show on the
-finding and in the register's Last update. They join the follow-up notifications in v201.
+v201 is built and verified (20 September 2026): owner updates and escalation responses now notify
+the responsible ESH staff, while daily reminders and escalation use immutable assignment policy
+snapshots and a maintained working-day calendar.
 
 Each stage ships behind the rollout gate, so nothing new is visible to the team until an
 administrator enables them. Each ends with the full verify and, where it adds a migration, a
