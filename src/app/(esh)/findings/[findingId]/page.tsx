@@ -2,13 +2,18 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { Conversation } from '@/components/esh/Conversation';
+import { ActionMenu } from '@/components/esh/ActionMenu';
 import { OriginalEvidence } from '@/components/esh/OriginalEvidence';
+import { ReopenFinding } from '@/components/esh/ReopenFinding';
+import { VerifyPanel } from '@/components/esh/VerifyPanel';
 import { FindingForm } from '@/components/esh/FindingForm';
 import { ReleaseNotificationButton } from '@/components/esh/ReleaseNotificationButton';
 import { StaffMessageForm } from '@/components/esh/StaffMessageForm';
 import { evidenceLabel } from '@/domain/esh-evidence';
+import { VERIFICATION_METHOD_LABELS, type VerificationMethod } from '@/domain/esh-verification';
 import {
   ACTION_STATE_LABELS,
+  canonicalEmail,
   FINDING_STATUS_LABELS,
   FINDING_WARNING_MESSAGES,
   PRIORITY_LABELS,
@@ -38,6 +43,12 @@ const HISTORY_LABELS: Record<string, string> = {
   guest_link_redeemed: 'Owner opened a secure link',
   guest_link_requested: 'New link requested',
   submission_created: 'Owner submitted for review',
+  submission_accepted: 'ESH accepted the correction',
+  changes_requested: 'ESH asked for more',
+  finding_closed: 'Finding closed',
+  finding_reopened: 'Finding reopened',
+  due_changed: 'Due date changed',
+  action_reassigned: 'Action given to another owner',
   submission_withdrawn: 'Owner withdrew a submission',
   original_evidence_added: 'Original evidence added',
   original_evidence_removed: 'Original evidence removed',
@@ -49,6 +60,11 @@ const NOTIFICATION_KIND_LABELS: Record<string, string> = {
   access_link: 'Requested link',
   submission_received: 'Review request',
   submission_withdrawn: 'Withdrawal notice',
+  changes_requested: 'More needed notice',
+  due_changed: 'Due date notice',
+  finding_closed: 'Closure notice',
+  finding_reopened: 'Reopening notice',
+  reassigned_away: 'Handover notice',
 };
 
 const NOTIFICATION_REASON_LABELS: Record<string, string> = {
@@ -207,8 +223,36 @@ export default async function FindingPage({
         </span>
       </div>
       {notices}
-      <FindingSummary finding={finding} timeZone={timeZone} canCoordinate={access.canCoordinate} />
+      <FindingSummary
+        finding={finding}
+        timeZone={timeZone}
+        canCoordinate={access.canCoordinate}
+        canVerify={access.canVerify}
+        viewerEmail={profile.email}
+      />
     </>
+  );
+}
+
+/** A list of files, each opened through the staff file route. */
+function FileList({ files, label }: { files: FindingDetail['originalEvidence']; label: string }) {
+  if (files.length === 0) return <p className="form-hint">None.</p>;
+  return (
+    <ul className="esh-file-list" aria-label={label}>
+      {files.map((file) => (
+        <li key={file.id} className="esh-file">
+          <a href={`/findings/files/${file.id}`} target="_blank" rel="noopener noreferrer">
+            <span className="esh-file-icon" aria-hidden="true">
+              ▧
+            </span>
+            <span>
+              <strong>{file.name}</strong>
+              <small>{evidenceLabel(file.name, file.size)}</small>
+            </span>
+          </a>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -216,10 +260,14 @@ function FindingSummary({
   finding,
   timeZone,
   canCoordinate,
+  canVerify,
+  viewerEmail,
 }: {
   finding: FindingDetail;
   timeZone: string;
   canCoordinate: boolean;
+  canVerify: boolean;
+  viewerEmail: string;
 }) {
   const dateTime = (instant: string, dateOnly = false) =>
     new Intl.DateTimeFormat('en-MY', {
@@ -239,6 +287,15 @@ function FindingSummary({
     (entry) => entry.eventType === 'owner_assignment' && entry.state === 'held_rollout',
   );
   const ownerReachable = Boolean(action?.ownerAccessEnabled) && !assignmentHeld;
+  // Nobody verifies their own correction: the panel says so rather than
+  // offering a button the procedure would refuse (FM25).
+  const ownWork =
+    Boolean(action?.ownerEmail) &&
+    canonicalEmail(action?.ownerEmail ?? '') === canonicalEmail(viewerEmail);
+  const lastOpenAction = finding.openActionCount <= 1;
+  const dueDay = action?.dueAt
+    ? new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date(action.dueAt))
+    : '';
 
   return (
     <div className="esh-detail">
@@ -307,25 +364,115 @@ function FindingSummary({
             {dateTime(finding.pendingSubmission.submittedAt)}. The submission is fixed: messages
             sent since do not change it.
           </p>
-          <p className="esh-detail-text">{finding.pendingSubmission.resultText}</p>
-          {finding.pendingSubmission.files.length > 0 && (
-            <ul className="esh-file-list" aria-label="Submitted files">
-              {finding.pendingSubmission.files.map((file) => (
-                <li key={file.id} className="esh-file">
-                  <a href={`/findings/files/${file.id}`} target="_blank" rel="noopener noreferrer">
-                    <span className="esh-file-icon" aria-hidden="true">
-                      ▧
-                    </span>
+          {/* Before and after, side by side on a desktop and stacked on a
+              phone (§13), so the condition and the correction are compared. */}
+          <div className="esh-compare">
+            <div className="esh-compare-side">
+              <p className="esh-compare-label">Before · original condition</p>
+              {finding.description && <p className="esh-detail-text">{finding.description}</p>}
+              <FileList files={finding.originalEvidence} label="Original evidence" />
+            </div>
+            <div className="esh-compare-side">
+              <p className="esh-compare-label">After · submitted correction</p>
+              <p className="esh-detail-text">{finding.pendingSubmission.resultText}</p>
+              <FileList files={finding.pendingSubmission.files} label="Submitted files" />
+            </div>
+          </div>
+          {canVerify && !ownWork && action && (
+            <VerifyPanel
+              submissionId={finding.pendingSubmission.id}
+              findingId={finding.id}
+              version={finding.pendingSubmission.version}
+              closesFinding={lastOpenAction}
+            />
+          )}
+          {canVerify && ownWork && (
+            <p className="notice warn" role="status">
+              This correction was submitted from your own address, so another ESH Verifier has to
+              check it.
+            </p>
+          )}
+          {!canVerify && <p className="form-hint">An ESH Verifier decides this submission.</p>}
+        </section>
+      )}
+
+      {finding.decisions.length > 0 && (
+        <section className="esh-form-card" aria-labelledby="esh-detail-decisions">
+          <h2 id="esh-detail-decisions" className="esh-form-card-title">
+            Verification
+          </h2>
+          <ol className="esh-history">
+            {finding.decisions.map((decision) => (
+              <li key={`${decision.version}-${decision.verifiedAt}`}>
+                <strong>
+                  {decision.decision === 'accepted'
+                    ? `Version ${decision.version} accepted`
+                    : `Version ${decision.version} sent back`}
+                  {decision.method
+                    ? ` · ${VERIFICATION_METHOD_LABELS[decision.method as VerificationMethod] ?? decision.method}`
+                    : ''}
+                </strong>
+                <span>
+                  {decision.verifierName} · {dateTime(decision.verifiedAt)}
+                </span>
+                {decision.note && <p className="esh-detail-text">{decision.note}</p>}
+              </li>
+            ))}
+          </ol>
+          {finding.dueChanges.length > 0 && (
+            <>
+              <h3 className="esh-subheading">Due-date changes</h3>
+              <ol className="esh-history">
+                {finding.dueChanges.map((change) => (
+                  <li key={change.changedAt}>
+                    <strong>
+                      {change.oldDueAt ? `${dateTime(change.oldDueAt, true)} → ` : ''}
+                      {dateTime(change.newDueAt, true)}
+                    </strong>
                     <span>
-                      <strong>{file.name}</strong>
-                      <small>{evidenceLabel(file.name, file.size)}</small>
+                      {change.changedByName} · {dateTime(change.changedAt)} · {change.reason}
                     </span>
-                  </a>
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ol>
+            </>
           )}
         </section>
+      )}
+
+      {finding.status === 'closed' && (
+        <section className="esh-form-card" aria-labelledby="esh-detail-closure">
+          <h2 id="esh-detail-closure" className="esh-form-card-title">
+            Closure record
+          </h2>
+          <dl className="esh-facts">
+            <div>
+              <dt>Closed</dt>
+              <dd>
+                {finding.closure.closedAt ? dateTime(finding.closure.closedAt) : 'Not recorded'}
+                {finding.closure.closedByName ? ` · ${finding.closure.closedByName}` : ''}
+              </dd>
+            </div>
+            {finding.closure.closureNote && (
+              <div>
+                <dt>Verification note</dt>
+                <dd className="esh-detail-text">{finding.closure.closureNote}</dd>
+              </div>
+            )}
+          </dl>
+          {canVerify && <ReopenFinding findingId={finding.id} />}
+        </section>
+      )}
+
+      {finding.closure.reopenedAt && finding.status !== 'closed' && (
+        <div className="notice warn" role="status">
+          <strong>Reopened</strong>
+          <p>
+            {finding.closure.reopenedByName ?? 'ESH'} reopened this finding on{' '}
+            {dateTime(finding.closure.reopenedAt)}
+            {finding.closure.reopenReason ? `: ${finding.closure.reopenReason}` : '.'}
+          </p>
+        </div>
       )}
 
       {action && (
@@ -410,6 +557,14 @@ function FindingSummary({
             submissions={finding.submissions}
             emptyText="No messages yet. The owner’s updates and ESH replies appear here."
           />
+          {canCoordinate && actionOpen && action.ownerEmail && (
+            <ActionMenu
+              actionId={action.id}
+              findingId={finding.id}
+              ownerEmail={action.ownerEmail}
+              dueDate={dueDay}
+            />
+          )}
           {canCoordinate && actionOpen && (
             <StaffMessageForm
               actionId={action.id}

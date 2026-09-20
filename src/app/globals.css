@@ -13617,3 +13617,109 @@ span.deadline span.deadline-glyph,
     flex: 1 1 0;
   }
 }
+
+/* ------------------------------------------------------------------------ */
+/* ESH Finding Management: verification, closure and changes (v200).       */
+/* ------------------------------------------------------------------------ */
+
+.esh-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.esh-compare-side {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 16px 18px;
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+}
+.esh-compare-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.esh-verify {
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.esh-verify-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.esh-verify-actions .btn {
+  min-height: 44px;
+}
+.esh-due-decision {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.esh-due-decision legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+.esh-action-menu {
+  margin-top: 4px;
+}
+.esh-action-menu-panel {
+  display: grid;
+  gap: 10px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.esh-action-menu-panel:first-of-type {
+  border-top: 0;
+  padding-top: 4px;
+}
+.esh-action-menu-panel .btn {
+  justify-self: start;
+  min-height: 44px;
+}
+.esh-nav-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 750;
+}
+.esh-sidenav ul a[aria-current='page'] .esh-nav-count {
+  background: var(--blue);
+}
+.esh-history li p {
+  margin: 4px 0 0;
+  flex-basis: 100%;
+}
+
+@media (max-width: 720px) {
+  .esh-compare {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .esh-verify-actions {
+    flex-direction: column-reverse;
+  }
+  .esh-verify-actions .btn {
+    width: 100%;
+  }
+}

@@ -2651,3 +2651,7 @@ are in `docs/esh-finding-management-impact-map.md`.
 6. **Evidence and submission (v199).** Files travel in the conversation, checked for what they are
    and labelled Not scanned. Submit for review fixes one message and its files as a snapshot that
    ESH verifies; the owner can withdraw it to revise, and the old version stays in history.
+7. **Verification and closure (v200).** A Verifier compares the original condition with the
+   submitted correction, accepts it with a recorded method — closing the finding when nothing is
+   left open — or asks for more and decides the deadline out loud. Reopening, a new due date and
+   a new owner are ESH's own recorded acts, never inferred from a message.

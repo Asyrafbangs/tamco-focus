@@ -16,7 +16,12 @@ export interface EshEmailInput {
     | 'esh_reply'
     | 'access_link'
     | 'submission_received'
-    | 'submission_withdrawn';
+    | 'submission_withdrawn'
+    | 'changes_requested'
+    | 'due_changed'
+    | 'finding_closed'
+    | 'finding_reopened'
+    | 'reassigned_away';
   reference: string | null;
   actionTitle: string | null;
   location: string | null;
@@ -85,6 +90,38 @@ export function renderEshEmail(input: EshEmailInput): RenderedEmail {
       lead = 'Open the conversation to read the reply and respond.';
       if (input.actionUrl) links.push({ href: input.actionUrl, label: 'Open the conversation' });
       break;
+    case 'changes_requested':
+      subject = `More needed: ${heading}`;
+      headline = 'ESH needs a little more';
+      lead =
+        'ESH has looked at what you sent and asked for more before this can be closed. The details are in the conversation.';
+      if (input.actionUrl) links.push({ href: input.actionUrl, label: 'Open the conversation' });
+      break;
+    case 'due_changed':
+      subject = `New due date: ${heading}`;
+      headline = 'Your action has a new due date';
+      lead = `ESH changed the due date${input.dueLabel ? `. ${input.dueLabel}` : ''}. The reason is in the conversation.`;
+      if (input.actionUrl) links.push({ href: input.actionUrl, label: 'Open the action' });
+      break;
+    case 'finding_closed':
+      subject = `Closed: ${heading}`;
+      headline = 'This finding is closed';
+      lead =
+        'ESH verified the correction and closed the finding. Nothing further is needed from you. Thank you.';
+      break;
+    case 'finding_reopened':
+      subject = `Reopened: ${heading}`;
+      headline = 'This finding has been reopened';
+      lead = 'ESH reopened it, so the action is with you again. The reason is in the conversation.';
+      if (input.actionUrl) links.push({ href: input.actionUrl, label: 'View finding & respond' });
+      if (input.inboxUrl) links.push({ href: input.inboxUrl, label: 'View All My Actions' });
+      break;
+    case 'reassigned_away':
+      subject = `Handed over: ${heading}`;
+      headline = 'This action is now with somebody else';
+      lead =
+        'ESH has given it to another address. Nothing further is needed from you; what you wrote is kept on the record.';
+      break;
     case 'submission_received':
       subject = `Ready for review: ${heading}`;
       headline = 'An action is ready for your review';
@@ -111,22 +148,27 @@ export function renderEshEmail(input: EshEmailInput): RenderedEmail {
 
   const forStaff =
     input.eventType === 'submission_received' || input.eventType === 'submission_withdrawn';
-  const validity = forStaff
-    ? 'Sign in to TAMCO Focus as usual to open it.'
-    : input.eventType === 'access_link'
-      ? `This link works once and for ${lifetime(input.expiresMinutes)}. If it has expired, ask for another from the page it opens.`
-      : `Your secure links open ${links.length > 1 ? 'the assigned action or your list of open actions' : 'the assigned action'}. No account creation or password is needed. Each link works once on a device, for ${lifetime(input.expiresMinutes)}; after that the page offers a new one.`;
+  const noLinks = links.length === 0;
+  const validity = noLinks
+    ? 'This is for your records; there is nothing to open.'
+    : forStaff
+      ? 'Sign in to TAMCO Focus as usual to open it.'
+      : input.eventType === 'access_link'
+        ? `This link works once and for ${lifetime(input.expiresMinutes)}. If it has expired, ask for another from the page it opens.`
+        : `Your secure links open ${links.length > 1 ? 'the assigned action or your list of open actions' : 'the assigned action'}. No account creation or password is needed. Each link works once on a device, for ${lifetime(input.expiresMinutes)}; after that the page offers a new one.`;
   const contact =
     !forStaff && (input.eshContactName || input.eshContactEmail)
       ? `ESH contact: ${[input.eshContactName, input.eshContactEmail].filter(Boolean).join(', ')}.`
       : '';
   const verification =
-    input.eventType === 'access_link' || forStaff
+    input.eventType === 'access_link' || forStaff || noLinks
       ? ''
       : 'ESH verifies the correction before the finding is closed.';
-  const unmonitored = forStaff
-    ? 'This mailbox is not monitored. Reply in the finding’s conversation.'
-    : 'Please respond through the secure link. Email replies are not added to the conversation.';
+  const unmonitored = noLinks
+    ? 'This mailbox is not monitored. Contact ESH if anything looks wrong.'
+    : forStaff
+      ? 'This mailbox is not monitored. Reply in the finding’s conversation.'
+      : 'Please respond through the secure link. Email replies are not added to the conversation.';
 
   const text = [
     headline,

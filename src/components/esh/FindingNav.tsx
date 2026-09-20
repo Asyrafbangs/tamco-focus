@@ -4,11 +4,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 /**
- * Finding Management's own navigation (§4, §33.1). Closed is a Register
- * filter, not a menu item; Overview and Verification join this list in the
- * stages that build them, never as empty pages first.
+ * Finding Management's own navigation (§4, §33.1). Overview joins this list
+ * in the stage that builds it, never as an empty page first.
  */
-export function FindingNav() {
+export function FindingNav({ waitingToVerify }: { waitingToVerify: number }) {
   const pathname = usePathname();
   const inRegister =
     pathname.startsWith('/findings/register') ||
@@ -22,6 +21,27 @@ export function FindingNav() {
         <li>
           <Link href="/findings/register" aria-current={inRegister ? 'page' : undefined}>
             Finding Register
+          </Link>
+        </li>
+        <li>
+          <Link
+            href="/findings/verification"
+            aria-current={pathname.startsWith('/findings/verification') ? 'page' : undefined}
+          >
+            Verification
+            {waitingToVerify > 0 && (
+              <span className="esh-nav-count" aria-label={`${waitingToVerify} waiting`}>
+                {waitingToVerify}
+              </span>
+            )}
+          </Link>
+        </li>
+        <li>
+          <Link
+            href="/findings/closed"
+            aria-current={pathname.startsWith('/findings/closed') ? 'page' : undefined}
+          >
+            Closed
           </Link>
         </li>
       </ul>

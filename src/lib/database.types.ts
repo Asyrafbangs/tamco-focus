@@ -1956,6 +1956,7 @@ export type Database = {
           body: string
           client_key: string
           id: string
+          kind: string
           organization_id: string
           sent_at: string
         }
@@ -1969,6 +1970,7 @@ export type Database = {
           body: string
           client_key: string
           id?: string
+          kind?: string
           organization_id: string
           sent_at?: string
         }
@@ -1982,6 +1984,7 @@ export type Database = {
           body?: string
           client_key?: string
           id?: string
+          kind?: string
           organization_id?: string
           sent_at?: string
         }
@@ -2239,6 +2242,94 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "user_profiles"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_due_date_changes: {
+        Row: {
+          action_id: string
+          baseline_due_at: string | null
+          cause: string
+          changed_at: string
+          changed_by: string
+          id: string
+          new_date_only: boolean
+          new_due_at: string
+          old_date_only: boolean | null
+          old_due_at: string | null
+          organization_id: string
+          reason: string
+        }
+        Insert: {
+          action_id: string
+          baseline_due_at?: string | null
+          cause: string
+          changed_at?: string
+          changed_by: string
+          id?: string
+          new_date_only: boolean
+          new_due_at: string
+          old_date_only?: boolean | null
+          old_due_at?: string | null
+          organization_id: string
+          reason: string
+        }
+        Update: {
+          action_id?: string
+          baseline_due_at?: string | null
+          cause?: string
+          changed_at?: string
+          changed_by?: string
+          id?: string
+          new_date_only?: boolean
+          new_due_at?: string
+          old_date_only?: boolean | null
+          old_due_at?: string | null
+          organization_id?: string
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_due_date_changes_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_due_date_changes_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_due_date_changes_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_due_date_changes_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_due_date_changes_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_due_date_changes_organization_id_action_id_fkey"
+            columns: ["organization_id", "action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_finding_actions"
+            referencedColumns: ["organization_id", "id"]
           },
         ]
       }
@@ -2835,6 +2926,7 @@ export type Database = {
           accountable_department_id: string | null
           closed_at: string | null
           closed_by: string | null
+          closure_note: string | null
           created_at: string
           created_by: string
           description: string | null
@@ -2843,6 +2935,9 @@ export type Database = {
           location: string | null
           organization_id: string
           reference: string
+          reopen_reason: string | null
+          reopened_at: string | null
+          reopened_by: string | null
           reported_on: string | null
           risk_assessed_at: string | null
           risk_assessed_by: string | null
@@ -2859,6 +2954,7 @@ export type Database = {
           accountable_department_id?: string | null
           closed_at?: string | null
           closed_by?: string | null
+          closure_note?: string | null
           created_at?: string
           created_by: string
           description?: string | null
@@ -2867,6 +2963,9 @@ export type Database = {
           location?: string | null
           organization_id: string
           reference: string
+          reopen_reason?: string | null
+          reopened_at?: string | null
+          reopened_by?: string | null
           reported_on?: string | null
           risk_assessed_at?: string | null
           risk_assessed_by?: string | null
@@ -2883,6 +2982,7 @@ export type Database = {
           accountable_department_id?: string | null
           closed_at?: string | null
           closed_by?: string | null
+          closure_note?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
@@ -2891,6 +2991,9 @@ export type Database = {
           location?: string | null
           organization_id?: string
           reference?: string
+          reopen_reason?: string | null
+          reopened_at?: string | null
+          reopened_by?: string | null
           reported_on?: string | null
           risk_assessed_at?: string | null
           risk_assessed_by?: string | null
@@ -2986,6 +3089,41 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_reopened_by_fkey"
+            columns: ["reopened_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_findings_reopened_by_fkey"
+            columns: ["reopened_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_reopened_by_fkey"
+            columns: ["reopened_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_reopened_by_fkey"
+            columns: ["reopened_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_findings_reopened_by_fkey"
+            columns: ["reopened_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -3644,6 +3782,95 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_verification_events: {
+        Row: {
+          action_id: string
+          decision: string
+          due_decision: string | null
+          id: string
+          method: string | null
+          note: string | null
+          organization_id: string
+          submission_id: string
+          verified_at: string
+          verifier_user_id: string
+        }
+        Insert: {
+          action_id: string
+          decision: string
+          due_decision?: string | null
+          id?: string
+          method?: string | null
+          note?: string | null
+          organization_id: string
+          submission_id: string
+          verified_at?: string
+          verifier_user_id: string
+        }
+        Update: {
+          action_id?: string
+          decision?: string
+          due_decision?: string | null
+          id?: string
+          method?: string | null
+          note?: string | null
+          organization_id?: string
+          submission_id?: string
+          verified_at?: string
+          verifier_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_verification_events_organization_id_action_id_fkey"
+            columns: ["organization_id", "action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_finding_actions"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_verification_events_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: true
+            referencedRelation: "esh_action_submissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_verification_events_verifier_user_id_fkey"
+            columns: ["verifier_user_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_verification_events_verifier_user_id_fkey"
+            columns: ["verifier_user_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_verification_events_verifier_user_id_fkey"
+            columns: ["verifier_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_verification_events_verifier_user_id_fkey"
+            columns: ["verifier_user_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_verification_events_verifier_user_id_fkey"
+            columns: ["verifier_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -12591,6 +12818,15 @@ export type Database = {
           status: string
         }[]
       }
+      esh_change_due: {
+        Args: {
+          p_action_id: string
+          p_due_date: string
+          p_due_time: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       esh_current_access: { Args: never; Returns: Json }
       esh_dispatch_claim: {
         Args: { p_outbox_id: string; p_secrets: Json }
@@ -12726,8 +12962,21 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_reassign_action: {
+        Args: { p_action_id: string; p_owner_email: string; p_reason: string }
+        Returns: Json
+      }
       esh_release_notification: { Args: { p_outbox_id: string }; Returns: Json }
       esh_remove_upload: { Args: { p_asset_id: string }; Returns: Json }
+      esh_reopen_finding: {
+        Args: {
+          p_due_date: string
+          p_due_time: string
+          p_finding_id: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       esh_save_finding: {
         Args: {
           p_assign?: boolean
@@ -12761,6 +13010,18 @@ export type Database = {
           p_name: string
           p_purpose: string
           p_size: number
+        }
+        Returns: Json
+      }
+      esh_verify_submission: {
+        Args: {
+          p_decision: string
+          p_due_date: string
+          p_due_time: string
+          p_keep_due: boolean
+          p_method: string
+          p_note: string
+          p_submission_id: string
         }
         Returns: Json
       }

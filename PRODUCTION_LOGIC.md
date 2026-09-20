@@ -2180,3 +2180,34 @@ assignee, or the owner for a step assigned to nobody (v159).
    the finding's address in the application, no link secret.
 8. The register counts an action awaiting verification as needing ESH's attention, and a
    submission or withdrawal as the last update.
+
+## 95. v200 Verification, closure and changes
+
+1. `esh_verify_submission` is the only way a submission is decided. It refuses anything but the
+   pending submission that is the action's current one (FM22), refuses a Verifier deciding work
+   submitted from their own address or from a contact linked to their account (FM25), and refuses
+   an accept without a method. Accepting writes the verification event, accepts the action and,
+   with every action of the finding locked, closes the finding when none is left open (FM26,
+   FM27). Asking for more needs a note and an explicit due-date decision: kept, or replaced with
+   a recorded change (FM23, FM29). The note is posted as ESH's message, so the owner reads it in
+   the conversation, and the owner is emailed.
+2. `esh_reopen_finding` (Verifiers, with a reason) returns the finding to open and its accepted
+   actions to In progress, optionally on a new due date. The closure, the accepted submission and
+   the verification stay; the owner is emailed with fresh links minted at sending (FM52).
+3. `esh_change_due` and `esh_reassign_action` (Coordinators and Verifiers) are the only ways the
+   official due date and the owner change — never a chat message (FM28). Each records its reason,
+   posts an event in the conversation and emails the owner. A reassignment ends the previous
+   ownership interval, starts the next version, revokes the old owner's unspent links for that
+   action, suppresses anything still queued to them about it, and refuses to run while a
+   submission waits for review.
+4. `esh_verification_events` and `esh_due_date_changes` are append-only; both reject updates and
+   deletes by trigger.
+5. Notices that carry a link — replies, changes requested, due changes, reopening — wait while
+   the owner's assignment email is still held, so nothing opens the conversation before ESH has
+   released it. Closure and handover notices carry no link and are sent whether or not the action
+   is still theirs; the dispatcher checks live ownership for all the others.
+6. An owner keeps a read-only receipt of an accepted action for 30 days
+   (`focus.esh_guest_receipt`): the action page renders without a composer, and every write still
+   asks `focus.esh_guest_covers`, which an accepted action fails. My Actions drops it at once.
+7. The Verification queue and its count come from the pending submissions the reader's own
+   policies allow, so a Viewer sees the queue but can decide nothing.

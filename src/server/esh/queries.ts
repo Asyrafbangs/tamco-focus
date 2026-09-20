@@ -238,10 +238,39 @@ export interface FindingDetail {
   }>;
   /** v198 - the owner conversation of the first action, oldest first. */
   conversation: ConversationEntry[];
+  /** v200 - actions on this finding that are still open. */
+  openActionCount: number;
+  /** v200 - how it was closed, and whether it was reopened. */
+  closure: {
+    closedAt: string | null;
+    closedByName: string | null;
+    closureNote: string | null;
+    reopenedAt: string | null;
+    reopenedByName: string | null;
+    reopenReason: string | null;
+  };
+  /** v200 - every decision on this action, and every due-date change. */
+  decisions: Array<{
+    version: number;
+    decision: 'accepted' | 'changes_requested';
+    method: string | null;
+    note: string | null;
+    verifierName: string;
+    verifiedAt: string;
+  }>;
+  dueChanges: Array<{
+    oldDueAt: string | null;
+    newDueAt: string;
+    reason: string;
+    cause: string;
+    changedByName: string;
+    changedAt: string;
+  }>;
   /** v199 - the finding's own evidence, and what the owner submitted. */
   originalEvidence: EvidenceFile[];
   submissions: SubmissionMark[];
   pendingSubmission: {
+    id: string;
     version: number;
     submittedAt: string;
     ownerEmail: string;
@@ -300,71 +329,113 @@ export async function getFindingDetail(findingId: string): Promise<FindingDetail
   ]);
 
   const action = actionResult.data;
-  const [escalationResult, peopleResult, messagesResult, evidenceResult, submissionsResult] =
-    await Promise.all([
-      action
-        ? supabase
-            .from('esh_action_escalation_recipients')
-            .select('level, principal_id')
-            .eq('action_id', action.id)
-            .is('removed_at', null)
-            .order('level')
-        : Promise.resolve({ data: [] as Array<{ level: number; principal_id: string }> }),
-      supabase
-        .from('user_profiles')
-        .select('id, full_name')
-        .in(
-          'id',
-          [
-            finding.created_by,
-            action?.reviewer_user_id,
-            ...(auditResult.data ?? []).map((row) => row.actor_user_id),
-            ...(outboxResult.data ?? []).map((row) => row.recipient_user_id),
-          ].filter((id): id is string => Boolean(id)),
-        ),
-      action
-        ? supabase
-            .from('esh_action_messages')
-            .select('id, author_kind, author_name, author_email, body, sent_at')
-            .eq('action_id', action.id)
-            .order('sent_at')
-            .limit(500)
-        : Promise.resolve({
-            data: [] as Array<{
-              id: string;
-              author_kind: string;
-              author_name: string | null;
-              author_email: string;
-              body: string;
-              sent_at: string;
-            }>,
-          }),
-      supabase
-        .from('esh_evidence_assets')
-        .select('id, original_name, content_type, size_bytes, purpose, message_id, created_at')
-        .eq('finding_id', findingId)
-        .eq('state', 'ready')
-        .order('created_at'),
-      action
-        ? supabase
-            .from('esh_action_submissions')
-            .select(
-              'version, state, message_id, submitted_at, owner_email, result_text, evidence_asset_ids',
-            )
-            .eq('action_id', action.id)
-            .order('version')
-        : Promise.resolve({
-            data: [] as Array<{
-              version: number;
-              state: string;
-              message_id: string;
-              submitted_at: string;
-              owner_email: string;
-              result_text: string;
-              evidence_asset_ids: string[];
-            }>,
-          }),
-    ]);
+  const [
+    escalationResult,
+    peopleResult,
+    messagesResult,
+    evidenceResult,
+    decisionsResult,
+    dueChangesResult,
+    submissionsResult,
+  ] = await Promise.all([
+    action
+      ? supabase
+          .from('esh_action_escalation_recipients')
+          .select('level, principal_id')
+          .eq('action_id', action.id)
+          .is('removed_at', null)
+          .order('level')
+      : Promise.resolve({ data: [] as Array<{ level: number; principal_id: string }> }),
+    supabase
+      .from('user_profiles')
+      .select('id, full_name')
+      .in(
+        'id',
+        [
+          finding.created_by,
+          action?.reviewer_user_id,
+          ...(auditResult.data ?? []).map((row) => row.actor_user_id),
+          ...(outboxResult.data ?? []).map((row) => row.recipient_user_id),
+          finding.closed_by,
+          finding.reopened_by,
+        ].filter((id): id is string => Boolean(id)),
+      ),
+    action
+      ? supabase
+          .from('esh_action_messages')
+          .select('id, author_kind, author_name, author_email, body, sent_at')
+          .eq('action_id', action.id)
+          .order('sent_at')
+          .limit(500)
+      : Promise.resolve({
+          data: [] as Array<{
+            id: string;
+            author_kind: string;
+            author_name: string | null;
+            author_email: string;
+            body: string;
+            sent_at: string;
+          }>,
+        }),
+    supabase
+      .from('esh_evidence_assets')
+      .select('id, original_name, content_type, size_bytes, purpose, message_id, created_at')
+      .eq('finding_id', findingId)
+      .eq('state', 'ready')
+      .order('created_at'),
+    action
+      ? supabase
+          .from('esh_verification_events')
+          .select('submission_id, decision, method, note, verifier_user_id, verified_at')
+          .eq('action_id', action.id)
+          .order('verified_at')
+      : Promise.resolve({
+          data: [] as Array<{
+            submission_id: string;
+            decision: string;
+            method: string | null;
+            note: string | null;
+            verifier_user_id: string;
+            verified_at: string;
+          }>,
+        }),
+    action
+      ? supabase
+          .from('esh_due_date_changes')
+          .select('old_due_at, new_due_at, reason, cause, changed_by, changed_at')
+          .eq('action_id', action.id)
+          .order('changed_at')
+      : Promise.resolve({
+          data: [] as Array<{
+            old_due_at: string | null;
+            new_due_at: string;
+            reason: string;
+            cause: string;
+            changed_by: string;
+            changed_at: string;
+          }>,
+        }),
+    action
+      ? supabase
+          .from('esh_action_submissions')
+          .select(
+            'id, version, state, message_id, submitted_at, owner_email, result_text, evidence_asset_ids',
+          )
+          .eq('action_id', action.id)
+          .order('version')
+      : Promise.resolve({
+          data: [] as Array<{
+            id: string;
+            version: number;
+            state: string;
+            message_id: string;
+            submitted_at: string;
+            owner_email: string;
+            result_text: string;
+            evidence_asset_ids: string[];
+          }>,
+        }),
+  ]);
   const evidence = (evidenceResult.data ?? []).map((row) => ({
     id: String(row.id),
     name: String(row.original_name),
@@ -381,6 +452,14 @@ export async function getFindingDetail(findingId: string): Promise<FindingDetail
     size,
   });
   const pending = (submissionsResult.data ?? []).find((row) => row.state === 'pending') ?? null;
+  const pendingId = pending ? String(pending.id) : null;
+  // v200 - accepting the last open action closes the finding, so the button
+  // has to say which it is.
+  const { count: openActions } = await supabase
+    .from('esh_finding_actions')
+    .select('id', { count: 'exact', head: true })
+    .eq('finding_id', findingId)
+    .not('state', 'in', '("accepted","cancelled")');
 
   const principalIds = [
     action?.owner_principal_id,
@@ -482,6 +561,36 @@ export async function getFindingDetail(findingId: string): Promise<FindingDetail
         row.recipient_principal_id && reachable.has(row.recipient_principal_id),
       ),
     })),
+    openActionCount: openActions ?? 0,
+    closure: {
+      closedAt: finding.closed_at ?? null,
+      closedByName: finding.closed_by ? (nameOf.get(String(finding.closed_by)) ?? 'ESH') : null,
+      closureNote: finding.closure_note ?? null,
+      reopenedAt: finding.reopened_at ?? null,
+      reopenedByName: finding.reopened_by
+        ? (nameOf.get(String(finding.reopened_by)) ?? 'ESH')
+        : null,
+      reopenReason: finding.reopen_reason ?? null,
+    },
+    decisions: (decisionsResult.data ?? []).map((row) => ({
+      version:
+        (submissionsResult.data ?? []).find(
+          (submission) => String(submission.id ?? '') === String(row.submission_id),
+        )?.version ?? 0,
+      decision: row.decision as 'accepted' | 'changes_requested',
+      method: row.method ?? null,
+      note: row.note ?? null,
+      verifierName: nameOf.get(String(row.verifier_user_id)) ?? 'ESH',
+      verifiedAt: String(row.verified_at),
+    })),
+    dueChanges: (dueChangesResult.data ?? []).map((row) => ({
+      oldDueAt: row.old_due_at ?? null,
+      newDueAt: String(row.new_due_at),
+      reason: String(row.reason),
+      cause: String(row.cause),
+      changedByName: nameOf.get(String(row.changed_by)) ?? 'ESH',
+      changedAt: String(row.changed_at),
+    })),
     conversation: (messagesResult.data ?? []).map((row) => ({
       id: String(row.id),
       authorKind: row.author_kind === 'owner' ? 'owner' : 'staff',
@@ -499,6 +608,7 @@ export async function getFindingDetail(findingId: string): Promise<FindingDetail
     })),
     pendingSubmission: pending
       ? {
+          id: String(pendingId),
           version: Number(pending.version),
           submittedAt: String(pending.submitted_at),
           ownerEmail: String(pending.owner_email),
@@ -620,4 +730,78 @@ export async function listEmailContacts(search: string): Promise<EmailContact[]>
     heldNotifications: Number(row.held_notifications ?? 0),
     createdAt: String(row.created_at),
   }));
+}
+
+export interface VerificationQueueRow {
+  submissionId: string;
+  findingId: string;
+  actionId: string;
+  reference: string;
+  title: string;
+  location: string | null;
+  departmentName: string | null;
+  priority: ActionPriority | null;
+  ownerEmail: string;
+  version: number;
+  submittedAt: string;
+  files: number;
+}
+
+/**
+ * What is waiting for ESH (v200, §13). One row per pending submission,
+ * oldest first; RLS decides which findings the reader may see at all.
+ */
+export async function listVerificationQueue(): Promise<VerificationQueueRow[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data: submissions, error } = await supabase
+    .from('esh_action_submissions')
+    .select('id, action_id, version, submitted_at, owner_email, evidence_asset_ids')
+    .eq('state', 'pending')
+    .order('submitted_at')
+    .limit(200);
+  if (error) {
+    console.error(`[listVerificationQueue] ${error.message}`);
+    return [];
+  }
+  const actionIds = (submissions ?? []).map((row) => String(row.action_id));
+  if (actionIds.length === 0) return [];
+  const { data: rows } = await supabase
+    .from('esh_register_rows')
+    .select('finding_id, action_id, reference, title, location, department_name, priority')
+    .in('action_id', actionIds);
+  const findingOf = new Map((rows ?? []).map((row) => [String(row.action_id), row]));
+  return (submissions ?? [])
+    .map((submission) => {
+      const row = findingOf.get(String(submission.action_id));
+      if (!row) return null;
+      return {
+        submissionId: String(submission.id),
+        findingId: String(row.finding_id),
+        actionId: String(submission.action_id),
+        reference: String(row.reference),
+        title: String(row.title),
+        location: row.location ?? null,
+        departmentName: row.department_name ?? null,
+        priority: (row.priority ?? null) as ActionPriority | null,
+        ownerEmail: String(submission.owner_email),
+        version: Number(submission.version),
+        submittedAt: String(submission.submitted_at),
+        files: (submission.evidence_asset_ids ?? []).length,
+      };
+    })
+    .filter((row): row is VerificationQueueRow => row !== null);
+}
+
+/** The same rule as the queue, for the count beside the menu item. */
+export async function countAwaitingVerification(): Promise<number> {
+  const supabase = await createSupabaseServerClient();
+  const { count, error } = await supabase
+    .from('esh_action_submissions')
+    .select('id', { count: 'exact', head: true })
+    .eq('state', 'pending');
+  if (error) {
+    console.error(`[countAwaitingVerification] ${error.message}`);
+    return 0;
+  }
+  return count ?? 0;
 }

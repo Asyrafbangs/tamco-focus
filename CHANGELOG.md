@@ -1,5 +1,33 @@
 # TAMCO Focus — Change Log
 
+## v200 ESH verifies, closes and reopens — 20 September 2026
+
+The fourth stage of ESH Finding Management, still behind the rollout.
+
+- **Verification queue.** A new Verification page lists every correction waiting for ESH, oldest
+  first, with a count beside the menu item.
+- **Before and after, side by side.** The finding's original condition and evidence next to the
+  submitted result and its files, stacked on a phone.
+- **One decision, recorded.** Accept asks how it was verified — photo or document review, site
+  verification, or another documented method — and for the last open action the button says what
+  it does: Accept & close finding. A correction submitted from your own address is verified by
+  somebody else.
+- **Request improvement.** Asking for more needs an explanation the owner reads in the
+  conversation, and an explicit choice about the deadline: keep it, or give a new one. Nothing
+  restarts the clock quietly, and the earlier version stays in the record.
+- **Reopen.** A closed finding reopens only by a Verifier, with a reason. The closure, the
+  accepted submission and the verification stay in history; the owner gets the work back and
+  fresh links.
+- **Due date and owner.** Both change only through ESH, with a reason, recorded and shown to the
+  owner as an event in the conversation. An owner asking for more time in the chat changes
+  nothing by itself. A reassignment ends the old owner's links at once, tells them plainly that
+  nothing more is needed, and emails the new owner.
+- **Closed findings.** A Closed page with its own period — 30 days, 90 days, a year, or all — and
+  search, and a closure record on every closed finding.
+- **The owner keeps a receipt.** An accepted action stays readable to its owner for 30 days,
+  read-only, then falls away.
+- pgTAP (34), unit, integration and end-to-end coverage.
+
 ## v199 Evidence, and Submit for review — 20 September 2026
 
 The third stage of ESH Finding Management, still behind the rollout.

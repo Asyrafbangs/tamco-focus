@@ -1,5 +1,6 @@
 import { FindingNav } from '@/components/esh/FindingNav';
 import { requireEshAccess } from '@/server/esh/access';
+import { countAwaitingVerification } from '@/server/esh/queries';
 
 /**
  * Every Finding Management page sits behind the rollout gate: without access
@@ -8,9 +9,11 @@ import { requireEshAccess } from '@/server/esh/access';
  */
 export default async function FindingsLayout({ children }: { children: React.ReactNode }) {
   await requireEshAccess();
+  // v200 - how much is waiting for ESH, counted by the same rule the queue uses.
+  const waitingToVerify = await countAwaitingVerification();
   return (
     <div className="esh-module">
-      <FindingNav />
+      <FindingNav waitingToVerify={waitingToVerify} />
       <main id="esh-main" className="esh-content">
         {children}
       </main>

@@ -76,7 +76,7 @@ DEFINER` procedures that take the principal explicitly and re-check the live ass
 
 v197 is built and verified (19 September 2026). v198 is built and verified (20 September 2026). v199 is built and verified (20 September 2026): evidence is limited to 10 MB a file
 (the Focus attachment limit and this deployment's storage ceiling), not the 25 MB default §23
-suggests, and is never scanned.
+suggests, and is never scanned. v200 is built and verified (20 September 2026).
 Owner-reply notifications to ESH staff by email are not sent in v198: owner updates show on the
 finding and in the register's Last update. They join the follow-up notifications in v201.
 
