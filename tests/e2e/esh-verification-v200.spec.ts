@@ -187,7 +187,9 @@ test('v200 ESH reviews from the queue, asks for more, then accepts and closes', 
   await expect(row).toContainText('Version 1');
   await expect(row).toContainText(work.ownerEmail);
   await row.click();
-  await expect(page).toHaveURL(new RegExp(`/findings/${work.findingId}$`));
+  await expect(page).toHaveURL(
+    new RegExp(`/findings/${work.findingId}\\?action=${work.actionId}$`),
+  );
 
   // Before and after, side by side (§13).
   const submission = page.getByRole('region', { name: /Submitted for review/ });

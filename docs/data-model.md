@@ -126,7 +126,7 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 - `plan_events` leaves out completed work as it left out cancelled work. `focus.notify_work_completed`
   and the `tasks_notify_work_completed` trigger tell the assigner of completed work. No table changes.
 
-## ESH Finding Management through v201
+## ESH Finding Management through v202
 
 - `organizations`, `esh_rollout_settings` and `esh_staff_access` form a separate, fail-closed ESH
   authority model. Findings, actions, assignments, escalation recipients, messages, evidence,
@@ -145,3 +145,9 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 - `esh_register_rows` is a security-invoker operational read model. It raises Needs attention for
   open work with a held notification, terminal failure or bounce as well as ordinary workflow
   attention.
+- `esh_action_register_rows` is the action-unit companion used by Overdue and Verification
+  drill-downs. `esh_overview(...)` groups the same visible findings/actions once by accountable
+  department and applies the selected period only to current closures.
+- `esh_register_export_rows` is an action-level security-invoker projection of the authorized
+  register. It contains before/after, owner, deadline and lifecycle timestamps, but deliberately no
+  evidence URL or guest credential.

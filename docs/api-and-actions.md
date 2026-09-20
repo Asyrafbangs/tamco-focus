@@ -68,7 +68,7 @@ the service role. These operations remain local-only in this stage.
 - The superseded v33 Goal authoring and per-Goal cadence procedures have no application caller. They
   are listed, with what replaced each one, in `docs/execution-goal-lifecycle-v52-impact-map.md`.
 
-## ESH Finding Management through v201
+## ESH Finding Management through v202
 
 - Staff mutations validate transport input, then call `esh_*` procedures as the signed-in user.
   Database procedures re-check the ESH preset, department scope, live version and workflow state.
@@ -86,3 +86,9 @@ the service role. These operations remain local-only in this stage.
 - `POST /api/esh/delivery` accepts an authenticated provider-neutral delivery event and calls
   `esh_record_delivery_event`. Provider event IDs are idempotent; later bounces do not erase the
   earlier provider-accepted fact.
+- `esh_overview(department, closed_since, closed_until, as_of)` returns the four signal units and
+  department rows from one RLS-scoped statement. The application totals those rows; it does not
+  repeat the definitions in TypeScript.
+- `GET /findings/register/export` pages through `esh_register_export_rows` as the signed-in reader
+  and returns a private, no-store CSV. It exports no evidence URL or access token and neutralizes
+  spreadsheet-active user text.

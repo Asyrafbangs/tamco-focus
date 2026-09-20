@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { PeriodPicker } from '@/components/ui/PeriodPicker';
 import {
   ACTION_STATE_LABELS,
   FINDING_STATUS_LABELS,
@@ -8,6 +9,8 @@ import {
   daysOverdue,
   registerFilterFrom,
 } from '@/domain/esh-findings';
+import { ESH_CLOSURE_PERIODS } from '@/domain/esh-overview';
+import { periodParams, resolvePeriod } from '@/domain/period';
 import { requireProfile } from '@/lib/supabase/server';
 import { requireEshAccess } from '@/server/esh/access';
 import {
@@ -17,7 +20,6 @@ import {
   type RegisterListRow,
 } from '@/server/esh/queries';
 
-const CLOSED_PERIODS = [30, 60, 90, 365] as const;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const LAST_UPDATE_LABELS: Record<string, string> = {
@@ -40,7 +42,9 @@ export default async function FindingRegisterPage({
     filter?: string;
     q?: string;
     department?: string;
-    days?: string;
+    period?: string;
+    period_from?: string;
+    period_to?: string;
     page?: string;
     saved?: string;
   }>;
@@ -49,24 +53,34 @@ export default async function FindingRegisterPage({
   const profile = await requireProfile();
   const params = await searchParams;
   const filter = registerFilterFrom(params.filter);
-  const days = CLOSED_PERIODS.find((period) => String(period) === params.days) ?? 30;
+  const departmentUnassigned = params.department === 'unassigned';
   const departmentId = params.department && UUID.test(params.department) ? params.department : null;
   const pageNumber = Math.max(1, Math.floor(Number(params.page ?? '1')) || 1);
   const search = (params.q ?? '').slice(0, 80);
+  const timeZone = profile.timezone ?? 'Asia/Kuala_Lumpur';
+  const now = new Date();
+  const closurePeriod = resolvePeriod(
+    params.period,
+    params.period_from,
+    params.period_to,
+    now,
+    '30',
+    timeZone,
+  );
 
   const [register, departments] = await Promise.all([
     listRegister({
       filter,
       search,
       departmentId,
-      closedWithinDays: days,
+      departmentUnassigned,
+      closedSince: closurePeriod.since,
+      closedUntil: closurePeriod.until,
       page: pageNumber - 1,
     }),
     getDepartmentsInScope(access),
   ]);
 
-  const timeZone = profile.timezone ?? 'Asia/Kuala_Lumpur';
-  const now = new Date();
   const pages = Math.max(1, Math.ceil(register.total / REGISTER_PAGE_SIZE));
 
   const hrefFor = (overrides: Record<string, string | undefined>) => {
@@ -74,12 +88,16 @@ export default async function FindingRegisterPage({
     const merged = {
       filter,
       q: search || undefined,
-      department: departmentId ?? undefined,
-      days: filter === 'closed' ? String(days) : undefined,
+      department: departmentUnassigned ? 'unassigned' : (departmentId ?? undefined),
       ...overrides,
     };
     for (const [key, value] of Object.entries(merged)) {
       if (value) query.set(key, value);
+    }
+    if (filter === 'closed') {
+      for (const [key, value] of Object.entries(periodParams(closurePeriod))) {
+        query.set(key, value);
+      }
     }
     const encoded = query.toString();
     return `/findings/register${encoded ? `?${encoded}` : ''}`;
@@ -92,11 +110,16 @@ export default async function FindingRegisterPage({
           <h1>Finding Register</h1>
           <p>See what needs action and who is responsible.</p>
         </div>
-        {access.canCoordinate && (
-          <Link className="btn primary" href="/findings/new">
-            + New finding
+        <div className="pagehead-actions">
+          <Link className="btn" href="/findings/register/export">
+            Export CSV
           </Link>
-        )}
+          {access.canCoordinate && (
+            <Link className="btn primary" href="/findings/new">
+              + New finding
+            </Link>
+          )}
+        </div>
       </div>
 
       <nav className="esh-filter-tabs" aria-label="Register views">
@@ -113,6 +136,10 @@ export default async function FindingRegisterPage({
 
       <form className="filterbar esh-register-search" role="search" action="/findings/register">
         <input type="hidden" name="filter" value={filter} />
+        {filter === 'closed' &&
+          Object.entries(periodParams(closurePeriod)).map(([name, value]) => (
+            <input key={name} type="hidden" name={name} value={value} />
+          ))}
         <label className="esh-register-search-text">
           <span>Search</span>
           <input
@@ -123,30 +150,45 @@ export default async function FindingRegisterPage({
         </label>
         <label>
           <span>Department</span>
-          <select name="department" defaultValue={departmentId ?? ''}>
+          <select
+            name="department"
+            defaultValue={departmentUnassigned ? 'unassigned' : (departmentId ?? '')}
+          >
             <option value="">All departments in your scope</option>
             {departments.map((department) => (
               <option key={department.id} value={department.id}>
                 {department.name}
               </option>
             ))}
+            <option value="unassigned">Unassigned</option>
           </select>
         </label>
-        {filter === 'closed' && (
-          <label>
-            <span>Closed in</span>
-            <select name="days" defaultValue={String(days)}>
-              <option value="30">Last 30 days</option>
-              <option value="60">Last 60 days</option>
-              <option value="90">Last 90 days</option>
-              <option value="365">Last year</option>
-            </select>
-          </label>
-        )}
         <button className="btn" type="submit">
           Apply
         </button>
       </form>
+
+      {filter === 'closed' && (
+        <div className="esh-register-period">
+          <span>Closures</span>
+          <PeriodPicker
+            action="/findings/register"
+            hidden={{
+              filter: 'closed',
+              ...(search ? { q: search } : {}),
+              ...(departmentUnassigned
+                ? { department: 'unassigned' }
+                : departmentId
+                  ? { department: departmentId }
+                  : {}),
+            }}
+            presets={ESH_CLOSURE_PERIODS}
+            period={closurePeriod}
+            ariaLabel="Change the closure period"
+            now={now}
+          />
+        </div>
+      )}
 
       {register.failed ? (
         <div className="notice error" role="alert">
@@ -171,7 +213,12 @@ export default async function FindingRegisterPage({
           </div>
           <ul className="esh-register" aria-label="Findings">
             {register.rows.map((row) => (
-              <RegisterRowItem key={row.findingId} row={row} timeZone={timeZone} now={now} />
+              <RegisterRowItem
+                key={row.actionId ?? row.findingId}
+                row={row}
+                timeZone={timeZone}
+                now={now}
+              />
             ))}
           </ul>
         </>
@@ -180,10 +227,16 @@ export default async function FindingRegisterPage({
       {!register.failed && (
         <div className="esh-register-foot">
           <p>
-            {register.total} {register.total === 1 ? 'finding' : 'findings'} in this view
-            {filter === 'closed'
-              ? ` · closed in the last ${days === 365 ? 'year' : `${days} days`}`
-              : ''}
+            {register.total}{' '}
+            {filter === 'overdue'
+              ? register.total === 1
+                ? 'action'
+                : 'actions'
+              : register.total === 1
+                ? 'finding'
+                : 'findings'}{' '}
+            in this view
+            {filter === 'closed' ? ` · closed ${closurePeriod.phrase}` : ''}
           </p>
           {pages > 1 && (
             <nav className="esh-pager" aria-label="Pages">
@@ -243,14 +296,18 @@ function RegisterRowItem({
 
   return (
     <li>
-      <Link href={`/findings/${row.findingId}`} className="esh-register-row">
+      <Link
+        href={`/findings/${row.findingId}${row.actionId ? `?action=${row.actionId}` : ''}`}
+        className="esh-register-row"
+      >
         <span className="esh-register-finding">
           <small>
             {row.reference}
             {row.location || row.departmentName ? ` · ${row.location ?? row.departmentName}` : ''}
             {row.isRestricted ? ' · Restricted' : ''}
           </small>
-          <strong>{row.title}</strong>
+          <strong>{row.actionTitle ?? row.title}</strong>
+          {row.actionTitle && <small>Finding: {row.title}</small>}
           <small>
             {LAST_UPDATE_LABELS[row.lastUpdateType] ?? 'Updated'} · {stamp}
           </small>

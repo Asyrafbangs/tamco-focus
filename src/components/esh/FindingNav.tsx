@@ -4,8 +4,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 /**
- * Finding Management's own navigation (§4, §33.1). Overview joins this list
- * in the stage that builds it, never as an empty page first.
+ * Finding Management's own navigation (§4, §33.1). Closed is a Register
+ * filter, while settings stays secondary to the three daily-work destinations.
  */
 export function FindingNav({
   waitingToVerify,
@@ -25,8 +25,13 @@ export function FindingNav({
       <p className="esh-sidenav-title">Finding Management</p>
       <ul>
         <li>
+          <Link href="/findings" aria-current={pathname === '/findings' ? 'page' : undefined}>
+            Overview
+          </Link>
+        </li>
+        <li>
           <Link href="/findings/register" aria-current={inRegister ? 'page' : undefined}>
-            Finding Register
+            Register
           </Link>
         </li>
         <li>
@@ -42,25 +47,16 @@ export function FindingNav({
             )}
           </Link>
         </li>
-        <li>
-          <Link
-            href="/findings/closed"
-            aria-current={pathname.startsWith('/findings/closed') ? 'page' : undefined}
-          >
-            Closed
-          </Link>
-        </li>
-        {canManageSettings && (
-          <li>
-            <Link
-              href="/findings/settings"
-              aria-current={pathname.startsWith('/findings/settings') ? 'page' : undefined}
-            >
-              Follow-up settings
-            </Link>
-          </li>
-        )}
       </ul>
+      {canManageSettings && (
+        <Link
+          className="esh-sidenav-settings"
+          href="/findings/settings"
+          aria-current={pathname.startsWith('/findings/settings') ? 'page' : undefined}
+        >
+          Settings
+        </Link>
+      )}
       <Link href="/esh" className="esh-sidenav-home">
         ← ESH Home
       </Link>

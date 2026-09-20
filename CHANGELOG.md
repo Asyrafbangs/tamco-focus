@@ -1,5 +1,24 @@
 # TAMCO Focus — Change Log
 
+## v202 Overview, reconciled drill-down and safe export — 21 September 2026
+
+The sixth Finding Management stage remains local-only and behind the restricted rollout.
+
+- **One overview definition.** Four compact, explicitly labelled signals and the department table
+  come from one RLS-scoped database function and one as-of instant. Department rows sum back to the
+  signals, multi-action findings count once as findings, and Unassigned is explicit.
+- **Exact units and drill-down.** Open and Closed lead to finding rows; Overdue and Verification lead
+  to action rows. Awaiting-verification and accepted actions are not called overdue owner work.
+- **Closure periods do one job.** Last 30/60/90 days, This year and a custom local-date range affect
+  only the Closed metric. Old open findings remain visible. A reopened finding leaves current closed
+  totals; reclosure uses its current official closure timestamp.
+- **One Register.** Overview / Register / Verification are the daily navigation. Closed is a Register
+  filter, and the former `/findings/closed` link translates into that canonical view.
+- **Authorized CSV.** The action-level export includes before/after descriptions, owner, baseline and
+  current due dates, submission/verification/closure dates and escalation state. Spreadsheet-active
+  text is neutralized; evidence links and guest tokens are never exported.
+- pgTAP (25), unit (9), integration and desktop/mobile end-to-end coverage.
+
 ## v201 Follow-up, escalation and delivery evidence — 20 September 2026
 
 The fifth Finding Management stage remains behind the restricted rollout.

@@ -85,3 +85,14 @@ callbacks. The real-stack integration test opens a recipient-specific escalation
 cannot submit owner work, checks the staff notification worker and verifies a due-date change
 suppresses queued mail. Playwright repeats the Verifier settings page and escalation response on
 1440 × 900 and 390 × 844, including a first interaction before hydration.
+
+## ESH Finding Management v202 coverage
+
+`esh_overview_v202.test.sql` proves that department and signal totals reconcile, a multi-action
+finding counts once as a finding but every overdue action appears in the action drill-down,
+Unassigned is explicit, awaiting/accepted actions are excluded from owner-overdue work, closure
+periods do not hide old open findings, and reopening/reclosure changes the current closure count.
+It also checks RLS and the export projection. Unit tests cover formula neutralization and CSV
+escaping. The real-stack integration test repeats scope enforcement, and Playwright verifies the
+Overview, period stability, exact overdue rows, old Closed redirect, downloadable safe CSV and both
+desktop/mobile containment.

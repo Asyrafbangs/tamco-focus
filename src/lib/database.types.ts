@@ -2769,6 +2769,13 @@ export type Database = {
             foreignKeyName: "esh_evidence_assets_organization_id_finding_id_fkey"
             columns: ["organization_id", "finding_id"]
             isOneToOne: false
+            referencedRelation: "esh_action_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_organization_id_finding_id_fkey"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
             referencedRelation: "esh_findings"
             referencedColumns: ["organization_id", "id"]
           },
@@ -2995,6 +3002,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "esh_action_submissions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_finding_actions_organization_id_finding_id_fkey"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
           },
           {
             foreignKeyName: "esh_finding_actions_organization_id_finding_id_fkey"
@@ -3449,8 +3463,22 @@ export type Database = {
             foreignKeyName: "esh_guest_session_actions_action_id_fkey"
             columns: ["action_id"]
             isOneToOne: false
+            referencedRelation: "esh_action_register_rows"
+            referencedColumns: ["action_id"]
+          },
+          {
+            foreignKeyName: "esh_guest_session_actions_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
             referencedRelation: "esh_finding_actions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_guest_session_actions_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_export_rows"
+            referencedColumns: ["action_id"]
           },
           {
             foreignKeyName: "esh_guest_session_actions_action_id_fkey"
@@ -3492,8 +3520,22 @@ export type Database = {
             foreignKeyName: "esh_guest_session_escalations_action_id_fkey"
             columns: ["action_id"]
             isOneToOne: false
+            referencedRelation: "esh_action_register_rows"
+            referencedColumns: ["action_id"]
+          },
+          {
+            foreignKeyName: "esh_guest_session_escalations_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
             referencedRelation: "esh_finding_actions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_guest_session_escalations_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_export_rows"
+            referencedColumns: ["action_id"]
           },
           {
             foreignKeyName: "esh_guest_session_escalations_action_id_fkey"
@@ -3668,6 +3710,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "esh_finding_actions"
             referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_notification_outbox_organization_id_finding_id_fkey"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
           },
           {
             foreignKeyName: "esh_notification_outbox_organization_id_finding_id_fkey"
@@ -11302,6 +11351,84 @@ export type Database = {
           },
         ]
       }
+      esh_action_register_rows: {
+        Row: {
+          accountable_department_id: string | null
+          action_count: number | null
+          action_id: string | null
+          action_sequence: number | null
+          action_state: string | null
+          action_title: string | null
+          baseline_due_at: string | null
+          closed_at: string | null
+          created_at: string | null
+          department_name: string | null
+          due_at: string | null
+          due_is_date_only: boolean | null
+          finding_id: string | null
+          is_overdue: boolean | null
+          is_restricted: boolean | null
+          last_update_at: string | null
+          last_update_type: string | null
+          location: string | null
+          needs_attention: boolean | null
+          notification_failed: boolean | null
+          notification_held: boolean | null
+          organization_id: string | null
+          owner_email: string | null
+          priority: string | null
+          reference: string | null
+          risk_level: string | null
+          status: string | null
+          title: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_findings_accountable_department_id_fkey"
+            columns: ["accountable_department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_register_export_rows: {
+        Row: {
+          accountable_department: string | null
+          action_id: string | null
+          action_sequence: number | null
+          action_state: string | null
+          action_title: string | null
+          active_escalations: number | null
+          after_description: string | null
+          baseline_due_at: string | null
+          before_description: string | null
+          closed_at: string | null
+          current_due_at: string | null
+          escalation_recipients: number | null
+          escalation_state: string | null
+          finding_id: string | null
+          finding_status: string | null
+          finding_title: string | null
+          location: string | null
+          owner_email: string | null
+          priority: string | null
+          reference: string | null
+          reported_on: string | null
+          required_outcome: string | null
+          risk_level: string | null
+          submitted_at: string | null
+          verified_at: string | null
+        }
+        Relationships: []
+      }
       esh_register_rows: {
         Row: {
           accountable_department_id: string | null
@@ -13413,6 +13540,23 @@ export type Database = {
           email: string
           full_name: string
           user_id: string
+        }[]
+      }
+      esh_overview: {
+        Args: {
+          p_as_of?: string
+          p_closed_since: string
+          p_closed_until?: string
+          p_department_id: string
+        }
+        Returns: {
+          accountable_department_id: string
+          awaiting_review_actions: number
+          closed_findings: number
+          department_name: string
+          open_findings: number
+          overdue_actions: number
+          review_overdue_actions: number
         }[]
       }
       esh_post_message: {

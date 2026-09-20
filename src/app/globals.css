@@ -12617,7 +12617,8 @@ span.deadline span.deadline-glyph,
   list-style: none;
 }
 .esh-sidenav ul a,
-.esh-sidenav-home {
+.esh-sidenav-home,
+.esh-sidenav-settings {
   display: flex;
   align-items: center;
   min-height: 42px;
@@ -12630,6 +12631,15 @@ span.deadline span.deadline-glyph,
   background: var(--blue-bg);
   color: var(--heading);
   font-weight: 750;
+}
+.esh-sidenav-settings[aria-current='page'] {
+  background: var(--blue-bg);
+  color: var(--heading);
+  font-weight: 750;
+}
+.esh-sidenav-settings {
+  margin-top: 16px;
+  color: var(--muted);
 }
 .esh-sidenav-home {
   margin-top: auto;
@@ -12677,6 +12687,158 @@ span.deadline span.deadline-glyph,
 }
 .esh-register-search-text {
   flex: 1 1 280px;
+}
+.pagehead-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.esh-overview-head {
+  align-items: flex-end;
+}
+.esh-data-time {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.esh-overview-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.esh-overview-controls form,
+.esh-closure-control,
+.esh-register-period {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+.esh-overview-controls label,
+.esh-closure-control,
+.esh-register-period {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+.esh-overview-controls label {
+  display: grid;
+  gap: 5px;
+}
+.esh-signals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.esh-signal {
+  display: grid;
+  align-content: start;
+  min-height: 148px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+.esh-signal:hover {
+  border-color: color-mix(in srgb, var(--blue) 35%, var(--line));
+}
+.esh-signal:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.esh-signal > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+.esh-signal strong {
+  margin-top: 10px;
+  color: var(--heading);
+  font-size: calc(30px * var(--font-scale));
+  line-height: 1;
+}
+.esh-signal small {
+  margin-top: 3px;
+  color: var(--muted);
+}
+.esh-signal p {
+  margin: auto 0 0;
+  padding-top: 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.esh-signal[data-exception='true'] strong,
+.esh-metric-exception strong {
+  color: var(--amber);
+}
+.esh-department-summary {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.esh-section-head h2 {
+  margin: 0;
+  color: var(--heading);
+  font-size: calc(16px * var(--font-scale));
+}
+.esh-section-head p,
+.esh-definition-note {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.table-scroll {
+  margin-top: 16px;
+  overflow-x: auto;
+}
+.esh-overview-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+}
+.esh-overview-table th,
+.esh-overview-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+.esh-overview-table thead th {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.esh-overview-table tbody th {
+  color: var(--heading);
+}
+.esh-overview-table td a {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 44px;
+  min-height: 44px;
+  justify-content: center;
+  color: var(--text);
+  text-decoration: none;
+}
+.esh-overview-table td a:hover strong {
+  text-decoration: underline;
+}
+.esh-overview-table td small {
+  color: var(--amber);
+}
+.esh-definition-note {
+  margin-top: 14px;
+}
+.esh-register-period {
+  justify-content: flex-end;
+  margin: -4px 0 14px;
 }
 .esh-register-head,
 .esh-register-row {
@@ -13079,6 +13241,9 @@ span.deadline span.deadline-glyph,
   .esh-sidenav-home {
     margin: 0 0 0 auto;
   }
+  .esh-sidenav-settings {
+    margin: 0;
+  }
   .esh-content {
     padding: 18px 16px 40px;
   }
@@ -13088,6 +13253,9 @@ span.deadline span.deadline-glyph,
   .esh-register-row {
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
+  }
+  .esh-signals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .esh-register-status {
     flex-direction: row;

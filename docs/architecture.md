@@ -75,3 +75,10 @@ recipient. The daily cron records idempotent follow-up events before queueing ma
 then locks the row and re-checks the live assignment, deadline, submission and entitlement before it
 mints any one-time link. Provider callbacks append delivery evidence; they do not overwrite the
 business event that originally queued the mail.
+
+Overview and Register preserve the unit being counted. `esh_overview` reads the caller's RLS-scoped
+findings, actions and current submissions in one statement and returns one row per accountable
+department; signal totals are sums of those rows. Finding filters use `esh_register_rows`, while
+action filters use `esh_action_register_rows`. The CSV route reads a separate security-invoker
+projection as the signed-in caller and serializes it server-side, so export never requires widening
+RLS or making evidence links portable.

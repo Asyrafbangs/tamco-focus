@@ -11,6 +11,7 @@ import type {
   RiskLevel,
 } from '@/domain/esh-findings';
 import type { ConversationEntry, EvidenceFile, SubmissionMark } from '@/domain/esh-guest';
+import type { EshOverviewRow } from '@/domain/esh-overview';
 import type { Database } from '@/lib/database.types';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -27,6 +28,8 @@ export const REGISTER_PAGE_SIZE = 50;
 
 export interface RegisterListRow {
   findingId: string;
+  actionId: string | null;
+  actionTitle: string | null;
   reference: string;
   title: string;
   location: string | null;
@@ -64,11 +67,14 @@ export async function listRegister(options: {
   filter: RegisterFilter;
   search: string;
   departmentId: string | null;
-  closedWithinDays: number;
+  departmentUnassigned?: boolean;
+  closedSince: string;
+  closedUntil: string | null;
   page: number;
 }): Promise<{ rows: RegisterListRow[]; total: number; failed: boolean }> {
   const supabase = await createSupabaseServerClient();
-  let query = supabase.from('esh_register_rows').select('*', { count: 'exact' });
+  const source = options.filter === 'overdue' ? 'esh_action_register_rows' : 'esh_register_rows';
+  let query = supabase.from(source).select('*', { count: 'exact' });
 
   switch (options.filter) {
     case 'attention':
@@ -78,16 +84,18 @@ export async function listRegister(options: {
       query = query.in('status', ['draft', 'new', 'open']);
       break;
     case 'overdue':
-      query = query.eq('status', 'open').eq('is_overdue', true);
+      query = query.in('status', ['draft', 'new', 'open']).eq('is_overdue', true);
       break;
     case 'closed': {
-      const since = new Date(Date.now() - options.closedWithinDays * 86_400_000).toISOString();
-      query = query.eq('status', 'closed').gte('closed_at', since);
+      query = query.eq('status', 'closed').gte('closed_at', options.closedSince);
+      if (options.closedUntil) query = query.lte('closed_at', options.closedUntil);
       break;
     }
   }
 
-  if (options.departmentId) {
+  if (options.departmentUnassigned) {
+    query = query.is('accountable_department_id', null);
+  } else if (options.departmentId) {
     query = query.eq('accountable_department_id', options.departmentId);
   }
 
@@ -119,6 +127,8 @@ export async function listRegister(options: {
     failed: false,
     rows: (data ?? []).map((row) => ({
       findingId: String(row.finding_id),
+      actionId: row.action_id ? String(row.action_id) : null,
+      actionTitle: 'action_title' in row ? (row.action_title ?? null) : null,
       reference: String(row.reference),
       title: String(row.title),
       location: row.location ?? null,
@@ -140,6 +150,59 @@ export async function listRegister(options: {
       closedAt: row.closed_at ?? null,
     })),
   };
+}
+
+export async function getEshOverview(options: {
+  departmentId: string | null;
+  closedSince: string;
+  closedUntil: string | null;
+  asOf: string;
+}): Promise<{ rows: EshOverviewRow[]; failed: boolean }> {
+  type OverviewResult = Database['public']['Functions']['esh_overview']['Returns'][number];
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_overview', {
+    p_department_id: options.departmentId,
+    p_closed_since: options.closedSince,
+    p_closed_until: options.closedUntil,
+    p_as_of: options.asOf,
+  });
+  if (error) {
+    console.error(`[getEshOverview] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { rows: [], failed: true };
+  }
+  return {
+    failed: false,
+    rows: ((data ?? []) as OverviewResult[]).map((row) => ({
+      departmentId: row.accountable_department_id ?? null,
+      departmentName: String(row.department_name),
+      openFindings: Number(row.open_findings ?? 0),
+      overdueActions: Number(row.overdue_actions ?? 0),
+      awaitingReviewActions: Number(row.awaiting_review_actions ?? 0),
+      reviewOverdueActions: Number(row.review_overdue_actions ?? 0),
+      closedFindings: Number(row.closed_findings ?? 0),
+    })),
+  };
+}
+
+export type RegisterExportRow = Database['public']['Views']['esh_register_export_rows']['Row'];
+
+/** Read every authorized export row in bounded pages instead of truncating at PostgREST's cap. */
+export async function listRegisterExportRows(): Promise<RegisterExportRow[]> {
+  const supabase = await createSupabaseServerClient();
+  const result: RegisterExportRow[] = [];
+  const size = 500;
+  for (let from = 0; ; from += size) {
+    const { data, error } = await supabase
+      .from('esh_register_export_rows')
+      .select('*')
+      .order('reference')
+      .order('action_sequence')
+      .range(from, from + size - 1);
+    if (error)
+      throw new Error(`The authorized register export could not be read: ${error.message}`);
+    result.push(...(data ?? []));
+    if ((data ?? []).length < size) return result;
+  }
 }
 
 export interface DepartmentOption {
@@ -286,7 +349,10 @@ export interface FindingDetail {
 }
 
 /** One finding as ESH reads it, or null when it is not theirs to see. */
-export async function getFindingDetail(findingId: string): Promise<FindingDetail | null> {
+export async function getFindingDetail(
+  findingId: string,
+  actionId: string | null = null,
+): Promise<FindingDetail | null> {
   const supabase = await createSupabaseServerClient();
   const { data: finding, error } = await supabase
     .from('esh_findings')
@@ -299,14 +365,16 @@ export async function getFindingDetail(findingId: string): Promise<FindingDetail
   }
   if (!finding) return null;
 
+  let actionQuery = supabase
+    .from('esh_finding_actions')
+    .select('*')
+    .eq('finding_id', findingId)
+    .order('sequence')
+    .limit(1);
+  if (actionId) actionQuery = actionQuery.eq('id', actionId);
+
   const [actionResult, outboxResult, auditResult, departmentResult] = await Promise.all([
-    supabase
-      .from('esh_finding_actions')
-      .select('*')
-      .eq('finding_id', findingId)
-      .order('sequence')
-      .limit(1)
-      .maybeSingle(),
+    actionQuery.maybeSingle(),
     supabase
       .from('esh_notification_outbox')
       .select(
@@ -751,7 +819,10 @@ export interface VerificationQueueRow {
  * What is waiting for ESH (v200, §13). One row per pending submission,
  * oldest first; RLS decides which findings the reader may see at all.
  */
-export async function listVerificationQueue(): Promise<VerificationQueueRow[]> {
+export async function listVerificationQueue(
+  departmentId: string | null = null,
+  departmentUnassigned = false,
+): Promise<VerificationQueueRow[]> {
   const supabase = await createSupabaseServerClient();
   const { data: submissions, error } = await supabase
     .from('esh_action_submissions')
@@ -765,10 +836,16 @@ export async function listVerificationQueue(): Promise<VerificationQueueRow[]> {
   }
   const actionIds = (submissions ?? []).map((row) => String(row.action_id));
   if (actionIds.length === 0) return [];
-  const { data: rows } = await supabase
-    .from('esh_register_rows')
+  let actionQuery = supabase
+    .from('esh_action_register_rows')
     .select('finding_id, action_id, reference, title, location, department_name, priority')
     .in('action_id', actionIds);
+  if (departmentUnassigned) {
+    actionQuery = actionQuery.is('accountable_department_id', null);
+  } else if (departmentId) {
+    actionQuery = actionQuery.eq('accountable_department_id', departmentId);
+  }
+  const { data: rows } = await actionQuery;
   const findingOf = new Map((rows ?? []).map((row) => [String(row.action_id), row]));
   return (submissions ?? [])
     .map((submission) => {

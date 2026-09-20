@@ -96,15 +96,17 @@ export default async function FindingPage({
   searchParams,
 }: {
   params: Promise<{ findingId: string }>;
-  searchParams: Promise<{ saved?: string; warn?: string }>;
+  searchParams: Promise<{ saved?: string; warn?: string; action?: string }>;
 }) {
   const access = await requireEshAccess();
   const profile = await requireProfile();
   const { findingId } = await params;
   const query = await searchParams;
   if (!UUID.test(findingId)) notFound();
-  const finding = await getFindingDetail(findingId);
+  const actionId = query.action && UUID.test(query.action) ? query.action : null;
+  const finding = await getFindingDetail(findingId, actionId);
   if (!finding) notFound();
+  if (actionId && !finding.action) notFound();
 
   const timeZone = profile.timezone ?? 'Asia/Kuala_Lumpur';
   const warnings = (query.warn ?? '')

@@ -36,6 +36,10 @@ timezone. Verifiers maintain that policy and the labelled working-day calendar a
 unless `ESH_DELIVERY_WEBHOOK_SECRET` is set. Never treat SMTP acceptance as delivery and never put
 the callback secret in a browser-visible variable.
 
+Finding Register CSV is generated on demand at `/findings/register/export` under the signed-in
+person's current Finding scope. Treat the downloaded file as business data. It contains no evidence
+links or guest credentials; evidence must still be opened through the application.
+
 ## Database changes
 
 Add a forward-only timestamped migration, then run:
