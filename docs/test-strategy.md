@@ -106,6 +106,19 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v207 consolidated-notice evidence
+
+- pgTAP (25) proves reminders are gathered once per person per cycle, each event is marked as
+  carried rather than queued, a second run gathers nothing again, a member whose schedule moved is
+  dropped and closed off with its reason, the owner receives one link to their own list, completion
+  is recorded against each carried event, and a delivery whose every line has moved on is
+  suppressed rather than sent.
+- Integration runs the real worker: one message listing three actions, one link in it, three events
+  recorded as accepted, and nothing sent on a second drain.
+- Unit tests pin the letters themselves — every action named rather than summarised away, an
+  escalation digest carrying per-action links and no inbox link, and a released backlog that does
+  not pretend its dates are new.
+
 ## v206 bulk-operation evidence
 
 - pgTAP (29) proves an action link cannot do batch work, one update reaches each chosen action as

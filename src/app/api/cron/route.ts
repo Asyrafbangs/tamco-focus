@@ -180,6 +180,22 @@ export async function GET(request: Request) {
   }
 
   /*
+   * v207 - gather the routine notices raised above into one letter each. It
+   * runs between the follow-up pass and the mail drain, so what was raised
+   * this morning leaves this morning, consolidated. Nothing urgent is gathered:
+   * assignments, replies and decisions were never queued as routine.
+   */
+  try {
+    const { data, error } = await client.rpc('esh_build_digests', {});
+    if (error) throw new Error(error.message);
+    results.push({ worker: 'esh_digests', ok: true, detail: JSON.stringify(data ?? {}) });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'unknown error';
+    console.error(`[cron] Finding Management digests failed: ${detail}`);
+    results.push({ worker: 'esh_digests', ok: false, detail });
+  }
+
+  /*
    * v204 - capture each due weekly Finding report before draining mail. The
    * procedure owns local-day/time evaluation and a run uniqueness key, so a
    * repeated scheduler invocation cannot produce a second snapshot or email.

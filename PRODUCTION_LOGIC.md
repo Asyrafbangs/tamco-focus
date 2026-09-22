@@ -2309,3 +2309,25 @@ assignee, or the owner for a step assigned to nobody (v159).
    authorisation. Removing one association cannot reach another action's evidence, and an
    immutable submission keeps whatever it recorded.
 
+## 102. v207 One letter instead of eleven
+
+1. `esh_build_digests` runs between the follow-up pass and the mail drain. It gathers queued
+   `owner_reminder` and `escalation` events by recipient, purpose and local day, moves each event
+   to `digested` so it can never also be sent alone, and records it as a member of the delivery.
+   A second run of the same day finds the delivery and adds nothing.
+2. Only routine kinds are gathered. An assignment, a reply, a decision, a closure and a review
+   request are things somebody is waiting on: they were never queued as routine and are not held
+   for a cycle.
+3. The worker asks `esh_digest_prepare` which actions a delivery intends to carry, mints one
+   secret per action for an escalation digest, and claims. The claim re-checks every member the way
+   a single notice is re-checked — finding closed, action reassigned, already answered, escalation
+   no longer live, schedule moved — removes what no longer applies with its reason, and closes that
+   member's own event as suppressed.
+4. A delivery with no members left is suppressed rather than sent. One with members mints the links
+   its purpose allows: an owner digest gets one owner-inbox grant; an escalation digest gets one
+   action-scoped grant per member and no inbox grant.
+5. Completion writes the outcome to the delivery and to every member's own event, so the register
+   shows what actually went, per action, whether it travelled alone or in company.
+6. A released backlog's owner summary is the same machinery: the actions that release gave that
+   owner are its members, and their agreed dates are shown as they are.
+

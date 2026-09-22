@@ -1,5 +1,24 @@
 # TAMCO Focus — Change Log
 
+## v207 One letter instead of eleven — 23 September 2026
+
+The last Finding Management stage remains local-only and behind the restricted rollout.
+
+- **Routine notices arrive together.** An owner with several things due today receives one message
+  listing them, with one link to their own list. An escalation recipient receives one message
+  covering the actions escalated to them, each with its own scoped link — never the owner's list.
+- **Consolidation is packaging, nothing else.** Every action keeps its own notification event, its
+  own entitlement and its own recorded outcome. A summary that fails is a recorded failure for each
+  action it carried.
+- **Nothing stale is sent.** Every line is re-checked as the message goes: work submitted,
+  reassigned, closed, rescheduled or no longer escalated drops out and is closed off on its own. A
+  summary with nothing left in it is not sent at all.
+- **Nothing urgent waits for it.** Assignments, replies and decisions are not routine and were
+  never gathered; they go when they are made.
+- **A released backlog is the same idea**, and now actually sends: one letter per owner listing the
+  actions that release gave them, with the dates already agreed.
+- pgTAP (25), unit (8), integration through the real worker.
+
 ## v206 Several actions at once, each still its own — 23 September 2026
 
 The tenth Finding Management stage remains local-only and behind the restricted rollout.

@@ -100,6 +100,20 @@ the service role. These operations remain local-only in this stage.
   `esh_admin_disable_contact` and `esh_admin_correct_contact_email` re-check live relationships,
   revoke stale capability, preserve history and write immutable audit detail.
 
+## v207 Consolidated notices
+
+- `esh_build_digests(p_now)` is service-role only. It gathers queued `owner_reminder` and
+  `escalation` events per recipient, purpose and local day into one delivery, moving each event to
+  `digested`. A second run of the same day adds nothing, and it also attaches a released backlog's
+  actions to its summary.
+- `esh_digest_prepare(outbox_id)` lists the actions a delivery still intends to carry so the worker
+  can mint one link per escalation member before claiming. It changes nothing.
+- `esh_dispatch_claim` re-checks every member at the moment of sending — closed, reassigned,
+  already answered, no longer escalated or rescheduled — drops what no longer applies, closes each
+  dropped event in its own right, and refuses to send a delivery with nothing left in it.
+- `esh_dispatch_complete` maps the delivery's outcome onto every member, so a failed summary is a
+  recorded failure for each action it carried.
+
 ## v206 Bulk operations
 
 - `esh_guest_bulk_update`, `esh_guest_bulk_extension` and `esh_guest_bulk_submit` each require an

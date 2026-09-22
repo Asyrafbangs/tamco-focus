@@ -102,6 +102,11 @@ opt-in, a common update is a message on each action, a request for more time cha
 a batch submission is one submission per action, a shared file is copied per action, and every
 item answers for itself. Consolidated reminder and escalation digests (§41) are v207.
 
+v207 is built and verified (23 September 2026), completing the module: routine reminders and
+escalations are consolidated per recipient per cycle, every member is revalidated at send time and
+dropped with its reason if it no longer applies, an empty digest is suppressed, a failed digest is
+recorded against each action it carried, and a released backlog's owner summary is sent.
+
 Each stage ships behind the rollout gate, so nothing new is visible to the team until an
 administrator enables them. Each ends with the full verify and, where it adds a migration, a
 `supabase db push`.

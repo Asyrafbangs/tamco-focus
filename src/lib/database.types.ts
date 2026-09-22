@@ -2473,6 +2473,51 @@ export type Database = {
           },
         ]
       }
+      esh_digest_members: {
+        Row: {
+          action_id: string
+          created_at: string
+          digest_id: string
+          escalation_level: number | null
+          member_id: string | null
+          removed_reason: string | null
+          state: string
+        }
+        Insert: {
+          action_id: string
+          created_at?: string
+          digest_id: string
+          escalation_level?: number | null
+          member_id?: string | null
+          removed_reason?: string | null
+          state?: string
+        }
+        Update: {
+          action_id?: string
+          created_at?: string
+          digest_id?: string
+          escalation_level?: number | null
+          member_id?: string | null
+          removed_reason?: string | null
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_digest_members_digest_id_fkey"
+            columns: ["digest_id"]
+            isOneToOne: false
+            referencedRelation: "esh_notification_outbox"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_digest_members_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: true
+            referencedRelation: "esh_notification_outbox"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       esh_due_date_changes: {
         Row: {
           action_id: string
@@ -14793,6 +14838,7 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_build_digests: { Args: { p_now?: string }; Returns: Json }
       esh_change_due: {
         Args: {
           p_action_id: string
@@ -14803,6 +14849,7 @@ export type Database = {
         Returns: Json
       }
       esh_current_access: { Args: never; Returns: Json }
+      esh_digest_prepare: { Args: { p_outbox_id: string }; Returns: Json }
       esh_dispatch_claim: {
         Args: { p_outbox_id: string; p_secrets: Json }
         Returns: Json

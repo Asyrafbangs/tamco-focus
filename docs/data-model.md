@@ -100,6 +100,16 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 - `shared_contributions` leaves out steps whose work is binned or purged, as
   `completed_contributions` has since v87; its columns are unchanged.
 
+## v207 Consolidated notices
+
+- `esh_digest_members` records what one delivery carries: the action, the notification event it
+  belongs to where there is one, the escalation level, and whether that line was sent, removed or
+  failed. `unique (member_id)` keeps one event in one delivery, so nothing can be sent on its own
+  and again inside a summary of itself.
+- `esh_notification_outbox` gains the states `digested` (carried by a summary) and the event types
+  `owner_digest` and `escalation_digest`. A released backlog's `import_assignment` is the same
+  shape: one delivery covering the actions the release gave that owner.
+
 ## v206 Bulk operations
 
 - `esh_bulk_operations` records one operation per press: its purpose, the owner's own operation

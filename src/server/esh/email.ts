@@ -324,3 +324,112 @@ export function emailDueLabel(
   }).format(due);
   return `Due ${date}, ${time}`;
 }
+
+/** The plain-text part is assembled line by line; this is that line break. */
+const LINE = String.fromCharCode(10);
+
+export interface DigestItem {
+  reference: string | null;
+  title: string | null;
+  dueLabel: string | null;
+  escalationLevel?: number | null;
+  /** An escalation recipient's own link to this one action. */
+  actionUrl?: string | null;
+}
+
+export interface EshDigestEmailInput {
+  eventType: 'owner_digest' | 'escalation_digest' | 'import_assignment';
+  items: DigestItem[];
+  inboxUrl: string | null;
+  expiresMinutes: number;
+  eshContactName?: string | null;
+  eshContactEmail?: string | null;
+}
+
+/**
+ * One letter about several actions (v207, §41).
+ *
+ * Consolidation is packaging: the list says exactly which actions, each with
+ * its own date and its own link where it has one, so nothing is hidden behind
+ * "and others". A digest of one reads as the single notice it is.
+ */
+export function renderEshDigestEmail(input: EshDigestEmailInput): RenderedEmail {
+  const count = input.items.length;
+  const plural = count === 1 ? 'action' : 'actions';
+  const level = input.items.reduce(
+    (highest, item) => Math.max(highest, item.escalationLevel ?? 0),
+    0,
+  );
+
+  const subject = oneLine(
+    input.eventType === 'escalation_digest'
+      ? `Escalation level ${level}: ${count} overdue ${plural}`
+      : input.eventType === 'import_assignment'
+        ? `${count} ${plural} assigned to you`
+        : `${count} ${plural} need your attention`,
+  ).slice(0, 180);
+
+  const headline =
+    input.eventType === 'escalation_digest'
+      ? `${count} overdue ${plural} escalated to you`
+      : input.eventType === 'import_assignment'
+        ? `You have ${count} ${plural}`
+        : `${count} ${plural} need your attention`;
+
+  const lead =
+    input.eventType === 'escalation_digest'
+      ? 'ESH is asking for your support on the actions below. Each one stays with its owner: you are not being asked to do the work or to close anything.'
+      : input.eventType === 'import_assignment'
+        ? 'These are existing findings, now recorded in TAMCO ESH. Their dates are the ones already agreed, so some may already be past due.'
+        : 'Here is everything waiting on you today, in one message rather than one each.';
+
+  const rows = input.items.map((item) => {
+    const heading = [item.reference, item.title].filter(Boolean).join(' · ');
+    const detail = [item.dueLabel, item.escalationLevel ? `Level ${item.escalationLevel}` : '']
+      .filter(Boolean)
+      .join(' · ');
+    return { heading: oneLine(heading).slice(0, 160), detail, url: item.actionUrl ?? null };
+  });
+
+  const validity = input.inboxUrl
+    ? `Your link works once on this device, for ${lifetime(input.expiresMinutes)}; after that the page offers a new one.`
+    : `Each link works once on this device, for ${lifetime(input.expiresMinutes)}.`;
+  const contact =
+    input.eshContactName || input.eshContactEmail
+      ? `ESH contact: ${[input.eshContactName, input.eshContactEmail].filter(Boolean).join(', ')}.`
+      : '';
+  const unmonitored = 'Please respond through the secure link. Email replies are not read.';
+
+  const text = [
+    headline,
+    '',
+    lead,
+    '',
+    ...rows.map((row) =>
+      [`- ${row.heading}`, row.detail ? `  ${row.detail}` : '', row.url ? `  ${row.url}` : '']
+        .filter(Boolean)
+        .join(LINE),
+    ),
+    '',
+    input.inboxUrl ? `View All My Actions: ${input.inboxUrl}` : '',
+    '',
+    validity,
+    contact,
+    '',
+    unmonitored,
+  ]
+    .filter((line, index, all) => !(line === '' && all[index - 1] === ''))
+    .join(LINE)
+    .trim();
+
+  const list = rows
+    .map(
+      (row) =>
+        `<tr><td style="padding:0 32px 12px"><div style="padding:16px 18px;border-radius:12px;background:#f3f5f8"><div style="font-size:15px;line-height:22px;font-weight:700;color:#1b2b36">${escape(row.heading)}</div>${row.detail ? `<div style="margin-top:6px;font-size:13px;line-height:19px;color:#5f6f7c">${escape(row.detail)}</div>` : ''}${row.url ? `<div style="margin-top:10px">${button(row.url, 'Open this action', false)}</div>` : ''}</div></td></tr>`,
+    )
+    .join('');
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>${escape(subject)}</title></head><body style="margin:0;padding:0;background:#f3f5f8;color:#1b2b36;font-family:Arial,'Helvetica Neue',sans-serif"><div style="display:none;max-height:0;overflow:hidden;opacity:0">${escape(lead)}</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#f3f5f8"><tr><td align="center" style="padding:32px 14px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #dde3ea;border-radius:16px"><tr><td style="padding:28px 32px 6px"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="width:36px;height:36px;border-radius:9px;background:${BRAND};color:#ffffff;font-size:18px;font-weight:700;line-height:36px;text-align:center">E</td><td style="padding-left:12px;font-size:17px;font-weight:700;color:#1b2b36">TAMCO ESH</td></tr></table></td></tr><tr><td style="padding:22px 32px 18px"><h1 style="margin:0;font-size:26px;line-height:33px;font-weight:700;color:#1b2b36">${escape(headline)}</h1><p style="margin:10px 0 0;font-size:16px;line-height:24px;color:#5f6f7c">${escape(lead)}</p></td></tr>${list}${input.inboxUrl ? `<tr><td style="padding:6px 32px 8px">${button(input.inboxUrl, 'View All My Actions', true)}</td></tr>` : ''}<tr><td style="padding:6px 32px 28px;font-size:14px;line-height:21px;color:#5f6f7c"><p style="margin:0 0 10px">${escape(validity)}</p>${contact ? `<p style="margin:0 0 10px">${escape(contact)}</p>` : ''}<p style="margin:14px 0 0;padding-top:14px;border-top:1px solid #e7ebf0;font-size:12px;line-height:18px;color:#7a8894">${escape(unmonitored)}</p></td></tr></table></td></tr></table></body></html>`;
+
+  return { subject, html, text };
+}

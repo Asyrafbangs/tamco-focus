@@ -102,6 +102,15 @@ security-invoker view and therefore remain constrained by the caller's separate 
 Guest grants and sessions remain unreadable to clients; audited security-definer procedures expose
 only the active-item metadata needed for targeted revocation.
 
+## v207 digest boundary
+
+- Digest membership is readable wherever the notification it belongs to is readable, and by no
+  guest at all.
+- Consolidation never widens a scope: an owner digest carries one owner-inbox link, an escalation
+  digest carries one action-scoped link per activated entitlement, and neither carries the other's.
+- Every member is revalidated against live state at send time, so a digest cannot deliver a link to
+  work that has moved on since it was gathered.
+
 ## v206 bulk boundary
 
 - Bulk routines are service-role only and resolve the guest session themselves; a signed-in browser

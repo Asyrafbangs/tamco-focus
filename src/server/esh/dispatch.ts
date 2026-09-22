@@ -6,6 +6,7 @@ import type { Database } from '@/lib/database.types';
 import { accessLinkUrl, approvedLinkOrigin, type AccessPurpose } from '@/domain/esh-guest';
 import {
   emailDueLabel,
+  renderEshDigestEmail,
   renderEshEmail,
   renderWeeklyReportEmail,
   type EshEmailInput,
@@ -84,16 +85,48 @@ interface ClaimResult {
   followup_kind?: string | null;
   days_overdue?: number | null;
   escalation_level?: number | null;
+  /** v207 - a digest carries several actions rather than one. */
+  items?: Array<{
+    action_id: string;
+    reference: string | null;
+    finding_title: string | null;
+    action_title: string | null;
+    location: string | null;
+    escalation_level: number | null;
+    due_at: string | null;
+    due_is_date_only: boolean | null;
+  }>;
 }
+
+const DIGEST_TYPES = new Set(['owner_digest', 'escalation_digest', 'import_assignment']);
 
 async function dispatchOne(
   client: Client,
   outboxId: string,
   intents: AccessPurpose[],
   options: EshDispatchOptions,
+  eventType?: string,
 ): Promise<keyof Omit<EshDispatchResult, 'considered'>> {
-  const secrets: Partial<Record<AccessPurpose, string>> = {};
+  const secrets: Record<string, string> = {};
   for (const intent of intents) secrets[intent] = newAccessSecret();
+
+  /*
+   * v207 - a digest's links are per action, so the worker has to know which
+   * actions it is about to carry before it can mint them. Asking changes
+   * nothing: the claim re-checks every one of them a moment later, and what no
+   * longer applies is dropped there rather than here.
+   */
+  if (eventType && DIGEST_TYPES.has(eventType)) {
+    const prepared = await client.rpc('esh_digest_prepare', { p_outbox_id: outboxId });
+    if (prepared.error) {
+      console.error(`[esh-dispatch] digest prepare failed: ${prepared.error.message}`);
+      return 'skipped';
+    }
+    const members = ((prepared.data ?? {}) as { members?: Array<{ action_id: string }> }).members;
+    if (eventType === 'escalation_digest') {
+      for (const member of members ?? []) secrets[member.action_id] = newAccessSecret();
+    }
+  }
 
   const { data, error } = await client.rpc('esh_dispatch_claim', {
     p_outbox_id: outboxId,
@@ -112,33 +145,52 @@ async function dispatchOne(
 
   try {
     const timeZone = claim.timezone ?? 'Asia/Kuala_Lumpur';
-    const rendered = renderEshEmail({
-      eventType: claim.event_type ?? 'owner_assignment',
-      reference: claim.reference ?? null,
-      actionTitle: claim.action_title ?? null,
-      location: claim.location ?? null,
-      dueLabel: emailDueLabel(claim.due_at ?? null, claim.due_is_date_only ?? true, timeZone),
-      eshContactName: claim.esh_contact_name ?? null,
-      eshContactEmail: claim.esh_contact_email ?? null,
-      actionUrl: secrets.owner_action
-        ? accessLinkUrl(options.appBaseUrl, 'owner_action', secrets.owner_action)
-        : secrets.escalation_action
-          ? accessLinkUrl(options.appBaseUrl, 'escalation_action', secrets.escalation_action)
-          : null,
-      inboxUrl: secrets.owner_inbox
-        ? accessLinkUrl(options.appBaseUrl, 'owner_inbox', secrets.owner_inbox)
-        : null,
-      expiresMinutes: claim.expires_minutes ?? 1440,
-      // v199 - staff are sent to the finding, where they sign in as usual.
-      findingUrl: claim.finding_id
-        ? `${options.appBaseUrl.replace(/\/+$/, '')}/findings/${claim.finding_id}`
-        : null,
-      ownerEmail: claim.owner_email ?? null,
-      submissionVersion: claim.submission_version ?? null,
-      followupKind: claim.followup_kind ?? null,
-      daysOverdue: claim.days_overdue ?? null,
-      escalationLevel: claim.escalation_level ?? null,
-    });
+    const rendered = DIGEST_TYPES.has(claim.event_type ?? '')
+      ? renderEshDigestEmail({
+          eventType: claim.event_type as 'owner_digest' | 'escalation_digest' | 'import_assignment',
+          items: (claim.items ?? []).map((item) => ({
+            reference: item.reference,
+            title: item.action_title ?? item.finding_title,
+            dueLabel: emailDueLabel(item.due_at, item.due_is_date_only ?? true, timeZone),
+            escalationLevel: item.escalation_level,
+            actionUrl: secrets[item.action_id]
+              ? accessLinkUrl(options.appBaseUrl, 'escalation_action', secrets[item.action_id]!)
+              : null,
+          })),
+          inboxUrl: secrets.owner_inbox
+            ? accessLinkUrl(options.appBaseUrl, 'owner_inbox', secrets.owner_inbox)
+            : null,
+          expiresMinutes: claim.expires_minutes ?? 1440,
+          eshContactName: claim.esh_contact_name ?? null,
+          eshContactEmail: claim.esh_contact_email ?? null,
+        })
+      : renderEshEmail({
+          eventType: claim.event_type ?? 'owner_assignment',
+          reference: claim.reference ?? null,
+          actionTitle: claim.action_title ?? null,
+          location: claim.location ?? null,
+          dueLabel: emailDueLabel(claim.due_at ?? null, claim.due_is_date_only ?? true, timeZone),
+          eshContactName: claim.esh_contact_name ?? null,
+          eshContactEmail: claim.esh_contact_email ?? null,
+          actionUrl: secrets.owner_action
+            ? accessLinkUrl(options.appBaseUrl, 'owner_action', secrets.owner_action)
+            : secrets.escalation_action
+              ? accessLinkUrl(options.appBaseUrl, 'escalation_action', secrets.escalation_action)
+              : null,
+          inboxUrl: secrets.owner_inbox
+            ? accessLinkUrl(options.appBaseUrl, 'owner_inbox', secrets.owner_inbox)
+            : null,
+          expiresMinutes: claim.expires_minutes ?? 1440,
+          // v199 - staff are sent to the finding, where they sign in as usual.
+          findingUrl: claim.finding_id
+            ? `${options.appBaseUrl.replace(/\/+$/, '')}/findings/${claim.finding_id}`
+            : null,
+          ownerEmail: claim.owner_email ?? null,
+          submissionVersion: claim.submission_version ?? null,
+          followupKind: claim.followup_kind ?? null,
+          daysOverdue: claim.days_overdue ?? null,
+          escalationLevel: claim.escalation_level ?? null,
+        });
     if (options.send) {
       await options.send({
         to: claim.to ?? '',
@@ -263,20 +315,20 @@ export async function runEshOutboxWorker(
     await Promise.all([
       client
         .from('esh_notification_outbox')
-        .select('id, link_intents, created_at')
+        .select('id, link_intents, created_at, event_type')
         .eq('state', 'queued')
         .order('created_at', { ascending: true })
         .limit(limit),
       client
         .from('esh_notification_outbox')
-        .select('id, link_intents, created_at')
+        .select('id, link_intents, created_at, event_type')
         .eq('state', 'failed')
         .lte('next_attempt_at', now.toISOString())
         .order('created_at', { ascending: true })
         .limit(limit),
       client
         .from('esh_notification_outbox')
-        .select('id, link_intents, created_at')
+        .select('id, link_intents, created_at, event_type')
         .eq('state', 'processing')
         .lt('updated_at', staleBefore)
         .order('created_at', { ascending: true })
@@ -328,7 +380,13 @@ export async function runEshOutboxWorker(
       (intent): intent is AccessPurpose =>
         intent === 'owner_action' || intent === 'owner_inbox' || intent === 'escalation_action',
     );
-    const outcome = await dispatchOne(client, candidate.id, intents, options);
+    const outcome = await dispatchOne(
+      client,
+      candidate.id,
+      intents,
+      options,
+      typeof candidate.event_type === 'string' ? candidate.event_type : undefined,
+    );
     result[outcome] += 1;
   }
   const remaining = Math.max(0, limit - candidates.length);
