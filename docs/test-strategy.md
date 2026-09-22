@@ -106,6 +106,14 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v208 priority evidence
+
+- pgTAP (15) proves a colleague outside ESH cannot change a priority, that a change needs a reason
+  and a real level, that setting it to what it already is changes nothing, and that after a change
+  the deadline, the risk assessment and the follow-up events are exactly as they were.
+- The v200 browser journey now also changes a priority from the action menu and checks the due date
+  it set a moment earlier is still the one shown.
+
 ## v207 consolidated-notice evidence
 
 - pgTAP (25) proves reminders are gathered once per person per cycle, each event is marked as

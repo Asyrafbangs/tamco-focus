@@ -107,6 +107,9 @@ escalations are consolidated per recipient per cycle, every member is revalidate
 dropped with its reason if it no longer applies, an empty digest is suppressed, a failed digest is
 recorded against each action it carried, and a released backlog's owner summary is sent.
 
+v208 is built and verified (23 September 2026): §39's last unbuilt sentence — ESH confirms and
+changes an action's priority, each change recorded with its reason, and nothing else moves with it.
+
 Each stage ships behind the rollout gate, so nothing new is visible to the team until an
 administrator enables them. Each ends with the full verify and, where it adds a migration, a
 `supabase db push`.

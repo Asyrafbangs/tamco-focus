@@ -1,5 +1,19 @@
 # TAMCO Focus — Change Log
 
+## v208 Priority, changed and explained — 23 September 2026
+
+A short stage closing the last of §39, still local-only and behind the restricted rollout.
+
+- **ESH can change what an owner should do first**, from the action menu, after the action has been
+  assigned. Until now priority was set once and never again, so an imported backlog stayed Normal
+  however the week went.
+- **Every change carries a reason**, kept with what it was and what it became. A priority nobody
+  can account for is how everything ends up Urgent.
+- **It moves nothing else.** The agreed deadline, the risk assessment and the follow-up schedule
+  stay where they are: no reminder or escalation clock restarts because a label changed, and the
+  screen says so as it saves.
+- pgTAP (15), and the browser journey that changes a due date now changes a priority too.
+
 ## v207 One letter instead of eleven — 23 September 2026
 
 The last Finding Management stage remains local-only and behind the restricted rollout.

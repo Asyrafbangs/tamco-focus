@@ -565,6 +565,7 @@ function FindingSummary({
               findingId={finding.id}
               ownerEmail={action.ownerEmail}
               dueDate={dueDay}
+              priority={action.priority ?? 'normal'}
             />
           )}
           {canCoordinate && actionOpen && (

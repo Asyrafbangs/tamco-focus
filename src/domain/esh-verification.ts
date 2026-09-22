@@ -42,6 +42,11 @@ const CODE_PROBLEMS: Record<string, string> = {
   action_closed: 'This action is closed, so it cannot be changed.',
   decide_submission_first: 'Decide the submission waiting for review before reassigning.',
   same_owner: 'That address already owns this action.',
+  // v208
+  not_open: 'Priority can only be changed while the action is still open work.',
+  unchanged: 'That is already its priority.',
+  reason_required:
+    'Say why, in a few words: a priority nobody can account for is how everything becomes Urgent.',
 };
 
 const FAILED = 'Something went wrong and nothing was changed. Try again.';

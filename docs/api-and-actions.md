@@ -100,6 +100,14 @@ the service role. These operations remain local-only in this stage.
   `esh_admin_disable_contact` and `esh_admin_correct_contact_email` re-check live relationships,
   revoke stale capability, preserve history and write immutable audit detail.
 
+## v208 Priority changes
+
+- `esh_set_priority(action, priority, reason)` is the authenticated coordinate command. It refuses
+  a priority outside Urgent/High/Normal, a change without a reason, a change to what it already is,
+  a finding outside the caller's scope and an action that is no longer open work.
+- Its answer repeats the due date and says the follow-up is unchanged, so the screen can say so
+  too; nothing in it restarts a reminder or an escalation clock.
+
 ## v207 Consolidated notices
 
 - `esh_build_digests(p_now)` is service-role only. It gathers queued `owner_reminder` and

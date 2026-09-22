@@ -271,7 +271,7 @@ test('v200 ESH moves the due date and the owner, and says why', async ({ page },
 
   await signIn(page, 'izzul@tamco.local');
   await page.goto(`/findings/${work.findingId}`);
-  await page.getByText('Change the due date or the owner').click();
+  await page.getByText('Change the due date, the priority or the owner').click();
   await page.getByLabel('New due date').fill('2027-01-20');
   await page.getByLabel('Reason (the owner sees it)').fill('Parts on order');
   await page.getByRole('button', { name: 'Change due date' }).click();
@@ -293,6 +293,20 @@ test('v200 ESH moves the due date and the owner, and says why', async ({ page },
   });
   await expect(dueChange).toContainText('Due date changed from');
   await expect(dueChange).toContainText('Parts on order');
+
+  // v208 — priority is ESH's to change, with a reason, and it moves nothing
+  // else: the date they just set stays set (§39, FM90).
+  const menu = page.locator('.esh-action-menu');
+  // The page refreshed after the date change, which closes the menu again.
+  if ((await menu.getAttribute('open')) === null) await menu.locator('summary').click();
+  await expect(menu.getByLabel('Priority', { exact: true })).toBeVisible();
+  await menu.getByLabel('Priority', { exact: true }).selectOption('urgent');
+  await menu.getByLabel('Reason for the priority').fill('Contractor on site Thursday only');
+  await menu.getByRole('button', { name: 'Change priority' }).click();
+  await expect(
+    page.getByText('Priority changed. The due date and its reminders are unchanged.'),
+  ).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Verification' })).toContainText('20 Jan 2027');
 
   // Reassigned: the old owner's page stops working on the next request (FM13).
   await page.getByLabel('New Action Owner email').fill(`after.${id}@example.com`);

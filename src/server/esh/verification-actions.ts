@@ -123,6 +123,38 @@ export async function changeDueDate(input: {
   return { ok: true };
 }
 
+/**
+ * v208 - what the owner should do first, changed with a reason (§39).
+ *
+ * Deliberately narrow: it moves the priority and nothing else. The deadline,
+ * the risk assessment and the follow-up schedule stay where they were, so
+ * nobody's reminders quietly restart because a label changed.
+ */
+export async function changePriority(input: {
+  actionId: string;
+  findingId: string;
+  priority: string;
+  reason: string;
+}): Promise<EshDecision> {
+  await requireProfile();
+  const actionId = uuid.safeParse(input.actionId);
+  if (!actionId.success) return refused('not_found');
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_set_priority', {
+    p_action_id: actionId.data,
+    p_priority: String(input.priority ?? ''),
+    p_reason: String(input.reason ?? ''),
+  });
+  if (error) {
+    console.error(`[esh_set_priority] ${error.code ?? 'unknown'}: ${error.message}`);
+    return refused(undefined);
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (!result.ok) return refused(result.code);
+  refresh(input.findingId);
+  return { ok: true };
+}
+
 export async function reassignAction(input: {
   actionId: string;
   findingId: string;

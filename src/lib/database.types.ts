@@ -4595,6 +4595,82 @@ export type Database = {
           },
         ]
       }
+      esh_priority_changes: {
+        Row: {
+          action_id: string
+          changed_at: string
+          changed_by: string
+          from_priority: string | null
+          id: string
+          organization_id: string
+          reason: string
+          to_priority: string
+        }
+        Insert: {
+          action_id: string
+          changed_at?: string
+          changed_by: string
+          from_priority?: string | null
+          id?: string
+          organization_id: string
+          reason: string
+          to_priority: string
+        }
+        Update: {
+          action_id?: string
+          changed_at?: string
+          changed_by?: string
+          from_priority?: string | null
+          id?: string
+          organization_id?: string
+          reason?: string
+          to_priority?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_priority_changes_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_priority_changes_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_priority_changes_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_priority_changes_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_priority_changes_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_priority_changes_organization_id_action_id_fkey"
+            columns: ["organization_id", "action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_finding_actions"
+            referencedColumns: ["organization_id", "id"]
+          },
+        ]
+      }
       esh_reference_counters: {
         Row: {
           next_value: number
@@ -15181,6 +15257,10 @@ export type Database = {
           p_remind_on_due: boolean
           p_review_reminder_days: number
         }
+        Returns: Json
+      }
+      esh_set_priority: {
+        Args: { p_action_id: string; p_priority: string; p_reason: string }
         Returns: Json
       }
       esh_set_staff_access: {

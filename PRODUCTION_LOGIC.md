@@ -2331,3 +2331,15 @@ assignee, or the owner for a step assigned to nobody (v159).
 6. A released backlog's owner summary is the same machinery: the actions that release gave that
    owner are its members, and their agreed dates are shown as they are.
 
+## 103. v208 Priority, changed and explained
+
+1. `esh_set_priority` is coordinate work within the finding's own department scope, on an action
+   that is still open work. It refuses a level outside Urgent, High and Normal, a change with no
+   reason, and a change to the level it already holds.
+2. Each change is written to `esh_priority_changes` with what it was, what it became and why, and
+   that record is append-only.
+3. It writes the action's priority and nothing else. The due date, its baseline, the risk
+   assessment and every follow-up event are untouched, so an owner's reminders and any escalation
+   already due stay exactly where the deadline put them. The answer repeats the due date and says
+   the follow-up is unchanged, which is what the screen tells the person saving it.
+

@@ -100,6 +100,13 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 - `shared_contributions` leaves out steps whose work is binned or purged, as
   `completed_contributions` has since v87; its columns are unchanged.
 
+## v208 Priority changes
+
+- `esh_priority_changes` records each change with what it was, what it became, the reason and who
+  made it. It is append-only, and read wherever the finding is readable.
+- Nothing else is touched: the due date, its baseline, the risk assessment and the follow-up
+  schedule are left exactly as they were.
+
 ## v207 Consolidated notices
 
 - `esh_digest_members` records what one delivery carries: the action, the notification event it

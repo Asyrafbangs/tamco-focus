@@ -102,6 +102,13 @@ security-invoker view and therefore remain constrained by the caller's separate 
 Guest grants and sessions remain unreadable to clients; audited security-definer procedures expose
 only the active-item metadata needed for targeted revocation.
 
+## v208 priority boundary
+
+- Only Finding staff who can coordinate, and only within their department scope, may change a
+  priority; the record is readable wherever the action is.
+- The change is not a deadline change and carries none of its authority: it cannot move `due_at`,
+  the baseline or the escalation route.
+
 ## v207 digest boundary
 
 - Digest membership is readable wherever the notification it belongs to is readable, and by no
