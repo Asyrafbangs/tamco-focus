@@ -52,6 +52,15 @@ export interface RenderedEmail {
   text: string;
 }
 
+export interface WeeklyReportEmailInput {
+  reportName: string;
+  capturedAt: string;
+  timeZone: string;
+  reportUrl: string;
+  expiresMinutes: number;
+  counts: { open: number; overdue: number; awaiting: number; closed: number };
+}
+
 const BRAND = '#174652';
 
 function oneLine(value: string) {
@@ -264,6 +273,31 @@ export function renderEshEmail(input: EshEmailInput): RenderedEmail {
 
   const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>${escape(subject)}</title></head><body style="margin:0;padding:0;background:#f3f5f8;color:#1b2b36;font-family:Arial,'Helvetica Neue',sans-serif"><div style="display:none;max-height:0;overflow:hidden;opacity:0">${escape(lead)}</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#f3f5f8"><tr><td align="center" style="padding:32px 14px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #dde3ea;border-radius:16px"><tr><td style="padding:28px 32px 6px"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="width:36px;height:36px;border-radius:9px;background:${BRAND};color:#ffffff;font-size:18px;font-weight:700;line-height:36px;text-align:center">E</td><td style="padding-left:12px;font-size:17px;font-weight:700;color:#1b2b36">TAMCO ESH</td></tr></table></td></tr><tr><td style="padding:22px 32px 18px"><h1 style="margin:0;font-size:26px;line-height:33px;font-weight:700;color:#1b2b36">${escape(headline)}</h1><p style="margin:10px 0 0;font-size:16px;line-height:24px;color:#5f6f7c">${escape(lead)}</p></td></tr>${card}<tr><td style="padding:0 32px 8px">${links.map((link, index) => button(link.href, link.label, index === 0)).join('')}</td></tr><tr><td style="padding:6px 32px 28px;font-size:14px;line-height:21px;color:#5f6f7c"><p style="margin:0 0 10px">${escape(validity)}</p>${verification ? `<p style="margin:0 0 10px">${escape(verification)}</p>` : ''}${contact ? `<p style="margin:0 0 10px">${escape(contact)}</p>` : ''}<p style="margin:14px 0 0;padding-top:14px;border-top:1px solid #e7ebf0;font-size:12px;line-height:18px;color:#7a8894">${escape(unmonitored)}</p></td></tr></table></td></tr></table></body></html>`;
 
+  return { subject, html, text };
+}
+
+/** Concise v204 leadership delivery; all finding detail stays behind the link. */
+export function renderWeeklyReportEmail(input: WeeklyReportEmailInput): RenderedEmail {
+  const reportName = oneLine(input.reportName).slice(0, 120);
+  const subject = oneLine(`Weekly ESH report: ${reportName}`).slice(0, 180);
+  const captured = new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: input.timeZone,
+  }).format(new Date(input.capturedAt));
+  const summary = `${input.counts.open} open · ${input.counts.overdue} overdue · ${input.counts.awaiting} awaiting review · ${input.counts.closed} closed last week`;
+  const validity = `This individual link works once and for ${lifetime(input.expiresMinutes)}. It opens a read-only report; do not forward it.`;
+  const text = [
+    reportName,
+    `Saved snapshot captured ${captured}.`,
+    summary,
+    '',
+    `Open weekly report: ${input.reportUrl}`,
+    '',
+    validity,
+    'Restricted findings are excluded. Email replies are not monitored.',
+  ].join('\n');
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>${escape(subject)}</title></head><body style="margin:0;padding:0;background:#f3f5f8;color:#1b2b36;font-family:Arial,'Helvetica Neue',sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#f3f5f8"><tr><td align="center" style="padding:32px 14px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border:1px solid #dde3ea;border-radius:16px"><tr><td style="padding:28px 32px 8px;font-size:17px;font-weight:700;color:#1b2b36">TAMCO ESH</td></tr><tr><td style="padding:14px 32px 18px"><h1 style="margin:0;font-size:26px;line-height:33px">${escape(reportName)}</h1><p style="margin:10px 0 0;color:#5f6f7c">Saved snapshot captured ${escape(captured)}.</p></td></tr><tr><td style="padding:0 32px 22px"><div style="padding:18px;border-radius:12px;background:#f3f5f8;font-weight:700">${escape(summary)}</div></td></tr><tr><td style="padding:0 32px 12px">${button(input.reportUrl, 'Open weekly report', true)}</td></tr><tr><td style="padding:4px 32px 28px;color:#5f6f7c;font-size:14px;line-height:21px"><p>${escape(validity)}</p><p>Restricted findings are excluded. Email replies are not monitored.</p></td></tr></table></td></tr></table></body></html>`;
   return { subject, html, text };
 }
 

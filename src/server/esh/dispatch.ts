@@ -4,7 +4,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from '@/lib/database.types';
 import { accessLinkUrl, approvedLinkOrigin, type AccessPurpose } from '@/domain/esh-guest';
-import { emailDueLabel, renderEshEmail, type EshEmailInput } from '@/server/esh/email';
+import {
+  emailDueLabel,
+  renderEshEmail,
+  renderWeeklyReportEmail,
+  type EshEmailInput,
+} from '@/server/esh/email';
 import { PermanentDeliveryError } from '@/server/workers/smtp-transport';
 
 type Client = SupabaseClient<Database, 'public'>;
@@ -165,6 +170,80 @@ async function dispatchOne(
   }
 }
 
+interface ReportClaim {
+  ok: boolean;
+  code?: string;
+  to?: string;
+  run_id?: string;
+  report_name?: string;
+  captured_at?: string;
+  timezone?: string;
+  open_count?: number;
+  overdue_count?: number;
+  awaiting_count?: number;
+  closed_count?: number;
+  expires_minutes?: number;
+}
+
+async function dispatchReportOne(
+  client: Client,
+  outboxId: string,
+  options: EshDispatchOptions,
+): Promise<keyof Omit<EshDispatchResult, 'considered'>> {
+  const secret = newAccessSecret();
+  const { data, error } = await client.rpc('esh_report_dispatch_claim', {
+    p_outbox_id: outboxId,
+    p_secret: secret,
+  });
+  if (error) {
+    console.error(`[esh-report-dispatch] claim failed: ${error.message}`);
+    return 'skipped';
+  }
+  const claim = (data ?? { ok: false }) as unknown as ReportClaim;
+  if (!claim.ok) return claim.code === 'suppressed' ? 'suppressed' : 'skipped';
+  try {
+    const rendered = renderWeeklyReportEmail({
+      reportName: claim.report_name ?? 'Weekly Finding Management report',
+      capturedAt: claim.captured_at ?? new Date().toISOString(),
+      timeZone: claim.timezone ?? 'Asia/Kuala_Lumpur',
+      reportUrl: accessLinkUrl(options.appBaseUrl, 'report_viewer', secret),
+      expiresMinutes: claim.expires_minutes ?? 10080,
+      counts: {
+        open: claim.open_count ?? 0,
+        overdue: claim.overdue_count ?? 0,
+        awaiting: claim.awaiting_count ?? 0,
+        closed: claim.closed_count ?? 0,
+      },
+    });
+    if (options.send) {
+      await options.send({
+        to: claim.to ?? '',
+        subject: rendered.subject,
+        html: rendered.html,
+        text: rendered.text,
+      });
+    }
+    const done = await client.rpc('esh_report_dispatch_complete', {
+      p_outbox_id: outboxId,
+      p_ok: true,
+      p_provider_message_id: options.transport === 'log' ? 'log-transport' : options.transport,
+    });
+    if (done.error) throw done.error;
+    return 'sent';
+  } catch (problem) {
+    const message = problem instanceof Error ? problem.message : 'unknown delivery error';
+    const failed = await client.rpc('esh_report_dispatch_complete', {
+      p_outbox_id: outboxId,
+      p_ok: false,
+      p_error: message.slice(0, 500),
+      p_permanent: problem instanceof PermanentDeliveryError,
+    });
+    if (failed.error)
+      console.error(`[esh-report-dispatch] completion failed: ${failed.error.message}`);
+    return 'failed';
+  }
+}
+
 export async function runEshOutboxWorker(
   client: Client,
   options: EshDispatchOptions,
@@ -180,29 +259,56 @@ export async function runEshOutboxWorker(
   const limit = Math.max(1, Math.min(options.limit ?? 50, 200));
   const staleBefore = new Date(now.getTime() - 15 * 60_000).toISOString();
 
-  const [queued, retryable, abandoned] = await Promise.all([
-    client
-      .from('esh_notification_outbox')
-      .select('id, link_intents, created_at')
-      .eq('state', 'queued')
-      .order('created_at', { ascending: true })
-      .limit(limit),
-    client
-      .from('esh_notification_outbox')
-      .select('id, link_intents, created_at')
-      .eq('state', 'failed')
-      .lte('next_attempt_at', now.toISOString())
-      .order('created_at', { ascending: true })
-      .limit(limit),
-    client
-      .from('esh_notification_outbox')
-      .select('id, link_intents, created_at')
-      .eq('state', 'processing')
-      .lt('updated_at', staleBefore)
-      .order('created_at', { ascending: true })
-      .limit(limit),
-  ]);
-  const queryError = queued.error ?? retryable.error ?? abandoned.error;
+  const [queued, retryable, abandoned, reportQueued, reportRetryable, reportAbandoned] =
+    await Promise.all([
+      client
+        .from('esh_notification_outbox')
+        .select('id, link_intents, created_at')
+        .eq('state', 'queued')
+        .order('created_at', { ascending: true })
+        .limit(limit),
+      client
+        .from('esh_notification_outbox')
+        .select('id, link_intents, created_at')
+        .eq('state', 'failed')
+        .lte('next_attempt_at', now.toISOString())
+        .order('created_at', { ascending: true })
+        .limit(limit),
+      client
+        .from('esh_notification_outbox')
+        .select('id, link_intents, created_at')
+        .eq('state', 'processing')
+        .lt('updated_at', staleBefore)
+        .order('created_at', { ascending: true })
+        .limit(limit),
+      client
+        .from('esh_report_outbox')
+        .select('id,created_at')
+        .eq('state', 'queued')
+        .order('created_at', { ascending: true })
+        .limit(limit),
+      client
+        .from('esh_report_outbox')
+        .select('id,created_at')
+        .eq('state', 'failed')
+        .lte('next_attempt_at', now.toISOString())
+        .order('created_at', { ascending: true })
+        .limit(limit),
+      client
+        .from('esh_report_outbox')
+        .select('id,created_at')
+        .eq('state', 'processing')
+        .lt('updated_at', staleBefore)
+        .order('created_at', { ascending: true })
+        .limit(limit),
+    ]);
+  const queryError =
+    queued.error ??
+    retryable.error ??
+    abandoned.error ??
+    reportQueued.error ??
+    reportRetryable.error ??
+    reportAbandoned.error;
   if (queryError) throw queryError;
 
   const candidates = [...(queued.data ?? []), ...(retryable.data ?? []), ...(abandoned.data ?? [])]
@@ -223,6 +329,19 @@ export async function runEshOutboxWorker(
         intent === 'owner_action' || intent === 'owner_inbox' || intent === 'escalation_action',
     );
     const outcome = await dispatchOne(client, candidate.id, intents, options);
+    result[outcome] += 1;
+  }
+  const remaining = Math.max(0, limit - candidates.length);
+  const reportCandidates = [
+    ...(reportQueued.data ?? []),
+    ...(reportRetryable.data ?? []),
+    ...(reportAbandoned.data ?? []),
+  ]
+    .sort((left, right) => left.created_at.localeCompare(right.created_at))
+    .slice(0, remaining);
+  result.considered += reportCandidates.length;
+  for (const candidate of reportCandidates) {
+    const outcome = await dispatchReportOne(client, candidate.id, options);
     result[outcome] += 1;
   }
   return result;

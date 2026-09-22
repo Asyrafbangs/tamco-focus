@@ -49,7 +49,7 @@ export function AccessExchange({
   purpose,
   hasSession,
 }: {
-  purpose: 'action' | 'actions';
+  purpose: 'action' | 'actions' | 'report';
   hasSession: boolean;
 }) {
   // Null while rendering on the server, where there is no fragment to read.
@@ -68,7 +68,7 @@ export function AccessExchange({
   useEffect(() => {
     if (!hasSession || !secret) return;
     let cancelled = false;
-    openAccessLink({ secret, challenge: tabChallenge(), consume: false })
+    openAccessLink({ secret, challenge: tabChallenge(), consume: false, purpose })
       .then((result) => {
         if (cancelled) return;
         if (result.ok) window.location.replace(result.destination);
@@ -80,7 +80,7 @@ export function AccessExchange({
     return () => {
       cancelled = true;
     };
-  }, [hasSession, secret]);
+  }, [hasSession, purpose, secret]);
 
   function open() {
     const value = secret;
@@ -92,6 +92,7 @@ export function AccessExchange({
           secret: value,
           challenge: tabChallenge(),
           consume: true,
+          purpose,
         });
         if (result.ok) {
           // Replace, so the address with the link in it leaves the history.
@@ -112,7 +113,7 @@ export function AccessExchange({
     if (outcome?.kind !== 'failed') return;
     const value = outcome.secret;
     startTransition(async () => {
-      await requestFreshLink({ secret: value });
+      await requestFreshLink({ secret: value, purpose });
       setOutcome({ kind: 'sent' });
     });
   }
@@ -132,7 +133,7 @@ export function AccessExchange({
             ? 'Open the link from your TAMCO ESH email on this device, or ask for a new one below.'
             : 'It may have been copied incompletely. Ask for a new link below.'}
         </p>
-        <RequestLinkForm />
+        <RequestLinkForm purpose={purpose === 'report' ? 'report' : 'actions'} />
       </section>
     );
   }
@@ -184,12 +185,18 @@ export function AccessExchange({
         ↗
       </span>
       <h1 id="guest-access-title">
-        {purpose === 'actions' ? 'Open your actions' : 'Open your action'}
+        {purpose === 'actions'
+          ? 'Open your actions'
+          : purpose === 'report'
+            ? 'Open your weekly report'
+            : 'Open your action'}
       </h1>
       <p className="guest-lead">
         {purpose === 'actions'
           ? 'Your secure link opens every open action assigned to your email, on this device.'
-          : 'Your secure link opens the action assigned to you, on this device.'}
+          : purpose === 'report'
+            ? 'Your individual secure link opens a read-only Finding Management snapshot on this device.'
+            : 'Your secure link opens the action assigned to you, on this device.'}
       </p>
       <button
         type="button"
@@ -203,7 +210,9 @@ export function AccessExchange({
             ? 'Opening…'
             : purpose === 'actions'
               ? 'Open my actions'
-              : 'Open action'}
+              : purpose === 'report'
+                ? 'Open weekly report'
+                : 'Open action'}
       </button>
       <p className="guest-note">No account or password needed.</p>
     </section>

@@ -46,6 +46,7 @@ test('v201 ESH can review the policy and its maintained working-day calendar', a
   );
   await signIn(page);
   await page.goto('/findings/settings');
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   await expect(page.getByRole('heading', { name: 'Follow-up settings' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Owner reminders' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Escalation timing' })).toBeVisible();
@@ -121,6 +122,9 @@ test('v201 an escalation recipient can respond and acknowledge, but cannot act a
   await page.getByRole('button', { name: 'Open action' }).click();
   await expect(page).toHaveURL(new RegExp(`/respond/actions/${saved.action_id}$`));
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
+  // The response composer is a client component: a tap before it is listening
+  // does nothing at all, which under a loaded suite reads as a lost message.
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   await expect(page.getByText('Escalation level 1', { exact: true })).toBeVisible();
   await expect(page.getByText(/remains assigned to the Action Owner/)).toBeVisible();
   await expect(page.getByRole('link', { name: 'My Actions' })).toHaveCount(0);

@@ -1,5 +1,41 @@
 # TAMCO Focus — Change Log
 
+## v204 Weekly leadership reports — 22 September 2026
+
+The eighth Finding Management stage remains local-only and behind the restricted rollout.
+
+- **A report is configured, not assumed.** Name, timezone, weekday and local time, whole
+  organisation or named departments, and the recipients who receive it. A new report starts as a
+  Draft and captures nothing; activating it is a second, deliberate act.
+- **One consistent snapshot a week.** The scheduled run captures open, overdue, awaiting-review and
+  closed-last-week rows against one instant, in the report's own timezone, and stores them. A
+  captured run cannot be rewritten or deleted, and a repeated scheduler run, a catch-up or a restart
+  adds nothing to it.
+- **Restricted findings are never in a leadership report**, whatever the scope says.
+- **Each recipient has their own link.** One delivery per recipient per run, individually
+  authorised, read-only, with no owner inbox, no action controls and no finding conversation. A
+  recipient whose contact access is off is held, not quietly sent to.
+- **Changing the report withdraws what no longer matches.** A changed definition or scope revokes
+  the links and sessions issued against the old one; pausing stops future capture and leaves a link
+  somebody already has alone.
+- **Identity & access counts report participation** beside owned actions and escalation routes.
+- pgTAP (42), unit, integration and desktop/mobile end-to-end coverage.
+
+## v203 People and access, in one directory — 21 September 2026
+
+The seventh Finding Management stage remains local-only and behind the restricted rollout.
+
+- **One directory, three separate facts.** Focus access, Finding access and platform administration
+  are recorded and shown separately instead of one overloaded Role, and every existing person's
+  migration to that reading is recorded rather than inferred.
+- **A contact is described by live work.** Owned open actions, configured escalation routes and
+  activated entitlements are counted from the work itself, so a label cannot drift from reality.
+- **Audited contact controls.** Resend, revoke, disable and email correction are recorded, and each
+  one withdraws the access it invalidates instead of leaving a stale link working.
+- **Platform administration alone never reads finding content** — it reads the counts and controls
+  a directory needs, nothing more.
+- pgTAP (27), unit, integration and desktop/mobile end-to-end coverage.
+
 ## v202 Overview, reconciled drill-down and safe export — 21 September 2026
 
 The sixth Finding Management stage remains local-only and behind the restricted rollout.

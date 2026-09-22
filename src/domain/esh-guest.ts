@@ -12,7 +12,7 @@
 import { daysOverdue, type ActionPriority, type ActionState } from '@/domain/esh-findings';
 
 /** Purpose-specific links: owner scopes never double as escalation scopes. */
-export type AccessPurpose = 'owner_action' | 'owner_inbox' | 'escalation_action';
+export type AccessPurpose = 'owner_action' | 'owner_inbox' | 'escalation_action' | 'report_viewer';
 
 /**
  * A link secret: 32 random bytes, base64url, 43 characters. Anything else in
@@ -26,7 +26,8 @@ export const ACCESS_SECRET_SHAPE = /^[A-Za-z0-9_-]{43}$/;
  * a mail scanner fetching the address learns nothing it could spend (§18).
  */
 export function accessLinkUrl(origin: string, purpose: AccessPurpose, secret: string): string {
-  const target = purpose === 'owner_inbox' ? 'actions' : 'action';
+  const target =
+    purpose === 'owner_inbox' ? 'actions' : purpose === 'report_viewer' ? 'report' : 'action';
   return `${origin.replace(/\/+$/, '')}/respond/access?for=${target}#${secret}`;
 }
 

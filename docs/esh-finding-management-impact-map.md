@@ -86,6 +86,10 @@ the authorized CSV neutralizes spreadsheet formulas without exporting private ev
 v203 is built and verified (21 September 2026): People & access is one directory with explicit
 Focus, Finding and platform-administration facts; contact participation is derived from live work,
 and resend, revoke, disable and selective email correction are audited and revoke stale access.
+v204 is built and verified (22 September 2026): configured reports start as Draft, schedule in the
+definition timezone, capture an immutable scoped snapshot, exclude restricted findings and deliver
+one purpose-separated read-only link per enabled recipient. Pause stops future capture without
+revoking an already issued report; version, scope and recipient changes invalidate stale access.
 
 Each stage ships behind the rollout gate, so nothing new is visible to the team until an
 administrator enables them. Each ends with the full verify and, where it adds a migration, a

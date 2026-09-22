@@ -99,3 +99,18 @@ the service role. These operations remain local-only in this stage.
 - `esh_admin_resend_contact_access`, `esh_admin_revoke_contact_access`,
   `esh_admin_disable_contact` and `esh_admin_correct_contact_email` re-check live relationships,
   revoke stale capability, preserve history and write immutable audit detail.
+
+## v204 Finding weekly reports
+
+- `esh_save_report_definition(...)` is the authenticated report-management command. It validates
+  schedule, timezone, scope and recipients, versions material changes, and revokes stale grants.
+- `esh_generate_weekly_reports(p_now)` is service-role only and idempotent by definition, cycle and
+  version. The daily cron calls it before the Finding mail drain.
+- `esh_report_dispatch_claim` and `esh_report_dispatch_complete` mint a seven-day, single-use,
+  individual report link only after rechecking the live definition, recipient and contact access.
+- `esh_report_guest_exchange` creates a report-only guest session;
+  `esh_guest_report(session, run, live)` revalidates all versions and returns either the saved
+  snapshot or a current read under the same scope.
+- `esh_report_request_link` supports neutral token/email recovery without revealing whether the
+  address is subscribed. The corresponding Server Actions keep the purpose separate from owner
+  recovery.

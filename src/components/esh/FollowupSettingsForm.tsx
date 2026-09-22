@@ -46,13 +46,21 @@ export function FollowupSettingsForm({ settings }: { settings: FollowupSettings 
   const [levels, setLevels] = useState(settings.levelDays);
 
   return (
-    <div className="esh-policy-stack">
+    <section className="esh-policy-stack" aria-labelledby="followup-settings-title">
+      {/* v204 put weekly reports on this page too, so follow-up is a named
+          section of it rather than the whole of it. */}
+      <div className="esh-section-heading">
+        <div>
+          <h2 id="followup-settings-title">Follow-up settings</h2>
+          <p>Reminders, escalation timing and the working-day calendar behind them.</p>
+        </div>
+      </div>
       <form action={policyAction} className="esh-policy-form">
         <Result state={policyState} />
         <section className="esh-form-card" aria-labelledby="owner-followup-title">
-          <h2 id="owner-followup-title" className="esh-form-card-title">
+          <h3 id="owner-followup-title" className="esh-form-card-title">
             Owner reminders
-          </h2>
+          </h3>
           <div className="form-grid two">
             <label className="esh-field">
               <span>Before due date</span>
@@ -84,9 +92,9 @@ export function FollowupSettingsForm({ settings }: { settings: FollowupSettings 
         </section>
 
         <section className="esh-form-card" aria-labelledby="escalation-timing-title">
-          <h2 id="escalation-timing-title" className="esh-form-card-title">
+          <h3 id="escalation-timing-title" className="esh-form-card-title">
             Escalation timing
-          </h2>
+          </h3>
           <div className="esh-policy-levels">
             {levels.map((days, index) => (
               <label className="esh-policy-level" key={index}>
@@ -130,9 +138,9 @@ export function FollowupSettingsForm({ settings }: { settings: FollowupSettings 
         </section>
 
         <section className="esh-form-card" aria-labelledby="review-followup-title">
-          <h2 id="review-followup-title" className="esh-form-card-title">
+          <h3 id="review-followup-title" className="esh-form-card-title">
             ESH review follow-up
-          </h2>
+          </h3>
           <label className="esh-field">
             <span>Remind ESH reviewer after</span>
             <input
@@ -165,9 +173,9 @@ export function FollowupSettingsForm({ settings }: { settings: FollowupSettings 
       <form action={calendarAction} className="esh-policy-form">
         <Result state={calendarState} />
         <section className="esh-form-card" aria-labelledby="working-calendar-title">
-          <h2 id="working-calendar-title" className="esh-form-card-title">
+          <h3 id="working-calendar-title" className="esh-form-card-title">
             Working-day calendar
-          </h2>
+          </h3>
           <p className="esh-form-card-hint">
             The weekday pattern is not a Malaysian holiday calendar. Add and label every exception
             used for review follow-up.
@@ -232,6 +240,6 @@ export function FollowupSettingsForm({ settings }: { settings: FollowupSettings 
           </button>
         </div>
       </form>
-    </div>
+    </section>
   );
 }

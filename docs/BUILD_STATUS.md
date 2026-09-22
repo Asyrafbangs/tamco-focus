@@ -1,10 +1,10 @@
 # TAMCO Focus — build status
 
-**Date:** 21 September 2026
+**Date:** 22 September 2026
 
 **Baseline:** approved TAMCO Focus specifications through v191 and ESH Finding Management v1.3
 
-**Stage:** ESH Finding Management v197–v203 implemented locally behind restricted rollout. No
+**Stage:** ESH Finding Management v197–v204 implemented locally behind restricted rollout. No
 hosted Supabase link, hosted migration, deployment or remote push is part of this stage.
 
 This document records the implemented scope and the evidence used to accept the local build. `npm run verify` remains the authoritative release gate: a failed or skipped gate makes the command exit non-zero.
@@ -26,7 +26,7 @@ The current suite covers sixteen independent gates:
 | Production smoke         | Built sign-in, security headers and protected-route redirect               | Pass   |
 | Database reset           | Every migration plus local-only fixtures                                   | Pass   |
 | Generated types          | Checked-in TypeScript matches the reset public schema                      | Pass   |
-| RLS/database tests       | Full pgTAP suite; v203 adds 27 identity/access assertions                  | Pass   |
+| RLS/database tests       | Full pgTAP suite; v204 adds 42 weekly-report assertions                    | Pass   |
 | Integration tests        | Real local Auth, PostgREST, Storage, procedures and worker paths           | Pass   |
 | Reset before end-to-end  | Browser suite starts from canonical seed                                   | Pass   |
 | End-to-end/accessibility | Desktop/mobile journeys plus the wider responsive and accessibility matrix | Pass   |
@@ -47,10 +47,11 @@ The UI/UX parity enforcement pass is included in that result: all main surfaces 
 - Deterministic Capture Work classification, mandatory urgency question, staged private attachments, collaboration links, and transactional confirmation.
 - Idempotent routine occurrence scheduler and weekly-summary worker with timezone windows, preference modes, manager team content, atomic claiming, retry/backoff, and local SMTP/log transport.
 - Responsive desktop and mobile interfaces based on the approved prototypes, Day/Night themes, visible text state labels, and keyboard/accessibility coverage.
-- ESH Finding Management through v203: restricted staff access, finding assignment, accountless
+- ESH Finding Management through v204: restricted staff access, finding assignment, accountless
   Action Owner links and conversation, private evidence, immutable submissions, ESH verification,
   closure/reopen, policy snapshots, reminders, escalation, reply follow-up and honest delivery
-  evidence, reconciled Overview/Register definitions, closure periods and safe authorized export.
+  evidence, reconciled Overview/Register definitions, closure periods, safe authorized export,
+  configured weekly snapshots and purpose-separated read-only leadership links.
 - Architecture, data-model, permissions, actions, operations, future-deployment, testing, and traceability documentation.
 
 ## Key properties proven by tests
@@ -67,6 +68,8 @@ The UI/UX parity enforcement pass is included in that result: all main surfaces 
 - Escalation grants support and acknowledgement only, never owner submission or ESH verification.
 - Follow-up triggers are duplicate-safe, use assignment snapshots, and suppress stale mail before
   dispatch. Provider acceptance is never presented as delivery.
+- Weekly report capture is duplicate-safe; snapshots are immutable, restricted findings are
+  excluded, every recipient has an individual grant, and pause preserves already issued access.
 
 ## Recorded local defaults
 

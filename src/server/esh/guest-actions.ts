@@ -56,17 +56,25 @@ export async function openAccessLink(input: {
   secret: string;
   challenge: string;
   consume: boolean;
+  purpose?: 'action' | 'actions' | 'report';
 }): Promise<OpenLinkResult> {
   if (!ACCESS_SECRET_SHAPE.test(input.secret ?? '')) return { ok: false, problem: 'invalid' };
   const challenge = challengeShape.test(input.challenge ?? '') ? input.challenge : null;
   const sessionSecret = newAccessSecret();
-  const { data, error } = await guestClient().rpc('esh_guest_exchange', {
-    p_token: input.secret,
-    p_new_session: sessionSecret,
-    p_existing_session: (await guestSecret()) as string,
-    p_challenge: challenge as string,
-    p_consume: Boolean(input.consume),
-  });
+  const { data, error } =
+    input.purpose === 'report'
+      ? await guestClient().rpc('esh_report_guest_exchange', {
+          p_token: input.secret,
+          p_new_session: sessionSecret,
+          p_consume: Boolean(input.consume),
+        })
+      : await guestClient().rpc('esh_guest_exchange', {
+          p_token: input.secret,
+          p_new_session: sessionSecret,
+          p_existing_session: (await guestSecret()) as string,
+          p_challenge: challenge as string,
+          p_consume: Boolean(input.consume),
+        });
   if (error) {
     console.error(`[esh_guest_exchange] ${error.code ?? 'unknown'}: ${error.message}`);
     return { ok: false, problem: 'unavailable' };
@@ -86,7 +94,11 @@ export async function openAccessLink(input: {
 }
 
 async function queueDispatchIf(result: unknown) {
-  if (result && typeof result === 'object' && 'outbox_id' in result) {
+  if (
+    result &&
+    typeof result === 'object' &&
+    ('outbox_id' in result || ('queued' in result && Number(result.queued) > 0))
+  ) {
     await scheduleEshDispatch();
   }
 }
@@ -96,14 +108,24 @@ async function queueDispatchIf(result: unknown) {
  * whose it was, so nothing is typed. The answer never says whether anything
  * was sent.
  */
-export async function requestFreshLink(input: { secret: string }): Promise<{ ok: true }> {
+export async function requestFreshLink(input: {
+  secret: string;
+  purpose?: 'action' | 'actions' | 'report';
+}): Promise<{ ok: true }> {
   if (!ACCESS_SECRET_SHAPE.test(input.secret ?? '')) return { ok: true };
-  const { data, error } = await guestClient().rpc('esh_guest_request_link', {
-    p_session: null as unknown as string,
-    p_token: input.secret,
-    p_email: null as unknown as string,
-    p_organization_slug: ORGANIZATION_SLUG,
-  });
+  const { data, error } =
+    input.purpose === 'report'
+      ? await guestClient().rpc('esh_report_request_link', {
+          p_token: input.secret,
+          p_email: null as unknown as string,
+          p_organization_slug: ORGANIZATION_SLUG,
+        })
+      : await guestClient().rpc('esh_guest_request_link', {
+          p_session: null as unknown as string,
+          p_token: input.secret,
+          p_email: null as unknown as string,
+          p_organization_slug: ORGANIZATION_SLUG,
+        });
   if (error) console.error(`[esh_guest_request_link] ${error.code ?? 'unknown'}: ${error.message}`);
   else await queueDispatchIf(data);
   return { ok: true };
@@ -131,6 +153,28 @@ export async function requestLinkByEmail(
   });
   if (error) console.error(`[esh_guest_request_link] ${error.code ?? 'unknown'}: ${error.message}`);
   else await queueDispatchIf(data);
+  return { sent: true, problem: null };
+}
+
+/** Report recovery is purpose-separated but gives the same neutral answer. */
+export async function requestReportLinkByEmail(
+  _previous: RequestByEmailState | null,
+  formData: FormData,
+): Promise<RequestByEmailState> {
+  const email = String(formData.get('email') ?? '').trim();
+  if (!looksLikeEmail(email)) {
+    return { sent: false, problem: 'Enter the email address that receives this report.' };
+  }
+  const { data, error } = await guestClient().rpc('esh_report_request_link', {
+    p_token: null as unknown as string,
+    p_email: email,
+    p_organization_slug: ORGANIZATION_SLUG,
+  });
+  if (error) {
+    console.error(`[esh_report_request_link] ${error.code ?? 'unknown'}: ${error.message}`);
+  } else {
+    await queueDispatchIf(data);
+  }
   return { sent: true, problem: null };
 }
 

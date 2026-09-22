@@ -3,6 +3,7 @@ import 'server-only';
 import { cookies } from 'next/headers';
 
 import type { ActionPriority, ActionState } from '@/domain/esh-findings';
+import type { GuestReport, GuestReportRow } from '@/domain/esh-reports';
 import {
   MY_ACTIONS_PAGE_SIZE,
   type ConversationEntry,
@@ -35,6 +36,67 @@ export async function guestSecret(): Promise<string | null> {
 
 export function guestClient() {
   return createSupabaseServiceRoleClient();
+}
+
+export type GuestReportResult =
+  | { kind: 'report'; data: GuestReport }
+  | { kind: 'no_session' }
+  | { kind: 'not_available' }
+  | { kind: 'failed' };
+
+/** One immutable report snapshot, or the explicitly requested live view. */
+export async function loadGuestReport(runId: string, live: boolean): Promise<GuestReportResult> {
+  const secret = await guestSecret();
+  if (!secret) return { kind: 'no_session' };
+  const { data, error } = await guestClient().rpc('esh_guest_report', {
+    p_session: secret,
+    p_run_id: runId,
+    p_live: live,
+  });
+  if (error) {
+    console.error(`[esh_guest_report] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { kind: 'failed' };
+  }
+  const result = (data ?? {}) as Record<string, unknown> & { ok?: boolean; code?: string };
+  if (!result.ok) {
+    return result.code === 'no_session' ? { kind: 'no_session' } : { kind: 'not_available' };
+  }
+  const rows = ((result.rows ?? []) as Array<Record<string, unknown>>).map(
+    (row): GuestReportRow => ({
+      signal: row.signal as GuestReportRow['signal'],
+      departmentName: (row.department_name as string | null) ?? null,
+      reference: String(row.reference),
+      findingTitle: String(row.finding_title),
+      location: (row.location as string | null) ?? null,
+      ownerEmail: (row.owner_email as string | null) ?? null,
+      actionTitle: (row.action_title as string | null) ?? null,
+      actionState: (row.action_state as string | null) ?? null,
+      dueAt: (row.due_at as string | null) ?? null,
+      dueIsDateOnly: (row.due_is_date_only as boolean | null) ?? null,
+      lastUpdateAt: (row.last_update_at as string | null) ?? null,
+      closedAt: (row.closed_at as string | null) ?? null,
+    }),
+  );
+  const count = (signal: GuestReportRow['signal']) =>
+    rows.filter((row) => row.signal === signal).length;
+  return {
+    kind: 'report',
+    data: {
+      mode: result.mode === 'live' ? 'live' : 'snapshot',
+      name: String(result.report_name ?? 'Weekly report'),
+      capturedAt: String(result.captured_at),
+      timezone: String(result.timezone ?? 'Asia/Kuala_Lumpur'),
+      closedWindowStart: String(result.closed_window_start),
+      closedWindowEnd: String(result.closed_window_end),
+      counts: {
+        open: Number(result.open_count ?? count('open')),
+        overdue: Number(result.overdue_count ?? count('overdue')),
+        awaiting: Number(result.awaiting_count ?? count('awaiting_verification')),
+        closed: Number(result.closed_count ?? count('closed')),
+      },
+      rows,
+    },
+  };
 }
 
 export type MyActionsResult =

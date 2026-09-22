@@ -20,7 +20,9 @@ export default async function AccessPage({
       <GuestTopBar identity="Secure access" />
       <main id="guest-main" className="guest-main guest-main-narrow">
         <AccessExchange
-          purpose={query.for === 'actions' ? 'actions' : 'action'}
+          purpose={
+            query.for === 'actions' ? 'actions' : query.for === 'report' ? 'report' : 'action'
+          }
           hasSession={hasSession}
         />
       </main>

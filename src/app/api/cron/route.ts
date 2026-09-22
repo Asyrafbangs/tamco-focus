@@ -180,6 +180,23 @@ export async function GET(request: Request) {
   }
 
   /*
+   * v204 - capture each due weekly Finding report before draining mail. The
+   * procedure owns local-day/time evaluation and a run uniqueness key, so a
+   * repeated scheduler invocation cannot produce a second snapshot or email.
+   */
+  try {
+    const { data, error } = await client.rpc('esh_generate_weekly_reports', {});
+    if (error) throw new Error(error.message);
+    const outcome = (data ?? {}) as { ok?: boolean; message?: string };
+    if (!outcome.ok) throw new Error(outcome.message ?? 'report capture failed');
+    results.push({ worker: 'esh_weekly_reports', ok: true, detail: JSON.stringify(data ?? {}) });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'unknown error';
+    console.error(`[cron] Finding Management weekly reports failed: ${detail}`);
+    results.push({ worker: 'esh_weekly_reports', ok: false, detail });
+  }
+
+  /*
    * Weekly summary.
    *
    * The worker owns its own schedule — it checks the configured day and hour

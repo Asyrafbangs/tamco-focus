@@ -100,6 +100,19 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 - `shared_contributions` leaves out steps whose work is binned or purged, as
   `completed_contributions` has since v87; its columns are unchanged.
 
+## v204 Finding weekly reports
+
+- `esh_report_definitions` is the versioned schedule and scope. Definitions are Draft by default;
+  `active` is the only state that creates future runs and `paused` preserves prior report access.
+- `esh_report_departments` and `esh_report_recipients` hold explicit scope roots and individual
+  recipients. Recipient and scope versions are rechecked on every guest read.
+- `esh_report_runs` and `esh_report_snapshot_rows` are the immutable capture. Counts are derived
+  from those rows in the same transaction; closed work uses the previous complete local week.
+- `esh_report_outbox` owns report delivery and retry state independently of Action Owner mail.
+- `esh_access_grants.purpose = report_viewer` requires a run and recipient, and
+  `esh_report_session_entitlements` reaches only that run. It never grants action, inbox,
+  escalation or staff authority.
+
 ## v158 step notifications
 
 - `notifications.quiet` (boolean, default false) marks a notice for the bell only; the email outbox

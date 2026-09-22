@@ -101,3 +101,15 @@ Contact directory counts are administrative metadata. Relationship titles come t
 security-invoker view and therefore remain constrained by the caller's separate Finding RLS scope.
 Guest grants and sessions remain unreadable to clients; audited security-definer procedures expose
 only the active-item metadata needed for targeted revocation.
+
+## v204 report boundary
+
+- Signed-in people can select report configuration and runs only when their separate Finding access
+  has `can_manage_reports`; report management grants no finding mutation authority.
+- Report grants, guest sessions and report-session entitlements have no `anon` or `authenticated`
+  table access. The server reaches only narrow service-role procedures.
+- A `report_viewer` grant must name one run and one recipient and cannot name an action. Owner,
+  inbox and escalation grants cannot name a report.
+- Every report read rechecks contact access, recipient enablement and entitlement version, plus the
+  current definition and scope versions. Restricted findings are excluded at both snapshot and live
+  query boundaries.

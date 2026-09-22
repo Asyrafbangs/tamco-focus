@@ -105,3 +105,13 @@ silent identity merge, selective relationship transfer, old grant/session revoca
 historical authorship. The real-stack integration test repeats the RLS boundary and correction
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
+
+## v204 weekly-report evidence
+
+- pgTAP proves the new tables and RLS boundary, service-only scheduler/read procedures, the required
+  report grant shape, empty default configuration and safe scheduler no-op.
+- Integration creates a scoped report against real Auth/RLS/PostgREST, proves idempotent capture,
+  restricted-row exclusion, individual link exchange, snapshot read and pause-without-revoke.
+- Unit tests pin the report-purpose URL and concise email contract. Playwright configures a Draft,
+  activates/captures it through local fixtures, redeems a unique link and reads the signed-out
+  read-only dashboard.

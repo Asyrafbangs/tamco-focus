@@ -12,6 +12,7 @@ import type {
 } from '@/domain/esh-findings';
 import type { ConversationEntry, EvidenceFile, SubmissionMark } from '@/domain/esh-guest';
 import type { EshOverviewRow } from '@/domain/esh-overview';
+import type { ReportDefinitionSummary } from '@/domain/esh-reports';
 import type { Database } from '@/lib/database.types';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
@@ -25,6 +26,87 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
  */
 
 export const REGISTER_PAGE_SIZE = 50;
+
+export interface ReportSettingsData {
+  definitions: ReportDefinitionSummary[];
+  departments: DepartmentOption[];
+}
+
+/** Versioned report definitions and their latest immutable run. */
+export async function getReportSettings(): Promise<ReportSettingsData> {
+  const supabase = await createSupabaseServerClient();
+  const [definitions, departments] = await Promise.all([
+    supabase.from('esh_report_definitions').select('*').order('name'),
+    supabase.from('departments').select('id,name').eq('status', 'active').order('name'),
+  ]);
+  if (definitions.error || departments.error) {
+    console.error(
+      `[getReportSettings] ${definitions.error?.message ?? departments.error?.message ?? 'failed'}`,
+    );
+    return { definitions: [], departments: [] };
+  }
+  const ids = (definitions.data ?? []).map((row) => row.id);
+  const [scope, recipients, runs] = ids.length
+    ? await Promise.all([
+        supabase
+          .from('esh_report_departments')
+          .select('report_definition_id,department_id')
+          .in('report_definition_id', ids),
+        supabase
+          .from('esh_report_recipients')
+          .select('report_definition_id,enabled,principal_id')
+          .in('report_definition_id', ids),
+        supabase
+          .from('esh_report_runs')
+          .select(
+            'id,report_definition_id,captured_at,open_count,overdue_count,awaiting_count,closed_count',
+          )
+          .in('report_definition_id', ids)
+          .order('captured_at', { ascending: false }),
+      ])
+    : [{ data: [] }, { data: [] }, { data: [] }];
+  const principalIds = (recipients.data ?? []).map((row) => row.principal_id);
+  const principals = principalIds.length
+    ? await supabase.from('esh_email_principals').select('id,display_email').in('id', principalIds)
+    : { data: [] };
+  const emailOf = new Map((principals.data ?? []).map((row) => [row.id, row.display_email]));
+  const latest = new Map<string, NonNullable<ReportDefinitionSummary['latestRun']>>();
+  for (const run of runs.data ?? []) {
+    if (!latest.has(run.report_definition_id)) {
+      latest.set(run.report_definition_id, {
+        id: run.id,
+        capturedAt: run.captured_at,
+        open: run.open_count,
+        overdue: run.overdue_count,
+        awaiting: run.awaiting_count,
+        closed: run.closed_count,
+      });
+    }
+  }
+  return {
+    departments: (departments.data ?? []).map((row) => ({ id: row.id, name: row.name })),
+    definitions: (definitions.data ?? []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      state: row.state as ReportDefinitionSummary['state'],
+      timezone: row.timezone,
+      scheduleIsoDay: row.schedule_isodow,
+      scheduleLocalTime: row.schedule_local_time.slice(0, 5),
+      organizationWide: row.organization_wide,
+      includeDescendants: row.include_descendants,
+      version: row.version,
+      scopeVersion: row.scope_version,
+      departmentIds: (scope.data ?? [])
+        .filter((item) => item.report_definition_id === row.id)
+        .map((item) => item.department_id),
+      recipients: (recipients.data ?? [])
+        .filter((item) => item.report_definition_id === row.id)
+        .map((item) => ({ email: emailOf.get(item.principal_id) ?? '', enabled: item.enabled }))
+        .filter((item) => item.email),
+      latestRun: latest.get(row.id) ?? null,
+    })),
+  };
+}
 
 export interface RegisterListRow {
   findingId: string;

@@ -13208,7 +13208,89 @@ span.deadline span.deadline-glyph,
   opacity: 1;
 }
 
+/* v204 — report configuration and the deliberately read-only guest dashboard. */
+.esh-report-scope {
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.esh-report-scope legend {
+  padding: 0 6px;
+  font-weight: 700;
+}
+.esh-report-departments {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 6px 16px;
+  margin-top: 12px;
+}
+.esh-report-departments[aria-disabled='true'] {
+  color: var(--text-muted);
+}
+.esh-report-viewer {
+  width: min(1180px, calc(100% - 28px));
+  margin-inline: auto;
+}
+.esh-report-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 26px 0 18px;
+}
+.esh-report-header h1 {
+  margin: 4px 0;
+}
+.esh-report-signals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0 28px;
+}
+.esh-report-signals article {
+  display: grid;
+  gap: 4px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.esh-report-signals strong {
+  font-size: 1.8rem;
+}
+.esh-report-section {
+  margin: 28px 0;
+}
+.esh-report-table-wrap {
+  overflow-x: auto;
+}
+.esh-report-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+}
+.esh-report-table th,
+.esh-report-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.esh-report-table td > span,
+.esh-report-table td > small {
+  display: block;
+  margin-top: 3px;
+}
+
 @media (max-width: 720px) {
+  .esh-report-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .esh-report-signals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .esh-topbar {
     padding: 0 12px;
   }

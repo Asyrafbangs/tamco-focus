@@ -52,10 +52,13 @@ export const getEshAccess = cache(async (): Promise<EshAccess> => {
  * Not a "you need permission" page: during the restricted rollout a disabled
  * person must not learn from the response that the module exists (§43.3).
  */
-export async function requireEshAccess(capability?: 'coordinate' | 'verify'): Promise<EshAccess> {
+export async function requireEshAccess(
+  capability?: 'coordinate' | 'verify' | 'manage_reports',
+): Promise<EshAccess> {
   const access = await getEshAccess();
   if (!access.enabled) notFound();
   if (capability === 'coordinate' && !access.canCoordinate) notFound();
   if (capability === 'verify' && !access.canVerify) notFound();
+  if (capability === 'manage_reports' && !access.canManageReports) notFound();
   return access;
 }

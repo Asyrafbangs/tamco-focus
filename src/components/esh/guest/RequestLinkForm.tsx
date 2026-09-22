@@ -2,13 +2,13 @@
 
 import { useState, useTransition } from 'react';
 
-import { requestLinkByEmail } from '@/server/esh/guest-actions';
+import { requestLinkByEmail, requestReportLinkByEmail } from '@/server/esh/guest-actions';
 
 /**
  * Ask for a link by email (§19). The answer is the same for every address,
  * so the page never tells anybody whether an address has work (FM44).
  */
-export function RequestLinkForm() {
+export function RequestLinkForm({ purpose = 'actions' }: { purpose?: 'actions' | 'report' }) {
   const [email, setEmail] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -17,8 +17,9 @@ export function RequestLinkForm() {
   if (sent) {
     return (
       <p className="notice success guest-sent" role="status">
-        If that address has open actions with TAMCO ESH, a link is on its way. It works once, for 30
-        minutes.
+        If that address is eligible, a link is on its way. It works once and opens only the
+        requested
+        {purpose === 'report' ? ' report.' : ' actions.'}
       </p>
     );
   }
@@ -31,7 +32,9 @@ export function RequestLinkForm() {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
         startTransition(async () => {
-          const result = await requestLinkByEmail(null, data);
+          const result = await (
+            purpose === 'report' ? requestReportLinkByEmail : requestLinkByEmail
+          )(null, data);
           setProblem(result.problem);
           setSent(result.sent);
         });

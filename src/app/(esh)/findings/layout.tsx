@@ -13,7 +13,10 @@ export default async function FindingsLayout({ children }: { children: React.Rea
   const waitingToVerify = await countAwaitingVerification();
   return (
     <div className="esh-module">
-      <FindingNav waitingToVerify={waitingToVerify} canManageSettings={access.canVerify} />
+      <FindingNav
+        waitingToVerify={waitingToVerify}
+        canManageSettings={access.canVerify || access.canManageReports}
+      />
       <main id="esh-main" className="esh-content">
         {children}
       </main>
