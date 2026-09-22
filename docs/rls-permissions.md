@@ -89,3 +89,15 @@ courtesy and grants nothing. A drop on the Monthly Plan calls `change_task_due_d
 re-checks authority, closed-work state and the expected version on every call. A collaborator
 therefore sees a shared due date on their calendar but is offered no move, and the procedure
 refuses one with `not_authorised`; the owner's manager may move it, as they may in the task drawer.
+
+## Platform, Focus and Finding separation (v203)
+
+`focus.is_admin()` now reads the explicit active `platform_administrator` flag. TAMCO Focus uses
+its explicit preset (with `role` retained as a compatibility projection), while Finding Management
+continues to use `esh_staff_access` and its own department scope. None grants either of the others.
+The final active platform administrator cannot be removed or deactivated through normal writes.
+
+Contact directory counts are administrative metadata. Relationship titles come through a
+security-invoker view and therefore remain constrained by the caller's separate Finding RLS scope.
+Guest grants and sessions remain unreadable to clients; audited security-definer procedures expose
+only the active-item metadata needed for targeted revocation.

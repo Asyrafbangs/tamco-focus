@@ -73,7 +73,6 @@ test.describe('v66 administrator user directory', () => {
 
     const newName = `Ajmal Rizani ${testInfo.project.name}`;
     await page.getByLabel('Full name').fill(newName);
-    await page.getByLabel('Role').selectOption('manager');
     await page.getByRole('button', { name: /^Save user$/ }).click();
     await expect(
       page.locator('.settings-form [role="status"], .settings-form [role="alert"]').first(),
@@ -83,7 +82,14 @@ test.describe('v66 administrator user directory', () => {
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
     await expect(page.getByLabel('Full name')).toHaveValue(newName);
-    await expect(page.getByLabel('Role')).toHaveValue('manager');
+
+    const moduleAccess = page.locator('.module-access-form');
+    await moduleAccess.getByLabel('TAMCO Focus preset').selectOption('manager');
+    await moduleAccess.getByLabel('Reason').fill('v203 browser access review');
+    await moduleAccess.getByRole('button', { name: 'Save module access' }).click();
+    await expect(moduleAccess.getByRole('status')).toContainText(/saved/i);
+    await page.reload();
+    await expect(page.getByLabel('TAMCO Focus preset')).toHaveValue('manager');
   });
 
   test('an administrator grants one person sight of two others', async ({ page }) => {

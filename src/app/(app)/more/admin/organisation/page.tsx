@@ -377,7 +377,6 @@ export default async function OrganisationPage({
         items={[
           { href: '/more/admin/users', label: 'Directory' },
           { href: '/more/admin/organisation', label: 'Organisation', active: true },
-          { href: '/more/admin/contacts', label: 'Email contacts' },
         ]}
       />
 

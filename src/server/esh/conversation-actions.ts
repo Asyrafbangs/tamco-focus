@@ -118,6 +118,7 @@ export async function setContactAccess(
     return { ok: false, message: contactAccessProblem(result.code) };
   }
   revalidatePath('/more/admin/contacts');
+  revalidatePath('/more/admin/users');
   return {
     ok: true,
     message: result.unchanged
@@ -125,5 +126,206 @@ export async function setContactAccess(
       : enabled
         ? 'Access on. Nothing has been sent: ESH releases held notifications from each finding.'
         : 'Access off. Their links and sessions have stopped working; their work is unchanged.',
+  };
+}
+
+export interface ContactAdminState {
+  ok: boolean;
+  message: string;
+  redirectPrincipalId?: string;
+}
+
+const CONTACT_ADMIN_MESSAGES: Record<string, string> = {
+  not_permitted: 'Only a platform administrator can manage email-link contacts.',
+  contact_not_found: 'That contact no longer exists.',
+  reason_required: 'Record why this access change is needed.',
+  access_not_enabled: 'Enable this contact before sending a fresh access link.',
+  no_live_participation: 'That contact no longer has the selected live participation.',
+  purpose_invalid: 'That access purpose is not available.',
+  access_kind_invalid: 'That access item cannot be revoked.',
+  access_not_found: 'That access item has already ended.',
+  email_invalid: 'Enter a valid new email address.',
+  email_unchanged: 'The new address is the same as the current address.',
+  email_in_use:
+    'That address already belongs to another managed contact. Nothing was merged or moved.',
+  relationship_required: 'Choose which live relationships move to the corrected address.',
+};
+
+async function requireContactAdministrator(): Promise<ContactAdminState | null> {
+  const profile = await requireProfile();
+  return profile.role === 'administrator'
+    ? null
+    : { ok: false, message: CONTACT_ADMIN_MESSAGES.not_permitted! };
+}
+
+function contactProblem(code?: string) {
+  return CONTACT_ADMIN_MESSAGES[code ?? ''] ?? 'Nothing was changed. Try again.';
+}
+
+export async function resendContactAccess(
+  _previous: ContactAdminState,
+  formData: FormData,
+): Promise<ContactAdminState> {
+  const refused = await requireContactAdministrator();
+  if (refused) return refused;
+  const parsed = z
+    .object({
+      principalId: uuid,
+      purpose: z.enum(['owner_inbox', 'owner_action', 'escalation_action']),
+      actionId: z.union([uuid, z.literal('')]).default(''),
+      reason: z.string().trim().min(1).max(300),
+    })
+    .safeParse({
+      principalId: formData.get('principal_id'),
+      purpose: formData.get('purpose'),
+      actionId: formData.get('action_id') || '',
+      reason: formData.get('reason'),
+    });
+  if (!parsed.success) return { ok: false, message: 'Choose valid access and record a reason.' };
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_admin_resend_contact_access', {
+    p_principal_id: parsed.data.principalId,
+    p_purpose: parsed.data.purpose,
+    p_action_id: parsed.data.actionId || undefined,
+    p_reason: parsed.data.reason,
+  });
+  if (error) {
+    console.error(`[esh_admin_resend_contact_access] ${error.message}`);
+    return { ok: false, message: 'The fresh access email could not be queued.' };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (!result.ok) return { ok: false, message: contactProblem(result.code) };
+  await scheduleEshDispatch();
+  revalidatePath('/more/admin/users');
+  return { ok: true, message: 'Fresh access queued after checking the live participation.' };
+}
+
+export async function revokeContactAccessItem(
+  _previous: ContactAdminState,
+  formData: FormData,
+): Promise<ContactAdminState> {
+  const refused = await requireContactAdministrator();
+  if (refused) return refused;
+  const parsed = z
+    .object({
+      principalId: uuid,
+      kind: z.enum(['grant', 'session', 'entitlement']),
+      accessId: uuid,
+      reason: z.string().trim().min(1).max(300),
+    })
+    .safeParse({
+      principalId: formData.get('principal_id'),
+      kind: formData.get('kind'),
+      accessId: formData.get('access_id'),
+      reason: formData.get('reason'),
+    });
+  if (!parsed.success) return { ok: false, message: 'Choose valid access and record a reason.' };
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_admin_revoke_contact_access', {
+    p_principal_id: parsed.data.principalId,
+    p_kind: parsed.data.kind,
+    p_access_id: parsed.data.accessId,
+    p_reason: parsed.data.reason,
+  });
+  if (error) {
+    console.error(`[esh_admin_revoke_contact_access] ${error.message}`);
+    return { ok: false, message: 'That access item could not be revoked.' };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (!result.ok) return { ok: false, message: contactProblem(result.code) };
+  revalidatePath('/more/admin/users');
+  return { ok: true, message: 'That access item is revoked.' };
+}
+
+export async function disableContact(
+  _previous: ContactAdminState,
+  formData: FormData,
+): Promise<ContactAdminState> {
+  const refused = await requireContactAdministrator();
+  if (refused) return refused;
+  const parsed = z
+    .object({ principalId: uuid, reason: z.string().trim().min(1).max(300) })
+    .safeParse({ principalId: formData.get('principal_id'), reason: formData.get('reason') });
+  if (!parsed.success) return { ok: false, message: 'Record why the contact is being disabled.' };
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_admin_disable_contact', {
+    p_principal_id: parsed.data.principalId,
+    p_reason: parsed.data.reason,
+  });
+  if (error) {
+    console.error(`[esh_admin_disable_contact] ${error.message}`);
+    return { ok: false, message: 'The contact could not be disabled.' };
+  }
+  const result = (data ?? {}) as {
+    ok?: boolean;
+    code?: string;
+    open_actions?: number;
+    configured_escalations?: number;
+  };
+  if (!result.ok) return { ok: false, message: contactProblem(result.code) };
+  revalidatePath('/more/admin/users');
+  return {
+    ok: true,
+    message: `Contact disabled. ${Number(result.open_actions ?? 0)} open action(s) and ${Number(
+      result.configured_escalations ?? 0,
+    )} escalation route(s) still need ESH attention; none was closed or deleted.`,
+  };
+}
+
+export async function correctContactEmail(
+  _previous: ContactAdminState,
+  formData: FormData,
+): Promise<ContactAdminState> {
+  const refused = await requireContactAdministrator();
+  if (refused) return refused;
+  const parsed = z
+    .object({
+      principalId: uuid,
+      newEmail: z.string().trim().email().max(254),
+      transferActions: z.boolean(),
+      transferEscalations: z.boolean(),
+      reason: z.string().trim().min(1).max(300),
+    })
+    .safeParse({
+      principalId: formData.get('principal_id'),
+      newEmail: formData.get('new_email'),
+      transferActions: formData.get('transfer_actions') === 'on',
+      transferEscalations: formData.get('transfer_escalations') === 'on',
+      reason: formData.get('reason'),
+    });
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: 'Enter the corrected address, choose what moves, and record why.',
+    };
+  }
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_admin_correct_contact_email', {
+    p_principal_id: parsed.data.principalId,
+    p_new_email: parsed.data.newEmail,
+    p_transfer_actions: parsed.data.transferActions,
+    p_transfer_escalations: parsed.data.transferEscalations,
+    p_reason: parsed.data.reason,
+  });
+  if (error) {
+    console.error(`[esh_admin_correct_contact_email] ${error.message}`);
+    return { ok: false, message: 'The email correction could not be completed.' };
+  }
+  const result = (data ?? {}) as {
+    ok?: boolean;
+    code?: string;
+    new_principal_id?: string;
+    moved_actions?: number;
+    moved_escalations?: number;
+  };
+  if (!result.ok) return { ok: false, message: contactProblem(result.code) };
+  await scheduleEshDispatch();
+  revalidatePath('/more/admin/users');
+  return {
+    ok: true,
+    redirectPrincipalId: result.new_principal_id,
+    message: `Email corrected. ${Number(result.moved_actions ?? 0)} action(s) and ${Number(
+      result.moved_escalations ?? 0,
+    )} escalation route(s) moved; historical authorship stayed with the old identity.`,
   };
 }

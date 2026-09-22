@@ -83,6 +83,9 @@ snapshots and a maintained working-day calendar.
 v202 is built and verified (21 September 2026): the Overview and department table share one scoped
 definition, action-count drill-downs use action rows, closure periods affect only closed work, and
 the authorized CSV neutralizes spreadsheet formulas without exporting private evidence links.
+v203 is built and verified (21 September 2026): People & access is one directory with explicit
+Focus, Finding and platform-administration facts; contact participation is derived from live work,
+and resend, revoke, disable and selective email correction are audited and revoke stale access.
 
 Each stage ships behind the rollout gate, so nothing new is visible to the team until an
 administrator enables them. Each ends with the full verify and, where it adds a migration, a

@@ -151,3 +151,16 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 - `esh_register_export_rows` is an action-level security-invoker projection of the authorized
   register. It contains before/after, owner, deadline and lifecycle timestamps, but deliberately no
   evidence URL or guest credential.
+
+## Identity and contact administration (v203)
+
+- `user_profiles.focus_access_preset` and `platform_administrator` separate TAMCO Focus access
+  from platform maintenance. The legacy `role` remains a compatibility projection while existing
+  Focus authorization is migrated; `identity_module_access_migrations` records each baseline.
+- `esh_email_principals.staff_user_id` is exact-email directory metadata. It links facts for display
+  but never converts guest grants into staff sessions or merges permissions.
+- `esh_admin_contacts` derives owner, configured escalation, activated escalation, delivery and
+  last-access counts from current records. `esh_admin_contact_relationships` is security-invoker,
+  so a platform administrator sees Finding titles only where separately authorized.
+- Email correction creates a new principal, revokes the old grants and sessions, ends only selected
+  live relationships, starts their replacements, and preserves old messages and ended intervals.

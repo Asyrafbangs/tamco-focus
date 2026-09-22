@@ -68,7 +68,7 @@ the service role. These operations remain local-only in this stage.
 - The superseded v33 Goal authoring and per-Goal cadence procedures have no application caller. They
   are listed, with what replaced each one, in `docs/execution-goal-lifecycle-v52-impact-map.md`.
 
-## ESH Finding Management through v202
+## ESH Finding Management through v203
 
 - Staff mutations validate transport input, then call `esh_*` procedures as the signed-in user.
   Database procedures re-check the ESH preset, department scope, live version and workflow state.
@@ -92,3 +92,10 @@ the service role. These operations remain local-only in this stage.
 - `GET /findings/register/export` pages through `esh_register_export_rows` as the signed-in reader
   and returns a private, no-store CSV. It exports no evidence URL or access token and neutralizes
   spreadsheet-active user text.
+- `set_person_module_access` changes the Focus preset and platform-administrator flag together with
+  a required reason. Finding access remains in `esh_staff_access` and is changed independently.
+- `esh_admin_contacts` returns identity and current participation counts without Finding content.
+  Scoped titles use the security-invoker `esh_admin_contact_relationships` view.
+- `esh_admin_resend_contact_access`, `esh_admin_revoke_contact_access`,
+  `esh_admin_disable_contact` and `esh_admin_correct_contact_email` re-check live relationships,
+  revoke stale capability, preserve history and write immutable audit detail.

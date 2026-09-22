@@ -759,6 +759,7 @@ export async function getStaffEshAccessForAdmin(userId: string): Promise<{
 
 export interface EmailContact {
   id: string;
+  staffUserId: string | null;
   email: string;
   displayName: string | null;
   status: string;
@@ -767,9 +768,34 @@ export interface EmailContact {
   accessChangedBy: string | null;
   accessReason: string | null;
   openActions: number;
-  escalationRoutes: number;
+  configuredEscalations: number;
+  activeEscalations: number;
+  reportSubscriptions: number;
   heldNotifications: number;
+  failedNotifications: number;
+  lastAccessAt: string | null;
   createdAt: string;
+}
+
+export interface ContactRelationship {
+  participation: 'owner' | 'escalation';
+  actionId: string;
+  reference: string;
+  findingTitle: string;
+  actionTitle: string;
+  state: string;
+  dueAt: string | null;
+  escalationLevel: number | null;
+  activated: boolean;
+}
+
+export interface ContactAccessItem {
+  id: string;
+  kind: 'grant' | 'session' | 'entitlement';
+  purpose: string;
+  actionId: string | null;
+  startedAt: string;
+  expiresAt: string | null;
 }
 
 /**
@@ -786,6 +812,7 @@ export async function listEmailContacts(search: string): Promise<EmailContact[]>
   const rows = (data ?? []) as Database['public']['Functions']['esh_admin_contacts']['Returns'];
   return rows.map((row) => ({
     id: String(row.id),
+    staffUserId: row.staff_user_id ?? null,
     email: String(row.display_email),
     displayName: row.display_name ?? null,
     status: String(row.status),
@@ -794,10 +821,67 @@ export async function listEmailContacts(search: string): Promise<EmailContact[]>
     accessChangedBy: row.access_changed_by ?? null,
     accessReason: row.access_reason ?? null,
     openActions: Number(row.open_actions ?? 0),
-    escalationRoutes: Number(row.escalation_routes ?? 0),
+    configuredEscalations: Number(row.configured_escalations ?? 0),
+    activeEscalations: Number(row.active_escalations ?? 0),
+    reportSubscriptions: Number(row.report_subscriptions ?? 0),
     heldNotifications: Number(row.held_notifications ?? 0),
+    failedNotifications: Number(row.failed_notifications ?? 0),
+    lastAccessAt: row.last_access_at ?? null,
     createdAt: String(row.created_at),
   }));
+}
+
+/**
+ * Detail which is safe for a platform administrator: active grants/sessions
+ * are metadata, while Finding relationship labels come through an
+ * RLS/security-invoker view and therefore appear only inside that caller's
+ * explicit Finding scope.
+ */
+export async function getEmailContactDetail(principalId: string): Promise<{
+  relationships: ContactRelationship[];
+  accessItems: ContactAccessItem[];
+}> {
+  const supabase = await createSupabaseServerClient();
+  const [relationshipResult, accessResult] = await Promise.all([
+    supabase
+      .from('esh_admin_contact_relationships')
+      .select('*')
+      .eq('principal_id', principalId)
+      .order('participation')
+      .order('due_at'),
+    supabase.rpc('esh_admin_contact_access_items', { p_principal_id: principalId }),
+  ]);
+  if (relationshipResult.error) {
+    console.error(`[esh_admin_contact_relationships] ${relationshipResult.error.message}`);
+  }
+  if (accessResult.error) {
+    console.error(`[esh_admin_contact_access_items] ${accessResult.error.message}`);
+  }
+  return {
+    relationships: (relationshipResult.data ?? []).map((row) => ({
+      participation: row.participation as ContactRelationship['participation'],
+      actionId: String(row.action_id),
+      reference: String(row.reference),
+      findingTitle: String(row.title),
+      actionTitle: String(row.action_title),
+      state: String(row.state),
+      dueAt: row.due_at ?? null,
+      escalationLevel: row.escalation_level ?? null,
+      activated: Boolean(row.activated),
+    })),
+    accessItems: (accessResult.data ?? []).map(
+      (
+        row: Database['public']['Functions']['esh_admin_contact_access_items']['Returns'][number],
+      ) => ({
+        id: String(row.id),
+        kind: row.kind as ContactAccessItem['kind'],
+        purpose: String(row.purpose),
+        actionId: row.action_id ?? null,
+        startedAt: String(row.started_at),
+        expiresAt: row.expires_at ?? null,
+      }),
+    ),
+  };
 }
 
 export interface VerificationQueueRow {

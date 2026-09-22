@@ -13200,7 +13200,12 @@ span.deadline span.deadline-glyph,
   padding-left: 26px;
 }
 .esh-dimmed {
-  opacity: 0.55;
+  /* Disabled Finding access is still information an administrator must be
+     able to review. Dimming the whole fieldset blended its labels below AA
+     contrast (and compounded the disabled-control treatment above). Keep the
+     copy fully legible; the disabled controls already communicate that this
+     section cannot be changed until access is enabled. */
+  opacity: 1;
 }
 
 @media (max-width: 720px) {

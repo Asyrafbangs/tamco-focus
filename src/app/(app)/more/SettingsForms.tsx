@@ -410,12 +410,19 @@ export function UserCreateForm({ directory }: { directory: DirectoryData }) {
           </select>
         </label>
         <label>
-          <span>Role</span>
-          <select name="role" defaultValue="team_member">
+          <span>TAMCO Focus preset</span>
+          <select name="focusPreset" defaultValue="team_member">
+            <option value="no_access">No access</option>
             <option value="team_member">Team member</option>
             <option value="manager">Manager</option>
-            <option value="administrator">Administrator</option>
           </select>
+        </label>
+        <label className="check-row">
+          <input type="checkbox" name="platformAdministrator" />
+          <span>
+            Platform administrator
+            <small>Maintains identities and policy; grants no Finding Management access.</small>
+          </span>
         </label>
         <label>
           <span>Reporting manager</span>
@@ -465,6 +472,8 @@ export function UserEditForm({
   return (
     <form action={action} className="settings-form">
       <input type="hidden" name="userId" value={user.id} />
+      {/* Compatibility only. Module authority is maintained in the audited panel below. */}
+      <input type="hidden" name="role" value={user.role} />
       <div className="form-grid">
         <label>
           <span>Full name</span>
@@ -497,25 +506,6 @@ export function UserEditForm({
               </option>
             ))}
           </select>
-        </label>
-        <label>
-          <span>Role</span>
-          <select name="role" defaultValue={user.role}>
-            <option value="team_member">Team member</option>
-            <option value="manager">Manager</option>
-            <option value="administrator">Administrator</option>
-          </select>
-          {/*
-            Said out loud because the absence of an effect reads as a failed
-            save. Promoting somebody to Manager on its own changes very little:
-            the powers that matter are attached to the reporting line, and what
-            they can see is decided by the panel below. The one thing the role
-            does decide is the default when no visibility rule has been stored.
-          */}
-          <small className="form-hint">
-            Manager powers follow the reporting line, not the title — they apply to whoever reports
-            to this person. What they can see is set below.
-          </small>
         </label>
         <label>
           <span>Reporting manager</span>

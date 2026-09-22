@@ -175,7 +175,7 @@ export const RELEASE_PROBLEMS: Record<string, string> = {
   notification_not_found: 'This notification could not be found.',
   not_held: 'This notification is no longer held.',
   contact_access_off:
-    'The owner’s access is still off. An administrator enables it in Identity and access → Email contacts.',
+    'The owner’s access is still off. An administrator enables it in People & access → Email-link contacts.',
   no_longer_the_owner: 'This address no longer owns the action, so nothing was sent.',
   assignment_first: 'Release the assignment email first: it opens the same conversation.',
 };

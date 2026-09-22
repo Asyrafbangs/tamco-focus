@@ -96,3 +96,12 @@ It also checks RLS and the export projection. Unit tests cover formula neutraliz
 escaping. The real-stack integration test repeats scope enforcement, and Playwright verifies the
 Overview, period stability, exact overdue rows, old Closed redirect, downloadable safe CSV and both
 desktop/mobile containment.
+
+## ESH Finding Management v203 coverage
+
+`esh_identity_access_v203.test.sql` proves the explicit role migration, platform/Focus/Finding
+separation, unknown-email assignment without Auth provisioning, live participation counts, no
+silent identity merge, selective relationship transfer, old grant/session revocation and preserved
+historical authorship. The real-stack integration test repeats the RLS boundary and correction
+transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
+directory, independent module controls and contact access operations at desktop and mobile widths.

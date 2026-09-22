@@ -19,6 +19,69 @@ export interface SettingsActionState {
   detail?: Record<string, unknown>;
 }
 
+/** v203 — save TAMCO Focus and platform-administration access separately. */
+export async function setPersonModuleAccessAction(
+  _previous: SettingsActionState,
+  formData: FormData,
+): Promise<SettingsActionState> {
+  const profile = await requireProfile();
+  if (profile.role !== 'administrator') {
+    return initialError('Only a platform administrator can change module access.');
+  }
+  const parsed = z
+    .object({
+      userId: z.string().uuid(),
+      focusPreset: z.enum(['no_access', 'team_member', 'manager']),
+      platformAdministrator: z.boolean(),
+      reason: z.string().trim().min(1).max(300),
+    })
+    .safeParse({
+      userId: formData.get('userId'),
+      focusPreset: formData.get('focusPreset'),
+      platformAdministrator: formData.get('platformAdministrator') === 'on',
+      reason: formData.get('reason'),
+    });
+  if (!parsed.success) {
+    return initialError('Choose the Focus preset and record why access is changing.');
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('set_person_module_access', {
+    p_user_id: parsed.data.userId,
+    p_focus_preset: parsed.data.focusPreset,
+    p_platform_administrator: parsed.data.platformAdministrator,
+    p_reason: parsed.data.reason,
+  });
+  if (error) {
+    console.error(`[set_person_module_access] ${error.code ?? 'unknown'}: ${error.message}`);
+    return initialError(
+      error.message.includes('last_platform_administrator')
+        ? 'Keep at least one active platform administrator.'
+        : 'Module access could not be changed.',
+    );
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  const messages: Record<string, string> = {
+    not_permitted: 'Only a platform administrator can change module access.',
+    focus_preset_invalid: 'Choose No access, Team member or Manager for TAMCO Focus.',
+    administrator_needs_focus_access:
+      'A platform administrator must retain TAMCO Focus access in this compatibility release.',
+    reason_required: 'Record why access is changing.',
+    person_not_found: 'That person no longer exists.',
+    account_not_active: 'Reactivate the account before changing its module access.',
+    last_administrator: 'Keep at least one active platform administrator.',
+  };
+  if (!result.ok) {
+    return {
+      ok: false,
+      code: result.code ?? 'not_saved',
+      message: messages[result.code ?? ''] ?? 'Module access could not be changed.',
+    };
+  }
+  revalidatePath('/more/admin/users');
+  return { ok: true, code: 'module_access_saved', message: 'Module access saved.' };
+}
+
 const initialError = (message: string): SettingsActionState => ({
   ok: false,
   code: 'validation_failed',
@@ -189,7 +252,8 @@ const provisionSchema = z.object({
   email: z.string().trim().email().max(254),
   password: z.string().min(8).max(128),
   departmentId: z.string().uuid(),
-  role: z.enum(['team_member', 'manager', 'administrator']),
+  focusPreset: z.enum(['no_access', 'team_member', 'manager']),
+  platformAdministrator: z.boolean(),
   reportingManagerId: z.string().uuid().nullable(),
   // The dotted line (v173), from the Directory since v176. Empty means none.
   functionalManagerId: z.string().uuid().nullable(),
@@ -234,13 +298,19 @@ export async function provisionUserAction(
     email: formData.get('email'),
     password: formData.get('password'),
     departmentId: formData.get('departmentId'),
-    role: formData.get('role'),
+    focusPreset: formData.get('focusPreset'),
+    platformAdministrator: formData.get('platformAdministrator') === 'on',
     reportingManagerId: formData.get('reportingManagerId') || null,
     functionalManagerId: formData.get('functionalManagerId') || null,
     personalSummaryMode: formData.get('personalSummaryMode'),
     teamSummaryMode: formData.get('teamSummaryMode'),
   });
   if (!parsed.success) return initialError('Complete every required identity field correctly.');
+  if (parsed.data.platformAdministrator && parsed.data.focusPreset === 'no_access') {
+    return initialError(
+      'A platform administrator must retain TAMCO Focus access in this compatibility release.',
+    );
+  }
   // Refused before the account exists, so a mistake here creates nothing.
   if (
     parsed.data.functionalManagerId &&
@@ -265,13 +335,18 @@ export async function provisionUserAction(
   }
 
   const userId = created.data.user.id;
+  const initialRole = parsed.data.platformAdministrator
+    ? 'administrator'
+    : parsed.data.focusPreset === 'manager'
+      ? 'manager'
+      : 'team_member';
   const { data, error } = await service.rpc('provision_user_profile', {
     p_user_id: userId,
     p_employee_id: parsed.data.employeeId,
     p_email: parsed.data.email,
     p_full_name: parsed.data.fullName,
     p_department_id: parsed.data.departmentId,
-    p_role: parsed.data.role,
+    p_role: initialRole,
     p_reporting_manager_id: parsed.data.reportingManagerId,
     p_personal_summary_mode: parsed.data.personalSummaryMode,
     p_team_summary_mode: parsed.data.teamSummaryMode,
@@ -285,6 +360,24 @@ export async function provisionUserAction(
     if (cleanup.error) console.error(`[provisionUser:compensation] ${cleanup.error.message}`);
     if (error) console.error(`[provision_user_profile] ${error.message}`);
     return resultState(result ?? {}, 'User created.');
+  }
+
+  // The profile transaction creates the compatibility role first; the
+  // administrator's authenticated call then records the explicit v203 module
+  // map and its audit before the new identity is handed back.
+  const caller = await createSupabaseServerClient();
+  const { data: moduleData, error: moduleError } = await caller.rpc('set_person_module_access', {
+    p_user_id: userId,
+    p_focus_preset: parsed.data.focusPreset,
+    p_platform_administrator: parsed.data.platformAdministrator,
+    p_reason: 'Initial account provisioning',
+  });
+  const moduleResult = (moduleData ?? {}) as RpcResult;
+  if (moduleError || !moduleResult.ok) {
+    await service.from('user_profiles').delete().eq('id', userId);
+    await service.auth.admin.deleteUser(userId);
+    if (moduleError) console.error(`[set_person_module_access:create] ${moduleError.message}`);
+    return initialError('The account could not be created with its complete module access.');
   }
 
   revalidatePath('/more/admin/users');
@@ -307,8 +400,8 @@ export async function provisionUserAction(
 }
 
 const userUpdateSchema = provisionSchema
-  .omit({ employeeId: true, password: true })
-  .extend({ userId: z.string().uuid() });
+  .omit({ employeeId: true, password: true, focusPreset: true, platformAdministrator: true })
+  .extend({ userId: z.string().uuid(), role: z.enum(['team_member', 'manager', 'administrator']) });
 
 export async function updateUserAction(
   _previous: SettingsActionState,

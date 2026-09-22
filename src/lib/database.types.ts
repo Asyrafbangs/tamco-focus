@@ -6662,6 +6662,72 @@ export type Database = {
           },
         ]
       }
+      identity_module_access_migrations: {
+        Row: {
+          focus_access_preset: string
+          migrated_at: string
+          migration_version: string
+          platform_administrator: boolean
+          previous_role: Database["public"]["Enums"]["app_role"]
+          reviewed: boolean
+          user_id: string
+        }
+        Insert: {
+          focus_access_preset: string
+          migrated_at?: string
+          migration_version?: string
+          platform_administrator: boolean
+          previous_role: Database["public"]["Enums"]["app_role"]
+          reviewed?: boolean
+          user_id: string
+        }
+        Update: {
+          focus_access_preset?: string
+          migrated_at?: string
+          migration_version?: string
+          platform_administrator?: boolean
+          previous_role?: Database["public"]["Enums"]["app_role"]
+          reviewed?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "identity_module_access_migrations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "identity_module_access_migrations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "identity_module_access_migrations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "identity_module_access_migrations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "identity_module_access_migrations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meeting_queue_items: {
         Row: {
           added_by: string | null
@@ -9575,11 +9641,13 @@ export type Database = {
           email: string
           employee_id: string
           first_day_of_week: number
+          focus_access_preset: string
           full_name: string
           functional_manager_id: string | null
           id: string
           job_title: string | null
           personal_summary_mode: Database["public"]["Enums"]["personal_summary_mode"]
+          platform_administrator: boolean
           quiet_hours_end: number | null
           quiet_hours_start: number | null
           reduced_motion: boolean
@@ -9605,11 +9673,13 @@ export type Database = {
           email: string
           employee_id: string
           first_day_of_week?: number
+          focus_access_preset?: string
           full_name: string
           functional_manager_id?: string | null
           id: string
           job_title?: string | null
           personal_summary_mode?: Database["public"]["Enums"]["personal_summary_mode"]
+          platform_administrator?: boolean
           quiet_hours_end?: number | null
           quiet_hours_start?: number | null
           reduced_motion?: boolean
@@ -9635,11 +9705,13 @@ export type Database = {
           email?: string
           employee_id?: string
           first_day_of_week?: number
+          focus_access_preset?: string
           full_name?: string
           functional_manager_id?: string | null
           id?: string
           job_title?: string | null
           personal_summary_mode?: Database["public"]["Enums"]["personal_summary_mode"]
+          platform_administrator?: boolean
           quiet_hours_end?: number | null
           quiet_hours_start?: number | null
           reduced_motion?: boolean
@@ -11398,6 +11470,21 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      esh_admin_contact_relationships: {
+        Row: {
+          action_id: string | null
+          action_title: string | null
+          activated: boolean | null
+          due_at: string | null
+          escalation_level: number | null
+          participation: string | null
+          principal_id: string | null
+          reference: string | null
+          state: string | null
+          title: string | null
+        }
+        Relationships: []
       }
       esh_register_export_rows: {
         Row: {
@@ -13386,6 +13473,17 @@ export type Database = {
         Args: { p_employee_id_confirmation: string; p_user_id: string }
         Returns: Json
       }
+      esh_admin_contact_access_items: {
+        Args: { p_principal_id: string }
+        Returns: {
+          action_id: string
+          expires_at: string
+          id: string
+          kind: string
+          purpose: string
+          started_at: string
+        }[]
+      }
       esh_admin_contacts: {
         Args: { p_search: string }
         Returns: {
@@ -13393,15 +13491,52 @@ export type Database = {
           access_changed_by: string
           access_enabled: boolean
           access_reason: string
+          active_escalations: number
+          configured_escalations: number
           created_at: string
           display_email: string
           display_name: string
-          escalation_routes: number
+          failed_notifications: number
           held_notifications: number
           id: string
+          last_access_at: string
           open_actions: number
+          report_subscriptions: number
+          staff_user_id: string
           status: string
         }[]
+      }
+      esh_admin_correct_contact_email: {
+        Args: {
+          p_new_email: string
+          p_principal_id: string
+          p_reason: string
+          p_transfer_actions: boolean
+          p_transfer_escalations: boolean
+        }
+        Returns: Json
+      }
+      esh_admin_disable_contact: {
+        Args: { p_principal_id: string; p_reason: string }
+        Returns: Json
+      }
+      esh_admin_resend_contact_access: {
+        Args: {
+          p_action_id?: string
+          p_principal_id: string
+          p_purpose: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
+      esh_admin_revoke_contact_access: {
+        Args: {
+          p_access_id: string
+          p_kind: string
+          p_principal_id: string
+          p_reason: string
+        }
+        Returns: Json
       }
       esh_change_due: {
         Args: {
@@ -14044,6 +14179,15 @@ export type Database = {
       }
       set_current_focus: {
         Args: { p_checklist_item_id?: string; p_task_id: string }
+        Returns: Json
+      }
+      set_person_module_access: {
+        Args: {
+          p_focus_preset: string
+          p_platform_administrator: boolean
+          p_reason: string
+          p_user_id: string
+        }
         Returns: Json
       }
       set_routine_template_active: {

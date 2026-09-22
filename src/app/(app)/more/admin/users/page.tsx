@@ -5,10 +5,16 @@ import { WorkspaceTabs } from '@/components/ui/ParityPrimitives';
 import { SubmitOnSelect } from '@/components/ui/SubmitOnSelect';
 import { requireProfile } from '@/lib/supabase/server';
 import { getDirectoryData, getReportingHistory, getVisibilityData } from '@/server/queries';
-import { getStaffEshAccessForAdmin } from '@/server/esh/queries';
+import {
+  getEmailContactDetail,
+  getStaffEshAccessForAdmin,
+  listEmailContacts,
+} from '@/server/esh/queries';
 
 import { UserCreateForm, UserEditForm, UserStatusForm, VisibilityForm } from '../../SettingsForms';
 import { EshAccessForm } from './EshAccessForm';
+import { ContactAdministration } from './ContactAdministration';
+import { ModuleAccessForm } from './ModuleAccessForm';
 import { ReportingHistory } from './ReportingHistory';
 
 export default async function UsersPage({
@@ -16,9 +22,11 @@ export default async function UsersPage({
 }: {
   searchParams: Promise<{
     user?: string;
+    contact?: string;
     create?: string;
     q?: string;
     status?: string;
+    type?: string;
     notice?: string;
     on?: string;
   }>;
@@ -26,15 +34,31 @@ export default async function UsersPage({
   const profile = await requireProfile();
   if (profile.role !== 'administrator') notFound();
   const params = await searchParams;
-  const directory = await getDirectoryData();
+  const search = (params.q ?? '').trim().slice(0, 120);
+  const [directory, contacts] = await Promise.all([getDirectoryData(), listEmailContacts(search)]);
   const needle = params.q?.trim().toLowerCase() ?? '';
+  const kind = ['users', 'contacts'].includes(params.type ?? '') ? params.type : 'all';
+  const linkedContactByStaff = new Map(
+    contacts
+      .filter((contact) => contact.staffUserId)
+      .map((contact) => [contact.staffUserId, contact]),
+  );
   const users = directory.users.filter(
     (user) =>
       (!needle ||
         `${user.fullName} ${user.employeeId} ${user.email}`.toLowerCase().includes(needle)) &&
-      (!params.status || params.status === 'all' || user.status === params.status),
+      (!params.status || params.status === 'all' || user.status === params.status) &&
+      (kind !== 'contacts' || linkedContactByStaff.has(user.id)),
   );
+  const standaloneContacts = contacts.filter((contact) => !contact.staffUserId);
   const selected = directory.users.find((user) => user.id === params.user) ?? null;
+  const selectedContact = params.contact
+    ? (contacts.find((contact) => contact.id === params.contact) ?? null)
+    : selected
+      ? (linkedContactByStaff.get(selected.id) ?? null)
+      : null;
+  const selectedPerson =
+    selected ?? directory.users.find((user) => user.id === selectedContact?.staffUserId) ?? null;
   const creating = params.create === '1';
 
   /*
@@ -47,11 +71,14 @@ export default async function UsersPage({
    * "Amer" is "viewer". It is the same question as their role and their
    * manager, so it is asked in the same place.
    */
-  const visibility = selected ? await getVisibilityData(selected.id) : null;
-  // The dated record of both lines (v176), and a date somebody asked about.
-  const history = selected ? await getReportingHistory(selected.id) : [];
-  // v197 - Finding Management access, beside everything else about this person.
-  const eshAccess = selected ? await getStaffEshAccessForAdmin(selected.id) : null;
+  const [visibility, history, eshAccess, contactDetail] = await Promise.all([
+    selectedPerson ? getVisibilityData(selectedPerson.id) : Promise.resolve(null),
+    selectedPerson ? getReportingHistory(selectedPerson.id) : Promise.resolve([]),
+    selectedPerson ? getStaffEshAccessForAdmin(selectedPerson.id) : Promise.resolve(null),
+    selectedContact
+      ? getEmailContactDetail(selectedContact.id)
+      : Promise.resolve({ relationships: [], accessItems: [] }),
+  ]);
   const askedDate = /^\d{4}-\d{2}-\d{2}$/.test(params.on ?? '') ? (params.on as string) : '';
 
   return (
@@ -60,7 +87,7 @@ export default async function UsersPage({
         <div>
           <p className="eyebrow">Administrator</p>
           <h1>Identity and access</h1>
-          <p>Manage people, departments and reporting relationships.</p>
+          <p>Manage people, module access and reporting relationships in one directory.</p>
         </div>
         <Link className="btn primary" href="/more/admin/users?create=1">
           Create user
@@ -78,7 +105,6 @@ export default async function UsersPage({
         items={[
           { href: '/more/admin/users', label: 'Directory', active: true },
           { href: '/more/admin/organisation', label: 'Organisation' },
-          { href: '/more/admin/contacts', label: 'Email contacts' },
         ]}
       />
       {params.notice === 'deleted' && (
@@ -88,11 +114,19 @@ export default async function UsersPage({
         </div>
       )}
       <div className="master-detail">
-        <section className="master-pane" aria-label="Users">
+        <section className="master-pane" aria-label="People and access">
           <form className="filterbar stacked" role="search">
             <label>
               <span>Person, employee ID, or email</span>
-              <input name="q" defaultValue={params.q} placeholder="Search users" />
+              <input name="q" defaultValue={params.q} placeholder="Search people" />
+            </label>
+            <label>
+              <span>Person type</span>
+              <select name="type" defaultValue={kind}>
+                <option value="all">All</option>
+                <option value="users">Registered users</option>
+                <option value="contacts">Email-link contacts</option>
+              </select>
             </label>
             <label>
               <span>Status</span>
@@ -109,31 +143,69 @@ export default async function UsersPage({
             <SubmitOnSelect />
           </form>
           <div className="master-list">
-            {users.map((user) => (
-              <Link
-                key={user.id}
-                href={`/more/admin/users?user=${user.id}`}
-                className={selected?.id === user.id ? 'active' : undefined}
-              >
-                <span>
-                  <strong>{user.fullName}</strong>
-                  <small>
-                    {/* The title is skipped rather than announced as missing:
+            {kind !== 'contacts' || users.length
+              ? users.map((user) => {
+                  const contact = linkedContactByStaff.get(user.id);
+                  return (
+                    <Link
+                      key={user.id}
+                      href={
+                        kind === 'contacts' && contact
+                          ? `/more/admin/users?type=contacts&contact=${contact.id}`
+                          : `/more/admin/users?user=${user.id}`
+                      }
+                      className={
+                        selected?.id === user.id || selectedContact?.staffUserId === user.id
+                          ? 'active'
+                          : undefined
+                      }
+                    >
+                      <span>
+                        <strong>{user.fullName}</strong>
+                        <small>
+                          {/* The title is skipped rather than announced as missing:
                         most rows have one, and "No job title" on the rest is
                         noise in a list somebody scans. */}
-                    {[user.employeeId, user.jobTitle, user.departmentName]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </small>
-                </span>
-                <span className={`flag ${user.status === 'active' ? 'green' : 'amber'}`}>
-                  {user.status}
-                </span>
-              </Link>
-            ))}
+                          {[user.employeeId, user.jobTitle, user.departmentName]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </small>
+                        {contact ? <small>Registered user · Email-link contact</small> : null}
+                      </span>
+                      <span className={`flag ${user.status === 'active' ? 'green' : 'amber'}`}>
+                        {user.status}
+                      </span>
+                    </Link>
+                  );
+                })
+              : null}
+            {kind !== 'users'
+              ? standaloneContacts.map((contact) => (
+                  <Link
+                    key={contact.id}
+                    href={`/more/admin/users?type=${kind}&contact=${contact.id}${search ? `&q=${encodeURIComponent(search)}` : ''}`}
+                    className={selectedContact?.id === contact.id ? 'active' : undefined}
+                  >
+                    <span>
+                      <strong>{contact.displayName || contact.email}</strong>
+                      <small>{contact.email} · Email-link contact</small>
+                      <small>
+                        {contact.openActions} open action(s) · {contact.configuredEscalations}{' '}
+                        escalation route(s)
+                      </small>
+                    </span>
+                    <span className={`flag ${contact.accessEnabled ? 'green' : 'neutral'}`}>
+                      {contact.accessEnabled ? 'Access on' : 'Access off'}
+                    </span>
+                  </Link>
+                ))
+              : null}
           </div>
         </section>
-        <section className="detail-pane" key={creating ? 'create' : (selected?.id ?? 'none')}>
+        <section
+          className="detail-pane"
+          key={creating ? 'create' : (selectedPerson?.id ?? selectedContact?.id ?? 'none')}
+        >
           {creating ? (
             <>
               <div className="section-heading">
@@ -144,16 +216,16 @@ export default async function UsersPage({
               </div>
               <UserCreateForm directory={directory} />
             </>
-          ) : selected ? (
+          ) : selectedPerson ? (
             <>
               <div className="section-heading">
                 <div>
-                  <p className="eyebrow">{selected.employeeId}</p>
-                  <h2>{selected.fullName}</h2>
+                  <p className="eyebrow">{selectedPerson.employeeId}</p>
+                  <h2>{selectedPerson.fullName}</h2>
                   <p>
-                    {selected.status} · created{' '}
+                    {selectedPerson.status} · created{' '}
                     {new Intl.DateTimeFormat('en-MY', { dateStyle: 'medium' }).format(
-                      new Date(selected.createdAt),
+                      new Date(selectedPerson.createdAt),
                     )}
                   </p>
                 </div>
@@ -170,10 +242,44 @@ export default async function UsersPage({
                 somebody else. The key forces a remount, so the pane always
                 shows the person whose row is highlighted.
               */}
-              <UserEditForm key={selected.id} user={selected} directory={directory} />
+              <UserEditForm key={selectedPerson.id} user={selectedPerson} directory={directory} />
+
+              <section
+                className="admin-module-access-section"
+                aria-labelledby="module-access-heading"
+              >
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">Access administration</p>
+                    <h3 id="module-access-heading">Module access</h3>
+                    <p>
+                      TAMCO Focus, Finding Management and platform administration are independent.
+                    </p>
+                  </div>
+                </div>
+                <ModuleAccessForm key={`module-${selectedPerson.id}`} user={selectedPerson} />
+                <dl className="esh-facts">
+                  <div>
+                    <dt>TAMCO Focus</dt>
+                    <dd>{selectedPerson.focusAccessPreset.replaceAll('_', ' ')}</dd>
+                  </div>
+                  <div>
+                    <dt>Platform administrator</dt>
+                    <dd>{selectedPerson.platformAdministrator ? 'Yes' : 'No'}</dd>
+                  </div>
+                  <div>
+                    <dt>Finding Management</dt>
+                    <dd>
+                      {eshAccess?.access?.enabled
+                        ? `${eshAccess.access.preset} · ${eshAccess.access.scopeAll ? 'all departments' : `${eshAccess.access.departmentIds.length} department(s)`}`
+                        : 'No access'}
+                    </dd>
+                  </div>
+                </dl>
+              </section>
 
               <ReportingHistory
-                person={selected}
+                person={selectedPerson}
                 people={directory.users}
                 history={history}
                 askedDate={askedDate}
@@ -184,7 +290,7 @@ export default async function UsersPage({
                   <div className="section-heading">
                     <div>
                       <p className="eyebrow">Visibility</p>
-                      <h3>What {selected.fullName.split(' ')[0]} can see</h3>
+                      <h3>What {selectedPerson.fullName.split(' ')[0]} can see</h3>
                       <p>
                         Reporting line and job title decide nothing here. Tick the people this
                         person may view, on top of whichever scope you choose.
@@ -192,8 +298,8 @@ export default async function UsersPage({
                     </div>
                   </div>
                   <VisibilityForm
-                    key={selected.id}
-                    viewer={selected}
+                    key={selectedPerson.id}
+                    viewer={selectedPerson}
                     users={directory.users}
                     initialMode={visibility.mode}
                     initialSubjectIds={visibility.selectedSubjectIds}
@@ -216,9 +322,9 @@ export default async function UsersPage({
                     </div>
                   </div>
                   <EshAccessForm
-                    key={selected.id}
-                    userId={selected.id}
-                    firstName={selected.fullName.split(' ')[0] ?? selected.fullName}
+                    key={selectedPerson.id}
+                    userId={selectedPerson.id}
+                    firstName={selectedPerson.fullName.split(' ')[0] ?? selectedPerson.fullName}
                     access={eshAccess.access}
                     rolloutConfigured={eshAccess.rolloutConfigured}
                     departments={directory.departments
@@ -228,12 +334,38 @@ export default async function UsersPage({
                 </section>
               )}
 
-              <UserStatusForm key={selected.id} user={selected} />
+              {selectedContact ? (
+                <ContactAdministration
+                  contact={selectedContact}
+                  relationships={contactDetail.relationships}
+                  accessItems={contactDetail.accessItems}
+                />
+              ) : null}
+
+              <UserStatusForm key={selectedPerson.id} user={selectedPerson} />
+            </>
+          ) : selectedContact ? (
+            <>
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Email-link contact · no account required</p>
+                  <h2>{selectedContact.displayName || selectedContact.email}</h2>
+                  {selectedContact.displayName ? <p>{selectedContact.email}</p> : null}
+                </div>
+              </div>
+              <ContactAdministration
+                contact={selectedContact}
+                relationships={contactDetail.relationships}
+                accessItems={contactDetail.accessItems}
+              />
             </>
           ) : (
             <div className="empty-state">
-              <h2>Select a user</h2>
-              <p>Choose an account to maintain it, or create a new user.</p>
+              <h2>Select a person</h2>
+              <p>
+                Choose a registered user or email-link contact to maintain their identity and
+                access.
+              </p>
             </div>
           )}
         </section>

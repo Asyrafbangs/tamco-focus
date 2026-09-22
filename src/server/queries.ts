@@ -3067,6 +3067,9 @@ export interface DirectoryUser {
   departmentId: string | null;
   departmentName: string;
   role: 'team_member' | 'manager' | 'administrator';
+  /** v203 — the Focus bundle and platform administration are edited separately. */
+  focusAccessPreset: 'no_access' | 'team_member' | 'manager';
+  platformAdministrator: boolean;
   reportingManagerId: string | null;
   /** The dotted line (v173). Grants no visibility. */
   functionalManagerId: string | null;
@@ -3118,6 +3121,8 @@ export async function getDirectoryData(): Promise<DirectoryData> {
         ? (departmentNames.get(row.department_id as string) ?? 'Unknown department')
         : 'Unassigned',
       role: row.role as DirectoryUser['role'],
+      focusAccessPreset: row.focus_access_preset as DirectoryUser['focusAccessPreset'],
+      platformAdministrator: Boolean(row.platform_administrator),
       reportingManagerId: (row.reporting_manager_id as string) ?? null,
       functionalManagerId: (row.functional_manager_id as string) ?? null,
       status: row.status as DirectoryUser['status'],
