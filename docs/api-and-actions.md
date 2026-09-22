@@ -100,6 +100,21 @@ the service role. These operations remain local-only in this stage.
   `esh_admin_disable_contact` and `esh_admin_correct_contact_email` re-check live relationships,
   revoke stale capability, preserve history and write immutable audit detail.
 
+## v206 Bulk operations
+
+- `esh_guest_bulk_update`, `esh_guest_bulk_extension` and `esh_guest_bulk_submit` each require an
+  owner-inbox session: an action-only link cannot widen itself into batch scope. Every item goes
+  through the same single-action routine the chat uses, with its own idempotency key.
+- The answer is per item — Succeeded, Failed or Skipped with a reason — and the operation key makes
+  a second press the same operation rather than a second one.
+- `esh_guest_share_prepare` reserves a copy of one of the owner's own files against each chosen
+  action and returns the object keys; the server copies them and `esh_guest_share_finish` makes the
+  copies that arrived readable and records the rest as failures.
+- `esh_guest_send_message` now also carries the proposed date and the operation a message belongs
+  to, written at insert time.
+- Server Actions `sendBulkUpdate`, `requestBulkExtension`, `submitBulkActions` and `shareEvidence`
+  carry these to the guest inbox screen.
+
 ## v205 Backlog import
 
 - `esh_import_start(...)` records an uploaded workbook and refuses a hash that a live batch already

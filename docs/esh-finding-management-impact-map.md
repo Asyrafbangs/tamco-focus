@@ -97,6 +97,11 @@ release keeps the original deadlines and sets when follow-up starts, and each ow
 batch. Embedded photographs are reported as unresolved evidence for ESH to answer rather than
 extracted: a floating image is never given to the nearest finding.
 
+v206 is built and verified (23 September 2026): the second half of the v205 row — selection is
+opt-in, a common update is a message on each action, a request for more time changes no deadline,
+a batch submission is one submission per action, a shared file is copied per action, and every
+item answers for itself. Consolidated reminder and escalation digests (§41) are v207.
+
 Each stage ships behind the rollout gate, so nothing new is visible to the team until an
 administrator enables them. Each ends with the full verify and, where it adds a migration, a
 `supabase db push`.

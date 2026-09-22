@@ -102,6 +102,17 @@ security-invoker view and therefore remain constrained by the caller's separate 
 Guest grants and sessions remain unreadable to clients; audited security-definer procedures expose
 only the active-item metadata needed for targeted revocation.
 
+## v206 bulk boundary
+
+- Bulk routines are service-role only and resolve the guest session themselves; a signed-in browser
+  cannot call them, and an action-scoped session is refused outright.
+- Each item is rechecked at execution — principal, live assignment, state and file rights — so a
+  reassignment or a closure between selecting and pressing skips that item rather than writing it.
+- Bulk records are readable by Finding staff who can coordinate, and by nobody else; guests reach
+  them only through the procedure's own answer.
+- Sharing a file copies it per action. No association crosses into another action's conversation,
+  and removing one leaves every other copy and every submission untouched.
+
 ## v205 import boundary
 
 - Staging tables are readable only by signed-in Finding staff whose access includes `coordinate`,

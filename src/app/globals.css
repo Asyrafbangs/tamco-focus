@@ -14215,3 +14215,77 @@ span.deadline span.deadline-glyph,
     width: 100%;
   }
 }
+
+/* v206 — selecting several of your own actions, and what can be done with them. */
+.guest-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.guest-bulk-bar span {
+  color: var(--muted);
+  font-size: calc(13px * var(--font-scale));
+}
+.guest-action-choose {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.guest-action-choose input[type='checkbox'] {
+  margin-top: 4px;
+}
+.guest-bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+.guest-bulk-sheet {
+  margin-top: 16px;
+  display: grid;
+  gap: 14px;
+}
+.guest-bulk-chosen {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.guest-bulk-chosen li {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--surface-2, var(--surface));
+  border-radius: var(--radius);
+}
+.guest-bulk-chosen small {
+  color: var(--muted);
+  font-size: calc(13px * var(--font-scale));
+}
+.guest-bulk-chosen textarea {
+  width: 100%;
+}
+.guest-bulk-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.guest-bulk-result ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+@media (max-width: 640px) {
+  .guest-bulk-confirm .btn {
+    flex: 1 1 100%;
+  }
+}

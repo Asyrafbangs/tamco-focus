@@ -1,10 +1,10 @@
 # TAMCO Focus — build status
 
-**Date:** 22 September 2026
+**Date:** 23 September 2026
 
 **Baseline:** approved TAMCO Focus specifications through v191 and ESH Finding Management v1.3
 
-**Stage:** ESH Finding Management v197–v205 implemented locally behind restricted rollout. No
+**Stage:** ESH Finding Management v197–v206 implemented locally behind restricted rollout. No
 hosted Supabase link, hosted migration, deployment or remote push is part of this stage.
 
 This document records the implemented scope and the evidence used to accept the local build. `npm run verify` remains the authoritative release gate: a failed or skipped gate makes the command exit non-zero.
@@ -26,7 +26,7 @@ The current suite covers sixteen independent gates:
 | Production smoke         | Built sign-in, security headers and protected-route redirect               | Pass   |
 | Database reset           | Every migration plus local-only fixtures                                   | Pass   |
 | Generated types          | Checked-in TypeScript matches the reset public schema                      | Pass   |
-| RLS/database tests       | Full pgTAP suite; v205 adds 34 backlog-import assertions                   | Pass   |
+| RLS/database tests       | Full pgTAP suite; v206 adds 29 bulk-operation assertions                   | Pass   |
 | Integration tests        | Real local Auth, PostgREST, Storage, procedures and worker paths           | Pass   |
 | Reset before end-to-end  | Browser suite starts from canonical seed                                   | Pass   |
 | End-to-end/accessibility | Desktop/mobile journeys plus the wider responsive and accessibility matrix | Pass   |
@@ -47,12 +47,13 @@ The UI/UX parity enforcement pass is included in that result: all main surfaces 
 - Deterministic Capture Work classification, mandatory urgency question, staged private attachments, collaboration links, and transactional confirmation.
 - Idempotent routine occurrence scheduler and weekly-summary worker with timezone windows, preference modes, manager team content, atomic claiming, retry/backoff, and local SMTP/log transport.
 - Responsive desktop and mobile interfaces based on the approved prototypes, Day/Night themes, visible text state labels, and keyboard/accessibility coverage.
-- ESH Finding Management through v205: restricted staff access, finding assignment, accountless
+- ESH Finding Management through v206: restricted staff access, finding assignment, accountless
   Action Owner links and conversation, private evidence, immutable submissions, ESH verification,
   closure/reopen, policy snapshots, reminders, escalation, reply follow-up and honest delivery
   evidence, reconciled Overview/Register definitions, closure periods, safe authorized export,
   configured weekly snapshots, purpose-separated read-only leadership links, and a reviewed
-  backlog import that stages every row before anything becomes live.
+  backlog import that stages every row before anything becomes live, and owner bulk operations
+  that never finish an action without ESH.
 - Architecture, data-model, permissions, actions, operations, future-deployment, testing, and traceability documentation.
 
 ## Key properties proven by tests
@@ -74,6 +75,9 @@ The UI/UX parity enforcement pass is included in that result: all main surfaces 
 - An imported backlog is staged before it is anything: every nonblank row has a traceable outcome,
   nothing is created or notified until release, original deadlines survive it, and a released batch
   sends one summary per owner rather than one email per row.
+- A bulk operation is a batch of single actions: each item is rechecked and answered for
+  separately, a repeated press is the same operation, and no operation closes or completes an
+  action on the owner's word alone.
 
 ## Recorded local defaults
 

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { EndAccessButton } from '@/components/esh/guest/EndAccessButton';
+import { MyActionsList } from '@/components/esh/guest/MyActionsList';
 import { GuestTopBar } from '@/components/esh/guest/GuestTopBar';
 import { RequestInboxLink } from '@/components/esh/guest/RequestInboxLink';
 import { RequestLinkForm } from '@/components/esh/guest/RequestLinkForm';
@@ -155,36 +156,26 @@ export default async function MyActionsPage({
                   : 'Nothing needs your action. ESH is reviewing the rest.'}
           </p>
         ) : (
-          <ul className="guest-actions">
-            {result.rows.map((row) => {
+          /* v206 — the list is the list until somebody asks to select. Dates
+             and labels are worked out here, on the server, so the browser is
+             not left reading the clock mid-render. */
+          <MyActionsList
+            filter={filter}
+            rows={result.rows.map((row) => {
               const due = dueLine(row, now, timeZone);
-              return (
-                <li key={row.id}>
-                  <Link href={`/respond/actions/${row.id}`} className="guest-action-row">
-                    <span className="guest-action-main">
-                      <small>
-                        {[row.reference, row.location ?? row.department]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </small>
-                      <strong>{row.title}</strong>
-                      <small className={due.overdue ? 'esh-overdue' : undefined}>
-                        {due.text}
-                        {row.priority && row.priority !== 'normal'
-                          ? ` · ${PRIORITY_LABELS[row.priority]} priority`
-                          : ''}
-                      </small>
-                    </span>
-                    <span
-                      className={`flag ${due.overdue ? 'amber' : 'neutral'} guest-action-state`}
-                    >
-                      {ACTION_STATE_LABELS[row.state]}
-                    </span>
-                  </Link>
-                </li>
-              );
+              return {
+                id: row.id,
+                reference: row.reference,
+                title: row.title,
+                place: row.location ?? row.department ?? '',
+                dueText: due.text,
+                overdue: due.overdue,
+                stateLabel: ACTION_STATE_LABELS[row.state],
+                priorityLabel:
+                  row.priority && row.priority !== 'normal' ? PRIORITY_LABELS[row.priority] : null,
+              };
             })}
-          </ul>
+          />
         )}
 
         {pages > 1 && (

@@ -106,6 +106,20 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v206 bulk-operation evidence
+
+- pgTAP (29) proves an action link cannot do batch work, one update reaches each chosen action as
+  its own attributed message and submits nothing, a repeated key returns the first answer, a
+  request for more time changes no deadline, submitting several creates one submission each, an
+  action that needs a photograph fails on its own while the rest go, an action already with ESH is
+  skipped rather than resubmitted, and the records cannot be rewritten.
+- Integration runs the same journey through real sessions and PostgREST, including the mixed
+  outcome where two items are skipped and one fails for its own reason.
+- Unit tests pin the wording: a partial batch never reads as a success, and no operation offered
+  can finish an action without ESH.
+- Playwright selects two of three actions in the owner's inbox, sends one update, submits both, and
+  checks the counts move to Awaiting ESH review while the third stays the owner's.
+
 ## v205 backlog-import evidence
 
 - pgTAP (34) stages a mixed sheet, proves a blank row is ignored explicitly, a missing address

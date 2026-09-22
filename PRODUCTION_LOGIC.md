@@ -2290,3 +2290,22 @@ assignee, or the owner for a step assigned to nobody (v159).
    operation key, and cannot be undone by discarding: after anything is live, corrections are the
    ordinary audited operations.
 
+## 101. v206 Several at once, each still its own
+
+1. Every bulk routine requires an owner-inbox session. An action-scoped link is refused, so a
+   single link cannot widen itself into batch authority.
+2. Each item goes through the same single-action routine the chat uses — `esh_guest_send_message`
+   or `esh_guest_submit` — with its own idempotency key of `<operation key>:<action id>`. A batch
+   therefore obeys exactly the rules one action obeys, and a retry of a failed item cannot
+   duplicate a successful one.
+3. The operation itself is keyed per principal: pressing twice returns the first answer rather
+   than doing the work again. Its four counts are the only part of the record that may be written
+   after it is created, and the items are append-only.
+4. Talking is always allowed, including about an action already with ESH; what a batch cannot do
+   is submit that action again, which is skipped rather than failed.
+5. A request for more time is a message carrying `proposed_due_date`. Nothing moves `due_at`: ESH
+   approves each action separately, with its own reason and its own audited change.
+6. Sharing a file copies the object once per action, each copy with its own asset row and its own
+   authorisation. Removing one association cannot reach another action's evidence, and an
+   immutable submission keeps whatever it recorded.
+

@@ -100,6 +100,20 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 - `shared_contributions` leaves out steps whose work is binned or purged, as
   `completed_contributions` has since v87; its columns are unchanged.
 
+## v206 Bulk operations
+
+- `esh_bulk_operations` records one operation per press: its purpose, the owner's own operation
+  key (unique per principal, so a repeat is the same operation), and what it did. Only the four
+  counts may be written afterwards; identity is closed to rewriting and the row cannot be deleted.
+- `esh_bulk_operation_items` is the per-action answer — succeeded, failed or skipped, with the
+  reason and whatever it produced. It is append-only.
+- `esh_action_messages` gains `proposed_due_date` and `bulk_operation_id`, written when the
+  message is written because the conversation is append-only. A proposed date is a request on the
+  record, never a change to `due_at`.
+- `esh_evidence_assets` gains `shared_from_asset_id` and `shared_operation_id`: a file shared with
+  several actions is copied per action, so each association is separately authorised and removing
+  one cannot reach another action's evidence or an immutable submission.
+
 ## v205 Backlog import
 
 - `esh_import_batches` records the file: its name, sha256, the register its references belong to,

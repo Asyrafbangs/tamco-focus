@@ -1,5 +1,24 @@
 # TAMCO Focus — Change Log
 
+## v206 Several actions at once, each still its own — 23 September 2026
+
+The tenth Finding Management stage remains local-only and behind the restricted rollout.
+
+- **Select actions is opt-in.** My Actions is the list it was until somebody asks to select; only
+  then do tickboxes and the operations appear.
+- **Three operations, none of which finishes anything.** One progress update, posted to each chosen
+  action as its own attributed message. One request for more time, with the date being asked for on
+  the record — official deadlines still change only through ESH, one action at a time. And
+  submitting several, which creates a separate immutable submission for each, verified separately.
+- **A shared file is a file on each action**, copied so its authorisation is its own: removing one
+  cannot reach another action's evidence or a submission already made.
+- **Per-item answers.** Succeeded, failed or skipped, with the reason beside the action it belongs
+  to. A batch that half worked says so; nothing ever reports whole-batch success. Pressing twice is
+  the same operation, not a second one.
+- **Batch work belongs to the owner's own inbox link.** An action-only link cannot widen itself,
+  and every item is rechecked at execution against the live assignment and state.
+- pgTAP (29), unit (8), integration and a desktop end-to-end journey.
+
 ## v205 The existing backlog, imported once — 22 September 2026
 
 The ninth and last Finding Management stage remains local-only and behind the restricted rollout.

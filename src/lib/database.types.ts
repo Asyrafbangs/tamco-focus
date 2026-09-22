@@ -1992,10 +1992,12 @@ export type Database = {
           author_principal_id: string | null
           author_user_id: string | null
           body: string
+          bulk_operation_id: string | null
           client_key: string
           id: string
           kind: string
           organization_id: string
+          proposed_due_date: string | null
           sent_at: string
         }
         Insert: {
@@ -2006,10 +2008,12 @@ export type Database = {
           author_principal_id?: string | null
           author_user_id?: string | null
           body: string
+          bulk_operation_id?: string | null
           client_key: string
           id?: string
           kind?: string
           organization_id: string
+          proposed_due_date?: string | null
           sent_at?: string
         }
         Update: {
@@ -2020,10 +2024,12 @@ export type Database = {
           author_principal_id?: string | null
           author_user_id?: string | null
           body?: string
+          bulk_operation_id?: string | null
           client_key?: string
           id?: string
           kind?: string
           organization_id?: string
+          proposed_due_date?: string | null
           sent_at?: string
         }
         Relationships: [
@@ -2060,6 +2066,13 @@ export type Database = {
             columns: ["author_user_id"]
             isOneToOne: false
             referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_action_messages_bulk_operation_id_fkey"
+            columns: ["bulk_operation_id"]
+            isOneToOne: false
+            referencedRelation: "esh_bulk_operations"
             referencedColumns: ["id"]
           },
           {
@@ -2279,6 +2292,132 @@ export type Database = {
             columns: ["subject_user_id"]
             isOneToOne: false
             referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_bulk_operation_items: {
+        Row: {
+          action_id: string
+          asset_id: string | null
+          code: string | null
+          created_at: string
+          message_id: string | null
+          operation_id: string
+          state: string
+          submission_id: string | null
+        }
+        Insert: {
+          action_id: string
+          asset_id?: string | null
+          code?: string | null
+          created_at?: string
+          message_id?: string | null
+          operation_id: string
+          state: string
+          submission_id?: string | null
+        }
+        Update: {
+          action_id?: string
+          asset_id?: string | null
+          code?: string | null
+          created_at?: string
+          message_id?: string | null
+          operation_id?: string
+          state?: string
+          submission_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_bulk_operation_items_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "esh_evidence_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_bulk_operation_items_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_bulk_operation_items_operation_id_fkey"
+            columns: ["operation_id"]
+            isOneToOne: false
+            referencedRelation: "esh_bulk_operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_bulk_operation_items_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_bulk_operations: {
+        Row: {
+          created_at: string
+          failed: number
+          id: string
+          operation_key: string
+          organization_id: string
+          principal_id: string
+          purpose: string
+          requested: number
+          session_id: string | null
+          skipped: number
+          succeeded: number
+        }
+        Insert: {
+          created_at?: string
+          failed?: number
+          id?: string
+          operation_key: string
+          organization_id: string
+          principal_id: string
+          purpose: string
+          requested?: number
+          session_id?: string | null
+          skipped?: number
+          succeeded?: number
+        }
+        Update: {
+          created_at?: string
+          failed?: number
+          id?: string
+          operation_key?: string
+          organization_id?: string
+          principal_id?: string
+          purpose?: string
+          requested?: number
+          session_id?: string | null
+          skipped?: number
+          succeeded?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_bulk_operations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_bulk_operations_organization_id_principal_id_fkey"
+            columns: ["organization_id", "principal_id"]
+            isOneToOne: false
+            referencedRelation: "esh_email_principals"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_bulk_operations_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "esh_guest_sessions"
             referencedColumns: ["id"]
           },
         ]
@@ -2716,6 +2855,8 @@ export type Database = {
           removed_at: string | null
           removed_by: string | null
           scan_state: string
+          shared_from_asset_id: string | null
+          shared_operation_id: string | null
           size_bytes: number | null
           state: string
           uploader_kind: string
@@ -2740,6 +2881,8 @@ export type Database = {
           removed_at?: string | null
           removed_by?: string | null
           scan_state?: string
+          shared_from_asset_id?: string | null
+          shared_operation_id?: string | null
           size_bytes?: number | null
           state?: string
           uploader_kind: string
@@ -2764,6 +2907,8 @@ export type Database = {
           removed_at?: string | null
           removed_by?: string | null
           scan_state?: string
+          shared_from_asset_id?: string | null
+          shared_operation_id?: string | null
           size_bytes?: number | null
           state?: string
           uploader_kind?: string
@@ -2853,6 +2998,20 @@ export type Database = {
             columns: ["removed_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_shared_from_asset_id_fkey"
+            columns: ["shared_from_asset_id"]
+            isOneToOne: false
+            referencedRelation: "esh_evidence_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_evidence_assets_shared_operation_id_fkey"
+            columns: ["shared_operation_id"]
+            isOneToOne: false
+            referencedRelation: "esh_bulk_operations"
             referencedColumns: ["id"]
           },
           {
@@ -14678,6 +14837,29 @@ export type Database = {
         Args: { p_action_id: string; p_before?: string; p_session: string }
         Returns: Json
       }
+      esh_guest_bulk_extension: {
+        Args: {
+          p_action_ids: string[]
+          p_body: string
+          p_operation_key: string
+          p_proposed_date: string
+          p_session: string
+        }
+        Returns: Json
+      }
+      esh_guest_bulk_submit: {
+        Args: { p_operation_key: string; p_rows: Json; p_session: string }
+        Returns: Json
+      }
+      esh_guest_bulk_update: {
+        Args: {
+          p_action_ids: string[]
+          p_body: string
+          p_operation_key: string
+          p_session: string
+        }
+        Returns: Json
+      }
       esh_guest_end_session: { Args: { p_session: string }; Returns: Json }
       esh_guest_exchange: {
         Args: {
@@ -14737,7 +14919,22 @@ export type Database = {
           p_action_id: string
           p_asset_ids?: string[]
           p_body: string
+          p_bulk_operation_id?: string
           p_client_key: string
+          p_proposed_due_date?: string
+          p_session: string
+        }
+        Returns: Json
+      }
+      esh_guest_share_finish: {
+        Args: { p_arrived: string[]; p_operation_id: string; p_session: string }
+        Returns: Json
+      }
+      esh_guest_share_prepare: {
+        Args: {
+          p_action_ids: string[]
+          p_asset_id: string
+          p_operation_key: string
           p_session: string
         }
         Returns: Json
