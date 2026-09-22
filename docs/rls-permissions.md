@@ -102,6 +102,20 @@ security-invoker view and therefore remain constrained by the caller's separate 
 Guest grants and sessions remain unreadable to clients; audited security-definer procedures expose
 only the active-item metadata needed for targeted revocation.
 
+## v205 import boundary
+
+- Staging tables are readable only by signed-in Finding staff whose access includes `coordinate`,
+  within their own organisation; `anon` has nothing, and no Action Owner or escalation session can
+  reach staging at all.
+- Every import procedure is `security definer` with its own `coordinate` check, so a browser cannot
+  write a staged row, a decision or a release directly.
+- A staged row is not a finding: it is in no register, overview, export, report or timer until it
+  is released.
+- The notification-outbox policy recognises a batch summary as well as a finding, so a held import
+  email is visible to the staff who can see its import rather than waiting invisibly.
+- `source = 'import'` can only be set by a release that names its batch; a hand-written finding
+  cannot claim to have come from a register.
+
 ## v204 report boundary
 
 - Signed-in people can select report configuration and runs only when their separate Finding access

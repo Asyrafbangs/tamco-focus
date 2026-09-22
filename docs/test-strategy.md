@@ -106,6 +106,23 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v205 backlog-import evidence
+
+- pgTAP (34) stages a mixed sheet, proves a blank row is ignored explicitly, a missing address
+  needs assignment rather than a guess, a missing corrective action blocks the row, an unready row
+  stops the whole release, evidence must be answered for, the original row survives amendment, old
+  due dates survive release, each owner receives one summary, and a repeated release key returns
+  the first answer.
+- Integration stages a hundred mixed rows over four owners plus the four kinds of trouble a real
+  register has, releases 102 of them in one transaction against real Auth/RLS/PostgREST, and proves
+  the summaries, the preserved deadlines, the follow-up start and the refusal of a repeat file.
+- Unit tests cover the workbook reader — sheets in tab order, cell kinds, Excel serial dates and
+  the 29 February 1900 that never happened — and the date conventions, where 04/05/2026 is read
+  only the way it was told to read it.
+- Playwright walks the whole journey: a file whose headings are on row 2, suggested mapping,
+  staging, writing the corrective action the file lacked, release, and the finding arriving in the
+  register still as overdue as the file said it was.
+
 ## v204 weekly-report evidence
 
 - pgTAP proves the new tables and RLS boundary, service-only scheduler/read procedures, the required

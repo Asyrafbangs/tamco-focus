@@ -100,6 +100,26 @@ the service role. These operations remain local-only in this stage.
   `esh_admin_disable_contact` and `esh_admin_correct_contact_email` re-check live relationships,
   revoke stale capability, preserve history and write immutable audit detail.
 
+## v205 Backlog import
+
+- `esh_import_start(...)` records an uploaded workbook and refuses a hash that a live batch already
+  holds, naming that batch instead of creating a second one.
+- `esh_import_stage(batch, rows)` replaces everything not yet released and returns the
+  reconciliation: source rows, ignored, ready, blocked, duplicates and released. Outcomes are
+  decided in the database, so the preview and the release are the same judgment.
+- `esh_import_set_owner_email`, `esh_import_amend_row` and `esh_import_resolve_row` are the audited
+  decisions; each revalidates the rows it affects. `esh_import_acknowledge_evidence` answers for a
+  photograph or link that could not be imported.
+- `esh_import_release(batch, rows, followup_from, key)` creates each finding through
+  `esh_save_finding`, keeps the original due dates, sets when follow-up begins and queues one owner
+  summary per recipient. It is idempotent by operation key and refuses a batch with an unready row
+  or unresolved evidence.
+- `esh_import_discard` is available only before anything is released; afterwards corrections are
+  the ordinary audited operations.
+- Server Actions read the workbook: `startImportUpload`, `readImportWorkbook`, `previewImportSheet`
+  and `createImport` parse sheets, headers and dates server-side and never run a formula or fetch a
+  URL found in the file.
+
 ## v204 Finding weekly reports
 
 - `esh_save_report_definition(...)` is the authenticated report-management command. It validates

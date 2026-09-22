@@ -1,5 +1,28 @@
 # TAMCO Focus — Change Log
 
+## v205 The existing backlog, imported once — 22 September 2026
+
+The ninth and last Finding Management stage remains local-only and behind the restricted rollout.
+
+- **The file as it is.** Excel or CSV, the sheet you choose, the heading row you point at, and the
+  date convention you say it was written in. Column meanings are suggested from the headings and
+  never applied without being looked at. Formulas are read as their last saved value and never run.
+- **Staged, not created.** Every nonblank row is kept with both readings — the original and this
+  organisation's — and reaches an explicit outcome: ready, needs a decision, already in the
+  register, or blank and ignored. A staged row is in no count, no report and no timer.
+- **Nothing is guessed.** A name without an address needs an address; one decision covers every row
+  with that name. A missing corrective action, department, target date, reported date or priority
+  holds that row back until somebody writes it. Unrecognised risk reads Not assessed. A date that
+  cannot be read under the chosen convention is reported, never replaced with today's.
+- **A repeat is a repeat.** The same file is recognised by its contents, and a reference already in
+  the register can be skipped or linked, never silently overwritten.
+- **Photographs and links are answered for.** Nothing is fetched from a link in a spreadsheet, and
+  no unresolved evidence leaves the import without an explicit acknowledgment.
+- **Release is deliberate.** It shows what it is about to do, including how many are already late.
+  Old deadlines stay old, following up starts when the release says it does, and each owner
+  receives one summary of their own rather than one email per row.
+- pgTAP (34), unit (15), integration at a hundred rows, and a desktop end-to-end journey.
+
 ## v204 Weekly leadership reports — 22 September 2026
 
 The eighth Finding Management stage remains local-only and behind the restricted rollout.

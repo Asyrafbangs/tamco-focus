@@ -114,6 +114,13 @@ export default async function FindingRegisterPage({
           <Link className="btn" href="/findings/register/export">
             Export CSV
           </Link>
+          {/* The backlog arrives through the register it belongs to, rather
+              than through a navigation area of its own (v205, §38.1). */}
+          {access.canCoordinate && (
+            <Link className="btn" href="/findings/import">
+              Import backlog
+            </Link>
+          )}
           {access.canCoordinate && (
             <Link className="btn primary" href="/findings/new">
               + New finding

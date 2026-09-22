@@ -91,6 +91,12 @@ definition timezone, capture an immutable scoped snapshot, exclude restricted fi
 one purpose-separated read-only link per enabled recipient. Pause stops future capture without
 revoking an already issued report; version, scope and recipient changes invalidate stale access.
 
+v205 is built and verified (22 September 2026): a workbook is mapped rather than assumed, every
+nonblank row reaches an explicit outcome in staging, a repeat file or reference is recognised,
+release keeps the original deadlines and sets when follow-up starts, and each owner hears once per
+batch. Embedded photographs are reported as unresolved evidence for ESH to answer rather than
+extracted: a floating image is never given to the nearest finding.
+
 Each stage ships behind the rollout gate, so nothing new is visible to the team until an
 administrator enables them. Each ends with the full verify and, where it adds a migration, a
 `supabase db push`.

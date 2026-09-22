@@ -71,6 +71,16 @@ export async function inspectUpload(objectKey: string, name: string): Promise<In
   return { ok: true, type, size: bytes.byteLength, sha256 };
 }
 
+/** The bytes themselves, for a file the server has to read rather than serve. */
+export async function readObject(objectKey: string): Promise<Buffer | null> {
+  const { data, error } = await storage().download(objectKey);
+  if (error || !data) {
+    console.error(`[esh-evidence] could not read an object: ${error?.message ?? 'no data'}`);
+    return null;
+  }
+  return Buffer.from(await data.arrayBuffer());
+}
+
 export async function removeObject(objectKey: string): Promise<void> {
   const { error } = await storage().remove([objectKey]);
   if (error) console.error(`[esh-evidence] could not remove an object: ${error.message}`);

@@ -2909,6 +2909,7 @@ export type Database = {
           evidence_instruction: string | null
           evidence_rule: string
           finding_id: string
+          followup_active_from: string | null
           id: string
           no_further_escalation_reason: string | null
           organization_id: string
@@ -2938,6 +2939,7 @@ export type Database = {
           evidence_instruction?: string | null
           evidence_rule?: string
           finding_id: string
+          followup_active_from?: string | null
           id?: string
           no_further_escalation_reason?: string | null
           organization_id: string
@@ -2967,6 +2969,7 @@ export type Database = {
           evidence_instruction?: string | null
           evidence_rule?: string
           finding_id?: string
+          followup_active_from?: string | null
           id?: string
           no_further_escalation_reason?: string | null
           organization_id?: string
@@ -3098,6 +3101,8 @@ export type Database = {
           created_by: string
           description: string | null
           id: string
+          import_batch_id: string | null
+          import_row_id: string | null
           is_restricted: boolean
           location: string | null
           organization_id: string
@@ -3112,6 +3117,7 @@ export type Database = {
           row_version: number
           source: string
           source_reference: string | null
+          source_register: string | null
           status: string
           status_reason: string | null
           title: string
@@ -3126,6 +3132,8 @@ export type Database = {
           created_by: string
           description?: string | null
           id?: string
+          import_batch_id?: string | null
+          import_row_id?: string | null
           is_restricted?: boolean
           location?: string | null
           organization_id: string
@@ -3140,6 +3148,7 @@ export type Database = {
           row_version?: number
           source?: string
           source_reference?: string | null
+          source_register?: string | null
           status?: string
           status_reason?: string | null
           title: string
@@ -3154,6 +3163,8 @@ export type Database = {
           created_by?: string
           description?: string | null
           id?: string
+          import_batch_id?: string | null
+          import_row_id?: string | null
           is_restricted?: boolean
           location?: string | null
           organization_id?: string
@@ -3168,6 +3179,7 @@ export type Database = {
           row_version?: number
           source?: string
           source_reference?: string | null
+          source_register?: string | null
           status?: string
           status_reason?: string | null
           title?: string
@@ -3249,6 +3261,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "esh_import_batches"
             referencedColumns: ["id"]
           },
           {
@@ -3640,6 +3659,523 @@ export type Database = {
           },
         ]
       }
+      esh_import_batches: {
+        Row: {
+          created_at: string
+          created_by: string
+          date_convention: string
+          discard_reason: string | null
+          discarded_at: string | null
+          discarded_by: string | null
+          header_line: number | null
+          id: string
+          ignored_rows: number
+          mapping: Json
+          mapping_version: number
+          organization_id: string
+          released_at: string | null
+          released_by: string | null
+          sheet_name: string | null
+          sheet_path: string | null
+          source_hash: string
+          source_name: string
+          source_register: string
+          source_rows: number
+          staged_at: string | null
+          state: string
+          storage_path: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          date_convention?: string
+          discard_reason?: string | null
+          discarded_at?: string | null
+          discarded_by?: string | null
+          header_line?: number | null
+          id?: string
+          ignored_rows?: number
+          mapping?: Json
+          mapping_version?: number
+          organization_id: string
+          released_at?: string | null
+          released_by?: string | null
+          sheet_name?: string | null
+          sheet_path?: string | null
+          source_hash: string
+          source_name: string
+          source_register: string
+          source_rows?: number
+          staged_at?: string | null
+          state?: string
+          storage_path?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          date_convention?: string
+          discard_reason?: string | null
+          discarded_at?: string | null
+          discarded_by?: string | null
+          header_line?: number | null
+          id?: string
+          ignored_rows?: number
+          mapping?: Json
+          mapping_version?: number
+          organization_id?: string
+          released_at?: string | null
+          released_by?: string | null
+          sheet_name?: string | null
+          sheet_path?: string | null
+          source_hash?: string
+          source_name?: string
+          source_register?: string
+          source_rows?: number
+          staged_at?: string | null
+          state?: string
+          storage_path?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_import_batches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_import_batches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_batches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_batches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_import_batches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_batches_discarded_by_fkey"
+            columns: ["discarded_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_import_batches_discarded_by_fkey"
+            columns: ["discarded_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_batches_discarded_by_fkey"
+            columns: ["discarded_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_batches_discarded_by_fkey"
+            columns: ["discarded_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_import_batches_discarded_by_fkey"
+            columns: ["discarded_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_batches_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_batches_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_import_batches_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_batches_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_batches_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_import_batches_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_import_evidence_refs: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          asset_id: string | null
+          batch_id: string
+          created_at: string
+          detail: string
+          failure: string | null
+          id: string
+          kind: string
+          organization_id: string
+          row_id: string | null
+          state: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          asset_id?: string | null
+          batch_id: string
+          created_at?: string
+          detail: string
+          failure?: string | null
+          id?: string
+          kind: string
+          organization_id: string
+          row_id?: string | null
+          state?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          asset_id?: string | null
+          batch_id?: string
+          created_at?: string
+          detail?: string
+          failure?: string | null
+          id?: string
+          kind?: string
+          organization_id?: string
+          row_id?: string | null
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_import_evidence_refs_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_import_evidence_refs_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_evidence_refs_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_evidence_refs_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_import_evidence_refs_acknowledged_by_fkey"
+            columns: ["acknowledged_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_evidence_refs_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "esh_evidence_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_evidence_refs_organization_id_batch_id_fkey"
+            columns: ["organization_id", "batch_id"]
+            isOneToOne: false
+            referencedRelation: "esh_import_batches"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_import_evidence_refs_row_id_fkey"
+            columns: ["row_id"]
+            isOneToOne: false
+            referencedRelation: "esh_import_rows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_import_owner_emails: {
+        Row: {
+          batch_id: string
+          canonical_email: string | null
+          decided_at: string
+          decided_by: string
+          source_name: string
+        }
+        Insert: {
+          batch_id: string
+          canonical_email?: string | null
+          decided_at?: string
+          decided_by: string
+          source_name: string
+        }
+        Update: {
+          batch_id?: string
+          canonical_email?: string | null
+          decided_at?: string
+          decided_by?: string
+          source_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_import_owner_emails_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "esh_import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_owner_emails_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_import_owner_emails_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_owner_emails_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_owner_emails_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_import_owner_emails_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_import_rows: {
+        Row: {
+          action_id: string | null
+          batch_id: string
+          created_at: string
+          duplicate_of_finding_id: string | null
+          finding_id: string | null
+          fingerprint: string | null
+          id: string
+          mapped: Json
+          needs_assignment: boolean
+          organization_id: string
+          outcome: string
+          problems: string[]
+          raw: Json
+          released_at: string | null
+          resolution: string | null
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          source_line: number
+          source_reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          action_id?: string | null
+          batch_id: string
+          created_at?: string
+          duplicate_of_finding_id?: string | null
+          finding_id?: string | null
+          fingerprint?: string | null
+          id?: string
+          mapped?: Json
+          needs_assignment?: boolean
+          organization_id: string
+          outcome?: string
+          problems?: string[]
+          raw: Json
+          released_at?: string | null
+          resolution?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          source_line: number
+          source_reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          action_id?: string | null
+          batch_id?: string
+          created_at?: string
+          duplicate_of_finding_id?: string | null
+          finding_id?: string | null
+          fingerprint?: string | null
+          id?: string
+          mapped?: Json
+          needs_assignment?: boolean
+          organization_id?: string
+          outcome?: string
+          problems?: string[]
+          raw?: Json
+          released_at?: string | null
+          resolution?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          source_line?: number
+          source_reference?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_import_rows_finding_fk"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
+          },
+          {
+            foreignKeyName: "esh_import_rows_finding_fk"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_findings"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_import_rows_finding_fk"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
+          },
+          {
+            foreignKeyName: "esh_import_rows_organization_id_batch_id_fkey"
+            columns: ["organization_id", "batch_id"]
+            isOneToOne: false
+            referencedRelation: "esh_import_batches"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_import_rows_organization_id_duplicate_of_finding_id_fkey"
+            columns: ["organization_id", "duplicate_of_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
+          },
+          {
+            foreignKeyName: "esh_import_rows_organization_id_duplicate_of_finding_id_fkey"
+            columns: ["organization_id", "duplicate_of_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_findings"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_import_rows_organization_id_duplicate_of_finding_id_fkey"
+            columns: ["organization_id", "duplicate_of_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
+          },
+          {
+            foreignKeyName: "esh_import_rows_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_import_rows_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_rows_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_import_rows_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_import_rows_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       esh_notification_outbox: {
         Row: {
           action_id: string | null
@@ -3651,6 +4187,7 @@ export type Database = {
           followup_event_id: string | null
           id: string
           idempotency_key: string
+          import_batch_id: string | null
           last_error: string | null
           link_intents: Json
           next_attempt_at: string | null
@@ -3676,6 +4213,7 @@ export type Database = {
           followup_event_id?: string | null
           id?: string
           idempotency_key: string
+          import_batch_id?: string | null
           last_error?: string | null
           link_intents?: Json
           next_attempt_at?: string | null
@@ -3701,6 +4239,7 @@ export type Database = {
           followup_event_id?: string | null
           id?: string
           idempotency_key?: string
+          import_batch_id?: string | null
           last_error?: string | null
           link_intents?: Json
           next_attempt_at?: string | null
@@ -3722,6 +4261,13 @@ export type Database = {
             columns: ["followup_event_id"]
             isOneToOne: false
             referencedRelation: "esh_followup_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_notification_outbox_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "esh_import_batches"
             referencedColumns: ["id"]
           },
           {
@@ -14222,6 +14768,55 @@ export type Database = {
       }
       esh_guest_withdraw: {
         Args: { p_action_id: string; p_reason: string; p_session: string }
+        Returns: Json
+      }
+      esh_import_acknowledge_evidence: {
+        Args: { p_note: string; p_ref_id: string }
+        Returns: Json
+      }
+      esh_import_amend_row: {
+        Args: { p_patch: Json; p_row_id: string }
+        Returns: Json
+      }
+      esh_import_discard: {
+        Args: { p_batch_id: string; p_reason: string }
+        Returns: Json
+      }
+      esh_import_reconciliation: { Args: { p_batch_id: string }; Returns: Json }
+      esh_import_release: {
+        Args: {
+          p_batch_id: string
+          p_followup_from: string
+          p_idempotency_key?: string
+          p_row_ids: string[]
+        }
+        Returns: Json
+      }
+      esh_import_resolve_row: {
+        Args: { p_note: string; p_resolution: string; p_row_id: string }
+        Returns: Json
+      }
+      esh_import_set_owner_email: {
+        Args: { p_batch_id: string; p_email: string; p_source_name: string }
+        Returns: Json
+      }
+      esh_import_stage: {
+        Args: { p_batch_id: string; p_rows: Json }
+        Returns: Json
+      }
+      esh_import_start: {
+        Args: {
+          p_date_convention: string
+          p_header_line: number
+          p_mapping: Json
+          p_sheet_name: string
+          p_sheet_path: string
+          p_source_hash: string
+          p_source_name: string
+          p_source_register: string
+          p_source_rows: number
+          p_storage_path: string
+        }
         Returns: Json
       }
       esh_list_verifiers: {

@@ -2211,3 +2211,82 @@ assignee, or the owner for a step assigned to nobody (v159).
    asks `focus.esh_guest_covers`, which an accepted action fails. My Actions drops it at once.
 7. The Verification queue and its count come from the pending submissions the reader's own
    policies allow, so a Viewer sees the queue but can decide nothing.
+
+## 96. v201 Follow-up, escalation and delivery evidence
+
+1. One `esh_followup_policies` row per organisation holds the reminder offsets, the overdue
+   interval, the escalation levels in days and the review timer. The version an ownership interval
+   started under is stamped on that interval, so changing the policy never rewrites what was
+   promised for work already assigned.
+2. `esh_run_followups` walks open, non-closed actions once a day in the organisation's timezone.
+   Before the due date, on it, and every configured interval after it, the owner is reminded; a
+   submitted action stops owner reminders and starts ESH's own review timer instead.
+3. Escalation sends the highest level now due and records the levels it passed as `suppressed`
+   with `coalesced`, so a catch-up after downtime is one letter rather than a storm. Every trigger
+   is keyed by action, kind and cycle, so a re-run, a restart or a second invocation adds nothing.
+4. Reaching the last configured level notifies ESH once per assignment; no level after the last is
+   invented.
+5. An escalation recipient's grant is `escalation_action`: the action's compact context, a reply
+   and an acknowledgment. It can never submit, close, reassign or open the owner's inbox.
+6. Delivery states are kept apart: queued, provider-accepted, delivered, failed and bounced are
+   distinct, and provider acceptance is never shown as delivery.
+
+## 97. v202 Overview, reconciled drill-down and export
+
+1. The overview's four signals and its department table come from one RLS-scoped function at one
+   as-of instant, so a count and the rows behind it always agree. Findings count once as findings;
+   overdue and awaiting-verification count actions.
+2. Closure periods affect only the Closed metric. A reopened finding leaves the current closed
+   totals and re-closes under its current closure timestamp.
+3. The authorized CSV neutralizes spreadsheet-active text, and never exports evidence links or
+   guest tokens.
+
+## 98. v203 People and access in one directory
+
+1. Focus access, Finding access and platform administration are three separate recorded facts, and
+   every existing person's migration to that reading is stored rather than inferred.
+2. A contact's labels are derived from live work: owned open actions, configured escalation routes
+   and activated entitlements, each counted from the work itself.
+3. Resend, revoke, disable and email correction are audited, and each withdraws the access it
+   invalidates rather than leaving a stale link working.
+
+## 99. v204 Weekly leadership reports
+
+1. A report definition is Draft until somebody activates it; only `active` captures. Pausing stops
+   the next capture and leaves an issued link alone, because a state change alone does not version
+   the definition.
+2. `esh_generate_weekly_reports` captures one run per definition, cycle date and version, in the
+   definition's timezone, against one instant. Runs and snapshot rows are written once: only the
+   four counts the capture computes may be written afterwards, and neither can be deleted.
+3. Restricted findings are excluded at both the snapshot and the live query.
+4. Each recipient gets their own `report_viewer` grant, naming one run and one recipient, and a
+   session entitlement that reaches only that run. A changed definition or scope revokes the grants
+   and sessions issued against the old one.
+
+## 100. v205 The backlog, imported once
+
+1. The workbook is uploaded to the private bucket through a one-time signed URL, then read
+   server-side: `listSheets` offers the sheets in tab order, `readSheetCells` returns each cell's
+   kind, and a date cell is turned into a date through the workbook's own style table. Excel's
+   imaginary 29 February 1900 is refused rather than read as the 28th. No formula is evaluated and
+   no macro exists to run.
+2. Text dates are read only under the convention chosen for that file. 04/05/2026 is a real date
+   under either reading, so guessing would be silently wrong for half a backlog; an unreadable date
+   is reported and the row is held.
+3. `esh_import_stage` sends every nonblank row to the database, which decides its outcome:
+   `focus.esh_import_verdict` checks description, corrective action, department, address, dates and
+   priority against this organisation's own values. The preview somebody approves and the release
+   that follows are therefore the same judgment made by the same code.
+4. A staged row is not a finding. It has no owner, is in no register, overview, export or report,
+   and starts no timer.
+5. Identity is the source register plus the original reference, with the file's sha256 catching an
+   exact re-upload. A reference already in the register can be skipped or linked; nothing silently
+   overwrites a live finding's conversation, submission or deadline.
+6. Release creates each finding through `esh_save_finding`, so an imported finding is not a second
+   kind of finding. Three things are the import's own: the provenance columns, `followup_active_from`
+   so a released backlog does not escalate on the next daily run, and one `import_assignment`
+   summary per owner instead of one assignment email per row.
+7. Release refuses a batch containing an unready row or unresolved evidence, is idempotent by
+   operation key, and cannot be undone by discarding: after anything is live, corrections are the
+   ordinary audited operations.
+

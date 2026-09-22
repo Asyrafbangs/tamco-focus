@@ -66,11 +66,19 @@ const escape = (value: string) =>
   value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /**
+ * A date, stored the way Excel stores one: a serial number wearing a date
+ * format (v205). The reader has to recognise the format to read it back.
+ */
+export class XlsxDate {
+  constructor(readonly serial: number) {}
+}
+
+/**
  * Rows of cells, as a workbook. A number is stored as a number; a string whose
  * text starts with "inline:" is stored inline; an empty string is left out, as
- * Excel leaves out an empty cell.
+ * Excel leaves out an empty cell; an XlsxDate is stored as a formatted serial.
  */
-export function makeXlsx(rows: Array<Array<string | number>>): Buffer {
+export function makeXlsx(rows: Array<Array<string | number | XlsxDate>>): Buffer {
   const shared: string[] = [];
   const sheetRows = rows
     .map((cells, rowIndex) => {
@@ -79,6 +87,10 @@ export function makeXlsx(rows: Array<Array<string | number>>): Buffer {
         .map((value, columnIndex) => {
           const reference = `${columnName(columnIndex)}${line}`;
           if (value === '') return '';
+          if (value instanceof XlsxDate) {
+            // Style 2 below is numFmtId 14, Excel's own short date.
+            return `<c r="${reference}" s="2"><v>${value.serial}</v></c>`;
+          }
           if (typeof value === 'number') return `<c r="${reference}"><v>${value}</v></c>`;
           if (value.startsWith('inline:')) {
             return `<c r="${reference}" t="inlineStr"><is><t>${escape(value.slice(7))}</t></is></c>`;
@@ -106,6 +118,11 @@ export function makeXlsx(rows: Array<Array<string | number>>): Buffer {
       name: 'xl/_rels/workbook.xml.rels',
       content:
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/notes.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/organisation.xml"/></Relationships>',
+    },
+    {
+      name: 'xl/styles.xml',
+      content:
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="165" formatCode="dd/mm/yyyy"/></numFmts><cellXfs count="4"><xf numFmtId="0"/><xf numFmtId="0"/><xf numFmtId="14"/><xf numFmtId="165"/></cellXfs></styleSheet>',
     },
     {
       name: 'xl/sharedStrings.xml',

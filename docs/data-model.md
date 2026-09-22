@@ -100,6 +100,25 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 - `shared_contributions` leaves out steps whose work is binned or purged, as
   `completed_contributions` has since v87; its columns are unchanged.
 
+## v205 Backlog import
+
+- `esh_import_batches` records the file: its name, sha256, the register its references belong to,
+  the sheet, header row, date convention and the reviewed mapping. A non-discarded batch holds the
+  hash uniquely, so the same file cannot become two imports.
+- `esh_import_rows` keeps both readings of every nonblank row — `raw` as the workbook holds it and
+  `mapped` as this organisation reads it — with its outcome, problems, duplicate and the finding it
+  became. Amending changes the reading; the original is never rewritten.
+- `esh_import_owner_emails` records a name-to-address decision for the batch, including a decision
+  to leave a name unassigned.
+- `esh_import_evidence_refs` holds photographs and links the import could not bring in. Each one
+  reaches `imported`, `acknowledged` or `failed` before the batch can be released.
+- `esh_findings.source_register`, `import_batch_id` and `import_row_id` record provenance, with a
+  unique register/reference index so a re-import links rather than duplicates.
+- `esh_finding_actions.followup_active_from` is when reminders and escalation begin for that
+  action; the release sets it so a released backlog does not escalate on the next daily run.
+- `esh_notification_outbox.import_batch_id` carries one `import_assignment` summary per owner per
+  release instead of one assignment email per row.
+
 ## v204 Finding weekly reports
 
 - `esh_report_definitions` is the versioned schedule and scope. Definitions are Draft by default;
