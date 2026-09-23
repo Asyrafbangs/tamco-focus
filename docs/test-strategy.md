@@ -106,6 +106,34 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v212 handover and step evidence
+
+- pgTAP (13) proves that naming a successor keeps the address canonically with the message while
+  creating no contact and no grant and leaving the assignment untouched, that the request comes
+  back on the next read, that a malformed address is simply not a request, and that only ESH can
+  hand the work over.
+- Playwright walks the handover across both sides, unblocks a held email as an administrator who
+  is also ESH — checking that enabling sends nothing and the release is still separate — and steps
+  through the finding form.
+- One assertion in the handover test waits on the owner row rather than the successor's address
+  anywhere on the page: the address is already on screen inside the request, so the looser wait
+  would have passed before anything moved.
+
+## v211 owner-conversation evidence
+
+- pgTAP (14) proves that asking for more time writes the date onto the message while the deadline,
+  to the hour, stays where it was and nothing is recorded as a due-date change; that saying
+  anything still starts the work; that the ask comes back on the next read, which is what makes it
+  answerable; that somebody outside ESH cannot grant it and ESH cannot grant it without a reason;
+  and that granting it records the change and tells the owner.
+- Playwright walks both sides in one test: the owner opens their link on a 390px screen, reads what
+  ESH needs without opening anything, asks for more time, and sees the deadline unmoved; then ESH
+  opens the finding, sees the ask and moves the deadline to exactly that date with one press. A
+  second test counts the fields the new finding form asks for and checks the defaults are under
+  More settings rather than dropped.
+- Both assertions that could have passed vacuously were rewritten: the words "15 Oct 2026" appear
+  in the owner's own ask, so the test waits on the deadline itself changing instead.
+
 ## v210 letter, preview and health evidence
 
 - pgTAP (35) proves the scheduler's record cannot be rewritten or deleted, that a browser cannot

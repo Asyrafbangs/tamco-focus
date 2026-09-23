@@ -210,6 +210,10 @@ export async function sendOwnerUpdate(input: {
   body: string;
   clientKey: string;
   assetIds?: string[];
+  /** v211 - a date the owner is asking for. It changes nothing by itself. */
+  proposedDueDate?: string | null;
+  /** v212 - who they say should hold it instead. Also only a request. */
+  proposedOwnerEmail?: string | null;
 }): Promise<SendUpdateResult> {
   const actionId = uuid.safeParse(input.actionId);
   if (!actionId.success) return { ok: false, code: 'not_available' };
@@ -221,6 +225,10 @@ export async function sendOwnerUpdate(input: {
     p_body: String(input.body ?? ''),
     p_client_key: String(input.clientKey ?? ''),
     p_asset_ids: assetIdsFrom(input.assetIds),
+    p_proposed_due_date: /^\d{4}-\d{2}-\d{2}$/.test(input.proposedDueDate ?? '')
+      ? input.proposedDueDate
+      : null,
+    p_proposed_owner_email: input.proposedOwnerEmail?.trim() || null,
   });
   if (error) {
     console.error(`[esh_guest_send_message] ${error.code ?? 'unknown'}: ${error.message}`);

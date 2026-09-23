@@ -1998,6 +1998,7 @@ export type Database = {
           kind: string
           organization_id: string
           proposed_due_date: string | null
+          proposed_owner_email: string | null
           sent_at: string
         }
         Insert: {
@@ -2014,6 +2015,7 @@ export type Database = {
           kind?: string
           organization_id: string
           proposed_due_date?: string | null
+          proposed_owner_email?: string | null
           sent_at?: string
         }
         Update: {
@@ -2030,6 +2032,7 @@ export type Database = {
           kind?: string
           organization_id?: string
           proposed_due_date?: string | null
+          proposed_owner_email?: string | null
           sent_at?: string
         }
         Relationships: [
@@ -15243,6 +15246,7 @@ export type Database = {
           p_bulk_operation_id?: string
           p_client_key: string
           p_proposed_due_date?: string
+          p_proposed_owner_email?: string
           p_session: string
         }
         Returns: Json

@@ -88,6 +88,54 @@ export interface ContactAccessState {
   message: string;
 }
 
+/**
+ * v212 - the same switch, thrown from the finding that is waiting on it.
+ *
+ * An assignment that is held says so on the finding, and until now the only
+ * way to unblock it was to know that contact access lives under Identity and
+ * access, in another part of the application, and to go and find it. Findings
+ * were recorded and then sat silent because nobody made that journey. This is
+ * the identical audited act, offered where the problem is visible.
+ */
+export async function enableContactForFinding(input: {
+  principalId: string;
+  findingId: string;
+  reason: string;
+}): Promise<ContactAccessState> {
+  const profile = await requireProfile();
+  if (profile.role !== 'administrator') {
+    return { ok: false, message: contactAccessProblem('not_permitted') };
+  }
+  const principalId = uuid.safeParse(input.principalId);
+  const findingId = uuid.safeParse(input.findingId);
+  if (!principalId.success || !findingId.success) {
+    return { ok: false, message: contactAccessProblem('contact_not_found') };
+  }
+  const reason = String(input.reason ?? '').trim();
+  if (reason.length < 3) {
+    return { ok: false, message: 'Say why this contact may be written to.' };
+  }
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_set_contact_access', {
+    p_principal_id: principalId.data,
+    p_enabled: true,
+    p_reason: reason,
+  });
+  if (error) {
+    console.error(`[esh_set_contact_access] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false, message: 'Something went wrong and nothing was changed. Try again.' };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string; unchanged?: boolean };
+  if (!result.ok) return { ok: false, message: contactAccessProblem(result.code) };
+  revalidatePath(`/findings/${findingId.data}`);
+  revalidatePath('/more/admin/contacts');
+  return {
+    ok: true,
+    // Enabling is not sending: the release below it is still a separate press.
+    message: 'Access on. Nothing has been sent yet — release the held email below.',
+  };
+}
+
 /** An administrator switches an email contact's access on or off (§31.3, §43.2). */
 export async function setContactAccess(
   _previous: ContactAccessState | null,

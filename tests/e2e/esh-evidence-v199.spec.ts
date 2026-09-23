@@ -149,7 +149,7 @@ test('v199 an owner sends a photo, submits it as it was, withdraws and resubmits
   await expect(page.locator('#guest-composer-problem')).toHaveText(
     'To submit for review, attach at least one file showing the correction.',
   );
-  await expect(page.locator('.guest-state')).toHaveText('Assigned');
+  await expect(page.locator('.guest-chat-meta')).toContainText('Assigned');
 
   // A renamed file is refused; a real photo is ready (FM47).
   await attach(page, 'guard.jpg', Buffer.from('MZ this is not a photo'), 'image/jpeg');
@@ -170,7 +170,7 @@ test('v199 an owner sends a photo, submits it as it was, withdraws and resubmits
     .locator('.esh-message.mine')
     .filter({ hasText: 'Guard refitted and tested.' });
   await expect(update.locator('.esh-file')).toContainText('Guard refitted.jpg');
-  await expect(page.locator('.guest-state')).toHaveText('In progress');
+  await expect(page.locator('.guest-chat-meta')).toContainText('In progress');
 
   // The file opens through the owner's own access route (FM49).
   const href = await update.locator('.esh-file a').getAttribute('href');
@@ -179,18 +179,18 @@ test('v199 an owner sends a photo, submits it as it was, withdraws and resubmits
 
   // Submitted exactly as it was sent: no retyping, no second upload (FM18).
   await update.getByRole('button', { name: 'Submit this update for review' }).click();
-  await expect(page.locator('.guest-state')).toHaveText('Awaiting ESH review');
+  await expect(page.locator('.guest-chat-meta')).toContainText('Awaiting ESH review');
   await expect(page.locator('.esh-submission-mark')).toHaveText(
     'Submitted for ESH review (version 1). This finding is still open.',
   );
   await expect(page.getByRole('button', { name: 'Submit for review' })).toHaveCount(0);
   await expect(
-    page.getByText('New messages do not replace your submitted evidence.'),
+    page.getByText('ESH is reviewing. New messages do not replace what you submitted.'),
   ).toBeVisible();
 
   // Withdraw to revise, then submit a new version from the composer (FM22).
   await page.getByRole('button', { name: 'Withdraw to revise' }).click();
-  await expect(page.locator('.guest-state')).toHaveText('In progress');
+  await expect(page.locator('.guest-chat-meta')).toContainText('In progress');
   await expect(page.locator('.esh-submission-mark')).toHaveText(
     'Version 1 was withdrawn to revise it.',
   );
@@ -198,7 +198,7 @@ test('v199 an owner sends a photo, submits it as it was, withdraws and resubmits
   await expect(page.locator('.esh-upload[data-status="ready"]')).toHaveCount(1);
   await page.getByLabel('Message ESH').fill('Close-up of the fixings added.');
   await page.getByRole('button', { name: 'Submit for review' }).click();
-  await expect(page.locator('.guest-state')).toHaveText('Awaiting ESH review');
+  await expect(page.locator('.guest-chat-meta')).toContainText('Awaiting ESH review');
   await expect(page.locator('.esh-submission-mark[data-state="pending"]')).toHaveText(
     'Submitted for ESH review (version 2). This finding is still open.',
   );
@@ -232,7 +232,7 @@ test('v199 ESH reads the fixed submission and adds original evidence the owner c
   await expect(owner.locator('.esh-upload[data-status="ready"]')).toHaveCount(1);
   await owner.getByLabel('Message ESH').fill('Refitted.');
   await owner.getByRole('button', { name: 'Submit for review' }).click();
-  await expect(owner.locator('.guest-state')).toHaveText('Awaiting ESH review');
+  await expect(owner.locator('.guest-chat-meta')).toContainText('Awaiting ESH review');
 
   // ESH sees it, fixed, with its file; and adds the original photo.
   await signIn(page, 'izzul@tamco.local');

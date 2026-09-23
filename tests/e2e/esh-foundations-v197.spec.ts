@@ -109,6 +109,8 @@ test('v197 a Verifier records and assigns a finding to an email address', async 
 
   // Assign with only a title: every missing part is named, and nothing saved.
   await page.getByLabel('Finding title').fill(title);
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
   await page.getByRole('button', { name: 'Assign finding' }).click();
   const summary = page.locator('.notice.error');
   await expect(summary).toContainText('Describe what was found.');
@@ -124,12 +126,14 @@ test('v197 a Verifier records and assigns a finding to an email address', async 
   await page.getByLabel('What was found').fill('Materials extend into the marked walkway.');
   await page.getByLabel('Location').fill('BR2 Warehouse');
   await page.getByLabel('Accountable department').selectOption({ label: 'Operations' });
+  await page.getByRole('button', { name: 'Next' }).click();
   await page.getByLabel('Required outcome').fill('Clear the walkway.');
   await page.getByLabel('Action Owner email').fill(`  ${owner.toUpperCase()} `);
   // The whole address, spelled out before assignment (§7).
   await expect(page.locator('.esh-recipient-confirm')).toContainText(owner.toUpperCase());
   await page.getByLabel('Action priority').selectOption('high');
   await page.getByLabel('Due date').fill('2026-12-15');
+  await page.getByRole('button', { name: 'Next' }).click();
   const level1 = page.getByRole('textbox', { name: 'Level 1', exact: true });
   await level1.fill(`supervisor.${id}@example.com, SUPERVISOR.${id}@example.com`);
   await level1.press('Enter');
@@ -164,6 +168,7 @@ test('v197 a draft keeps what was entered and can be finished later', async ({
   await page.goto('/findings/new');
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   await page.getByLabel('Finding title').fill(title);
+  await page.getByRole('button', { name: 'Next' }).click();
   await page.getByLabel('Action Owner email').fill(`draft.${id}@example.com`);
   await page.getByRole('button', { name: 'Save draft' }).click();
   await expect(page).toHaveURL(/\?saved=draft/, { timeout: 30_000 });
@@ -172,13 +177,14 @@ test('v197 a draft keeps what was entered and can be finished later', async ({
   // Reopened from the register, the draft is the same form, filled in.
   await page.goto('/findings/register');
   await page.locator('.esh-register-row').filter({ hasText: title }).click();
-  await expect(page.getByLabel('Action Owner email')).toHaveValue(`draft.${id}@example.com`);
-
   await page.getByLabel('What was found').fill('Found during the weekly walk.');
   await page.getByLabel('Accountable department').selectOption({ label: 'Operations' });
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByLabel('Action Owner email')).toHaveValue(`draft.${id}@example.com`);
   await page.getByLabel('Required outcome').fill('Put it right.');
   await page.getByLabel('Action priority').selectOption('normal');
   await page.getByLabel('Due date').fill('2026-12-20');
+  await page.getByRole('button', { name: 'Next' }).click();
   await page.getByLabel('No further escalation').check();
   await page.getByLabel('Why there is no further escalation').fill('Single-level route agreed');
   await page.getByRole('button', { name: 'Assign finding' }).click();

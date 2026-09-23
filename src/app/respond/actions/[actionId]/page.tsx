@@ -15,10 +15,17 @@ import { loadGuestAction } from '@/server/esh/guest';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * The owner's action (§11): a compact header, the conversation and the
- * composer — three areas, no forms, no tabs. Every load asks the database
- * again whether this session still reaches the action (§20), so a
- * reassignment or a switched-off contact is honoured on the next request.
+ * The owner's action (§11), as a conversation.
+ *
+ * One line of identity at the top, what ESH needs pinned beneath it, the
+ * thread, and the composer: the shape of every messaging app, because an
+ * Action Owner arrives here from an email, on a phone, with no account and no
+ * training. The finding, its evidence and the ESH contact stay one tap away
+ * rather than filling the screen above the first message.
+ *
+ * Every load asks the database again whether this session still reaches the
+ * action (§20), so a reassignment or a switched-off contact is honoured on the
+ * next request.
  */
 export default async function GuestActionPage({
   params,
@@ -118,27 +125,27 @@ export default async function GuestActionPage({
   return (
     <>
       <GuestTopBar identity={identity} />
-      <main id="guest-main" className="guest-main">
-        {!escalation && (
-          <Link href="/respond/my-actions" className="esh-back-link">
-            ← My Actions
-          </Link>
-        )}
-        <p className="guest-eyebrow">
-          {[data.finding.reference, data.finding.location ?? data.finding.department]
-            .filter(Boolean)
-            .join(' · ')}
-        </p>
-        <h1 className="guest-title">{data.action.title}</h1>
-        <span className="flag neutral guest-state">{ACTION_STATE_LABELS[data.action.state]}</span>
-        <p className="guest-meta">
-          {[
-            due ? `Due ${due}` : null,
-            `Owner: ${escalation ? (data.ownerEmail ?? 'Action Owner') : (data.displayName ?? data.email)}`,
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        </p>
+      <main id="guest-main" className="guest-main guest-chat">
+        <header className="guest-chat-head">
+          {!escalation && (
+            <Link href="/respond/my-actions" className="guest-chat-back" aria-label="My Actions">
+              <span aria-hidden="true">←</span>
+            </Link>
+          )}
+          <div className="guest-chat-headings">
+            <h1 className="guest-chat-title">{data.action.title}</h1>
+            <p className="guest-chat-meta">
+              {[
+                data.finding.reference,
+                ACTION_STATE_LABELS[data.action.state],
+                due ? `Due ${due}` : null,
+                data.finding.location ?? data.finding.department,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          </div>
+        </header>
         {escalation && (
           <div className="notice amber guest-role-notice">
             <strong>Escalation level {data.escalationLevel ?? 1}</strong>
@@ -160,7 +167,10 @@ export default async function GuestActionPage({
           </div>
         )}
         {data.action.requiredOutcome && (
-          <p className="guest-outcome">{data.action.requiredOutcome}</p>
+          <section className="guest-pinned" aria-label="What ESH needs">
+            <span className="guest-pinned-label">What ESH needs</span>
+            <p>{data.action.requiredOutcome}</p>
+          </section>
         )}
         <details className="guest-original">
           <summary>Original finding &amp; evidence</summary>

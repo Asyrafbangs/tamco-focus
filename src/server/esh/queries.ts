@@ -391,6 +391,8 @@ export interface FindingDetail {
     createdAt: string;
     recipient: string | null;
     recipientEnabled: boolean;
+    /** v212 - so a held email can be unblocked where it is read. */
+    recipientPrincipalId: string | null;
   }>;
   /** v198 - the owner conversation of the first action, oldest first. */
   conversation: ConversationEntry[];
@@ -533,7 +535,9 @@ export async function getFindingDetail(
     action
       ? supabase
           .from('esh_action_messages')
-          .select('id, author_kind, author_name, author_email, body, sent_at')
+          .select(
+            'id, author_kind, author_name, author_email, body, sent_at, proposed_due_date, proposed_owner_email',
+          )
           .eq('action_id', action.id)
           .order('sent_at')
           .limit(500)
@@ -545,6 +549,8 @@ export async function getFindingDetail(
             author_email: string;
             body: string;
             sent_at: string;
+            proposed_due_date: string | null;
+            proposed_owner_email: string | null;
           }>,
         }),
     supabase
@@ -733,6 +739,7 @@ export async function getFindingDetail(
       recipientEnabled: Boolean(
         row.recipient_principal_id && reachable.has(row.recipient_principal_id),
       ),
+      recipientPrincipalId: row.recipient_principal_id ?? null,
     })),
     openActionCount: openActions ?? 0,
     closure: {
@@ -771,6 +778,8 @@ export async function getFindingDetail(
       authorEmail: row.author_email ?? null,
       body: String(row.body),
       sentAt: String(row.sent_at),
+      proposedDueDate: row.proposed_due_date ?? null,
+      proposedOwnerEmail: row.proposed_owner_email ?? null,
       files: evidence.filter((file) => file.messageId === String(row.id)).map(toFile),
     })),
     originalEvidence: evidence.filter((file) => file.purpose === 'original').map(toFile),

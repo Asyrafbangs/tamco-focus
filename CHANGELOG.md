@@ -1,5 +1,49 @@
 # TAMCO Focus — Change Log
 
+## v212 One question at a time, "not mine", and a held email you can unblock — 23 September 2026
+
+- **Recording a finding is three steps.** What was found, then who puts it right by when, then who
+  to tell if it runs late. A step already answered is marked; the rest of the form is still one
+  form and one save, so nothing is lost by moving between them. A problem pulls the form back to
+  the step that holds it rather than reporting it against a screen nobody is looking at.
+- **An owner can say "not mine" and name who should hold it.** The address rides with their
+  message exactly as a requested date does: it creates no contact, issues no link and moves no
+  work. ESH sees "Says this belongs to …" and hands it over with one press, which is the ordinary
+  reassignment — new assignment interval, reason, audit, old links revoked.
+- **A held email can be unblocked where it is held.** A finding whose assignment is waiting now
+  says so in plain words and offers the switch: an administrator enables the contact from the
+  finding itself, with a reason, instead of knowing to go to Identity and access. Enabling still
+  sends nothing — releasing the email remains a separate press.
+- **Fixed: pressing Next saved the finding.** Rendered as one conditional, React reconciled Next
+  and Assign into the same DOM node and only flipped `type` from button to submit, which the
+  browser honoured for the click already in flight. A half-answered finding could be assigned by
+  somebody navigating the form. Found by a test, not by a user.
+- pgTAP (13), three desktop journeys, and screenshots at 390 and 1440.
+
+## v211 Recording a finding in ninety seconds, and an owner's screen that reads like a chat — 23 September 2026
+
+Two screens, reshaped around the people who actually use them.
+
+- **The new finding form asks for eight things.** What was found, where, whose department, what has
+  to change, who does it, how urgent, by when, and who to tell if it runs late. Everything that
+  already had a sound answer — the date it was reported, where it came from, what evidence to
+  send, who verifies it, the time of day it falls due, risk, restriction — moved under More
+  settings. It is all still submitted; it is just no longer asked for. Escalation starts with one
+  level instead of three empty boxes, and More settings opens itself if something inside it is what
+  needs correcting.
+- **The Action Owner's page is a conversation.** One line of identity at the top, what ESH needs
+  pinned beneath it, the thread, and a bar at the bottom that stays on screen: attach, write, send.
+  Enter sends. The finding, its original evidence and the ESH contact are one tap away instead of
+  filling the screen above the first message.
+- **An owner can ask for more time, and ESH can grant it in one press.** The date they ask for is
+  kept with their message and shown to both sides. It moves nothing by itself — only ESH moves a
+  deadline, with a reason, on the record. Granting it is now a single button that sets exactly the
+  date that was asked for.
+- **Fixed: due-date changes were invisible until a verification existed.** They were rendered
+  inside the Verification card, which only appears once a submission has been decided — so a
+  deadline moved early was recorded correctly and shown to nobody. They now have their own card.
+- pgTAP (14), two desktop journeys, and screenshots at 390 and 1440.
+
 ## v210 What the letter says, what a preview shows, and whether anything ran — 23 September 2026
 
 The last four things a second reading of the specification found missing, none of which a passing

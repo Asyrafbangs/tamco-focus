@@ -13390,7 +13390,9 @@ span.deadline span.deadline-glyph,
 /* ------------------------------------------------------------------------ */
 
 .guest-app {
-  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
   background: var(--bg);
 }
 .guest-topbar {
@@ -13583,27 +13585,6 @@ span.deadline span.deadline-glyph,
   margin-top: 8px;
 }
 
-.guest-eyebrow {
-  margin: 8px 0 6px;
-  color: var(--muted);
-  font-size: 12px;
-}
-.guest-state {
-  display: inline-flex;
-  margin-top: 12px;
-}
-.guest-meta {
-  margin: 12px 0 0;
-  color: var(--muted);
-}
-.guest-outcome {
-  margin: 14px 0 0;
-  color: var(--text);
-  font-size: calc(15px * var(--font-scale));
-  line-height: 1.55;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
 .guest-original {
   margin-top: 12px;
 }
@@ -14369,4 +14350,315 @@ span.deadline span.deadline-glyph,
   margin: 0;
   padding-left: 18px;
   color: var(--muted);
+}
+
+/* ---------------------------------------------------------------------------
+ * v211 — the Action Owner's screen, as a conversation.
+ *
+ * An owner arrives from an email, on a phone, with no account. The shape they
+ * already know is a messaging app: who this is with at the top, the thread in
+ * the middle, and a bar at the bottom that never leaves the screen.
+ * ------------------------------------------------------------------------- */
+
+.guest-chat {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding-top: 0;
+  padding-bottom: 12px;
+}
+/*
+ * The thread takes whatever room is left, and its messages sit at the bottom
+ * of it, so a conversation with two lines in it still reads as a conversation
+ * rather than as a page with a gap underneath.
+ */
+.guest-chat .guest-thread {
+  flex: 1 1 auto;
+  align-content: end;
+}
+.guest-chat-head {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 -20px;
+  padding: 10px 20px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+.guest-chat-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  margin-left: -10px;
+  color: var(--blue);
+  font-size: calc(18px * var(--font-scale));
+  text-decoration: none;
+}
+.guest-chat-headings {
+  min-width: 0;
+}
+.guest-chat-title {
+  margin: 0;
+  font-size: calc(17px * var(--font-scale));
+  line-height: 1.3;
+  /* Two lines, then an ellipsis: a long title must not push the thread off. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.guest-chat-meta {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+  overflow-wrap: anywhere;
+}
+
+/* What ESH needs, kept in sight the way a pinned message is. */
+.guest-pinned {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--blue);
+  border-radius: var(--radius-sm);
+}
+.guest-pinned-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: calc(11px * var(--font-scale));
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.guest-pinned p {
+  margin: 0;
+  font-size: calc(15px * var(--font-scale));
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The bar itself: attach, write, send — on one line, always reachable. */
+.guest-chat .guest-composer {
+  position: sticky;
+  bottom: 0;
+  margin-top: 16px;
+  padding: 10px 0 8px;
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+}
+.guest-composer-bar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'input input'
+    'attach send';
+  align-items: center;
+  gap: 8px;
+}
+@media (min-width: 640px) {
+  .guest-composer-bar {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas: 'attach input send';
+  }
+}
+.guest-composer-bar .esh-attach-buttons {
+  grid-area: attach;
+  justify-self: start;
+  justify-content: flex-start;
+}
+.guest-composer-bar .esh-attach-buttons .btn {
+  flex: none;
+  white-space: nowrap;
+}
+.guest-chat .guest-composer-input {
+  grid-area: input;
+  width: 100%;
+  min-height: 44px;
+  max-height: 140px;
+  padding: 11px 14px;
+  border-radius: 22px;
+  resize: none;
+}
+.guest-composer-bar .guest-send {
+  grid-area: send;
+  justify-self: end;
+}
+.guest-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  font-size: calc(18px * var(--font-scale));
+  cursor: pointer;
+}
+.guest-send:disabled {
+  background: var(--line);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.guest-chat .guest-composer-actions {
+  justify-content: space-between;
+  margin-top: 8px;
+}
+.guest-ask-time {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.guest-ask-time input {
+  max-width: 220px;
+}
+.guest-ask-time .guest-note {
+  margin: 0;
+}
+
+/*
+ * The escalation recipient keeps their labelled box, but a 110px textarea
+ * pinned to the bottom of a phone screen eats the conversation above it.
+ */
+.guest-chat .esh-field textarea {
+  min-height: 72px;
+}
+
+/* The attach controls sit inside the bar rather than above it. */
+.guest-chat .guest-composer-bar .esh-attach {
+  margin: 0;
+}
+
+/* v211 — a date the owner asked for, and ESH's one press that grants it. */
+.esh-message-ask {
+  margin: 6px 0 0;
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+  color: var(--muted);
+  font-size: calc(13px * var(--font-scale));
+}
+.esh-accept-date {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* v212 — enabling a contact from the finding that is waiting on it. */
+.esh-enable-contact {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.esh-enable-contact input {
+  min-width: 240px;
+  max-width: 100%;
+}
+
+/* ---------------------------------------------------------------------------
+ * v212 — recording a finding, one question at a time.
+ *
+ * The whole form is still one form and one save; the steps only decide what is
+ * on screen. A step already answered is marked, so the shape of the job is
+ * visible from the first screen rather than implied by a scrollbar.
+ * ------------------------------------------------------------------------- */
+
+/*
+ * `display: grid` on the card would beat the UA's rule for [hidden] and leave
+ * a step on screen that the form believes is put away. The same trap as the
+ * task detail's scroll region.
+ */
+.esh-form-card[hidden],
+.esh-form-more[hidden] {
+  display: none;
+}
+
+.esh-steps {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.esh-step {
+  flex: 1;
+  min-width: 0;
+}
+.esh-step button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: calc(13px * var(--font-scale));
+  text-align: left;
+  cursor: pointer;
+}
+.esh-step[data-state='current'] button {
+  color: var(--heading);
+  font-weight: 700;
+  border-color: var(--blue);
+  box-shadow: inset 0 -2px 0 var(--blue);
+}
+.esh-step[data-state='done'] button {
+  color: var(--text);
+  border-color: var(--blue);
+}
+.esh-step-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  background: var(--line);
+  color: var(--muted);
+  border-radius: 50%;
+  font-size: calc(12px * var(--font-scale));
+  font-weight: 700;
+}
+.esh-step[data-state='current'] .esh-step-mark,
+.esh-step[data-state='done'] .esh-step-mark {
+  background: var(--blue);
+  color: #fff;
+}
+.esh-step-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 520px) {
+  .esh-step-name {
+    /* Numbers alone on a phone; the heading below says where you are. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .esh-step button {
+    justify-content: center;
+  }
 }

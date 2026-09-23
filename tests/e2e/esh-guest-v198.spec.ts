@@ -176,7 +176,7 @@ test('v198 an owner opens their email link in a browser that never signed in', a
   // The secret has left the address bar (§18).
   expect(page.url()).not.toContain(actionLink.secret);
   await expect(page.getByRole('heading', { name: arranged.walkway.title })).toBeVisible();
-  await expect(page.locator('.guest-state')).toHaveText('Assigned');
+  await expect(page.locator('.guest-chat-meta')).toContainText('Assigned');
   await expect(page.getByText('Keep the marked walkway clear.')).toBeVisible();
   await expect(page.locator('.guest-identity')).toContainText(arranged.owner);
   // No way into the staff application from here (§11).
@@ -189,10 +189,10 @@ test('v198 an owner opens their email link in a browser that never signed in', a
   await expect(page.locator('.esh-message.mine')).toContainText(
     'Done. We are moving the materials this morning.',
   );
-  await expect(page.locator('.guest-state')).toHaveText('In progress');
+  await expect(page.locator('.guest-chat-meta')).toContainText('In progress');
 
   // An action link is not an inbox, even by editing the address (FM09).
-  await page.getByRole('link', { name: '← My Actions' }).click();
+  await page.getByRole('link', { name: 'My Actions', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Your link opens one action' })).toBeVisible();
   await page.goto(`/respond/my-actions?email=${encodeURIComponent('someone@example.com')}`);
   await expect(page.getByRole('heading', { name: 'Your link opens one action' })).toBeVisible();
@@ -215,7 +215,7 @@ test('v198 an owner opens their email link in a browser that never signed in', a
   // Into a row and back again (FM08).
   await rows.nth(0).click();
   await expect(page.getByRole('heading', { name: arranged.exit.title })).toBeVisible();
-  await page.getByRole('link', { name: '← My Actions' }).click();
+  await page.getByRole('link', { name: 'My Actions', exact: true }).click();
   await expect(page.locator('.guest-action-row')).toHaveCount(2);
 
   // End access on a shared device (§10).

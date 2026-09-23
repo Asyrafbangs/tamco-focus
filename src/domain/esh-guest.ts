@@ -202,6 +202,10 @@ export interface ConversationEntry {
   files?: EvidenceFile[];
   /** v199 - an update of the owner's own that they may submit as it is. */
   submittable?: boolean;
+  /** v211 - a date the owner asked for with this message. Changes nothing. */
+  proposedDueDate?: string | null;
+  /** v212 - who the owner says should hold this instead. Also a request. */
+  proposedOwnerEmail?: string | null;
 }
 
 /**

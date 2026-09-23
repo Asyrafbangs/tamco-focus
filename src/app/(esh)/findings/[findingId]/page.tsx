@@ -8,6 +8,7 @@ import { FindingOutcome } from '@/components/esh/FindingOutcome';
 import { ReopenFinding } from '@/components/esh/ReopenFinding';
 import { VerifyPanel } from '@/components/esh/VerifyPanel';
 import { FindingForm } from '@/components/esh/FindingForm';
+import { EnableContactInline } from '@/components/esh/EnableContactInline';
 import { ReleaseNotificationButton } from '@/components/esh/ReleaseNotificationButton';
 import { StaffMessageForm } from '@/components/esh/StaffMessageForm';
 import { evidenceLabel } from '@/domain/esh-evidence';
@@ -233,6 +234,7 @@ export default async function FindingPage({
         canCoordinate={access.canCoordinate}
         canVerify={access.canVerify}
         viewerEmail={profile.email}
+        isAdministrator={profile.role === 'administrator'}
       />
     </>
   );
@@ -266,12 +268,15 @@ function FindingSummary({
   canCoordinate,
   canVerify,
   viewerEmail,
+  isAdministrator,
 }: {
   finding: FindingDetail;
   timeZone: string;
   canCoordinate: boolean;
   canVerify: boolean;
   viewerEmail: string;
+  /** Only an administrator may switch a contact's access on (§31.3). */
+  isAdministrator: boolean;
 }) {
   const dateTime = (instant: string, dateOnly = false) =>
     new Intl.DateTimeFormat('en-MY', {
@@ -438,24 +443,32 @@ function FindingSummary({
               </li>
             ))}
           </ol>
-          {finding.dueChanges.length > 0 && (
-            <>
-              <h3 className="esh-subheading">Due-date changes</h3>
-              <ol className="esh-history">
-                {finding.dueChanges.map((change) => (
-                  <li key={change.changedAt}>
-                    <strong>
-                      {change.oldDueAt ? `${dateTime(change.oldDueAt, true)} → ` : ''}
-                      {dateTime(change.newDueAt, true)}
-                    </strong>
-                    <span>
-                      {change.changedByName} · {dateTime(change.changedAt)} · {change.reason}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </>
-          )}
+        </section>
+      )}
+
+      {/*
+       * v211 - its own card, not a footnote inside Verification. It used to
+       * be nested there, so a deadline moved before any verification decision
+       * existed was recorded correctly and then shown to nobody.
+       */}
+      {finding.dueChanges.length > 0 && (
+        <section className="esh-form-card" aria-labelledby="esh-detail-due-changes">
+          <h2 id="esh-detail-due-changes" className="esh-form-card-title">
+            Due-date changes
+          </h2>
+          <ol className="esh-history">
+            {finding.dueChanges.map((change) => (
+              <li key={change.changedAt}>
+                <strong>
+                  {change.oldDueAt ? `${dateTime(change.oldDueAt, true)} → ` : ''}
+                  {dateTime(change.newDueAt, true)}
+                </strong>
+                <span>
+                  {change.changedByName} · {dateTime(change.changedAt)} · {change.reason}
+                </span>
+              </li>
+            ))}
+          </ol>
         </section>
       )}
 
@@ -574,6 +587,11 @@ function FindingSummary({
             now={new Date()}
             fileBase="/findings/files"
             submissions={finding.submissions}
+            decideProposalFor={
+              canCoordinate && actionOpen && action
+                ? { actionId: action.id, findingId: finding.id }
+                : null
+            }
             emptyText="No messages yet. The owner’s updates and ESH replies appear here."
           />
           {canCoordinate && actionOpen && action.ownerEmail && (
@@ -616,11 +634,27 @@ function FindingSummary({
                       ? 'Held — not yet released. Their access is on; release it when ready.'
                       : (NOTIFICATION_STATE_LABELS[entry.state] ?? entry.state)}
                   {entry.state === 'held_rollout' && !entry.recipientEnabled
-                    ? '. Sent once an administrator enables this contact and ESH releases it.'
+                    ? '. Nothing reaches them until this contact is enabled and the email is released — two deliberate acts, both below.'
                     : ''}
                   {entry.state === 'suppressed' && entry.stateReason
                     ? ` · ${NOTIFICATION_REASON_LABELS[entry.stateReason] ?? entry.stateReason}`
                     : ''}
+                  {/*
+                   * v212 - the remedy stands next to the problem. Enabling is
+                   * an administrator's act and still grants only access; the
+                   * release below it remains ESH's separate decision.
+                   */}
+                  {entry.state === 'held_rollout' &&
+                    !entry.recipientEnabled &&
+                    isAdministrator &&
+                    entry.recipientPrincipalId &&
+                    entry.recipient && (
+                      <EnableContactInline
+                        principalId={entry.recipientPrincipalId}
+                        findingId={finding.id}
+                        recipient={entry.recipient}
+                      />
+                    )}
                   {entry.state === 'held_rollout' &&
                     entry.recipientEnabled &&
                     canCoordinate &&

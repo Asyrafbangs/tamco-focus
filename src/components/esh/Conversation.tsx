@@ -1,3 +1,5 @@
+import { AcceptHandover } from '@/components/esh/AcceptHandover';
+import { AcceptProposedDate } from '@/components/esh/AcceptProposedDate';
 import { SubmitSentUpdate } from '@/components/esh/guest/SubmitSentUpdate';
 import { evidenceLabel } from '@/domain/esh-evidence';
 import {
@@ -17,6 +19,10 @@ const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif
  * Oldest first, with a heading for each day. Files open through the reader's
  * own access route (`fileBase`), never a stored link. A message that was
  * submitted for review says so beneath it, with its version (§12).
+ *
+ * A message may also carry a date the owner asked for (v211) or the person
+ * they say should hold the work instead (v212). Both sides see the ask; only
+ * ESH is offered the one press that grants it (§14).
  */
 export function Conversation({
   entries,
@@ -28,6 +34,7 @@ export function Conversation({
   submissions = [],
   submitFor = null,
   viewerPrincipalId = null,
+  decideProposalFor = null,
 }: {
   entries: ConversationEntry[];
   viewer: 'owner' | 'staff' | 'escalation';
@@ -39,10 +46,29 @@ export function Conversation({
   submissions?: SubmissionMark[];
   /** The owner's action, when an update they sent may still be submitted. */
   submitFor?: string | null;
+  /** ESH's own finding, when a date the owner asked for may be granted. */
+  decideProposalFor?: { actionId: string; findingId: string } | null;
 }) {
   if (entries.length === 0) {
     return <p className="esh-conversation-empty">{emptyText}</p>;
   }
+  const asked = (date: string) =>
+    new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone,
+    }).format(new Date(`${date}T12:00:00Z`));
+  // Only the last thing asked for is still open to an answer; earlier asks
+  // are history, and offering to grant one of those would be a trap.
+  const latestProposal = entries.reduce<string | null>(
+    (latest, entry) => (entry.proposedDueDate ? entry.id : latest),
+    null,
+  );
+  const latestHandover = entries.reduce<string | null>(
+    (latest, entry) => (entry.proposedOwnerEmail ? entry.id : latest),
+    null,
+  );
   const time = (instant: string) =>
     new Intl.DateTimeFormat('en-GB', {
       hour: '2-digit',
@@ -118,10 +144,35 @@ export function Conversation({
                   </ul>
                 )}
               </div>
+              {entry.proposedDueDate && (
+                <p className="esh-message-ask">
+                  Asked for more time, until <strong>{asked(entry.proposedDueDate)}</strong>
+                </p>
+              )}
+              {entry.proposedOwnerEmail && (
+                <p className="esh-message-ask">
+                  Says this belongs to <strong>{entry.proposedOwnerEmail}</strong>
+                </p>
+              )}
               {submitFor && entry.submittable && !marks.has(entry.id) && (
                 <SubmitSentUpdate actionId={submitFor} messageId={entry.id} />
               )}
             </div>
+            {decideProposalFor && entry.proposedDueDate && entry.id === latestProposal && (
+              <AcceptProposedDate
+                actionId={decideProposalFor.actionId}
+                findingId={decideProposalFor.findingId}
+                date={entry.proposedDueDate}
+                label={asked(entry.proposedDueDate)}
+              />
+            )}
+            {decideProposalFor && entry.proposedOwnerEmail && entry.id === latestHandover && (
+              <AcceptHandover
+                actionId={decideProposalFor.actionId}
+                findingId={decideProposalFor.findingId}
+                email={entry.proposedOwnerEmail}
+              />
+            )}
             {(marks.get(entry.id) ?? []).map((mark) => (
               <p key={mark.version} className="esh-submission-mark" data-state={mark.state}>
                 {mark.state === 'pending'

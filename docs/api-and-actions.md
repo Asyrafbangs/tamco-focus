@@ -108,6 +108,28 @@ the service role. These operations remain local-only in this stage.
 - Its answer repeats the due date and says the follow-up is unchanged, so the screen can say so
   too; nothing in it restarts a reminder or an escalation clock.
 
+## v212 A different owner, and unblocking a held email
+
+- `esh_guest_send_message` takes `p_proposed_owner_email`, canonicalised and kept only when it is
+  a valid address. It creates no principal, issues no grant and does not touch the assignment: the
+  work stays exactly where it was. Both reads return it, as they do the requested date.
+- Granting it is `reassignAction` → `esh_reassign_action`, unchanged, with its reason, its new
+  assignment interval, its audit entry and the old links revoked.
+- `enableContactForFinding(principalId, findingId, reason)` is `esh_set_contact_access` called
+  from the finding that is waiting on it. Administrator only, reason required, and it grants
+  access alone — the held email still needs its separate release.
+
+## v211 The owner's conversation
+
+- `esh_guest_send_message` already accepted `p_proposed_due_date`; `sendOwnerUpdate` now passes it,
+  so a single action's owner can ask for more time the same way a bulk operation could. It writes
+  the date onto the message and changes nothing else — not the deadline, not the reminders.
+- `esh_guest_action` returns `proposed_due_date` with each message, and ESH's own read selects the
+  same column, so the ask is visible on both sides instead of being written and forgotten.
+- Granting it is `changeDueDate` → `esh_change_due`, unchanged: coordinate authority, a reason, a
+  recorded change and a notice to the owner. The button simply fills in the date that was asked
+  for and a reason that says so.
+
 ## v210 Preview, the letter and the scheduler's own record
 
 - `esh_preview_report(definition)` is authenticated report-management. It reads the configured

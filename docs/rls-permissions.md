@@ -102,6 +102,23 @@ security-invoker view and therefore remain constrained by the caller's separate 
 Guest grants and sessions remain unreadable to clients; audited security-definer procedures expose
 only the active-item metadata needed for targeted revocation.
 
+## v212 handover-request boundary
+
+- Naming a successor confers nothing on them: no contact record, no grant, no session, no
+  visibility. The address is readable only where the message is. Reassignment remains coordinate
+  authority within scope.
+- Enabling a contact from a finding is the same administrator-only act as enabling it from the
+  directory, with the same reason and the same audit. It is reachable only by somebody who is both
+  an administrator and Finding staff, because the finding page itself requires Finding access.
+
+## v211 request-for-time boundary
+
+- A requested date is part of a message, so it is readable exactly where that message is: the owner
+  who wrote it, ESH within the finding's department scope, and nobody else. It confers nothing.
+- Only `esh_change_due` moves a deadline, and it still demands coordinate authority within scope, a
+  reason, and an open finding. An owner pressing Ask for more time has made a request, not a
+  change, and the record distinguishes the two.
+
 ## v210 preview and operational boundary
 
 - Previewing a report is the same authority as configuring one: report management within the

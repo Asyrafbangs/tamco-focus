@@ -100,6 +100,13 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 - `shared_contributions` leaves out steps whose work is binned or purged, as
   `completed_contributions` has since v87; its columns are unchanged.
 
+## v212 A named successor on a message
+
+- `esh_action_messages.proposed_owner_email` holds the address an owner names when they say the
+  work is not theirs, canonicalised at insert and only when it is a valid address. It sits beside
+  `proposed_due_date` (v206) and is the same kind of thing: part of what was said, not a change to
+  anything. Nothing joins to it, because the person named may not exist in the system at all.
+
 ## v210 Scheduled runs and the register's escalation level
 
 - `esh_worker_runs` records each scheduled run: which worker, whether it succeeded, what it did,

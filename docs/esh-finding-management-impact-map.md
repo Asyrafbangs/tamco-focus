@@ -120,6 +120,19 @@ before it is activated (§34.1), the register says how far an action has escalat
 scheduled run leaves a record so a daily job that stops is visible on the Overview rather than only
 in a log nobody opens (§27, §33.2).
 
+v211 is built and verified (23 September 2026), from watching the two screens people actually use:
+the new finding form asks for eight things and defaults the rest under More settings (§7), and the
+Action Owner's page is a conversation with a bar at the bottom rather than a document (§11). An
+owner can ask for more time in it; the date is carried with their message and granted, if at all,
+by ESH as an ordinary due-date change (§14). A due-date change is also no longer hidden inside the
+Verification card, where it was invisible until a submission had been decided.
+
+v212 is built and verified (23 September 2026): recording a finding is three steps with the
+answered ones marked (§7); an Action Owner can say the work is not theirs and name who should hold
+it, which ESH grants as an ordinary reassignment (§11, §14); and a held notification offers the
+administrator's switch on the finding that is waiting on it, rather than in another part of the
+application (§31.3, §43.2).
+
 Each stage ships behind the rollout gate, so nothing new is visible to the team until an
 administrator enables them. Each ends with the full verify and, where it adds a migration, a
 `supabase db push`.

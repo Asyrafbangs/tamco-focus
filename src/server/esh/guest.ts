@@ -297,6 +297,8 @@ export async function loadGuestAction(
         body: String(message.body),
         sentAt: String(message.sent_at),
         submittable: Boolean(message.submittable),
+        proposedDueDate: (message.proposed_due_date as string | null) ?? null,
+        proposedOwnerEmail: (message.proposed_owner_email as string | null) ?? null,
         files: evidenceFiles(
           (result.files as Record<string, unknown> | null)?.[String(message.id)],
         ),

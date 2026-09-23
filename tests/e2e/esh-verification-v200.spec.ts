@@ -276,7 +276,9 @@ test('v200 ESH moves the due date and the owner, and says why', async ({ page },
   await page.getByLabel('Reason (the owner sees it)').fill('Parts on order');
   await page.getByRole('button', { name: 'Change due date' }).click();
   await expect(page.getByText('Due date changed. The owner has been told.')).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Verification' })).toContainText('Parts on order');
+  await expect(page.getByRole('region', { name: 'Due-date changes' })).toContainText(
+    'Parts on order',
+  );
 
   // The owner reads the change as an event in their conversation (§14).
   const owner = await page.context().browser()!.newContext();
@@ -306,7 +308,7 @@ test('v200 ESH moves the due date and the owner, and says why', async ({ page },
   await expect(
     page.getByText('Priority changed. The due date and its reminders are unchanged.'),
   ).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Verification' })).toContainText('20 Jan 2027');
+  await expect(page.getByRole('region', { name: 'Due-date changes' })).toContainText('20 Jan 2027');
 
   // Reassigned: the old owner's page stops working on the next request (FM13).
   await page.getByLabel('New Action Owner email').fill(`after.${id}@example.com`);
