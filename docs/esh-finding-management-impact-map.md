@@ -114,6 +114,12 @@ v209 is built and verified (23 September 2026), from a second reading of the spe
 the code: administrative outcomes (§6) that are not closures, follow-up rules by risk and priority
 (§16), and quiet hours with an explicit catch-up choice (§21).
 
+v210 is built and verified (23 September 2026), closing that reading: the weekly letter carries the
+department summary and overdue owners it was always meant to (§34.2), a report can be previewed
+before it is activated (§34.1), the register says how far an action has escalated (§24), and every
+scheduled run leaves a record so a daily job that stops is visible on the Overview rather than only
+in a log nobody opens (§27, §33.2).
+
 Each stage ships behind the rollout gate, so nothing new is visible to the team until an
 administrator enables them. Each ends with the full verify and, where it adds a migration, a
 `supabase db push`.

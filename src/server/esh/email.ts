@@ -59,6 +59,20 @@ export interface WeeklyReportEmailInput {
   reportUrl: string;
   expiresMinutes: number;
   counts: { open: number; overdue: number; awaiting: number; closed: number };
+  /** v210 - the department summary the letter carries (§34.2). */
+  departments?: Array<{
+    department: string;
+    open: number;
+    overdue: number;
+    awaiting: number;
+    closed: number;
+  }>;
+  /** How many departments are in scope, so truncation can say so. */
+  departmentTotal?: number;
+  /** Up to five overdue owner actions, worst first. */
+  overdue?: Array<{ reference: string; title: string; owner: string | null; dueLabel: string }>;
+  closedFrom?: string | null;
+  closedTo?: string | null;
 }
 
 const BRAND = '#174652';
@@ -286,18 +300,39 @@ export function renderWeeklyReportEmail(input: WeeklyReportEmailInput): Rendered
     timeZone: input.timeZone,
   }).format(new Date(input.capturedAt));
   const summary = `${input.counts.open} open · ${input.counts.overdue} overdue · ${input.counts.awaiting} awaiting review · ${input.counts.closed} closed last week`;
+  const departments = input.departments ?? [];
+  const shown =
+    input.departmentTotal && input.departmentTotal > departments.length
+      ? `Showing ${departments.length} of ${input.departmentTotal} departments.`
+      : '';
+  const overdue = input.overdue ?? [];
+  const departmentLines = departments.map(
+    (row) =>
+      `${row.department}: ${row.open} open, ${row.overdue} overdue, ${row.awaiting} awaiting review, ${row.closed} closed`,
+  );
+  const overdueLines = overdue.map(
+    (row) =>
+      `${row.reference} · ${row.title}${row.owner ? ` · ${row.owner}` : ''} · ${row.dueLabel}`,
+  );
+  const closedPeriod =
+    input.closedFrom && input.closedTo
+      ? `Closed: ${new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: input.timeZone }).format(new Date(input.closedFrom))} to ${new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeZone: input.timeZone }).format(new Date(input.closedTo))}`
+      : '';
   const validity = `This individual link works once and for ${lifetime(input.expiresMinutes)}. It opens a read-only report; do not forward it.`;
   const text = [
     reportName,
     `Saved snapshot captured ${captured}.`,
+    closedPeriod,
     summary,
     '',
+    ...(departmentLines.length ? ['By department:', ...departmentLines, shown, ''] : []),
+    ...(overdueLines.length ? ['Overdue and waiting on their owner:', ...overdueLines, ''] : []),
     `Open weekly report: ${input.reportUrl}`,
     '',
     validity,
     'Restricted findings are excluded. Email replies are not monitored.',
   ].join('\n');
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>${escape(subject)}</title></head><body style="margin:0;padding:0;background:#f3f5f8;color:#1b2b36;font-family:Arial,'Helvetica Neue',sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#f3f5f8"><tr><td align="center" style="padding:32px 14px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border:1px solid #dde3ea;border-radius:16px"><tr><td style="padding:28px 32px 8px;font-size:17px;font-weight:700;color:#1b2b36">TAMCO ESH</td></tr><tr><td style="padding:14px 32px 18px"><h1 style="margin:0;font-size:26px;line-height:33px">${escape(reportName)}</h1><p style="margin:10px 0 0;color:#5f6f7c">Saved snapshot captured ${escape(captured)}.</p></td></tr><tr><td style="padding:0 32px 22px"><div style="padding:18px;border-radius:12px;background:#f3f5f8;font-weight:700">${escape(summary)}</div></td></tr><tr><td style="padding:0 32px 12px">${button(input.reportUrl, 'Open weekly report', true)}</td></tr><tr><td style="padding:4px 32px 28px;color:#5f6f7c;font-size:14px;line-height:21px"><p>${escape(validity)}</p><p>Restricted findings are excluded. Email replies are not monitored.</p></td></tr></table></td></tr></table></body></html>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>${escape(subject)}</title></head><body style="margin:0;padding:0;background:#f3f5f8;color:#1b2b36;font-family:Arial,'Helvetica Neue',sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#f3f5f8"><tr><td align="center" style="padding:32px 14px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border:1px solid #dde3ea;border-radius:16px"><tr><td style="padding:28px 32px 8px;font-size:17px;font-weight:700;color:#1b2b36">TAMCO ESH</td></tr><tr><td style="padding:14px 32px 18px"><h1 style="margin:0;font-size:26px;line-height:33px">${escape(reportName)}</h1><p style="margin:10px 0 0;color:#5f6f7c">Saved snapshot captured ${escape(captured)}.</p></td></tr><tr><td style="padding:0 32px 22px"><div style="padding:18px;border-radius:12px;background:#f3f5f8;font-weight:700">${escape(summary)}</div>${closedPeriod ? `<div style="margin-top:8px;font-size:13px;color:#5f6f7c">${escape(closedPeriod)}</div>` : ''}</td></tr>${departments.length ? `<tr><td style="padding:0 32px 18px"><table role="presentation" width="100%" style="border-collapse:collapse;font-size:14px"><tr><th align="left" style="padding:6px 0;color:#5f6f7c;font-weight:600">Department</th><th align="right" style="padding:6px 0;color:#5f6f7c;font-weight:600">Open</th><th align="right" style="padding:6px 0;color:#5f6f7c;font-weight:600">Overdue</th><th align="right" style="padding:6px 0;color:#5f6f7c;font-weight:600">Review</th><th align="right" style="padding:6px 0;color:#5f6f7c;font-weight:600">Closed</th></tr>${departments.map((row) => `<tr><td style="padding:6px 0;border-top:1px solid #e7ebf0">${escape(row.department)}</td><td align="right" style="padding:6px 0;border-top:1px solid #e7ebf0">${row.open}</td><td align="right" style="padding:6px 0;border-top:1px solid #e7ebf0">${row.overdue}</td><td align="right" style="padding:6px 0;border-top:1px solid #e7ebf0">${row.awaiting}</td><td align="right" style="padding:6px 0;border-top:1px solid #e7ebf0">${row.closed}</td></tr>`).join('')}</table>${shown ? `<div style="margin-top:8px;font-size:13px;color:#5f6f7c">${escape(shown)}</div>` : ''}</td></tr>` : ''}${overdue.length ? `<tr><td style="padding:0 32px 18px"><div style="font-size:14px;font-weight:700;color:#1b2b36;margin-bottom:8px">Overdue and waiting on their owner</div>${overdue.map((row) => `<div style="padding:8px 0;border-top:1px solid #e7ebf0;font-size:14px;line-height:20px"><strong>${escape(row.reference)}</strong> · ${escape(row.title)}<div style="color:#5f6f7c;font-size:13px">${escape([row.owner, row.dueLabel].filter(Boolean).join(' · '))}</div></div>`).join('')}</td></tr>` : ''}<tr><td style="padding:0 32px 12px">${button(input.reportUrl, 'Open weekly report', true)}</td></tr><tr><td style="padding:4px 32px 28px;color:#5f6f7c;font-size:14px;line-height:21px"><p>${escape(validity)}</p><p>Restricted findings are excluded. Email replies are not monitored.</p></td></tr></table></td></tr></table></body></html>`;
   return { subject, html, text };
 }
 

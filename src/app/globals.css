@@ -14320,3 +14320,53 @@ span.deadline span.deadline-glyph,
   align-items: center;
   gap: 10px;
 }
+
+/* v210 — the register says how far something has escalated. */
+.esh-escalated {
+  color: var(--warn, var(--danger));
+  font-weight: 600;
+}
+
+/* v210 — one line about the machinery, shown only when there is something to say. */
+.esh-health {
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  border-radius: var(--radius);
+}
+.esh-health[data-exception='true'] {
+  border-left-color: var(--warn, var(--danger));
+}
+.esh-health h2 {
+  margin: 0 0 6px;
+  color: var(--heading);
+  font-size: calc(15px * var(--font-scale));
+}
+.esh-health ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: calc(13px * var(--font-scale));
+}
+.esh-health li[data-exception='true'] {
+  color: var(--heading);
+}
+
+/* v210 — what a weekly report would say, before it is activated. */
+.esh-report-preview {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: var(--surface-2, var(--surface));
+  border-radius: var(--radius);
+  font-size: calc(14px * var(--font-scale));
+}
+.esh-report-preview ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+}

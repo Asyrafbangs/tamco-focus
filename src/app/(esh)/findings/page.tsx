@@ -1,12 +1,13 @@
 import Link from 'next/link';
 
+import { OperationalHealth } from '@/components/esh/OperationalHealth';
 import { PeriodPicker } from '@/components/ui/PeriodPicker';
 import { SubmitOnSelect } from '@/components/ui/SubmitOnSelect';
 import { ESH_CLOSURE_PERIODS, closurePeriodParams, totalOverview } from '@/domain/esh-overview';
 import { resolvePeriod } from '@/domain/period';
 import { requireProfile } from '@/lib/supabase/server';
 import { requireEshAccess } from '@/server/esh/access';
-import { getDepartmentsInScope, getEshOverview } from '@/server/esh/queries';
+import { getDepartmentsInScope, getEshOverview, getOperationalHealth } from '@/server/esh/queries';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -36,7 +37,7 @@ export default async function FindingsOverviewPage({
     '30',
     timeZone,
   );
-  const [overview, departments] = await Promise.all([
+  const [overview, departments, health] = await Promise.all([
     getEshOverview({
       departmentId,
       closedSince: closurePeriod.since,
@@ -44,6 +45,7 @@ export default async function FindingsOverviewPage({
       asOf: now.toISOString(),
     }),
     getDepartmentsInScope(access),
+    getOperationalHealth(),
   ]);
   const visibleRows = departmentUnassigned
     ? overview.rows.filter((row) => row.departmentId === null)
@@ -167,6 +169,8 @@ export default async function FindingsOverviewPage({
               detail={closurePeriod.label}
             />
           </section>
+
+          <OperationalHealth health={health} />
 
           <section className="esh-department-summary" aria-labelledby="department-summary-title">
             <div className="esh-section-head">

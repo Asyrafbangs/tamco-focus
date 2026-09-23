@@ -367,6 +367,32 @@ export async function GET(request: Request) {
   );
 
   const failed = results.filter((result) => !result.ok);
+
+  /*
+   * v210 - and one row in the database, so the Overview can say when the
+   * scheduler last ran (§27). A console line is invisible to ESH; a daily job
+   * that quietly stops is not something anybody notices from inside the app.
+   */
+  try {
+    const { error } = await client.rpc('esh_record_worker_run', {
+      p_worker: 'cron',
+      p_ok: failed.length === 0,
+      p_detail: {
+        workers: results.map((result) => ({ worker: result.worker, ok: result.ok })),
+      },
+    });
+    // Recording the run must never decide whether the run succeeded, but a
+    // failure to record it is exactly the silence this was built to end.
+    if (error) {
+      console.error(
+        `[cron] could not record this run: ${error.code ?? 'unknown'} ${error.message}`,
+      );
+    }
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'unknown error';
+    console.error(`[cron] could not record this run: ${detail}`);
+  }
+
   return NextResponse.json(
     { ranAt: new Date().toISOString(), results },
     { status: failed.length ? 500 : 200 },

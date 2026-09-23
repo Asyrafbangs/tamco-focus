@@ -106,6 +106,20 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v210 letter, preview and health evidence
+
+- pgTAP (35) proves the scheduler's record cannot be rewritten or deleted, that a browser cannot
+  claim a run, that the health read refuses somebody outside Finding Management and reports the
+  absent scanner as absent rather than as zero, that a preview names its audience and counts its
+  work while capturing nothing and sending nothing, that the weekly letter summarises every
+  department it captured with the overdue one first and still says how many were left out, and
+  that the register claims an escalation only while it stands for the current assignment.
+- Unit tests cover the letter's department table, its truncation line and its silence when a run
+  carries no summary, and the rules for what is worth saying about the machinery — including that a
+  slow Monday is not a stopped scheduler and a deep queue is information rather than a fault.
+- Playwright previews a saved draft from Finding settings, checks it says nothing was sent and that
+  no run was captured, and reads the Overview with a scheduled run four days old.
+
 ## v208 priority evidence
 
 - pgTAP (15) proves a colleague outside ESH cannot change a priority, that a change needs a reason

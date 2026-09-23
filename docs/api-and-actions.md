@@ -108,6 +108,22 @@ the service role. These operations remain local-only in this stage.
 - Its answer repeats the due date and says the follow-up is unchanged, so the screen can say so
   too; nothing in it restarts a reminder or an escalation clock.
 
+## v210 Preview, the letter and the scheduler's own record
+
+- `esh_preview_report(definition)` is authenticated report-management. It reads the configured
+  scope against now and returns the recipients with their contact access, the departments, the four
+  counts, the week it would report on, and `sends_nothing: true`. It writes nothing: no run, no
+  outbox row, no grant. The Server Action is `previewReport`, and the Preview control sits beside
+  Save report, so activation is still a deliberate second act.
+- `focus.esh_report_letter(run, departments)` is service-role only and reads one captured run's
+  snapshot rows: the department summary worst first, how many departments there were in total, and
+  up to five overdue actions with their owners. `esh_report_dispatch_claim` appends it to the claim
+  so the email carries exactly what the leadership page would show.
+- `esh_record_worker_run(worker, ok, detail)` is service-role only and is called by the daily cron
+  route after its workers have run, whatever the outcome. `esh_operational_health()` is the
+  authenticated read behind the Overview's “Worth knowing” line; `scan_backlog` is null rather than
+  zero, because this deployment has no scanner to be behind on.
+
 ## v209 Outcomes and policy rules
 
 - `esh_resolve_finding(finding, outcome, reason, duplicate_of)` requires ESH verify authority and a

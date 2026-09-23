@@ -100,6 +100,18 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 - `shared_contributions` leaves out steps whose work is binned or purged, as
   `completed_contributions` has since v87; its columns are unchanged.
 
+## v210 Scheduled runs and the register's escalation level
+
+- `esh_worker_runs` records each scheduled run: which worker, whether it succeeded, what it did,
+  and when. It is append-only through `focus.reject_audit_mutation()`, because a record of what
+  happened is not something a later run may rewrite. Only `service_role` writes it; Finding staff
+  read it under their own organisation.
+- `esh_register_rows` gains `escalation_level`, the highest standing escalation for the row's
+  action — entitlements that are not revoked and belong to the current `assignment_version`. A
+  reassignment or a withdrawn escalation therefore stops being claimed, without deleting anything.
+- Nothing new is captured for the weekly letter: `focus.esh_report_letter` reads the run's own
+  `esh_report_snapshot_rows`, so the email and the leadership page cannot disagree.
+
 ## v208 Priority changes
 
 - `esh_priority_changes` records each change with what it was, what it became, the reason and who

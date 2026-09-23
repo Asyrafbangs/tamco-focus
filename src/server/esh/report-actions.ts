@@ -62,3 +62,86 @@ export async function saveReportDefinition(
   revalidatePath('/findings/settings');
   return { ok: true, message: 'Weekly report saved.' };
 }
+
+export interface ReportPreview {
+  ok: boolean;
+  message?: string;
+  data?: {
+    name: string;
+    state: string;
+    asOf: string;
+    closedFrom: string;
+    closedTo: string;
+    recipients: Array<{ email: string; enabled: boolean; accessEnabled: boolean }>;
+    departments: string[];
+    counts: { open: number; overdue: number; awaiting: number; closed: number };
+  };
+}
+
+/**
+ * v210 — what this report would say, before anybody activates it (§34.1).
+ *
+ * It sends nothing and captures nothing: it runs the configured scope against
+ * now, so an operator can see the audience and the numbers before turning a
+ * draft into something that posts every Monday to real people.
+ */
+export async function previewReport(input: { definitionId: string }): Promise<ReportPreview> {
+  const access = await getEshAccess();
+  if (!access.enabled || !access.canManageReports) {
+    return { ok: false, message: 'You do not have report-management access.' };
+  }
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_preview_report', {
+    p_definition_id: input.definitionId,
+  });
+  if (error) {
+    console.error(`[previewReport] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false, message: 'The preview could not be read.' };
+  }
+  const preview = (data ?? {}) as {
+    ok?: boolean;
+    code?: string;
+    name?: string;
+    state?: string;
+    as_of?: string;
+    closed_from?: string;
+    closed_to?: string;
+    recipients?: Array<{ email: string; enabled: boolean; access_enabled: boolean }>;
+    departments?: string[];
+    open_count?: number;
+    overdue_count?: number;
+    awaiting_count?: number;
+    closed_count?: number;
+  };
+  if (!preview.ok) {
+    return {
+      ok: false,
+      message:
+        preview.code === 'not_found'
+          ? 'That report is no longer here.'
+          : 'The preview could not be read.',
+    };
+  }
+  return {
+    ok: true,
+    data: {
+      name: String(preview.name ?? ''),
+      state: String(preview.state ?? 'draft'),
+      asOf: String(preview.as_of ?? ''),
+      closedFrom: String(preview.closed_from ?? ''),
+      closedTo: String(preview.closed_to ?? ''),
+      recipients: (preview.recipients ?? []).map((recipient) => ({
+        email: recipient.email,
+        enabled: recipient.enabled,
+        accessEnabled: recipient.access_enabled,
+      })),
+      departments: preview.departments ?? [],
+      counts: {
+        open: Number(preview.open_count ?? 0),
+        overdue: Number(preview.overdue_count ?? 0),
+        awaiting: Number(preview.awaiting_count ?? 0),
+        closed: Number(preview.closed_count ?? 0),
+      },
+    },
+  };
+}

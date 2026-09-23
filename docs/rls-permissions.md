@@ -102,6 +102,20 @@ security-invoker view and therefore remain constrained by the caller's separate 
 Guest grants and sessions remain unreadable to clients; audited security-definer procedures expose
 only the active-item metadata needed for targeted revocation.
 
+## v210 preview and operational boundary
+
+- Previewing a report is the same authority as configuring one: report management within the
+  caller's own organisation. It reads under the definition's scope and writes nothing, so it cannot
+  become a way to capture or to send.
+- `esh_operational_health()` answers only for the caller's own organisation and only while their
+  Finding access is enabled. It reports counts of stuck work, never its contents, so nothing about
+  a restricted finding reaches somebody through the health line.
+- `esh_worker_runs` is written by `service_role` alone and read by Finding staff in their own
+  organisation. A browser cannot claim the scheduler ran, and no role can rewrite or delete a run
+  that was recorded.
+- The register's escalation level is derived inside a security-invoker view, so it is visible
+  exactly where the row it belongs to is.
+
 ## v208 priority boundary
 
 - Only Finding staff who can coordinate, and only within their department scope, may change a

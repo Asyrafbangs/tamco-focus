@@ -235,6 +235,24 @@ interface ReportClaim {
   awaiting_count?: number;
   closed_count?: number;
   expires_minutes?: number;
+  /** v210 - what the letter itself carries (§34.2). */
+  departments?: Array<{
+    department: string;
+    open: number;
+    overdue: number;
+    awaiting: number;
+    closed: number;
+  }>;
+  department_total?: number;
+  overdue?: Array<{
+    reference: string;
+    title: string;
+    owner: string | null;
+    due_at: string | null;
+    due_is_date_only: boolean | null;
+  }>;
+  closed_from?: string | null;
+  closed_to?: string | null;
 }
 
 async function dispatchReportOne(
@@ -266,6 +284,21 @@ async function dispatchReportOne(
         awaiting: claim.awaiting_count ?? 0,
         closed: claim.closed_count ?? 0,
       },
+      departments: claim.departments ?? [],
+      departmentTotal: claim.department_total ?? 0,
+      overdue: (claim.overdue ?? []).map((row) => ({
+        reference: row.reference,
+        title: row.title,
+        owner: row.owner,
+        dueLabel:
+          emailDueLabel(
+            row.due_at,
+            row.due_is_date_only ?? true,
+            claim.timezone ?? 'Asia/Kuala_Lumpur',
+          ) ?? '',
+      })),
+      closedFrom: claim.closed_from ?? null,
+      closedTo: claim.closed_to ?? null,
     });
     if (options.send) {
       await options.send({

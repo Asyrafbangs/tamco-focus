@@ -14,6 +14,7 @@ import type { ConversationEntry, EvidenceFile, SubmissionMark } from '@/domain/e
 import type { EshOverviewRow } from '@/domain/esh-overview';
 import type { ReportDefinitionSummary } from '@/domain/esh-reports';
 import type { Database } from '@/lib/database.types';
+import type { OperationalHealth } from '@/domain/esh-health';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 /**
@@ -127,6 +128,8 @@ export interface RegisterListRow {
   ownerEmail: string | null;
   notificationHeld: boolean;
   isOverdue: boolean;
+  /** v210 - the highest escalation level live under this assignment (§24). */
+  escalationLevel: number | null;
   needsAttention: boolean;
   lastUpdateAt: string;
   lastUpdateType: string;
@@ -226,6 +229,10 @@ export async function listRegister(options: {
       ownerEmail: row.owner_email ?? null,
       notificationHeld: Boolean(row.notification_held),
       isOverdue: Boolean(row.is_overdue),
+      escalationLevel:
+        'escalation_level' in row && row.escalation_level !== null
+          ? Number(row.escalation_level)
+          : null,
       needsAttention: Boolean(row.needs_attention),
       lastUpdateAt: String(row.last_update_at),
       lastUpdateType: String(row.last_update_type),
@@ -1142,5 +1149,42 @@ export async function getFollowupSettings(): Promise<FollowupSettings | null> {
       levelDays: (rule.level_days ?? []).map(Number),
       reviewReminderDays: Number(rule.review_reminder_days),
     })),
+  };
+}
+
+/**
+ * v210 — whether the scheduled work actually ran, and what is stuck (§27).
+ *
+ * Read on the Overview so that a daily job which quietly stops becomes
+ * visible inside the application, rather than only in a log nobody opens.
+ */
+export type { OperationalHealth };
+
+export async function getOperationalHealth(): Promise<OperationalHealth | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_operational_health');
+  if (error) {
+    console.error(`[getOperationalHealth] ${error.code ?? 'unknown'}: ${error.message}`);
+    return null;
+  }
+  const health = (data ?? {}) as {
+    ok?: boolean;
+    last_run_at?: string | null;
+    last_run_ok?: boolean | null;
+    hours_since_run?: number | null;
+    queued?: number;
+    failing?: number;
+    held?: number;
+    review_overdue?: number;
+  };
+  if (!health.ok) return null;
+  return {
+    lastRunAt: health.last_run_at ?? null,
+    lastRunOk: health.last_run_ok ?? null,
+    hoursSinceRun: health.hours_since_run ?? null,
+    queued: Number(health.queued ?? 0),
+    failing: Number(health.failing ?? 0),
+    held: Number(health.held ?? 0),
+    reviewOverdue: Number(health.review_overdue ?? 0),
   };
 }

@@ -1,5 +1,27 @@
 # TAMCO Focus — Change Log
 
+## v210 What the letter says, what a preview shows, and whether anything ran — 23 September 2026
+
+The last four things a second reading of the specification found missing, none of which a passing
+test suite could have noticed, because they were absent rather than wrong.
+
+- **The weekly letter carries its own summary.** Leadership sees each department's open, overdue,
+  awaiting-review and closed counts, worst first, with up to five overdue actions and who they are
+  waiting on — without opening anything. A truncated letter says "Showing 3 of 9 departments"
+  rather than trailing off. All of it comes from the run's own snapshot, so the email and the page
+  cannot disagree.
+- **A report can be read before it is switched on.** Preview names the recipients, the departments
+  in scope, the four counts and the week it would report on, and says plainly that nothing was
+  sent. It captures nothing and queues nothing, so nobody turns on a weekly email to real
+  leadership having seen only a form.
+- **The register says how far something has escalated.** A row that reached level 2 says so; a
+  withdrawn escalation stops being claimed.
+- **Silence became visible.** Every scheduled run leaves an append-only record, and the Overview
+  says when the daily job last reported, what bounced, what is held and who has been waiting over a
+  week for ESH. Nothing is shown while the work is flowing. There is no scanner in this deployment,
+  so its backlog is reported as absent rather than as zero.
+- pgTAP (35), unit tests for the letter and for what is worth saying, and two desktop journeys.
+
 ## v209 Outcomes that are not closures, and a policy that can differ — 23 September 2026
 
 Two things the specification asked for that nothing had built, found by reading it again against

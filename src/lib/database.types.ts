@@ -5783,6 +5783,41 @@ export type Database = {
           },
         ]
       }
+      esh_worker_runs: {
+        Row: {
+          detail: Json
+          id: string
+          ok: boolean
+          organization_id: string
+          ran_at: string
+          worker: string
+        }
+        Insert: {
+          detail?: Json
+          id?: string
+          ok: boolean
+          organization_id: string
+          ran_at?: string
+          worker: string
+        }
+        Update: {
+          detail?: Json
+          id?: string
+          ok?: boolean
+          organization_id?: string
+          ran_at?: string
+          worker?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_worker_runs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       esh_working_calendar_exceptions: {
         Row: {
           calendar_date: string
@@ -13065,6 +13100,7 @@ export type Database = {
           department_name: string | null
           due_at: string | null
           due_is_date_only: boolean | null
+          escalation_level: number | null
           finding_id: string | null
           is_overdue: boolean | null
           is_restricted: boolean | null
@@ -15309,6 +15345,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      esh_operational_health: { Args: never; Returns: Json }
       esh_overview: {
         Args: {
           p_as_of?: string
@@ -15335,6 +15372,7 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_preview_report: { Args: { p_definition_id: string }; Returns: Json }
       esh_reassign_action: {
         Args: { p_action_id: string; p_owner_email: string; p_reason: string }
         Returns: Json
@@ -15347,6 +15385,10 @@ export type Database = {
           p_provider_event_id: string
           p_provider_message_id: string
         }
+        Returns: Json
+      }
+      esh_record_worker_run: {
+        Args: { p_detail?: Json; p_ok: boolean; p_worker: string }
         Returns: Json
       }
       esh_release_notification: { Args: { p_outbox_id: string }; Returns: Json }

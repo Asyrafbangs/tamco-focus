@@ -1,12 +1,18 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useState, useTransition } from 'react';
 
 import type { ReportDefinitionSummary } from '@/domain/esh-reports';
-import { saveReportDefinition, type ReportFormState } from '@/server/esh/report-actions';
+import {
+  previewReport,
+  saveReportDefinition,
+  type ReportFormState,
+  type ReportPreview,
+} from '@/server/esh/report-actions';
 import type { DepartmentOption } from '@/server/esh/queries';
 
 const INITIAL: ReportFormState = { ok: false, message: '' };
+const WEEK = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
 const DAYS = [
   [1, 'Monday'],
   [2, 'Tuesday'],
@@ -24,6 +30,12 @@ function ReportEditor({
 }) {
   const [state, action, pending] = useActionState(saveReportDefinition, INITIAL);
   const [wide, setWide] = useState(report?.organizationWide ?? false);
+  // §34.1 asks for a preview and a recipient/scope confirmation before a report
+  // is activated. This sends nothing and captures nothing: it is a look at what
+  // the letter would say, so nobody turns on a weekly email to real leadership
+  // without having seen its audience and its numbers first.
+  const [preview, setPreview] = useState<ReportPreview | null>(null);
+  const [previewing, startPreview] = useTransition();
   return (
     <form action={action} className="esh-policy-form">
       {report && <input type="hidden" name="id" value={report.id} />}
@@ -139,10 +151,60 @@ function ReportEditor({
               ? `Version ${report.version} · scope ${report.scopeVersion}`
               : 'Starts as Draft'}
           </span>
+          {report && (
+            <button
+              className="btn"
+              type="button"
+              disabled={previewing}
+              onClick={() =>
+                startPreview(async () => {
+                  setPreview(await previewReport({ definitionId: report.id }));
+                })
+              }
+            >
+              {previewing ? 'Reading…' : 'Preview'}
+            </button>
+          )}
           <button className="btn primary" type="submit" disabled={pending}>
             {pending ? 'Saving…' : 'Save report'}
           </button>
         </div>
+        {preview && (
+          <div className="esh-report-preview" role="status">
+            {preview.ok && preview.data ? (
+              <>
+                <p>
+                  <strong>Nothing was sent.</strong> Captured now, {preview.data.name} would say{' '}
+                  {preview.data.counts.open} open, {preview.data.counts.overdue} overdue,{' '}
+                  {preview.data.counts.awaiting} awaiting review, and {preview.data.counts.closed}{' '}
+                  closed between {WEEK.format(new Date(preview.data.closedFrom))} and{' '}
+                  {WEEK.format(new Date(preview.data.closedTo))}.
+                </p>
+                <p>
+                  Departments in scope:{' '}
+                  {preview.data.departments.length > 0
+                    ? preview.data.departments.join(', ')
+                    : 'none — nothing would be reported'}
+                  .
+                </p>
+                <ul>
+                  {preview.data.recipients.length === 0 && <li>No recipients yet.</li>}
+                  {preview.data.recipients.map((recipient) => (
+                    <li key={recipient.email}>
+                      {recipient.email}
+                      {!recipient.enabled && ' · switched off for this report'}
+                      {recipient.enabled &&
+                        !recipient.accessEnabled &&
+                        ' · contact access is off, so their letter would be held'}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p>{preview.message ?? 'The preview could not be read.'}</p>
+            )}
+          </div>
+        )}
       </section>
     </form>
   );

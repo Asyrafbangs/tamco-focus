@@ -322,6 +322,10 @@ function RegisterRowItem({
         <span className="esh-register-owner">
           <span>{row.ownerEmail ?? 'No owner yet'}</span>
           {due && <small className={row.isOverdue ? 'esh-overdue' : undefined}>{due}</small>}
+          {/* v210 — §24 asks the row to say whether this has escalated. */}
+          {row.escalationLevel !== null && (
+            <small className="esh-escalated">Escalated · level {row.escalationLevel}</small>
+          )}
           {row.priority && row.priority !== 'normal' && (
             <small className="esh-priority" data-priority={row.priority}>
               {PRIORITY_LABELS[row.priority]} priority
