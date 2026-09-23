@@ -1,3 +1,4 @@
+import { FollowupRulesForm } from '@/components/esh/FollowupRulesForm';
 import { FollowupSettingsForm } from '@/components/esh/FollowupSettingsForm';
 import { ReportSettingsForm } from '@/components/esh/ReportSettingsForm';
 import { requireEshAccess } from '@/server/esh/access';
@@ -23,7 +24,10 @@ export default async function FollowupSettingsPage() {
         </div>
       </div>
       {settings ? (
-        <FollowupSettingsForm settings={settings} />
+        <>
+          <FollowupSettingsForm settings={settings} />
+          <FollowupRulesForm settings={settings} />
+        </>
       ) : access.canVerify ? (
         <div className="notice error" role="alert">
           <strong>Follow-up settings could not be read</strong>

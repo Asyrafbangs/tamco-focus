@@ -2343,3 +2343,23 @@ assignee, or the owner for a step assigned to nobody (v159).
    already due stay exactly where the deadline put them. The answer repeats the due date and says
    the follow-up is unchanged, which is what the screen tells the person saving it.
 
+## 104. v209 Outcomes that are not closures, and a policy that can differ
+
+1. `esh_resolve_finding` records cancelled, withdrawn or duplicate with a reason. It refuses a
+   closed finding, refuses a second outcome, and refuses a duplicate that does not name what it
+   repeats. Closing stays what ESH verification means; these say what became of a finding nobody
+   is going to correct.
+2. The record is kept. Its outstanding actions move to cancelled, their grants and action-scoped
+   sessions are revoked, its queued and held notifications are cancelled, and its digest members
+   are removed. An accepted action keeps its acceptance: it was done, whatever became of the
+   finding.
+3. `esh_followup_policy_rules` holds a schedule for one risk level or one priority.
+   `focus.esh_followup_rule` picks the most specific — priority, then risk, then the organisation
+   policy — and the assignment trigger stamps that answer onto the ownership interval, so the
+   scheduler still reads one snapshot and a later policy change rewrites nothing.
+4. Quiet hours defer routine owner reminders only, across midnight where the window says so.
+   Assignments, replies, decisions and escalations are not routine and are never held.
+5. The catch-up rule is stored on the policy. Coalescing sends the highest stage now due and
+   records the ones it passed as skipped; every-missed sends each stage in its own right, with its
+   own entitlement and its own delivery.
+

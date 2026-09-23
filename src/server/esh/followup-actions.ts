@@ -122,3 +122,96 @@ export async function saveWorkingCalendar(
   revalidatePath('/findings/settings');
   return { ok: true, message: 'Working-day calendar saved.' };
 }
+
+/**
+ * v209 — quiet hours and the catch-up rule (§16).
+ *
+ * Both belong to the policy rather than to the code: an organisation that
+ * wants every missed stage after an outage should be able to say so, and one
+ * that does not want routine mail at midnight should be able to say that too.
+ */
+export async function saveQuietHours(
+  _previous: FollowupFormState | null,
+  formData: FormData,
+): Promise<FollowupFormState> {
+  await requireProfile();
+  const from = String(formData.get('quiet_from') ?? '').trim();
+  const to = String(formData.get('quiet_to') ?? '').trim();
+  if ((from === '') !== (to === '')) {
+    return { ok: false, message: 'Give both a start and an end, or neither.' };
+  }
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_set_followup_quiet_hours', {
+    p_quiet_from: from === '' ? null : from,
+    p_quiet_to: to === '' ? null : to,
+    p_catch_up: String(formData.get('catch_up') ?? 'coalesce'),
+  });
+  if (error) {
+    console.error(`[esh_set_followup_quiet_hours] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false, message: 'Quiet hours could not be saved.' };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (!result.ok) {
+    return {
+      ok: false,
+      message:
+        result.code === 'not_permitted'
+          ? 'Only an ESH Verifier can change follow-up policy.'
+          : 'Quiet hours could not be saved.',
+    };
+  }
+  revalidatePath('/findings/settings');
+  return { ok: true, message: 'Quiet hours saved.' };
+}
+
+/** A schedule for one risk level or one priority, or its removal (§16). */
+export async function saveFollowupRule(
+  _previous: FollowupFormState | null,
+  formData: FormData,
+): Promise<FollowupFormState> {
+  await requireProfile();
+  const remove = formData.get('remove') === 'true';
+  const levelDays = formData
+    .getAll('level_days')
+    .filter((value): value is string => typeof value === 'string' && value !== '')
+    .map(Number);
+  const input: FollowupPolicyInput = {
+    preDueDays: integer(formData, 'pre_due_days'),
+    remindOnDue: formData.get('remind_on_due') === 'on',
+    overdueEveryDays: integer(formData, 'overdue_every_days'),
+    levelDays,
+    reviewReminderDays: integer(formData, 'review_reminder_days'),
+  };
+  if (!remove) {
+    const problems = followupPolicyProblems(input);
+    if (problems.length) return { ok: false, message: 'Correct the rule below.', problems };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_set_followup_rule', {
+    p_applies_to: String(formData.get('applies_to') ?? ''),
+    p_applies_value: String(formData.get('applies_value') ?? ''),
+    p_pre_due_days: remove ? null : input.preDueDays,
+    p_remind_on_due: remove ? null : input.remindOnDue,
+    p_overdue_every_days: remove ? null : input.overdueEveryDays,
+    p_level_days: remove ? null : input.levelDays,
+    p_review_reminder_days: remove ? null : input.reviewReminderDays,
+    p_remove: remove,
+  });
+  if (error) {
+    console.error(`[esh_set_followup_rule] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false, message: 'The rule could not be saved.' };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (!result.ok) {
+    const messages: Record<string, string> = {
+      not_permitted: 'Only an ESH Verifier can change follow-up policy.',
+      not_configured: 'The organisation policy has to exist before a rule can differ from it.',
+      invalid: 'Check the risk level or priority and the days you entered.',
+      levels_invalid: 'Escalation days must be different from each other.',
+    };
+    return { ok: false, message: messages[result.code ?? ''] ?? 'The rule could not be saved.' };
+  }
+  revalidatePath('/findings/settings');
+  return { ok: true, message: remove ? 'Rule removed.' : 'Rule saved.' };
+}

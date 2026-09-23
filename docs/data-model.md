@@ -107,6 +107,19 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 - Nothing else is touched: the due date, its baseline, the risk assessment and the follow-up
   schedule are left exactly as they were.
 
+## v209 Outcomes and policy rules
+
+- `esh_findings` gains `resolved_outcome` (cancelled/withdrawn/duplicate), `resolved_at`,
+  `resolved_by` and `duplicate_of_finding_id`. An outcome is not a closure: `closed_at` stays null,
+  the record stays on the register, and a duplicate keeps a link to the finding it repeats.
+- `esh_followup_policy_rules` holds a schedule for one risk level or one action priority. The most
+  specific match wins — priority, then risk, then the organisation policy — and it is resolved when
+  the ownership interval is stamped, so a later change never rewrites an existing promise.
+- `esh_followup_policies` gains `quiet_from`, `quiet_to` and `catch_up`. Quiet hours hold routine
+  reminders only; the catch-up rule chooses between coalescing missed escalation stages and sending
+  every one.
+- `esh_priority_changes` (v208) and these records are append-only, as the rest of the history is.
+
 ## v207 Consolidated notices
 
 - `esh_digest_members` records what one delivery carries: the action, the notification event it

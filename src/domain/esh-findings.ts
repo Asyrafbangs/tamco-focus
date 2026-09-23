@@ -82,6 +82,13 @@ export const PRIORITY_LABELS: Record<ActionPriority, string> = {
   normal: 'Normal',
 };
 
+/** v209 — what became of a finding nobody is going to correct (§6). */
+export const OUTCOME_LABELS: Record<string, string> = {
+  cancelled: 'Cancelled',
+  withdrawn: 'Withdrawn',
+  duplicate: 'Duplicate',
+};
+
 export const RISK_LABELS: Record<RiskLevel, string> = {
   not_assessed: 'Not assessed',
   low: 'Low',

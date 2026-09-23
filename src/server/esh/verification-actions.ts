@@ -155,6 +155,42 @@ export async function changePriority(input: {
   return { ok: true };
 }
 
+/**
+ * v209 — an outcome that is not a closure (§6).
+ *
+ * Cancelled, withdrawn and duplicate are administrative answers to a finding
+ * that should not have been raised, or was raised twice. None of them claims
+ * ESH verified a correction, and none of them deletes anything: the record
+ * stays, its outstanding work stops, and a duplicate keeps a link to the
+ * finding it repeats.
+ */
+export async function resolveFinding(input: {
+  findingId: string;
+  outcome: 'cancelled' | 'withdrawn' | 'duplicate';
+  reason: string;
+  duplicateOf?: string | null;
+}): Promise<EshDecision> {
+  await requireProfile();
+  const findingId = uuid.safeParse(input.findingId);
+  if (!findingId.success) return refused('not_found');
+  const duplicateOf = input.duplicateOf ? uuid.safeParse(input.duplicateOf) : null;
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_resolve_finding', {
+    p_finding_id: findingId.data,
+    p_outcome: input.outcome,
+    p_reason: String(input.reason ?? ''),
+    p_duplicate_of: duplicateOf?.success ? duplicateOf.data : null,
+  });
+  if (error) {
+    console.error(`[esh_resolve_finding] ${error.code ?? 'unknown'}: ${error.message}`);
+    return refused(undefined);
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (!result.ok) return refused(result.code);
+  refresh(findingId.data);
+  return { ok: true };
+}
+
 export async function reassignAction(input: {
   actionId: string;
   findingId: string;

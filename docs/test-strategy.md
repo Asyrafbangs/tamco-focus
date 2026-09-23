@@ -114,6 +114,17 @@ directory, independent module controls and contact access operations at desktop 
 - The v200 browser journey now also changes a priority from the action menu and checks the due date
   it set a moment earlier is still the one shown.
 
+## v209 outcome and policy evidence
+
+- pgTAP (34) proves an outcome needs a reason, that closing is not one of the outcomes on offer,
+  that a duplicate must name what it repeats and keeps the link, that the record is kept while its
+  work stops and its links die, that nothing claims verification, that an outcome cannot be
+  recorded twice, that priority beats risk beats the organisation policy when an assignment is
+  stamped, that quiet hours defer a routine notice across midnight but not a morning one, and that
+  the catch-up rule decides whether missed stages are sent or recorded as skipped.
+- Playwright records a duplicate from the finding page and checks the register keeps it without a
+  closure, then adds a critical-risk schedule and quiet hours from Finding settings.
+
 ## v207 consolidated-notice evidence
 
 - pgTAP (25) proves reminders are gathered once per person per cycle, each event is marked as

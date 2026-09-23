@@ -350,6 +350,10 @@ export interface FindingDetail {
   riskLevel: RiskLevel;
   isRestricted: boolean;
   status: FindingStatus;
+  /** v209 - an administrative outcome, where one was recorded (§6). */
+  resolvedOutcome: string | null;
+  statusReason: string | null;
+  duplicateOfReference: string | null;
   createdAt: string;
   createdByName: string;
   action: {
@@ -477,6 +481,15 @@ export async function getFindingDetail(
           .maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
+
+  // v209 - a duplicate shows which finding it repeats, by that one's reference.
+  const { data: duplicateOf } = finding.duplicate_of_finding_id
+    ? await supabase
+        .from('esh_findings')
+        .select('reference')
+        .eq('id', finding.duplicate_of_finding_id)
+        .maybeSingle()
+    : { data: null };
 
   const action = actionResult.data;
   const [
@@ -658,6 +671,9 @@ export async function getFindingDetail(
     departmentName: (departmentResult.data as { name?: string } | null)?.name ?? null,
     riskLevel: finding.risk_level as RiskLevel,
     isRestricted: Boolean(finding.is_restricted),
+    resolvedOutcome: finding.resolved_outcome ? String(finding.resolved_outcome) : null,
+    statusReason: finding.status_reason ? String(finding.status_reason) : null,
+    duplicateOfReference: duplicateOf?.reference ? String(duplicateOf.reference) : null,
     status: finding.status as FindingStatus,
     createdAt: String(finding.created_at),
     createdByName: nameOf.get(String(finding.created_by)) ?? 'ESH',
@@ -1060,12 +1076,26 @@ export interface FollowupSettings {
   workingWeekdays: number[];
   calendarConfirmedThrough: string | null;
   calendarExceptions: Array<{ date: string; isWorkingDay: boolean; label: string }>;
+  /** v209 - when routine mail waits, and what happens after an outage (§16). */
+  quietFrom: string | null;
+  quietTo: string | null;
+  catchUp: string;
+  /** v209 - schedules that differ for a risk level or a priority. */
+  rules: Array<{
+    appliesTo: 'risk' | 'priority';
+    appliesValue: string;
+    preDueDays: number;
+    remindOnDue: boolean;
+    overdueEveryDays: number;
+    levelDays: number[];
+    reviewReminderDays: number;
+  }>;
 }
 
 /** The complete policy screen, including the calendar behind “working day”. */
 export async function getFollowupSettings(): Promise<FollowupSettings | null> {
   const supabase = await createSupabaseServerClient();
-  const [policy, calendar, exceptions, organization] = await Promise.all([
+  const [policy, calendar, exceptions, organization, rules] = await Promise.all([
     supabase.from('esh_followup_policies').select('*').maybeSingle(),
     supabase.from('esh_working_calendars').select('*').maybeSingle(),
     supabase
@@ -1073,8 +1103,14 @@ export async function getFollowupSettings(): Promise<FollowupSettings | null> {
       .select('calendar_date, is_working_day, label')
       .order('calendar_date'),
     supabase.from('organizations').select('timezone').maybeSingle(),
+    supabase
+      .from('esh_followup_policy_rules')
+      .select('*')
+      .order('applies_to')
+      .order('applies_value'),
   ]);
-  const error = policy.error ?? calendar.error ?? exceptions.error ?? organization.error;
+  const error =
+    policy.error ?? calendar.error ?? exceptions.error ?? organization.error ?? rules.error;
   if (error || !policy.data || !calendar.data) {
     if (error) console.error(`[getFollowupSettings] ${error.message}`);
     return null;
@@ -1093,6 +1129,18 @@ export async function getFollowupSettings(): Promise<FollowupSettings | null> {
       date: String(row.calendar_date),
       isWorkingDay: Boolean(row.is_working_day),
       label: String(row.label),
+    })),
+    quietFrom: policy.data.quiet_from ? String(policy.data.quiet_from).slice(0, 5) : null,
+    quietTo: policy.data.quiet_to ? String(policy.data.quiet_to).slice(0, 5) : null,
+    catchUp: String(policy.data.catch_up ?? 'coalesce'),
+    rules: (rules.data ?? []).map((rule) => ({
+      appliesTo: rule.applies_to === 'priority' ? ('priority' as const) : ('risk' as const),
+      appliesValue: String(rule.applies_value),
+      preDueDays: Number(rule.pre_due_days),
+      remindOnDue: Boolean(rule.remind_on_due),
+      overdueEveryDays: Number(rule.overdue_every_days),
+      levelDays: (rule.level_days ?? []).map(Number),
+      reviewReminderDays: Number(rule.review_reminder_days),
     })),
   };
 }

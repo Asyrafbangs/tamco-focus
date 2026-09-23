@@ -110,6 +110,10 @@ recorded against each action it carried, and a released backlog's owner summary 
 v208 is built and verified (23 September 2026): §39's last unbuilt sentence — ESH confirms and
 changes an action's priority, each change recorded with its reason, and nothing else moves with it.
 
+v209 is built and verified (23 September 2026), from a second reading of the specification against
+the code: administrative outcomes (§6) that are not closures, follow-up rules by risk and priority
+(§16), and quiet hours with an explicit catch-up choice (§21).
+
 Each stage ships behind the rollout gate, so nothing new is visible to the team until an
 administrator enables them. Each ends with the full verify and, where it adds a migration, a
 `supabase db push`.

@@ -14289,3 +14289,34 @@ span.deadline span.deadline-glyph,
     flex: 1 1 100%;
   }
 }
+
+/* v209 — outcomes that are not closures, and schedules that differ. */
+.esh-finding-outcome {
+  margin-top: 4px;
+}
+.esh-finding-outcome .form-grid {
+  margin-top: 10px;
+}
+.esh-finding-outcome > .btn {
+  margin-top: 12px;
+  justify-self: start;
+}
+.esh-followup-rule-levels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.esh-followup-rule-levels legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: calc(13px * var(--font-scale));
+}
+.esh-followup-rule-ondue {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}

@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { Conversation } from '@/components/esh/Conversation';
 import { ActionMenu } from '@/components/esh/ActionMenu';
 import { OriginalEvidence } from '@/components/esh/OriginalEvidence';
+import { FindingOutcome } from '@/components/esh/FindingOutcome';
 import { ReopenFinding } from '@/components/esh/ReopenFinding';
 import { VerifyPanel } from '@/components/esh/VerifyPanel';
 import { FindingForm } from '@/components/esh/FindingForm';
@@ -17,6 +18,7 @@ import {
   FINDING_STATUS_LABELS,
   FINDING_WARNING_MESSAGES,
   PRIORITY_LABELS,
+  OUTCOME_LABELS,
   RISK_LABELS,
   SOURCE_LABELS,
 } from '@/domain/esh-findings';
@@ -342,7 +344,22 @@ function FindingSummary({
               <dd>Restricted — excluded from leadership reports</dd>
             </div>
           )}
+          {finding.resolvedOutcome && (
+            <div>
+              <dt>Outcome</dt>
+              <dd>
+                {OUTCOME_LABELS[finding.resolvedOutcome] ?? finding.resolvedOutcome}
+                {finding.duplicateOfReference ? ` of ${finding.duplicateOfReference}` : ''}
+                {finding.statusReason ? ` — ${finding.statusReason}` : ''}
+              </dd>
+            </div>
+          )}
         </dl>
+        {/* v209 — a finding raised in error has an answer that is not a
+            closure, and closure is what ESH verification means (§6). */}
+        {canVerify && finding.status !== 'closed' && !finding.resolvedOutcome && (
+          <FindingOutcome findingId={finding.id} />
+        )}
       </section>
 
       <section className="esh-form-card" aria-labelledby="esh-detail-original">

@@ -47,6 +47,12 @@ const CODE_PROBLEMS: Record<string, string> = {
   unchanged: 'That is already its priority.',
   reason_required:
     'Say why, in a few words: a priority nobody can account for is how everything becomes Urgent.',
+  // v209
+  already_resolved: 'This finding already has an outcome recorded.',
+  already_closed: 'A closed finding cannot be cancelled; reopen it first if that is what you mean.',
+  duplicate_of_required: 'Say which finding this one repeats.',
+  duplicate_not_found: 'That reference is not a finding you can see.',
+  duplicate_not_live: 'That finding already has an outcome of its own.',
 };
 
 const FAILED = 'Something went wrong and nothing was changed. Try again.';

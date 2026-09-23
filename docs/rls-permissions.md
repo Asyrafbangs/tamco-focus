@@ -109,6 +109,15 @@ only the active-item metadata needed for targeted revocation.
 - The change is not a deadline change and carries none of its authority: it cannot move `due_at`,
   the baseline or the escalation route.
 
+## v209 outcome and policy boundary
+
+- Recording an outcome is ESH verify authority within the finding's own department scope, and is
+  refused outright for a closed finding — reopening is the deliberate path back.
+- An outcome revokes exactly the access that belonged to the work it stopped: action grants and
+  action-scoped sessions. A principal's inbox session keeps working for their other actions.
+- Policy rules are readable by Finding staff and writable only by a Verifier. The rule that governs
+  an action is fixed at assignment, so nobody can quietly change what an owner was promised.
+
 ## v207 digest boundary
 
 - Digest membership is readable wherever the notification it belongs to is readable, and by no

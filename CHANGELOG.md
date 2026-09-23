@@ -1,5 +1,25 @@
 # TAMCO Focus — Change Log
 
+## v209 Outcomes that are not closures, and a policy that can differ — 23 September 2026
+
+Two things the specification asked for that nothing had built, found by reading it again against
+the code.
+
+- **A finding raised in error can be answered for.** Cancel, Withdraw or Duplicate, each with a
+  reason, from the finding itself. None of them says ESH verified a correction, which is what
+  closing says. Nothing is deleted: the reference, the conversation and the history stay on the
+  register, its outstanding work stops, the owner's links stop working, and anything still queued
+  to send is cancelled. A duplicate keeps a link to the finding it repeats, and that finding
+  carries on untouched.
+- **Follow-up can differ by risk and by priority.** The organisation's policy still answers for
+  most work; a rule can now answer for critical findings or urgent actions instead. The rule that
+  governs an action is settled when it is assigned, so changing policy never rewrites what an owner
+  was already promised.
+- **Quiet hours and catching up are settings, not habits.** Routine reminders raised overnight wait
+  until morning — escalation never does — and an organisation can choose between coalescing missed
+  stages after an outage and sending every one.
+- pgTAP (34) and two desktop journeys.
+
 ## v208 Priority, changed and explained — 23 September 2026
 
 A short stage closing the last of §39, still local-only and behind the restricted rollout.

@@ -3304,6 +3304,7 @@ export type Database = {
           created_at: string
           created_by: string
           description: string | null
+          duplicate_of_finding_id: string | null
           id: string
           import_batch_id: string | null
           import_row_id: string | null
@@ -3315,6 +3316,9 @@ export type Database = {
           reopened_at: string | null
           reopened_by: string | null
           reported_on: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_outcome: string | null
           risk_assessed_at: string | null
           risk_assessed_by: string | null
           risk_level: string
@@ -3335,6 +3339,7 @@ export type Database = {
           created_at?: string
           created_by: string
           description?: string | null
+          duplicate_of_finding_id?: string | null
           id?: string
           import_batch_id?: string | null
           import_row_id?: string | null
@@ -3346,6 +3351,9 @@ export type Database = {
           reopened_at?: string | null
           reopened_by?: string | null
           reported_on?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_outcome?: string | null
           risk_assessed_at?: string | null
           risk_assessed_by?: string | null
           risk_level?: string
@@ -3366,6 +3374,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string | null
+          duplicate_of_finding_id?: string | null
           id?: string
           import_batch_id?: string | null
           import_row_id?: string | null
@@ -3377,6 +3386,9 @@ export type Database = {
           reopened_at?: string | null
           reopened_by?: string | null
           reported_on?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_outcome?: string | null
           risk_assessed_at?: string | null
           risk_assessed_by?: string | null
           risk_level?: string
@@ -3475,6 +3487,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "esh_findings_organization_id_duplicate_of_finding_id_fkey"
+            columns: ["organization_id", "duplicate_of_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
+          },
+          {
+            foreignKeyName: "esh_findings_organization_id_duplicate_of_finding_id_fkey"
+            columns: ["organization_id", "duplicate_of_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_findings"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_findings_organization_id_duplicate_of_finding_id_fkey"
+            columns: ["organization_id", "duplicate_of_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
+          },
+          {
             foreignKeyName: "esh_findings_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -3512,6 +3545,41 @@ export type Database = {
           {
             foreignKeyName: "esh_findings_reopened_by_fkey"
             columns: ["reopened_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_findings_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_findings_resolved_by_fkey"
+            columns: ["resolved_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
             referencedColumns: ["id"]
@@ -3608,10 +3676,13 @@ export type Database = {
       }
       esh_followup_policies: {
         Row: {
+          catch_up: string
           level_days: number[]
           organization_id: string
           overdue_every_days: number
           pre_due_days: number
+          quiet_from: string | null
+          quiet_to: string | null
           remind_on_due: boolean
           review_reminder_days: number
           updated_at: string
@@ -3619,10 +3690,13 @@ export type Database = {
           version: number
         }
         Insert: {
+          catch_up?: string
           level_days?: number[]
           organization_id: string
           overdue_every_days?: number
           pre_due_days?: number
+          quiet_from?: string | null
+          quiet_to?: string | null
           remind_on_due?: boolean
           review_reminder_days?: number
           updated_at?: string
@@ -3630,10 +3704,13 @@ export type Database = {
           version?: number
         }
         Update: {
+          catch_up?: string
           level_days?: number[]
           organization_id?: string
           overdue_every_days?: number
           pre_due_days?: number
+          quiet_from?: string | null
+          quiet_to?: string | null
           remind_on_due?: boolean
           review_reminder_days?: number
           updated_at?: string
@@ -3678,6 +3755,91 @@ export type Database = {
           },
           {
             foreignKeyName: "esh_followup_policies_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_followup_policy_rules: {
+        Row: {
+          applies_to: string
+          applies_value: string
+          id: string
+          level_days: number[]
+          organization_id: string
+          overdue_every_days: number
+          pre_due_days: number
+          remind_on_due: boolean
+          review_reminder_days: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          applies_to: string
+          applies_value: string
+          id?: string
+          level_days: number[]
+          organization_id: string
+          overdue_every_days: number
+          pre_due_days: number
+          remind_on_due?: boolean
+          review_reminder_days: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          applies_to?: string
+          applies_value?: string
+          id?: string
+          level_days?: number[]
+          organization_id?: string
+          overdue_every_days?: number
+          pre_due_days?: number
+          remind_on_due?: boolean
+          review_reminder_days?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_followup_policy_rules_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "esh_followup_policies"
+            referencedColumns: ["organization_id"]
+          },
+          {
+            foreignKeyName: "esh_followup_policy_rules_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_followup_policy_rules_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_followup_policy_rules_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_followup_policy_rules_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_followup_policy_rules_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
@@ -15220,6 +15382,15 @@ export type Database = {
         Args: { p_email: string; p_organization_slug: string; p_token: string }
         Returns: Json
       }
+      esh_resolve_finding: {
+        Args: {
+          p_duplicate_of?: string
+          p_finding_id: string
+          p_outcome: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       esh_run_followups: { Args: { p_now?: string }; Returns: Json }
       esh_save_finding: {
         Args: {
@@ -15255,6 +15426,23 @@ export type Database = {
           p_overdue_every_days: number
           p_pre_due_days: number
           p_remind_on_due: boolean
+          p_review_reminder_days: number
+        }
+        Returns: Json
+      }
+      esh_set_followup_quiet_hours: {
+        Args: { p_catch_up: string; p_quiet_from: string; p_quiet_to: string }
+        Returns: Json
+      }
+      esh_set_followup_rule: {
+        Args: {
+          p_applies_to: string
+          p_applies_value: string
+          p_level_days: number[]
+          p_overdue_every_days: number
+          p_pre_due_days: number
+          p_remind_on_due: boolean
+          p_remove?: boolean
           p_review_reminder_days: number
         }
         Returns: Json

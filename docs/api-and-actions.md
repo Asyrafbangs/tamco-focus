@@ -108,6 +108,19 @@ the service role. These operations remain local-only in this stage.
 - Its answer repeats the due date and says the follow-up is unchanged, so the screen can say so
   too; nothing in it restarts a reminder or an escalation clock.
 
+## v209 Outcomes and policy rules
+
+- `esh_resolve_finding(finding, outcome, reason, duplicate_of)` requires ESH verify authority and a
+  reason, refuses a closed or already-resolved finding, insists a duplicate names what it repeats,
+  cancels the finding's outstanding actions, revokes their guest grants and action sessions, and
+  cancels anything still queued to send.
+- `esh_set_followup_rule(...)` writes or removes a schedule for one risk level or priority;
+  `esh_set_followup_quiet_hours(from, to, catch_up)` sets the quiet window and the catch-up rule.
+  Both are ESH verify authority and both are audited.
+- `focus.esh_followup_rule(action)` resolves the schedule for one action and is used when an
+  ownership interval is stamped. `focus.esh_after_quiet_hours(org, at)` decides when a routine
+  notice may go.
+
 ## v207 Consolidated notices
 
 - `esh_build_digests(p_now)` is service-role only. It gathers queued `owner_reminder` and
