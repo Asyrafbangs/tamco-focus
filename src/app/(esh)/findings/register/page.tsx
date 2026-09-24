@@ -1,14 +1,9 @@
 import Link from 'next/link';
 
+import { RegisterTools } from '@/components/esh/RegisterTools';
 import { PeriodPicker } from '@/components/ui/PeriodPicker';
-import {
-  ACTION_STATE_LABELS,
-  FINDING_STATUS_LABELS,
-  PRIORITY_LABELS,
-  REGISTER_FILTERS,
-  daysOverdue,
-  registerFilterFrom,
-} from '@/domain/esh-findings';
+import { REGISTER_FILTERS, RISK_LABELS, registerFilterFrom } from '@/domain/esh-findings';
+import { agoWords, dueWords, nextActor } from '@/domain/esh-next-actor';
 import { ESH_CLOSURE_PERIODS } from '@/domain/esh-overview';
 import { periodParams, resolvePeriod } from '@/domain/period';
 import { requireProfile } from '@/lib/supabase/server';
@@ -21,11 +16,6 @@ import {
 } from '@/server/esh/queries';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const LAST_UPDATE_LABELS: Record<string, string> = {
-  finding_created: 'Recorded',
-  action_assigned: 'Assigned',
-};
 
 /**
  * The Finding Register (§24, screen 03).
@@ -111,16 +101,10 @@ export default async function FindingRegisterPage({
           <p>See what needs action and who is responsible.</p>
         </div>
         <div className="pagehead-actions">
-          <Link className="btn" href="/findings/register/export">
-            Export CSV
-          </Link>
           {/* The backlog arrives through the register it belongs to, rather
-              than through a navigation area of its own (v205, §38.1). */}
-          {access.canCoordinate && (
-            <Link className="btn" href="/findings/import">
-              Import backlog
-            </Link>
-          )}
+              than through a navigation area of its own (v205, §38.1) — but
+              behind the menu, since it is a migration tool, not daily work. */}
+          <RegisterTools canCoordinate={access.canCoordinate} />
           {access.canCoordinate && (
             <Link className="btn primary" href="/findings/new">
               + New finding
@@ -170,8 +154,13 @@ export default async function FindingRegisterPage({
             <option value="unassigned">Unassigned</option>
           </select>
         </label>
+        {/*
+         * The department applies on choosing it (v179's SubmitOnSelect), so
+         * this button is only ever pressed by a browser without JavaScript,
+         * or by somebody who has typed in the search box.
+         */}
         <button className="btn" type="submit">
-          Apply
+          Search
         </button>
       </form>
 
@@ -214,9 +203,10 @@ export default async function FindingRegisterPage({
       ) : (
         <>
           <div className="esh-register-head" aria-hidden="true">
-            <span>Finding / last update</span>
-            <span>Action owner</span>
-            <span>Status</span>
+            <span>Finding</span>
+            <span>Owner</span>
+            <span>Next action</span>
+            <span>Updated</span>
           </div>
           <ul className="esh-register" aria-label="Findings">
             {register.rows.map((row) => (
@@ -277,29 +267,18 @@ function RegisterRowItem({
     new Intl.DateTimeFormat('en-MY', { day: 'numeric', month: 'short', timeZone }).format(
       new Date(instant),
     );
-  const stamp = new Intl.DateTimeFormat('en-MY', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone,
-  }).format(new Date(row.lastUpdateAt));
 
-  const overdueDays = row.isOverdue && row.dueAt ? daysOverdue(row.dueAt, now, timeZone) : 0;
+  /*
+   * v214 - the row answers "who acts next" before anything else. It used to
+   * carry a state chip, a due date, a held badge and a priority label and let
+   * the reader assemble the answer; four labels to learn one thing.
+   */
+  const next = nextActor(row, now, timeZone);
   const due = row.dueAt
     ? row.isOverdue
-      ? overdueDays === 0
-        ? 'Overdue today'
-        : `Overdue ${overdueDays} ${overdueDays === 1 ? 'day' : 'days'}`
-      : `Due ${shortDate(row.dueAt)}`
+      ? dueWords(row.dueAt, row.dueIsDateOnly, now, timeZone)
+      : `Due ${dueWords(row.dueAt, row.dueIsDateOnly, now, timeZone)}`
     : null;
-
-  const status =
-    row.status === 'open' && row.actionState
-      ? ACTION_STATE_LABELS[row.actionState]
-      : row.status === 'closed' && row.closedAt
-        ? `Closed ${shortDate(row.closedAt)}`
-        : FINDING_STATUS_LABELS[row.status];
 
   return (
     <li>
@@ -310,37 +289,40 @@ function RegisterRowItem({
         <span className="esh-register-finding">
           <small>
             {row.reference}
-            {row.location || row.departmentName ? ` · ${row.location ?? row.departmentName}` : ''}
+            {row.location ? ` · ${row.location}` : ''}
             {row.isRestricted ? ' · Restricted' : ''}
           </small>
-          <strong>{row.actionTitle ?? row.title}</strong>
-          {row.actionTitle && <small>Finding: {row.title}</small>}
+          {/*
+           * The finding's own title leads: it is what people remember, what
+           * they search for, and what the reference belongs to. An action
+           * worded differently follows it rather than replacing it.
+           */}
+          <strong>{row.title}</strong>
+          {row.actionTitle && row.actionTitle !== row.title && (
+            <small>Action: {row.actionTitle}</small>
+          )}
           <small>
-            {LAST_UPDATE_LABELS[row.lastUpdateType] ?? 'Updated'} · {stamp}
+            {[row.departmentName, `${RISK_LABELS[row.riskLevel]} risk`].filter(Boolean).join(' · ')}
           </small>
         </span>
         <span className="esh-register-owner">
           <span>{row.ownerEmail ?? 'No owner yet'}</span>
           {due && <small className={row.isOverdue ? 'esh-overdue' : undefined}>{due}</small>}
-          {/* v210 — §24 asks the row to say whether this has escalated. */}
           {row.escalationLevel !== null && (
             <small className="esh-escalated">Escalated · level {row.escalationLevel}</small>
           )}
-          {row.priority && row.priority !== 'normal' && (
-            <small className="esh-priority" data-priority={row.priority}>
-              {PRIORITY_LABELS[row.priority]} priority
-            </small>
-          )}
         </span>
-        <span className="esh-register-status">
-          <span className="flag neutral">{status}</span>
-          {row.notificationHeld && (
-            <span className="flag amber" title="The owner has not been emailed: access not enabled">
-              Notification held
-            </span>
+        <span className="esh-register-next">
+          <span className="esh-next-chip" data-tone={next.tone}>
+            {next.headline}
+          </span>
+          <small>{next.detail}</small>
+          {row.status === 'closed' && row.closedAt && (
+            <small>Closed {shortDate(row.closedAt)}</small>
           )}
           {row.actionCount > 1 && <small>{row.actionCount} actions</small>}
         </span>
+        <span className="esh-register-updated">{agoWords(row.lastUpdateAt, now)}</span>
       </Link>
     </li>
   );

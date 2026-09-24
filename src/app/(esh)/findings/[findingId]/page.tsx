@@ -8,6 +8,7 @@ import { FindingOutcome } from '@/components/esh/FindingOutcome';
 import { ReopenFinding } from '@/components/esh/ReopenFinding';
 import { VerifyPanel } from '@/components/esh/VerifyPanel';
 import { FindingForm } from '@/components/esh/FindingForm';
+import { nextActor } from '@/domain/esh-next-actor';
 import { EnableContactInline } from '@/components/esh/EnableContactInline';
 import { ReleaseNotificationButton } from '@/components/esh/ReleaseNotificationButton';
 import { StaffMessageForm } from '@/components/esh/StaffMessageForm';
@@ -112,6 +113,8 @@ export default async function FindingPage({
   if (actionId && !finding.action) notFound();
 
   const timeZone = profile.timezone ?? 'Asia/Kuala_Lumpur';
+  // Read once on the server: `react-hooks/purity` forbids a clock in render.
+  const now = new Date();
   const warnings = (query.warn ?? '')
     .split(',')
     .map((code) => FINDING_WARNING_MESSAGES[code])
@@ -227,6 +230,39 @@ export default async function FindingPage({
             : FINDING_STATUS_LABELS[finding.status]}
         </span>
       </div>
+      {/*
+       * v214 - the same sentence the register shows, from the same rule: who
+       * has to act next, and by when. A reader should not have to assemble it
+       * from a state chip, a date and a notification row.
+       */}
+      {(() => {
+        const next = nextActor(
+          {
+            status: finding.status,
+            actionState: finding.action?.state ?? null,
+            ownerEmail: finding.action?.ownerEmail ?? null,
+            dueAt: finding.action?.dueAt ?? null,
+            dueIsDateOnly: Boolean(finding.action?.dueIsDateOnly),
+            isOverdue: Boolean(
+              finding.action &&
+              finding.action.dueAt &&
+              ['assigned', 'in_progress'].includes(finding.action.state) &&
+              new Date(finding.action.dueAt).getTime() < now.getTime(),
+            ),
+            notificationHeld: finding.notifications.some((entry) => entry.state === 'held_rollout'),
+            notificationFailed: finding.notifications.some((entry) => entry.stoppedRetrying),
+            lastUpdateAt: finding.action?.assignedAt ?? finding.createdAt,
+          },
+          now,
+          timeZone,
+        );
+        return next.kind === 'settled' ? null : (
+          <p className="esh-next-banner" data-tone={next.tone}>
+            <strong>{next.headline}</strong>
+            <span>{next.detail}</span>
+          </p>
+        );
+      })()}
       {notices}
       <FindingSummary
         finding={finding}

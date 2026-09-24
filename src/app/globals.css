@@ -12843,10 +12843,15 @@ span.deadline span.deadline-glyph,
 .esh-register-head,
 .esh-register-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 0.8fr);
+  /* v214 — finding · owner · who acts next · when it last moved. */
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1.2fr) auto;
   gap: 16px;
+  align-items: start;
 }
 .esh-register-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1.2fr) auto;
+  gap: 16px;
   padding: 0 18px 8px;
   color: var(--muted);
   font-size: 10px;
@@ -14684,4 +14689,124 @@ span.deadline span.deadline-glyph,
   display: block;
   color: var(--muted);
   font-size: calc(12px * var(--font-scale));
+}
+
+/* v214 — the row says who acts next, before anything else on it. */
+.esh-register-next {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+.esh-next-chip {
+  justify-self: start;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: calc(12px * var(--font-scale));
+  font-weight: 700;
+  line-height: 1.5;
+}
+.esh-next-chip[data-tone='owner'] {
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  color: var(--blue);
+}
+.esh-next-chip[data-tone='esh'] {
+  background: color-mix(in srgb, var(--green, #1c7c54) 14%, transparent);
+  color: var(--green, #1c7c54);
+}
+.esh-next-chip[data-tone='problem'] {
+  background: color-mix(in srgb, var(--red, #b3261e) 12%, transparent);
+  color: var(--red, #b3261e);
+}
+.esh-next-chip[data-tone='settled'] {
+  background: var(--surface-2, var(--line));
+  color: var(--muted);
+}
+.esh-register-next small {
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+  line-height: 1.45;
+}
+.esh-register-updated {
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .esh-register-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .esh-register-updated {
+    order: -1;
+  }
+}
+
+/* v214 — the register's occasional tools, behind one button. */
+.esh-register-tools {
+  position: relative;
+}
+.esh-register-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  display: grid;
+  min-width: 220px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 12px 28px rgb(0 0 0 / 12%);
+}
+.esh-register-menu a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  text-decoration: none;
+}
+.esh-register-menu a:hover,
+.esh-register-menu a:focus-visible {
+  background: var(--surface-2, var(--line));
+}
+
+/* v214 — who acts next, at the top of the finding itself. */
+.esh-next-banner {
+  display: grid;
+  gap: 2px;
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border-left: 3px solid var(--line);
+}
+.esh-next-banner strong {
+  font-size: calc(11px * var(--font-scale));
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.esh-next-banner span {
+  color: var(--text);
+  font-size: calc(15px * var(--font-scale));
+}
+.esh-next-banner[data-tone='owner'] {
+  border-left-color: var(--blue);
+}
+.esh-next-banner[data-tone='owner'] strong {
+  color: var(--blue);
+}
+.esh-next-banner[data-tone='esh'] {
+  border-left-color: var(--green, #1c7c54);
+}
+.esh-next-banner[data-tone='esh'] strong {
+  color: var(--green, #1c7c54);
+}
+.esh-next-banner[data-tone='problem'] {
+  border-left-color: var(--red, #b3261e);
+}
+.esh-next-banner[data-tone='problem'] strong {
+  color: var(--red, #b3261e);
 }

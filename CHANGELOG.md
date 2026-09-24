@@ -1,5 +1,27 @@
 # TAMCO Focus — Change Log
 
+## v214 The system says who has to act next — 24 September 2026
+
+From a design review of the working module: the screens were still shaped like the database. The
+reader was given a state chip, a due date, a held-notification badge and a priority label, and left
+to work out the one thing they came for.
+
+- **Every register row now leads with who acts next** — Owner action required, ESH verification
+  required, Delivery problem, Owner not told yet, Needs an owner — with one line underneath saying
+  who and by when. The finding page opens with the same sentence, from the same rule, so the list
+  and the record cannot disagree.
+- **Undelivered outranks late.** A bounced or held assignment is reported ahead of a missed
+  deadline, because nobody is late for work they were never told about.
+- **The register is four columns**: finding, owner, next action, updated. Risk replaces the
+  priority chip in the row, the finding's own title leads, and an action worded differently follows
+  it rather than replacing it.
+- **Export and Import moved behind one button.** They are a migration tool and an occasional
+  report, not daily work sitting beside New finding.
+- The department filter already applied on choosing it, so the button beside it now says Search,
+  which is the only thing it still does.
+- Nine unit tests for the rule itself, one desktop journey, and four existing specs updated to the
+  screens they now describe.
+
 ## v213 Clearing the contacts that work is waiting on — 24 September 2026
 
 The restricted rollout (§43) is doing its job: nothing reaches anybody until an administrator

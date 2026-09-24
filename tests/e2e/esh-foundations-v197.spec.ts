@@ -149,8 +149,8 @@ test('v197 a Verifier records and assigns a finding to an email address', async 
   // The register shows it where ESH has to act: the owner has not been told.
   await page.goto('/findings/register');
   const row = page.locator('.esh-register-row').filter({ hasText: title });
-  await expect(row).toContainText('Notification held');
-  await expect(row).toContainText('High priority');
+  await expect(row.locator('.esh-next-chip')).toHaveText('Owner not told yet');
+  await expect(row).toContainText('Not assessed risk');
   await page.goto(`/findings/register?filter=open&q=${encodeURIComponent(id)}`);
   await expect(page.locator('.esh-register-row')).toHaveCount(1);
   await expect(page.getByText('1 finding in this view')).toBeVisible();

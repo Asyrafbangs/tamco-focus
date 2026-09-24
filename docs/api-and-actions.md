@@ -108,6 +108,15 @@ the service role. These operations remain local-only in this stage.
 - Its answer repeats the due date and says the follow-up is unchanged, so the screen can say so
   too; nothing in it restarts a reminder or an escalation clock.
 
+## v214 Who acts next
+
+- `nextActor(row, now, timeZone)` in `src/domain/esh-next-actor.ts` is the single rule. It takes
+  the signals the register view already carries — status, action state, owner, due date, overdue,
+  held and failed notifications — and returns a headline, a sentence and a tone. The register list
+  and the finding header both read it, so a list and the record it links to cannot disagree.
+- Ordering is deliberate: delivery failure, then a held assignment, then verification, then the
+  owner's deadline. An undelivered assignment is not lateness.
+
 ## v213 Clearing several contacts
 
 - `enableContacts(principalIds, reason)` is administrator-only and calls `esh_set_contact_access`

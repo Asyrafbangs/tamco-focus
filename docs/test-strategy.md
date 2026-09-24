@@ -106,6 +106,15 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v214 next-actor evidence
+
+- Nine unit tests fix the rule: the owner and the deadline are named rather than a state; lateness
+  is counted in days; an undelivered assignment outranks an overdue one; a held assignment reads
+  differently from a bounced one; a submission turns the queue over to ESH with the waiting time;
+  and closed or set-aside findings say nothing is waiting.
+- Playwright reads one finding in the register and on its own page and checks both say the same
+  thing, and that the register's occasional tools are behind their menu.
+
 ## v213 bulk clearance evidence
 
 - Playwright records two findings for two uncleared contacts, checks the panel lists both, refuses

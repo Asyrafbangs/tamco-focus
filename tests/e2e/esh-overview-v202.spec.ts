@@ -100,8 +100,10 @@ test('v202 overview totals drill into the matching action rows without changing 
 
   if (testInfo.project.name === 'desktop') {
     await page.goto('/findings/register');
+    await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+    await page.getByRole('button', { name: 'More register tools' }).click();
     const downloadEvent = page.waitForEvent('download');
-    await page.getByRole('link', { name: 'Export CSV' }).click();
+    await page.getByRole('menuitem', { name: 'Export register (CSV)' }).click();
     const download = await downloadEvent;
     const path = await download.path();
     expect(path).not.toBeNull();

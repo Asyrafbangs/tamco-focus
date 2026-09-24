@@ -76,7 +76,9 @@ test('v205 an Excel backlog is mapped, reconciled and released', async ({ page }
 
   await signIn(page);
   await page.goto('/findings/register');
-  await page.getByRole('link', { name: 'Import backlog' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+  await page.getByRole('button', { name: 'More register tools' }).click();
+  await page.getByRole('menuitem', { name: 'Import backlog' }).click();
   await expect(page.getByRole('heading', { name: 'Import a backlog', level: 1 })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
@@ -139,7 +141,7 @@ test('v205 an Excel backlog is mapped, reconciled and released', async ({ page }
     hasText: `Machine guard missing on the press ${id}`,
   });
   await expect(listed).toBeVisible();
-  await expect(listed).toContainText(/Overdue \d+ days/);
+  await expect(listed).toContainText(/\d+ days overdue/);
 
   const { data: action } = await service()
     .from('esh_finding_actions')

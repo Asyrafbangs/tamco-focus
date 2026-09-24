@@ -127,6 +127,8 @@ export interface RegisterListRow {
   actionCount: number;
   ownerEmail: string | null;
   notificationHeld: boolean;
+  /** v214 - a bounced or abandoned assignment email, which outranks lateness. */
+  notificationFailed: boolean;
   isOverdue: boolean;
   /** v210 - the highest escalation level live under this assignment (§24). */
   escalationLevel: number | null;
@@ -228,6 +230,7 @@ export async function listRegister(options: {
       actionCount: Number(row.action_count ?? 0),
       ownerEmail: row.owner_email ?? null,
       notificationHeld: Boolean(row.notification_held),
+      notificationFailed: Boolean(row.notification_failed),
       isOverdue: Boolean(row.is_overdue),
       escalationLevel:
         'escalation_level' in row && row.escalation_level !== null
