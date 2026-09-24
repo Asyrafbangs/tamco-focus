@@ -4,7 +4,7 @@
 
 **Baseline:** approved TAMCO Focus specifications through v191 and ESH Finding Management v1.3
 
-**Stage:** ESH Finding Management v197–v214 implemented locally behind restricted rollout. No
+**Stage:** ESH Finding Management v197–v215 implemented locally behind restricted rollout. No
 hosted Supabase link, hosted migration, deployment or remote push is part of this stage.
 
 This document records the implemented scope and the evidence used to accept the local build. `npm run verify` remains the authoritative release gate: a failed or skipped gate makes the command exit non-zero.
@@ -47,7 +47,7 @@ The UI/UX parity enforcement pass is included in that result: all main surfaces 
 - Deterministic Capture Work classification, mandatory urgency question, staged private attachments, collaboration links, and transactional confirmation.
 - Idempotent routine occurrence scheduler and weekly-summary worker with timezone windows, preference modes, manager team content, atomic claiming, retry/backoff, and local SMTP/log transport.
 - Responsive desktop and mobile interfaces based on the approved prototypes, Day/Night themes, visible text state labels, and keyboard/accessibility coverage.
-- ESH Finding Management through v214: restricted staff access, finding assignment, accountless
+- ESH Finding Management through v215: restricted staff access, finding assignment, accountless
   Action Owner links and conversation, private evidence, immutable submissions, ESH verification,
   closure/reopen, policy snapshots, reminders, escalation, reply follow-up and honest delivery
   evidence, reconciled Overview/Register definitions, closure periods, safe authorized export,
@@ -63,7 +63,8 @@ The UI/UX parity enforcement pass is included in that result: all main surfaces 
   ESH can grant, a three-step finding form, and a held notification that can be unblocked from the
   finding waiting on it, and a directory panel that clears the contacts work is already waiting
   on without loosening the rollout gate, and a register and finding header that state who has to
-  act next rather than leaving it to be inferred.
+  act next rather than leaving it to be inferred, and a two-step finding form that captures the
+  original evidence at the moment the condition is described.
 - Architecture, data-model, permissions, actions, operations, future-deployment, testing, and traceability documentation.
 
 ## Key properties proven by tests

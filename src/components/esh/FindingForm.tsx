@@ -1,6 +1,14 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useId, useState, useTransition, type FormEvent } from 'react';
+
+import { createClient } from '@supabase/supabase-js';
+
+import { AttachButtons } from '@/components/esh/EvidenceUploader';
+import { evidenceLabel, evidenceProblem, uploadContentType } from '@/domain/esh-evidence';
+import { publicEnv } from '@/lib/env';
+import { finishStaffUpload, startStaffUpload } from '@/server/esh/evidence-actions';
 
 import { EmailChips } from '@/components/esh/EmailChips';
 import {
@@ -52,14 +60,24 @@ export interface FindingFormInitial {
  * after an action finishes, which would wipe everything typed whenever the
  * database answers with something to correct.
  */
+/** "after 1 day overdue", so a level means something before it fires. */
+function overdueWords(days: number | undefined): string {
+  if (days === undefined) return 'timing follows your policy';
+  if (days <= 0) return 'as soon as it is overdue';
+  return `after ${days} day${days === 1 ? '' : 's'} overdue`;
+}
+
 export function FindingForm({
   initial,
   departments,
   verifiers,
+  levelDays = [],
 }: {
   initial: FindingFormInitial;
   departments: Array<{ id: string; name: string }>;
   verifiers: Array<{ userId: string; fullName: string; email: string }>;
+  /** v215 - the organisation's escalation timing, so a level says when. */
+  levelDays?: number[];
 }) {
   const [state, setState] = useState<SaveFindingState | null>(null);
   const [pending, startTransition] = useTransition();
@@ -77,17 +95,42 @@ export function FindingForm({
     Math.max(1, ...Object.keys(initial.escalation).map(Number), ...extraLevels),
   );
   const [moreOpen, setMoreOpen] = useState(false);
+  const router = useRouter();
+  /*
+   * v215 - the photographs are taken at the scene, so they are chosen here.
+   * They cannot be uploaded yet: an evidence record belongs to a finding, and
+   * the finding does not exist until this form is saved. They wait in the
+   * browser and go up the moment it does, before the screen moves on.
+   */
+  const [staged, setStaged] = useState<File[]>([]);
+  const [attaching, setAttaching] = useState<string | null>(null);
+  const stagedProblem = staged
+    .map((file) => evidenceProblem(file.name, file.size))
+    .find((problem) => problem);
   const summaryId = useId();
   // A field that fails validation cannot be left folded away, so the
   // disclosure opens itself when the answer it holds is the one to correct.
+  /*
+   * v215 - two steps, not three. Escalation is configuration around the
+   * action, not a third thing to record, so it sits inside the second step
+   * with the rest of the follow-up.
+   */
   const STEP_FIELDS: Record<number, string[]> = {
     1: ['title', 'description', 'location', 'accountable_department_id'],
-    2: ['required_outcome', 'owner_email', 'priority', 'due_date', 'due_time'],
-    3: ['escalation', 'no_further_escalation_reason'],
+    2: [
+      'required_outcome',
+      'owner_email',
+      'priority',
+      'due_date',
+      'due_time',
+      'escalation',
+      'no_further_escalation_reason',
+    ],
   };
-  const STEPS = ['The finding', 'The work', 'If it runs late'];
+  const STEPS = ['Finding', 'Action & follow-up'];
   const [step, setStep] = useState(1);
   const ADVANCED = [
+    'priority',
     'reported_on',
     'source',
     'source_reference',
@@ -133,14 +176,45 @@ export function FindingForm({
     setState({ ...state, problems: state.problems.filter((problem) => problem.field !== field) });
   }
 
+  /** Attach what was chosen at the scene, now that there is a finding. */
+  async function attachStaged(findingId: string) {
+    const storage = createClient(
+      publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+      publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    ).storage.from('finding-evidence');
+    for (const [index, file] of staged.entries()) {
+      setAttaching(`Attaching ${index + 1} of ${staged.length}…`);
+      const started = await startStaffUpload({
+        findingId,
+        actionId: null,
+        purpose: 'original',
+        name: file.name,
+        size: file.size,
+      });
+      if (!started.ok) continue;
+      const sent = await storage.uploadToSignedUrl(started.path, started.token, file, {
+        contentType: uploadContentType(file.name),
+      });
+      if (sent.error) continue;
+      await finishStaffUpload({ assetId: started.assetId, findingId });
+    }
+  }
+
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
     const data = new FormData(event.currentTarget, submitter);
     startTransition(async () => {
       const result = await saveFinding(null, data);
-      // A successful save redirects to the finding, so only a problem returns.
       setState(result);
+      if (result.ok && result.findingId && result.redirectTo) {
+        // The finding exists now, so its evidence can belong to something.
+        if (staged.length > 0) await attachStaged(result.findingId);
+        setAttaching(null);
+        router.push(result.redirectTo);
+        return;
+      }
       if (!result.ok) {
         // Take the form to the first step that has something to correct, so
         // the summary is never about a screen nobody is looking at.
@@ -255,6 +329,41 @@ export function FindingForm({
             )}
           </Field>
         </div>
+        <div className="esh-field">
+          <span className="esh-field-label">Evidence</span>
+          <p className="form-hint">
+            What was seen, attached now rather than remembered later. The Action Owner sees it under
+            “Original finding &amp; evidence”.
+          </p>
+          <AttachButtons
+            onFiles={(files) => setStaged((current) => [...current, ...Array.from(files)])}
+            disabled={pending}
+          />
+          {staged.length > 0 && (
+            <ul className="esh-file-list esh-staged-list" aria-label="Evidence to attach">
+              {staged.map((file, index) => (
+                <li key={`${file.name}-${index}`} className="esh-file">
+                  <span>
+                    <strong>{file.name}</strong>
+                    <small>{evidenceLabel(file.name, file.size)}</small>
+                  </span>
+                  <button
+                    type="button"
+                    className="btn ghost small"
+                    onClick={() => setStaged((current) => current.filter((_, at) => at !== index))}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {stagedProblem && (
+            <p className="esh-field-error" role="alert">
+              {stagedProblem}
+            </p>
+          )}
+        </div>
       </section>
 
       <section className="esh-form-card" aria-labelledby="esh-form-action" hidden={shown !== 2}>
@@ -292,13 +401,16 @@ export function FindingForm({
           )}
         </Field>
         <div className="form-grid two">
-          <Field label="Action priority" problems={problemsFor('priority')}>
+          <Field
+            label="Risk"
+            problems={problemsFor('risk_level')}
+            hint="Assessed with TAMCO's method. It decides how follow-up behaves."
+          >
             {(props) => (
-              <select name="priority" defaultValue={initial.priority} {...props}>
-                <option value="">Choose a priority</option>
-                {(Object.keys(PRIORITY_LABELS) as ActionPriority[]).map((priority) => (
-                  <option key={priority} value={priority}>
-                    {PRIORITY_LABELS[priority]}
+              <select name="risk_level" defaultValue={initial.riskLevel} {...props}>
+                {(Object.keys(RISK_LABELS) as RiskLevel[]).map((risk) => (
+                  <option key={risk} value={risk}>
+                    {RISK_LABELS[risk]}
                   </option>
                 ))}
               </select>
@@ -322,13 +434,13 @@ export function FindingForm({
         )}
       </section>
 
-      <section className="esh-form-card" aria-labelledby="esh-form-escalation" hidden={shown !== 3}>
+      <section className="esh-form-card" aria-labelledby="esh-form-escalation" hidden={shown !== 2}>
         <h2 id="esh-form-escalation" className="esh-form-card-title">
-          If it becomes overdue
+          Follow-up if overdue
         </h2>
         <p className="form-hint esh-form-card-hint">
-          Who to tell, by email, if the owner lets it run late. Nobody here is written to or given
-          access until it actually becomes overdue enough to reach their level.
+          Nobody here is written to, or given any access, until the action is actually overdue by
+          the days shown. The timing comes from your follow-up policy.
         </p>
         {problemsFor('escalation').map((problem) => (
           <p key={problem.message} className="esh-field-error" role="alert">
@@ -341,6 +453,7 @@ export function FindingForm({
               key={level}
               name={`escalation_level_${level}`}
               label={`Level ${level}`}
+              hint={overdueWords(levelDays[level - 1])}
               initial={initial.escalation[level] ?? []}
             />
           ))}
@@ -361,13 +474,10 @@ export function FindingForm({
             checked={noFurtherEscalation}
             onChange={(event) => setNoFurtherEscalation(event.target.checked)}
           />
-          <span>
-            No further escalation
-            <small>Record why, instead of inventing addresses nobody agreed.</small>
-          </span>
+          <span>Stop escalation after this level</span>
         </label>
         {noFurtherEscalation && (
-          <Field label="Why there is no further escalation" problems={[]}>
+          <Field label="Reason" problems={[]}>
             {(props) => (
               <input
                 name="no_further_escalation_reason"
@@ -381,7 +491,7 @@ export function FindingForm({
       </section>
 
       <details
-        hidden={shown !== 3}
+        hidden={shown !== 2}
         className="esh-form-more"
         open={advancedProblem || moreOpen}
         onToggle={(event) => setMoreOpen(event.currentTarget.open)}
@@ -460,15 +570,15 @@ export function FindingForm({
             )}
           </Field>
           <Field
-            label="Finding risk"
-            problems={problemsFor('risk_level')}
-            hint="Assessed with TAMCO's method. Unassessed findings say Not assessed."
+            label="Action priority"
+            problems={problemsFor('priority')}
+            hint="What the owner should do first. Risk is the assessment; this is the queue."
           >
             {(props) => (
-              <select name="risk_level" defaultValue={initial.riskLevel} {...props}>
-                {(Object.keys(RISK_LABELS) as RiskLevel[]).map((risk) => (
-                  <option key={risk} value={risk}>
-                    {RISK_LABELS[risk]}
+              <select name="priority" defaultValue={initial.priority || 'normal'} {...props}>
+                {(Object.keys(PRIORITY_LABELS) as ActionPriority[]).map((priority) => (
+                  <option key={priority} value={priority}>
+                    {PRIORITY_LABELS[priority]}
                   </option>
                 ))}
               </select>
@@ -522,7 +632,7 @@ export function FindingForm({
             disabled={pending}
             aria-busy={pending}
           >
-            {pending ? 'Saving…' : 'Assign finding'}
+            {attaching ?? (pending ? 'Saving…' : 'Assign finding')}
           </button>
         )}
       </div>

@@ -237,7 +237,7 @@ test('v212 a held email can be unblocked from the finding that is waiting on it'
   }
 });
 
-test('v212 recording a finding is three steps, and a problem pulls it back', async ({
+test('v212 recording a finding is two steps, and a problem pulls it back', async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'The steps are the same at both widths.');
@@ -257,8 +257,7 @@ test('v212 recording a finding is three steps, and a problem pulls it back', asy
 
   // Assigning from the last step with the first step unanswered must not bury
   // the problem on a screen nobody is looking at.
-  await page.getByRole('button', { name: 'Next' }).click();
-  await expect(page.locator('.esh-step[data-state="current"] .esh-step-mark')).toHaveText('3');
+  await expect(page.locator('.esh-step[data-state="current"] .esh-step-mark')).toHaveText('2');
   // Pressing Next must not save anything. Rendered as one node whose type
   // flips from button to submit, it did: the browser honoured submit for the
   // click already in flight and the finding went in half-answered.

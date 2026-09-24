@@ -106,6 +106,14 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v215 two-step evidence
+
+- Playwright records a finding across both steps, attaches a PNG on step one, and then checks in
+  the database that the asset belongs to that finding, is `ready`, and carries purpose `original`
+  — the upload is asserted at the store, not at the screen that reported it.
+- It also checks that risk is asked for at registration while priority is not, and that an
+  escalation level states when it fires.
+
 ## v214 next-actor evidence
 
 - Nine unit tests fix the rule: the owner and the deadline are named rather than a state; lateness

@@ -110,7 +110,6 @@ test('v197 a Verifier records and assigns a finding to an email address', async 
   // Assign with only a title: every missing part is named, and nothing saved.
   await page.getByLabel('Finding title').fill(title);
   await page.getByRole('button', { name: 'Next' }).click();
-  await page.getByRole('button', { name: 'Next' }).click();
   await page.getByRole('button', { name: 'Assign finding' }).click();
   const summary = page.locator('.notice.error');
   await expect(summary).toContainText('Describe what was found.');
@@ -131,9 +130,8 @@ test('v197 a Verifier records and assigns a finding to an email address', async 
   await page.getByLabel('Action Owner email').fill(`  ${owner.toUpperCase()} `);
   // The whole address, spelled out before assignment (§7).
   await expect(page.locator('.esh-recipient-confirm')).toContainText(owner.toUpperCase());
-  await page.getByLabel('Action priority').selectOption('high');
+  await page.getByLabel('Risk', { exact: true }).selectOption('high');
   await page.getByLabel('Due date').fill('2026-12-15');
-  await page.getByRole('button', { name: 'Next' }).click();
   const level1 = page.getByRole('textbox', { name: 'Level 1', exact: true });
   await level1.fill(`supervisor.${id}@example.com, SUPERVISOR.${id}@example.com`);
   await level1.press('Enter');
@@ -150,7 +148,7 @@ test('v197 a Verifier records and assigns a finding to an email address', async 
   await page.goto('/findings/register');
   const row = page.locator('.esh-register-row').filter({ hasText: title });
   await expect(row.locator('.esh-next-chip')).toHaveText('Owner not told yet');
-  await expect(row).toContainText('Not assessed risk');
+  await expect(row).toContainText('High risk');
   await page.goto(`/findings/register?filter=open&q=${encodeURIComponent(id)}`);
   await expect(page.locator('.esh-register-row')).toHaveCount(1);
   await expect(page.getByText('1 finding in this view')).toBeVisible();
@@ -182,11 +180,9 @@ test('v197 a draft keeps what was entered and can be finished later', async ({
   await page.getByRole('button', { name: 'Next' }).click();
   await expect(page.getByLabel('Action Owner email')).toHaveValue(`draft.${id}@example.com`);
   await page.getByLabel('Required outcome').fill('Put it right.');
-  await page.getByLabel('Action priority').selectOption('normal');
   await page.getByLabel('Due date').fill('2026-12-20');
-  await page.getByRole('button', { name: 'Next' }).click();
-  await page.getByLabel('No further escalation').check();
-  await page.getByLabel('Why there is no further escalation').fill('Single-level route agreed');
+  await page.getByText('Stop escalation after this level').click();
+  await page.getByLabel('Reason', { exact: true }).fill('Single-level route agreed');
   await page.getByRole('button', { name: 'Assign finding' }).click();
   await expect(page).toHaveURL(/\?saved=assigned/, { timeout: 30_000 });
   await expect(page.locator('.esh-detail')).toContainText('Single-level route agreed');

@@ -18,14 +18,18 @@ export function EmailChips({
   label,
   initial = [],
   describedBy,
+  hint,
 }: {
   name: string;
   label: string;
   initial?: string[];
   describedBy?: string;
+  /** v215 - when this level is told, so the label means something. */
+  hint?: string;
 }) {
   const inputId = useId();
   const errorId = useId();
+  const hintId = useId();
   const [addresses, setAddresses] = useState<string[]>(initial);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -70,13 +74,25 @@ export function EmailChips({
   }
 
   const describedByIds =
-    [describedBy, error ? errorId : null].filter(Boolean).join(' ') || undefined;
+    [describedBy, hint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ') ||
+    undefined;
 
   return (
     <div className="esh-chips-field">
+      {/*
+       * The hint sits beside the label, not inside it. Inside, it joins the
+       * field's accessible name — "Level 1 after 1 day overdue" — and every
+       * reader that looks the field up by name, human or test, stops finding
+       * it. The same trap as a select nested in its own label.
+       */}
       <label htmlFor={inputId}>
         <span>{label}</span>
       </label>
+      {hint && (
+        <small id={hintId} className="esh-chips-hint">
+          {hint}
+        </small>
+      )}
       <div className="esh-chips" data-invalid={error ? 'true' : undefined}>
         <ul aria-label={`${label} addresses`}>
           {addresses.map((address) => (

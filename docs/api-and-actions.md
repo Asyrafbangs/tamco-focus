@@ -108,6 +108,15 @@ the service role. These operations remain local-only in this stage.
 - Its answer repeats the due date and says the follow-up is unchanged, so the screen can say so
   too; nothing in it restarts a reminder or an escalation clock.
 
+## v215 Evidence at registration
+
+- `saveFinding` returns `{ findingId, redirectTo }` instead of redirecting from the server. The
+  browser needs the id: an evidence record belongs to a finding, so photographs chosen while
+  describing the condition can only be attached once it exists.
+- The form then runs the ordinary staff upload for each staged file — `esh_start_upload`, the
+  signed PUT, `esh_finish_upload`, purpose `original` — and navigates when they are done. No new
+  procedure, no new grant, and a file that fails to attach does not lose the finding.
+
 ## v214 Who acts next
 
 - `nextActor(row, now, timeZone)` in `src/domain/esh-next-actor.ts` is the single rule. It takes

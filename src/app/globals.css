@@ -14810,3 +14810,24 @@ span.deadline span.deadline-glyph,
 .esh-next-banner[data-tone='problem'] strong {
   color: var(--red, #b3261e);
 }
+
+/* v215 — evidence chosen at the scene, waiting for the finding to exist. */
+.esh-staged-list {
+  margin-top: 8px;
+}
+.esh-staged-list .esh-file {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.esh-field-label {
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+  font-weight: 700;
+}
+.esh-chips-hint {
+  display: block;
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+}

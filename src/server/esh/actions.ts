@@ -1,7 +1,6 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
 import { findingProblem, FINDING_WARNING_MESSAGES } from '@/domain/esh-findings';
@@ -26,6 +25,16 @@ export interface SaveFindingState {
   ok: boolean;
   problems: FormProblem[];
   warnings: string[];
+  /**
+   * v215 - where the browser should go, and what it is going to.
+   *
+   * This used to `redirect()` from the action. The form now carries the
+   * photographs taken at the scene, and those can only be attached once the
+   * finding they belong to exists, so the answer comes back and the client
+   * navigates after the uploads finish.
+   */
+  findingId?: string;
+  redirectTo?: string;
 }
 
 const uuid = z.string().uuid();
@@ -145,7 +154,13 @@ export async function saveFinding(
   const warnings = (result.warnings ?? []).filter((code) => FINDING_WARNING_MESSAGES[code]);
   const query = new URLSearchParams({ saved: assign ? 'assigned' : 'draft' });
   if (warnings.length) query.set('warn', warnings.join(','));
-  redirect(`/findings/${result.finding_id}?${query.toString()}`);
+  return {
+    ok: true,
+    problems: [],
+    warnings,
+    findingId: String(result.finding_id),
+    redirectTo: `/findings/${result.finding_id}?${query.toString()}`,
+  };
 }
 
 export interface StaffAccessState {

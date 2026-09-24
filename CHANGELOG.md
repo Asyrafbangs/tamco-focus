@@ -1,5 +1,28 @@
 # TAMCO Focus — Change Log
 
+## v215 Two steps, and the photograph taken at the scene — 24 September 2026
+
+- **Recording a finding is two steps: Finding, then Action & follow-up.** Escalation is
+  configuration around the action, not a third thing to record, so it sits with the rest of the
+  follow-up rather than occupying a step of its own.
+- **Evidence is attached where the condition is described.** The photographs are chosen on step
+  one and go up the moment the finding exists — an evidence record belongs to a finding, so they
+  wait in the browser until there is one, then attach before the screen moves on. Until now the
+  only way to add the original condition was to save the finding, notice the empty evidence
+  section, and go back for it.
+- **One classification at registration.** Risk is asked for, because it decides how follow-up
+  behaves; priority keeps its meaning and its history but moves under More settings with Normal
+  already chosen. Two near-synonymous fields at the moment of recording taught nobody anything.
+- **An escalation level says when it fires** — “after 1 day overdue”, from the organisation's own
+  follow-up policy — rather than only who it reaches. “No further escalation” became “Stop
+  escalation after this level” with a plain Reason.
+- Fixed while testing: the timing hint, placed inside the label, joined the field's accessible
+  name, so anything looking the field up by name stopped finding it. It sits beside the label and
+  is referenced by `aria-describedby` instead.
+- `saveFinding` returns the new finding's id rather than redirecting from the server, which is what
+  lets the browser attach evidence before navigating.
+- One desktop journey covering both steps and the upload; three existing specs updated.
+
 ## v214 The system says who has to act next — 24 September 2026
 
 From a design review of the working module: the screens were still shaped like the database. The

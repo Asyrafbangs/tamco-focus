@@ -168,35 +168,32 @@ test('v211 an owner asks for more time in the thread and ESH grants it in one pr
   await guestContext.close();
 });
 
-test('v211 the new finding form asks for eight things and defaults the rest', async ({
-  page,
-}, testInfo) => {
+test('v211 the new finding form asks for what only a person knows', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'The field set is the same at both widths.');
   await signIn(page);
   await page.goto('/findings/new');
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
-  // Eight answers across three steps, and nothing that already has an answer.
+  // Two steps, and nothing on them that already has a sound answer.
   const form = page.locator('form.esh-finding-form');
   for (const label of ['Finding title', 'What was found', 'Location', 'Accountable department']) {
     await expect(form.getByLabel(label, { exact: true })).toBeVisible();
   }
   await page.getByRole('button', { name: 'Next' }).click();
-  for (const label of ['Required outcome', 'Action Owner email', 'Action priority', 'Due date']) {
+  for (const label of ['Required outcome', 'Action Owner email', 'Risk', 'Due date']) {
     await expect(form.getByLabel(label, { exact: true })).toBeVisible();
   }
-  await page.getByRole('button', { name: 'Next' }).click();
-  for (const hidden of ['Reported on', 'Source', 'Completion evidence', 'ESH reviewer']) {
+  for (const hidden of ['Reported on', 'Source', 'Completion evidence', 'Action priority']) {
     await expect(form.getByLabel(hidden, { exact: true })).not.toBeVisible();
   }
-  // One escalation level, not three empty ones.
+  // One escalation level, and it says when it is told.
   await expect(form.locator('.esh-escalation-levels > *')).toHaveCount(1);
-  await expect(form.getByText('Level 1', { exact: true })).toBeVisible();
-  await expect(form.getByText('Level 2', { exact: true })).toHaveCount(0);
+  await expect(form.getByText(/after \d+ days? overdue/)).toBeVisible();
 
   // The defaults are still submitted, not dropped: they are under the fold.
   await page.locator('.esh-form-more > summary').click();
   await expect(form.getByLabel('Reported on', { exact: true })).toBeVisible();
+  await expect(form.getByLabel('Action priority', { exact: true })).toHaveValue('normal');
   await expect(form.getByLabel('Completion evidence', { exact: true })).toHaveValue(
     'Photo showing the corrected condition.',
   );
