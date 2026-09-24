@@ -106,6 +106,14 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v213 bulk clearance evidence
+
+- Playwright records two findings for two uncleared contacts, checks the panel lists both, refuses
+  the batch until a reason is given, clears them in one press, and then asserts in the database
+  that both carry the reason and that every notice raised while they were switched off is still
+  held. The confirmation is asserted after the list empties, because the panel would otherwise
+  unmount and take its own answer with it.
+
 ## v212 handover and step evidence
 
 - pgTAP (13) proves that naming a successor keeps the address canonically with the message while

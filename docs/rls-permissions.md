@@ -102,6 +102,14 @@ security-invoker view and therefore remain constrained by the caller's separate 
 Guest grants and sessions remain unreadable to clients; audited security-definer procedures expose
 only the active-item metadata needed for targeted revocation.
 
+## v213 bulk clearance boundary
+
+- Clearing contacts in a batch is the same authority as clearing one: administrator, with a
+  reason, through the same procedure and the same audit entries. There is no batch privilege and
+  no new route into contact access.
+- The rollout mode remains pinned to Restricted by a schema check. Nothing in this stage can
+  enable a person who was not named, and no path enables staff visibility.
+
 ## v212 handover-request boundary
 
 - Naming a successor confers nothing on them: no contact record, no grant, no session, no

@@ -88,6 +88,94 @@ export interface ContactAccessState {
   message: string;
 }
 
+export interface BulkContactAccessResult {
+  ok: boolean;
+  message: string;
+  enabled: number;
+  refused: Array<{ email: string; message: string }>;
+}
+
+/**
+ * v213 - several contacts cleared in one deliberate act (§43.2).
+ *
+ * The rollout gate is meant to stop a half-configured module writing to real
+ * people; it is not meant to be met one finding at a time. An administrator
+ * still chooses exactly who, and still says why, but they can do it for the
+ * dozen supervisors who will own actions rather than returning to this screen
+ * after every assignment.
+ *
+ * Each contact is switched on by the same audited procedure as before, in its
+ * own call: one that is refused does not take the others with it, and the
+ * answer says which. Enabling still sends nothing.
+ */
+export async function enableContacts(input: {
+  principalIds: string[];
+  reason: string;
+}): Promise<BulkContactAccessResult> {
+  const profile = await requireProfile();
+  if (profile.role !== 'administrator') {
+    return { ok: false, message: contactAccessProblem('not_permitted'), enabled: 0, refused: [] };
+  }
+  const reason = String(input.reason ?? '').trim();
+  if (reason.length < 3) {
+    return {
+      ok: false,
+      message: 'Say why these contacts may be written to.',
+      enabled: 0,
+      refused: [],
+    };
+  }
+  const ids = (input.principalIds ?? [])
+    .map((id) => uuid.safeParse(id))
+    .filter((parsed) => parsed.success)
+    .map((parsed) => parsed.data);
+  if (ids.length === 0) {
+    return { ok: false, message: 'Choose at least one contact.', enabled: 0, refused: [] };
+  }
+  // A ceiling, so a stray select-all cannot clear an entire directory at once.
+  if (ids.length > 50) {
+    return {
+      ok: false,
+      message: 'Fifty at a time. Enable the people who own work now, not the whole directory.',
+      enabled: 0,
+      refused: [],
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const refused: Array<{ email: string; message: string }> = [];
+  let enabled = 0;
+  for (const id of ids) {
+    const { data, error } = await supabase.rpc('esh_set_contact_access', {
+      p_principal_id: id,
+      p_enabled: true,
+      p_reason: reason,
+    });
+    if (error) {
+      console.error(`[enableContacts] ${error.code ?? 'unknown'}: ${error.message}`);
+      refused.push({ email: id, message: 'Something went wrong for this one.' });
+      continue;
+    }
+    const result = (data ?? {}) as { ok?: boolean; code?: string; unchanged?: boolean };
+    if (!result.ok) {
+      refused.push({ email: id, message: contactAccessProblem(result.code) });
+      continue;
+    }
+    if (!result.unchanged) enabled += 1;
+  }
+  revalidatePath('/more/admin/users');
+  revalidatePath('/more/admin/contacts');
+  return {
+    ok: refused.length === 0,
+    enabled,
+    refused,
+    message:
+      refused.length === 0
+        ? `${enabled} contact${enabled === 1 ? '' : 's'} cleared to receive email. Nothing has been sent: each finding still releases its own held notice.`
+        : `${enabled} cleared, ${refused.length} refused.`,
+  };
+}
+
 /**
  * v212 - the same switch, thrown from the finding that is waiting on it.
  *

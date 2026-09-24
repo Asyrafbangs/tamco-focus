@@ -14662,3 +14662,26 @@ span.deadline span.deadline-glyph,
     justify-content: center;
   }
 }
+
+/* v213 — clearing the contacts that work is already waiting on. */
+.esh-bulk-access {
+  margin-bottom: 18px;
+}
+.esh-bulk-list {
+  display: grid;
+  gap: 4px;
+  max-height: 320px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.esh-bulk-list li[data-refused='true'] {
+  border-left: 3px solid var(--amber, #b26a00);
+  padding-left: 8px;
+}
+.esh-bulk-list small {
+  display: block;
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+}

@@ -105,12 +105,10 @@ test('v212 an owner says it is not theirs and ESH hands it over in one press', a
   await owner.goto(fixture.path);
   await expect(owner.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   const open = owner.getByRole('button', { name: 'Open action' });
-  if (await open.count()) {
-    await Promise.all([
-      owner.waitForURL(/\/respond\/actions\//, { timeout: 30_000 }),
-      open.click(),
-    ]);
-  }
+  if (await open.count()) await open.click();
+  // Not waitForURL: the access exchange replaces the document, and waiting
+  // on the navigation event races a frame being detached. The destination's
+  // own header is what settles, so that is what the test waits for.
   await expect(owner.locator('.guest-chat-head')).toBeVisible({ timeout: 30_000 });
 
   await owner.getByRole('button', { name: 'Not mine' }).click();

@@ -1,5 +1,23 @@
 # TAMCO Focus — Change Log
 
+## v213 Clearing the contacts that work is waiting on — 24 September 2026
+
+The restricted rollout (§43) is doing its job: nothing reaches anybody until an administrator
+clears that contact and ESH releases the notice. Meeting it one finding at a time was the problem,
+not the gate itself.
+
+- **Identity and access now lists the contacts that work is already waiting on** — those with an
+  open action or a held notice and no clearance — and an administrator can clear the ones they
+  choose in a single act, with one reason. Each is still switched on by the same audited
+  procedure, in its own call, so one refusal does not take the others with it and the answer says
+  which.
+- **Clearing still sends nothing.** Every notice raised while somebody was switched off stays held
+  until its finding releases it, which the panel says out loud and a test asserts.
+- Fifty at a time, so a stray select-all cannot clear a directory.
+- The rollout mode itself is untouched: it remains pinned to Restricted in the schema. Opening the
+  module to everyone is an explicit authorised decision (§43.2), not a button I would add unasked.
+- One desktop journey.
+
 ## v212 One question at a time, "not mine", and a held email you can unblock — 23 September 2026
 
 - **Recording a finding is three steps.** What was found, then who puts it right by when, then who

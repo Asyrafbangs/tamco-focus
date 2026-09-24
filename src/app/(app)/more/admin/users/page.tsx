@@ -13,6 +13,7 @@ import {
 
 import { UserCreateForm, UserEditForm, UserStatusForm, VisibilityForm } from '../../SettingsForms';
 import { EshAccessForm } from './EshAccessForm';
+import { BulkContactAccess } from './BulkContactAccess';
 import { ContactAdministration } from './ContactAdministration';
 import { ModuleAccessForm } from './ModuleAccessForm';
 import { ReportingHistory } from './ReportingHistory';
@@ -51,6 +52,25 @@ export default async function UsersPage({
       (kind !== 'contacts' || linkedContactByStaff.has(user.id)),
   );
   const standaloneContacts = contacts.filter((contact) => !contact.staffUserId);
+  /*
+   * Contacts that work is already waiting on. Anyone else in the directory is
+   * not an omission — the rollout gate is meant to stay shut for people with
+   * nothing to answer for (§43.2).
+   */
+  const waitingToBeCleared = contacts
+    .filter(
+      (contact) =>
+        !contact.accessEnabled &&
+        contact.status === 'active' &&
+        (contact.openActions > 0 || contact.heldNotifications > 0),
+    )
+    .map((contact) => ({
+      id: contact.id,
+      email: contact.email,
+      displayName: contact.displayName,
+      openActions: contact.openActions,
+      heldNotifications: contact.heldNotifications,
+    }));
   const selected = directory.users.find((user) => user.id === params.user) ?? null;
   const selectedContact = params.contact
     ? (contacts.find((contact) => contact.id === params.contact) ?? null)
@@ -360,13 +380,16 @@ export default async function UsersPage({
               />
             </>
           ) : (
-            <div className="empty-state">
-              <h2>Select a person</h2>
-              <p>
-                Choose a registered user or email-link contact to maintain their identity and
-                access.
-              </p>
-            </div>
+            <>
+              <BulkContactAccess contacts={waitingToBeCleared} />
+              <div className="empty-state">
+                <h2>Select a person</h2>
+                <p>
+                  Choose a registered user or email-link contact to maintain their identity and
+                  access.
+                </p>
+              </div>
+            </>
           )}
         </section>
       </div>

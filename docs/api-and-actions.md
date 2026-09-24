@@ -108,6 +108,14 @@ the service role. These operations remain local-only in this stage.
 - Its answer repeats the due date and says the follow-up is unchanged, so the screen can say so
   too; nothing in it restarts a reminder or an escalation clock.
 
+## v213 Clearing several contacts
+
+- `enableContacts(principalIds, reason)` is administrator-only and calls `esh_set_contact_access`
+  once per contact, so each clearance is its own audited act with its own reason. A refusal is
+  reported against that contact and the rest still proceed. Capped at fifty per press.
+- It grants access and nothing else: notices raised while a contact was switched off stay
+  `held_rollout` until their finding releases them (§43.4).
+
 ## v212 A different owner, and unblocking a held email
 
 - `esh_guest_send_message` takes `p_proposed_owner_email`, canonicalised and kept only when it is

@@ -104,14 +104,10 @@ test('v211 an owner asks for more time in the thread and ESH grants it in one pr
   await owner.goto(fixture.path);
   await expect(owner.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   const open = owner.getByRole('button', { name: 'Open action' });
-  if (await open.count()) {
-    // The exchange replaces the document; waiting on the URL alone races a
-    // frame that is being detached, which reads as ERR_ABORTED under load.
-    await Promise.all([
-      owner.waitForURL(/\/respond\/actions\//, { timeout: 30_000 }),
-      open.click(),
-    ]);
-  }
+  if (await open.count()) await open.click();
+  // Not waitForURL: the access exchange replaces the document, and waiting
+  // on the navigation event races a frame being detached. The destination's
+  // own header is what settles, so that is what the test waits for.
   await expect(owner.locator('.guest-chat-head')).toBeVisible({ timeout: 30_000 });
 
   // What ESH needs is in sight without opening anything.
