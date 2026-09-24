@@ -1,11 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 /**
- * Finding Management's own navigation (§4, §33.1). Closed is a Register
- * filter, while settings stays secondary to the three daily-work destinations.
+ * Finding Management's own navigation (§4, §33.1).
+ *
+ * Register, Verification and Closed are the working destinations; settings
+ * stays secondary. Closed was a chip inside the register while also being a
+ * place people navigate to, which made two navigation systems compete on one
+ * screen. It is a destination here and a view there — the same URL, reached
+ * the way people actually think of it.
  */
 export function FindingNav({
   waitingToVerify,
@@ -15,8 +20,9 @@ export function FindingNav({
   canManageSettings: boolean;
 }) {
   const pathname = usePathname();
+  const showingClosed = useSearchParams().get('filter') === 'closed';
   const inRegister =
-    pathname.startsWith('/findings/register') ||
+    (pathname.startsWith('/findings/register') && !showingClosed) ||
     pathname === '/findings/new' ||
     /^\/findings\/[0-9a-f-]{36}$/.test(pathname);
 
@@ -45,6 +51,14 @@ export function FindingNav({
                 {waitingToVerify}
               </span>
             )}
+          </Link>
+        </li>
+        <li>
+          <Link
+            href="/findings/register?filter=closed"
+            aria-current={showingClosed ? 'page' : undefined}
+          >
+            Closed
           </Link>
         </li>
       </ul>

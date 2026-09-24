@@ -14915,3 +14915,22 @@ span.deadline span.deadline-glyph,
 .esh-activity .esh-subheading:first-of-type {
   margin-top: 0;
 }
+
+/* v217 — what the correction is judged against, at the top of the decision. */
+.esh-required-outcome {
+  padding: 12px 14px;
+  background: var(--surface-2, var(--bg));
+  border-left: 3px solid var(--blue);
+  border-radius: var(--radius-sm);
+}
+.esh-required-outcome p {
+  margin: 4px 0 0;
+}
+.esh-pinned-label {
+  display: block;
+  color: var(--muted);
+  font-size: calc(11px * var(--font-scale));
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

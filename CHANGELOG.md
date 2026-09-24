@@ -1,5 +1,16 @@
 # TAMCO Focus — Change Log
 
+## v217 Closed is a destination, and a verifier sees what they are judging — 24 September 2026
+
+- **Register, Verification, Closed.** Closed was a chip inside the register while also being
+  somewhere people navigate to, so two navigation systems competed on one screen. It is a
+  destination in the module's own navigation now and a view of the register underneath, on the
+  same URL: every existing link and bookmark still works.
+- **The verifier reads the required outcome above the comparison.** Before and after have been
+  side by side since v200, but what the correction had to achieve sat in another card further down
+  the page, so a photograph was being judged against a memory of it.
+- One desktop journey for the navigation; the verification journey gained the assertion.
+
 ## v216 The finding reads as work, not as a schema — 24 September 2026
 
 Six cards of equal weight — the finding, its evidence, the corrective action, the conversation,

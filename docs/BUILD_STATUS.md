@@ -4,7 +4,7 @@
 
 **Baseline:** approved TAMCO Focus specifications through v191 and ESH Finding Management v1.3
 
-**Stage:** ESH Finding Management v197–v216 implemented locally behind restricted rollout. No
+**Stage:** ESH Finding Management v197–v217 implemented locally behind restricted rollout. No
 hosted Supabase link, hosted migration, deployment or remote push is part of this stage.
 
 This document records the implemented scope and the evidence used to accept the local build. `npm run verify` remains the authoritative release gate: a failed or skipped gate makes the command exit non-zero.
@@ -47,7 +47,7 @@ The UI/UX parity enforcement pass is included in that result: all main surfaces 
 - Deterministic Capture Work classification, mandatory urgency question, staged private attachments, collaboration links, and transactional confirmation.
 - Idempotent routine occurrence scheduler and weekly-summary worker with timezone windows, preference modes, manager team content, atomic claiming, retry/backoff, and local SMTP/log transport.
 - Responsive desktop and mobile interfaces based on the approved prototypes, Day/Night themes, visible text state labels, and keyboard/accessibility coverage.
-- ESH Finding Management through v216: restricted staff access, finding assignment, accountless
+- ESH Finding Management through v217: restricted staff access, finding assignment, accountless
   Action Owner links and conversation, private evidence, immutable submissions, ESH verification,
   closure/reopen, policy snapshots, reminders, escalation, reply follow-up and honest delivery
   evidence, reconciled Overview/Register definitions, closure periods, safe authorized export,
@@ -66,7 +66,8 @@ The UI/UX parity enforcement pass is included in that result: all main surfaces 
   act next rather than leaving it to be inferred, and a two-step finding form that captures the
   original evidence at the moment the condition is described, and a finding page laid out as work
   — conversation first, context beside it, the audit trail behind a disclosure that opens itself
-  when delivery has gone wrong.
+  when delivery has gone wrong, Register/Verification/Closed as the module's destinations, and a
+  verification decision made against the outcome it was required to achieve.
 - Architecture, data-model, permissions, actions, operations, future-deployment, testing, and traceability documentation.
 
 ## Key properties proven by tests

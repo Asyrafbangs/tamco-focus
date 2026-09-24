@@ -191,8 +191,9 @@ test('v200 ESH reviews from the queue, asks for more, then accepts and closes', 
     new RegExp(`/findings/${work.findingId}\\?action=${work.actionId}$`),
   );
 
-  // Before and after, side by side (§13).
+  // Before and after, side by side (§13), under what was required (v217).
   const submission = page.getByRole('region', { name: /Submitted for review/ });
+  await expect(submission.locator('.esh-required-outcome')).toContainText('Refit the guard');
   await expect(submission).toContainText('Guard missing on press 2.');
   await expect(submission).toContainText('Guard refitted.');
   await expect(submission.getByRole('list', { name: 'Original evidence' })).toHaveCount(0);

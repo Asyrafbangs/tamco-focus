@@ -106,6 +106,13 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v217 navigation evidence
+
+- Playwright checks the module offers Register, Verification and Closed; that the register itself
+  now offers three views rather than four; and that opening Closed marks it as the current
+  destination and the register as not. The verification journey asserts the required outcome is on
+  screen with the before-and-after it is judged by.
+
 ## v216 layout evidence
 
 - Playwright checks that the conversation is in the main column and the action, the finding and

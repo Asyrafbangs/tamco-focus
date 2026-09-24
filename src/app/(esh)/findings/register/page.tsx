@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 import { RegisterTools } from '@/components/esh/RegisterTools';
 import { PeriodPicker } from '@/components/ui/PeriodPicker';
-import { REGISTER_FILTERS, RISK_LABELS, registerFilterFrom } from '@/domain/esh-findings';
+import { REGISTER_VIEWS, RISK_LABELS, registerFilterFrom } from '@/domain/esh-findings';
 import { agoWords, dueWords, nextActor } from '@/domain/esh-next-actor';
 import { ESH_CLOSURE_PERIODS } from '@/domain/esh-overview';
 import { periodParams, resolvePeriod } from '@/domain/period';
@@ -114,7 +114,7 @@ export default async function FindingRegisterPage({
       </div>
 
       <nav className="esh-filter-tabs" aria-label="Register views">
-        {REGISTER_FILTERS.map((option) => (
+        {REGISTER_VIEWS.map((option) => (
           <Link
             key={option.key}
             href={hrefFor({ filter: option.key, page: undefined })}

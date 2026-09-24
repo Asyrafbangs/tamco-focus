@@ -593,6 +593,17 @@ function FindingSummary({
               {dateTime(finding.pendingSubmission.submittedAt)}. The submission is fixed: messages
               sent since do not change it.
             </p>
+            {/*
+             * v217 - what was required, at the top of the decision. A verifier
+             * was comparing a photograph against a memory of the outcome,
+             * which sat in another card further down the page.
+             */}
+            {action?.requiredOutcome && (
+              <div className="esh-required-outcome">
+                <span className="esh-pinned-label">Required outcome</span>
+                <p className="esh-detail-text">{action.requiredOutcome}</p>
+              </div>
+            )}
             {/* Before and after, side by side on a desktop and stacked on a
               phone (§13), so the condition and the correction are compared. */}
             <div className="esh-compare">

@@ -229,6 +229,15 @@ export const REGISTER_FILTERS: Array<{ key: RegisterFilter; label: string }> = [
   { key: 'closed', label: 'Closed' },
 ];
 
+/**
+ * v217 - the views the register offers as chips.
+ *
+ * Closed is still a register view, and every link to it keeps working; it is
+ * simply reached from the module's own navigation now, because two navigation
+ * systems on one screen made the reader choose between them.
+ */
+export const REGISTER_VIEWS = REGISTER_FILTERS.filter((filter) => filter.key !== 'closed');
+
 export function registerFilterFrom(value: string | undefined): RegisterFilter {
   return REGISTER_FILTERS.some((filter) => filter.key === value)
     ? (value as RegisterFilter)
