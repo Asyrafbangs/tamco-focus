@@ -54,6 +54,12 @@ export function ActionMenu({
   }
 
   return (
+    /*
+     * v216 - these are administrative controls, not conversation. They used to
+     * sit above the composer, which put "change the owner" in the same breath
+     * as "send a message". Now they open from the finding's own menu, and what
+     * they change arrives in the conversation as a recorded event instead.
+     */
     <details className="esh-form-more esh-action-menu">
       <summary>Change the due date, the priority or the owner</summary>
       {problem && (

@@ -14831,3 +14831,87 @@ span.deadline span.deadline-glyph,
   color: var(--muted);
   font-size: calc(12px * var(--font-scale));
 }
+
+/* ---------------------------------------------------------------------------
+ * v216 — the finding, as work rather than as a schema.
+ *
+ * The conversation is what a coordinator is here for, so it takes the room.
+ * What the action requires, what the finding was, and the trail behind both
+ * stand beside it rather than above it. One column on anything narrower,
+ * where the reading order is the DOM order.
+ * ------------------------------------------------------------------------- */
+
+@media (min-width: 1100px) {
+  .esh-detail {
+    grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
+    align-items: start;
+  }
+  .esh-detail > [data-col='main'] {
+    grid-column: 1;
+  }
+  .esh-detail > [data-col='side'] {
+    grid-column: 2;
+  }
+}
+.esh-activity > summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--blue);
+  cursor: pointer;
+  font-weight: 700;
+}
+.esh-activity[open] > summary {
+  margin-bottom: 8px;
+}
+.esh-activity .esh-subheading:first-of-type {
+  margin-top: 0;
+}
+
+/* ---------------------------------------------------------------------------
+ * v216 — the finding, as work rather than as a schema.
+ *
+ * The conversation is what a coordinator is here for, so it takes the room.
+ * What the action requires, what the finding was, and the trail behind both
+ * stand beside it rather than above it. One column on anything narrower,
+ * where the reading order is the order of the document.
+ * ------------------------------------------------------------------------- */
+
+.esh-detail-side,
+.esh-detail-main {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  min-width: 0;
+}
+@media (min-width: 1100px) {
+  .esh-detail {
+    grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
+    align-items: start;
+  }
+  .esh-detail-main {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .esh-detail-side {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .esh-activity {
+    grid-column: 2;
+  }
+}
+.esh-activity > summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--blue);
+  font-weight: 700;
+  cursor: pointer;
+}
+.esh-activity[open] > summary {
+  margin-bottom: 8px;
+}
+.esh-activity .esh-subheading:first-of-type {
+  margin-top: 0;
+}

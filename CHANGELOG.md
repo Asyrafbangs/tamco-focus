@@ -1,5 +1,25 @@
 # TAMCO Focus — Change Log
 
+## v216 The finding reads as work, not as a schema — 24 September 2026
+
+Six cards of equal weight — the finding, its evidence, the corrective action, the conversation,
+the notifications and the history — told a reader nothing about which of them mattered.
+
+- **Two columns on a wide screen.** The conversation takes the room, because it is what a
+  coordinator is there for. What the action requires, what the finding was and the trail behind
+  both stand beside it. One column on anything narrower, in reading order.
+- **The finding and what was seen are one card.** Original evidence is part of the finding, not a
+  second card of equal size announcing that there is none.
+- **“Corrective action” became “Required action”**, and **“Record an outcome without closing it”**
+  became **“Administrative outcome”** — a name for what it is rather than for what it is not.
+- **Administrative controls left the conversation.** Changing the owner, the deadline or the
+  priority sat directly above the message box, as though they were things one said. They belong to
+  the action, and what they change still arrives in the conversation as a recorded event.
+- **The delivery log and the history are one Activity disclosure**, closed — except when something
+  is actually wrong with delivery, when it opens itself, because the remedy for a held or bounced
+  assignment must not be behind a fold nobody has a reason to open.
+- One desktop journey for the layout; four existing specs updated.
+
 ## v215 Two steps, and the photograph taken at the scene — 24 September 2026
 
 - **Recording a finding is two steps: Finding, then Action & follow-up.** Escalation is

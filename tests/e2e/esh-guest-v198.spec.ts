@@ -281,7 +281,7 @@ test('v198 ESH writes to the owner; the email waits for access and a deliberate 
 
   await signIn(page, 'izzul@tamco.local');
   await page.goto(`/findings/${arranged.walkway.findingId}`);
-  const notices = page.getByRole('region', { name: 'Notifications' });
+  const notices = page.getByRole('region', { name: 'Delivery' });
   await expect(notices).toContainText('Held — access not enabled');
   await expect(notices.getByRole('button', { name: /^Release the/ })).toHaveCount(0);
 
@@ -315,7 +315,11 @@ test('v198 ESH writes to the owner; the email waits for access and a deliberate 
   await page
     .getByRole('button', { name: `Release the assignment email to ${arranged.owner}` })
     .click();
-  await expect(notices).not.toContainText('Held —', { timeout: 30_000 });
+  // The release is what is being asserted, so wait for the button it replaces
+  // to go before reading anything else.
+  await expect(
+    page.getByRole('button', { name: `Release the assignment email to ${arranged.owner}` }),
+  ).toHaveCount(0, { timeout: 30_000 });
   const { data: released } = await service()
     .from('esh_notification_outbox')
     .select('state, released_by')
@@ -324,6 +328,11 @@ test('v198 ESH writes to the owner; the email waits for access and a deliberate 
     .single();
   expect(['queued', 'processing', 'provider_accepted']).toContain(released!.state);
   expect(released!.released_by).toBe('f0c05000-0000-4000-a000-000000000002');
+
+  // With nothing held or bounced the delivery log folds away, so it is opened
+  // to read it: the entry is no longer held.
+  await page.locator('.esh-activity > summary').click();
+  await expect(notices).not.toContainText('Held —');
 });
 
 test('v198 a staff login and an owner link never lend each other anything', async ({

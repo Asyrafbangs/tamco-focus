@@ -47,7 +47,7 @@ export function FindingOutcome({ findingId }: { findingId: string }) {
 
   return (
     <details className="esh-form-more esh-finding-outcome">
-      <summary>Record an outcome without closing it</summary>
+      <summary>Administrative outcome</summary>
       <p className="form-hint">
         Closing a finding says ESH verified a correction. These do not: they record what became of a
         finding nobody is going to correct, and keep it on the register rather than deleting it.

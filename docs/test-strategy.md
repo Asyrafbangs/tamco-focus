@@ -106,6 +106,12 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v216 layout evidence
+
+- Playwright checks that the conversation is in the main column and the action, the finding and
+  its original evidence in the side one; that the administrative controls are no longer above the
+  composer; and that a held assignment opens the Activity disclosure so its remedy is on screen.
+
 ## v215 two-step evidence
 
 - Playwright records a finding across both steps, attaches a PNG on step one, and then checks in

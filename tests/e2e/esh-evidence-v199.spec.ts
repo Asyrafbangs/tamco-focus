@@ -240,7 +240,7 @@ test('v199 ESH reads the fixed submission and adds original evidence the owner c
   const submission = page.getByRole('region', { name: /Submitted for review · version 1/ });
   await expect(submission).toContainText('Refitted.');
   await expect(submission.locator('.esh-file')).toContainText('After.jpg');
-  const original = page.getByRole('region', { name: 'Original evidence' });
+  const original = page.getByRole('region', { name: 'The finding' });
   await original.getByLabel('Attach files').setInputFiles({
     name: 'Before.jpg',
     mimeType: 'image/jpeg',
