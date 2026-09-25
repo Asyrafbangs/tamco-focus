@@ -13426,7 +13426,13 @@ span.deadline span.deadline-glyph,
   overflow-wrap: anywhere;
 }
 .guest-main {
-  max-width: 800px;
+  /*
+   * v219 — `margin: 0 auto` on a flex item turns off stretch, so this sized
+   * to its content and the owner worked in a narrow strip however wide the
+   * monitor was. The width is claimed explicitly, then capped.
+   */
+  width: 100%;
+  max-width: 1180px;
   margin: 0 auto;
   padding: 32px 20px 56px;
 }
@@ -13879,13 +13885,6 @@ span.deadline span.deadline-glyph,
 }
 .esh-attach-buttons .btn {
   min-height: 44px;
-}
-.esh-submit-sent {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  justify-self: end;
 }
 .esh-submission-mark {
   margin: 0;
@@ -14948,4 +14947,74 @@ span.deadline span.deadline-glyph,
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------------------------
+ * v219 — the Action Owner's screen, in two columns.
+ *
+ * Left answers "what am I supposed to fix": the required outcome, the finding
+ * and its evidence. Right answers "what is happening about it": the thread and
+ * the bar to reply with. One column on anything narrower, in that order.
+ * ------------------------------------------------------------------------- */
+
+.guest-split {
+  display: grid;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+}
+.guest-context,
+.guest-work {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-width: 0;
+}
+.guest-work {
+  display: flex;
+  flex-direction: column;
+}
+@media (min-width: 980px) {
+  .guest-split {
+    grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+    align-items: start;
+  }
+  .guest-context {
+    position: sticky;
+    top: 84px;
+  }
+}
+
+/* v219 — one Submit, and the requests that are not everyday work. */
+.guest-reuse {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: calc(13px * var(--font-scale));
+}
+.guest-reuse strong {
+  color: var(--text);
+}
+.guest-help > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: calc(13px * var(--font-scale));
+}
+.guest-help-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px 0 8px;
+}
+.guest-chat .guest-composer-actions {
+  align-items: center;
 }

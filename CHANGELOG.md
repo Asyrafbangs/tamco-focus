@@ -1,5 +1,25 @@
 # TAMCO Focus — Change Log
 
+## v219 The Action Owner's screen, in two columns — 25 September 2026
+
+From a second design review. The owner's page was a narrow strip down the middle of a monitor,
+and every message in the conversation carried a workflow decision.
+
+- **Two columns.** The left answers “what am I supposed to fix” — the required outcome, the
+  finding, its evidence. The right answers “what is happening about it” — the thread and the bar
+  to reply with. One column on anything narrower, in that order.
+- **The page uses the room a monitor has**, up to 1180px. It had been sizing itself to its
+  content: `margin: 0 auto` on a flex item turns off stretch, so however wide the screen, an owner
+  worked inside about 800px of it.
+- **One Submit for review.** A button under every message turned each line of a conversation into
+  a decision. Submit now names what it would send — “Completion evidence: your update at 07:40
+  with photo.jpg” — with Change to pick another. Nothing is guessed: the owner reads the sentence
+  before pressing, which is the explicit declaration §12 asks for.
+- **Need help?** holds “Need more time” and “Wrong owner” rather than both occupying the bar.
+  Choosing one opens the message for them — “I need more time because …” — and still carries the
+  structured date or address, so ESH can grant it in one press as before.
+- One desktop journey; three existing specs updated; the per-message submit component deleted.
+
 ## v218 A crawl of the screens the last five stages rebuilt — 25 September 2026
 
 v214–v217 moved nearly every surface in the module. A suite that asserts behaviour does not notice

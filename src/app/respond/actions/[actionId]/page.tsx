@@ -166,111 +166,136 @@ export default async function GuestActionPage({
             <p>This record is read-only. ESH has already accepted the correction.</p>
           </div>
         )}
-        {data.action.requiredOutcome && (
-          <section className="guest-pinned" aria-label="What ESH needs">
-            <span className="guest-pinned-label">What ESH needs</span>
-            <p>{data.action.requiredOutcome}</p>
-          </section>
-        )}
-        <details className="guest-original">
-          <summary>Original finding &amp; evidence</summary>
-          <dl className="esh-facts">
-            <div>
-              <dt>Finding</dt>
-              <dd>{data.finding.title}</dd>
-            </div>
-            {data.finding.description && (
-              <div>
-                <dt>What was found</dt>
-                <dd className="esh-detail-text">{data.finding.description}</dd>
-              </div>
+        {/*
+         * v219 - two columns on a desktop: what am I supposed to fix, and
+         * what is happening about it. The single narrow strip wasted most of
+         * a monitor and buried the required outcome above a scroll.
+         */}
+        <div className="guest-split">
+          <aside className="guest-context">
+            {data.action.requiredOutcome && (
+              <section className="guest-pinned" aria-label="What ESH needs">
+                <span className="guest-pinned-label">What ESH needs</span>
+                <p>{data.action.requiredOutcome}</p>
+              </section>
             )}
-            {data.finding.department && (
-              <div>
-                <dt>Department</dt>
-                <dd>{data.finding.department}</dd>
-              </div>
-            )}
-            <div>
-              <dt>Evidence ESH needs</dt>
-              <dd>
-                {data.action.evidenceInstruction ??
-                  (data.action.evidenceRule === 'file_required'
-                    ? 'A short result and at least one file'
-                    : 'A short result')}
-              </dd>
-            </div>
-            {(data.eshContact.name || data.eshContact.email) && (
-              <div>
-                <dt>ESH contact</dt>
-                <dd>
-                  {[
-                    data.eshContact.name ? firstName(data.eshContact.name) : null,
-                    data.eshContact.email,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </dd>
-              </div>
-            )}
-          </dl>
-          {data.originalEvidence.length > 0 && (
-            <ul className="esh-file-list guest-original-files" aria-label="Original evidence">
-              {data.originalEvidence.map((file) => (
-                <li key={file.id} className="esh-file">
-                  <a href={`/respond/files/${file.id}`} target="_blank" rel="noopener noreferrer">
-                    <span className="esh-file-icon" aria-hidden="true">
-                      ▧
-                    </span>
-                    <span>
-                      <strong>{file.name}</strong>
-                      <small>{evidenceLabel(file.name, file.size)}</small>
-                    </span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-        </details>
+            <details className="guest-original">
+              <summary>Original finding &amp; evidence</summary>
+              <dl className="esh-facts">
+                <div>
+                  <dt>Finding</dt>
+                  <dd>{data.finding.title}</dd>
+                </div>
+                {data.finding.description && (
+                  <div>
+                    <dt>What was found</dt>
+                    <dd className="esh-detail-text">{data.finding.description}</dd>
+                  </div>
+                )}
+                {data.finding.department && (
+                  <div>
+                    <dt>Department</dt>
+                    <dd>{data.finding.department}</dd>
+                  </div>
+                )}
+                <div>
+                  <dt>Evidence ESH needs</dt>
+                  <dd>
+                    {data.action.evidenceInstruction ??
+                      (data.action.evidenceRule === 'file_required'
+                        ? 'A short result and at least one file'
+                        : 'A short result')}
+                  </dd>
+                </div>
+                {(data.eshContact.name || data.eshContact.email) && (
+                  <div>
+                    <dt>ESH contact</dt>
+                    <dd>
+                      {[
+                        data.eshContact.name ? firstName(data.eshContact.name) : null,
+                        data.eshContact.email,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+              {data.originalEvidence.length > 0 && (
+                <ul className="esh-file-list guest-original-files" aria-label="Original evidence">
+                  {data.originalEvidence.map((file) => (
+                    <li key={file.id} className="esh-file">
+                      <a
+                        href={`/respond/files/${file.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <span className="esh-file-icon" aria-hidden="true">
+                          ▧
+                        </span>
+                        <span>
+                          <strong>{file.name}</strong>
+                          <small>{evidenceLabel(file.name, file.size)}</small>
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </details>
+          </aside>
 
-        <section className="guest-thread" aria-label="Conversation with ESH">
-          {data.hasMore && earliest && (
-            <Link
-              href={`/respond/actions/${data.action.id}?before=${encodeURIComponent(earliest)}`}
-              className="guest-link guest-earlier"
-            >
-              Show earlier messages
-            </Link>
-          )}
-          {before && (
-            <Link href={`/respond/actions/${data.action.id}`} className="guest-link guest-earlier">
-              Back to the latest messages
-            </Link>
-          )}
-          <Conversation
-            entries={data.messages}
-            viewer={data.mode}
-            viewerPrincipalId={data.principalId}
-            timeZone={timeZone}
-            now={new Date()}
-            fileBase="/respond/files"
-            submissions={data.submissions}
-            submitFor={awaitingReview || escalation || data.readOnly ? null : data.action.id}
-            emptyText="No messages yet. Send ESH an update when you start, or ask a question."
-          />
-        </section>
+          <div className="guest-work">
+            <section className="guest-thread" aria-label="Conversation with ESH">
+              {data.hasMore && earliest && (
+                <Link
+                  href={`/respond/actions/${data.action.id}?before=${encodeURIComponent(earliest)}`}
+                  className="guest-link guest-earlier"
+                >
+                  Show earlier messages
+                </Link>
+              )}
+              {before && (
+                <Link
+                  href={`/respond/actions/${data.action.id}`}
+                  className="guest-link guest-earlier"
+                >
+                  Back to the latest messages
+                </Link>
+              )}
+              <Conversation
+                entries={data.messages}
+                viewer={data.mode}
+                viewerPrincipalId={data.principalId}
+                timeZone={timeZone}
+                now={new Date()}
+                fileBase="/respond/files"
+                submissions={data.submissions}
+                emptyText="No messages yet. Send ESH an update when you start, or ask a question."
+              />
+            </section>
 
-        {!before && escalation && !data.readOnly && (
-          <EscalationComposer actionId={data.action.id} level={data.escalationLevel ?? 1} />
-        )}
-        {!before && !escalation && !data.readOnly && (
-          <OwnerComposer
-            actionId={data.action.id}
-            awaitingReview={awaitingReview}
-            fileRequired={data.action.evidenceRule === 'file_required'}
-            drafts={data.drafts}
-          />
-        )}
+            {!before && escalation && !data.readOnly && (
+              <EscalationComposer actionId={data.action.id} level={data.escalationLevel ?? 1} />
+            )}
+            {!before && !escalation && !data.readOnly && (
+              <OwnerComposer
+                actionId={data.action.id}
+                awaitingReview={awaitingReview}
+                fileRequired={data.action.evidenceRule === 'file_required'}
+                drafts={data.drafts}
+                timeZone={timeZone}
+                sent={data.messages
+                  .filter((message) => message.submittable)
+                  .map((message) => ({
+                    id: message.id,
+                    sentAt: message.sentAt,
+                    fileNames: (message.files ?? []).map((file) => file.name),
+                  }))}
+              />
+            )}
+          </div>
+        </div>
         <EndAccessButton />
       </main>
     </>

@@ -178,7 +178,10 @@ test('v199 an owner sends a photo, submits it as it was, withdraws and resubmits
   expect(opened.status()).toBe(303);
 
   // Submitted exactly as it was sent: no retyping, no second upload (FM18).
-  await update.getByRole('button', { name: 'Submit this update for review' }).click();
+  // One Submit button names what it would send, rather than a button under
+  // every message turning each line into a workflow decision.
+  await expect(page.locator('.guest-reuse')).toContainText('Guard refitted.jpg');
+  await page.getByRole('button', { name: 'Submit for review' }).click();
   await expect(page.locator('.guest-chat-meta')).toContainText('Awaiting ESH review');
   await expect(page.locator('.esh-submission-mark')).toHaveText(
     'Submitted for ESH review (version 1). This finding is still open.',

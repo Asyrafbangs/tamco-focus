@@ -106,6 +106,14 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v219 owner-layout evidence
+
+- Playwright opens the owner's link at 1440, checks the context column sits left of the working
+  column, that the page claims more than 1000px, that the requests are behind Need help? until
+  asked for, and that choosing one writes the opening of the message.
+- The reuse of an already-sent update is asserted where it now lives: one line beside the composer
+  naming the update and its file, rather than a button under every message.
+
 ## v218 crawl evidence
 
 - Nine Finding screens are opened at 1440 and 390, in Day and in Night, and each is held to a

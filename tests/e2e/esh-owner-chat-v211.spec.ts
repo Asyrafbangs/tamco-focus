@@ -115,7 +115,8 @@ test('v211 an owner asks for more time in the thread and ESH grants it in one pr
   await expect(owner.getByText('Clear the exit and keep the route marked.')).toBeVisible();
 
   await expect(owner.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
-  await owner.getByRole('button', { name: 'Ask for more time' }).click();
+  await owner.getByText('Need help?').click();
+  await owner.getByRole('button', { name: 'Need more time' }).click();
   await owner.getByLabel('What date could you finish by?').fill('2026-10-15');
   await owner.getByLabel('Message ESH').fill('The contractor cannot come until the 14th.');
   await owner.getByRole('button', { name: 'Send update' }).click();
@@ -197,4 +198,43 @@ test('v211 the new finding form asks for what only a person knows', async ({ pag
   await expect(form.getByLabel('Completion evidence', { exact: true })).toHaveValue(
     'Photo showing the corrected condition.',
   );
+});
+
+test('v219 the owner screen is two columns, with one Submit and help behind a control', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'The stacking is the same question at 390.');
+  const suffix = randomBytes(3).toString('hex');
+  const fixture = await assigned(suffix);
+
+  await page.setViewportSize({ width: 1440, height: 950 });
+  await page.goto(fixture.path);
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+  const open = page.getByRole('button', { name: 'Open action' });
+  if (await open.count()) await open.click();
+  await expect(page.locator('.guest-chat-head')).toBeVisible({ timeout: 30_000 });
+
+  // What am I supposed to fix, on the left; what is happening, on the right.
+  await expect(page.locator('.guest-context')).toContainText('What ESH needs');
+  await expect(page.locator('.guest-context')).toContainText('Original finding & evidence');
+  // The owner's thread carries no heading of its own, so the composer is what
+  // identifies the working column.
+  await expect(page.locator('.guest-work').getByLabel('Message ESH')).toBeVisible();
+  const context = await page.locator('.guest-context').boundingBox();
+  const work = await page.locator('.guest-work').boundingBox();
+  expect(context!.x).toBeLessThan(work!.x);
+
+  // The owner works in the room a monitor has, not a phone-width strip.
+  const main = await page.locator('#guest-main').boundingBox();
+  expect(main!.width).toBeGreaterThan(1000);
+
+  // Requests live behind one control rather than occupying the bar.
+  await expect(page.getByRole('button', { name: 'Need more time' })).toHaveCount(0);
+  await page.getByText('Need help?').click();
+  await expect(page.getByRole('button', { name: 'Need more time' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Wrong owner' })).toBeVisible();
+
+  // Choosing one writes the opening of the message rather than a hidden form.
+  await page.getByRole('button', { name: 'Need more time' }).click();
+  await expect(page.getByLabel('Message ESH')).toHaveValue(/I need more time because/);
 });

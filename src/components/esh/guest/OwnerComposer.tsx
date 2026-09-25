@@ -38,16 +38,27 @@ import {
  * and it is used as it is — never a guess at the latest message (FM18,
  * FM19). The whole composer is a drop target.
  */
+export interface SentUpdate {
+  id: string;
+  sentAt: string;
+  fileNames: string[];
+}
+
 export function OwnerComposer({
   actionId,
   awaitingReview,
   fileRequired,
   drafts,
+  sent = [],
+  timeZone,
 }: {
   actionId: string;
   awaitingReview: boolean;
   fileRequired: boolean;
   drafts: ReadyFile[];
+  /** v219 - updates already sent that could stand as the completion. */
+  sent?: SentUpdate[];
+  timeZone: string;
 }) {
   const router = useRouter();
   const [body, setBody] = useState('');
@@ -61,6 +72,28 @@ export function OwnerComposer({
   // work away, or an action could be passed round until it expired (§14).
   const [handingOver, setHandingOver] = useState(false);
   const [proposedOwner, setProposedOwner] = useState('');
+  const [helpOpen, setHelpOpen] = useState(false);
+  /*
+   * v219 - which already-sent update would stand as the completion.
+   *
+   * There used to be a "Submit this update for review" button under every
+   * message, which turned each line of a conversation into a workflow
+   * decision. There is one Submit button now, and this names what it would
+   * send. Nothing is guessed: the owner reads the sentence before pressing,
+   * and Change picks another.
+   */
+  const qualifying = sent.filter((update) => !fileRequired || update.fileNames.length > 0);
+  const [chosenUpdate, setChosenUpdate] = useState<string | null>(null);
+  const reuse = chosenUpdate
+    ? (qualifying.find((update) => update.id === chosenUpdate) ?? null)
+    : (qualifying[qualifying.length - 1] ?? null);
+  const sentAtWords = (instant: string) =>
+    new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+      timeZone,
+    }).format(new Date(instant));
   const [pending, startTransition] = useTransition();
   const clientKey = useRef('');
   const uploads = useEvidenceUploads(
@@ -78,7 +111,7 @@ export function OwnerComposer({
     return clientKey.current;
   }
 
-  function sent() {
+  function afterSending() {
     clientKey.current = '';
     setBody('');
     uploads.clearSent();
@@ -113,7 +146,7 @@ export function OwnerComposer({
           setProblem({ code: result.code, message: ownerMessageProblem(result.code) });
           return;
         }
-        sent();
+        afterSending();
       } catch {
         setProblem({ code: 'invalid', message: ownerMessageProblem('invalid') });
       }
@@ -129,14 +162,15 @@ export function OwnerComposer({
           actionId,
           body: text,
           assetIds: files,
-          reuseMessageId: null,
+          // The draft wins when there is one; otherwise the named update.
+          reuseMessageId: text.trim() || files.length > 0 ? null : (reuse?.id ?? null),
           clientKey: key(),
         });
         if (!result.ok) {
           setProblem({ code: result.code, message: submitProblems(result.code, result.problems) });
           return;
         }
-        sent();
+        afterSending();
       } catch {
         setProblem({ code: 'invalid', message: ownerMessageProblem('invalid') });
       }
@@ -270,34 +304,80 @@ export function OwnerComposer({
         </button>
       </div>
       {!awaitingReview && (
-        <div className="guest-composer-actions">
-          <button
-            type="button"
-            className="btn small ghost"
-            aria-pressed={askingTime}
-            disabled={pending || handingOver}
-            onClick={() => setAskingTime((asking) => !asking)}
-          >
-            {askingTime ? 'Cancel' : 'Ask for more time'}
-          </button>
-          <button
-            type="button"
-            className="btn small ghost"
-            aria-pressed={handingOver}
-            disabled={pending || askingTime}
-            onClick={() => setHandingOver((handing) => !handing)}
-          >
-            {handingOver ? 'Cancel' : 'Not mine'}
-          </button>
-          <button
-            type="button"
-            className="btn primary small"
-            disabled={pending || waitingOnFiles || askingTime || handingOver}
-            onClick={submit}
-          >
-            Submit for review
-          </button>
-        </div>
+        <>
+          {/*
+           * What Submit would send, when the work was already described in an
+           * earlier update. Named, so nothing is guessed, and changeable.
+           */}
+          {reuse && !body.trim() && uploads.readyIds.length === 0 && (
+            <p className="guest-reuse" aria-live="polite">
+              Completion evidence: your update at <strong>{sentAtWords(reuse.sentAt)}</strong>
+              {reuse.fileNames.length > 0 ? ` with ${reuse.fileNames.join(', ')}` : ''}
+              {qualifying.length > 1 && (
+                <button
+                  type="button"
+                  className="btn ghost small"
+                  onClick={() => {
+                    const at = qualifying.findIndex((update) => update.id === reuse.id);
+                    const next = qualifying[(at + qualifying.length - 1) % qualifying.length];
+                    setChosenUpdate(next?.id ?? null);
+                  }}
+                >
+                  Change
+                </button>
+              )}
+            </p>
+          )}
+          <div className="guest-composer-actions">
+            {/*
+             * Asking for time or saying the work is not yours are real
+             * capabilities, but they are not what an owner does most days.
+             * They wait behind one control instead of occupying the bar.
+             */}
+            <details
+              className="guest-help"
+              open={askingTime || handingOver || helpOpen}
+              onToggle={(event) => setHelpOpen(event.currentTarget.open)}
+            >
+              <summary>Need help?</summary>
+              <div className="guest-help-choices">
+                <button
+                  type="button"
+                  className="btn small ghost"
+                  aria-pressed={askingTime}
+                  disabled={pending || handingOver}
+                  onClick={() => {
+                    setAskingTime((asking) => !asking);
+                    if (!body.trim()) setBody('I need more time because ');
+                  }}
+                >
+                  {askingTime ? 'Cancel' : 'Need more time'}
+                </button>
+                <button
+                  type="button"
+                  className="btn small ghost"
+                  aria-pressed={handingOver}
+                  disabled={pending || askingTime}
+                  onClick={() => {
+                    setHandingOver((handing) => !handing);
+                    if (!body.trim())
+                      setBody('I believe this should be assigned to someone else because ');
+                  }}
+                >
+                  {handingOver ? 'Cancel' : 'Wrong owner'}
+                </button>
+              </div>
+            </details>
+            <button
+              type="button"
+              className="btn primary small"
+              disabled={pending || waitingOnFiles || askingTime || handingOver}
+              onClick={submit}
+            >
+              Submit for review
+            </button>
+          </div>
+        </>
       )}
       <p id="guest-composer-hint" className="guest-note">
         {waitingOnFiles

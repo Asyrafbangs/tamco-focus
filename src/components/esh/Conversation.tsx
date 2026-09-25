@@ -1,6 +1,5 @@
 import { AcceptHandover } from '@/components/esh/AcceptHandover';
 import { AcceptProposedDate } from '@/components/esh/AcceptProposedDate';
-import { SubmitSentUpdate } from '@/components/esh/guest/SubmitSentUpdate';
 import { evidenceLabel } from '@/domain/esh-evidence';
 import {
   conversationDay,
@@ -32,7 +31,6 @@ export function Conversation({
   emptyText,
   fileBase,
   submissions = [],
-  submitFor = null,
   viewerPrincipalId = null,
   decideProposalFor = null,
 }: {
@@ -44,8 +42,6 @@ export function Conversation({
   emptyText: string;
   fileBase: string;
   submissions?: SubmissionMark[];
-  /** The owner's action, when an update they sent may still be submitted. */
-  submitFor?: string | null;
   /** ESH's own finding, when a date the owner asked for may be granted. */
   decideProposalFor?: { actionId: string; findingId: string } | null;
 }) {
@@ -153,9 +149,6 @@ export function Conversation({
                 <p className="esh-message-ask">
                   Says this belongs to <strong>{entry.proposedOwnerEmail}</strong>
                 </p>
-              )}
-              {submitFor && entry.submittable && !marks.has(entry.id) && (
-                <SubmitSentUpdate actionId={submitFor} messageId={entry.id} />
               )}
             </div>
             {decideProposalFor && entry.proposedDueDate && entry.id === latestProposal && (

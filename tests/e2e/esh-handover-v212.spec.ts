@@ -111,7 +111,8 @@ test('v212 an owner says it is not theirs and ESH hands it over in one press', a
   // own header is what settles, so that is what the test waits for.
   await expect(owner.locator('.guest-chat-head')).toBeVisible({ timeout: 30_000 });
 
-  await owner.getByRole('button', { name: 'Not mine' }).click();
+  await owner.getByText('Need help?').click();
+  await owner.getByRole('button', { name: 'Wrong owner' }).click();
   await owner.getByLabel('Who should hold this instead?').fill(successor);
   await owner.getByLabel('Message ESH').fill('The press is maintenance, not production.');
   await owner.getByRole('button', { name: 'Send update' }).click();
