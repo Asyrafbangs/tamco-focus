@@ -106,6 +106,19 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v218 crawl evidence
+
+- Nine Finding screens are opened at 1440 and 390, in Day and in Night, and each is held to a
+  WCAG A/AA axe scan (serious and critical) and a sideways-scroll check.
+- The scroll check asks the page to scroll and reads back whether it moved, rather than comparing
+  `documentElement.scrollWidth` with the viewport: that metric counts an inner scroll container's
+  content, so a table scrolling correctly inside its own box reported the whole page as broken.
+- The contrast fix was proved by removing it: without the rule the crawl fails on exactly the
+  link it was written for.
+- The crawl seeds a finding in more than one state, so every next-action tone is on screen. The
+  first version passed locally and failed in the full suite purely because the register held no
+  owner-toned rows at that moment: a crawl only sees what the data shows it.
+
 ## v217 navigation evidence
 
 - Playwright checks the module offers Register, Verification and Closed; that the register itself

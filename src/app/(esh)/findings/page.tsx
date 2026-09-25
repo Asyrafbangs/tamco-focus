@@ -182,7 +182,16 @@ export default async function FindingsOverviewPage({
             {visibleRows.length === 0 ? (
               <p className="guest-empty">No findings are visible in this scope.</p>
             ) : (
-              <div className="table-scroll">
+              /* v218 — scrollable by keyboard as well as by finger. The box
+                 already clipped correctly; what it lacked was a tab stop, so
+                 its right-hand columns were unreachable without a mouse, the
+                 same gap v181 closed on the attachments table. */
+              <div
+                className="table-scroll"
+                role="region"
+                aria-label="Findings by department"
+                tabIndex={0}
+              >
                 <table className="esh-overview-table">
                   <thead>
                     <tr>

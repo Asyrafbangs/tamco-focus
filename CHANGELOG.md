@@ -1,5 +1,28 @@
 # TAMCO Focus — Change Log
 
+## v218 A crawl of the screens the last five stages rebuilt — 25 September 2026
+
+v214–v217 moved nearly every surface in the module. A suite that asserts behaviour does not notice
+a label that vanishes at night, so each screen was opened again at both widths, in Day and in
+Night, and scanned.
+
+- **Fixed: the next-action chip failed contrast in daylight.** v214's chip mixed 12% of the link
+  blue into the page white and then wrote that same blue on it — about 4:1, readable but short of
+  the standard. It uses the palette's own `--blue-bg` / `--blue` pairs now, which are chosen
+  against each other in both themes.
+- **Fixed: the Overview's “Worth knowing” links were invisible in Night mode.** They carried no
+  colour of their own, so they fell back to the browser's `#0000EE` on a near-black surface —
+  about 1.3:1. Measured, not guessed. The same trap the v181 night crawl found on waiting work.
+- **The department table can be scrolled by keyboard.** It already clipped correctly inside its own
+  box; what it lacked was a tab stop, so its right-hand columns were unreachable without a mouse.
+- Nine screens × two widths × two themes are now held to an axe scan and an overflow check.
+
+One correction worth recording: the crawl first reported the Overview as scrolling sideways on a
+phone, and it does not. `documentElement.scrollWidth` counts the content of an inner scroll
+container, so a table that correctly scrolls inside its own box reports the whole page as
+overflowing. The check now asks the page to scroll and reads back whether it moved. The “fix” that
+false report prompted was measured as changing nothing and was removed.
+
 ## v217 Closed is a destination, and a verifier sees what they are judging — 24 September 2026
 
 - **Register, Verification, Closed.** Closed was a chip inside the register while also being

@@ -14340,6 +14340,15 @@ span.deadline span.deadline-glyph,
 .esh-health li[data-exception='true'] {
   color: var(--heading);
 }
+/*
+ * v218 — these were the browser's own link blue, #0000EE, which on the night
+ * surface is about 1.3:1. Present, and unreadable. The same trap the v181
+ * night crawl found on waiting work.
+ */
+.esh-health a {
+  color: var(--blue);
+  text-decoration: underline;
+}
 
 /* v210 — what a weekly report would say, before it is activated. */
 .esh-report-preview {
@@ -14705,17 +14714,23 @@ span.deadline span.deadline-glyph,
   font-weight: 700;
   line-height: 1.5;
 }
+/*
+ * v218 — the palette's own pairs, not a tint invented here. Mixing 12% of the
+ * link blue into the page white gave about 4:1 against that same blue, which
+ * reads but does not pass. The --*-bg tokens are chosen against their ink in
+ * both themes.
+ */
 .esh-next-chip[data-tone='owner'] {
-  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  background: var(--blue-bg);
   color: var(--blue);
 }
 .esh-next-chip[data-tone='esh'] {
-  background: color-mix(in srgb, var(--green, #1c7c54) 14%, transparent);
-  color: var(--green, #1c7c54);
+  background: var(--green-bg);
+  color: var(--green);
 }
 .esh-next-chip[data-tone='problem'] {
-  background: color-mix(in srgb, var(--red, #b3261e) 12%, transparent);
-  color: var(--red, #b3261e);
+  background: var(--red-bg);
+  color: var(--red);
 }
 .esh-next-chip[data-tone='settled'] {
   background: var(--surface-2, var(--line));
