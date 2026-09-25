@@ -4,7 +4,7 @@
 
 **Baseline:** approved TAMCO Focus specifications through v191 and ESH Finding Management v1.3
 
-**Stage:** ESH Finding Management v197–v220 implemented locally behind restricted rollout. No
+**Stage:** ESH Finding Management v197–v221 implemented locally behind restricted rollout. No
 hosted Supabase link, hosted migration, deployment or remote push is part of this stage.
 
 This document records the implemented scope and the evidence used to accept the local build. `npm run verify` remains the authoritative release gate: a failed or skipped gate makes the command exit non-zero.

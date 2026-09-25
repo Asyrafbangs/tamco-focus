@@ -15032,3 +15032,27 @@ span.deadline span.deadline-glyph,
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
 }
+
+/* ---------------------------------------------------------------------------
+ * v221 — a closed finding is a result, not a workspace.
+ * ------------------------------------------------------------------------- */
+
+.esh-closure-record {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.esh-closure-lead {
+  margin: 0;
+  color: var(--muted);
+}
+.esh-closure-verified {
+  margin: 0;
+  padding: 12px 14px;
+  background: var(--green-bg);
+  color: var(--green);
+  border-radius: var(--radius-sm);
+}

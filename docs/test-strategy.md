@@ -106,6 +106,12 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v221 closure-record evidence
+
+- The v200 journey closes a finding and then checks the page shows before, after and who verified
+  it, that the working page's Required action heading is gone, and that View full record brings it
+  back. Preservation is asserted by reaching it, not by trusting that it still exists.
+
 ## v220 ESH-layout evidence
 
 - The v216 layout journey now asserts that the administrative controls are nowhere on the page

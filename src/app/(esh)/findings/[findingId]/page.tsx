@@ -101,7 +101,7 @@ export default async function FindingPage({
   searchParams,
 }: {
   params: Promise<{ findingId: string }>;
-  searchParams: Promise<{ saved?: string; warn?: string; action?: string }>;
+  searchParams: Promise<{ saved?: string; warn?: string; action?: string; full?: string }>;
 }) {
   const access = await requireEshAccess();
   const profile = await requireProfile();
@@ -310,6 +310,7 @@ export default async function FindingPage({
         canVerify={access.canVerify}
         viewerEmail={profile.email}
         isAdministrator={profile.role === 'administrator'}
+        full={query.full === '1'}
       />
     </>
   );
@@ -344,6 +345,7 @@ function FindingSummary({
   canVerify,
   viewerEmail,
   isAdministrator,
+  full,
 }: {
   finding: FindingDetail;
   timeZone: string;
@@ -352,6 +354,8 @@ function FindingSummary({
   viewerEmail: string;
   /** Only an administrator may switch a contact's access on (§31.3). */
   isAdministrator: boolean;
+  /** v221 - a closed finding shows its result; this asks for everything. */
+  full: boolean;
 }) {
   const dateTime = (instant: string, dateOnly = false) =>
     new Intl.DateTimeFormat('en-MY', {
@@ -377,6 +381,78 @@ function FindingSummary({
     Boolean(action?.ownerEmail) &&
     canonicalEmail(action?.ownerEmail ?? '') === canonicalEmail(viewerEmail);
   const lastOpenAction = finding.openActionCount <= 1;
+
+  /*
+   * v221 - a closed finding is a result, not a workspace.
+   *
+   * Once ESH has verified the correction the operational process is over, and
+   * the page that helped run it stops being the useful thing to show. What is
+   * left is what happened: the condition, the correction, and who verified it.
+   * Everything else is preserved and one link away.
+   */
+  const accepted = finding.submissions.find((mark) => mark.state === 'accepted') ?? null;
+  const acceptedMessage = accepted
+    ? (finding.conversation.find((entry) => entry.id === accepted.messageId) ?? null)
+    : null;
+  const acceptance = [...finding.decisions].reverse().find((one) => one.decision === 'accepted');
+
+  if (finding.status === 'closed' && !full) {
+    return (
+      <section className="esh-closure-record" role="region" aria-label="Closure record">
+        <p className="esh-closure-lead">
+          {[
+            finding.departmentName,
+            finding.closure.closedAt
+              ? `Closed ${dateTime(finding.closure.closedAt, true)}`
+              : 'Closed',
+            finding.closure.closedByName ? `by ${finding.closure.closedByName}` : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
+
+        <div className="esh-compare">
+          <div className="esh-compare-side">
+            <p className="esh-compare-label">Before · original condition</p>
+            {finding.description && <p className="esh-detail-text">{finding.description}</p>}
+            <FileList files={finding.originalEvidence} label="Original evidence" />
+          </div>
+          <div className="esh-compare-side">
+            <p className="esh-compare-label">After · accepted correction</p>
+            {acceptedMessage?.body && <p className="esh-detail-text">{acceptedMessage.body}</p>}
+            <FileList files={acceptedMessage?.files ?? []} label="Completion evidence" />
+          </div>
+        </div>
+
+        {acceptance && (
+          <p className="esh-closure-verified">
+            Verified by <strong>{acceptance.verifierName}</strong>
+            {acceptance.method
+              ? ` · ${(VERIFICATION_METHOD_LABELS as Record<string, string>)[acceptance.method] ?? acceptance.method}`
+              : ''}
+            {` · ${dateTime(acceptance.verifiedAt, true)}`}
+            {acceptance.note ? ` — ${acceptance.note}` : ''}
+          </p>
+        )}
+        {finding.closure.reopenedAt && (
+          <p className="form-hint">
+            Reopened {dateTime(finding.closure.reopenedAt, true)} by{' '}
+            {finding.closure.reopenedByName ?? 'ESH'}
+            {finding.closure.reopenReason ? `: ${finding.closure.reopenReason}` : ''}
+          </p>
+        )}
+
+        <div className="esh-form-actions">
+          <Link className="btn" href={`/findings/${finding.id}?full=1#esh-detail-conversation`}>
+            View conversation
+          </Link>
+          <Link className="btn" href={`/findings/${finding.id}?full=1`}>
+            View full record
+          </Link>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <div className="esh-detail">

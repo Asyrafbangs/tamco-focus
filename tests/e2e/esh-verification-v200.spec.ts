@@ -221,8 +221,18 @@ test('v200 ESH reviews from the queue, asks for more, then accepts and closes', 
   const second = page.getByRole('region', { name: /Submitted for review · version 2/ });
   await second.getByRole('button', { name: 'Accept & close finding' }).click();
   await expect(page.locator('.esh-status-flag')).toHaveText('Closed');
+  // v221 — a closed finding shows its result rather than the workspace that
+  // produced it: the condition, the correction, and who verified it.
   const closure = page.getByRole('region', { name: 'Closure record' });
   await expect(closure).toContainText('Izzul Asyraf');
+  await expect(closure).toContainText('Before · original condition');
+  await expect(closure).toContainText('After · accepted correction');
+  await expect(closure).toContainText('Verified by');
+  // The working page is not gone, it is one link away.
+  await expect(page.getByRole('heading', { name: 'Required action' })).toHaveCount(0);
+  await closure.getByRole('link', { name: 'View full record' }).click();
+  await expect(page.getByRole('heading', { name: 'Required action' })).toBeVisible();
+  await page.goBack();
 
   // It appears in Closed, and can be reopened with a reason (FM52).
   await page.goto('/findings/closed');

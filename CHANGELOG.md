@@ -1,5 +1,19 @@
 # TAMCO Focus — Change Log
 
+## v221 A closed finding shows its result, not the workspace that produced it — 25 September 2026
+
+Once ESH has verified the correction the operational process is over, and the page that helped run
+it stops being the useful thing to show.
+
+- **A closed finding opens as a closure record**: the original condition beside the accepted
+  correction, both with their evidence, and one line saying who verified it, by what method and
+  when. A reopening, if there was one, says so.
+- **Nothing is hidden, only folded.** “View conversation” and “View full record” reach the whole
+  working page — required action, escalation route, verification history, delivery log, audit
+  trail — exactly as before, at `?full=1`. Reopening stays under the finding's own menu.
+- The verification journey now checks the result is what a closed finding shows, and that the full
+  record is one link away.
+
 ## v220 The ESH finding takes the same shape, and its controls step back — 25 September 2026
 
 - **Context left, work right**, matching the Action Owner's screen from v219. One shape for both
