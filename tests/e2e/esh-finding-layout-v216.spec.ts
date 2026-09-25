@@ -62,11 +62,11 @@ test('v216 the finding reads as work, with the trail behind it', async ({ page }
   // What was seen belongs to the finding, not to a card of its own.
   await expect(side.getByRole('heading', { name: 'Original evidence' })).toBeVisible();
 
-  // Administrative controls sit with the action, not above the composer.
-  await expect(
-    page.locator('.esh-detail-main').getByText('Change the due date, the priority or the owner'),
-  ).toHaveCount(0);
-  await expect(side.getByText('Change the due date, the priority or the owner')).toBeVisible();
+  // Administrative controls are behind one button in the header, not on the
+  // page and not above the composer.
+  await expect(page.getByText('Change the due date, the priority or the owner')).toHaveCount(0);
+  await page.getByRole('button', { name: 'More actions for this finding' }).click();
+  await expect(page.getByText('Change the due date, the priority or the owner')).toBeVisible();
 
   // This assignment is held, so the trail opens itself to show the remedy.
   const activity = page.locator('.esh-activity');

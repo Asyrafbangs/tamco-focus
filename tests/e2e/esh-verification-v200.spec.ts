@@ -230,6 +230,7 @@ test('v200 ESH reviews from the queue, asks for more, then accepts and closes', 
     'Closed',
   );
   await page.goto(`/findings/${work.findingId}`);
+  await page.getByRole('button', { name: 'More actions for this finding' }).click();
   await page.getByText('Reopen this finding').click();
   await page.getByLabel('Why it is being reopened (the owner sees it)').fill('Guard loose again.');
   await page.getByRole('button', { name: 'Reopen finding' }).click();
@@ -272,6 +273,7 @@ test('v200 ESH moves the due date and the owner, and says why', async ({ page },
 
   await signIn(page, 'izzul@tamco.local');
   await page.goto(`/findings/${work.findingId}`);
+  await page.getByRole('button', { name: 'More actions for this finding' }).click();
   await page.getByText('Change the due date, the priority or the owner').click();
   await page.getByLabel('New due date').fill('2027-01-20');
   await page.getByLabel('Reason (the owner sees it)').fill('Parts on order');

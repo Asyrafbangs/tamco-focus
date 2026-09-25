@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { Conversation } from '@/components/esh/Conversation';
 import { ActionMenu } from '@/components/esh/ActionMenu';
+import { FindingActionsMenu } from '@/components/esh/FindingActionsMenu';
 import { OriginalEvidence } from '@/components/esh/OriginalEvidence';
 import { FindingOutcome } from '@/components/esh/FindingOutcome';
 import { ReopenFinding } from '@/components/esh/ReopenFinding';
@@ -224,11 +225,49 @@ export default async function FindingPage({
           </p>
           <h1>{finding.title}</h1>
         </div>
-        <span className="flag neutral esh-status-flag">
-          {finding.status === 'open' && finding.action
-            ? ACTION_STATE_LABELS[finding.action.state]
-            : FINDING_STATUS_LABELS[finding.status]}
-        </span>
+        <div className="esh-detail-head-actions">
+          <span className="flag neutral esh-status-flag">
+            {finding.status === 'open' && finding.action
+              ? ACTION_STATE_LABELS[finding.action.state]
+              : FINDING_STATUS_LABELS[finding.status]}
+          </span>
+          {/*
+           * v220 - changing an owner, a deadline or a priority, recording an
+           * administrative outcome and reopening a closed finding are real
+           * but rare. They wait behind one button instead of standing on the
+           * page competing with the work.
+           */}
+          {(access.canCoordinate || access.canVerify) && (
+            <FindingActionsMenu>
+              {access.canCoordinate &&
+                finding.action &&
+                ['assigned', 'in_progress', 'awaiting_verification'].includes(
+                  finding.action.state,
+                ) &&
+                finding.action.ownerEmail && (
+                  <ActionMenu
+                    actionId={finding.action.id}
+                    findingId={finding.id}
+                    ownerEmail={finding.action.ownerEmail}
+                    dueDate={
+                      finding.action.dueAt
+                        ? new Intl.DateTimeFormat('en-CA', { timeZone }).format(
+                            new Date(finding.action.dueAt),
+                          )
+                        : ''
+                    }
+                    priority={finding.action.priority ?? 'normal'}
+                  />
+                )}
+              {access.canVerify && finding.status !== 'closed' && !finding.resolvedOutcome && (
+                <FindingOutcome findingId={finding.id} />
+              )}
+              {access.canVerify && finding.status === 'closed' && (
+                <ReopenFinding findingId={finding.id} />
+              )}
+            </FindingActionsMenu>
+          )}
+        </div>
       </div>
       {/*
        * v214 - the same sentence the register shows, from the same rule: who
@@ -338,9 +377,6 @@ function FindingSummary({
     Boolean(action?.ownerEmail) &&
     canonicalEmail(action?.ownerEmail ?? '') === canonicalEmail(viewerEmail);
   const lastOpenAction = finding.openActionCount <= 1;
-  const dueDay = action?.dueAt
-    ? new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date(action.dueAt))
-    : '';
 
   return (
     <div className="esh-detail">
@@ -403,11 +439,6 @@ function FindingSummary({
               </div>
             )}
           </dl>
-          {/* v209 — a finding raised in error has an answer that is not a
-            closure, and closure is what ESH verification means (§6). */}
-          {canVerify && finding.status !== 'closed' && !finding.resolvedOutcome && (
-            <FindingOutcome findingId={finding.id} />
-          )}
           <h3 className="esh-subheading">Original evidence</h3>
           <OriginalEvidence
             findingId={finding.id}
@@ -488,7 +519,6 @@ function FindingSummary({
                 </div>
               )}
             </dl>
-            {canVerify && <ReopenFinding findingId={finding.id} />}
           </section>
         )}
 
@@ -508,15 +538,6 @@ function FindingSummary({
             <h2 id="esh-detail-action" className="esh-form-card-title">
               Required action
             </h2>
-            {canCoordinate && actionOpen && action.ownerEmail && (
-              <ActionMenu
-                actionId={action.id}
-                findingId={finding.id}
-                ownerEmail={action.ownerEmail}
-                dueDate={dueDay}
-                priority={action.priority ?? 'normal'}
-              />
-            )}
             {action.requiredOutcome && <p className="esh-detail-text">{action.requiredOutcome}</p>}
             <dl className="esh-facts">
               <div>

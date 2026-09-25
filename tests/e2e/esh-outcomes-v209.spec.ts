@@ -78,6 +78,7 @@ test('v209 a finding typed twice is recorded as a duplicate, not closed', async 
   await page.goto(`/findings/${twice.finding_id}`);
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
+  await page.getByRole('button', { name: 'More actions for this finding' }).click();
   await page.getByText('Administrative outcome').click();
   const outcome = page.locator('.esh-finding-outcome');
   await outcome.getByLabel('Outcome', { exact: true }).selectOption('duplicate');
@@ -88,6 +89,8 @@ test('v209 a finding typed twice is recorded as a duplicate, not closed', async 
   // The page now says what became of it, and offers no second outcome.
   await expect(page.getByText(`Duplicate of ${kept.reference}`)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('Recorded twice on the same walk')).toBeVisible();
+  // Once an outcome is recorded the menu no longer offers one.
+  await page.getByRole('button', { name: 'More actions for this finding' }).click();
   await expect(page.getByText('Administrative outcome')).toHaveCount(0);
 
   // It is not a closure, its work stopped, and the finding it repeats is untouched.

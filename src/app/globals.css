@@ -14855,18 +14855,6 @@ span.deadline span.deadline-glyph,
  * where the reading order is the DOM order.
  * ------------------------------------------------------------------------- */
 
-@media (min-width: 1100px) {
-  .esh-detail {
-    grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
-    align-items: start;
-  }
-  .esh-detail > [data-col='main'] {
-    grid-column: 1;
-  }
-  .esh-detail > [data-col='side'] {
-    grid-column: 2;
-  }
-}
 .esh-activity > summary {
   display: flex;
   align-items: center;
@@ -14900,19 +14888,20 @@ span.deadline span.deadline-glyph,
 }
 @media (min-width: 1100px) {
   .esh-detail {
-    grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
+    /* v220 — the same shape as the owner's screen: context left, work right. */
+    grid-template-columns: minmax(0, 380px) minmax(0, 1fr);
     align-items: start;
   }
   .esh-detail-main {
-    grid-column: 1;
+    grid-column: 2;
     grid-row: 1;
   }
   .esh-detail-side {
-    grid-column: 2;
+    grid-column: 1;
     grid-row: 1;
   }
   .esh-activity {
-    grid-column: 2;
+    grid-column: 1;
   }
 }
 .esh-activity > summary {
@@ -15017,4 +15006,29 @@ span.deadline span.deadline-glyph,
 }
 .guest-chat .guest-composer-actions {
   align-items: center;
+}
+
+/* v220 — the finding's administrative controls, behind one button. */
+.esh-detail-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.esh-finding-menu-panel {
+  /*
+   * v220 — a panel in the flow, not a floating popover.
+   *
+   * These are whole forms, not menu items. Floated above the page and
+   * anchored to a header that scrolls away, a form taller than the screen put
+   * its own submit button somewhere nothing could scroll to. It opens under
+   * the heading instead: still out of sight until asked for, and reachable.
+   */
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
 }

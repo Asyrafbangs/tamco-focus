@@ -1,5 +1,18 @@
 # TAMCO Focus — Change Log
 
+## v220 The ESH finding takes the same shape, and its controls step back — 25 September 2026
+
+- **Context left, work right**, matching the Action Owner's screen from v219. One shape for both
+  audiences: what am I looking at, and what is happening about it.
+- **Administrative controls behind one button.** Changing the owner, the deadline or the priority,
+  recording an administrative outcome and reopening a closed finding are real but rare. They were
+  standing on the page competing with the work; they open from “•••” beside the finding's status.
+- Fixed while building it: a floating popover holding whole forms put its own submit button where
+  nothing could scroll to it — it is anchored to a header that scrolls away, so a form taller than
+  the screen was unreachable. It opens as a panel in the flow instead. Nothing closes it while it
+  is being used.
+- Three existing specs now open the menu before using a control, which is the point of the change.
+
 ## v219 The Action Owner's screen, in two columns — 25 September 2026
 
 From a second design review. The owner's page was a narrow strip down the middle of a monitor,

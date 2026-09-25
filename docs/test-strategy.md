@@ -106,6 +106,12 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v220 ESH-layout evidence
+
+- The v216 layout journey now asserts that the administrative controls are nowhere on the page
+  until the menu is opened, and present once it is. The verification and outcome journeys open the
+  menu before using a control.
+
 ## v219 owner-layout evidence
 
 - Playwright opens the owner's link at 1440, checks the context column sits left of the working
