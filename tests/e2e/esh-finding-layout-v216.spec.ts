@@ -73,4 +73,8 @@ test('v216 the finding reads as work, with the trail behind it', async ({ page }
   await expect(activity).toHaveAttribute('open', '');
   await expect(activity.getByRole('heading', { name: 'Delivery' })).toBeVisible();
   await expect(activity.getByRole('heading', { name: 'History' })).toBeVisible();
+
+  // v222 — the end of the story by default, the rest on request.
+  const listed = activity.locator('.esh-history').first().locator('li');
+  await expect(listed).toHaveCount(Math.min(3, await listed.count()));
 });

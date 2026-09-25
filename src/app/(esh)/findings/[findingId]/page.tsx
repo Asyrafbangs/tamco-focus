@@ -852,8 +852,13 @@ function FindingSummary({
           <h3 id="esh-detail-history" className="esh-subheading">
             History
           </h3>
+          {/*
+           * v222 - the last few events, then the rest on request. A finding
+           * that has run for months carries dozens; a reader opening Activity
+           * almost always wants the end of the story, not all of it.
+           */}
           <ol className="esh-history">
-            {finding.history.map((entry, index) => (
+            {finding.history.slice(-3).map((entry, index) => (
               <li key={`${entry.eventType}-${entry.occurredAt}-${index}`}>
                 <strong>{HISTORY_LABELS[entry.eventType] ?? entry.eventType}</strong>
                 <span>
@@ -862,6 +867,21 @@ function FindingSummary({
               </li>
             ))}
           </ol>
+          {finding.history.length > 3 && (
+            <details className="esh-history-all">
+              <summary>Show all {finding.history.length} events</summary>
+              <ol className="esh-history">
+                {finding.history.map((entry, index) => (
+                  <li key={`all-${entry.eventType}-${entry.occurredAt}-${index}`}>
+                    <strong>{HISTORY_LABELS[entry.eventType] ?? entry.eventType}</strong>
+                    <span>
+                      {entry.actorName} · {dateTime(entry.occurredAt)}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </details>
+          )}
         </section>
       </details>
     </div>

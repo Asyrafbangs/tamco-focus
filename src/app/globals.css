@@ -12647,7 +12647,12 @@ span.deadline span.deadline-glyph,
 }
 .esh-content {
   min-width: 0;
-  max-width: 1160px;
+  /*
+   * v222 — the register is a working list, and 1160px left it compressed on a
+   * monitor while the sides stayed empty. Wide enough to read four columns
+   * without crowding, still short of edge-to-edge text.
+   */
+  max-width: 1400px;
   padding: 28px 32px 48px;
 }
 .esh-back-link {
@@ -15055,4 +15060,14 @@ span.deadline span.deadline-glyph,
   background: var(--green-bg);
   color: var(--green);
   border-radius: var(--radius-sm);
+}
+
+/* v222 — the rest of the history, when somebody asks for it. */
+.esh-history-all > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: calc(13px * var(--font-scale));
 }

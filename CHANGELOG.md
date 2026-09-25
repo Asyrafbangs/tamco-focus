@@ -1,5 +1,14 @@
 # TAMCO Focus — Change Log
 
+## v222 Room to work, and an activity trail that ends where the story does — 25 September 2026
+
+- **The ESH pages use 1400px** rather than 1160. The register is a working list of four columns and
+  was compressed on a monitor while the margins stayed empty.
+- **Activity shows the last three events**, then “Show all N events”. A finding that has run for
+  months carries dozens, and a reader opening the trail almost always wants the end of it.
+- My Actions already kept selection behind a control, so an ordinary owner sees plain rows and
+  never a checkbox unless they ask for one; the bulk operations §40 requires stay one press away.
+
 ## v221 A closed finding shows its result, not the workspace that produced it — 25 September 2026
 
 Once ESH has verified the correction the operational process is over, and the page that helped run
