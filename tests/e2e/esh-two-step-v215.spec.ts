@@ -56,6 +56,8 @@ test('v215 a finding is recorded in two steps, with its photograph attached ther
         'base64',
       ),
     });
+  // Attached after the department was chosen, which is where a live FileList
+  // read too late used to lose it silently.
   await expect(form.getByText('exit.png')).toBeVisible();
 
   await page.getByRole('button', { name: 'Next' }).click();

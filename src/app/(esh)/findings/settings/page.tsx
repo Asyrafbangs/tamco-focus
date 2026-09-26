@@ -1,8 +1,13 @@
+import { DepartmentEscalationForm } from '@/components/esh/DepartmentEscalationForm';
 import { FollowupRulesForm } from '@/components/esh/FollowupRulesForm';
 import { FollowupSettingsForm } from '@/components/esh/FollowupSettingsForm';
 import { ReportSettingsForm } from '@/components/esh/ReportSettingsForm';
 import { requireEshAccess } from '@/server/esh/access';
-import { getFollowupSettings, getReportSettings } from '@/server/esh/queries';
+import {
+  getFollowupSettings,
+  getReportSettings,
+  listDepartmentEscalationDefaults,
+} from '@/server/esh/queries';
 
 /** Follow-up is safety-relevant policy, so only ESH Verifiers may edit it. */
 export default async function FollowupSettingsPage() {
@@ -10,9 +15,10 @@ export default async function FollowupSettingsPage() {
   if (!access.canVerify && !access.canManageReports) {
     await requireEshAccess('manage_reports');
   }
-  const [settings, reports] = await Promise.all([
+  const [settings, reports, routes] = await Promise.all([
     access.canVerify ? getFollowupSettings() : Promise.resolve(null),
     access.canManageReports ? getReportSettings() : Promise.resolve(null),
+    access.canVerify ? listDepartmentEscalationDefaults() : Promise.resolve([]),
   ]);
 
   return (
@@ -27,6 +33,7 @@ export default async function FollowupSettingsPage() {
         <>
           <FollowupSettingsForm settings={settings} />
           <FollowupRulesForm settings={settings} />
+          <DepartmentEscalationForm departments={routes} levelDays={settings.levelDays} />
         </>
       ) : access.canVerify ? (
         <div className="notice error" role="alert">

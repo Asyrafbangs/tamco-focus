@@ -1084,6 +1084,45 @@ export async function countAwaitingVerification(): Promise<number> {
   return count ?? 0;
 }
 
+export interface DepartmentEscalationDefault {
+  departmentId: string;
+  departmentName: string;
+  levels: Array<{ level: number; email: string }>;
+}
+
+/**
+ * v223 - the escalation route a department already has (§7).
+ *
+ * Offered when a finding is assigned to that department, so ESH confirms a
+ * route rather than retyping one. It stays a default: nothing is written
+ * against an action until the form is submitted with it.
+ */
+export async function listDepartmentEscalationDefaults(): Promise<DepartmentEscalationDefault[]> {
+  const supabase = await createSupabaseServerClient();
+  const [rows, departments] = await Promise.all([
+    supabase
+      .from('esh_department_escalation_defaults')
+      .select('department_id, level, email')
+      .order('level'),
+    supabase.from('departments').select('id, name').order('name'),
+  ]);
+  if (rows.error || departments.error) {
+    console.error(`[listDepartmentEscalationDefaults] ${rows.error?.message ?? ''}`);
+    return [];
+  }
+  const grouped = new Map<string, Array<{ level: number; email: string }>>();
+  for (const row of rows.data ?? []) {
+    const list = grouped.get(row.department_id) ?? [];
+    list.push({ level: Number(row.level), email: String(row.email) });
+    grouped.set(row.department_id, list);
+  }
+  return (departments.data ?? []).map((department) => ({
+    departmentId: department.id,
+    departmentName: String(department.name),
+    levels: grouped.get(department.id) ?? [],
+  }));
+}
+
 export interface FollowupSettings {
   version: number;
   preDueDays: number;

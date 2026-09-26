@@ -106,6 +106,15 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v223 department-route evidence
+
+- pgTAP (11) proves that only ESH within scope may record a route, that an invalid level or
+  address is refused before anything is written, that replacing a route removes what it replaced
+  rather than merging, and that listing somebody creates no contact and grants no access.
+- Playwright records a route in settings, checks a new finding in that department is offered it,
+  and that switching department replaces it. It then clears the route, because this suite shares
+  one database.
+
 ## v221 closure-record evidence
 
 - The v200 journey closes a finding and then checks the page shows before, after and who verified

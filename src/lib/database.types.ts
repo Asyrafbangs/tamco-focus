@@ -2476,6 +2476,89 @@ export type Database = {
           },
         ]
       }
+      esh_department_escalation_defaults: {
+        Row: {
+          canonical_email: string
+          department_id: string
+          email: string
+          id: string
+          level: number
+          organization_id: string
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          canonical_email: string
+          department_id: string
+          email: string
+          id?: string
+          level: number
+          organization_id: string
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          canonical_email?: string
+          department_id?: string
+          email?: string
+          id?: string
+          level?: number
+          organization_id?: string
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_department_escalation_defaults_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_department_escalation_defaults_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_department_escalation_defaults_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_department_escalation_defaults_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_department_escalation_defaults_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_department_escalation_defaults_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_department_escalation_defaults_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       esh_digest_members: {
         Row: {
           action_id: string
@@ -15464,6 +15547,10 @@ export type Database = {
       }
       esh_set_contact_access: {
         Args: { p_enabled: boolean; p_principal_id: string; p_reason: string }
+        Returns: Json
+      }
+      esh_set_department_escalation: {
+        Args: { p_department_id: string; p_levels: Json }
         Returns: Json
       }
       esh_set_followup_policy: {

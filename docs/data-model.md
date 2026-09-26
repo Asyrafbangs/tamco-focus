@@ -100,6 +100,15 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 - `shared_contributions` leaves out steps whose work is binned or purged, as
   `completed_contributions` has since v87; its columns are unchanged.
 
+## v223 A department's escalation route
+
+- `esh_department_escalation_defaults` holds the recipients a department normally escalates to,
+  one row per level and address, with the canonical form for matching and the whole route replaced
+  at once so a level cannot be half-removed. It is read under Finding scope and written only by an
+  ESH Verifier through `esh_set_department_escalation`.
+- It is a default offered at assignment, never an entitlement: escalation access still comes from
+  `esh_escalation_entitlements`, created when a level actually activates.
+
 ## v212 A named successor on a message
 
 - `esh_action_messages.proposed_owner_email` holds the address an owner names when they say the

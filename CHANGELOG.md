@@ -1,5 +1,28 @@
 # TAMCO Focus — Change Log
 
+## v223 An escalation route the department already has — 25 September 2026
+
+ESH was typing the same two addresses for every finding in the same warehouse. The route is a
+property of the department far more often than of the finding.
+
+- **Finding settings carries a route per department**, each level saying when it is told, from the
+  organisation's own policy. A shorter route replaces a longer one rather than merging with it.
+- **Choosing a department on a new finding offers that route.** The form grows to fit it, the
+  addresses stay editable, and choosing a different department replaces them rather than adding to
+  them.
+- **It is an offer, not a policy.** §7 says ESH confirms the actual action-specific route, so
+  nothing is written against an action until the form is submitted with it, and being listed here
+  creates no contact and grants nobody any access — asserted in the database, not implied.
+- **Fixed: a photograph attached after choosing a department was silently lost.** v215 passed the
+  browser's `FileList` into a state updater and read it there; the control clears the file input as
+  soon as it hands the files over, so by the time the updater ran the list was empty. It only
+  surfaced once this stage's extra state made React process that update a moment later — the
+  shared uploader had always copied eagerly, which is why nothing else was affected.
+- pgTAP (11) and one desktop journey. The journey clears the route it created, because a route
+  left on a shared department would quietly add a recipient every later spec never asked for.
+
+**This stage adds a migration.**
+
 ## v222 Room to work, and an activity trail that ends where the story does — 25 September 2026
 
 - **The ESH pages use 1400px** rather than 1160. The register is a working list of four columns and
