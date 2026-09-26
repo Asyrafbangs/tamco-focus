@@ -2,6 +2,19 @@ import { config } from 'dotenv';
 import { randomBytes } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 
+/**
+ * v225 - the accountable department is a combobox: type, then choose.
+ *
+ * It replaced a select so that a long list can be narrowed and a missing
+ * department added without abandoning the form.
+ */
+async function chooseDepartment(page: Page, name: string) {
+  const field = page.getByLabel('Accountable department', { exact: true });
+  await field.click();
+  await field.fill(name);
+  await page.getByRole('option', { name, exact: true }).click();
+}
+
 config({ path: '.env.local', quiet: true });
 const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
 
@@ -49,9 +62,7 @@ test('v223 a department carries its own escalation route into a new finding', as
   await page.goto('/findings/new');
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   const form = page.locator('form.esh-finding-form');
-  await form
-    .getByLabel('Accountable department', { exact: true })
-    .selectOption({ label: 'Operations' });
+  await chooseDepartment(page, 'Operations');
   await page.getByRole('button', { name: 'Next' }).click();
   await expect(form.getByText(level1)).toBeVisible();
   await expect(form.getByText(level2)).toBeVisible();
@@ -59,9 +70,7 @@ test('v223 a department carries its own escalation route into a new finding', as
 
   // It is an offer: another department replaces it rather than adding to it.
   await page.getByRole('button', { name: 'Back' }).click();
-  await form
-    .getByLabel('Accountable department', { exact: true })
-    .selectOption({ label: 'Administration' });
+  await chooseDepartment(page, 'Administration');
   await page.getByRole('button', { name: 'Next' }).click();
   await expect(form.getByText(level1)).toHaveCount(0);
 

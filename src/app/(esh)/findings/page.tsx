@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { HeldNoticesRelease } from '@/components/esh/HeldNoticesRelease';
 import { OperationalHealth } from '@/components/esh/OperationalHealth';
 import { PeriodPicker } from '@/components/ui/PeriodPicker';
 import { SubmitOnSelect } from '@/components/ui/SubmitOnSelect';
@@ -7,7 +8,12 @@ import { ESH_CLOSURE_PERIODS, closurePeriodParams, totalOverview } from '@/domai
 import { resolvePeriod } from '@/domain/period';
 import { requireProfile } from '@/lib/supabase/server';
 import { requireEshAccess } from '@/server/esh/access';
-import { getDepartmentsInScope, getEshOverview, getOperationalHealth } from '@/server/esh/queries';
+import {
+  getDepartmentsInScope,
+  getEshOverview,
+  getOperationalHealth,
+  getRolloutStatus,
+} from '@/server/esh/queries';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -37,7 +43,7 @@ export default async function FindingsOverviewPage({
     '30',
     timeZone,
   );
-  const [overview, departments, health] = await Promise.all([
+  const [overview, departments, health, rollout] = await Promise.all([
     getEshOverview({
       departmentId,
       closedSince: closurePeriod.since,
@@ -46,6 +52,9 @@ export default async function FindingsOverviewPage({
     }),
     getDepartmentsInScope(access),
     getOperationalHealth(),
+    // v224 — how much held mail could actually go out. Returns nothing for
+    // somebody who may only read, so the release is never offered to them.
+    access.canCoordinate ? getRolloutStatus() : Promise.resolve(null),
   ]);
   const visibleRows = departmentUnassigned
     ? overview.rows.filter((row) => row.departmentId === null)
@@ -171,6 +180,7 @@ export default async function FindingsOverviewPage({
           </section>
 
           <OperationalHealth health={health} />
+          {rollout && <HeldNoticesRelease releasable={rollout.heldReleasable} />}
 
           <section className="esh-department-summary" aria-labelledby="department-summary-title">
             <div className="esh-section-head">

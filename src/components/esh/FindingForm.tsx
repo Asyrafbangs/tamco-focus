@@ -5,6 +5,7 @@ import { useId, useState, useTransition, type FormEvent } from 'react';
 
 import { createClient } from '@supabase/supabase-js';
 
+import { DepartmentChooser } from '@/components/esh/DepartmentChooser';
 import { AttachButtons } from '@/components/esh/EvidenceUploader';
 import { evidenceLabel, evidenceProblem, uploadContentType } from '@/domain/esh-evidence';
 import { publicEnv } from '@/lib/env';
@@ -70,12 +71,15 @@ function overdueWords(days: number | undefined): string {
 export function FindingForm({
   initial,
   departments,
+  canAddDepartment = false,
   verifiers,
   levelDays = [],
   departmentRoutes = {},
 }: {
   initial: FindingFormInitial;
   departments: Array<{ id: string; name: string }>;
+  /** v225 - an administrator can add a missing department without leaving this. */
+  canAddDepartment?: boolean;
   verifiers: Array<{ userId: string; fullName: string; email: string }>;
   /** v215 - the organisation's escalation timing, so a level says when. */
   levelDays?: number[];
@@ -333,19 +337,13 @@ export function FindingForm({
           </Field>
           <Field label="Accountable department" problems={problemsFor('accountable_department_id')}>
             {(props) => (
-              <select
-                name="accountable_department_id"
+              <DepartmentChooser
+                departments={departments}
                 value={departmentId}
-                onChange={(event) => setDepartmentId(event.target.value)}
-                {...props}
-              >
-                <option value="">Choose a department</option>
-                {departments.map((department) => (
-                  <option key={department.id} value={department.id}>
-                    {department.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setDepartmentId}
+                canAdd={canAddDepartment}
+                inputProps={props}
+              />
             )}
           </Field>
         </div>

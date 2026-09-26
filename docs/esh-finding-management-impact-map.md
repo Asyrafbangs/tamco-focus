@@ -74,9 +74,9 @@ DEFINER` procedures that take the principal explicitly and re-check the live ass
 
 ## 5. Stages
 
-v197 is built and verified (19 September 2026). v198 is built and verified (20 September 2026). v199 is built and verified (20 September 2026): evidence is limited to 10 MB a file
-(the Focus attachment limit and this deployment's storage ceiling), not the 25 MB default §23
-suggests, and is never scanned. v200 is built and verified (20 September 2026).
+v197 is built and verified (19 September 2026). v198 is built and verified (20 September 2026). v199 is built and verified (20 September 2026): evidence is never scanned. It was limited to
+10 MB a file until v226 (26 September 2026) raised it to the 25 MB §23 asks for, with 100 MB
+across one message — a photograph from a current phone had been going over the old limit. v200 is built and verified (20 September 2026).
 v201 is built and verified (20 September 2026): owner updates and escalation responses now notify
 the responsible ESH staff, while daily reminders and escalation use immutable assignment policy
 snapshots and a maintained working-day calendar.
@@ -132,6 +132,28 @@ answered ones marked (§7); an Action Owner can say the work is not theirs and n
 it, which ESH grants as an ordinary reassignment (§11, §14); and a held notification offers the
 administrator's switch on the finding that is waiting on it, rather than in another part of the
 application (§31.3, §43.2).
+
+v224 is built and verified (26 September 2026): the rollout has the second setting §43.2 always
+implied. An administrator opens or closes it with a reason, recorded in both audit trails; open, it
+reaches every active contact except anyone switched off by name (§43.5), and there is still no date
+on which it opens by itself. Opening it sends nothing (FM106) — held mail is released as a separate
+act, but now in one press instead of one finding at a time, which is what an imported backlog of
+ninety-four needs. Four places had their own copy of "may this contact be written to"; two of them
+decided whether a letter was queued or held, so with the rollout open they went on holding mail it
+could reach. All four now ask `focus.esh_contact_usable`. A released backlog's own summaries, which
+belong to a batch rather than to one finding, could not be released at all before this.
+
+v225 is built and verified (26 September 2026): the accountable department is chosen by typing
+rather than scrolled for, and an administrator can add one that is missing without abandoning a
+half-written finding (§7). It is the same administrator-only `create_department` shared
+administration calls, so §31.2's boundary is unchanged and no organisation-chart editor is added
+here; a near-duplicate name is questioned before anything is created.
+
+v226 is built and verified (26 September 2026): evidence is 25 MB a file with 100 MB across one
+message, which is what §23 asks for. It had been 10 MB — under what a photograph of a dark plant
+room weighs, so an Action Owner could not send the proof their action required. The per-message
+total is new: ten files at the old limit were harmless and at the new one are a quarter of a
+gigabyte.
 
 Each stage ships behind the rollout gate, so nothing new is visible to the team until an
 administrator enables them. Each ends with the full verify and, where it adds a migration, a

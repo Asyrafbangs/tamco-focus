@@ -183,6 +183,7 @@ export default async function FindingPage({
         {notices}
         <FindingForm
           departments={departments}
+          canAddDepartment={profile.role === 'administrator'}
           verifiers={verifiers}
           initial={{
             findingId: finding.id,

@@ -15071,3 +15071,153 @@ span.deadline span.deadline-glyph,
   cursor: pointer;
   font-size: calc(13px * var(--font-scale));
 }
+
+/* ---------------------------------------------------------------------------
+ * v224 — the rollout, as one line an administrator can read.
+ * ------------------------------------------------------------------------- */
+
+.esh-rollout-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+/* The palette's own pairs, chosen against each other in both themes (v218). */
+.esh-rollout-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: calc(12px * var(--font-scale));
+  font-weight: 700;
+  line-height: 1.5;
+}
+.esh-rollout-chip[data-mode='live'] {
+  background: var(--green-bg);
+  color: var(--green);
+}
+.esh-rollout-chip[data-mode='restricted'] {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+.esh-rollout-change {
+  margin-top: 4px;
+}
+.esh-rollout-change > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: calc(13px * var(--font-scale));
+}
+.esh-rollout-change > p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: calc(13px * var(--font-scale));
+  line-height: 1.55;
+}
+
+/* v224 — the release the operational line above has just counted. */
+.esh-held-release {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  background: var(--blue-bg);
+  border-radius: var(--radius);
+}
+.esh-held-release h2 {
+  margin: 0;
+  color: var(--blue);
+  font-size: calc(15px * var(--font-scale));
+}
+.esh-held-release p {
+  margin: 0;
+  color: var(--text);
+  font-size: calc(13px * var(--font-scale));
+  line-height: 1.55;
+}
+
+/* ---------------------------------------------------------------------------
+ * v225 — choosing a department by typing, and adding one that is not there.
+ * ------------------------------------------------------------------------- */
+
+.esh-combobox {
+  position: relative;
+}
+.esh-combobox-pop {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  right: 0;
+  margin: 2px 0 0;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 14%);
+}
+.esh-combobox-list {
+  max-height: 280px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.esh-combobox-list > li[role='option'] {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: calc(14px * var(--font-scale));
+  /* 44px at every text size, so a finger has the same target as a mouse. */
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.esh-combobox-list > li[data-active='true'],
+.esh-combobox-list > li[role='option']:hover {
+  background: var(--blue-bg);
+  color: var(--blue);
+}
+.esh-combobox-empty {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: calc(13px * var(--font-scale));
+  line-height: 1.5;
+}
+.esh-combobox-add {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--line);
+  color: var(--blue);
+  cursor: pointer;
+  font: inherit;
+  font-size: calc(14px * var(--font-scale));
+  font-weight: 600;
+  text-align: left;
+}
+.esh-combobox-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 14px;
+  background: var(--surface-2, var(--bg));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.esh-combobox-panel .notice ul {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}

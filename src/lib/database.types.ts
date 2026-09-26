@@ -5474,29 +5474,41 @@ export type Database = {
       }
       esh_rollout_settings: {
         Row: {
+          authorization_version: number
           bootstrap_email: string
           bootstrap_outcome: string
           bootstrap_user_id: string | null
           initialized_at: string
           mode: string
+          mode_changed_at: string | null
+          mode_changed_by: string | null
+          mode_reason: string | null
           organization_id: string
           updated_at: string
         }
         Insert: {
+          authorization_version?: number
           bootstrap_email: string
           bootstrap_outcome: string
           bootstrap_user_id?: string | null
           initialized_at?: string
           mode?: string
+          mode_changed_at?: string | null
+          mode_changed_by?: string | null
+          mode_reason?: string | null
           organization_id: string
           updated_at?: string
         }
         Update: {
+          authorization_version?: number
           bootstrap_email?: string
           bootstrap_outcome?: string
           bootstrap_user_id?: string | null
           initialized_at?: string
           mode?: string
+          mode_changed_at?: string | null
+          mode_changed_by?: string | null
+          mode_reason?: string | null
           organization_id?: string
           updated_at?: string
         }
@@ -5532,6 +5544,41 @@ export type Database = {
           {
             foreignKeyName: "esh_rollout_settings_bootstrap_user_id_fkey"
             columns: ["bootstrap_user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_rollout_settings_mode_changed_by_fkey"
+            columns: ["mode_changed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_rollout_settings_mode_changed_by_fkey"
+            columns: ["mode_changed_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_rollout_settings_mode_changed_by_fkey"
+            columns: ["mode_changed_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_rollout_settings_mode_changed_by_fkey"
+            columns: ["mode_changed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_rollout_settings_mode_changed_by_fkey"
+            columns: ["mode_changed_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
             referencedColumns: ["id"]
@@ -13197,7 +13244,6 @@ export type Database = {
           notification_failed: boolean | null
           notification_held: boolean | null
           organization_id: string | null
-          owner_access_enabled: boolean | null
           owner_email: string | null
           priority: string | null
           reference: string | null
@@ -15478,6 +15524,10 @@ export type Database = {
         Args: { p_detail?: Json; p_ok: boolean; p_worker: string }
         Returns: Json
       }
+      esh_release_held_notifications: {
+        Args: { p_import_batch_id?: string; p_limit?: number }
+        Returns: Json
+      }
       esh_release_notification: { Args: { p_outbox_id: string }; Returns: Json }
       esh_remove_upload: { Args: { p_asset_id: string }; Returns: Json }
       esh_reopen_finding: {
@@ -15520,6 +15570,7 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_rollout_status: { Args: never; Returns: Json }
       esh_run_followups: { Args: { p_now?: string }; Returns: Json }
       esh_save_finding: {
         Args: {
@@ -15582,6 +15633,10 @@ export type Database = {
       }
       esh_set_priority: {
         Args: { p_action_id: string; p_priority: string; p_reason: string }
+        Returns: Json
+      }
+      esh_set_rollout_mode: {
+        Args: { p_mode: string; p_reason: string }
         Returns: Json
       }
       esh_set_staff_access: {

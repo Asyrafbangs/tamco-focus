@@ -3,6 +3,19 @@ import { config } from 'dotenv';
 import { randomBytes } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 
+/**
+ * v225 - the accountable department is a combobox: type, then choose.
+ *
+ * It replaced a select so that a long list can be narrowed and a missing
+ * department added without abandoning the form.
+ */
+async function chooseDepartment(page: Page, name: string) {
+  const field = page.getByLabel('Accountable department', { exact: true });
+  await field.click();
+  await field.fill(name);
+  await page.getByRole('option', { name, exact: true }).click();
+}
+
 config({ path: '.env.local', quiet: true });
 const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
 
@@ -40,9 +53,7 @@ test('v215 a finding is recorded in two steps, with its photograph attached ther
   const form = page.locator('form.esh-finding-form');
   await form.getByLabel('Finding title', { exact: true }).fill(title);
   await form.getByLabel('What was found', { exact: true }).fill('Pallets across the fire exit.');
-  await form
-    .getByLabel('Accountable department', { exact: true })
-    .selectOption({ label: 'Operations' });
+  await chooseDepartment(page, 'Operations');
 
   // The photograph is chosen where the condition is described.
   await form

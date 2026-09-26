@@ -2,6 +2,19 @@ import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
 import { expect, test, type Page } from '@playwright/test';
 
+/**
+ * v225 - the accountable department is a combobox: type, then choose.
+ *
+ * It replaced a select so that a long list can be narrowed and a missing
+ * department added without abandoning the form.
+ */
+async function chooseDepartment(page: Page, name: string) {
+  const field = page.getByLabel('Accountable department', { exact: true });
+  await field.click();
+  await field.fill(name);
+  await page.getByRole('option', { name, exact: true }).click();
+}
+
 config({ path: '.env.local', quiet: true });
 
 /**
@@ -124,7 +137,7 @@ test('v197 a Verifier records and assigns a finding to an email address', async 
 
   await page.getByLabel('What was found').fill('Materials extend into the marked walkway.');
   await page.getByLabel('Location').fill('BR2 Warehouse');
-  await page.getByLabel('Accountable department').selectOption({ label: 'Operations' });
+  await chooseDepartment(page, 'Operations');
   await page.getByRole('button', { name: 'Next' }).click();
   await page.getByLabel('Required outcome').fill('Clear the walkway.');
   await page.getByLabel('Action Owner email').fill(`  ${owner.toUpperCase()} `);
@@ -176,7 +189,7 @@ test('v197 a draft keeps what was entered and can be finished later', async ({
   await page.goto('/findings/register');
   await page.locator('.esh-register-row').filter({ hasText: title }).click();
   await page.getByLabel('What was found').fill('Found during the weekly walk.');
-  await page.getByLabel('Accountable department').selectOption({ label: 'Operations' });
+  await chooseDepartment(page, 'Operations');
   await page.getByRole('button', { name: 'Next' }).click();
   await expect(page.getByLabel('Action Owner email')).toHaveValue(`draft.${id}@example.com`);
   await page.getByLabel('Required outcome').fill('Put it right.');
@@ -214,11 +227,10 @@ test('v197 an administrator enables one person, with a department scope', async 
     await signIn(page, 'lim@tamco.local');
     await expect(page.locator('.esh-switcher summary')).toHaveText('TAMCO Focus');
     await page.goto('/findings/new');
-    const department = page.getByLabel('Accountable department');
-    await expect(department.locator('option')).toHaveText([
-      'Choose a department',
-      'Environment, Health & Safety',
-    ]);
+    // The combobox offers his scope and nothing else: no placeholder row, and
+    // no department he may not record against.
+    await page.getByLabel('Accountable department', { exact: true }).click();
+    await expect(page.getByRole('option')).toHaveText(['Environment, Health & Safety']);
   } finally {
     await service().from('esh_staff_access').update({ enabled: false }).eq('user_id', LIM);
   }

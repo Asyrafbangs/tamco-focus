@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 
 import {
   EVIDENCE_ACCEPT,
+  evidenceAdditionProblem,
   evidenceLabel,
   evidenceProblem,
   uploadContentType,
@@ -114,20 +115,37 @@ export function useEvidenceUploads(
 
   function add(files: FileList | File[]) {
     const list = Array.from(files);
+    /*
+     * v226 — the count and the total for the whole update, decided before any
+     * bytes move. A file that cannot fit is listed as refused with the reason
+     * rather than being uploaded and then rejected by the database, and the
+     * files chosen alongside it are unaffected.
+     */
+    const staged = items
+      .filter((item) => item.status !== 'failed')
+      .reduce((sum, item) => ({ files: sum.files + 1, bytes: sum.bytes + item.size }), {
+        files: 0,
+        bytes: 0,
+      });
     const fresh = list.map((file) => {
       counter.current += 1;
+      const tooMuch = evidenceAdditionProblem(staged, file.size);
+      if (!tooMuch) {
+        staged.files += 1;
+        staged.bytes += file.size;
+      }
       return {
         key: `new-${counter.current}`,
         name: file.name,
         size: file.size,
-        status: 'uploading' as const,
-        message: null,
+        status: tooMuch ? ('failed' as const) : ('uploading' as const),
+        message: tooMuch,
         assetId: null,
         file,
       };
     });
     setItems((current) => [...current, ...fresh]);
-    for (const item of fresh) void run(item.key, item.file);
+    for (const item of fresh) if (item.status === 'uploading') void run(item.key, item.file);
   }
 
   function retry(key: string) {

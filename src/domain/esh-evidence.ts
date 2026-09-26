@@ -15,9 +15,26 @@
 
 import { DEFAULT_ALLOWED_MIME_TYPES, REFUSED_EXTENSIONS } from '@/domain/attachment-policy';
 
-/** Per file, and per message (§23 defaults, within this deployment's limits). */
-export const EVIDENCE_MAX_BYTES = 10 * 1024 * 1024;
+/**
+ * Per file, per message, and how many (§23's defaults).
+ *
+ * v226 — 25 MB, which is what the specification asks for and what a photograph
+ * from a current phone actually needs. These three numbers are also written into
+ * the evidence bucket and two CHECK constraints; all five move together, and
+ * every message a person reads about a size is built from the constants below
+ * rather than spelling a number out again.
+ */
+export const EVIDENCE_MAX_BYTES = 25 * 1024 * 1024;
+export const EVIDENCE_MAX_MESSAGE_BYTES = 100 * 1024 * 1024;
 export const EVIDENCE_MAX_FILES_PER_MESSAGE = 10;
+
+/** "25 MB", for a sentence. Whole megabytes, because the limits are whole. */
+export function megabytes(bytes: number): string {
+  return `${Math.round(bytes / (1024 * 1024))} MB`;
+}
+
+export const EVIDENCE_MAX_LABEL = megabytes(EVIDENCE_MAX_BYTES);
+export const EVIDENCE_MAX_MESSAGE_LABEL = megabytes(EVIDENCE_MAX_MESSAGE_BYTES);
 
 export type EvidenceType = (typeof DEFAULT_ALLOWED_MIME_TYPES)[number];
 
@@ -94,7 +111,30 @@ export function evidenceProblem(name: string, size: number): string | null {
     return 'Attach a photo, PDF, Word, Excel, PowerPoint, CSV or text file.';
   }
   if (size <= 0) return 'This file is empty.';
-  if (size > EVIDENCE_MAX_BYTES) return 'Files can be up to 10 MB each.';
+  if (size > EVIDENCE_MAX_BYTES) return `Files can be up to ${EVIDENCE_MAX_LABEL} each.`;
+  return null;
+}
+
+/**
+ * Whether one more file can join what is already staged, before any of its
+ * bytes move (§23).
+ *
+ * The database refuses the same two limits when the message is sent, and that
+ * is the check that counts. This one exists so that nobody is told about it
+ * only after uploading a hundred megabytes from a phone on a plant floor — and
+ * so that the file which does not fit is named, rather than the whole selection
+ * being thrown away.
+ */
+export function evidenceAdditionProblem(
+  staged: { files: number; bytes: number },
+  size: number,
+): string | null {
+  if (staged.files >= EVIDENCE_MAX_FILES_PER_MESSAGE) {
+    return `Up to ${EVIDENCE_MAX_FILES_PER_MESSAGE} files can go with one update. Send these first.`;
+  }
+  if (staged.bytes + size > EVIDENCE_MAX_MESSAGE_BYTES) {
+    return `This would take the update past ${EVIDENCE_MAX_MESSAGE_LABEL}. Send what is here first.`;
+  }
   return null;
 }
 

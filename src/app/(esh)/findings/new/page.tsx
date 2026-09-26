@@ -48,6 +48,7 @@ export default async function NewFindingPage() {
       </div>
       <FindingForm
         departments={departments}
+        canAddDepartment={profile.role === 'administrator'}
         verifiers={verifiers}
         levelDays={followup?.levelDays ?? []}
         departmentRoutes={departmentRoutes}

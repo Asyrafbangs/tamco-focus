@@ -15,6 +15,9 @@ import type { EshOverviewRow } from '@/domain/esh-overview';
 import type { ReportDefinitionSummary } from '@/domain/esh-reports';
 import type { Database } from '@/lib/database.types';
 import type { OperationalHealth } from '@/domain/esh-health';
+import type { RolloutStatus } from '@/domain/esh-rollout';
+import { cache } from 'react';
+
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 /**
@@ -27,6 +30,23 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
  */
 
 export const REGISTER_PAGE_SIZE = 50;
+
+/**
+ * The rollout mode, for a screen that has to describe a contact (v224, §43.3).
+ *
+ * Read once per request. Every read and write asks the database again through
+ * `focus.esh_contact_usable`, so this only decides what a page says, never what
+ * anybody may do. A failed read is treated as restricted: the narrower answer.
+ */
+const getRolloutMode = cache(async (): Promise<'restricted' | 'live'> => {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.from('esh_rollout_settings').select('mode').limit(1);
+  if (error) {
+    console.error(`[getRolloutMode] ${error.code ?? 'unknown'}: ${error.message}`);
+    return 'restricted';
+  }
+  return data?.[0]?.mode === 'live' ? 'live' : 'restricted';
+});
 
 export interface ReportSettingsData {
   definitions: ReportDefinitionSummary[];
@@ -648,7 +668,7 @@ export async function getFindingDetail(
   const { data: principals } = principalIds.length
     ? await supabase
         .from('esh_email_principals')
-        .select('id, display_email, access_enabled, status')
+        .select('id, display_email, access_enabled, status, access_disabled_by')
         .in('id', principalIds)
     : {
         data: [] as Array<{
@@ -656,12 +676,25 @@ export async function getFindingDetail(
           display_email: string;
           access_enabled: boolean;
           status: string;
+          access_disabled_by: string | null;
         }>,
       };
   const emailOf = new Map((principals ?? []).map((row) => [row.id, row.display_email]));
+  /*
+   * v224 — who can actually be written to, which is the rollout's rule and not
+   * this file's. Under a restricted rollout it is whoever an administrator
+   * named; with the rollout open it is every active contact except one somebody
+   * switched off on purpose. Read the mode rather than assuming the first,
+   * which is how four other copies of this rule came to disagree with it.
+   */
+  const rolloutMode = await getRolloutMode();
   const reachable = new Set(
     (principals ?? [])
-      .filter((row) => row.access_enabled && row.status === 'active')
+      .filter(
+        (row) =>
+          row.status === 'active' &&
+          (row.access_enabled || (rolloutMode === 'live' && !row.access_disabled_by)),
+      )
       .map((row) => row.id),
   );
   const nameOf = new Map(
@@ -1237,5 +1270,46 @@ export async function getOperationalHealth(): Promise<OperationalHealth | null> 
     failing: Number(health.failing ?? 0),
     held: Number(health.held ?? 0),
     reviewOverdue: Number(health.review_overdue ?? 0),
+  };
+}
+
+/**
+ * The rollout as the administration screen shows it (v224, §43.2).
+ *
+ * Counts and the mode, nothing about any finding: looking after who may be
+ * written to is not a view of the work itself (§43.1).
+ */
+export async function getRolloutStatus(): Promise<RolloutStatus | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_rollout_status');
+  if (error) {
+    console.error(`[getRolloutStatus] ${error.code ?? 'unknown'}: ${error.message}`);
+    return null;
+  }
+  const row = (data ?? {}) as {
+    ok?: boolean;
+    mode?: string;
+    mode_changed_at?: string | null;
+    mode_changed_by?: string | null;
+    mode_reason?: string | null;
+    authorization_version?: number;
+    contacts_total?: number;
+    contacts_enabled?: number;
+    contacts_revoked?: number;
+    held?: number;
+    held_releasable?: number;
+  };
+  if (!row.ok) return null;
+  return {
+    mode: row.mode === 'live' ? 'live' : 'restricted',
+    modeChangedAt: row.mode_changed_at ?? null,
+    modeChangedBy: row.mode_changed_by ?? null,
+    modeReason: row.mode_reason ?? null,
+    authorizationVersion: Number(row.authorization_version ?? 1),
+    contactsTotal: Number(row.contacts_total ?? 0),
+    contactsEnabled: Number(row.contacts_enabled ?? 0),
+    contactsRevoked: Number(row.contacts_revoked ?? 0),
+    held: Number(row.held ?? 0),
+    heldReleasable: Number(row.held_releasable ?? 0),
   };
 }

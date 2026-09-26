@@ -11,6 +11,7 @@ import {
   outcomeTone,
 } from '@/domain/esh-import';
 import type { ImportBatchDetail, ImportRowRecord } from '@/server/esh/import';
+import { releaseHeldNotifications } from '@/server/esh/rollout-actions';
 import {
   acknowledgeImportEvidence,
   amendImportRow,
@@ -395,7 +396,9 @@ export function ImportReview({ batch }: { batch: ImportBatchDetail }) {
                   }
                   clientKey.current = '';
                   setExcluded([]);
-                  refresh('Released. Each owner has one summary waiting.');
+                  refresh(
+                    'Released. Each owner has one summary — held for anyone the rollout cannot write to yet.',
+                  );
                 })
               }
             >
@@ -408,6 +411,53 @@ export function ImportReview({ batch }: { batch: ImportBatchDetail }) {
               does.
             </p>
           )}
+        </section>
+      )}
+
+      {/*
+        v224 — the backlog says something once, to everybody.
+
+        Releasing already writes one summary per owner rather than one per
+        finding, but under a restricted rollout each of those is held, and until
+        now the only way to send them was one at a time from ninety-four
+        separate findings. Every rule still holds: this calls the same release
+        the finding page calls, so an owner whose contact is not cleared is
+        still not written to.
+      */}
+      {batch.heldNotifications > 0 && (
+        <section className="card esh-import-notify" aria-labelledby="import-notify">
+          <h2 id="import-notify">Tell the owners</h2>
+          <p>
+            {batch.heldNotifications} owner summar
+            {batch.heldNotifications === 1 ? 'y is' : 'ies are'} held because the rollout cannot
+            write to those contacts yet. Clear them under Identity and access, or open the rollout
+            there, and then release them from here.
+            {batch.queuedNotifications > 0 &&
+              ` ${batch.queuedNotifications} ${batch.queuedNotifications === 1 ? 'has' : 'have'} already gone out.`}
+          </p>
+          <div className="esh-import-actions">
+            <button
+              type="button"
+              className="btn primary"
+              disabled={busy}
+              onClick={() =>
+                start(async () => {
+                  const result = await releaseHeldNotifications({ importBatchId: batch.id });
+                  if (!result.ok) setProblem(result.message);
+                  else refresh(result.message);
+                })
+              }
+            >
+              Notify{' '}
+              {batch.heldNotifications === 1
+                ? 'the owner'
+                : `all ${batch.heldNotifications} owners`}
+            </button>
+          </div>
+          <p className="hint">
+            Nothing goes to a contact an administrator has not cleared. The answer says how many
+            were held back and which rule held each of them.
+          </p>
         </section>
       )}
 
