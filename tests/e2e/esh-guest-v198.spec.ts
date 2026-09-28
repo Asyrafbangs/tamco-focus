@@ -314,12 +314,14 @@ test('v198 ESH writes to the owner; the email waits for access and a deliberate 
     .single();
   expect(stillHeld!.state).toBe('held_rollout');
 
-  // v227 - the release is one act for the whole system, by an administrator.
-  await page.goto('/more/admin/users');
-  const ownerEmail = page.getByRole('region', { name: 'Owner email' });
-  await expect(ownerEmail).toContainText('being held');
-  await ownerEmail.getByRole('button', { name: 'Release all' }).click();
-  await ownerEmail.getByRole('button', { name: 'Confirm release' }).click();
+  // v227 - the release is one act for the whole system, from the register
+  // line that says what is held (v224's Release all).
+  await signIn(page, 'izzul@tamco.local');
+  await page.goto('/findings/register');
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+  const held = page.locator('.esh-held-notice');
+  await expect(held).toContainText('being held');
+  await held.getByRole('button', { name: /^Release all/ }).click();
   const released = async () =>
     (
       await service()
@@ -332,7 +334,7 @@ test('v198 ESH writes to the owner; the email waits for access and a deliberate 
   await expect
     .poll(async () => (await released())?.state, { timeout: 30_000 })
     .toMatch(/^(queued|processing|provider_accepted)$/);
-  expect((await released())!.released_by).toBe('f0c05000-0000-4000-a000-000000000001');
+  expect((await released())!.released_by).toBe('f0c05000-0000-4000-a000-000000000002');
 });
 
 test('v198 a staff login and an owner link never lend each other anything', async ({
