@@ -26,7 +26,9 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/(today|work|goals|more)/, { timeout: 30_000 });
 }
 
-test('v216 the finding reads as work, with the trail behind it', async ({ page }, testInfo) => {
+test('v216/v227 the finding reads as work, with the trail behind it', async ({
+  page,
+}, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'One reading of the layout is enough.');
   const suffix = randomBytes(3).toString('hex');
   const esh = await apiAs('izzul@tamco.local');
@@ -54,27 +56,32 @@ test('v216 the finding reads as work, with the trail behind it', async ({ page }
   await page.goto(`/findings/${saved.finding_id}`);
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
-  // The conversation is the work; the context stands beside it.
+  // v227 - context left, conversation right; one card says what to fix.
   await expect(page.locator('.esh-detail-main')).toContainText('Conversation with the owner');
   const side = page.locator('.esh-detail-side');
-  await expect(side.getByRole('heading', { name: 'Required action' })).toBeVisible();
-  await expect(side.getByRole('heading', { name: 'The finding' })).toBeVisible();
-  // What was seen belongs to the finding, not to a card of its own.
-  await expect(side.getByRole('heading', { name: 'Original evidence' })).toBeVisible();
+  await expect(side.getByText('Required action', { exact: true })).toBeVisible();
+  await expect(side.getByRole('heading', { name: 'What was found' })).toBeVisible();
+  await expect(side.locator('section.esh-form-card')).toHaveCount(1);
+  // The rest of the record is kept, and folded.
+  await expect(side.locator('details', { hasText: 'Full record' })).not.toHaveAttribute('open', '');
 
-  // Administrative controls are behind one button in the header, not on the
-  // page and not above the composer.
-  await expect(page.getByText('Change the due date, the priority or the owner')).toHaveCount(0);
+  // Administrative controls are named items behind one button.
+  await expect(page.getByRole('button', { name: 'Change due date' })).toHaveCount(0);
   await page.getByRole('button', { name: 'More actions for this finding' }).click();
-  await expect(page.getByText('Change the due date, the priority or the owner')).toBeVisible();
+  const menu = page.getByRole('list', { name: 'Finding actions' });
+  for (const item of ['Change due date', 'Change owner', 'Edit finding', 'Change risk']) {
+    await expect(menu.getByRole('button', { name: item })).toBeVisible();
+  }
+  await expect(menu.getByRole('button', { name: 'Cancel / mark duplicate' })).toBeVisible();
 
-  // This assignment is held, so the trail opens itself to show the remedy.
-  const activity = page.locator('.esh-activity');
-  await expect(activity).toHaveAttribute('open', '');
-  await expect(activity.getByRole('heading', { name: 'Delivery' })).toBeVisible();
-  await expect(activity.getByRole('heading', { name: 'History' })).toBeVisible();
-
-  // v222 — the end of the story by default, the rest on request.
-  const listed = activity.locator('.esh-history').first().locator('li');
-  await expect(listed).toHaveCount(Math.min(3, await listed.count()));
+  // Held email is not repeated on the finding; the activity line is the story
+  // and the full history (with the delivery log) is in a drawer.
+  await expect(page.getByText('Owner not told yet')).toHaveCount(0);
+  const activity = page.locator('.esh-activity-line');
+  await expect(activity).toContainText('Latest:');
+  await expect(activity).not.toContainText('Email');
+  await activity.getByRole('button', { name: 'View full history' }).click();
+  const drawer = page.getByRole('dialog', { name: 'Full history' });
+  await expect(drawer.getByRole('heading', { name: 'Delivery log' })).toBeVisible();
+  await expect(drawer.getByRole('heading', { name: 'Everything that happened' })).toBeVisible();
 });

@@ -87,6 +87,7 @@ export const OUTCOME_LABELS: Record<string, string> = {
   cancelled: 'Cancelled',
   withdrawn: 'Withdrawn',
   duplicate: 'Duplicate',
+  raised_in_error: 'Raised in error',
 };
 
 export const RISK_LABELS: Record<RiskLevel, string> = {

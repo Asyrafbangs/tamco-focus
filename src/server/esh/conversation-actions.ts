@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
-import { contactAccessProblem, releaseProblem, staffMessageProblem } from '@/domain/esh-guest';
+import { contactAccessProblem, staffMessageProblem } from '@/domain/esh-guest';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
 import { scheduleEshDispatch } from '@/server/esh/schedule-dispatch';
 
@@ -50,36 +50,6 @@ export async function postEshMessage(input: {
   }
   if (result.notification === 'queued') await scheduleEshDispatch();
   if (uuid.safeParse(input.findingId).success) revalidatePath(`/findings/${input.findingId}`);
-  return { ok: true };
-}
-
-/**
- * Release one held notification (§43.4). Deliberately separate from
- * switching the contact on (FM106).
- */
-export async function releaseHeldNotification(input: {
-  outboxId: string;
-  findingId: string;
-}): Promise<StaffResult> {
-  await requireProfile();
-  const failure = 'Something went wrong and nothing was released. Try again.';
-  const outboxId = uuid.safeParse(input.outboxId);
-  if (!outboxId.success) return { ok: false, message: releaseProblem('notification_not_found') };
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc('esh_release_notification', {
-    p_outbox_id: outboxId.data,
-  });
-  if (error) {
-    console.error(`[esh_release_notification] ${error.code ?? 'unknown'}: ${error.message}`);
-    return { ok: false, message: failure };
-  }
-  const result = (data ?? {}) as { ok?: boolean; code?: string };
-  if (!result.ok) {
-    return { ok: false, message: releaseProblem(result.code) };
-  }
-  await scheduleEshDispatch();
-  if (uuid.safeParse(input.findingId).success) revalidatePath(`/findings/${input.findingId}`);
-  revalidatePath('/findings/register');
   return { ok: true };
 }
 
@@ -171,56 +141,8 @@ export async function enableContacts(input: {
     refused,
     message:
       refused.length === 0
-        ? `${enabled} contact${enabled === 1 ? '' : 's'} cleared to receive email. Nothing has been sent: each finding still releases its own held notice.`
+        ? `${enabled} contact${enabled === 1 ? '' : 's'} cleared to receive email. Nothing has been sent: held email goes out with Release all.`
         : `${enabled} cleared, ${refused.length} refused.`,
-  };
-}
-
-/**
- * v212 - the same switch, thrown from the finding that is waiting on it.
- *
- * An assignment that is held says so on the finding, and until now the only
- * way to unblock it was to know that contact access lives under Identity and
- * access, in another part of the application, and to go and find it. Findings
- * were recorded and then sat silent because nobody made that journey. This is
- * the identical audited act, offered where the problem is visible.
- */
-export async function enableContactForFinding(input: {
-  principalId: string;
-  findingId: string;
-  reason: string;
-}): Promise<ContactAccessState> {
-  const profile = await requireProfile();
-  if (profile.role !== 'administrator') {
-    return { ok: false, message: contactAccessProblem('not_permitted') };
-  }
-  const principalId = uuid.safeParse(input.principalId);
-  const findingId = uuid.safeParse(input.findingId);
-  if (!principalId.success || !findingId.success) {
-    return { ok: false, message: contactAccessProblem('contact_not_found') };
-  }
-  const reason = String(input.reason ?? '').trim();
-  if (reason.length < 3) {
-    return { ok: false, message: 'Say why this contact may be written to.' };
-  }
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc('esh_set_contact_access', {
-    p_principal_id: principalId.data,
-    p_enabled: true,
-    p_reason: reason,
-  });
-  if (error) {
-    console.error(`[esh_set_contact_access] ${error.code ?? 'unknown'}: ${error.message}`);
-    return { ok: false, message: 'Something went wrong and nothing was changed. Try again.' };
-  }
-  const result = (data ?? {}) as { ok?: boolean; code?: string; unchanged?: boolean };
-  if (!result.ok) return { ok: false, message: contactAccessProblem(result.code) };
-  revalidatePath(`/findings/${findingId.data}`);
-  revalidatePath('/more/admin/contacts');
-  return {
-    ok: true,
-    // Enabling is not sending: the release below it is still a separate press.
-    message: 'Access on. Nothing has been sent yet — release the held email below.',
   };
 }
 
@@ -260,7 +182,7 @@ export async function setContactAccess(
     message: result.unchanged
       ? 'Nothing to change.'
       : enabled
-        ? 'Access on. Nothing has been sent: ESH releases held notifications from each finding.'
+        ? 'Access on. Nothing has been sent: Held email goes out with Release all on the register.'
         : 'Access off. Their links and sessions have stopped working; their work is unchanged.',
   };
 }

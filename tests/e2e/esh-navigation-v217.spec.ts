@@ -21,9 +21,11 @@ test('v217 Closed is a destination, not a chip competing with the navigation', a
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
   const nav = page.getByRole('navigation', { name: 'Finding Management' });
-  for (const destination of ['Register', 'Verification', 'Closed']) {
+  for (const destination of ['Register', 'Verification', 'Closed', 'Settings']) {
     await expect(nav.getByRole('link', { name: new RegExp(`^${destination}`) })).toBeVisible();
   }
+  // v227 - the Overview is not daily work, so it is not in the navigation.
+  await expect(nav.getByRole('link', { name: 'Overview' })).toHaveCount(0);
 
   // Three views in the register itself; Closed is no longer one of them.
   const views = page.getByRole('navigation', { name: 'Register views' }).getByRole('link');

@@ -3,7 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
-import { verificationProblem } from '@/domain/esh-verification';
+import {
+  editProblem,
+  verificationProblem,
+  type FindingOutcomeKey,
+} from '@/domain/esh-verification';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
 import { scheduleEshDispatch } from '@/server/esh/schedule-dispatch';
 
@@ -156,17 +160,76 @@ export async function changePriority(input: {
 }
 
 /**
- * v209 — an outcome that is not a closure (§6).
+ * v227 - an open finding's wording, place and department, corrected on the
+ * record with the before and after. Nothing about the owner, the deadline or
+ * the follow-up moves with it.
+ */
+export async function editFinding(input: {
+  findingId: string;
+  title: string;
+  description: string;
+  location: string;
+  departmentId: string;
+}): Promise<EshDecision> {
+  await requireProfile();
+  const findingId = uuid.safeParse(input.findingId);
+  if (!findingId.success) return { ok: false, message: editProblem('not_found') };
+  const departmentId = uuid.safeParse(input.departmentId);
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_edit_finding', {
+    p_finding_id: findingId.data,
+    p_title: String(input.title ?? ''),
+    p_description: String(input.description ?? ''),
+    p_location: String(input.location ?? ''),
+    p_department_id: (departmentId.success ? departmentId.data : null) as string,
+  });
+  if (error) {
+    console.error(`[esh_edit_finding] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false, message: editProblem(undefined) };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (!result.ok) return { ok: false, message: editProblem(result.code) };
+  refresh(findingId.data);
+  return { ok: true };
+}
+
+/** v227 - risk, reassessed with a reason. Follow-up already agreed stays as it is. */
+export async function changeRisk(input: {
+  findingId: string;
+  risk: string;
+  reason: string;
+}): Promise<EshDecision> {
+  await requireProfile();
+  const findingId = uuid.safeParse(input.findingId);
+  if (!findingId.success) return { ok: false, message: editProblem('not_found') };
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_set_risk', {
+    p_finding_id: findingId.data,
+    p_risk: String(input.risk ?? ''),
+    p_reason: String(input.reason ?? ''),
+  });
+  if (error) {
+    console.error(`[esh_set_risk] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false, message: editProblem(undefined) };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (!result.ok) return { ok: false, message: editProblem(result.code) };
+  refresh(findingId.data);
+  return { ok: true };
+}
+
+/**
+ * v209 — an outcome that is not a closure (§6); v227 — Cancel, Duplicate or
+ * Raised in error.
  *
- * Cancelled, withdrawn and duplicate are administrative answers to a finding
- * that should not have been raised, or was raised twice. None of them claims
- * ESH verified a correction, and none of them deletes anything: the record
- * stays, its outstanding work stops, and a duplicate keeps a link to the
- * finding it repeats.
+ * Administrative answers to a finding that should not have been raised, or
+ * was raised twice. None of them claims ESH verified a correction, and none
+ * of them deletes anything: the record stays, its outstanding work stops,
+ * and a duplicate keeps a link to the finding it repeats.
  */
 export async function resolveFinding(input: {
   findingId: string;
-  outcome: 'cancelled' | 'withdrawn' | 'duplicate';
+  outcome: FindingOutcomeKey;
   reason: string;
   duplicateOf?: string | null;
 }): Promise<EshDecision> {

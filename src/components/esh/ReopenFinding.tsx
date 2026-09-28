@@ -18,8 +18,7 @@ export function ReopenFinding({ findingId }: { findingId: string }) {
   const [pending, startTransition] = useTransition();
 
   return (
-    <details className="esh-form-more">
-      <summary>Reopen this finding</summary>
+    <div className="esh-action-menu-panel">
       <div className="form-grid two">
         <label className="esh-field">
           <span>Why it is being reopened (the owner sees it)</span>
@@ -72,6 +71,6 @@ export function ReopenFinding({ findingId }: { findingId: string }) {
       >
         {pending ? 'Reopening…' : 'Reopen finding'}
       </button>
-    </details>
+    </div>
   );
 }

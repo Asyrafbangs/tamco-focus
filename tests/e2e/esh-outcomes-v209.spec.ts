@@ -78,20 +78,23 @@ test('v209 a finding typed twice is recorded as a duplicate, not closed', async 
   await page.goto(`/findings/${twice.finding_id}`);
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
+  // v227 - rare, so behind the menu under one plain name.
   await page.getByRole('button', { name: 'More actions for this finding' }).click();
-  await page.getByText('Administrative outcome').click();
+  await page.getByRole('button', { name: 'Cancel / mark duplicate' }).click();
   const outcome = page.locator('.esh-finding-outcome');
-  await outcome.getByLabel('Outcome', { exact: true }).selectOption('duplicate');
-  await outcome.getByLabel('Why this outcome').fill('Recorded twice on the same walk');
+  await expect(outcome.getByRole('radio')).toHaveCount(3);
+  await expect(outcome.getByText('Withdraw')).toHaveCount(0);
+  await outcome.getByRole('radio', { name: /Duplicate finding/ }).check();
+  await outcome.getByLabel('Reason').fill('Recorded twice on the same walk');
   await outcome.getByLabel('The finding this repeats').fill(kept.finding_id);
-  await outcome.getByRole('button', { name: 'Record this outcome' }).click();
+  await outcome.getByRole('button', { name: 'Duplicate finding' }).click();
 
   // The page now says what became of it, and offers no second outcome.
   await expect(page.getByText(`Duplicate of ${kept.reference}`)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('Recorded twice on the same walk')).toBeVisible();
-  // Once an outcome is recorded the menu no longer offers one.
-  await page.getByRole('button', { name: 'More actions for this finding' }).click();
-  await expect(page.getByText('Administrative outcome')).toHaveCount(0);
+  // Once an outcome is recorded nothing is left to administer: no menu at all.
+  await expect(page.getByRole('button', { name: 'More actions for this finding' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Cancel / mark duplicate' })).toHaveCount(0);
 
   // It is not a closure, its work stopped, and the finding it repeats is untouched.
   const backend = service();

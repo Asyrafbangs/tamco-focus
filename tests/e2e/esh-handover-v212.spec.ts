@@ -142,10 +142,8 @@ test('v212 an owner says it is not theirs and ESH hands it over in one press', a
   // The successor's address is already on screen inside the ask, so waiting
   // for it anywhere would pass before anything moved. The owner row is the
   // only place it means the handover happened.
-  const ownerRow = page
-    .locator('.esh-facts div')
-    .filter({ has: page.getByText('Action Owner', { exact: true }) });
-  await expect(ownerRow).toContainText(successor, { timeout: 15_000 });
+  const ownerRow = page.locator('.esh-context-facts');
+  await expect(ownerRow).toContainText(`Owner ${successor}`, { timeout: 15_000 });
   const { data: after } = await db
     .from('esh_finding_actions')
     .select('owner_principal_id, assignment_version')
@@ -156,7 +154,7 @@ test('v212 an owner says it is not theirs and ESH hands it over in one press', a
   await guestContext.close();
 });
 
-test('v212 a held email can be unblocked from the finding that is waiting on it', async ({
+test('v212/v227 held email is released once, for the system, from the register', async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'One reading of the notice is enough.');
@@ -201,40 +199,55 @@ test('v212 a held email can be unblocked from the finding that is waiting on it'
 
   async function runTheCheck() {
     await signIn(page, 'admin@tamco.local');
+    // v227 - the finding does not carry the held email as a problem of its own.
     await page.goto(`/findings/${fixture.findingId}`);
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
-    await expect(page.getByText('two deliberate acts, both below')).toBeVisible();
+    await expect(page.getByText('Owner not told yet')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Enable this contact' })).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Enable this contact' }).click();
-    await page.getByLabel(`Why ${fixture.owner} may be written to`).fill('Owner of this action.');
-    await page.getByRole('button', { name: 'Enable', exact: true }).click();
+    // The register says it once. Nothing can go while the contact is not cleared.
+    await page.goto('/findings/register');
+    const held = page.locator('.esh-held-notice');
+    await expect(held).toContainText('being held');
+    await expect(held).toContainText('restricted');
 
-    /*
-     * The confirmation message is not the thing to wait for: enabling
-     * revalidates the finding, and the re-render replaces it with the release
-     * control. Under a loaded suite the re-render wins the race, so the
-     * assertion is the state itself — access on, and the email still held.
-     */
-    await expect(page.getByRole('button', { name: /^Release the/ })).toBeVisible({
-      timeout: 15_000,
+    const { data: owner } = await service()
+      .from('esh_email_principals')
+      .select('id')
+      .eq('canonical_email', fixture.owner)
+      .single();
+    const cleared = await admin.rpc('esh_set_contact_access', {
+      p_principal_id: owner!.id,
+      p_enabled: true,
+      p_reason: 'Pilot owner briefed.',
     });
+    expect(cleared.data?.ok).toBe(true);
+
+    // Clearing is not sending: the one press on the register is.
+    await page.reload();
+    await held.getByRole('button', { name: /^Release all/ }).click();
 
     const db = service();
+    await expect
+      .poll(
+        async () =>
+          (
+            await db
+              .from('esh_notification_outbox')
+              .select('state')
+              .eq('action_id', fixture.actionId)
+              .eq('event_type', 'owner_assignment')
+              .single()
+          ).data?.state,
+        { timeout: 30_000 },
+      )
+      .toMatch(/^(queued|processing|provider_accepted)$/);
     const { data: principal } = await db
       .from('esh_email_principals')
       .select('access_enabled')
       .eq('canonical_email', fixture.owner)
       .single();
     expect(principal!.access_enabled).toBe(true);
-
-    // Enabling is not sending: the email is still held until it is released.
-    const { data: outbox } = await db
-      .from('esh_notification_outbox')
-      .select('state')
-      .eq('action_id', fixture.actionId)
-      .eq('event_type', 'owner_assignment')
-      .single();
-    expect(outbox!.state).toBe('held_rollout');
   }
 });
 

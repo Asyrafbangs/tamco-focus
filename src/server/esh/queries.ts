@@ -146,9 +146,10 @@ export interface RegisterListRow {
   dueIsDateOnly: boolean;
   actionCount: number;
   ownerEmail: string | null;
-  notificationHeld: boolean;
-  /** v214 - a bounced or abandoned assignment email, which outranks lateness. */
+  /** v214 - a bounced or abandoned email: the one delivery fact a row shows. */
   notificationFailed: boolean;
+  /** v227 - ESH sent the correction back and nothing new was submitted. */
+  changesRequested: boolean;
   isOverdue: boolean;
   /** v210 - the highest escalation level live under this assignment (§24). */
   escalationLevel: number | null;
@@ -249,8 +250,8 @@ export async function listRegister(options: {
       dueIsDateOnly: Boolean(row.due_is_date_only),
       actionCount: Number(row.action_count ?? 0),
       ownerEmail: row.owner_email ?? null,
-      notificationHeld: Boolean(row.notification_held),
       notificationFailed: Boolean(row.notification_failed),
+      changesRequested: Boolean(row.changes_requested),
       isOverdue: Boolean(row.is_overdue),
       escalationLevel:
         'escalation_level' in row && row.escalation_level !== null

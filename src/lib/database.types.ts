@@ -13138,6 +13138,7 @@ export type Database = {
           action_state: string | null
           action_title: string | null
           baseline_due_at: string | null
+          changes_requested: boolean | null
           closed_at: string | null
           created_at: string | null
           department_name: string | null
@@ -13228,6 +13229,7 @@ export type Database = {
           action_count: number | null
           action_id: string | null
           action_state: string | null
+          changes_requested: boolean | null
           closed_at: string | null
           created_at: string | null
           department_name: string | null
@@ -15270,6 +15272,16 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_edit_finding: {
+        Args: {
+          p_department_id: string
+          p_description: string
+          p_finding_id: string
+          p_location: string
+          p_title: string
+        }
+        Returns: Json
+      }
       esh_finish_upload: {
         Args: {
           p_asset_id: string
@@ -15633,6 +15645,10 @@ export type Database = {
       }
       esh_set_priority: {
         Args: { p_action_id: string; p_priority: string; p_reason: string }
+        Returns: Json
+      }
+      esh_set_risk: {
+        Args: { p_finding_id: string; p_reason: string; p_risk: string }
         Returns: Json
       }
       esh_set_rollout_mode: {
