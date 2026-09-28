@@ -70,9 +70,10 @@ test('v197 ESH Home offers both modules to someone with Finding access', async (
   await expect(cards.nth(0)).toContainText('TAMCO Focus');
   await expect(cards.nth(1)).toContainText('Finding Management');
 
+  // v227 - Finding Management opens on its Register, the daily work.
   await cards.nth(1).click();
-  await expect(page).toHaveURL(/\/findings$/);
-  await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
+  await expect(page).toHaveURL(/\/findings\/register$/);
+  await expect(page.getByRole('heading', { name: 'Finding Register' })).toBeVisible();
   // The Finding menu replaces Focus's: none of Focus's destinations are here.
   await expect(page.getByRole('navigation', { name: 'Finding Management' })).toBeVisible();
   await expect(page.locator('.rail')).toHaveCount(0);
@@ -154,13 +155,17 @@ test('v197 a Verifier records and assigns a finding to an email address', async 
   await expect(page).toHaveURL(/\/findings\/[0-9a-f-]{36}\?saved=assigned/, { timeout: 30_000 });
   await expect(page.getByRole('heading', { name: title })).toBeVisible();
   await expect(page.getByText(owner.toUpperCase(), { exact: false }).first()).toBeVisible();
-  await expect(page.locator('.esh-detail')).toContainText('Held — access not enabled');
+  // v227 - a held email is not repeated on the finding.
+  await expect(page.getByText('Owner not told yet')).toHaveCount(0);
   await expect(page.locator('.esh-detail')).toContainText(`supervisor.${id}@example.com`);
 
-  // The register shows it where ESH has to act: the owner has not been told.
-  await page.goto('/findings/register');
+  // The register says whose turn it is; held email is one line for the system,
+  // not a reason for the row to need attention, so it is found under All open.
+  // Searched for, because a shared database holds more than one page of open work.
+  await page.goto(`/findings/register?filter=open&q=${encodeURIComponent(id)}`);
   const row = page.locator('.esh-register-row').filter({ hasText: title });
-  await expect(row.locator('.esh-next-chip')).toHaveText('Owner not told yet');
+  await expect(row.locator('.esh-next-chip')).toHaveText('Owner action');
+  await expect(page.locator('.esh-held-notice')).toContainText('being held');
   await expect(row).toContainText('High risk');
   await page.goto(`/findings/register?filter=open&q=${encodeURIComponent(id)}`);
   await expect(page.locator('.esh-register-row')).toHaveCount(1);
