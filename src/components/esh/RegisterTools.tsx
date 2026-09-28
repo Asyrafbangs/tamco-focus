@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
  * Export and the backlog import sat beside New finding as equals. One of them
  * is pressed several times a day; the other two are pressed during a migration
  * and then perhaps twice a year. They keep their place in the module, just not
- * the width.
+ * the width. The department overview joins them (v223).
  */
 export function RegisterTools({ canCoordinate }: { canCoordinate: boolean }) {
   const [open, setOpen] = useState(false);
@@ -45,6 +45,10 @@ export function RegisterTools({ canCoordinate }: { canCoordinate: boolean }) {
       </button>
       {open && (
         <div className="esh-register-menu" role="menu">
+          {/* v223 - the Overview lives here now, not first in the navigation. */}
+          <Link role="menuitem" href="/findings" onClick={() => setOpen(false)}>
+            Overview by department
+          </Link>
           <Link role="menuitem" href="/findings/register/export" onClick={() => setOpen(false)}>
             Export register (CSV)
           </Link>

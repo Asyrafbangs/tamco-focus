@@ -76,7 +76,9 @@ test('v202 overview totals drill into the matching action rows without changing 
   await page.goto('/findings');
   await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
   const navigation = page.getByRole('navigation', { name: 'Finding Management' });
-  await expect(navigation.getByRole('link', { name: 'Overview' })).toBeVisible();
+  // v223 - kept at its address, reached from the register's tools rather than
+  // standing first in the navigation.
+  await expect(navigation.getByRole('link', { name: 'Overview' })).toHaveCount(0);
   await expect(navigation.getByRole('link', { name: 'Register' })).toBeVisible();
   await expect(navigation.getByRole('link', { name: /Verification/ })).toBeVisible();
   await expect(page.getByText('By accountable department')).toBeVisible();

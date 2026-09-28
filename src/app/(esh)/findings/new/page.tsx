@@ -3,17 +3,24 @@ import Link from 'next/link';
 import { FindingForm } from '@/components/esh/FindingForm';
 import { requireProfile } from '@/lib/supabase/server';
 import { requireEshAccess } from '@/server/esh/access';
-import { getDepartmentsInScope, getFollowupSettings, getVerifiers } from '@/server/esh/queries';
+import {
+  getDepartmentRoutes,
+  getDepartmentsInScope,
+  getFollowupSettings,
+  getVerifiers,
+} from '@/server/esh/queries';
 
 /** New finding (§7, screen 04). Coordinators and Verifiers only. */
 export default async function NewFindingPage() {
   const access = await requireEshAccess('coordinate');
   const profile = await requireProfile();
-  const [departments, verifiers, followup] = await Promise.all([
+  const [departments, verifiers, followup, routes] = await Promise.all([
     getDepartmentsInScope(access),
     getVerifiers(),
     // v215 - so each escalation level can say when it is actually told.
     getFollowupSettings(),
+    // v223 - so follow-up starts from the department's usual route.
+    getDepartmentRoutes(),
   ]);
   const today = new Intl.DateTimeFormat('en-CA', {
     timeZone: profile.timezone ?? 'Asia/Kuala_Lumpur',
@@ -34,6 +41,8 @@ export default async function NewFindingPage() {
         departments={departments}
         verifiers={verifiers}
         levelDays={followup?.levelDays ?? []}
+        departmentRoutes={routes}
+        canAddDepartment={access.scopeAll}
         initial={{
           findingId: null,
           reference: null,

@@ -87,6 +87,56 @@ export function outcomeTone(outcome: string): 'ready' | 'blocked' | 'quiet' {
   return OUTCOMES[outcome]?.tone ?? 'quiet';
 }
 
+/**
+ * v223 - the one summary before a backlog goes live: how many owners, how
+ * many actions, how many have an address, how many do not, and how many rows
+ * are still uncertain. It replaces reading ninety rows to find out.
+ */
+export interface ImportSummaryRow {
+  id: string;
+  outcome: string;
+  problems: string[];
+  mapped: Record<string, string>;
+}
+
+export function importReleaseSummary(
+  rows: ImportSummaryRow[],
+  owners: Array<{ sourceName: string; email: string | null }>,
+  chosenIds: string[],
+): {
+  owners: number;
+  actions: number;
+  validEmails: number;
+  missingEmails: number;
+  uncertain: number;
+} {
+  const addressFor = new Map(
+    owners.map((owner) => [owner.sourceName.trim().toLowerCase(), owner.email]),
+  );
+  const ownerOf = (row: ImportSummaryRow): string | null => {
+    const named = addressFor.get((row.mapped.owner_name ?? '').trim().toLowerCase());
+    const address = named ?? row.mapped.owner_email ?? '';
+    return address.trim() ? address.trim().toLowerCase() : null;
+  };
+  const chosen = rows.filter((row) => chosenIds.includes(row.id));
+  const addresses = new Set(chosen.map(ownerOf).filter((value): value is string => Boolean(value)));
+  const ownerProblem = (row: ImportSummaryRow) =>
+    row.problems.some((code) => code.startsWith('owner') && blocksRelease(code));
+  const missing = rows.filter((row) => row.outcome === 'blocked' && ownerProblem(row)).length;
+  // Rows still needing a decision for another reason, and rows that match a
+  // finding already in the register.
+  const uncertain = rows.filter(
+    (row) => (row.outcome === 'blocked' && !ownerProblem(row)) || row.outcome === 'duplicate',
+  ).length;
+  return {
+    owners: addresses.size,
+    actions: chosen.length,
+    validEmails: addresses.size,
+    missingEmails: missing,
+    uncertain,
+  };
+}
+
 const START_PROBLEMS: Record<string, string> = {
   not_permitted: 'Your Finding access does not include importing a backlog.',
   invalid: 'That file could not be accepted. Check the sheet, header row and register name.',

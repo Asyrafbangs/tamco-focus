@@ -205,7 +205,9 @@ test('v200 ESH reviews from the queue, asks for more, then accepts and closes', 
   await submission.getByRole('button', { name: 'Request improvement' }).click();
   await submission.getByLabel('What is still needed').fill('The photo misses the lower fixing.');
   await submission.getByRole('button', { name: 'Send back version 1' }).click();
-  await expect(page.getByRole('region', { name: 'Verification' })).toContainText(
+  // v223 - the register's word for it, and the decision kept in the full record.
+  await expect(page.locator('.esh-next-banner')).toContainText('Changes requested');
+  await expect(page.locator('.esh-detail-side details', { hasText: 'Full record' })).toContainText(
     'Version 1 sent back',
   );
   await expect(page.locator('.esh-status-flag')).toHaveText('In progress');
@@ -229,9 +231,12 @@ test('v200 ESH reviews from the queue, asks for more, then accepts and closes', 
   await expect(closure).toContainText('After · accepted correction');
   await expect(closure).toContainText('Verified by');
   // The working page is not gone, it is one link away.
-  await expect(page.getByRole('heading', { name: 'Required action' })).toHaveCount(0);
+  await expect(page.locator('.esh-detail-side')).toHaveCount(0);
   await closure.getByRole('link', { name: 'View full record' }).click();
-  await expect(page.getByRole('heading', { name: 'Required action' })).toBeVisible();
+  await expect(page.locator('.esh-detail-side').getByText('Required action')).toBeVisible();
+  await expect(
+    page.locator('.esh-detail-side details', { hasText: 'Full record' }),
+  ).toHaveAttribute('open', '');
   await page.goBack();
 
   // It appears in Closed, and can be reopened with a reason (FM52).
@@ -241,7 +246,10 @@ test('v200 ESH reviews from the queue, asks for more, then accepts and closes', 
   );
   await page.goto(`/findings/${work.findingId}`);
   await page.getByRole('button', { name: 'More actions for this finding' }).click();
-  await page.getByText('Reopen this finding').click();
+  await page
+    .getByRole('list', { name: 'Finding actions' })
+    .getByRole('button', { name: 'Reopen finding' })
+    .click();
   await page.getByLabel('Why it is being reopened (the owner sees it)').fill('Guard loose again.');
   await page.getByRole('button', { name: 'Reopen finding' }).click();
   await expect(page.locator('.esh-status-flag')).toHaveText('In progress');
@@ -284,14 +292,14 @@ test('v200 ESH moves the due date and the owner, and says why', async ({ page },
   await signIn(page, 'izzul@tamco.local');
   await page.goto(`/findings/${work.findingId}`);
   await page.getByRole('button', { name: 'More actions for this finding' }).click();
-  await page.getByText('Change the due date, the priority or the owner').click();
+  const actions = page.getByRole('list', { name: 'Finding actions' });
+  await actions.getByRole('button', { name: 'Change due date' }).click();
   await page.getByLabel('New due date').fill('2027-01-20');
   await page.getByLabel('Reason (the owner sees it)').fill('Parts on order');
   await page.getByRole('button', { name: 'Change due date' }).click();
   await expect(page.getByText('Due date changed. The owner has been told.')).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Due-date changes' })).toContainText(
-    'Parts on order',
-  );
+  const record = page.locator('.esh-detail-side details', { hasText: 'Full record' });
+  await expect(record).toContainText('Parts on order');
 
   // The owner reads the change as an event in their conversation (§14).
   const owner = await page.context().browser()!.newContext();
@@ -311,9 +319,10 @@ test('v200 ESH moves the due date and the owner, and says why', async ({ page },
 
   // v208 — priority is ESH's to change, with a reason, and it moves nothing
   // else: the date they just set stays set (§39, FM90).
-  const menu = page.locator('.esh-action-menu');
-  // The page refreshed after the date change, which closes the menu again.
-  if ((await menu.getAttribute('open')) === null) await menu.locator('summary').click();
+  // The menu keeps its place across the refresh; Back returns to its list.
+  await page.getByRole('button', { name: 'Back' }).click();
+  await actions.getByRole('button', { name: 'Change priority' }).click();
+  const menu = page.locator('.esh-finding-menu-form');
   await expect(menu.getByLabel('Priority', { exact: true })).toBeVisible();
   await menu.getByLabel('Priority', { exact: true }).selectOption('urgent');
   await menu.getByLabel('Reason for the priority').fill('Contractor on site Thursday only');
@@ -321,7 +330,10 @@ test('v200 ESH moves the due date and the owner, and says why', async ({ page },
   await expect(
     page.getByText('Priority changed. The due date and its reminders are unchanged.'),
   ).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Due-date changes' })).toContainText('20 Jan 2027');
+  await expect(record).toContainText('20 Jan 2027');
+
+  await page.getByRole('button', { name: 'Back' }).click();
+  await actions.getByRole('button', { name: 'Change owner' }).click();
 
   // Reassigned: the old owner's page stops working on the next request (FM13).
   await page.getByLabel('New Action Owner email').fill(`after.${id}@example.com`);

@@ -1,9 +1,10 @@
 import Link from 'next/link';
 
+import { HeldEmailNotice } from '@/components/esh/HeldEmailNotice';
 import { RegisterTools } from '@/components/esh/RegisterTools';
 import { PeriodPicker } from '@/components/ui/PeriodPicker';
 import { REGISTER_VIEWS, RISK_LABELS, registerFilterFrom } from '@/domain/esh-findings';
-import { agoWords, dueWords, nextActor } from '@/domain/esh-next-actor';
+import { agoWords, dueWords, nextActor, rowOverlays } from '@/domain/esh-next-actor';
 import { ESH_CLOSURE_PERIODS } from '@/domain/esh-overview';
 import { periodParams, resolvePeriod } from '@/domain/period';
 import { requireProfile } from '@/lib/supabase/server';
@@ -11,6 +12,7 @@ import { requireEshAccess } from '@/server/esh/access';
 import {
   REGISTER_PAGE_SIZE,
   getDepartmentsInScope,
+  getHeldSummary,
   listRegister,
   type RegisterListRow,
 } from '@/server/esh/queries';
@@ -58,7 +60,7 @@ export default async function FindingRegisterPage({
     timeZone,
   );
 
-  const [register, departments] = await Promise.all([
+  const [register, departments, held] = await Promise.all([
     listRegister({
       filter,
       search,
@@ -69,6 +71,7 @@ export default async function FindingRegisterPage({
       page: pageNumber - 1,
     }),
     getDepartmentsInScope(access),
+    getHeldSummary(),
   ]);
 
   const pages = Math.max(1, Math.ceil(register.total / REGISTER_PAGE_SIZE));
@@ -112,6 +115,12 @@ export default async function FindingRegisterPage({
           )}
         </div>
       </div>
+
+      {/*
+       * v223 - held email is said once, for the whole system, where it can
+       * be released — not as "Owner not told yet" on every row it affects.
+       */}
+      <HeldEmailNotice summary={held} isAdministrator={profile.role === 'administrator'} />
 
       <nav className="esh-filter-tabs" aria-label="Register views">
         {REGISTER_VIEWS.map((option) => (
@@ -274,11 +283,12 @@ function RegisterRowItem({
    * the reader assemble the answer; four labels to learn one thing.
    */
   const next = nextActor(row, now, timeZone);
-  const due = row.dueAt
-    ? row.isOverdue
-      ? dueWords(row.dueAt, row.dueIsDateOnly, now, timeZone)
-      : `Due ${dueWords(row.dueAt, row.dueIsDateOnly, now, timeZone)}`
-    : null;
+  // v223 - late, a failed email, an escalation: flags on the state, not states.
+  const overlays = row.status === 'open' ? rowOverlays(row, now) : [];
+  const due =
+    row.dueAt && !row.isOverdue
+      ? `Due ${dueWords(row.dueAt, row.dueIsDateOnly, now, timeZone)}`
+      : null;
 
   return (
     <li>
@@ -307,15 +317,21 @@ function RegisterRowItem({
         </span>
         <span className="esh-register-owner">
           <span>{row.ownerEmail ?? 'No owner yet'}</span>
-          {due && <small className={row.isOverdue ? 'esh-overdue' : undefined}>{due}</small>}
-          {row.escalationLevel !== null && (
-            <small className="esh-escalated">Escalated · level {row.escalationLevel}</small>
-          )}
+          {due && <small>{due}</small>}
         </span>
         <span className="esh-register-next">
           <span className="esh-next-chip" data-tone={next.tone}>
             {next.headline}
           </span>
+          {overlays.length > 0 && (
+            <span className="esh-overlays">
+              {overlays.map((overlay) => (
+                <span key={overlay.label} className="esh-overlay" data-tone={overlay.tone}>
+                  {overlay.label}
+                </span>
+              ))}
+            </span>
+          )}
           <small>{next.detail}</small>
           {row.status === 'closed' && row.closedAt && (
             <small>Closed {shortDate(row.closedAt)}</small>

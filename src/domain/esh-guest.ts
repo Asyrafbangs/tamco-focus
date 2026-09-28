@@ -76,7 +76,7 @@ export type MyActionsFilter = 'needs' | 'review';
 
 export const MY_ACTIONS_FILTERS: Array<{ key: MyActionsFilter; label: string }> = [
   { key: 'needs', label: 'Needs my action' },
-  { key: 'review', label: 'Awaiting ESH review' },
+  { key: 'review', label: 'Waiting for ESH' },
 ];
 
 export function myActionsFilterFrom(value: string | undefined): MyActionsFilter {
@@ -171,16 +171,6 @@ export const STAFF_MESSAGE_PROBLEMS: Record<string, string> = {
   invalid: 'Something went wrong and the message was not sent. Try again.',
 };
 
-export const RELEASE_PROBLEMS: Record<string, string> = {
-  not_permitted: 'Only a Coordinator or Verifier can release a notification.',
-  notification_not_found: 'This notification could not be found.',
-  not_held: 'This notification is no longer held.',
-  contact_access_off:
-    'The owner’s access is still off. An administrator enables it in People & access → Email-link contacts.',
-  no_longer_the_owner: 'This address no longer owns the action, so nothing was sent.',
-  assignment_first: 'Release the assignment email first: it opens the same conversation.',
-};
-
 export const CONTACT_ACCESS_PROBLEMS: Record<string, string> = {
   not_permitted: 'Only an administrator can change a contact’s access.',
   contact_not_found: 'That contact no longer exists.',
@@ -235,14 +225,6 @@ export function staffMessageProblem(code: string | undefined): string {
     STAFF_MESSAGE_PROBLEMS,
     code,
     'Something went wrong and the message was not sent. Try again.',
-  );
-}
-
-export function releaseProblem(code: string | undefined): string {
-  return wordsFor(
-    RELEASE_PROBLEMS,
-    code,
-    'Something went wrong and nothing was released. Try again.',
   );
 }
 

@@ -169,6 +169,31 @@ directory, independent module controls and contact access operations at desktop 
 - Playwright reads one finding in the register and on its own page and checks both say the same
   thing, and that the register's occasional tools are behind their menu.
 
+## v223 one-screen-one-job evidence
+
+- pgTAP (47) proves: Test mode holds an assignment to an uncleared contact and Live sends it at
+  once, clearing the contact with an audit entry marked automatic; switching mode is an
+  administrator's act with a reason and releases nothing by itself; a contact an administrator
+  switched off stays held in Live and after Release all; Release all is one audited act that
+  clears undecided contacts and queues their assignments; a department cannot be created twice
+  under a different spelling or by somebody without organisation-wide coordination; a
+  department route starts at level 1, keeps one address once per level and is invisible to a
+  colleague without Finding access; editing a finding and reassessing its risk record before and
+  after and move nothing else; Withdraw is refused and Raised in error is recorded as cancelled;
+  the register reports changes requested and no longer counts a held email as attention.
+- Unit tests cover department matching and near-miss detection, the human/technical split of the
+  activity trail, the held-email sentence, the three outcomes and the import summary, and the
+  four-state next-actor rule with its overlays.
+- Playwright: a new desktop journey adds a department in Settings, gives it a route, records a
+  finding against it through the combobox (with the near-miss warning), sees the route as one
+  folded line, then edits the finding and changes its risk from the menu; a second switches owner
+  email to Live, assigns, and finds the email queued rather than held, restoring Test mode in a
+  `finally`. Every ESH journey was updated to the screens it now describes; release is asserted
+  by polling the outbox, because the confirm button renames itself while pending.
+- The run surfaced a latent defect in the new-finding form: the staged photographs were copied
+  out of a live `FileList` inside a state updater, after the input had already emptied it. It
+  depended on React's scheduling and appeared once the department combobox changed it.
+
 ## v213 bulk clearance evidence
 
 - Playwright records two findings for two uncleared contacts, checks the panel lists both, refuses

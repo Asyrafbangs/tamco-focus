@@ -3,6 +3,8 @@ import { config } from 'dotenv';
 import { randomBytes } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 
+import { chooseDepartment } from './support/department';
+
 config({ path: '.env.local', quiet: true });
 const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
 
@@ -40,9 +42,7 @@ test('v215 a finding is recorded in two steps, with its photograph attached ther
   const form = page.locator('form.esh-finding-form');
   await form.getByLabel('Finding title', { exact: true }).fill(title);
   await form.getByLabel('What was found', { exact: true }).fill('Pallets across the fire exit.');
-  await form
-    .getByLabel('Accountable department', { exact: true })
-    .selectOption({ label: 'Operations' });
+  await chooseDepartment(form, 'Operations');
 
   // The photograph is chosen where the condition is described.
   await form

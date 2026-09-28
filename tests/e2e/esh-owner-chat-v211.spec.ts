@@ -148,7 +148,8 @@ test('v211 an owner asks for more time in the thread and ESH grants it in one pr
     .locator('.esh-facts div')
     .filter({ has: page.getByText('Due', { exact: true }) });
   await expect(dueRow).toContainText('15 Oct 2026', { timeout: 15_000 });
-  await expect(page.getByRole('heading', { name: 'Due-date changes' })).toBeVisible();
+  // Kept in the full record, folded until somebody wants it (v223).
+  await expect(page.locator('h3', { hasText: 'Due-date changes' })).toHaveCount(1);
 
   const { data: afterDecision } = await db
     .from('esh_finding_actions')
@@ -216,7 +217,7 @@ test('v219 the owner screen is two columns, with one Submit and help behind a co
 
   // What am I supposed to fix, on the left; what is happening, on the right.
   await expect(page.locator('.guest-context')).toContainText('What ESH needs');
-  await expect(page.locator('.guest-context')).toContainText('Original finding & evidence');
+  await expect(page.locator('.guest-context')).toContainText('The original finding');
   // The owner's thread carries no heading of its own, so the composer is what
   // identifies the working column.
   await expect(page.locator('.guest-work').getByLabel('Message ESH')).toBeVisible();
@@ -237,4 +238,39 @@ test('v219 the owner screen is two columns, with one Submit and help behind a co
   // Choosing one writes the opening of the message rather than a hidden form.
   await page.getByRole('button', { name: 'Need more time' }).click();
   await expect(page.getByLabel('Message ESH')).toHaveValue(/I need more time because/);
+});
+
+test('v223 the owner bar fits a phone, with End access in the address menu', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'The narrow case is the one at risk.');
+  const suffix = randomBytes(3).toString('hex');
+  const fixture = await assigned(suffix);
+
+  await page.goto(fixture.path);
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+  const open = page.getByRole('button', { name: 'Open action' });
+  if (await open.count()) await open.click();
+  await expect(page.locator('.guest-chat-head')).toBeVisible({ timeout: 30_000 });
+
+  const bar = page.locator('.guest-topbar');
+  await expect(bar.getByText('TAMCO ESH')).toBeVisible();
+  await expect(bar.getByRole('link', { name: 'My Actions', exact: true })).toBeVisible();
+  // Nothing in the bar pushes the page sideways.
+  const moved = await page.evaluate(() => {
+    window.scrollTo(200, window.scrollY);
+    const x = window.scrollX;
+    window.scrollTo(0, window.scrollY);
+    return x;
+  });
+  expect(moved).toBe(0);
+
+  // Ending access is there when wanted, and not otherwise.
+  await expect(page.getByRole('button', { name: 'End access on this device' })).toBeHidden();
+  await bar.locator('.guest-account summary').click();
+  await expect(page.getByRole('button', { name: 'End access on this device' })).toBeVisible();
+  // The original finding stacks above the conversation, in reading order.
+  const context = await page.locator('.guest-context').boundingBox();
+  const work = await page.locator('.guest-work').boundingBox();
+  expect(context!.y).toBeLessThan(work!.y);
 });

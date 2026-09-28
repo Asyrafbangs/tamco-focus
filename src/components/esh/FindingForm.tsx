@@ -10,6 +10,7 @@ import { evidenceLabel, evidenceProblem, uploadContentType } from '@/domain/esh-
 import { publicEnv } from '@/lib/env';
 import { finishStaffUpload, startStaffUpload } from '@/server/esh/evidence-actions';
 
+import { DepartmentPicker } from '@/components/esh/DepartmentPicker';
 import { EmailChips } from '@/components/esh/EmailChips';
 import {
   PRIORITY_LABELS,
@@ -72,12 +73,18 @@ export function FindingForm({
   departments,
   verifiers,
   levelDays = [],
+  canAddDepartment = false,
+  departmentRoutes = {},
 }: {
   initial: FindingFormInitial;
   departments: Array<{ id: string; name: string }>;
   verifiers: Array<{ userId: string; fullName: string; email: string }>;
   /** v215 - the organisation's escalation timing, so a level says when. */
   levelDays?: number[];
+  /** v223 - whether "+ Add department" is offered while choosing one. */
+  canAddDepartment?: boolean;
+  /** v223 - each department's usual route, so escalation starts from it. */
+  departmentRoutes?: Record<string, Array<{ level: number; email: string }>>;
 }) {
   const [state, setState] = useState<SaveFindingState | null>(null);
   const [pending, startTransition] = useTransition();
@@ -86,6 +93,23 @@ export function FindingForm({
   const [noFurtherEscalation, setNoFurtherEscalation] = useState(
     Boolean(initial.noFurtherEscalationReason),
   );
+  const [departmentList, setDepartmentList] = useState(departments);
+  const [departmentId, setDepartmentId] = useState(initial.departmentId);
+  /*
+   * v223 - follow-up starts from the department's usual route and stays
+   * folded to one line. It is typed only when this finding is the exception;
+   * a draft that already carries a route of its own opens as it was saved.
+   */
+  const [customRoute, setCustomRoute] = useState(
+    Object.keys(initial.escalation).length > 0 || Boolean(initial.noFurtherEscalationReason),
+  );
+  const departmentRoute = departmentRoutes[departmentId] ?? [];
+  const usingDefault = !customRoute && departmentRoute.length > 0;
+  const routeLevels = Array.from(new Set(departmentRoute.map((entry) => entry.level))).sort(
+    (a, b) => a - b,
+  );
+  const routeFor = (level: number) =>
+    departmentRoute.filter((entry) => entry.level === level).map((entry) => entry.email);
   const extraLevels = Object.keys(initial.escalation)
     .map(Number)
     .filter((level) => level > 3);
@@ -314,29 +338,43 @@ export function FindingForm({
           </Field>
           <Field label="Accountable department" problems={problemsFor('accountable_department_id')}>
             {(props) => (
-              <select
+              <DepartmentPicker
+                id={props.id}
+                describedBy={props['aria-describedby']}
+                invalid={props['aria-invalid'] === 'true'}
                 name="accountable_department_id"
-                defaultValue={initial.departmentId}
-                {...props}
-              >
-                <option value="">Choose a department</option>
-                {departments.map((department) => (
-                  <option key={department.id} value={department.id}>
-                    {department.name}
-                  </option>
-                ))}
-              </select>
+                departments={departmentList}
+                value={departmentId}
+                canAdd={canAddDepartment}
+                onChange={(next, created) => {
+                  if (created) setDepartmentList((current) => [...current, created]);
+                  setDepartmentId(next);
+                  if (state?.problems.some((p) => p.field === 'accountable_department_id')) {
+                    setState({
+                      ...state,
+                      problems: state.problems.filter(
+                        (p) => p.field !== 'accountable_department_id',
+                      ),
+                    });
+                  }
+                }}
+              />
             )}
           </Field>
         </div>
         <div className="esh-field">
           <span className="esh-field-label">Evidence</span>
           <p className="form-hint">
-            What was seen, attached now rather than remembered later. The Action Owner sees it under
-            “Original finding &amp; evidence”.
+            What was seen, attached now rather than remembered later. The Action Owner sees it
+            beside the conversation, under “The original finding”.
           </p>
           <AttachButtons
-            onFiles={(files) => setStaged((current) => [...current, ...Array.from(files)])}
+            onFiles={(files) => {
+              // Copied now: the input empties its live FileList as soon as this
+              // returns, before a queued state update would read it.
+              const chosen = Array.from(files);
+              setStaged((current) => [...current, ...chosen]);
+            }}
             disabled={pending}
           />
           {staged.length > 0 && (
@@ -438,27 +476,68 @@ export function FindingForm({
         <h2 id="esh-form-escalation" className="esh-form-card-title">
           Follow-up if overdue
         </h2>
-        <p className="form-hint esh-form-card-hint">
-          Nobody here is written to, or given any access, until the action is actually overdue by
-          the days shown. The timing comes from your follow-up policy.
-        </p>
         {problemsFor('escalation').map((problem) => (
           <p key={problem.message} className="esh-field-error" role="alert">
             {problem.message}
           </p>
         ))}
-        <div className="esh-escalation-levels">
-          {Array.from({ length: levelCount }, (_, index) => index + 1).map((level) => (
-            <EmailChips
-              key={level}
-              name={`escalation_level_${level}`}
-              label={`Level ${level}`}
-              hint={overdueWords(levelDays[level - 1])}
-              initial={initial.escalation[level] ?? []}
-            />
-          ))}
-        </div>
-        {levelCount < 9 && (
+        {usingDefault ? (
+          <div className="esh-route-default">
+            <p>
+              <strong>
+                {departmentList.find((department) => department.id === departmentId)?.name} default
+              </strong>
+              {routeLevels.map((level) => (
+                <span key={level}>
+                  {' · '}Level {level} {overdueWords(levelDays[level - 1])}
+                  <small> ({routeFor(level).join(', ')})</small>
+                </span>
+              ))}
+            </p>
+            {routeLevels.map((level) => (
+              <input
+                key={level}
+                type="hidden"
+                name={`escalation_level_${level}`}
+                value={JSON.stringify(routeFor(level))}
+              />
+            ))}
+            <button
+              type="button"
+              className="btn small ghost"
+              onClick={() => {
+                setLevelCount(Math.max(1, ...routeLevels));
+                setCustomRoute(true);
+              }}
+            >
+              Change
+            </button>
+          </div>
+        ) : (
+          <>
+            <p className="form-hint esh-form-card-hint">
+              Nobody here is written to, or given any access, until the action is actually overdue
+              by the days shown. A department&rsquo;s usual route is set once, in Finding settings.
+            </p>
+            <div className="esh-escalation-levels">
+              {Array.from({ length: levelCount }, (_, index) => index + 1).map((level) => (
+                <EmailChips
+                  // Starts again only from a department that has a route to
+                  // start from; otherwise what was typed is kept.
+                  key={`${departmentRoute.length ? departmentId : 'typed'}-${level}`}
+                  name={`escalation_level_${level}`}
+                  label={`Level ${level}`}
+                  hint={overdueWords(levelDays[level - 1])}
+                  initial={
+                    initial.escalation[level] ??
+                    (Object.keys(initial.escalation).length === 0 ? routeFor(level) : [])
+                  }
+                />
+              ))}
+            </div>
+          </>
+        )}
+        {!usingDefault && levelCount < 9 && (
           <button
             type="button"
             className="btn small ghost"
@@ -467,16 +546,18 @@ export function FindingForm({
             + Add level {levelCount + 1}
           </button>
         )}
-        <label className="check-row">
-          <input
-            type="checkbox"
-            name="no_further_escalation"
-            checked={noFurtherEscalation}
-            onChange={(event) => setNoFurtherEscalation(event.target.checked)}
-          />
-          <span>Stop escalation after this level</span>
-        </label>
-        {noFurtherEscalation && (
+        {!usingDefault && (
+          <label className="check-row">
+            <input
+              type="checkbox"
+              name="no_further_escalation"
+              checked={noFurtherEscalation}
+              onChange={(event) => setNoFurtherEscalation(event.target.checked)}
+            />
+            <span>Stop escalation after this level</span>
+          </label>
+        )}
+        {noFurtherEscalation && !usingDefault && (
           <Field label="Reason" problems={[]}>
             {(props) => (
               <input

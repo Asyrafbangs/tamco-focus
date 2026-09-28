@@ -1,4 +1,5 @@
 import { FindingNav } from '@/components/esh/FindingNav';
+import { requireProfile } from '@/lib/supabase/server';
 import { requireEshAccess } from '@/server/esh/access';
 import { countAwaitingVerification } from '@/server/esh/queries';
 
@@ -9,13 +10,17 @@ import { countAwaitingVerification } from '@/server/esh/queries';
  */
 export default async function FindingsLayout({ children }: { children: React.ReactNode }) {
   const access = await requireEshAccess();
+  const profile = await requireProfile();
   // v200 - how much is waiting for ESH, counted by the same rule the queue uses.
   const waitingToVerify = await countAwaitingVerification();
   return (
     <div className="esh-module">
       <FindingNav
         waitingToVerify={waitingToVerify}
-        canManageSettings={access.canVerify || access.canManageReports}
+        // v223 - an administrator sets owner email there.
+        canManageSettings={
+          access.canVerify || access.canManageReports || profile.role === 'administrator'
+        }
       />
       <main id="esh-main" className="esh-content">
         {children}

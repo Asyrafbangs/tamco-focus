@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { ImportReview } from '@/components/esh/ImportReview';
 import { requireEshAccess } from '@/server/esh/access';
 import { loadImportBatch } from '@/server/esh/import';
+import { getHeldSummary } from '@/server/esh/queries';
 
 /** One staged backlog: what came in, what it needs, and what is released (§38.2). */
 export default async function ImportBatchPage({
@@ -13,7 +14,7 @@ export default async function ImportBatchPage({
 }) {
   await requireEshAccess('coordinate');
   const { batchId } = await params;
-  const batch = await loadImportBatch(batchId);
+  const [batch, held] = await Promise.all([loadImportBatch(batchId), getHeldSummary()]);
   if (!batch) notFound();
 
   const captured = new Intl.DateTimeFormat('en-GB', {
@@ -44,7 +45,7 @@ export default async function ImportBatchPage({
         </div>
       </div>
 
-      <ImportReview batch={batch} />
+      <ImportReview batch={batch} ownerEmailMode={held?.mode ?? 'held'} />
     </>
   );
 }

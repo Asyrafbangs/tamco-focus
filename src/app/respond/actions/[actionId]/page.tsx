@@ -2,7 +2,6 @@ import Link from 'next/link';
 
 import { Conversation } from '@/components/esh/Conversation';
 import { EscalationComposer } from '@/components/esh/guest/EscalationComposer';
-import { EndAccessButton } from '@/components/esh/guest/EndAccessButton';
 import { GuestTopBar } from '@/components/esh/guest/GuestTopBar';
 import { OwnerComposer } from '@/components/esh/guest/OwnerComposer';
 import { RequestLinkForm } from '@/components/esh/guest/RequestLinkForm';
@@ -124,11 +123,15 @@ export default async function GuestActionPage({
 
   return (
     <>
-      <GuestTopBar identity={identity} />
+      <GuestTopBar identity={identity} signedIn={{ email: data.email, inbox: !escalation }} />
       <main id="guest-main" className="guest-main guest-chat">
         <header className="guest-chat-head">
           {!escalation && (
-            <Link href="/respond/my-actions" className="guest-chat-back" aria-label="My Actions">
+            <Link
+              href="/respond/my-actions"
+              className="guest-chat-back"
+              aria-label="Back to My Actions"
+            >
               <span aria-hidden="true">←</span>
             </Link>
           )}
@@ -179,8 +182,15 @@ export default async function GuestActionPage({
                 <p>{data.action.requiredOutcome}</p>
               </section>
             )}
-            <details className="guest-original">
-              <summary>Original finding &amp; evidence</summary>
+            {/*
+             * v223 - the finding and what was seen stand open beside the
+             * conversation. Folded, the owner had to know to open it to learn
+             * what they were fixing.
+             */}
+            <section className="guest-original" aria-labelledby="guest-original-title">
+              <h2 id="guest-original-title" className="guest-original-title">
+                The original finding
+              </h2>
               <dl className="esh-facts">
                 <div>
                   <dt>Finding</dt>
@@ -242,7 +252,7 @@ export default async function GuestActionPage({
                   ))}
                 </ul>
               )}
-            </details>
+            </section>
           </aside>
 
           <div className="guest-work">
@@ -296,7 +306,6 @@ export default async function GuestActionPage({
             )}
           </div>
         </div>
-        <EndAccessButton />
       </main>
     </>
   );

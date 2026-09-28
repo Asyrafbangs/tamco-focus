@@ -1,11 +1,10 @@
 import Link from 'next/link';
 
-import { EndAccessButton } from '@/components/esh/guest/EndAccessButton';
 import { MyActionsList } from '@/components/esh/guest/MyActionsList';
 import { GuestTopBar } from '@/components/esh/guest/GuestTopBar';
 import { RequestInboxLink } from '@/components/esh/guest/RequestInboxLink';
 import { RequestLinkForm } from '@/components/esh/guest/RequestLinkForm';
-import { ACTION_STATE_LABELS, PRIORITY_LABELS } from '@/domain/esh-findings';
+import { PRIORITY_LABELS } from '@/domain/esh-findings';
 import {
   MY_ACTIONS_FILTERS,
   MY_ACTIONS_PAGE_SIZE,
@@ -71,7 +70,7 @@ export default async function MyActionsPage({
   if (result.kind === 'action_only') {
     return (
       <>
-        <GuestTopBar identity={`${result.email} · Action Owner`} />
+        <GuestTopBar identity="Action Owner" signedIn={{ email: result.email, inbox: false }} />
         <main id="guest-main" className="guest-main guest-main-narrow">
           <section className="guest-card" aria-labelledby="guest-scope-title">
             <h1 id="guest-scope-title">Your link opens one action</h1>
@@ -111,7 +110,7 @@ export default async function MyActionsPage({
 
   return (
     <>
-      <GuestTopBar identity={`${result.email} · Action Owner`} />
+      <GuestTopBar identity="Action Owner" signedIn={{ email: result.email, inbox: true }} />
       <main id="guest-main" className="guest-main">
         <h1 className="guest-title">My Actions</h1>
         <p className="guest-email">{result.email}</p>
@@ -123,7 +122,7 @@ export default async function MyActionsPage({
               href={hrefFor({ filter: option.key })}
               aria-current={option.key === filter ? 'page' : undefined}
             >
-              {option.label} ({result.counts[option.key]})
+              {option.label} <span className="guest-tab-count">{result.counts[option.key]}</span>
             </Link>
           ))}
         </nav>
@@ -156,21 +155,17 @@ export default async function MyActionsPage({
                   : 'Nothing needs your action. ESH is reviewing the rest.'}
           </p>
         ) : (
-          /* v206 — the list is the list until somebody asks to select. Dates
-             and labels are worked out here, on the server, so the browser is
-             not left reading the clock mid-render. */
           <MyActionsList
-            filter={filter}
             rows={result.rows.map((row) => {
               const due = dueLine(row, now, timeZone);
               return {
                 id: row.id,
                 reference: row.reference,
                 title: row.title,
-                place: row.location ?? row.department ?? '',
+                place: row.department ?? row.location ?? '',
                 dueText: due.text,
                 overdue: due.overdue,
-                stateLabel: ACTION_STATE_LABELS[row.state],
+                turn: row.state === 'awaiting_verification' ? 'Waiting for ESH' : 'Owner action',
                 priorityLabel:
                   row.priority && row.priority !== 'normal' ? PRIORITY_LABELS[row.priority] : null,
               };
@@ -191,7 +186,6 @@ export default async function MyActionsPage({
         <p className="guest-footnote">
           {totalOpen} open action{totalOpen === 1 ? '' : 's'} · Only actions assigned to your email
         </p>
-        <EndAccessButton />
       </main>
     </>
   );

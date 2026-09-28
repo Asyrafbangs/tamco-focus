@@ -5,8 +5,10 @@ import { WorkspaceTabs } from '@/components/ui/ParityPrimitives';
 import { SubmitOnSelect } from '@/components/ui/SubmitOnSelect';
 import { requireProfile } from '@/lib/supabase/server';
 import { getDirectoryData, getReportingHistory, getVisibilityData } from '@/server/queries';
+import { OwnerEmailSettings } from '@/components/esh/OwnerEmailSettings';
 import {
   getEmailContactDetail,
+  getHeldSummary,
   getStaffEshAccessForAdmin,
   listEmailContacts,
 } from '@/server/esh/queries';
@@ -91,13 +93,15 @@ export default async function UsersPage({
    * "Amer" is "viewer". It is the same question as their role and their
    * manager, so it is asked in the same place.
    */
-  const [visibility, history, eshAccess, contactDetail] = await Promise.all([
+  const [visibility, history, eshAccess, contactDetail, held] = await Promise.all([
     selectedPerson ? getVisibilityData(selectedPerson.id) : Promise.resolve(null),
     selectedPerson ? getReportingHistory(selectedPerson.id) : Promise.resolve([]),
     selectedPerson ? getStaffEshAccessForAdmin(selectedPerson.id) : Promise.resolve(null),
     selectedContact
       ? getEmailContactDetail(selectedContact.id)
       : Promise.resolve({ relationships: [], accessItems: [] }),
+    // v223 - owner email is an administrator's setting, reachable without Finding access.
+    getHeldSummary(),
   ]);
   const askedDate = /^\d{4}-\d{2}-\d{2}$/.test(params.on ?? '') ? (params.on as string) : '';
 
@@ -381,6 +385,7 @@ export default async function UsersPage({
             </>
           ) : (
             <>
+              {held && <OwnerEmailSettings summary={held} />}
               <BulkContactAccess contacts={waitingToBeCleared} />
               <div className="empty-state">
                 <h2>Select a person</h2>

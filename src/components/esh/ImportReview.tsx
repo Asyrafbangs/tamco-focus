@@ -7,9 +7,11 @@ import {
   blocksRelease,
   importActionProblem,
   importProblem,
+  importReleaseSummary,
   outcomeLabel,
   outcomeTone,
 } from '@/domain/esh-import';
+import type { OwnerEmailMode } from '@/domain/esh-owner-email';
 import type { ImportBatchDetail, ImportRowRecord } from '@/server/esh/import';
 import {
   acknowledgeImportEvidence,
@@ -99,7 +101,14 @@ function Amend({
   );
 }
 
-export function ImportReview({ batch }: { batch: ImportBatchDetail }) {
+export function ImportReview({
+  batch,
+  ownerEmailMode,
+}: {
+  batch: ImportBatchDetail;
+  /** v223 - whether owner email is held (Test mode) or sent at once (Live). */
+  ownerEmailMode: OwnerEmailMode;
+}) {
   const router = useRouter();
   const [busy, start] = useTransition();
   const [problem, setProblem] = useState<string | null>(null);
@@ -117,6 +126,7 @@ export function ImportReview({ batch }: { batch: ImportBatchDetail }) {
   const [followup, setFollowup] = useState('');
   const clientKey = useRef('');
   const released = batch.rows.filter((row) => row.outcome === 'released');
+  const summary = importReleaseSummary(batch.rows, batch.owners, chosen);
   const unresolved = batch.evidence.filter((reference) => reference.state === 'unresolved');
 
   function refresh(message: string) {
@@ -333,36 +343,70 @@ export function ImportReview({ batch }: { batch: ImportBatchDetail }) {
 
       {ready.length > 0 && (
         <section className="card esh-import-release" aria-labelledby="import-release">
-          <h2 id="import-release">Release</h2>
+          <h2 id="import-release">Import and notify</h2>
+          {/*
+           * v223 - one summary instead of ninety rows to read: who will hear,
+           * about how much, and what is still missing.
+           */}
+          <dl className="esh-import-summary">
+            <div>
+              <dt>Owners</dt>
+              <dd>{summary.owners}</dd>
+            </div>
+            <div>
+              <dt>Open actions</dt>
+              <dd>{summary.actions}</dd>
+            </div>
+            <div>
+              <dt>Valid emails</dt>
+              <dd>{summary.validEmails}</dd>
+            </div>
+            <div>
+              <dt>Missing emails</dt>
+              <dd>{summary.missingEmails}</dd>
+            </div>
+            <div>
+              <dt>Duplicate or uncertain</dt>
+              <dd>{summary.uncertain}</dd>
+            </div>
+          </dl>
           <p>
-            {chosen.length} of {ready.length} ready row{ready.length === 1 ? '' : 's'} selected.{' '}
             {batch.readyOverdue > 0 &&
-              `${batch.readyOverdue} of them are already past their target date, and stay that way. `}
-            Releasing creates the findings, assigns their owners and sends each owner one summary.
+              `${batch.readyOverdue} are already past their target date, and stay that way. `}
+            Each owner receives one email listing their actions
+            {ownerEmailMode === 'held'
+              ? ' — held while owner email is in Test mode, then released together with Release all.'
+              : ', sent at once.'}{' '}
+            Rows with a missing email or an open question wait here until they are answered.
           </p>
-          <ul className="esh-import-choose">
-            {ready.map((row) => (
-              <li key={row.id}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={chosen.includes(row.id)}
-                    onChange={(event) =>
-                      setExcluded((current) =>
-                        event.target.checked
-                          ? current.filter((id) => id !== row.id)
-                          : [...current, row.id],
-                      )
-                    }
-                  />
-                  <span>
-                    Row {row.line}
-                    {row.reference ? ` · ${row.reference}` : ''} — {row.mapped.owner_email ?? ''}
-                  </span>
-                </label>
-              </li>
-            ))}
-          </ul>
+          <details className="esh-form-more">
+            <summary>
+              Choose rows ({chosen.length} of {ready.length})
+            </summary>
+            <ul className="esh-import-choose">
+              {ready.map((row) => (
+                <li key={row.id}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={chosen.includes(row.id)}
+                      onChange={(event) =>
+                        setExcluded((current) =>
+                          event.target.checked
+                            ? current.filter((id) => id !== row.id)
+                            : [...current, row.id],
+                        )
+                      }
+                    />
+                    <span>
+                      Row {row.line}
+                      {row.reference ? ` · ${row.reference}` : ''} — {row.mapped.owner_email ?? ''}
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </details>
           <label className="esh-field">
             <span>Start following these up</span>
             <input
@@ -395,11 +439,16 @@ export function ImportReview({ batch }: { batch: ImportBatchDetail }) {
                   }
                   clientKey.current = '';
                   setExcluded([]);
-                  refresh('Released. Each owner has one summary waiting.');
+                  refresh(
+                    ownerEmailMode === 'held'
+                      ? 'Imported. Each owner’s email is held until Release all.'
+                      : 'Imported. Each owner is being sent one email listing their actions.',
+                  );
                 })
               }
             >
-              Release {chosen.length} row{chosen.length === 1 ? '' : 's'}
+              Import {chosen.length} finding{chosen.length === 1 ? '' : 's'} and notify{' '}
+              {summary.owners} owner{summary.owners === 1 ? '' : 's'}
             </button>
           </div>
           {unresolved.length > 0 && (

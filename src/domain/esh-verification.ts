@@ -57,6 +57,50 @@ const CODE_PROBLEMS: Record<string, string> = {
 
 const FAILED = 'Something went wrong and nothing was changed. Try again.';
 
+/**
+ * v223 - what can become of a finding nobody is going to correct (§6).
+ * Withdraw is no longer offered: in practice it was Cancel under another
+ * name. Findings that already carry it keep it.
+ */
+export type FindingOutcomeKey = 'cancelled' | 'duplicate' | 'raised_in_error';
+
+export const FINDING_OUTCOMES: Array<{ key: FindingOutcomeKey; label: string; hint: string }> = [
+  {
+    key: 'cancelled',
+    label: 'Cancel finding',
+    hint: 'No longer applicable. The owner stops owing it.',
+  },
+  {
+    key: 'duplicate',
+    label: 'Duplicate finding',
+    hint: 'The same thing as another finding, which keeps the work.',
+  },
+  {
+    key: 'raised_in_error',
+    label: 'Raised in error',
+    hint: 'It should never have been recorded.',
+  },
+];
+
+/** v223 - what an edit or a risk change refused, in the words of that form. */
+const EDIT_PROBLEMS: Record<string, string> = {
+  not_permitted: 'Only an ESH Coordinator or Verifier can change a finding.',
+  not_found: 'This is no longer available to you.',
+  not_open: 'Only an open finding can be changed.',
+  title_required: 'Give the finding a title.',
+  description_required: 'Describe what was found.',
+  department_required: 'Choose the accountable department.',
+  department_out_of_scope: 'That department is outside your Finding Management scope.',
+  department_not_found: 'That department no longer exists.',
+  unchanged: 'Nothing was different, so nothing was changed.',
+  invalid: 'Choose one of the listed values.',
+  reason_required: 'Say why, in a few words. The change is kept on the record.',
+};
+
+export function editProblem(code: string | undefined): string {
+  return (code ? EDIT_PROBLEMS[code] : undefined) ?? FAILED;
+}
+
 /** One sentence for what a procedure refused, listing the fields it named. */
 export function verificationProblem(code: string | undefined, problems?: string[]): string {
   if (problems?.length) {

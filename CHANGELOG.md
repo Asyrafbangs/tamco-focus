@@ -1,5 +1,51 @@
 # TAMCO Focus — Change Log
 
+## v223 One screen, one job — 28 September 2026
+
+From the Product Owner's review of the tested screens: the interface was showing the workflow's
+machinery — notification records, audit history, administrative outcomes, escalation configuration —
+as if it were all equally important. The backend keeps every record; the screens now show what a
+person needs to decide the next thirty seconds.
+
+- **Owner email is one setting.** Test mode holds email to anyone not yet cleared, as the restricted
+  rollout always has; Live emails an owner the moment a finding is assigned, with no second act. An
+  administrator chooses, in Finding settings or Identity & access. Anything held is one line for
+  the whole system — "94 assignment emails are being held · Release all" — instead of "Owner not
+  told yet" on every row it touched. A contact an administrator switched off stays off either way.
+- **Four states people think in.** Owner action, ESH verification, Changes requested, Closed — with
+  Overdue N days, Email failed and Escalated Ln as flags on the row, not states of their own.
+- **The owner's screen:** TAMCO ESH · My Actions · their address, with End access inside that menu
+  rather than floating at the bottom. The original finding and its photographs stand open beside
+  the conversation. My Actions is a plain list — whole rows, no tickboxes, no bulk operations.
+- **The ESH finding page is one card and a conversation.** Required action, owner, due date, risk,
+  what was found and its evidence on the left; the conversation on the right, with the submission
+  above it as Review submission. Verification history, due-date changes and the escalation route
+  are kept, folded, under Full record. Activity is the last three things that happened and View
+  full history, which opens the whole trail and the delivery log in a drawer. Only a delivery that
+  failed is shown on the page.
+- **`•••` is a short menu:** Change due date, Change owner, Change priority, Edit finding, Change
+  risk, Review submission, Cancel / mark duplicate. Each opens its own form. Editing a finding and
+  reassessing its risk are new, audited with before and after, and move nothing else.
+- **Cancel / mark duplicate** offers Cancel finding, Duplicate finding or Raised in error, one reason
+  and one button. Withdraw is gone for new findings; older ones keep what they were given.
+- **Departments are searched, then added.** The department field is a combobox; a name that is
+  missing can be added in place, and a near miss says "Similar department exists: Warehouse" first.
+  The database refuses two departments that differ only by spacing, case or "&".
+- **A department's usual escalation route lives in Settings.** A new finding starts from it, shown
+  as one line — "Warehouse default · Level 1 after 1 day overdue" — with Change for the exception.
+  An imported backlog row is assigned with its department's route.
+- **The backlog import is one summary and one press:** owners, open actions, valid and missing
+  emails, duplicate or uncertain rows, then "Import 94 findings and notify 71 owners".
+- **Navigation is Register, Verification, Closed, Settings.** The Overview keeps its address and is
+  reached from the Register's tools; ESH Home opens Finding Management on the Register.
+- Removed with the screens they served: the per-finding release and enable controls, and the owner
+  bulk operations' application code. The v206 database procedures remain, tested.
+- **Fixed while testing:** a photograph chosen on the new-finding form could be dropped. The form
+  copied it out of the file input inside a queued state update, after the input had emptied
+  itself; whether it survived depended on React's scheduling. It is copied first now.
+- pgTAP (47), unit tests for the department, activity, owner-email, import and next-actor rules, two
+  new desktop journeys, and every ESH journey updated to the screens it now describes.
+
 ## v222 Room to work, and an activity trail that ends where the story does — 25 September 2026
 
 - **The ESH pages use 1400px** rather than 1160. The register is a working list of four columns and

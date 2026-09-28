@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { agoWords, dueWords, nextActor, type NextActorInput } from '@/domain/esh-next-actor';
+import {
+  agoWords,
+  dueWords,
+  nextActor,
+  rowOverlays,
+  type NextActorInput,
+} from '@/domain/esh-next-actor';
 
 const NOW = new Date('2026-09-24T09:00:00Z'); // 17:00 in Kuala Lumpur
 const ZONE = 'Asia/Kuala_Lumpur';
@@ -12,15 +18,14 @@ const ASSIGNED: NextActorInput = {
   dueAt: '2026-09-26T09:00:00Z',
   dueIsDateOnly: false,
   isOverdue: false,
-  notificationHeld: false,
-  notificationFailed: false,
+  changesRequested: false,
   lastUpdateAt: '2026-09-24T07:00:00Z',
 };
 
-describe('v214 who has to act next (§24, §33)', () => {
+describe('v214/v223 who has to act next (§24, §33)', () => {
   it('names the owner and the deadline, rather than a state', () => {
     const next = nextActor(ASSIGNED, NOW, ZONE);
-    expect(next.headline).toBe('Owner action required');
+    expect(next.headline).toBe('Owner action');
     expect(next.detail).toContain('owner@example.com');
     expect(next.detail).toContain('26 Sept');
     expect(next.tone).toBe('owner');
@@ -36,17 +41,38 @@ describe('v214 who has to act next (§24, §33)', () => {
     expect(next.detail).toContain('3 days overdue');
   });
 
-  it('puts an undelivered assignment above a missed deadline', () => {
-    // Nobody is late for work they were never told about.
-    const next = nextActor({ ...ASSIGNED, isOverdue: true, notificationFailed: true }, NOW, ZONE);
-    expect(next.kind).toBe('delivery_problem');
-    expect(next.tone).toBe('problem');
+  it('says changes were requested when ESH sent the correction back', () => {
+    const next = nextActor({ ...ASSIGNED, changesRequested: true }, NOW, ZONE);
+    expect(next.kind).toBe('changes_requested');
+    expect(next.headline).toBe('Changes requested');
+    expect(next.tone).toBe('owner');
   });
 
-  it('distinguishes a held assignment from a bounced one', () => {
-    const next = nextActor({ ...ASSIGNED, notificationHeld: true }, NOW, ZONE);
-    expect(next.kind).toBe('not_told');
-    expect(next.detail).toContain('not cleared to receive email');
+  it('keeps delivery out of the state: a failed email is an overlay, worst first', () => {
+    const overlays = rowOverlays(
+      {
+        dueAt: '2026-09-21T09:00:00Z',
+        isOverdue: true,
+        notificationFailed: true,
+        escalationLevel: 1,
+      },
+      NOW,
+    ).map((overlay) => overlay.label);
+    expect(overlays).toEqual(['Email failed', 'Overdue 3 days', 'Escalated L1']);
+  });
+
+  it('adds no overlay to a row that is on time and delivered', () => {
+    expect(
+      rowOverlays(
+        {
+          dueAt: ASSIGNED.dueAt,
+          isOverdue: false,
+          notificationFailed: false,
+          escalationLevel: null,
+        },
+        NOW,
+      ),
+    ).toEqual([]);
   });
 
   it('turns the queue over to ESH once work is submitted, and says for how long', () => {
@@ -59,7 +85,7 @@ describe('v214 who has to act next (§24, §33)', () => {
       NOW,
       ZONE,
     );
-    expect(next.headline).toBe('ESH verification required');
+    expect(next.headline).toBe('ESH verification');
     expect(next.detail).toContain('2 days ago');
     expect(next.tone).toBe('esh');
   });

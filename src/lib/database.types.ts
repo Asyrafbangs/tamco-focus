@@ -2476,6 +2476,86 @@ export type Database = {
           },
         ]
       }
+      esh_department_routes: {
+        Row: {
+          canonical_email: string
+          department_id: string
+          email: string
+          level: number
+          organization_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          canonical_email: string
+          department_id: string
+          email: string
+          level: number
+          organization_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          canonical_email?: string
+          department_id?: string
+          email?: string
+          level?: number
+          organization_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_department_routes_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_department_routes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_department_routes_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_department_routes_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_department_routes_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_department_routes_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_department_routes_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       esh_digest_members: {
         Row: {
           action_id: string
@@ -5397,6 +5477,9 @@ export type Database = {
           initialized_at: string
           mode: string
           organization_id: string
+          owner_notices: string
+          owner_notices_changed_at: string | null
+          owner_notices_changed_by: string | null
           updated_at: string
         }
         Insert: {
@@ -5406,6 +5489,9 @@ export type Database = {
           initialized_at?: string
           mode?: string
           organization_id: string
+          owner_notices?: string
+          owner_notices_changed_at?: string | null
+          owner_notices_changed_by?: string | null
           updated_at?: string
         }
         Update: {
@@ -5415,6 +5501,9 @@ export type Database = {
           initialized_at?: string
           mode?: string
           organization_id?: string
+          owner_notices?: string
+          owner_notices_changed_at?: string | null
+          owner_notices_changed_by?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -5458,6 +5547,41 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: true
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_rollout_settings_owner_notices_changed_by_fkey"
+            columns: ["owner_notices_changed_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_rollout_settings_owner_notices_changed_by_fkey"
+            columns: ["owner_notices_changed_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_rollout_settings_owner_notices_changed_by_fkey"
+            columns: ["owner_notices_changed_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_rollout_settings_owner_notices_changed_by_fkey"
+            columns: ["owner_notices_changed_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_rollout_settings_owner_notices_changed_by_fkey"
+            columns: ["owner_notices_changed_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -13008,6 +13132,7 @@ export type Database = {
           action_state: string | null
           action_title: string | null
           baseline_due_at: string | null
+          changes_requested: boolean | null
           closed_at: string | null
           created_at: string | null
           department_name: string | null
@@ -13098,6 +13223,7 @@ export type Database = {
           action_count: number | null
           action_id: string | null
           action_state: string | null
+          changes_requested: boolean | null
           closed_at: string | null
           created_at: string | null
           department_name: string | null
@@ -15125,6 +15251,7 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_create_department: { Args: { p_name: string }; Returns: Json }
       esh_current_access: { Args: never; Returns: Json }
       esh_digest_prepare: { Args: { p_outbox_id: string }; Returns: Json }
       esh_dispatch_claim: {
@@ -15138,6 +15265,16 @@ export type Database = {
           p_outbox_id: string
           p_permanent?: boolean
           p_provider_message_id?: string
+        }
+        Returns: Json
+      }
+      esh_edit_finding: {
+        Args: {
+          p_department_id: string
+          p_description: string
+          p_finding_id: string
+          p_location: string
+          p_title: string
         }
         Returns: Json
       }
@@ -15292,6 +15429,7 @@ export type Database = {
         Args: { p_action_id: string; p_reason: string; p_session: string }
         Returns: Json
       }
+      esh_held_summary: { Args: never; Returns: Json }
       esh_import_acknowledge_evidence: {
         Args: { p_note: string; p_ref_id: string }
         Returns: Json
@@ -15395,6 +15533,7 @@ export type Database = {
         Args: { p_detail?: Json; p_ok: boolean; p_worker: string }
         Returns: Json
       }
+      esh_release_all_held: { Args: { p_reason: string }; Returns: Json }
       esh_release_notification: { Args: { p_outbox_id: string }; Returns: Json }
       esh_remove_upload: { Args: { p_asset_id: string }; Returns: Json }
       esh_reopen_finding: {
@@ -15466,6 +15605,10 @@ export type Database = {
         Args: { p_enabled: boolean; p_principal_id: string; p_reason: string }
         Returns: Json
       }
+      esh_set_department_route: {
+        Args: { p_department_id: string; p_route: Json }
+        Returns: Json
+      }
       esh_set_followup_policy: {
         Args: {
           p_level_days: number[]
@@ -15493,8 +15636,16 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_set_owner_notices: {
+        Args: { p_mode: string; p_reason: string }
+        Returns: Json
+      }
       esh_set_priority: {
         Args: { p_action_id: string; p_priority: string; p_reason: string }
+        Returns: Json
+      }
+      esh_set_risk: {
+        Args: { p_finding_id: string; p_reason: string; p_risk: string }
         Returns: Json
       }
       esh_set_staff_access: {

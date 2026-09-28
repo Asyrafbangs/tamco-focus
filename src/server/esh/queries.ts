@@ -15,6 +15,7 @@ import type { EshOverviewRow } from '@/domain/esh-overview';
 import type { ReportDefinitionSummary } from '@/domain/esh-reports';
 import type { Database } from '@/lib/database.types';
 import type { OperationalHealth } from '@/domain/esh-health';
+import type { HeldSummary } from '@/domain/esh-owner-email';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 /**
@@ -126,9 +127,10 @@ export interface RegisterListRow {
   dueIsDateOnly: boolean;
   actionCount: number;
   ownerEmail: string | null;
-  notificationHeld: boolean;
-  /** v214 - a bounced or abandoned assignment email, which outranks lateness. */
+  /** v214 - a bounced or abandoned email: the one delivery fact a row shows. */
   notificationFailed: boolean;
+  /** v223 - ESH sent the correction back and nothing new was submitted. */
+  changesRequested: boolean;
   isOverdue: boolean;
   /** v210 - the highest escalation level live under this assignment (§24). */
   escalationLevel: number | null;
@@ -229,8 +231,8 @@ export async function listRegister(options: {
       dueIsDateOnly: Boolean(row.due_is_date_only),
       actionCount: Number(row.action_count ?? 0),
       ownerEmail: row.owner_email ?? null,
-      notificationHeld: Boolean(row.notification_held),
       notificationFailed: Boolean(row.notification_failed),
+      changesRequested: Boolean(row.changes_requested),
       isOverdue: Boolean(row.is_overdue),
       escalationLevel:
         'escalation_level' in row && row.escalation_level !== null
@@ -318,6 +320,51 @@ export async function getDepartmentsInScope(access: EshAccess): Promise<Departme
   return (data ?? [])
     .filter((department) => access.scopeAll || allowed.has(String(department.id)))
     .map((department) => ({ id: String(department.id), name: String(department.name) }));
+}
+
+/**
+ * v223 - what owner email is doing, in counts, for the one line that replaces
+ * a "not told yet" row per finding. Null when it cannot be read: the line is
+ * then simply not shown, rather than claiming nothing is held.
+ */
+export async function getHeldSummary(): Promise<HeldSummary | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_held_summary');
+  if (error) {
+    console.error(`[getHeldSummary] ${error.code ?? 'unknown'}: ${error.message}`);
+    return null;
+  }
+  const result = (data ?? {}) as Record<string, unknown>;
+  if (!result.ok) return null;
+  return {
+    mode: result.mode === 'live' ? 'live' : 'held',
+    held: Number(result.held ?? 0),
+    assignments: Number(result.assignments ?? 0),
+    recipients: Number(result.recipients ?? 0),
+    switchedOff: Number(result.switched_off ?? 0),
+  };
+}
+
+/** v223 - each department's usual escalation route, by department id. */
+export async function getDepartmentRoutes(): Promise<Record<string, EscalationRecipient[]>> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('esh_department_routes')
+    .select('department_id, level, email')
+    .order('level')
+    .order('email');
+  if (error) {
+    console.error(`[getDepartmentRoutes] ${error.message}`);
+    return {};
+  }
+  const routes: Record<string, EscalationRecipient[]> = {};
+  for (const row of data ?? []) {
+    (routes[String(row.department_id)] ??= []).push({
+      level: Number(row.level),
+      email: String(row.email),
+    });
+  }
+  return routes;
 }
 
 export interface VerifierOption {

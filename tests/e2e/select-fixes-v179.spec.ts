@@ -55,6 +55,9 @@ test.describe('v179 a chosen option does something', () => {
     await open(page, '/more/admin/users');
 
     const status = page.locator('select[name="status"]');
+    // The directory streams in after the shell hydrates; a field that is not
+    // on screen yet cannot take focus, and the arrow press would go nowhere.
+    await expect(status).toBeVisible();
     await status.focus();
     await page.keyboard.press('ArrowDown');
     // Held: an arrow press is a step through the options, not a choice.

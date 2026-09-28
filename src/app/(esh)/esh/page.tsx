@@ -35,7 +35,7 @@ export default async function EshHomePage() {
         </li>
         {access.enabled && (
           <li>
-            <Link className="esh-module-card" href="/findings">
+            <Link className="esh-module-card" href="/findings/register">
               <span className="esh-module-tag" aria-hidden="true">
                 Findings
               </span>
