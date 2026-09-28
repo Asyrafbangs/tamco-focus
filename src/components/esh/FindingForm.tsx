@@ -112,12 +112,25 @@ export function FindingForm({
     Math.max(1, ...Object.keys(initial.escalation).map(Number), ...extraLevels),
   );
   const [moreOpen, setMoreOpen] = useState(false);
+  /*
+   * v228 - a department's own route is a summary, not a form (§7).
+   *
+   * ESH was reading and re-approving the same two addresses on every finding
+   * for the same warehouse. Folded, it says who would be told and when, and
+   * opens on one press when this finding needs somebody else. Only the route
+   * the department offered folds: a finding that already carries its own is
+   * open, because that one was decided rather than inherited.
+   */
+  const [routeOpen, setRouteOpen] = useState(false);
   const offeredCount = Object.values(offered).flat().length;
   /*
    * A department's route can be longer than the one level a new finding shows,
    * so the form grows to fit what it is offering rather than hiding half of it.
    */
   const shownLevels = Math.max(levelCount, ...Object.keys(escalation).map(Number), 1);
+  const departmentName = departments.find((one) => one.id === departmentId)?.name ?? '';
+  const inherited = Object.keys(initial.escalation).length === 0 && offeredCount > 0;
+  const routeFolded = inherited && !routeOpen && !noFurtherEscalation;
   const router = useRouter();
   /*
    * v215 - the photographs are taken at the scene, so they are chosen here.
@@ -465,18 +478,46 @@ export function FindingForm({
       <section className="esh-form-card" aria-labelledby="esh-form-escalation" hidden={shown !== 2}>
         <h2 id="esh-form-escalation" className="esh-form-card-title">
           Follow-up if overdue
+          {routeFolded && departmentName ? ` (${departmentName} default)` : ''}
         </h2>
         <p className="form-hint esh-form-card-hint">
-          {offeredCount > 0
-            ? `Offered from this department’s usual route. Change it if this finding needs a different one.`
-            : 'Nobody here is written to, or given any access, until the action is actually overdue by the days shown.'}
+          {routeFolded
+            ? 'The route this department normally uses. Nobody here is written to, or given any access, until the action is actually overdue.'
+            : offeredCount > 0
+              ? 'Offered from this department’s usual route. Change it if this finding needs a different one.'
+              : 'Nobody here is written to, or given any access, until the action is actually overdue by the days shown.'}
         </p>
         {problemsFor('escalation').map((problem) => (
           <p key={problem.message} className="esh-field-error" role="alert">
             {problem.message}
           </p>
         ))}
-        <div className="esh-escalation-levels">
+        {routeFolded && (
+          <div className="esh-route-summary">
+            <ol>
+              {Object.keys(escalation)
+                .map(Number)
+                .sort((a, b) => a - b)
+                .map((level) => (
+                  <li key={level}>
+                    <span className="esh-route-level">Level {level}</span>
+                    <span className="esh-route-when">{overdueWords(levelDays[level - 1])}</span>
+                    <span className="esh-route-who">{(escalation[level] ?? []).join(', ')}</span>
+                  </li>
+                ))}
+            </ol>
+            <button type="button" className="btn small ghost" onClick={() => setRouteOpen(true)}>
+              Change route
+            </button>
+          </div>
+        )}
+        {/*
+          Kept mounted while folded, never unmounted. Each level's value is a
+          hidden input inside EmailChips, so hiding the editor this way leaves
+          the route exactly as the department set it; unmounting it makes the
+          form refuse to save, because a finding needs a route or a reason.
+        */}
+        <div className="esh-escalation-levels" hidden={routeFolded}>
           {Array.from({ length: shownLevels }, (_, index) => index + 1).map((level) => (
             <EmailChips
               key={`${departmentId}-${level}`}
@@ -487,7 +528,7 @@ export function FindingForm({
             />
           ))}
         </div>
-        {shownLevels < 9 && (
+        {shownLevels < 9 && !routeFolded && (
           <button
             type="button"
             className="btn small ghost"

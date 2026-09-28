@@ -1,5 +1,29 @@
 # TAMCO Focus — Change Log
 
+## v228 The three screens the mock-up still asked for — 29 September 2026
+
+An audit of v223–v227 against the Product Owner's nine-panel mock-up found three of its screens
+still unbuilt. Everything else in it was already there.
+
+- **A department's escalation route arrives folded.** "Follow-up if overdue (Operations default)"
+  states who would be told and when — `Level 1 · after 1 day · warehouse.manager@…` — with **Change
+  route** for the finding that needs somebody else. ESH had been reading and re-approving the same
+  two addresses on every finding in the same warehouse. The editor stays mounted underneath, because
+  each level's value is a hidden input: unmounting it makes the form refuse to save.
+- **Finding settings is one section at a time** — Departments, Follow-up defaults, Owner access,
+  Reports — instead of every form at once, which was the control-panel problem v227 fixed elsewhere.
+- **Departments are maintained there**, as a list with a near-name guard, for the afternoon somebody
+  sets the register up rather than the moment they discover a gap mid-finding (v225). It is the same
+  administrator-only `create_department`; §31.2's boundary is unchanged and the reporting line, the
+  parent and the head still belong to shared administration. Owner access is read on its tab and
+  changed under Identity and access, because §43.2 keeps the rollout with the administrator who
+  signs for it.
+- **The backlog import says where it has got to** — Upload file · Preview & match · Confirm & notify
+  — and its summary leads with what the file actually held.
+
+No migration. Tests: e2e `esh-folded-route-v228`, `esh-settings-tabs-v228`, and the import,
+department-route, two-step and settings journeys updated to the screens they now describe.
+
 ## v227 One screen, one job — 28 September 2026
 
 From the Product Owner's review of the tested screens: the interface was showing the workflow's

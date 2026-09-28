@@ -33,7 +33,7 @@ test('v210 shows what a weekly report would say before anybody activates it', as
   await db.from('esh_staff_access').update({ can_manage_reports: true }).eq('user_id', IZZUL);
 
   await signIn(page);
-  await page.goto('/findings/settings');
+  await page.goto('/findings/settings?tab=reports');
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   const draft = page.locator('form', {
     has: page.getByRole('heading', { name: 'New weekly report' }),

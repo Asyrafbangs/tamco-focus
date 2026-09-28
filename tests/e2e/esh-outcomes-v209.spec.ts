@@ -127,7 +127,7 @@ test('v209 ESH gives critical work its own follow-up schedule', async ({ page },
   test.skip(testInfo.project.name !== 'desktop', 'Settings are one desktop flow.');
   test.setTimeout(120_000);
   await signIn(page);
-  await page.goto('/findings/settings');
+  await page.goto('/findings/settings?tab=follow-up');
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   await expect(page.getByRole('heading', { name: 'When the schedule differs' })).toBeVisible();
 

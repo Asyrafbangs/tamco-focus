@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { ImportReview } from '@/components/esh/ImportReview';
+import { ImportSteps } from '@/components/esh/ImportSteps';
 import { requireEshAccess } from '@/server/esh/access';
 import { loadImportBatch } from '@/server/esh/import';
 import { getRolloutStatus } from '@/server/esh/queries';
@@ -44,6 +45,8 @@ export default async function ImportBatchPage({
           </p>
         </div>
       </div>
+
+      <ImportSteps current={batch.rows.some((row) => row.outcome === 'released') ? 3 : 2} />
 
       <ImportReview batch={batch} ownerEmailMode={rollout?.mode === 'live' ? 'live' : 'held'} />
     </>

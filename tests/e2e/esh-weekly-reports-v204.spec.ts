@@ -35,7 +35,7 @@ test('v204 configures a Draft report and opens an individual read-only snapshot'
   const secret = crypto.randomUUID().replaceAll('-', '').padEnd(43, 'R');
   await db.from('esh_staff_access').update({ can_manage_reports: true }).eq('user_id', IZZUL);
   await signIn(page);
-  await page.goto('/findings/settings');
+  await page.goto('/findings/settings?tab=reports');
   await expect(page.getByRole('heading', { name: 'Weekly reports' })).toBeVisible();
   const editor = page.locator('form', {
     has: page.getByRole('heading', { name: 'New weekly report' }),
