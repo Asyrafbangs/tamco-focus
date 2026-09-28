@@ -1,12 +1,22 @@
 name: Verify
 
-# Every branch and every pull request. GitHub Free gives unlimited Actions
-# minutes on public repositories and 2,000 a month on private ones; this
-# workflow is sized to stay well inside that (instruction section 45).
+# Pull requests and `main`. GitHub Free gives unlimited Actions minutes on
+# public repositories and 2,000 a month on private ones; this workflow is sized
+# to stay well inside that (instruction section 45).
+#
+# v223 - a branch with an open pull request used to run everything twice, once
+# for the push and once for the pull request, and the private repository ran
+# out of minutes. Feature branches now run through their pull request only, and
+# a change that touches nothing but documentation runs nothing. `main` still
+# runs on every push, because it is the last chance before Production.
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'release-shots/**'
   workflow_dispatch:
 
 concurrency:
