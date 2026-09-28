@@ -53,29 +53,31 @@ test('v214 the register says who acts next, and the finding says the same thing'
   if (!saved?.ok) throw new Error(JSON.stringify(saved));
 
   await signIn(page);
-  await page.goto('/findings/register?filter=open');
+  // Searched for, because a shared database holds more than one page of open work.
+  await page.goto(`/findings/register?filter=open&q=${suffix}`);
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
   const row = page
     .locator('.esh-register-row')
     .filter({ hasText: `v214 blocked walkway ${suffix}` });
   await expect(row).toBeVisible();
-  // Held, because the contact has never been cleared — and that outranks the
-  // deadline, which is months away.
-  await expect(row.locator('.esh-next-chip')).toHaveText('Owner not told yet');
-  await expect(row).toContainText('not cleared to receive email');
+  // v227 - four states people think in; a held email is not one of them.
+  await expect(row.locator('.esh-next-chip')).toHaveText('Owner action');
+  await expect(row).toContainText('needs to complete this by');
   await expect(row).toContainText('High risk');
+  await expect(page.locator('.esh-held-notice')).toContainText('being held');
 
   // The occasional tools are behind one button rather than beside New finding.
   await expect(page.getByRole('link', { name: 'Export CSV' })).toHaveCount(0);
   await page.getByRole('button', { name: 'More register tools' }).click();
   await expect(page.getByRole('menuitem', { name: 'Export register (CSV)' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: 'Import backlog' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Overview by department' })).toBeVisible();
 
   // The finding itself opens with the same sentence, from the same rule.
   await page.goto(`/findings/${saved.finding_id}`);
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   const banner = page.locator('.esh-next-banner');
-  await expect(banner).toContainText('Owner not told yet');
-  await expect(banner).toHaveAttribute('data-tone', 'problem');
+  await expect(banner).toContainText('Owner action');
+  await expect(banner).toHaveAttribute('data-tone', 'owner');
 });

@@ -15,6 +15,9 @@ import type { EshOverviewRow } from '@/domain/esh-overview';
 import type { ReportDefinitionSummary } from '@/domain/esh-reports';
 import type { Database } from '@/lib/database.types';
 import type { OperationalHealth } from '@/domain/esh-health';
+import type { RolloutStatus } from '@/domain/esh-rollout';
+import { cache } from 'react';
+
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 /**
@@ -27,6 +30,23 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
  */
 
 export const REGISTER_PAGE_SIZE = 50;
+
+/**
+ * The rollout mode, for a screen that has to describe a contact (v224, §43.3).
+ *
+ * Read once per request. Every read and write asks the database again through
+ * `focus.esh_contact_usable`, so this only decides what a page says, never what
+ * anybody may do. A failed read is treated as restricted: the narrower answer.
+ */
+const getRolloutMode = cache(async (): Promise<'restricted' | 'live'> => {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.from('esh_rollout_settings').select('mode').limit(1);
+  if (error) {
+    console.error(`[getRolloutMode] ${error.code ?? 'unknown'}: ${error.message}`);
+    return 'restricted';
+  }
+  return data?.[0]?.mode === 'live' ? 'live' : 'restricted';
+});
 
 export interface ReportSettingsData {
   definitions: ReportDefinitionSummary[];
@@ -126,9 +146,10 @@ export interface RegisterListRow {
   dueIsDateOnly: boolean;
   actionCount: number;
   ownerEmail: string | null;
-  notificationHeld: boolean;
-  /** v214 - a bounced or abandoned assignment email, which outranks lateness. */
+  /** v214 - a bounced or abandoned email: the one delivery fact a row shows. */
   notificationFailed: boolean;
+  /** v227 - ESH sent the correction back and nothing new was submitted. */
+  changesRequested: boolean;
   isOverdue: boolean;
   /** v210 - the highest escalation level live under this assignment (§24). */
   escalationLevel: number | null;
@@ -229,8 +250,8 @@ export async function listRegister(options: {
       dueIsDateOnly: Boolean(row.due_is_date_only),
       actionCount: Number(row.action_count ?? 0),
       ownerEmail: row.owner_email ?? null,
-      notificationHeld: Boolean(row.notification_held),
       notificationFailed: Boolean(row.notification_failed),
+      changesRequested: Boolean(row.changes_requested),
       isOverdue: Boolean(row.is_overdue),
       escalationLevel:
         'escalation_level' in row && row.escalation_level !== null
@@ -648,7 +669,7 @@ export async function getFindingDetail(
   const { data: principals } = principalIds.length
     ? await supabase
         .from('esh_email_principals')
-        .select('id, display_email, access_enabled, status')
+        .select('id, display_email, access_enabled, status, access_disabled_by')
         .in('id', principalIds)
     : {
         data: [] as Array<{
@@ -656,12 +677,25 @@ export async function getFindingDetail(
           display_email: string;
           access_enabled: boolean;
           status: string;
+          access_disabled_by: string | null;
         }>,
       };
   const emailOf = new Map((principals ?? []).map((row) => [row.id, row.display_email]));
+  /*
+   * v224 — who can actually be written to, which is the rollout's rule and not
+   * this file's. Under a restricted rollout it is whoever an administrator
+   * named; with the rollout open it is every active contact except one somebody
+   * switched off on purpose. Read the mode rather than assuming the first,
+   * which is how four other copies of this rule came to disagree with it.
+   */
+  const rolloutMode = await getRolloutMode();
   const reachable = new Set(
     (principals ?? [])
-      .filter((row) => row.access_enabled && row.status === 'active')
+      .filter(
+        (row) =>
+          row.status === 'active' &&
+          (row.access_enabled || (rolloutMode === 'live' && !row.access_disabled_by)),
+      )
       .map((row) => row.id),
   );
   const nameOf = new Map(
@@ -1084,6 +1118,45 @@ export async function countAwaitingVerification(): Promise<number> {
   return count ?? 0;
 }
 
+export interface DepartmentEscalationDefault {
+  departmentId: string;
+  departmentName: string;
+  levels: Array<{ level: number; email: string }>;
+}
+
+/**
+ * v223 - the escalation route a department already has (§7).
+ *
+ * Offered when a finding is assigned to that department, so ESH confirms a
+ * route rather than retyping one. It stays a default: nothing is written
+ * against an action until the form is submitted with it.
+ */
+export async function listDepartmentEscalationDefaults(): Promise<DepartmentEscalationDefault[]> {
+  const supabase = await createSupabaseServerClient();
+  const [rows, departments] = await Promise.all([
+    supabase
+      .from('esh_department_escalation_defaults')
+      .select('department_id, level, email')
+      .order('level'),
+    supabase.from('departments').select('id, name').order('name'),
+  ]);
+  if (rows.error || departments.error) {
+    console.error(`[listDepartmentEscalationDefaults] ${rows.error?.message ?? ''}`);
+    return [];
+  }
+  const grouped = new Map<string, Array<{ level: number; email: string }>>();
+  for (const row of rows.data ?? []) {
+    const list = grouped.get(row.department_id) ?? [];
+    list.push({ level: Number(row.level), email: String(row.email) });
+    grouped.set(row.department_id, list);
+  }
+  return (departments.data ?? []).map((department) => ({
+    departmentId: department.id,
+    departmentName: String(department.name),
+    levels: grouped.get(department.id) ?? [],
+  }));
+}
+
 export interface FollowupSettings {
   version: number;
   preDueDays: number;
@@ -1198,5 +1271,46 @@ export async function getOperationalHealth(): Promise<OperationalHealth | null> 
     failing: Number(health.failing ?? 0),
     held: Number(health.held ?? 0),
     reviewOverdue: Number(health.review_overdue ?? 0),
+  };
+}
+
+/**
+ * The rollout as the administration screen shows it (v224, §43.2).
+ *
+ * Counts and the mode, nothing about any finding: looking after who may be
+ * written to is not a view of the work itself (§43.1).
+ */
+export async function getRolloutStatus(): Promise<RolloutStatus | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_rollout_status');
+  if (error) {
+    console.error(`[getRolloutStatus] ${error.code ?? 'unknown'}: ${error.message}`);
+    return null;
+  }
+  const row = (data ?? {}) as {
+    ok?: boolean;
+    mode?: string;
+    mode_changed_at?: string | null;
+    mode_changed_by?: string | null;
+    mode_reason?: string | null;
+    authorization_version?: number;
+    contacts_total?: number;
+    contacts_enabled?: number;
+    contacts_revoked?: number;
+    held?: number;
+    held_releasable?: number;
+  };
+  if (!row.ok) return null;
+  return {
+    mode: row.mode === 'live' ? 'live' : 'restricted',
+    modeChangedAt: row.mode_changed_at ?? null,
+    modeChangedBy: row.mode_changed_by ?? null,
+    modeReason: row.mode_reason ?? null,
+    authorizationVersion: Number(row.authorization_version ?? 1),
+    contactsTotal: Number(row.contacts_total ?? 0),
+    contactsEnabled: Number(row.contacts_enabled ?? 0),
+    contactsRevoked: Number(row.contacts_revoked ?? 0),
+    held: Number(row.held ?? 0),
+    heldReleasable: Number(row.held_releasable ?? 0),
   };
 }

@@ -5,6 +5,7 @@ import { useId, useState, useTransition, type FormEvent } from 'react';
 
 import { createClient } from '@supabase/supabase-js';
 
+import { DepartmentChooser } from '@/components/esh/DepartmentChooser';
 import { AttachButtons } from '@/components/esh/EvidenceUploader';
 import { evidenceLabel, evidenceProblem, uploadContentType } from '@/domain/esh-evidence';
 import { publicEnv } from '@/lib/env';
@@ -70,14 +71,20 @@ function overdueWords(days: number | undefined): string {
 export function FindingForm({
   initial,
   departments,
+  canAddDepartment = false,
   verifiers,
   levelDays = [],
+  departmentRoutes = {},
 }: {
   initial: FindingFormInitial;
   departments: Array<{ id: string; name: string }>;
+  /** v225 - an administrator can add a missing department without leaving this. */
+  canAddDepartment?: boolean;
   verifiers: Array<{ userId: string; fullName: string; email: string }>;
   /** v215 - the organisation's escalation timing, so a level says when. */
   levelDays?: number[];
+  /** v223 - the route each department normally uses, offered on choosing it. */
+  departmentRoutes?: Record<string, Record<number, string[]>>;
 }) {
   const [state, setState] = useState<SaveFindingState | null>(null);
   const [pending, startTransition] = useTransition();
@@ -91,10 +98,26 @@ export function FindingForm({
     .filter((level) => level > 3);
   // One level to begin with. Three empty boxes only ever read as three
   // things left undone.
+  /*
+   * v223 - choosing a department offers the route it normally uses.
+   *
+   * It is an offer, not a policy: the chips remain editable and the finding
+   * carries whatever ESH confirms (§7). Remounting them by key is what lets a
+   * different department replace the addresses rather than add to them.
+   */
+  const [departmentId, setDepartmentId] = useState(initial.departmentId);
+  const offered = departmentRoutes[departmentId] ?? {};
+  const escalation = Object.keys(initial.escalation).length > 0 ? initial.escalation : offered;
   const [levelCount, setLevelCount] = useState(
     Math.max(1, ...Object.keys(initial.escalation).map(Number), ...extraLevels),
   );
   const [moreOpen, setMoreOpen] = useState(false);
+  const offeredCount = Object.values(offered).flat().length;
+  /*
+   * A department's route can be longer than the one level a new finding shows,
+   * so the form grows to fit what it is offering rather than hiding half of it.
+   */
+  const shownLevels = Math.max(levelCount, ...Object.keys(escalation).map(Number), 1);
   const router = useRouter();
   /*
    * v215 - the photographs are taken at the scene, so they are chosen here.
@@ -314,18 +337,13 @@ export function FindingForm({
           </Field>
           <Field label="Accountable department" problems={problemsFor('accountable_department_id')}>
             {(props) => (
-              <select
-                name="accountable_department_id"
-                defaultValue={initial.departmentId}
-                {...props}
-              >
-                <option value="">Choose a department</option>
-                {departments.map((department) => (
-                  <option key={department.id} value={department.id}>
-                    {department.name}
-                  </option>
-                ))}
-              </select>
+              <DepartmentChooser
+                departments={departments}
+                value={departmentId}
+                onChange={setDepartmentId}
+                canAdd={canAddDepartment}
+                inputProps={props}
+              />
             )}
           </Field>
         </div>
@@ -336,7 +354,17 @@ export function FindingForm({
             “Original finding &amp; evidence”.
           </p>
           <AttachButtons
-            onFiles={(files) => setStaged((current) => [...current, ...Array.from(files)])}
+            onFiles={(files) => {
+              /*
+               * Copied here, not inside the updater. A FileList is live, and
+               * the control clears the input as soon as it has handed the
+               * files over; read later, it is empty and the photograph is
+               * silently lost. It only showed once another state change made
+               * React process this update a moment later.
+               */
+              const chosen = Array.from(files);
+              setStaged((current) => [...current, ...chosen]);
+            }}
             disabled={pending}
           />
           {staged.length > 0 && (
@@ -439,8 +467,9 @@ export function FindingForm({
           Follow-up if overdue
         </h2>
         <p className="form-hint esh-form-card-hint">
-          Nobody here is written to, or given any access, until the action is actually overdue by
-          the days shown. The timing comes from your follow-up policy.
+          {offeredCount > 0
+            ? `Offered from this department’s usual route. Change it if this finding needs a different one.`
+            : 'Nobody here is written to, or given any access, until the action is actually overdue by the days shown.'}
         </p>
         {problemsFor('escalation').map((problem) => (
           <p key={problem.message} className="esh-field-error" role="alert">
@@ -448,23 +477,23 @@ export function FindingForm({
           </p>
         ))}
         <div className="esh-escalation-levels">
-          {Array.from({ length: levelCount }, (_, index) => index + 1).map((level) => (
+          {Array.from({ length: shownLevels }, (_, index) => index + 1).map((level) => (
             <EmailChips
-              key={level}
+              key={`${departmentId}-${level}`}
               name={`escalation_level_${level}`}
               label={`Level ${level}`}
               hint={overdueWords(levelDays[level - 1])}
-              initial={initial.escalation[level] ?? []}
+              initial={escalation[level] ?? []}
             />
           ))}
         </div>
-        {levelCount < 9 && (
+        {shownLevels < 9 && (
           <button
             type="button"
             className="btn small ghost"
-            onClick={() => setLevelCount((count) => Math.min(9, count + 1))}
+            onClick={() => setLevelCount(Math.min(9, shownLevels + 1))}
           >
-            + Add level {levelCount + 1}
+            + Add level {shownLevels + 1}
           </button>
         )}
         <label className="check-row">

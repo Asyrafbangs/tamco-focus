@@ -1,5 +1,66 @@
 # TAMCO Focus — Change Log
 
+## v227 One screen, one job — 28 September 2026
+
+From the Product Owner's review of the tested screens: the interface was showing the workflow's
+machinery — notification records, audit history, administrative outcomes, escalation configuration —
+as if it were all equally important. The backend keeps every record; the screens now show what a
+person needs to decide the next thirty seconds. It builds on v223–v226 (department routes, the
+rollout mode, Release all, adding a department where it is missed) rather than beside them.
+
+- **Held email is one line for the whole register** — "94 emails are being held", with v224's
+  Release all beneath it when anything can go — instead of "Owner not told yet" on every row. A held
+  email no longer makes a row need attention; the per-finding enable and release controls are gone.
+- **Four states people think in.** Owner action, ESH verification, Changes requested, Closed — with
+  Overdue N days, Email failed and Escalated Ln as flags on the row, not states of their own.
+- **The owner's screen:** TAMCO ESH · My Actions · their address, with End access inside that menu
+  rather than floating at the bottom. The original finding and its photographs stand open beside
+  the conversation. My Actions is a plain list — whole rows, no tickboxes, no bulk operations.
+- **The ESH finding page is one card and a conversation.** Required action, owner, due date, risk,
+  what was found and its evidence on the left; the conversation on the right, with the submission
+  above it as Review submission. Verification history, due-date changes and the escalation route
+  are kept, folded, under Full record. Activity is the last three things that happened and View
+  full history, which opens the whole trail and the delivery log in a drawer. Only a delivery that
+  failed is shown on the page.
+- **`•••` is a short menu:** Change due date, Change owner, Change priority, Edit finding, Change
+  risk, Review submission, Cancel / mark duplicate. Each opens its own form. Editing a finding and
+  reassessing its risk are new, audited with before and after, and move nothing else.
+- **Cancel / mark duplicate** offers Cancel finding, Duplicate finding or Raised in error, one reason
+  and one button. Withdraw is gone for new findings; older ones keep what they were given.
+- **The backlog import is one summary and one press:** owners, open actions, valid and missing
+  emails, duplicate or uncertain rows, then "Import 94 findings and notify 71 owners".
+- **Navigation is Register, Verification, Closed, Settings.** The Overview keeps its address and is
+  reached from the Register's tools; ESH Home opens Finding Management on the Register.
+- Removed with the screens they served: the owner bulk operations' application code. The v206
+  database procedures remain, tested.
+- pgTAP (13), unit tests for the activity, outcome, import and next-actor rules, and every ESH
+  journey updated to the screens it now describes.
+
+**This stage adds a migration.**
+
+## v223 An escalation route the department already has — 25 September 2026
+
+ESH was typing the same two addresses for every finding in the same warehouse. The route is a
+property of the department far more often than of the finding.
+
+- **Finding settings carries a route per department**, each level saying when it is told, from the
+  organisation's own policy. A shorter route replaces a longer one rather than merging with it.
+- **Choosing a department on a new finding offers that route.** The form grows to fit it, the
+  addresses stay editable, and choosing a different department replaces them rather than adding to
+  them.
+- **It is an offer, not a policy.** §7 says ESH confirms the actual action-specific route, so
+  nothing is written against an action until the form is submitted with it, and being listed here
+  creates no contact and grants nobody any access — asserted in the database, not implied.
+- **Fixed: a photograph attached after choosing a department was silently lost.** v215 passed the
+  browser's `FileList` into a state updater and read it there; the control clears the file input as
+  soon as it hands the files over, so by the time the updater ran the list was empty. It only
+  surfaced once this stage's extra state made React process that update a moment later — the
+  shared uploader had always copied eagerly, which is why nothing else was affected.
+- pgTAP (11) and one desktop journey. The journey clears the route it created, because a route
+  left on a shared department would quietly add a recipient every later spec never asked for.
+
+**This stage adds a migration.**
+
 ## v222 Room to work, and an activity trail that ends where the story does — 25 September 2026
 
 - **The ESH pages use 1400px** rather than 1160. The register is a working list of four columns and

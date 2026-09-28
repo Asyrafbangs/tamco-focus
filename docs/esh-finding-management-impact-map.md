@@ -74,9 +74,9 @@ DEFINER` procedures that take the principal explicitly and re-check the live ass
 
 ## 5. Stages
 
-v197 is built and verified (19 September 2026). v198 is built and verified (20 September 2026). v199 is built and verified (20 September 2026): evidence is limited to 10 MB a file
-(the Focus attachment limit and this deployment's storage ceiling), not the 25 MB default §23
-suggests, and is never scanned. v200 is built and verified (20 September 2026).
+v197 is built and verified (19 September 2026). v198 is built and verified (20 September 2026). v199 is built and verified (20 September 2026): evidence is never scanned. It was limited to
+10 MB a file until v226 (26 September 2026) raised it to the 25 MB §23 asks for, with 100 MB
+across one message — a photograph from a current phone had been going over the old limit. v200 is built and verified (20 September 2026).
 v201 is built and verified (20 September 2026): owner updates and escalation responses now notify
 the responsible ESH staff, while daily reminders and escalation use immutable assignment policy
 snapshots and a maintained working-day calendar.
@@ -133,6 +133,28 @@ it, which ESH grants as an ordinary reassignment (§11, §14); and a held notifi
 administrator's switch on the finding that is waiting on it, rather than in another part of the
 application (§31.3, §43.2).
 
+v224 is built and verified (26 September 2026): the rollout has the second setting §43.2 always
+implied. An administrator opens or closes it with a reason, recorded in both audit trails; open, it
+reaches every active contact except anyone switched off by name (§43.5), and there is still no date
+on which it opens by itself. Opening it sends nothing (FM106) — held mail is released as a separate
+act, but now in one press instead of one finding at a time, which is what an imported backlog of
+ninety-four needs. Four places had their own copy of "may this contact be written to"; two of them
+decided whether a letter was queued or held, so with the rollout open they went on holding mail it
+could reach. All four now ask `focus.esh_contact_usable`. A released backlog's own summaries, which
+belong to a batch rather than to one finding, could not be released at all before this.
+
+v225 is built and verified (26 September 2026): the accountable department is chosen by typing
+rather than scrolled for, and an administrator can add one that is missing without abandoning a
+half-written finding (§7). It is the same administrator-only `create_department` shared
+administration calls, so §31.2's boundary is unchanged and no organisation-chart editor is added
+here; a near-duplicate name is questioned before anything is created.
+
+v226 is built and verified (26 September 2026): evidence is 25 MB a file with 100 MB across one
+message, which is what §23 asks for. It had been 10 MB — under what a photograph of a dark plant
+room weighs, so an Action Owner could not send the proof their action required. The per-message
+total is new: ten files at the old limit were harmless and at the new one are a quarter of a
+gigabyte.
+
 Each stage ships behind the rollout gate, so nothing new is visible to the team until an
 administrator enables them. Each ends with the full verify and, where it adds a migration, a
 `supabase db push`.
@@ -157,3 +179,32 @@ administrator enables them. Each ends with the full verify and, where it adds a 
   their Finding access is Off, which is everyone but Izzul at first.
 - No test finding or email reaches a real person: fixtures are local, contacts start disabled,
   and notification release is a separate deliberate act.
+
+## 7. v227 — design review of the working module (28 September 2026)
+
+Source: the Product Owner's design review of the tested screens, delivered in conversation on
+28 September 2026, and their instruction the same day to finish every item in it on this branch,
+reusing v223–v226 where they already answer it. It is the latest explicit approved statement, so
+it prevails over the earlier readings noted above.
+
+**The rule it locks: one screen, one job.** A UI element stays in sight only if the person needs it
+to decide what to do in the next thirty seconds; otherwise it is folded, moved behind `•••`, put in
+Settings, or kept in the audit/backend.
+
+| Requirement              | Previous behaviour                                                                                                    | Approved behaviour (v227)                                                                                                                                                                                                                             | Data / permission impact                                                                               |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Owner email              | Every held notice released one finding at a time                                                                      | Held email is one line on the register ("N emails are being held") with v224's **Release all** beneath it when anything can go; the rollout mode itself is v224's, on Identity & access                                                               | None beyond v224                                                                                       |
+| "Owner not told yet"     | A register state and a finding banner                                                                                 | Not a state. Rows show Owner action / ESH verification / Changes requested / Closed, with overlays Overdue N days, Email failed, Escalated Ln                                                                                                         | `changes_requested` column on both register views; a held email no longer makes a row need attention   |
+| Owner page chrome        | Brand and address; End access at the bottom of every page                                                             | TAMCO ESH · My Actions · address menu holding End access                                                                                                                                                                                              | None                                                                                                   |
+| My Actions               | Opt-in selection with three bulk operations (v206, §40)                                                               | A plain list; whole row clickable; no selection or bulk for an ordinary owner                                                                                                                                                                         | App-layer bulk code removed; the v206 database procedures remain, tested, unused by the UI             |
+| Owner's original finding | Folded under a disclosure                                                                                             | Open beside the conversation                                                                                                                                                                                                                          | None                                                                                                   |
+| ESH finding page         | Separate cards for finding, verification, due-date changes, required action and escalation route; delivery log inline | One context card; the rest in a folded Full record; submission as **Review submission**; the latest three human events and **View full history** in a drawer holding the full trail and the delivery log. Only a failed delivery is shown on the page | None                                                                                                   |
+| `•••` menu               | Every form at once                                                                                                    | Named items: Change due date, Change owner, Change priority, Edit finding, Change risk, Review submission, Cancel / mark duplicate, Reopen finding                                                                                                    | `esh_edit_finding`, `esh_set_risk` (coordinators, in scope, open findings, audited before/after)       |
+| Administrative outcome   | Cancel / Withdraw / Duplicate with an explanatory paragraph                                                           | Cancel finding / Duplicate finding / Raised in error, one reason, one button                                                                                                                                                                          | Outcome `raised_in_error` (status Cancelled); Withdraw refused for new findings, kept on existing ones |
+| Department and route     | —                                                                                                                     | Unchanged from v223 and v225: a department is chosen by typing, added where missing, and brings its route                                                                                                                                             | None                                                                                                   |
+| Navigation               | Overview, Register, Verification, Closed, Settings                                                                    | Register, Verification, Closed, Settings. The Overview keeps its address and is reached from the Register's tools                                                                                                                                     | None                                                                                                   |
+| Backlog import           | Release N rows                                                                                                        | One summary (owners, open actions, valid and missing emails, duplicate or uncertain) and **Import N findings and notify M owners**; v224's Tell the owners stays below it                                                                             | None                                                                                                   |
+
+Desktop and mobile: every change applies at both widths; the owner and ESH pages stack in reading
+order below 900px. Tests: pgTAP `esh_one_screen_v227` (13), unit `esh-quiet-workflow-v227` and the
+next-actor rules, and the existing ESH journeys updated to the screens they now describe.

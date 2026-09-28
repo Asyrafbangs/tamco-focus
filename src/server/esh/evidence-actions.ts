@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
-import { evidenceProblem, safeEvidenceName } from '@/domain/esh-evidence';
+import { EVIDENCE_MAX_LABEL, evidenceProblem, safeEvidenceName } from '@/domain/esh-evidence';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
 import { inspectUpload, removeObject, signedUploadFor } from '@/server/esh/evidence';
 import { guestClient, guestSecret } from '@/server/esh/guest';
@@ -39,14 +39,14 @@ const START_PROBLEMS: Record<string, string> = {
   finding_not_found: 'Files can no longer be added here.',
   not_permitted: 'Only a Coordinator or Verifier can add files.',
   type_not_allowed: 'Attach a photo, PDF, Word, Excel, PowerPoint, CSV or text file.',
-  too_large: 'Files can be up to 10 MB each.',
+  too_large: `Files can be up to ${EVIDENCE_MAX_LABEL} each.`,
   too_many_files: 'Up to 10 files can go with one message. Send these first.',
   slow_down: 'That is a lot of files in a short time. Wait a little, then try again.',
 };
 
 const REFUSED: Record<string, string> = {
   missing: 'The upload did not arrive. Try again.',
-  too_large: 'Files can be up to 10 MB each.',
+  too_large: `Files can be up to ${EVIDENCE_MAX_LABEL} each.`,
   type_mismatch: 'This file is not what its name says, so it was refused.',
 };
 

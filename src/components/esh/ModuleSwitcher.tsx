@@ -69,7 +69,7 @@ export function ModuleSwitcher({ focusHref }: { focusHref: string }) {
           </li>
           <li>
             <Link
-              href="/findings"
+              href="/findings/register"
               aria-current={current === 'Finding Management' ? 'page' : undefined}
             >
               <strong>Finding Management</strong>

@@ -9,18 +9,15 @@ import type { ActionState, FindingStatus } from '@/domain/esh-findings';
  * for. Every list and every header asks this module instead, so the answer is
  * the same wherever it is read.
  *
- * Order matters: a bounced assignment outranks an overdue deadline, because
- * work nobody was told about is not late — it is undelivered.
+ * v227 - four states a person thinks in: Owner action, ESH verification,
+ * Changes requested, Closed. Everything else a row needs to say — late, an
+ * email that failed, how far it has escalated — is an overlay on one of
+ * those, not a state of its own. A held email is not said per row at all:
+ * it is reported once, for the whole system, where it can be released.
  */
 
 export type NextActorKind =
-  | 'unassigned'
-  | 'delivery_problem'
-  | 'not_told'
-  | 'owner'
-  | 'owner_overdue'
-  | 'esh_verification'
-  | 'settled';
+  'unassigned' | 'owner' | 'owner_overdue' | 'changes_requested' | 'esh_verification' | 'settled';
 
 export interface NextActorInput {
   status: FindingStatus;
@@ -29,9 +26,42 @@ export interface NextActorInput {
   dueAt: string | null;
   dueIsDateOnly: boolean;
   isOverdue: boolean;
-  notificationHeld: boolean;
-  notificationFailed: boolean;
+  /** The last decision sent the correction back and nothing new was submitted. */
+  changesRequested: boolean;
   lastUpdateAt: string;
+}
+
+export interface RowOverlayInput {
+  dueAt: string | null;
+  isOverdue: boolean;
+  notificationFailed: boolean;
+  escalationLevel: number | null;
+}
+
+/**
+ * The small flags beside a row's state: "Overdue 3 days", "Email failed",
+ * "Escalated L1". Worst first, because a failed email means nobody was told.
+ */
+export function rowOverlays(
+  row: RowOverlayInput,
+  now: Date,
+): Array<{ label: string; tone: 'problem' | 'warn' }> {
+  const overlays: Array<{ label: string; tone: 'problem' | 'warn' }> = [];
+  if (row.notificationFailed) overlays.push({ label: 'Email failed', tone: 'problem' });
+  if (row.isOverdue && row.dueAt) {
+    const days = Math.max(
+      0,
+      Math.floor((now.getTime() - new Date(row.dueAt).getTime()) / 86_400_000),
+    );
+    overlays.push({
+      label: days === 0 ? 'Overdue today' : `Overdue ${days} day${days === 1 ? '' : 's'}`,
+      tone: 'warn',
+    });
+  }
+  if (row.escalationLevel) {
+    overlays.push({ label: `Escalated L${row.escalationLevel}`, tone: 'warn' });
+  }
+  return overlays;
 }
 
 export interface NextActor {
@@ -129,28 +159,10 @@ export function nextActor(row: NextActorInput, now: Date, timeZone: string): Nex
     };
   }
 
-  // Undelivered beats late: nobody can be late for work they never received.
-  if (row.notificationFailed) {
-    return {
-      kind: 'delivery_problem',
-      headline: 'Delivery problem',
-      detail: `The assignment email to ${owner} could not be delivered.`,
-      tone: 'problem',
-    };
-  }
-  if (row.notificationHeld) {
-    return {
-      kind: 'not_told',
-      headline: 'Owner not told yet',
-      detail: `${owner} is not cleared to receive email, so the assignment is held.`,
-      tone: 'problem',
-    };
-  }
-
   if (row.actionState === 'awaiting_verification') {
     return {
       kind: 'esh_verification',
-      headline: 'ESH verification required',
+      headline: 'ESH verification',
       detail: `${owner} submitted ${waitingWords(row.lastUpdateAt, now)} ago.`,
       tone: 'esh',
     };
@@ -165,9 +177,19 @@ export function nextActor(row: NextActorInput, now: Date, timeZone: string): Nex
   }
 
   const words = dueWords(row.dueAt, row.dueIsDateOnly, now, timeZone);
+  if (row.changesRequested) {
+    return {
+      kind: 'changes_requested',
+      headline: 'Changes requested',
+      detail: row.isOverdue
+        ? `ESH sent it back; ${owner} is ${words}.`
+        : `ESH sent it back; ${owner} resubmits by ${words}.`,
+      tone: 'owner',
+    };
+  }
   return {
     kind: row.isOverdue ? 'owner_overdue' : 'owner',
-    headline: 'Owner action required',
+    headline: 'Owner action',
     detail: row.isOverdue
       ? `${owner} is ${words}.`
       : `${owner} needs to complete this by ${words}.`,

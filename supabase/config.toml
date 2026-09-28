@@ -40,9 +40,11 @@ smtp_port = 54325
 
 [storage]
 enabled = true
-# Local ceiling. The authoritative per-file limit lives in ATTACHMENT_MAX_BYTES
-# and is enforced in the domain layer and by the storage bucket definition.
-file_size_limit = "12MiB"
+# Local ceiling for every bucket. The authoritative per-file limits live in
+# ATTACHMENT_MAX_BYTES and EVIDENCE_MAX_BYTES and are enforced in the domain
+# layer and by each bucket definition; this only has to be above the largest of
+# them. v226 raised finding evidence to 25 MiB, so this rose with it.
+file_size_limit = "26MiB"
 
 [auth]
 # ---------------------------------------------------------------------------

@@ -178,7 +178,7 @@ test('v198 an owner opens their email link in a browser that never signed in', a
   await expect(page.getByRole('heading', { name: arranged.walkway.title })).toBeVisible();
   await expect(page.locator('.guest-chat-meta')).toContainText('Assigned');
   await expect(page.getByText('Keep the marked walkway clear.')).toBeVisible();
-  await expect(page.locator('.guest-identity')).toContainText(arranged.owner);
+  await expect(page.locator('.guest-account-email')).toContainText(arranged.owner);
   // No way into the staff application from here (§11).
   await expect(page.getByRole('link', { name: 'ESH Home' })).toHaveCount(0);
   await expect(page.locator('.esh-switcher, .rail')).toHaveCount(0);
@@ -204,13 +204,16 @@ test('v198 an owner opens their email link in a browser that never signed in', a
   await openLink(page, inboxLink.path, 'Open my actions');
   await expect(page).toHaveURL(/\/respond\/my-actions$/);
   await expect(page.getByRole('heading', { name: 'My Actions' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Needs my action (2)' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Needs my action 2' })).toBeVisible();
   const rows = page.locator('.guest-action-row');
   await expect(rows).toHaveCount(2);
   await expect(rows.nth(0)).toContainText(arranged.exit.title);
   await expect(rows.nth(0)).toContainText('Urgent priority');
   await expect(rows.nth(1)).toContainText(arranged.walkway.title);
-  await expect(rows.nth(1)).toContainText('In progress');
+  await expect(rows.nth(1)).toContainText('Owner action');
+  // v227 - a plain list: no selection, no tickboxes, no bulk operations.
+  await expect(page.getByRole('checkbox')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Select actions' })).toHaveCount(0);
 
   // Into a row and back again (FM08).
   await rows.nth(0).click();
@@ -218,7 +221,9 @@ test('v198 an owner opens their email link in a browser that never signed in', a
   await page.getByRole('link', { name: 'My Actions', exact: true }).click();
   await expect(page.locator('.guest-action-row')).toHaveCount(2);
 
-  // End access on a shared device (§10).
+  // End access on a shared device (§10) - quietly, from the address menu.
+  await expect(page.getByRole('button', { name: 'End access on this device' })).toBeHidden();
+  await page.locator('.guest-account summary').click();
   await page.getByRole('button', { name: 'End access on this device' }).click();
   await expect(page.getByRole('heading', { name: 'Access ended on this device' })).toBeVisible();
   await page.goto('/respond/my-actions');
@@ -281,9 +286,9 @@ test('v198 ESH writes to the owner; the email waits for access and a deliberate 
 
   await signIn(page, 'izzul@tamco.local');
   await page.goto(`/findings/${arranged.walkway.findingId}`);
-  const notices = page.getByRole('region', { name: 'Delivery' });
-  await expect(notices).toContainText('Held — access not enabled');
-  await expect(notices.getByRole('button', { name: /^Release the/ })).toHaveCount(0);
+  // v227 - held email is not a per-finding matter: no row, no button here.
+  await expect(page.getByText('Owner not told yet')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Release/ })).toHaveCount(0);
 
   await page.getByLabel('Message the owner').fill('Please include the whole walkway in the photo.');
   await page.getByRole('button', { name: 'Send to owner' }).click();
@@ -309,30 +314,27 @@ test('v198 ESH writes to the owner; the email waits for access and a deliberate 
     .single();
   expect(stillHeld!.state).toBe('held_rollout');
 
-  // ESH releases it, from the finding.
+  // v227 - the release is one act for the whole system, from the register
+  // line that says what is held (v224's Release all).
   await signIn(page, 'izzul@tamco.local');
-  await page.goto(`/findings/${arranged.walkway.findingId}`);
-  await page
-    .getByRole('button', { name: `Release the assignment email to ${arranged.owner}` })
-    .click();
-  // The release is what is being asserted, so wait for the button it replaces
-  // to go before reading anything else.
-  await expect(
-    page.getByRole('button', { name: `Release the assignment email to ${arranged.owner}` }),
-  ).toHaveCount(0, { timeout: 30_000 });
-  const { data: released } = await service()
-    .from('esh_notification_outbox')
-    .select('state, released_by')
-    .eq('action_id', arranged.walkway.actionId)
-    .eq('event_type', 'owner_assignment')
-    .single();
-  expect(['queued', 'processing', 'provider_accepted']).toContain(released!.state);
-  expect(released!.released_by).toBe('f0c05000-0000-4000-a000-000000000002');
-
-  // With nothing held or bounced the delivery log folds away, so it is opened
-  // to read it: the entry is no longer held.
-  await page.locator('.esh-activity > summary').click();
-  await expect(notices).not.toContainText('Held —');
+  await page.goto('/findings/register');
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+  const held = page.locator('.esh-held-notice');
+  await expect(held).toContainText('being held');
+  await held.getByRole('button', { name: /^Release all/ }).click();
+  const released = async () =>
+    (
+      await service()
+        .from('esh_notification_outbox')
+        .select('state, released_by')
+        .eq('action_id', arranged.walkway.actionId)
+        .eq('event_type', 'owner_assignment')
+        .single()
+    ).data;
+  await expect
+    .poll(async () => (await released())?.state, { timeout: 30_000 })
+    .toMatch(/^(queued|processing|provider_accepted)$/);
+  expect((await released())!.released_by).toBe('f0c05000-0000-4000-a000-000000000002');
 });
 
 test('v198 a staff login and an owner link never lend each other anything', async ({
@@ -347,7 +349,7 @@ test('v198 a staff login and an owner link never lend each other anything', asyn
   await signIn(page, 'izzul@tamco.local');
   const link = await mintLink(arranged, 'owner_action', arranged.walkway.actionId);
   await openLink(page, link.path, 'Open action');
-  await expect(page.locator('.guest-identity')).toContainText(arranged.owner);
+  await expect(page.locator('.guest-account-email')).toContainText(arranged.owner);
   // The staff login is untouched, and is still only itself.
   await page.goto('/findings/register');
   await expect(page.getByRole('heading', { name: 'Finding Register' })).toBeVisible();

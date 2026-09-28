@@ -243,7 +243,7 @@ test('v199 ESH reads the fixed submission and adds original evidence the owner c
   const submission = page.getByRole('region', { name: /Submitted for review · version 1/ });
   await expect(submission).toContainText('Refitted.');
   await expect(submission.locator('.esh-file')).toContainText('After.jpg');
-  const original = page.getByRole('region', { name: 'The finding' });
+  const original = page.getByRole('region', { name: 'What was found' });
   await original.getByLabel('Attach files').setInputFiles({
     name: 'Before.jpg',
     mimeType: 'image/jpeg',
@@ -251,9 +251,9 @@ test('v199 ESH reads the fixed submission and adds original evidence the owner c
   });
   await expect(original.locator('.esh-file')).toContainText('Before.jpg');
 
-  // The owner finds it under the original finding.
+  // The owner finds it beside the conversation, under the original finding.
   await owner.reload();
-  await owner.getByText('Original finding & evidence').click();
+  await expect(owner.getByRole('heading', { name: 'The original finding' })).toBeVisible();
   const before = owner.locator('.guest-original-files .esh-file a');
   await expect(before).toContainText('Before.jpg');
   const beforeHref = await before.getAttribute('href');

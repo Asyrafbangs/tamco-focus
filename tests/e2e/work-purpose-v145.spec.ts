@@ -119,6 +119,21 @@ test('§11 the purpose can be corrected where the work is read', async ({ page }
     await expect(select).toBeVisible();
     await select.selectOption('reactive');
 
+    /*
+     * Wait for the save to land before leaving the page.
+     *
+     * Choosing an option starts a server action against this URL, and
+     * navigating while it is in flight aborts it: the browser cancels the POST,
+     * nothing is written, and the assertion below then reads the old purpose
+     * and looks like a product bug. Under a loaded suite the navigation won
+     * often enough to fail about one run in ten.
+     *
+     * The list is still mounted behind the drawer, so its own row is the
+     * confirmation — and it is the user-visible outcome, not a toast that the
+     * revalidation replaces.
+     */
+    await expect(row.locator('.sub').first()).toContainText('Reactive', { timeout: 15_000 });
+
     await openWork(page);
     await expect(
       page.locator('.task-row', { hasText: title }).locator('.sub').first(),

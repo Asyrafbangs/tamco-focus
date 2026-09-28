@@ -12,7 +12,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(37);
+select plan(38);
 
 create or replace function pg_temp.act_as(p_user_id uuid)
 returns void
@@ -133,9 +133,15 @@ select is(
   'type_not_allowed',
   'an executable cannot even start uploading');
 select is(
-  public.esh_guest_start_upload(pg_temp.secret('session-guard'), pg_temp.id('guard'), 'big.pdf', 10485761)->>'code',
+  public.esh_guest_start_upload(pg_temp.secret('session-guard'), pg_temp.id('guard'), 'big.pdf', 26214401)->>'code',
   'too_large',
-  'nor a file over 10 MB');
+  'nor a file over 25 MB (v226)');
+-- The size the specification actually asks for has to be accepted, or raising
+-- the limit in three other places achieves nothing.
+select ok(
+  (public.esh_guest_start_upload(pg_temp.secret('session-guard'), pg_temp.id('guard'),
+                                 'phone-photo.jpg', 26214400)->>'ok')::boolean,
+  'and a 25 MB photograph is accepted');
 select is(
   public.esh_guest_start_upload(pg_temp.secret('session-spill'), pg_temp.id('guard'), 'photo.jpg', 10)->>'code',
   'not_available',

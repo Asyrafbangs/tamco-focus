@@ -100,6 +100,22 @@ the service role. These operations remain local-only in this stage.
   `esh_admin_disable_contact` and `esh_admin_correct_contact_email` re-check live relationships,
   revoke stale capability, preserve history and write immutable audit detail.
 
+## v227 One screen, one job
+
+- **Corrections.** `editFinding(...)` → `esh_edit_finding` and `changeRisk(...)` →
+  `esh_set_risk` apply to new and open findings in scope, audit before and after, and move
+  nothing about the owner, the deadline or the follow-up.
+- **Outcomes.** `esh_resolve_finding` accepts `cancelled`, `duplicate` and `raised_in_error`
+  (recorded with status Cancelled). `withdrawn` is refused for new findings.
+- **Who acts next.** `nextActor` returns Owner action, Changes requested, ESH verification or a
+  settled state; `rowOverlays` adds Email failed, Overdue N days and Escalated Ln. Held email is
+  no longer a per-row signal (the register shows v224's `esh_rollout_status` once); both register
+  views carry `changes_requested`.
+- Removed with their screens: the per-finding `releaseHeldNotification` and
+  `enableContactForFinding` actions (v198/v212) and the owner bulk actions (v206). Held email is
+  released with v224's `releaseHeldNotifications`. The database procedures behind v206 remain and
+  keep their pgTAP coverage.
+
 ## v208 Priority changes
 
 - `esh_set_priority(action, priority, reason)` is the authenticated coordinate command. It refuses

@@ -29,12 +29,12 @@ export function FindingNav({
   return (
     <nav className="esh-sidenav" aria-label="Finding Management">
       <p className="esh-sidenav-title">Finding Management</p>
+      {/*
+       * v227 - Register, Verification, Closed, Settings. The Overview is kept
+       * at its address and reached from the Register's tools; it is not daily
+       * work, so it does not stand first in the navigation.
+       */}
       <ul>
-        <li>
-          <Link href="/findings" aria-current={pathname === '/findings' ? 'page' : undefined}>
-            Overview
-          </Link>
-        </li>
         <li>
           <Link href="/findings/register" aria-current={inRegister ? 'page' : undefined}>
             Register

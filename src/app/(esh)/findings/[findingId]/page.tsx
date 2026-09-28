@@ -2,18 +2,24 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { Conversation } from '@/components/esh/Conversation';
-import { ActionMenu } from '@/components/esh/ActionMenu';
-import { FindingActionsMenu } from '@/components/esh/FindingActionsMenu';
+import {
+  ChangeDueForm,
+  ChangeOwnerForm,
+  ChangePriorityForm,
+  ChangeRiskForm,
+  EditFindingForm,
+} from '@/components/esh/FindingControls';
+import { FindingActionsMenu, type FindingMenuItem } from '@/components/esh/FindingActionsMenu';
 import { OriginalEvidence } from '@/components/esh/OriginalEvidence';
 import { FindingOutcome } from '@/components/esh/FindingOutcome';
+import { HistoryDrawer } from '@/components/esh/HistoryDrawer';
 import { ReopenFinding } from '@/components/esh/ReopenFinding';
 import { VerifyPanel } from '@/components/esh/VerifyPanel';
 import { FindingForm } from '@/components/esh/FindingForm';
-import { nextActor } from '@/domain/esh-next-actor';
-import { EnableContactInline } from '@/components/esh/EnableContactInline';
-import { ReleaseNotificationButton } from '@/components/esh/ReleaseNotificationButton';
 import { StaffMessageForm } from '@/components/esh/StaffMessageForm';
+import { activityLabel, humanActivity } from '@/domain/esh-activity';
 import { evidenceLabel } from '@/domain/esh-evidence';
+import { nextActor } from '@/domain/esh-next-actor';
 import { VERIFICATION_METHOD_LABELS, type VerificationMethod } from '@/domain/esh-verification';
 import {
   ACTION_STATE_LABELS,
@@ -36,31 +42,9 @@ import {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const HISTORY_LABELS: Record<string, string> = {
-  finding_created: 'Finding recorded',
-  finding_draft_saved: 'Draft saved',
-  action_assigned: 'Action assigned',
-  action_started: 'Owner started the work',
-  owner_message: 'Owner sent an update',
-  esh_message: 'ESH wrote to the owner',
-  notification_released: 'Email released',
-  notification_sent: 'Email accepted by the mail server',
-  guest_link_redeemed: 'Owner opened a secure link',
-  guest_link_requested: 'New link requested',
-  submission_created: 'Owner submitted for review',
-  submission_accepted: 'ESH accepted the correction',
-  changes_requested: 'ESH asked for more',
-  finding_closed: 'Finding closed',
-  finding_reopened: 'Finding reopened',
-  due_changed: 'Due date changed',
-  action_reassigned: 'Action given to another owner',
-  submission_withdrawn: 'Owner withdrew a submission',
-  original_evidence_added: 'Original evidence added',
-  original_evidence_removed: 'Original evidence removed',
-};
-
 const NOTIFICATION_KIND_LABELS: Record<string, string> = {
   owner_assignment: 'Assignment email',
+  import_assignment: 'Backlog summary',
   esh_reply: 'Reply notice',
   access_link: 'Requested link',
   submission_received: 'Review request',
@@ -70,6 +54,11 @@ const NOTIFICATION_KIND_LABELS: Record<string, string> = {
   finding_closed: 'Closure notice',
   finding_reopened: 'Reopening notice',
   reassigned_away: 'Handover notice',
+  owner_reminder: 'Reminder',
+  escalation: 'Escalation',
+  review_reminder: 'Review reminder',
+  owner_digest: 'Daily summary',
+  escalation_digest: 'Escalation summary',
 };
 
 const NOTIFICATION_REASON_LABELS: Record<string, string> = {
@@ -82,26 +71,40 @@ const NOTIFICATION_REASON_LABELS: Record<string, string> = {
 };
 
 const NOTIFICATION_STATE_LABELS: Record<string, string> = {
-  held_rollout: 'Held — access not enabled',
+  held_rollout: 'Held — rollout is restricted',
   queued: 'Queued to send',
   processing: 'Sending',
   provider_accepted: 'Accepted by the mail server',
+  delivered: 'Delivered',
+  bounced: 'Bounced',
   failed: 'Failed',
   suppressed: 'Not sent',
   cancelled: 'Cancelled',
+  digested: 'Sent in a summary',
 };
 
 /**
- * One finding (§13, §24). A draft opens in the form it was started in; an
- * assigned finding is read here — the owner's conversation, evidence and
- * verification join this page in the stages that build them.
+ * One finding (§13, §24), as one job: what am I looking at, and what is
+ * happening about it.
+ *
+ * v227 - the left column is one card saying what has to be fixed; the right
+ * is the conversation, with the submission to review above it when there is
+ * one. Everything else the record holds — verification history, due-date
+ * changes, the escalation route, the delivery log, the audit trail — is kept
+ * and one press away, rather than standing on the page as equal cards.
  */
 export default async function FindingPage({
   params,
   searchParams,
 }: {
   params: Promise<{ findingId: string }>;
-  searchParams: Promise<{ saved?: string; warn?: string; action?: string; full?: string }>;
+  searchParams: Promise<{
+    saved?: string;
+    warn?: string;
+    action?: string;
+    full?: string;
+    review?: string;
+  }>;
 }) {
   const access = await requireEshAccess();
   const profile = await requireProfile();
@@ -129,7 +132,7 @@ export default async function FindingPage({
           <p>
             {finding.reference} is open.{' '}
             {finding.notifications.some((entry) => entry.state === 'held_rollout')
-              ? 'The owner has not been emailed yet: their access is not enabled.'
+              ? 'The owner has not been emailed yet: the rollout is restricted and their address is not cleared.'
               : 'The owner is being emailed a secure link.'}
           </p>
         </div>
@@ -183,6 +186,7 @@ export default async function FindingPage({
         {notices}
         <FindingForm
           departments={departments}
+          canAddDepartment={profile.role === 'administrator'}
           verifiers={verifiers}
           initial={{
             findingId: finding.id,
@@ -211,6 +215,128 @@ export default async function FindingPage({
     );
   }
 
+  const action = finding.action;
+  const actionLive = Boolean(
+    action && ['assigned', 'in_progress', 'awaiting_verification'].includes(action.state),
+  );
+  const findingEditable = ['new', 'open'].includes(finding.status);
+  const lastDecision = finding.decisions.at(-1) ?? null;
+  const changesRequested = Boolean(
+    action &&
+    ['assigned', 'in_progress'].includes(action.state) &&
+    lastDecision?.decision === 'changes_requested',
+  );
+
+  // v227 - the menu: a few named things, each opening its own form.
+  const menu: FindingMenuItem[] = [];
+  if (access.canCoordinate && action && actionLive && finding.status === 'open') {
+    menu.push({
+      key: 'due',
+      label: 'Change due date',
+      panel: (
+        <ChangeDueForm
+          actionId={action.id}
+          findingId={finding.id}
+          dueDate={
+            action.dueAt
+              ? new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date(action.dueAt))
+              : ''
+          }
+        />
+      ),
+    });
+    if (action.ownerEmail) {
+      menu.push({
+        key: 'owner',
+        label: 'Change owner',
+        panel: (
+          <ChangeOwnerForm
+            actionId={action.id}
+            findingId={finding.id}
+            ownerEmail={action.ownerEmail}
+          />
+        ),
+      });
+    }
+    if (action.state !== 'awaiting_verification') {
+      menu.push({
+        key: 'priority',
+        label: 'Change priority',
+        panel: (
+          <ChangePriorityForm
+            actionId={action.id}
+            findingId={finding.id}
+            priority={action.priority ?? 'normal'}
+          />
+        ),
+      });
+    }
+  }
+  if (access.canCoordinate && findingEditable) {
+    const departments = await getDepartmentsInScope(access);
+    menu.push({
+      key: 'edit',
+      label: 'Edit finding',
+      panel: (
+        <EditFindingForm
+          findingId={finding.id}
+          title={finding.title}
+          description={finding.description ?? ''}
+          location={finding.location ?? ''}
+          departmentId={finding.departmentId ?? ''}
+          departments={departments}
+        />
+      ),
+    });
+    menu.push({
+      key: 'risk',
+      label: 'Change risk',
+      panel: <ChangeRiskForm findingId={finding.id} risk={finding.riskLevel} />,
+    });
+  }
+  if (access.canVerify && finding.pendingSubmission) {
+    menu.push({
+      key: 'review',
+      label: 'Review submission',
+      href: `/findings/${finding.id}?review=1#esh-review`,
+    });
+  }
+  if (access.canVerify && finding.status !== 'closed' && !finding.resolvedOutcome) {
+    menu.push({
+      key: 'outcome',
+      label: 'Cancel / mark duplicate',
+      panel: <FindingOutcome findingId={finding.id} />,
+    });
+  }
+  if (access.canVerify && finding.status === 'closed') {
+    menu.push({
+      key: 'reopen',
+      label: 'Reopen finding',
+      panel: <ReopenFinding findingId={finding.id} />,
+    });
+  }
+
+  const next = nextActor(
+    {
+      status: finding.status,
+      actionState: action?.state ?? null,
+      ownerEmail: action?.ownerEmail ?? null,
+      dueAt: action?.dueAt ?? null,
+      dueIsDateOnly: Boolean(action?.dueIsDateOnly),
+      isOverdue: Boolean(
+        action &&
+        action.dueAt &&
+        ['assigned', 'in_progress'].includes(action.state) &&
+        new Date(action.dueAt).getTime() < now.getTime(),
+      ),
+      changesRequested,
+      lastUpdateAt:
+        finding.pendingSubmission?.submittedAt ?? action?.assignedAt ?? finding.createdAt,
+    },
+    now,
+    timeZone,
+  );
+
   return (
     <>
       <Link href="/findings/register" className="esh-back-link">
@@ -227,81 +353,21 @@ export default async function FindingPage({
         </div>
         <div className="esh-detail-head-actions">
           <span className="flag neutral esh-status-flag">
-            {finding.status === 'open' && finding.action
-              ? ACTION_STATE_LABELS[finding.action.state]
-              : FINDING_STATUS_LABELS[finding.status]}
+            {finding.status === 'open' && action
+              ? ACTION_STATE_LABELS[action.state]
+              : finding.resolvedOutcome
+                ? (OUTCOME_LABELS[finding.resolvedOutcome] ?? FINDING_STATUS_LABELS[finding.status])
+                : FINDING_STATUS_LABELS[finding.status]}
           </span>
-          {/*
-           * v220 - changing an owner, a deadline or a priority, recording an
-           * administrative outcome and reopening a closed finding are real
-           * but rare. They wait behind one button instead of standing on the
-           * page competing with the work.
-           */}
-          {(access.canCoordinate || access.canVerify) && (
-            <FindingActionsMenu>
-              {access.canCoordinate &&
-                finding.action &&
-                ['assigned', 'in_progress', 'awaiting_verification'].includes(
-                  finding.action.state,
-                ) &&
-                finding.action.ownerEmail && (
-                  <ActionMenu
-                    actionId={finding.action.id}
-                    findingId={finding.id}
-                    ownerEmail={finding.action.ownerEmail}
-                    dueDate={
-                      finding.action.dueAt
-                        ? new Intl.DateTimeFormat('en-CA', { timeZone }).format(
-                            new Date(finding.action.dueAt),
-                          )
-                        : ''
-                    }
-                    priority={finding.action.priority ?? 'normal'}
-                  />
-                )}
-              {access.canVerify && finding.status !== 'closed' && !finding.resolvedOutcome && (
-                <FindingOutcome findingId={finding.id} />
-              )}
-              {access.canVerify && finding.status === 'closed' && (
-                <ReopenFinding findingId={finding.id} />
-              )}
-            </FindingActionsMenu>
-          )}
+          <FindingActionsMenu items={menu} />
         </div>
       </div>
-      {/*
-       * v214 - the same sentence the register shows, from the same rule: who
-       * has to act next, and by when. A reader should not have to assemble it
-       * from a state chip, a date and a notification row.
-       */}
-      {(() => {
-        const next = nextActor(
-          {
-            status: finding.status,
-            actionState: finding.action?.state ?? null,
-            ownerEmail: finding.action?.ownerEmail ?? null,
-            dueAt: finding.action?.dueAt ?? null,
-            dueIsDateOnly: Boolean(finding.action?.dueIsDateOnly),
-            isOverdue: Boolean(
-              finding.action &&
-              finding.action.dueAt &&
-              ['assigned', 'in_progress'].includes(finding.action.state) &&
-              new Date(finding.action.dueAt).getTime() < now.getTime(),
-            ),
-            notificationHeld: finding.notifications.some((entry) => entry.state === 'held_rollout'),
-            notificationFailed: finding.notifications.some((entry) => entry.stoppedRetrying),
-            lastUpdateAt: finding.action?.assignedAt ?? finding.createdAt,
-          },
-          now,
-          timeZone,
-        );
-        return next.kind === 'settled' ? null : (
-          <p className="esh-next-banner" data-tone={next.tone}>
-            <strong>{next.headline}</strong>
-            <span>{next.detail}</span>
-          </p>
-        );
-      })()}
+      {next.kind !== 'settled' && (
+        <p className="esh-next-banner" data-tone={next.tone}>
+          <strong>{next.headline}</strong>
+          <span>{next.detail}</span>
+        </p>
+      )}
       {notices}
       <FindingSummary
         finding={finding}
@@ -311,6 +377,7 @@ export default async function FindingPage({
         viewerEmail={profile.email}
         isAdministrator={profile.role === 'administrator'}
         full={query.full === '1'}
+        reviewOpen={query.review === '1'}
       />
     </>
   );
@@ -346,16 +413,19 @@ function FindingSummary({
   viewerEmail,
   isAdministrator,
   full,
+  reviewOpen,
 }: {
   finding: FindingDetail;
   timeZone: string;
   canCoordinate: boolean;
   canVerify: boolean;
   viewerEmail: string;
-  /** Only an administrator may switch a contact's access on (§31.3). */
+  /** Only an administrator may correct a contact's address (§31.3). */
   isAdministrator: boolean;
   /** v221 - a closed finding shows its result; this asks for everything. */
   full: boolean;
+  /** v227 - arrived from "Review submission". */
+  reviewOpen: boolean;
 }) {
   const dateTime = (instant: string, dateOnly = false) =>
     new Intl.DateTimeFormat('en-MY', {
@@ -370,7 +440,7 @@ function FindingSummary({
     finding.status === 'open' &&
     Boolean(action && ['assigned', 'in_progress', 'awaiting_verification'].includes(action.state));
   // The owner can read a reply only once their access is on and the
-  // assignment email has actually been released to them.
+  // assignment email has actually gone to them.
   const assignmentHeld = finding.notifications.some(
     (entry) => entry.eventType === 'owner_assignment' && entry.state === 'held_rollout',
   );
@@ -454,282 +524,288 @@ function FindingSummary({
     );
   }
 
+  // v227 - human events only on the page; delivery mechanics live in the drawer.
+  const story = humanActivity(finding.history);
+  const recent = story.slice(-3).reverse();
+  // Only a delivery that failed is worth anybody's attention here.
+  const failures = finding.notifications.filter((entry) => entry.stoppedRetrying);
+
   return (
     <div className="esh-detail">
       {/*
-       * v216 - two columns on a wide screen, each stacking on its own.
-       * The conversation is what a coordinator is here for, so it takes
-       * the room; what the action requires and what the finding was stand
-       * beside it rather than above it.
+       * The left column answers "what am I supposed to fix": one card, the
+       * required outcome first, then what was found and seen.
        */}
       <aside className="esh-detail-side">
         <section className="esh-form-card" aria-labelledby="esh-detail-finding">
-          <h2 id="esh-detail-finding" className="esh-form-card-title">
-            The finding
+          {action?.requiredOutcome && (
+            <div className="esh-required-outcome">
+              <span className="esh-pinned-label">Required action</span>
+              <p className="esh-detail-text">{action.requiredOutcome}</p>
+            </div>
+          )}
+          <p className="esh-context-facts">
+            {action && (
+              <span>
+                Owner <strong>{action.ownerEmail ?? 'Not assigned'}</strong>
+              </span>
+            )}
+            {action?.dueAt && (
+              <span>
+                Due <strong>{dateTime(action.dueAt, action.dueIsDateOnly)}</strong>
+              </span>
+            )}
+            <span>
+              Risk <strong>{RISK_LABELS[finding.riskLevel]}</strong>
+            </span>
+            {action?.priority && action.priority !== 'normal' && (
+              <span>
+                Priority <strong>{PRIORITY_LABELS[action.priority]}</strong>
+              </span>
+            )}
+          </p>
+
+          <h2 id="esh-detail-finding" className="esh-subheading">
+            What was found
           </h2>
           {finding.description && <p className="esh-detail-text">{finding.description}</p>}
-          <dl className="esh-facts">
-            <div>
-              <dt>Reported</dt>
-              <dd>
-                {finding.reportedOn
-                  ? dateTime(`${finding.reportedOn}T12:00:00Z`, true)
-                  : 'Not recorded'}
-              </dd>
-            </div>
-            <div>
-              <dt>Source</dt>
-              <dd>
-                {SOURCE_LABELS[finding.source]}
-                {finding.sourceReference ? ` · ${finding.sourceReference}` : ''}
-              </dd>
-            </div>
-            <div>
-              <dt>Accountable department</dt>
-              <dd>{finding.departmentName ?? 'Not set'}</dd>
-            </div>
-            <div>
-              <dt>Risk</dt>
-              <dd>{RISK_LABELS[finding.riskLevel]}</dd>
-            </div>
-            <div>
-              <dt>Recorded by</dt>
-              <dd>
-                {finding.createdByName} · {dateTime(finding.createdAt)}
-              </dd>
-            </div>
-            {finding.isRestricted && (
-              <div>
-                <dt>Visibility</dt>
-                <dd>Restricted — excluded from leadership reports</dd>
-              </div>
-            )}
-            {finding.resolvedOutcome && (
-              <div>
-                <dt>Outcome</dt>
-                <dd>
-                  {OUTCOME_LABELS[finding.resolvedOutcome] ?? finding.resolvedOutcome}
-                  {finding.duplicateOfReference ? ` of ${finding.duplicateOfReference}` : ''}
-                  {finding.statusReason ? ` — ${finding.statusReason}` : ''}
-                </dd>
-              </div>
-            )}
-          </dl>
-          <h3 className="esh-subheading">Original evidence</h3>
           <OriginalEvidence
             findingId={finding.id}
             files={finding.originalEvidence}
             canChange={canCoordinate && ['draft', 'new', 'open'].includes(finding.status)}
           />
-        </section>
 
-        {finding.decisions.length > 0 && (
-          <section className="esh-form-card" aria-labelledby="esh-detail-decisions">
-            <h2 id="esh-detail-decisions" className="esh-form-card-title">
-              Verification
-            </h2>
-            <ol className="esh-history">
-              {finding.decisions.map((decision) => (
-                <li key={`${decision.version}-${decision.verifiedAt}`}>
-                  <strong>
-                    {decision.decision === 'accepted'
-                      ? `Version ${decision.version} accepted`
-                      : `Version ${decision.version} sent back`}
-                    {decision.method
-                      ? ` · ${VERIFICATION_METHOD_LABELS[decision.method as VerificationMethod] ?? decision.method}`
-                      : ''}
-                  </strong>
-                  <span>
-                    {decision.verifierName} · {dateTime(decision.verifiedAt)}
-                  </span>
-                  {decision.note && <p className="esh-detail-text">{decision.note}</p>}
-                </li>
-              ))}
-            </ol>
-          </section>
-        )}
+          {finding.resolvedOutcome && (
+            <p className="notice neutral">
+              <strong>
+                {OUTCOME_LABELS[finding.resolvedOutcome] ?? finding.resolvedOutcome}
+                {finding.duplicateOfReference ? ` of ${finding.duplicateOfReference}` : ''}
+              </strong>
+              {finding.statusReason ? ` — ${finding.statusReason}` : ''}
+            </p>
+          )}
+          {finding.closure.reopenedAt && finding.status !== 'closed' && (
+            <p className="form-hint" role="status">
+              Reopened {dateTime(finding.closure.reopenedAt, true)} by{' '}
+              {finding.closure.reopenedByName ?? 'ESH'}
+              {finding.closure.reopenReason ? `: ${finding.closure.reopenReason}` : ''}
+            </p>
+          )}
 
-        {/*
-         * v211 - its own card, not a footnote inside Verification. It used to
-         * be nested there, so a deadline moved before any verification decision
-         * existed was recorded correctly and then shown to nobody.
-         */}
-        {finding.dueChanges.length > 0 && (
-          <section className="esh-form-card" aria-labelledby="esh-detail-due-changes">
-            <h2 id="esh-detail-due-changes" className="esh-form-card-title">
-              Due-date changes
-            </h2>
-            <ol className="esh-history">
-              {finding.dueChanges.map((change) => (
-                <li key={change.changedAt}>
-                  <strong>
-                    {change.oldDueAt ? `${dateTime(change.oldDueAt, true)} → ` : ''}
-                    {dateTime(change.newDueAt, true)}
-                  </strong>
-                  <span>
-                    {change.changedByName} · {dateTime(change.changedAt)} · {change.reason}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </section>
-        )}
-
-        {finding.status === 'closed' && (
-          <section className="esh-form-card" aria-labelledby="esh-detail-closure">
-            <h2 id="esh-detail-closure" className="esh-form-card-title">
-              Closure record
-            </h2>
+          {/*
+           * The rest of the record, kept and folded. "View full record" on a
+           * closed finding arrives here with it open.
+           */}
+          <details className="esh-form-more" open={full || undefined}>
+            <summary>Full record</summary>
             <dl className="esh-facts">
               <div>
-                <dt>Closed</dt>
+                <dt>Reported</dt>
                 <dd>
-                  {finding.closure.closedAt ? dateTime(finding.closure.closedAt) : 'Not recorded'}
-                  {finding.closure.closedByName ? ` · ${finding.closure.closedByName}` : ''}
+                  {finding.reportedOn
+                    ? dateTime(`${finding.reportedOn}T12:00:00Z`, true)
+                    : 'Not recorded'}
+                  {' · '}
+                  {SOURCE_LABELS[finding.source]}
+                  {finding.sourceReference ? ` · ${finding.sourceReference}` : ''}
                 </dd>
               </div>
-              {finding.closure.closureNote && (
+              <div>
+                <dt>Recorded by</dt>
+                <dd>
+                  {finding.createdByName} · {dateTime(finding.createdAt)}
+                </dd>
+              </div>
+              {finding.isRestricted && (
                 <div>
-                  <dt>Verification note</dt>
-                  <dd className="esh-detail-text">{finding.closure.closureNote}</dd>
+                  <dt>Visibility</dt>
+                  <dd>Restricted — excluded from leadership reports</dd>
+                </div>
+              )}
+              {action && (
+                <>
+                  <div>
+                    <dt>Due</dt>
+                    <dd>
+                      {action.dueAt
+                        ? `${dateTime(action.dueAt, action.dueIsDateOnly)}${action.dueIsDateOnly ? ' (end of day, 17:00)' : ''}`
+                        : 'Not set'}
+                      {action.baselineDueAt && action.dueAt && action.baselineDueAt !== action.dueAt
+                        ? ` · originally ${dateTime(action.baselineDueAt, action.dueIsDateOnly)}`
+                        : ''}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Completion evidence</dt>
+                    <dd>{action.evidenceInstruction ?? 'A result and at least one file'}</dd>
+                  </div>
+                  <div>
+                    <dt>ESH reviewer</dt>
+                    <dd>{action.reviewerName ?? 'Verification queue — any ESH Verifier'}</dd>
+                  </div>
+                  <div>
+                    <dt>Follow-up if overdue</dt>
+                    <dd>
+                      {action.escalation.length > 0
+                        ? Array.from(new Set(action.escalation.map((entry) => entry.level)))
+                            .sort((a, b) => a - b)
+                            .map(
+                              (level) =>
+                                `Level ${level}: ${action.escalation
+                                  .filter((entry) => entry.level === level)
+                                  .map((entry) => entry.email)
+                                  .join(', ')}`,
+                            )
+                            .join(' · ')
+                        : `No further escalation${action.noFurtherEscalationReason ? `: ${action.noFurtherEscalationReason}` : ''}`}
+                    </dd>
+                  </div>
+                </>
+              )}
+              {finding.status === 'closed' && (
+                <div>
+                  <dt>Closed</dt>
+                  <dd>
+                    {finding.closure.closedAt ? dateTime(finding.closure.closedAt) : 'Not recorded'}
+                    {finding.closure.closedByName ? ` · ${finding.closure.closedByName}` : ''}
+                    {finding.closure.closureNote ? ` — ${finding.closure.closureNote}` : ''}
+                  </dd>
                 </div>
               )}
             </dl>
-          </section>
-        )}
-
-        {finding.closure.reopenedAt && finding.status !== 'closed' && (
-          <div className="notice warn" role="status">
-            <strong>Reopened</strong>
-            <p>
-              {finding.closure.reopenedByName ?? 'ESH'} reopened this finding on{' '}
-              {dateTime(finding.closure.reopenedAt)}
-              {finding.closure.reopenReason ? `: ${finding.closure.reopenReason}` : '.'}
-            </p>
-          </div>
-        )}
-
-        {action && (
-          <section className="esh-form-card" aria-labelledby="esh-detail-action">
-            <h2 id="esh-detail-action" className="esh-form-card-title">
-              Required action
-            </h2>
-            {action.requiredOutcome && <p className="esh-detail-text">{action.requiredOutcome}</p>}
-            <dl className="esh-facts">
-              <div>
-                <dt>Action Owner</dt>
-                <dd>{action.ownerEmail ?? 'Not assigned'}</dd>
-              </div>
-              <div>
-                <dt>Due</dt>
-                <dd>
-                  {action.dueAt
-                    ? `${dateTime(action.dueAt, action.dueIsDateOnly)}${action.dueIsDateOnly ? ' (end of day, 17:00)' : ''}`
-                    : 'Not set'}
-                  {action.baselineDueAt && action.dueAt && action.baselineDueAt !== action.dueAt
-                    ? ` · originally ${dateTime(action.baselineDueAt, action.dueIsDateOnly)}`
-                    : ''}
-                </dd>
-              </div>
-              <div>
-                <dt>Priority</dt>
-                <dd>{action.priority ? PRIORITY_LABELS[action.priority] : 'Not set'}</dd>
-              </div>
-              <div>
-                <dt>Completion evidence</dt>
-                <dd>{action.evidenceInstruction ?? 'A result and at least one file'}</dd>
-              </div>
-              <div>
-                <dt>ESH reviewer</dt>
-                <dd>{action.reviewerName ?? 'Verification queue — any ESH Verifier'}</dd>
-              </div>
-            </dl>
-
-            <h3 className="esh-subheading">Escalation route</h3>
-            {action.escalation.length > 0 ? (
+            {finding.decisions.length > 0 && (
               <>
-                <ul className="esh-route">
-                  {Array.from(new Set(action.escalation.map((entry) => entry.level)))
-                    .sort((a, b) => a - b)
-                    .map((level) => (
-                      <li key={level}>
-                        <span>Level {level}</span>
-                        <span>
-                          {action.escalation
-                            .filter((entry) => entry.level === level)
-                            .map((entry) => entry.email)
-                            .join(', ')}
-                        </span>
-                      </li>
-                    ))}
-                </ul>
-                <p className="form-hint">
-                  Configured, not active. Each level is told only when the action becomes overdue
-                  enough to reach it.
-                </p>
+                <h3 className="esh-subheading">Verification</h3>
+                <ol className="esh-history">
+                  {finding.decisions.map((decision) => (
+                    <li key={`${decision.version}-${decision.verifiedAt}`}>
+                      <strong>
+                        {decision.decision === 'accepted'
+                          ? `Version ${decision.version} accepted`
+                          : `Version ${decision.version} sent back`}
+                        {decision.method
+                          ? ` · ${VERIFICATION_METHOD_LABELS[decision.method as VerificationMethod] ?? decision.method}`
+                          : ''}
+                      </strong>
+                      <span>
+                        {decision.verifierName} · {dateTime(decision.verifiedAt)}
+                      </span>
+                      {decision.note && <p className="esh-detail-text">{decision.note}</p>}
+                    </li>
+                  ))}
+                </ol>
               </>
-            ) : (
-              <p className="esh-detail-text">
-                No further escalation
-                {action.noFurtherEscalationReason ? `: ${action.noFurtherEscalationReason}` : '.'}
-              </p>
             )}
-          </section>
-        )}
+            {finding.dueChanges.length > 0 && (
+              <>
+                <h3 className="esh-subheading">Due-date changes</h3>
+                <ol className="esh-history">
+                  {finding.dueChanges.map((change) => (
+                    <li key={change.changedAt}>
+                      <strong>
+                        {change.oldDueAt ? `${dateTime(change.oldDueAt, true)} → ` : ''}
+                        {dateTime(change.newDueAt, true)}
+                      </strong>
+                      <span>
+                        {change.changedByName} · {dateTime(change.changedAt)} · {change.reason}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </>
+            )}
+          </details>
+        </section>
       </aside>
 
-      {/* The work itself: what was submitted, and the conversation. */}
+      {/* The right column answers "what is happening about it". */}
       <div className="esh-detail-main">
-        {finding.pendingSubmission && (
-          <section className="esh-form-card esh-submission" aria-labelledby="esh-detail-submission">
-            <h2 id="esh-detail-submission" className="esh-form-card-title">
-              Submitted for review · version {finding.pendingSubmission.version}
-            </h2>
-            <p className="form-hint">
-              {finding.pendingSubmission.ownerEmail} ·{' '}
-              {dateTime(finding.pendingSubmission.submittedAt)}. The submission is fixed: messages
-              sent since do not change it.
+        {failures.map((entry) => (
+          <div key={entry.id} className="notice error" role="alert">
+            <strong>
+              ⚠ Email {entry.state === 'bounced' ? 'bounced' : 'could not be delivered'} —{' '}
+              {entry.recipient ?? 'recipient'}
+            </strong>
+            <p>
+              {isAdministrator ? (
+                <>
+                  <Link href="/more/admin/users" className="guest-link">
+                    Correct the address
+                  </Link>{' '}
+                  in Identity &amp; access, or give the action to somebody else from the menu.
+                </>
+              ) : (
+                'Correct the address with an administrator, or give the action to somebody else from the menu.'
+              )}
             </p>
+          </div>
+        ))}
+
+        {finding.pendingSubmission && (
+          <section
+            id="esh-review"
+            className="esh-form-card esh-submission"
+            aria-labelledby="esh-detail-submission"
+          >
             {/*
-             * v217 - what was required, at the top of the decision. A verifier
-             * was comparing a photograph against a memory of the outcome,
-             * which sat in another card further down the page.
+             * Open for a Verifier, whose job this is; folded to one line for
+             * everybody else until they ask ("Review submission").
              */}
-            {action?.requiredOutcome && (
-              <div className="esh-required-outcome">
-                <span className="esh-pinned-label">Required outcome</span>
-                <p className="esh-detail-text">{action.requiredOutcome}</p>
+            <details className="esh-review" open={reviewOpen || canVerify || undefined}>
+              <summary className="esh-review-banner">
+                <span>
+                  <strong id="esh-detail-submission">
+                    Submitted for review · version {finding.pendingSubmission.version}
+                  </strong>
+                  <br />
+                  <small className="form-hint">
+                    {finding.pendingSubmission.ownerEmail} ·{' '}
+                    {dateTime(finding.pendingSubmission.submittedAt)}
+                  </small>
+                </span>
+                <span className="btn">Review submission</span>
+              </summary>
+              {/*
+               * v217 - what was required, at the top of the decision, then
+               * before and after side by side (stacked on a phone, §13).
+               */}
+              {action?.requiredOutcome && (
+                <div className="esh-required-outcome">
+                  <span className="esh-pinned-label">Required outcome</span>
+                  <p className="esh-detail-text">{action.requiredOutcome}</p>
+                </div>
+              )}
+              <div className="esh-compare">
+                <div className="esh-compare-side">
+                  <p className="esh-compare-label">Before · original condition</p>
+                  {finding.description && <p className="esh-detail-text">{finding.description}</p>}
+                  <FileList files={finding.originalEvidence} label="Original evidence" />
+                </div>
+                <div className="esh-compare-side">
+                  <p className="esh-compare-label">After · submitted correction</p>
+                  <p className="esh-detail-text">{finding.pendingSubmission.resultText}</p>
+                  <FileList files={finding.pendingSubmission.files} label="Submitted files" />
+                </div>
               </div>
-            )}
-            {/* Before and after, side by side on a desktop and stacked on a
-              phone (§13), so the condition and the correction are compared. */}
-            <div className="esh-compare">
-              <div className="esh-compare-side">
-                <p className="esh-compare-label">Before · original condition</p>
-                {finding.description && <p className="esh-detail-text">{finding.description}</p>}
-                <FileList files={finding.originalEvidence} label="Original evidence" />
-              </div>
-              <div className="esh-compare-side">
-                <p className="esh-compare-label">After · submitted correction</p>
-                <p className="esh-detail-text">{finding.pendingSubmission.resultText}</p>
-                <FileList files={finding.pendingSubmission.files} label="Submitted files" />
-              </div>
-            </div>
-            {canVerify && !ownWork && action && (
-              <VerifyPanel
-                submissionId={finding.pendingSubmission.id}
-                findingId={finding.id}
-                version={finding.pendingSubmission.version}
-                closesFinding={lastOpenAction}
-              />
-            )}
-            {canVerify && ownWork && (
-              <p className="notice warn" role="status">
-                This correction was submitted from your own address, so another ESH Verifier has to
-                check it.
+              <p className="form-hint">
+                The submission is fixed: messages sent since do not change it.
               </p>
-            )}
-            {!canVerify && <p className="form-hint">An ESH Verifier decides this submission.</p>}
+              {canVerify && !ownWork && action && (
+                <VerifyPanel
+                  submissionId={finding.pendingSubmission.id}
+                  findingId={finding.id}
+                  version={finding.pendingSubmission.version}
+                  closesFinding={lastOpenAction}
+                />
+              )}
+              {canVerify && ownWork && (
+                <p className="notice warn" role="status">
+                  This correction was submitted from your own address, so another ESH Verifier has
+                  to check it.
+                </p>
+              )}
+              {!canVerify && <p className="form-hint">An ESH Verifier decides this submission.</p>}
+            </details>
           </section>
         )}
 
@@ -761,129 +837,72 @@ function FindingSummary({
             )}
           </section>
         )}
-      </div>
 
-      {/*
-       * v216 - the delivery log and the audit trail are supporting
-       * evidence, not two more cards competing with the work. One
-       * disclosure, closed: an operational reader rarely wants them, and
-       * an auditor knows where to look.
-       */}
-      <details
-        className="esh-form-card esh-activity"
-        /*
-         * Open when something is wrong with delivery. Closed, this held the
-         * remedy for a held or bounced assignment behind a disclosure nobody
-         * had a reason to open — which is the opposite of what a held notice
-         * is for. Only failures become prominent.
-         */
-        open={
-          finding.notifications.some(
-            (entry) => entry.state === 'held_rollout' || entry.stoppedRetrying,
-          ) || undefined
-        }
-      >
-        <summary>Activity</summary>
-        {finding.notifications.length > 0 && (
-          <section aria-labelledby="esh-detail-notices">
-            <h3 id="esh-detail-notices" className="esh-subheading">
-              Delivery
-            </h3>
-            <ul className="esh-route">
-              {finding.notifications.map((entry) => (
-                <li key={entry.id}>
-                  <span>
-                    {entry.recipient ?? 'Recipient'}
-                    <small className="esh-notice-kind">
-                      {NOTIFICATION_KIND_LABELS[entry.eventType] ?? entry.eventType}
-                    </small>
-                  </span>
-                  <span>
-                    {entry.stoppedRetrying
-                      ? 'Failed — the mail server refused it. Check the address.'
-                      : entry.state === 'held_rollout' && entry.recipientEnabled
-                        ? 'Held — not yet released. Their access is on; release it when ready.'
-                        : (NOTIFICATION_STATE_LABELS[entry.state] ?? entry.state)}
-                    {entry.state === 'held_rollout' && !entry.recipientEnabled
-                      ? '. Nothing reaches them until this contact is enabled and the email is released — two deliberate acts, both below.'
-                      : ''}
-                    {entry.state === 'suppressed' && entry.stateReason
-                      ? ` · ${NOTIFICATION_REASON_LABELS[entry.stateReason] ?? entry.stateReason}`
-                      : ''}
-                    {/*
-                     * v212 - the remedy stands next to the problem. Enabling is
-                     * an administrator's act and still grants only access; the
-                     * release below it remains ESH's separate decision.
-                     */}
-                    {entry.state === 'held_rollout' &&
-                      !entry.recipientEnabled &&
-                      isAdministrator &&
-                      entry.recipientPrincipalId &&
-                      entry.recipient && (
-                        <EnableContactInline
-                          principalId={entry.recipientPrincipalId}
-                          findingId={finding.id}
-                          recipient={entry.recipient}
-                        />
-                      )}
-                    {entry.state === 'held_rollout' &&
-                      entry.recipientEnabled &&
-                      canCoordinate &&
-                      entry.recipient &&
-                      // A reply notice follows the assignment email, never leads it.
-                      (entry.eventType === 'owner_assignment' || !assignmentHeld) && (
-                        <ReleaseNotificationButton
-                          outboxId={entry.id}
-                          findingId={finding.id}
-                          recipient={entry.recipient}
-                          kind={(
-                            NOTIFICATION_KIND_LABELS[entry.eventType] ?? 'email'
-                          ).toLowerCase()}
-                        />
-                      )}
-                  </span>
+        {/*
+         * v227 - the latest few things that happened, and the whole record in
+         * a drawer. Delivery mechanics are not events in the finding's story.
+         */}
+        <section className="esh-activity-line" aria-labelledby="esh-activity-title">
+          <div>
+            <h2 id="esh-activity-title" className="visually-hidden">
+              Activity
+            </h2>
+            <ol aria-label="Latest activity">
+              {recent.map((entry, index) => (
+                <li key={`${entry.eventType}-${entry.occurredAt}-${index}`}>
+                  {index === 0 && 'Latest: '}
+                  <strong>{activityLabel(entry.eventType)}</strong> · {entry.actorName} ·{' '}
+                  {dateTime(entry.occurredAt)}
                 </li>
               ))}
-            </ul>
-          </section>
-        )}
-
-        <section aria-labelledby="esh-detail-history">
-          <h3 id="esh-detail-history" className="esh-subheading">
-            History
-          </h3>
-          {/*
-           * v222 - the last few events, then the rest on request. A finding
-           * that has run for months carries dozens; a reader opening Activity
-           * almost always wants the end of the story, not all of it.
-           */}
-          <ol className="esh-history">
-            {finding.history.slice(-3).map((entry, index) => (
-              <li key={`${entry.eventType}-${entry.occurredAt}-${index}`}>
-                <strong>{HISTORY_LABELS[entry.eventType] ?? entry.eventType}</strong>
-                <span>
-                  {entry.actorName} · {dateTime(entry.occurredAt)}
-                </span>
-              </li>
-            ))}
-          </ol>
-          {finding.history.length > 3 && (
-            <details className="esh-history-all">
-              <summary>Show all {finding.history.length} events</summary>
+            </ol>
+          </div>
+          <HistoryDrawer label="View full history">
+            <section aria-labelledby="esh-history-title">
+              <h3 id="esh-history-title" className="esh-subheading">
+                Everything that happened
+              </h3>
               <ol className="esh-history">
-                {finding.history.map((entry, index) => (
+                {story.map((entry, index) => (
                   <li key={`all-${entry.eventType}-${entry.occurredAt}-${index}`}>
-                    <strong>{HISTORY_LABELS[entry.eventType] ?? entry.eventType}</strong>
+                    <strong>{activityLabel(entry.eventType)}</strong>
                     <span>
                       {entry.actorName} · {dateTime(entry.occurredAt)}
                     </span>
                   </li>
                 ))}
               </ol>
-            </details>
-          )}
+            </section>
+            {finding.notifications.length > 0 && (
+              <section aria-labelledby="esh-delivery-title">
+                <h3 id="esh-delivery-title" className="esh-subheading">
+                  Delivery log
+                </h3>
+                <ul className="esh-route">
+                  {finding.notifications.map((entry) => (
+                    <li key={entry.id}>
+                      <span>
+                        {entry.recipient ?? 'Recipient'}
+                        <small className="esh-notice-kind">
+                          {NOTIFICATION_KIND_LABELS[entry.eventType] ?? entry.eventType}
+                        </small>
+                      </span>
+                      <span>
+                        {entry.stoppedRetrying
+                          ? 'Failed — the mail server refused it. Check the address.'
+                          : (NOTIFICATION_STATE_LABELS[entry.state] ?? entry.state)}
+                        {entry.state === 'suppressed' && entry.stateReason
+                          ? ` · ${NOTIFICATION_REASON_LABELS[entry.stateReason] ?? entry.stateReason}`
+                          : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+          </HistoryDrawer>
         </section>
-      </details>
+      </div>
     </div>
   );
 }

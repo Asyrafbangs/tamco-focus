@@ -7,10 +7,12 @@ import {
   blocksRelease,
   importActionProblem,
   importProblem,
+  importReleaseSummary,
   outcomeLabel,
   outcomeTone,
 } from '@/domain/esh-import';
 import type { ImportBatchDetail, ImportRowRecord } from '@/server/esh/import';
+import { releaseHeldNotifications } from '@/server/esh/rollout-actions';
 import {
   acknowledgeImportEvidence,
   amendImportRow,
@@ -99,7 +101,14 @@ function Amend({
   );
 }
 
-export function ImportReview({ batch }: { batch: ImportBatchDetail }) {
+export function ImportReview({
+  batch,
+  ownerEmailMode,
+}: {
+  batch: ImportBatchDetail;
+  /** v227 - whether the rollout holds owner email (restricted) or sends it (live). */
+  ownerEmailMode: 'held' | 'live';
+}) {
   const router = useRouter();
   const [busy, start] = useTransition();
   const [problem, setProblem] = useState<string | null>(null);
@@ -117,6 +126,7 @@ export function ImportReview({ batch }: { batch: ImportBatchDetail }) {
   const [followup, setFollowup] = useState('');
   const clientKey = useRef('');
   const released = batch.rows.filter((row) => row.outcome === 'released');
+  const summary = importReleaseSummary(batch.rows, batch.owners, chosen);
   const unresolved = batch.evidence.filter((reference) => reference.state === 'unresolved');
 
   function refresh(message: string) {
@@ -333,36 +343,70 @@ export function ImportReview({ batch }: { batch: ImportBatchDetail }) {
 
       {ready.length > 0 && (
         <section className="card esh-import-release" aria-labelledby="import-release">
-          <h2 id="import-release">Release</h2>
+          <h2 id="import-release">Import and notify</h2>
+          {/*
+           * v227 - one summary instead of ninety rows to read: who will hear,
+           * about how much, and what is still missing.
+           */}
+          <dl className="esh-import-summary">
+            <div>
+              <dt>Owners</dt>
+              <dd>{summary.owners}</dd>
+            </div>
+            <div>
+              <dt>Open actions</dt>
+              <dd>{summary.actions}</dd>
+            </div>
+            <div>
+              <dt>Valid emails</dt>
+              <dd>{summary.validEmails}</dd>
+            </div>
+            <div>
+              <dt>Missing emails</dt>
+              <dd>{summary.missingEmails}</dd>
+            </div>
+            <div>
+              <dt>Duplicate or uncertain</dt>
+              <dd>{summary.uncertain}</dd>
+            </div>
+          </dl>
           <p>
-            {chosen.length} of {ready.length} ready row{ready.length === 1 ? '' : 's'} selected.{' '}
             {batch.readyOverdue > 0 &&
-              `${batch.readyOverdue} of them are already past their target date, and stay that way. `}
-            Releasing creates the findings, assigns their owners and sends each owner one summary.
+              `${batch.readyOverdue} are already past their target date, and stay that way. `}
+            Each owner receives one email listing their actions
+            {ownerEmailMode === 'held'
+              ? ' — held while the rollout is restricted, then sent with one press below.'
+              : ', sent at once.'}{' '}
+            Rows with a missing email or an open question wait here until they are answered.
           </p>
-          <ul className="esh-import-choose">
-            {ready.map((row) => (
-              <li key={row.id}>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={chosen.includes(row.id)}
-                    onChange={(event) =>
-                      setExcluded((current) =>
-                        event.target.checked
-                          ? current.filter((id) => id !== row.id)
-                          : [...current, row.id],
-                      )
-                    }
-                  />
-                  <span>
-                    Row {row.line}
-                    {row.reference ? ` · ${row.reference}` : ''} — {row.mapped.owner_email ?? ''}
-                  </span>
-                </label>
-              </li>
-            ))}
-          </ul>
+          <details className="esh-form-more">
+            <summary>
+              Choose rows ({chosen.length} of {ready.length})
+            </summary>
+            <ul className="esh-import-choose">
+              {ready.map((row) => (
+                <li key={row.id}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={chosen.includes(row.id)}
+                      onChange={(event) =>
+                        setExcluded((current) =>
+                          event.target.checked
+                            ? current.filter((id) => id !== row.id)
+                            : [...current, row.id],
+                        )
+                      }
+                    />
+                    <span>
+                      Row {row.line}
+                      {row.reference ? ` · ${row.reference}` : ''} — {row.mapped.owner_email ?? ''}
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </details>
           <label className="esh-field">
             <span>Start following these up</span>
             <input
@@ -395,11 +439,14 @@ export function ImportReview({ batch }: { batch: ImportBatchDetail }) {
                   }
                   clientKey.current = '';
                   setExcluded([]);
-                  refresh('Released. Each owner has one summary waiting.');
+                  refresh(
+                    'Released. Each owner has one summary — held for anyone the rollout cannot write to yet.',
+                  );
                 })
               }
             >
-              Release {chosen.length} row{chosen.length === 1 ? '' : 's'}
+              Import {chosen.length} finding{chosen.length === 1 ? '' : 's'} and notify{' '}
+              {summary.owners} owner{summary.owners === 1 ? '' : 's'}
             </button>
           </div>
           {unresolved.length > 0 && (
@@ -408,6 +455,53 @@ export function ImportReview({ batch }: { batch: ImportBatchDetail }) {
               does.
             </p>
           )}
+        </section>
+      )}
+
+      {/*
+        v224 — the backlog says something once, to everybody.
+
+        Releasing already writes one summary per owner rather than one per
+        finding, but under a restricted rollout each of those is held, and until
+        now the only way to send them was one at a time from ninety-four
+        separate findings. Every rule still holds: this calls the same release
+        the finding page calls, so an owner whose contact is not cleared is
+        still not written to.
+      */}
+      {batch.heldNotifications > 0 && (
+        <section className="card esh-import-notify" aria-labelledby="import-notify">
+          <h2 id="import-notify">Tell the owners</h2>
+          <p>
+            {batch.heldNotifications} owner summar
+            {batch.heldNotifications === 1 ? 'y is' : 'ies are'} held because the rollout cannot
+            write to those contacts yet. Clear them under Identity and access, or open the rollout
+            there, and then release them from here.
+            {batch.queuedNotifications > 0 &&
+              ` ${batch.queuedNotifications} ${batch.queuedNotifications === 1 ? 'has' : 'have'} already gone out.`}
+          </p>
+          <div className="esh-import-actions">
+            <button
+              type="button"
+              className="btn primary"
+              disabled={busy}
+              onClick={() =>
+                start(async () => {
+                  const result = await releaseHeldNotifications({ importBatchId: batch.id });
+                  if (!result.ok) setProblem(result.message);
+                  else refresh(result.message);
+                })
+              }
+            >
+              Notify{' '}
+              {batch.heldNotifications === 1
+                ? 'the owner'
+                : `all ${batch.heldNotifications} owners`}
+            </button>
+          </div>
+          <p className="hint">
+            Nothing goes to a contact an administrator has not cleared. The answer says how many
+            were held back and which rule held each of them.
+          </p>
         </section>
       )}
 

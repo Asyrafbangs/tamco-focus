@@ -5,8 +5,10 @@ import { WorkspaceTabs } from '@/components/ui/ParityPrimitives';
 import { SubmitOnSelect } from '@/components/ui/SubmitOnSelect';
 import { requireProfile } from '@/lib/supabase/server';
 import { getDirectoryData, getReportingHistory, getVisibilityData } from '@/server/queries';
+import { getEshAccess } from '@/server/esh/access';
 import {
   getEmailContactDetail,
+  getRolloutStatus,
   getStaffEshAccessForAdmin,
   listEmailContacts,
 } from '@/server/esh/queries';
@@ -17,6 +19,7 @@ import { BulkContactAccess } from './BulkContactAccess';
 import { ContactAdministration } from './ContactAdministration';
 import { ModuleAccessForm } from './ModuleAccessForm';
 import { ReportingHistory } from './ReportingHistory';
+import { RolloutModeForm } from './RolloutModeForm';
 
 export default async function UsersPage({
   searchParams,
@@ -36,7 +39,15 @@ export default async function UsersPage({
   if (profile.role !== 'administrator') notFound();
   const params = await searchParams;
   const search = (params.q ?? '').trim().slice(0, 120);
-  const [directory, contacts] = await Promise.all([getDirectoryData(), listEmailContacts(search)]);
+  const [directory, contacts, rollout, myEshAccess] = await Promise.all([
+    getDirectoryData(),
+    listEmailContacts(search),
+    getRolloutStatus(),
+    // The administrator's own Finding access: releasing held mail is ESH's act,
+    // not an administrator's, so the control appears only for somebody holding
+    // both (§43.2).
+    getEshAccess(),
+  ]);
   const needle = params.q?.trim().toLowerCase() ?? '';
   const kind = ['users', 'contacts'].includes(params.type ?? '') ? params.type : 'all';
   const linkedContactByStaff = new Map(
@@ -60,6 +71,11 @@ export default async function UsersPage({
   const waitingToBeCleared = contacts
     .filter(
       (contact) =>
+        // v224 — with the rollout open there is nobody to clear: an active
+        // contact is reachable already, and anyone switched off was switched
+        // off on purpose. Listing them here would be asking an administrator
+        // to undo their own decision.
+        rollout?.mode !== 'live' &&
         !contact.accessEnabled &&
         contact.status === 'active' &&
         (contact.openActions > 0 || contact.heldNotifications > 0),
@@ -381,6 +397,9 @@ export default async function UsersPage({
             </>
           ) : (
             <>
+              {rollout && (
+                <RolloutModeForm status={rollout} canRelease={myEshAccess.canCoordinate} />
+              )}
               <BulkContactAccess contacts={waitingToBeCleared} />
               <div className="empty-state">
                 <h2>Select a person</h2>

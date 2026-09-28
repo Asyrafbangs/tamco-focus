@@ -106,6 +106,27 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v227 one-screen-one-job evidence
+
+- pgTAP (13) proves: editing an open finding records before and after and refuses an unchanged
+  save; reassessing risk needs a reason and leaves the deadline where it was; the register reports
+  changes requested and no longer counts a held email as attention; Withdraw is refused and Raised
+  in error is recorded as cancelled.
+- Unit tests cover the human/technical split of the activity trail, the three outcomes, the import
+  summary, and the four-state next-actor rule with its overlays.
+- Playwright: every ESH journey was updated to the screens it now describes. The held-email journey
+  reads the one register line, clears the contact, and releases with v224's Release all; the import
+  journey reads the summary and imports and notifies in one press.
+
+## v223 department-route evidence
+
+- pgTAP (11) proves that only ESH within scope may record a route, that an invalid level or
+  address is refused before anything is written, that replacing a route removes what it replaced
+  rather than merging, and that listing somebody creates no contact and grants no access.
+- Playwright records a route in settings, checks a new finding in that department is offered it,
+  and that switching department replaces it. It then clears the route, because this suite shares
+  one database.
+
 ## v221 closure-record evidence
 
 - The v200 journey closes a finding and then checks the page shows before, after and who verified

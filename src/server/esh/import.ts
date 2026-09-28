@@ -63,6 +63,14 @@ export interface ImportBatchDetail {
   counts: Record<string, number>;
   /** Ready rows whose target date has already passed, counted on the server. */
   readyOverdue: number;
+  /**
+   * v224 — the owners this batch has still not been able to tell, and the
+   * ones it has. A backlog of ninety-four releases ninety-four findings and
+   * then says nothing, because under a restricted rollout every summary is
+   * held; the screen has to say so where the release happened.
+   */
+  heldNotifications: number;
+  queuedNotifications: number;
 }
 
 export async function listImportBatches(): Promise<ImportBatchSummary[]> {
@@ -125,7 +133,7 @@ export async function loadImportBatch(batchId: string): Promise<ImportBatchDetai
     .maybeSingle();
   if (error || !batch) return null;
 
-  const [rowsResult, ownersResult, evidenceResult] = await Promise.all([
+  const [rowsResult, ownersResult, evidenceResult, noticesResult] = await Promise.all([
     supabase
       .from('esh_import_rows')
       .select(
@@ -143,7 +151,9 @@ export async function loadImportBatch(batchId: string): Promise<ImportBatchDetai
       .select('id, kind, detail, state, row_id')
       .eq('batch_id', batchId)
       .order('created_at'),
+    supabase.from('esh_notification_outbox').select('state').eq('import_batch_id', batchId),
   ]);
+  const notices = noticesResult.data ?? [];
 
   const rows = rowsResult.data ?? [];
   const findingIds = rows
@@ -183,6 +193,10 @@ export async function loadImportBatch(batchId: string): Promise<ImportBatchDetai
     releasedAt: batch.released_at ? String(batch.released_at) : null,
     counts,
     readyOverdue,
+    heldNotifications: notices.filter((notice) => String(notice.state) === 'held_rollout').length,
+    queuedNotifications: notices.filter((notice) =>
+      ['queued', 'processing', 'provider_accepted'].includes(String(notice.state)),
+    ).length,
     rows: rows.map((row) => ({
       id: String(row.id),
       line: Number(row.source_line),

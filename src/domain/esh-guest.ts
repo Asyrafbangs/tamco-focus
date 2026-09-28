@@ -9,6 +9,7 @@
  * tested without a server.
  */
 
+import { EVIDENCE_MAX_FILES_PER_MESSAGE, EVIDENCE_MAX_MESSAGE_LABEL } from '@/domain/esh-evidence';
 import { daysOverdue, type ActionPriority, type ActionState } from '@/domain/esh-findings';
 
 /** Purpose-specific links: owner scopes never double as escalation scopes. */
@@ -76,7 +77,7 @@ export type MyActionsFilter = 'needs' | 'review';
 
 export const MY_ACTIONS_FILTERS: Array<{ key: MyActionsFilter; label: string }> = [
   { key: 'needs', label: 'Needs my action' },
-  { key: 'review', label: 'Awaiting ESH review' },
+  { key: 'review', label: 'Waiting for ESH' },
 ];
 
 export function myActionsFilterFrom(value: string | undefined): MyActionsFilter {
@@ -147,6 +148,9 @@ export const OWNER_MESSAGE_PROBLEMS: Record<string, string> = {
   body_required: 'Write a message first.',
   body_too_long: `Keep a message under ${MESSAGE_MAX_LENGTH.toLocaleString('en-GB')} characters.`,
   slow_down: 'That is a lot of messages in a few minutes. Wait a little, then send again.',
+  too_many_files: `Up to ${EVIDENCE_MAX_FILES_PER_MESSAGE} files can go with one update.`,
+  files_not_ready: 'Finish, retry or remove the files before sending.',
+  message_too_large: `The files come to more than ${EVIDENCE_MAX_MESSAGE_LABEL} together. Send them across two updates.`,
   invalid: 'Something went wrong and the message was not sent. Try again.',
 };
 
@@ -168,17 +172,10 @@ export const STAFF_MESSAGE_PROBLEMS: Record<string, string> = {
   action_closed: 'This action is closed, so the conversation is read-only.',
   body_required: 'Write a message first.',
   body_too_long: `Keep a message under ${MESSAGE_MAX_LENGTH.toLocaleString('en-GB')} characters.`,
+  too_many_files: `Up to ${EVIDENCE_MAX_FILES_PER_MESSAGE} files can go with one message.`,
+  files_not_ready: 'Finish, retry or remove the files before sending.',
+  message_too_large: `The files come to more than ${EVIDENCE_MAX_MESSAGE_LABEL} together. Send them across two messages.`,
   invalid: 'Something went wrong and the message was not sent. Try again.',
-};
-
-export const RELEASE_PROBLEMS: Record<string, string> = {
-  not_permitted: 'Only a Coordinator or Verifier can release a notification.',
-  notification_not_found: 'This notification could not be found.',
-  not_held: 'This notification is no longer held.',
-  contact_access_off:
-    'The owner’s access is still off. An administrator enables it in People & access → Email-link contacts.',
-  no_longer_the_owner: 'This address no longer owns the action, so nothing was sent.',
-  assignment_first: 'Release the assignment email first: it opens the same conversation.',
 };
 
 export const CONTACT_ACCESS_PROBLEMS: Record<string, string> = {
@@ -238,14 +235,6 @@ export function staffMessageProblem(code: string | undefined): string {
   );
 }
 
-export function releaseProblem(code: string | undefined): string {
-  return wordsFor(
-    RELEASE_PROBLEMS,
-    code,
-    'Something went wrong and nothing was released. Try again.',
-  );
-}
-
 export function contactAccessProblem(code: string | undefined): string {
   return wordsFor(
     CONTACT_ACCESS_PROBLEMS,
@@ -262,7 +251,8 @@ export const SUBMIT_PROBLEMS: Record<string, string> = {
     'Submit either the update you chose or what is in the box, not both. Clear the box, or submit from the box.',
   message_not_yours: 'Only an update you sent for this action can be submitted.',
   files_not_ready: 'Finish, retry or remove the files before submitting.',
-  too_many_files: 'Up to 10 files can go with one submission.',
+  too_many_files: `Up to ${EVIDENCE_MAX_FILES_PER_MESSAGE} files can go with one submission.`,
+  message_too_large: `The files come to more than ${EVIDENCE_MAX_MESSAGE_LABEL} together. Submit them across two updates.`,
   body_too_long: `Keep the result under ${MESSAGE_MAX_LENGTH.toLocaleString('en-GB')} characters.`,
 };
 

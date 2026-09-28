@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   EVIDENCE_ACCEPT,
+  EVIDENCE_MAX_BYTES,
+  EVIDENCE_MAX_MESSAGE_BYTES,
+  evidenceAdditionProblem,
   evidenceLabel,
   evidenceProblem,
   safeEvidenceName,
@@ -64,10 +67,31 @@ describe('v199 — evidence files', () => {
       'Attach a photo, PDF, Word, Excel, PowerPoint, CSV or text file.',
     );
     expect(evidenceProblem('photo.jpg', 0)).toBe('This file is empty.');
-    expect(evidenceProblem('photo.jpg', 10 * 1024 * 1024 + 1)).toBe(
-      'Files can be up to 10 MB each.',
+    // v226 — 25 MB, which is what §23 asks for and what a phone photograph of a
+    // dark plant room actually weighs.
+    expect(EVIDENCE_MAX_BYTES).toBe(25 * 1024 * 1024);
+    expect(evidenceProblem('photo.jpg', EVIDENCE_MAX_BYTES + 1)).toBe(
+      'Files can be up to 25 MB each.',
     );
-    expect(evidenceProblem('photo.jpg', 10 * 1024 * 1024)).toBeNull();
+    expect(evidenceProblem('photo.jpg', EVIDENCE_MAX_BYTES)).toBeNull();
+  });
+
+  it('v226 stops an update going over the total before anything is uploaded', () => {
+    const megabyte = 1024 * 1024;
+    expect(EVIDENCE_MAX_MESSAGE_BYTES).toBe(100 * megabyte);
+
+    // Room for it: nothing to say.
+    expect(evidenceAdditionProblem({ files: 3, bytes: 60 * megabyte }, 20 * megabyte)).toBeNull();
+    // Exactly the limit is inside it.
+    expect(evidenceAdditionProblem({ files: 3, bytes: 80 * megabyte }, 20 * megabyte)).toBeNull();
+    // One byte over is not.
+    expect(evidenceAdditionProblem({ files: 3, bytes: 80 * megabyte }, 20 * megabyte + 1)).toBe(
+      'This would take the update past 100 MB. Send what is here first.',
+    );
+    // The count is its own limit, whatever the sizes.
+    expect(evidenceAdditionProblem({ files: 10, bytes: 1 }, 1)).toBe(
+      'Up to 10 files can go with one update. Send these first.',
+    );
   });
 
   it('keeps a display name safe: no path, no control characters', () => {

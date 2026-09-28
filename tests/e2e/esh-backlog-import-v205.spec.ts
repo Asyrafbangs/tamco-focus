@@ -126,12 +126,28 @@ test('v205 an Excel backlog is mapped, reconciled and released', async ({ page }
   await expect(readyCount).toContainText('2', { timeout: 30_000 });
 
   // Release says what it is about to do, including what is already late.
+  // v227 - one summary says it in numbers, and one press imports and notifies.
   const release = page.locator('.esh-import-release');
   await expect(release).toContainText('already past their target date');
-  await release.getByRole('button', { name: /^Release 2 rows$/ }).click();
-  await expect(page.getByText('Each owner has one summary waiting.')).toBeVisible({
+  const summary = release.locator('.esh-import-summary');
+  await expect(summary.getByText('Open actions').locator('..')).toContainText('2');
+  await expect(summary.getByText('Missing emails').locator('..')).toContainText('0');
+  await release.getByRole('button', { name: /^Import 2 findings and notify \d+ owners?$/ }).click();
+  await expect(page.getByText('Each owner has one summary')).toBeVisible({
     timeout: 30_000,
   });
+
+  /*
+   * v224 - and the batch offers to send them, in one press.
+   *
+   * Release writes one summary per owner rather than one per finding, but under
+   * a restricted rollout every one of them is held, and until v224 the only way
+   * to send them was one at a time from each finding. The section says how many
+   * are waiting and what has to happen first.
+   */
+  const notify = page.locator('.esh-import-notify');
+  await expect(notify).toContainText('held because the rollout cannot write to those contacts');
+  await expect(notify.getByRole('button', { name: /^Notify/ })).toBeVisible();
 
   // The finding is live, and still as late as the file said it was: a backlog
   // does not become punctual by being imported (§38.3).
