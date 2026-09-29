@@ -18,7 +18,7 @@ import { VerifyPanel } from '@/components/esh/VerifyPanel';
 import { FindingForm } from '@/components/esh/FindingForm';
 import { StaffMessageForm } from '@/components/esh/StaffMessageForm';
 import { activityLabel, humanActivity } from '@/domain/esh-activity';
-import { evidenceLabel } from '@/domain/esh-evidence';
+import { EVIDENCE_IMAGE_TYPES, evidenceLabel } from '@/domain/esh-evidence';
 import { nextActor } from '@/domain/esh-next-actor';
 import { VERIFICATION_METHOD_LABELS, type VerificationMethod } from '@/domain/esh-verification';
 import {
@@ -391,9 +391,19 @@ function FileList({ files, label }: { files: FindingDetail['originalEvidence']; 
       {files.map((file) => (
         <li key={file.id} className="esh-file">
           <a href={`/findings/files/${file.id}`} target="_blank" rel="noopener noreferrer">
-            <span className="esh-file-icon" aria-hidden="true">
-              ▧
-            </span>
+            {EVIDENCE_IMAGE_TYPES.has(file.type) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                className="esh-file-thumb"
+                src={`/findings/files/${file.id}`}
+                alt=""
+                loading="lazy"
+              />
+            ) : (
+              <span className="esh-file-icon" aria-hidden="true">
+                ▧
+              </span>
+            )}
             <span>
               <strong>{file.name}</strong>
               <small>{evidenceLabel(file.name, file.size)}</small>

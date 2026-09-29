@@ -15526,3 +15526,30 @@ span.deadline span.deadline-glyph,
 .esh-import-steps .esh-step {
   gap: 8px;
 }
+
+/* ---------------------------------------------------------------------------
+ * v229 — a finding is mostly a photograph, so show the photograph.
+ *
+ * The conversation already rendered image attachments as pictures; the three
+ * lists that carry the finding's own evidence did not, so an Action Owner was
+ * told "Fences Unauthorized.jpeg · 271 KB" about the thing they were being
+ * asked to put right, and ESH saw the same when verifying it. 48px is right
+ * for a chat attachment and useless for that, so these get a real preview and
+ * the row becomes a column to give it room.
+ * ------------------------------------------------------------------------- */
+
+.esh-original-evidence .esh-file > a,
+.guest-original-files .esh-file > a,
+.esh-compare .esh-file > a {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.esh-original-evidence .esh-file-thumb,
+.guest-original-files .esh-file-thumb,
+.esh-compare .esh-file-thumb {
+  width: 100%;
+  height: auto;
+  max-height: 260px;
+  object-fit: contain;
+}

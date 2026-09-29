@@ -38,6 +38,22 @@ export const EVIDENCE_MAX_MESSAGE_LABEL = megabytes(EVIDENCE_MAX_MESSAGE_BYTES);
 
 export type EvidenceType = (typeof DEFAULT_ALLOWED_MIME_TYPES)[number];
 
+/**
+ * Image types worth showing as a picture rather than a filename (v229).
+ *
+ * A safety finding is mostly a photograph. Listing it as "Fences
+ * Unauthorized.jpeg · 271 KB" tells an Action Owner nothing about the thing
+ * they are being asked to put right, and tells ESH nothing when they verify it.
+ * Narrower than INLINE_TYPES below, which also passes PDFs straight through:
+ * a PDF cannot be an <img>.
+ */
+export const EVIDENCE_IMAGE_TYPES: ReadonlySet<string> = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+]);
+
 /** Types a browser may show in place; everything else is a download (§23). */
 export const INLINE_TYPES: ReadonlySet<string> = new Set([
   'image/png',
