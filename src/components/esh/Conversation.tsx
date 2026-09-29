@@ -1,14 +1,12 @@
 import { AcceptHandover } from '@/components/esh/AcceptHandover';
 import { AcceptProposedDate } from '@/components/esh/AcceptProposedDate';
-import { evidenceLabel } from '@/domain/esh-evidence';
+import { EVIDENCE_IMAGE_TYPES, evidenceLabel } from '@/domain/esh-evidence';
 import {
   conversationDay,
   firstName,
   type ConversationEntry,
   type SubmissionMark,
 } from '@/domain/esh-guest';
-
-const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
 
 /**
  * One action's conversation (§11, §13), as either side reads it.
@@ -117,7 +115,7 @@ export function Conversation({
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          {IMAGE_TYPES.has(file.type) ? (
+                          {EVIDENCE_IMAGE_TYPES.has(file.type) ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               className="esh-file-thumb"

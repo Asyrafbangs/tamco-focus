@@ -5,7 +5,7 @@ import { EscalationComposer } from '@/components/esh/guest/EscalationComposer';
 import { GuestTopBar } from '@/components/esh/guest/GuestTopBar';
 import { OwnerComposer } from '@/components/esh/guest/OwnerComposer';
 import { RequestLinkForm } from '@/components/esh/guest/RequestLinkForm';
-import { evidenceLabel } from '@/domain/esh-evidence';
+import { EVIDENCE_IMAGE_TYPES, evidenceLabel } from '@/domain/esh-evidence';
 import { ACTION_STATE_LABELS } from '@/domain/esh-findings';
 import { firstName } from '@/domain/esh-guest';
 import { orgConfig } from '@/lib/env';
@@ -240,9 +240,19 @@ export default async function GuestActionPage({
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        <span className="esh-file-icon" aria-hidden="true">
-                          ▧
-                        </span>
+                        {EVIDENCE_IMAGE_TYPES.has(file.type) ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            className="esh-file-thumb"
+                            src={`/respond/files/${file.id}`}
+                            alt=""
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="esh-file-icon" aria-hidden="true">
+                            ▧
+                          </span>
+                        )}
                         <span>
                           <strong>{file.name}</strong>
                           <small>{evidenceLabel(file.name, file.size)}</small>

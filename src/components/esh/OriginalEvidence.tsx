@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 
-import { evidenceLabel } from '@/domain/esh-evidence';
+import { EVIDENCE_IMAGE_TYPES, evidenceLabel } from '@/domain/esh-evidence';
 import type { EvidenceFile } from '@/domain/esh-guest';
 import { AttachButtons, UploadList, useEvidenceUploads } from '@/components/esh/EvidenceUploader';
 import {
@@ -54,9 +54,19 @@ export function OriginalEvidence({
           {files.map((file) => (
             <li key={file.id} className="esh-file">
               <a href={`/findings/files/${file.id}`} target="_blank" rel="noopener noreferrer">
-                <span className="esh-file-icon" aria-hidden="true">
-                  ▧
-                </span>
+                {EVIDENCE_IMAGE_TYPES.has(file.type) ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    className="esh-file-thumb"
+                    src={`/findings/files/${file.id}`}
+                    alt=""
+                    loading="lazy"
+                  />
+                ) : (
+                  <span className="esh-file-icon" aria-hidden="true">
+                    ▧
+                  </span>
+                )}
                 <span>
                   <strong>{file.name}</strong>
                   <small>{evidenceLabel(file.name, file.size)}</small>
