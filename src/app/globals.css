@@ -15454,3 +15454,75 @@ span.deadline span.deadline-glyph,
   gap: 18px;
   padding: 16px 20px 28px;
 }
+
+/*
+ * v228 — a department's own escalation route, folded to what it means.
+ *
+ * The editor stays mounted while folded so its hidden inputs still submit the
+ * route. `hidden` alone does not hide it: the attribute is a user-agent
+ * `display: none`, and this file's own `display: grid` outranks it, so the
+ * boxes stayed on screen underneath the summary.
+ */
+.esh-escalation-levels[hidden] {
+  display: none;
+}
+
+.esh-route-summary {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 12px 14px;
+  background: var(--surface-2, var(--bg));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.esh-route-summary ol {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  width: 100%;
+}
+.esh-route-summary li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: calc(13px * var(--font-scale));
+  line-height: 1.5;
+}
+.esh-route-level {
+  font-weight: 600;
+}
+.esh-route-when {
+  color: var(--muted);
+}
+.esh-route-who {
+  color: var(--text);
+}
+
+/* v228 — the department list, read at a glance. */
+.esh-department-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.esh-department-chips li {
+  padding: 6px 12px;
+  background: var(--surface-2, var(--bg));
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: calc(13px * var(--font-scale));
+}
+
+/* v228 — where a backlog is in its journey. Not clickable: a statement. */
+.esh-import-steps {
+  margin: 0 0 18px;
+}
+.esh-import-steps .esh-step {
+  gap: 8px;
+}

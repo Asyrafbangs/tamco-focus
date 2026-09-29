@@ -35,7 +35,7 @@ test('v223 a department carries its own escalation route into a new finding', as
   const level2 = `route.two.${suffix}@example.com`;
 
   await signIn(page);
-  await page.goto('/findings/settings');
+  await page.goto('/findings/settings?tab=follow-up');
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
   const card = page.locator('section.esh-form-card', {
@@ -64,9 +64,15 @@ test('v223 a department carries its own escalation route into a new finding', as
   const form = page.locator('form.esh-finding-form');
   await chooseDepartment(page, 'Operations');
   await page.getByRole('button', { name: 'Next' }).click();
-  await expect(form.getByText(level1)).toBeVisible();
-  await expect(form.getByText(level2)).toBeVisible();
-  await expect(form).toContainText('Offered from this department’s usual route');
+  // v228 - both addresses are in the folded summary. Scoped to it, because the
+  // editor underneath still holds them in hidden inputs so the finding carries
+  // the route, which makes an unscoped match ambiguous.
+  const route = page.locator('.esh-route-summary');
+  await expect(route).toContainText(level1);
+  await expect(route).toContainText(level2);
+  // v228 - the department's own route arrives folded, so what it says is what
+  // it would do rather than two boxes asking to be read again.
+  await expect(form).toContainText('The route this department normally uses');
 
   // It is an offer: another department replaces it rather than adding to it.
   await page.getByRole('button', { name: 'Back' }).click();
@@ -79,7 +85,7 @@ test('v223 a department carries its own escalation route into a new finding', as
    * offered to every later finding recorded there — quietly adding an
    * escalation recipient another spec never asked for.
    */
-  await page.goto('/findings/settings');
+  await page.goto('/findings/settings?tab=follow-up');
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   for (const level of [1, 2]) {
     await card.getByLabel(`Level ${level}`).fill('');

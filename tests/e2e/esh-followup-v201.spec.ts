@@ -45,7 +45,7 @@ test('v201 ESH can review the policy and its maintained working-day calendar', a
     'Desktop and mobile policy layouts.',
   );
   await signIn(page);
-  await page.goto('/findings/settings');
+  await page.goto('/findings/settings?tab=follow-up');
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   await expect(page.getByRole('heading', { name: 'Follow-up settings' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Owner reminders' })).toBeVisible();

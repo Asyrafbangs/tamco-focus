@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { ImportSteps } from '@/components/esh/ImportSteps';
 import { ImportWizard } from '@/components/esh/ImportWizard';
 import { requireEshAccess } from '@/server/esh/access';
 import { listImportBatches } from '@/server/esh/import';
@@ -26,6 +27,8 @@ export default async function FindingImportPage() {
           </p>
         </div>
       </div>
+
+      <ImportSteps current={1} />
 
       <ImportWizard />
 

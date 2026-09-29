@@ -350,6 +350,10 @@ export function ImportReview({
            */}
           <dl className="esh-import-summary">
             <div>
+              <dt>Total records</dt>
+              <dd>{batch.sourceRows}</dd>
+            </div>
+            <div>
               <dt>Owners</dt>
               <dd>{summary.owners}</dd>
             </div>
