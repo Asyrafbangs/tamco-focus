@@ -1,5 +1,7 @@
 import Link from 'next/link';
 
+import { AgePanel, ClosurePanel, RiskPanel, TrendPanel } from '@/components/esh/DashboardPanels';
+import { headline } from '@/domain/esh-dashboard';
 import { HeldNoticesRelease } from '@/components/esh/HeldNoticesRelease';
 import { OperationalHealth } from '@/components/esh/OperationalHealth';
 import { PeriodPicker } from '@/components/ui/PeriodPicker';
@@ -11,6 +13,7 @@ import { requireEshAccess } from '@/server/esh/access';
 import {
   getDepartmentsInScope,
   getEshOverview,
+  getDashboard,
   getOperationalHealth,
   getRolloutStatus,
 } from '@/server/esh/queries';
@@ -43,7 +46,7 @@ export default async function FindingsOverviewPage({
     '30',
     timeZone,
   );
-  const [overview, departments, health, rollout] = await Promise.all([
+  const [overview, departments, health, rollout, dashboard] = await Promise.all([
     getEshOverview({
       departmentId,
       closedSince: closurePeriod.since,
@@ -55,6 +58,8 @@ export default async function FindingsOverviewPage({
     // v224 — how much held mail could actually go out. Returns nothing for
     // somebody who may only read, so the release is never offered to them.
     access.canCoordinate ? getRolloutStatus() : Promise.resolve(null),
+    // v230 — the trend, the ageing and the closure record.
+    getDashboard(),
   ]);
   const visibleRows = departmentUnassigned
     ? overview.rows.filter((row) => row.departmentId === null)
@@ -91,8 +96,12 @@ export default async function FindingsOverviewPage({
       <div className="pagehead esh-overview-head">
         <div>
           <p className="eyebrow">Finding Management</p>
-          <h1>Overview</h1>
-          <p>What remains unresolved, where follow-up is needed, and what closed recently.</p>
+          <h1>Dashboard</h1>
+          <p>
+            {dashboard
+              ? headline(dashboard)
+              : 'What remains unresolved, where follow-up is needed, and what closed recently.'}
+          </p>
         </div>
         <p className="esh-data-time">Data at {timestamp}</p>
       </div>
@@ -181,6 +190,21 @@ export default async function FindingsOverviewPage({
 
           <OperationalHealth health={health} />
           {rollout && <HeldNoticesRelease releasable={rollout.heldReleasable} />}
+
+          {/*
+            v230 — the counters above say how many; these say how it is going.
+            A backlog of fourteen that is shrinking and a backlog of fourteen
+            that is growing are not the same situation, and the four numbers
+            alone could not tell them apart.
+          */}
+          {dashboard && (
+            <div className="esh-dash-grid">
+              <TrendPanel monthly={dashboard.monthly} />
+              <ClosurePanel closure={dashboard.closure} />
+              <RiskPanel openByRisk={dashboard.openByRisk} />
+              <AgePanel openByAge={dashboard.openByAge} />
+            </div>
+          )}
 
           <section className="esh-department-summary" aria-labelledby="department-summary-title">
             <div className="esh-section-head">

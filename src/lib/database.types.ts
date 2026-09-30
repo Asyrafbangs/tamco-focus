@@ -15257,6 +15257,7 @@ export type Database = {
         Returns: Json
       }
       esh_current_access: { Args: never; Returns: Json }
+      esh_dashboard: { Args: { p_months?: number }; Returns: Json }
       esh_digest_prepare: { Args: { p_outbox_id: string }; Returns: Json }
       esh_dispatch_claim: {
         Args: { p_outbox_id: string; p_secrets: Json }
@@ -15518,6 +15519,7 @@ export type Database = {
         Returns: Json
       }
       esh_preview_report: { Args: { p_definition_id: string }; Returns: Json }
+      esh_public_dashboard: { Args: never; Returns: Json }
       esh_reassign_action: {
         Args: { p_action_id: string; p_owner_email: string; p_reason: string }
         Returns: Json
