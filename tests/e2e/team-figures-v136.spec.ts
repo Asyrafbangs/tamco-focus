@@ -49,9 +49,9 @@ async function rosterNames(page: Page): Promise<string[]> {
   return names.map((name) => name.trim()).sort();
 }
 
-/** The names the Completed view puts a card on screen for. */
+/** The names the Completed view's person grouping puts on screen. */
 async function groupNames(page: Page): Promise<string[]> {
-  const names = await page.locator('.team-available-group > header strong').allInnerTexts();
+  const names = await page.locator('.team-delivered-group > header strong').allInnerTexts();
   return names.map((name) => name.trim()).sort();
 }
 
@@ -82,7 +82,7 @@ test.describe('v136 completed is reachable', () => {
     // A routine occurrence closes every week and a Major Project once a
     // quarter. A list that does not say which is which reads as a ranking.
     await openTeam(page, '&filter=delivered&period=this-year');
-    const rows = page.locator('.team-available-row');
+    const rows = page.locator('.team-delivered-row');
     if ((await rows.count()) === 0) {
       test.skip(true, 'Nobody in this fixture has completed anything this year.');
     }
@@ -103,8 +103,10 @@ test.describe('v136 completed is reachable', () => {
       .innerText();
     const headline = Number(label.replace(/[^0-9]/g, ''));
 
-    await openTeam(page, '&filter=delivered');
-    const counts = await page.locator('.team-available-group > header .muted').allInnerTexts();
+    // v234 moved the per-person counts into the second view; the figure on the
+    // tab still has to add up to them.
+    await openTeam(page, '&filter=delivered&view=person');
+    const counts = await page.locator('.team-delivered-group > header .muted').allInnerTexts();
     const summed = counts.reduce((total, text) => total + Number(text.trim().split(' ')[0]), 0);
     expect(summed).toBe(headline);
   });
@@ -113,7 +115,7 @@ test.describe('v136 completed is reachable', () => {
     await openTeam(page);
     const roster = await rosterNames(page);
 
-    await openTeam(page, '&filter=delivered');
+    await openTeam(page, '&filter=delivered&view=person');
     const delivered = await groupNames(page);
     if (delivered.length === 0) {
       test.skip(true, 'Nobody in this fixture has completed anything in the default window.');
@@ -195,9 +197,12 @@ test.describe('v136 waiting work is all accounted for', () => {
     const stated = summary.match(/(\d+) waiting/);
     expect(stated ? Number(stated[1]) : 0).toBe(expected);
 
-    // A list of work, not a card per person: the wall of "No action needed
-    // from you" that v130 removed must not come back in another view.
-    expect(await page.locator('.team-available-group').count()).toBe(0);
+    // Grouped by what needs doing, never by whose it is: the wall of one card
+    // per person that v130 removed must not come back in another view.
+    const headings = await page.locator('.team-waiting-group header h3').allInnerTexts();
+    for (const heading of headings) {
+      expect(['Needs attention', 'Upcoming']).toContain(heading.trim());
+    }
   });
 
   test('the people table states what each person has waiting', async ({ page }) => {
