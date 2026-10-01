@@ -52,7 +52,6 @@ import {
   getMajorProjectProposals,
   getTeamDeliveredWork,
   getTeamDeliveryCount,
-  getTeamRecentUpdates,
   getTeamMemberDetail,
   type CompletedRecord,
   type SharedContribution,
@@ -62,7 +61,9 @@ import { BinList } from './BinList';
 import { AttentionListView } from './AttentionListView';
 import { MyTeamListHeader, MyTeamPersonRow } from './MyTeamPersonRow';
 import { MyTeamPersonPanel } from './MyTeamPersonPanel';
-import { TeamRecentUpdates } from './TeamRecentUpdates';
+import { TeamRecentActivity } from './TeamRecentActivity';
+import { ACTIVITY_FILTERS, type ActivityFilter } from '@/domain/team-activity';
+import { getTeamActivity } from '@/server/team-activity';
 import { WeeklyPriorities } from './WeeklyPriorities';
 import { TaskActionFeedbackProvider } from './TaskActionFeedback';
 import { TaskDetailDrawer } from './TaskDetailDrawer';
@@ -595,6 +596,9 @@ export default async function WorkPage({
     sort?: string;
     scope?: string;
     filter?: string;
+    /** v232 — Recent activity's own two filters: which person, which kind. */
+    who?: string;
+    kind?: string;
     /** v46 §44 — "I was sent here to act", plus which request. */
     attention?: string;
     barrier?: string;
@@ -753,7 +757,7 @@ export default async function WorkPage({
     params.period_from,
     params.period_to,
     now,
-    params.scope === 'team' && params.filter === 'updates' ? '14' : DEFAULT_PERIOD,
+    params.scope === 'team' && params.filter === 'updates' ? '7' : DEFAULT_PERIOD,
     // The reader's zone, not the server's: "this year" and a date range mean
     // the calendar on their wall.
     profile.timezone,
@@ -797,7 +801,7 @@ export default async function WorkPage({
     teamAvailable,
     teamAvailableCount,
     teamDelivered,
-    teamRecentUpdates,
+    teamActivity,
     teamDeliveredWork,
     completedWork,
     currentFocus,
@@ -851,8 +855,8 @@ export default async function WorkPage({
     // v231 — only for the tab that shows it; the count on the tab comes from
     // the same read, so the number and the list can never disagree.
     scope === 'team' && teamFilter === 'updates'
-      ? getTeamRecentUpdates(profile.id, period)
-      : Promise.resolve({ updates: [], failed: false }),
+      ? getTeamActivity(profile.id, period, profile.timezone ?? 'Asia/Kuala_Lumpur')
+      : Promise.resolve({ events: [], team: [], failed: false }),
     // And what that number is made of, when the manager asks to see it. Two
     // table reads over the window, so it stays behind the click rather than
     // being paid for on every load of My Team.
@@ -996,6 +1000,28 @@ export default async function WorkPage({
    * drawer to still be showing ninety days. Dropping the parameter on every
    * navigation would silently reset the question they just asked.
    */
+  /*
+   * v232 — the activity feed's own two filters. They live in the address so a
+   * manager can send "what Amer did last week" to somebody, and so closing a
+   * task drawer comes back to the same filtered view.
+   */
+  const activityKind: ActivityFilter =
+    ACTIVITY_FILTERS.find((option) => option.key === params.kind)?.key ?? 'all';
+  const activityPerson = typeof params.who === 'string' && params.who ? params.who : null;
+  const activityHref = (next: { who?: string | null; kind?: ActivityFilter; task?: string }) => {
+    const query = new URLSearchParams({
+      scope: 'team',
+      filter: 'updates',
+      ...periodParams(period),
+    });
+    const who = next.who === undefined ? activityPerson : next.who;
+    const kind = next.kind ?? activityKind;
+    if (who) query.set('who', who);
+    if (kind !== 'all') query.set('kind', kind);
+    if (next.task) query.set('task', next.task);
+    return `/work?${query.toString()}`;
+  };
+
   const teamHref = (filter?: 'attention' | 'available' | 'delivered' | 'updates') => {
     const query = new URLSearchParams({ scope: 'team', ...periodParams(period) });
     if (filter) query.set('filter', filter);
@@ -1440,11 +1466,11 @@ export default async function WorkPage({
                 },
                 {
                   href: teamHref('updates'),
-                  label: 'Recent updates',
+                  label: 'Recent activity',
                   active: teamFilter === 'updates',
                   // Counted only when it is the tab being read: a figure here
                   // would cost every manager a second query on every other tab.
-                  count: teamFilter === 'updates' ? teamRecentUpdates.updates.length : undefined,
+                  count: undefined,
                 },
               ]}
             />
@@ -1564,16 +1590,19 @@ export default async function WorkPage({
       )}
 
       {/*
-        v231 — what the team has done lately, instead of opening each person
-        and then each task to find out.
+        v232 — what the team moved forward, merged into one card per person per
+        task per day, instead of the audit trail v231 showed.
       */}
       {scope === 'team' && teamFilter === 'updates' && (
-        <TeamRecentUpdates
-          updates={teamRecentUpdates.updates}
-          failed={teamRecentUpdates.failed}
-          phrase={period.phrase}
+        <TeamRecentActivity
+          events={teamActivity.events}
+          team={teamActivity.team}
+          failed={teamActivity.failed}
           timeZone={profile.timezone ?? 'Asia/Kuala_Lumpur'}
-          period={periodParams(period)}
+          phrase={period.phrase}
+          filter={activityKind}
+          person={activityPerson}
+          hrefFor={activityHref}
         />
       )}
 
