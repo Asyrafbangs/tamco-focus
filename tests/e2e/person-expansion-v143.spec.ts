@@ -98,14 +98,28 @@ test.describe('v143 §6 inline person expansion', () => {
    * §6 fixes the order, and it is the order of the questions a manager asks.
    * Everything below priorities that is not itself a decision starts closed.
    */
-  test('the sections are in §6 order, and only priorities are open', async ({ page }) => {
+  test('the sections are in §6 order, and the panel opens as an overview', async ({ page }) => {
     await openTeam(page);
     await rowFor(page, 'Izzah Nurul').getByText('Izzah Nurul').click();
     const panel = page.getByTestId('my-team-person-panel');
     await expect(panel).toBeVisible();
 
-    await expect(panel.getByRole('heading', { name: 'This week’s priorities' })).toBeVisible();
-    for (const section of ['not-started', 'routines', 'completed', 'details']) {
+    /*
+     * v236 — the figures and what they are on, then everything else folded.
+     * The panel opened into eight sections, which is most of an application
+     * inside one row: a manager comparing two people was reading a page each.
+     */
+    await expect(panel.locator('.team-person-figures')).toHaveText(/\S/);
+    await expect(panel.getByRole('heading', { name: 'Current focus' })).toBeVisible();
+    for (const section of [
+      'week',
+      'active',
+      'contributions',
+      'waiting',
+      'routines',
+      'completed',
+      'activity',
+    ]) {
       await expect(
         panel.locator(`.team-person-section[data-section="${section}"]`),
       ).not.toHaveAttribute('open', '');
@@ -259,7 +273,12 @@ test.describe('v143 §6 inline person expansion', () => {
        * and navigates, which abandons a server action still in flight — and
        * the failure then appears three steps later, as a manager looking at a
        * week with nothing in it.
+       *
+       * The drawer says so first. Navigating straight after the click is the
+       * abort itself, not a check against it: the POST is cancelled, the page
+       * reloads before it lands, and the empty week reads as a product bug.
        */
+      await expect(page.locator('.task-detail-drawer')).toContainText('Proposed for this week');
       await page.goto('/work');
       await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
       await expect(page.locator('.weekly-priorities')).toContainText(title);
@@ -275,9 +294,9 @@ test.describe('v143 §6 inline person expansion', () => {
       // …and therefore not also below it as a separate thing being carried.
       // Other active work itself: Needs attention (v189) lists anything late or
       // due soon, a weekly priority included, and that is a different question.
-      const otherActive = panel.locator('section', {
-        has: page.getByRole('heading', { name: /Other active work/ }),
-      });
+      // Named rather than found by element: v236 folded this section, so it is
+      // a <details>. Its rows are still in the DOM, which is what this reads.
+      const otherActive = panel.locator('.team-person-section[data-section="active"]');
       const active = (await otherActive.locator('.member-work-row > strong').allInnerTexts()).map(
         (text) => text.trim(),
       );

@@ -215,7 +215,10 @@ test('v159 the card says when your own step is next or late, and so does My Team
       .click();
     const panel = page.getByTestId('my-team-person-panel');
     await expect(panel).toBeVisible();
-    // Behind "Show more" when she carries more than five.
+    // v236 folded the lists, so her active work is a disclosure now — and
+    // "Show more" is a second one nested inside it, which cannot be clicked
+    // until the first is open.
+    await panel.locator('.team-person-section[data-section="active"] > summary').click();
     const more = panel.locator('.team-person-more > summary');
     if ((await more.count()) > 0) await more.first().click();
     await expect(panel.locator('.member-work-row', { hasText: late })).toContainText(

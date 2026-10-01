@@ -39,7 +39,9 @@ async function closeDrawer(page: Page, selector: string) {
 
 async function ensureExpanded(details: Locator) {
   const expanded = await details.evaluate((node) => (node as HTMLDetailsElement).open);
-  if (!expanded) await details.locator('summary').click();
+  // Its own summary, not a nested one: "Other active work" carries a "Show N
+  // more" disclosure inside it, and clicking that leaves the section shut.
+  if (!expanded) await details.locator('> summary').click();
   await expect(details).toHaveAttribute('open', '');
 }
 
@@ -86,9 +88,9 @@ test.describe('v70 Team member workload detail', () => {
        * separate questions and were only ever nested together because the
        * drawer was running out of room.
        */
-      const notStarted = panel.locator('.team-person-section[data-section="not-started"]');
+      const notStarted = panel.locator('.team-person-section[data-section="waiting"]');
       const routines = panel.locator('.team-person-section[data-section="routines"]');
-      const details = panel.locator('.team-person-section[data-section="details"]');
+      const details = panel.locator('.team-person-section[data-section="activity"]');
       await ensureExpanded(notStarted);
       await ensureExpanded(routines);
       await ensureExpanded(details);
@@ -112,7 +114,9 @@ test.describe('v70 Team member workload detail', () => {
 
       // §6 — the count belongs to the heading, so the manager can tell whether
       // opening the section is worth the click.
-      await expect(notStarted.locator('summary')).toContainText(`Not started ${availableCount}`);
+      // v236 — "Waiting", which is what the tab above it has been called since
+      // v233. The same work under two names is two things to a reader.
+      await expect(notStarted.locator('summary')).toContainText(`Waiting ${availableCount}`);
       await expect(routines.locator('summary')).toContainText(`${routineCount} overdue`);
       await expect(details.locator('summary')).toContainText(`${goalCount} goals`);
 
@@ -149,7 +153,7 @@ test.describe('v70 Team member workload detail', () => {
       await closeDrawer(page, '.task-detail-drawer');
       await expect(page).toHaveURL(new RegExp(`person=${IZZAH}`));
       await expect(page).not.toHaveURL(/task=/);
-      const goalSection = panel.locator('.team-person-section[data-section="details"]');
+      const goalSection = panel.locator('.team-person-section[data-section="activity"]');
       await ensureExpanded(goalSection);
       await goalSection
         .locator('.member-other-row', { hasText: 'Strengthen frontline safety coaching' })

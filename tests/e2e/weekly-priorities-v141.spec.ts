@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { showActiveWork } from './support/work-list';
 
 /**
@@ -54,6 +54,14 @@ async function clearWeek(page: Page) {
      * find that out.
      */
     await expect(withdraw).toHaveCount(remaining - 1);
+  }
+}
+
+/** v236 — the priorities section is a disclosure; open it before acting in it. */
+async function openPriorities(panel: Locator) {
+  const section = panel.locator('.team-person-section[data-section="week"]');
+  if (!(await section.evaluate((element) => element.hasAttribute('open')))) {
+    await section.locator('summary').click();
   }
 }
 
@@ -148,6 +156,12 @@ test.describe('v141 the manager agrees', () => {
     const panel = page.getByTestId('my-team-person-panel');
     await expect(panel).toBeVisible();
     await expect(panel).toContainText(title);
+    /*
+     * v236 folded this section. Agreeing is a real thing a manager does here
+     * and it is still one click away — but it is an action taken after reading
+     * rather than part of the reading, so the panel no longer opens into it.
+     */
+    await openPriorities(panel);
     await panel.getByRole('button', { name: 'Agree' }).first().click();
     await expect(panel.locator('.weekly-priority').filter({ hasText: title })).toContainText(
       'Agreed',
@@ -195,6 +209,7 @@ test.describe('v141 the manager agrees', () => {
       .click();
     const panel = page.getByTestId('my-team-person-panel');
     await expect(panel).toBeVisible();
+    await openPriorities(panel);
     await panel.getByRole('button', { name: 'Decline' }).first().click();
     // Declining somebody's plan without saying why is not a decision they can
     // act on, so the reason box appears rather than the action completing.

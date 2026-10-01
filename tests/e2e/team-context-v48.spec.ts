@@ -247,11 +247,15 @@ test('a team member name opens their detail without leaving My Team', async ({ p
    * only where a decision is actually owed, so a person with none has no such
    * section rather than an empty one.
    */
-  await expect(panel.getByRole('heading', { name: 'This week’s priorities' })).toBeVisible();
-  await expect(panel.getByRole('heading', { name: /Other active work/ })).toBeVisible();
+  await expect(panel.locator('.team-person-section[data-section="week"] > summary')).toContainText(
+    'This week’s priorities',
+  );
   await expect(
-    panel.locator('.team-person-section[data-section="details"] > summary'),
-  ).toContainText('Recent updates');
+    panel.locator('.team-person-section[data-section="active"] > summary'),
+  ).toContainText('Other active work');
+  await expect(
+    panel.locator('.team-person-section[data-section="activity"] > summary'),
+  ).toContainText('Recent activity');
 });
 
 /**

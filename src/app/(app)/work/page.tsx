@@ -69,7 +69,7 @@ import { TeamDelivered } from './TeamDelivered';
 import { TeamRecentActivity } from './TeamRecentActivity';
 import { TeamWaiting } from './TeamWaiting';
 import { ACTIVITY_FILTERS, type ActivityFilter } from '@/domain/team-activity';
-import { getTeamActivity } from '@/server/team-activity';
+import { getTeamActivity, getTeamActivityCount } from '@/server/team-activity';
 import { WeeklyPriorities } from './WeeklyPriorities';
 import { TaskActionFeedbackProvider } from './TaskActionFeedback';
 import { TaskDetailDrawer } from './TaskDetailDrawer';
@@ -810,6 +810,7 @@ export default async function WorkPage({
     teamAvailableCount,
     teamDelivered,
     teamActivity,
+    teamActivityCount,
     teamDeliveredWork,
     completedWork,
     currentFocus,
@@ -865,6 +866,12 @@ export default async function WorkPage({
     scope === 'team' && teamFilter === 'updates'
       ? getTeamActivity(profile.id, period, profile.timezone ?? 'Asia/Kuala_Lumpur')
       : Promise.resolve({ events: [], team: [], failed: false }),
+    // v236 — the badge, on every team tab. It reads the same three sources
+    // over the same allow-list and counts merge keys rather than rows, so the
+    // figure here is the number of cards the tab would show.
+    scope === 'team'
+      ? getTeamActivityCount(profile.id, period, profile.timezone ?? 'Asia/Kuala_Lumpur')
+      : Promise.resolve(0),
     // And what that number is made of, when the manager asks to see it. Two
     // table reads over the window, so it stays behind the click rather than
     // being paid for on every load of My Team.
@@ -1507,9 +1514,7 @@ export default async function WorkPage({
                   href: teamHref('updates'),
                   label: 'Recent activity',
                   active: teamFilter === 'updates',
-                  // Counted only when it is the tab being read: a figure here
-                  // would cost every manager a second query on every other tab.
-                  count: undefined,
+                  count: teamActivityCount,
                 },
               ]}
             />
@@ -1653,6 +1658,7 @@ export default async function WorkPage({
                     {detail && (
                       <MyTeamPersonPanel
                         detail={detail}
+                        row={person}
                         panelId={panelId}
                         taskHrefBase={closeLayerHref('/work', params, [...TASK_LAYER_PARAMS])}
                         keepHref={personKeepHref(person.userId)}

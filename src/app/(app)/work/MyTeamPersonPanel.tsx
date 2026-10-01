@@ -7,7 +7,7 @@ import { DELIVERY_KIND_WORD } from '@/domain/delivery';
 import { GOAL_HEALTH_LABELS, GOAL_STATUS_LABELS } from '@/domain/goals';
 import { WORK_PURPOSE_SHORT_LABELS } from '@/domain/purpose';
 import { FOCUS_BUCKET_WORD, WORK_CLASS_LABELS } from '@/domain/types';
-import type { TeamMemberDetail } from '@/server/queries';
+import type { TeamAttentionRow, TeamMemberDetail } from '@/server/queries';
 
 import { WeeklyPriorities } from './WeeklyPriorities';
 
@@ -85,6 +85,7 @@ export function MyTeamPersonPanel({
   timeZone,
   now,
   attentionWindowDays,
+  row,
 }: {
   detail: TeamMemberDetail;
   panelId: string;
@@ -95,6 +96,14 @@ export function MyTeamPersonPanel({
   now: Date;
   /** v187 — the organisation's attention window, in days. */
   attentionWindowDays?: number;
+  /**
+   * v236 — the row this panel hangs under.
+   *
+   * What somebody said they are working on, and what they agreed to deliver,
+   * are already on the row. Reading them from there rather than querying again
+   * means the overview and the row cannot state different things.
+   */
+  row: TeamAttentionRow;
 }) {
   /* v187 — every date in the panel in the words the lists use. */
   const deadline = (dueAt: string | null, dueIsDateOnly: boolean) =>
@@ -273,6 +282,28 @@ export function MyTeamPersonPanel({
       .filter(Boolean)
       .join(' · ') || 'nothing due';
 
+  /*
+   * The figures a manager opens somebody to see, in the order they ask.
+   *
+   * Overdue first because it decides whether to read on; waiting last because
+   * it is a planning figure rather than a problem. Zeroes are left out — a line
+   * of "0 overdue · 0 due soon" is nothing happening, said at length.
+   */
+  const overview =
+    [
+      detail.signals.openOverdue > 0 ? `${detail.signals.openOverdue} overdue` : null,
+      row.dueSoonCount > 0
+        ? `${row.dueSoonCount} due within ${windowDays} day${windowDays === 1 ? '' : 's'}`
+        : null,
+      detail.activeWork.length > 0 ? `${detail.activeWork.length} active` : null,
+      detail.contributions.length > 0
+        ? `${detail.contributions.length} shared ${detail.contributions.length === 1 ? 'step' : 'steps'}`
+        : null,
+      detail.signals.availableCount > 0 ? `${detail.signals.availableCount} waiting` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ') || 'Nothing outstanding';
+
   const deliveryCounts = [
     detail.recentDelivery.owned > 0 ? `${detail.recentDelivery.owned} owned work` : null,
     detail.recentDelivery.shared > 0 ? `${detail.recentDelivery.shared} shared contribution` : null,
@@ -298,6 +329,47 @@ export function MyTeamPersonPanel({
           {kept ? 'Stop keeping open' : 'Keep open'}
         </Link>
       </div>
+
+      {/*
+        v236 — the figures first, then what they are on.
+
+        The panel opened straight into eight sections, which is most of an
+        application inside one row: a manager comparing two people was reading
+        a page each. The questions a manager actually opens somebody for are
+        how much is wrong, what they are on, and whether they have moved — and
+        each of those is one line. Everything else is still here, one click
+        down, in the order it was.
+      */}
+      <header className="team-person-overview">
+        <h4 className="team-person-name">{detail.person.fullName}</h4>
+        <p className="team-person-figures">{overview}</p>
+      </header>
+
+      <section className="team-person-section" aria-labelledby={id('focus')}>
+        <h4 id={id('focus')}>Current focus</h4>
+        {row.workingOn ? (
+          <p className="member-focus">
+            <strong>{row.workingOn.title}</strong>
+            <span className="muted">Set {agoWords(row.workingOn.confirmedAt, now)}</span>
+          </p>
+        ) : (
+          /*
+           * Not set is a real answer, and a different one from "nothing
+           * active": the product asks the person to say what they are on, and
+           * nobody has. Guessing from their most recently touched task would
+           * answer a question they were never asked.
+           */
+          <p className="muted member-other-empty">
+            Not set. This is their own selection, not a guess from their work.
+          </p>
+        )}
+        {row.nextAgreedResult && (
+          <p className="member-focus">
+            <strong>Agreed: {row.nextAgreedResult.expectedResult}</strong>
+            {row.nextAgreedResult.outcome === 'missed' && <span className="tone-red">Missed</span>}
+          </p>
+        )}
+      </section>
 
       {/*
         v189 — what is late and what is about to be, before anything else the
@@ -362,8 +434,16 @@ export function MyTeamPersonPanel({
         </section>
       )}
 
-      <section className="team-person-section" aria-labelledby={id('week')}>
-        <h4 id={id('week')}>This week&rsquo;s priorities</h4>
+      {/*
+        Folded from v236. Agreeing a priority is a real thing a manager does
+        here, and it is still one click away — but it is an action taken after
+        reading, not part of the reading.
+      */}
+      <details className="team-person-section" data-section="week">
+        <summary>
+          This week&rsquo;s priorities{' '}
+          <span className="team-person-count">{detail.commitments.length}</span>
+        </summary>
         <WeeklyPriorities
           commitments={detail.commitments}
           timeZone={timeZone}
@@ -371,12 +451,12 @@ export function MyTeamPersonPanel({
           labelled={false}
           emptyHint="Nothing put forward for this week yet."
         />
-      </section>
+      </details>
 
-      <section className="team-person-section" aria-labelledby={id('active')}>
-        <h4 id={id('active')}>
+      <details className="team-person-section" data-section="active">
+        <summary>
           Other active work <span className="team-person-count">{otherActive.length}</span>
-        </h4>
+        </summary>
         {/*
           The load signals, in one line and without a verdict.
 
@@ -425,7 +505,7 @@ export function MyTeamPersonPanel({
             )}
           </div>
         )}
-      </section>
+      </details>
 
       {/*
         v157 - what they owe on somebody else's work.
@@ -480,9 +560,14 @@ export function MyTeamPersonPanel({
         )}
       </details>
 
-      <details className="team-person-section" data-section="not-started">
+      {/*
+        "Waiting" since v236, which is what the tab above has been called since
+        v233. The same work under two names in two places is two things to a
+        reader who has not read the code.
+      */}
+      <details className="team-person-section" data-section="waiting">
         <summary>
-          Not started{' '}
+          Waiting{' '}
           <span className="team-person-count">
             {detail.otherWorkload.available.length}
             {/* v185 — folded away, so the summary says when something in it is late. */}
@@ -624,9 +709,9 @@ export function MyTeamPersonPanel({
         )}
       </details>
 
-      <details className="team-person-section" data-section="details">
+      <details className="team-person-section" data-section="activity">
         <summary>
-          Recent updates{' '}
+          Recent activity{' '}
           <span className="team-person-count">
             {detail.recentUpdates.length} · {detail.otherWorkload.goals.length} goals
           </span>
@@ -672,6 +757,17 @@ export function MyTeamPersonPanel({
           </div>
         )}
       </details>
+
+      {/*
+        Where the rest of it is.
+
+        This panel is a reading of one person, bounded on purpose. Everything
+        they have ever owned belongs in Records, which can filter, sort and go
+        back further than any expansion should try to.
+      */}
+      <p className="team-person-exit">
+        <Link href={`/more/records?owner=${detail.person.id}`}>View full work →</Link>
+      </p>
     </div>
   );
 }
