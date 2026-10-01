@@ -146,6 +146,20 @@ test.describe('settings sections', () => {
     for (const section of sections) {
       await page.goto(`/more/settings?section=${section}`);
       await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+      /*
+       * The hydration marker is not this page.
+       *
+       * It goes up from the root layout, and the workspace streams in behind
+       * `loading.tsx` afterwards. Measuring a panel on the marker alone can
+       * measure the placeholder, which has no panel in it — so this reported
+       * "alerts" as a section whose panel never displays, which is exactly the
+       * silent failure it exists to catch, from a page that had not arrived.
+       *
+       * Waiting for any panel to be attached is not circular: every panel is
+       * in the DOM whatever the active section, and hidden by CSS. It proves
+       * the page rendered without asserting anything about this one.
+       */
+      await page.locator('[data-settings-panel]').first().waitFor({ state: 'attached' });
       const shown = await page.evaluate((key) => {
         const panel = document.querySelector(`[data-settings-panel="${key}"]`);
         if (!panel) return false;

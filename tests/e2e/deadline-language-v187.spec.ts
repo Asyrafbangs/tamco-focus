@@ -243,9 +243,11 @@ test('v187 My Team puts late work first, then work due soon', async ({ page }, t
 
     await signIn(page, 'izzul@tamco.local');
     await visit(page, `/work?scope=team&person=${LIM}`);
+    // Named rather than found by element: v236 folded this section, so it is a
+    // <details> and no longer a <section>.
     const section = page
       .getByTestId('my-team-person-panel')
-      .locator('section', { has: page.getByRole('heading', { name: /Other active work/ }) });
+      .locator('.team-person-section[data-section="active"]');
     const rows = section.locator(':scope > .member-work-list > .member-work-row');
     await expect(rows.nth(0)).toContainText(`Late ${stamp}`);
     await expect(rows.nth(0).locator('.deadline-overdue')).toHaveText('⚠ Overdue 1 day');

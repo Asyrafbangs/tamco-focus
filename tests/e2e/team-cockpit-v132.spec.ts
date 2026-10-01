@@ -181,7 +181,15 @@ test.describe('v132 the person expansion', () => {
      * v189 — "Needs attention" (what is late or due soon) is conditional in the
      * same way, and comes first when it is there.
      */
-    const withoutAttention = order[0]?.startsWith('Needs attention') ? order.slice(1) : order;
+    /*
+     * v236 puts "Current focus" first and unconditionally: what somebody said
+     * they are working on is the first thing a manager opens them to read, and
+     * "Not set" is a real answer rather than a reason to omit the section.
+     */
+    const withoutFocus = order[0]?.startsWith('Current focus') ? order.slice(1) : order;
+    const withoutAttention = withoutFocus[0]?.startsWith('Needs attention')
+      ? withoutFocus.slice(1)
+      : withoutFocus;
     const withoutDecision = withoutAttention[0]?.startsWith('Needs your decision')
       ? withoutAttention.slice(1)
       : withoutAttention;
@@ -189,15 +197,18 @@ test.describe('v132 the person expansion', () => {
      * v157 puts "Contributions to others" straight after the person's own
      * active work: both answer "what else is being carried", and the steps
      * they owe on somebody else's work are the half their own list cannot show.
+     *
+     * v236 renamed two of them to what the tabs above have called the same
+     * work since v233 and v232: Waiting, and Recent activity.
      */
     const expected = [
       'This week’s priorities',
       'Other active work',
       'Contributions to others',
-      'Not started',
+      'Waiting',
       'Routines',
       'Completed',
-      'Recent updates',
+      'Recent activity',
     ];
     expect(withoutDecision).toHaveLength(expected.length);
     withoutDecision.forEach((text, index) => expect(text).toContain(expected[index]!));

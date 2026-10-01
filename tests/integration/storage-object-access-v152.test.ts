@@ -215,19 +215,26 @@ describe('A27 — evidence the manager opens later', () => {
     const manager = await signInAs('izzul');
 
     /*
-     * One second rather than the configured ttl, so the test measures the
+     * Seconds rather than the configured ttl, so the test measures the
      * mechanism instead of waiting out the policy. `signedUrlTtlSeconds` is
      * asserted separately below: a link that expires in two minutes and one
      * that expires in two years are the same code path and very different
      * things.
+     *
+     * Three seconds, not one. With a one-second token the first fetch had to
+     * reach storage and come back inside that second, and on a loaded CI
+     * runner it did not — the link expired before it was served and the test
+     * reported "the link did not work while it was valid", which is the
+     * opposite of what had happened. The window has to be long enough that
+     * the valid-link check cannot lose the race it is not testing.
      */
-    const signed = await manager.storage.from(BUCKET).createSignedUrl(path, 1);
+    const signed = await manager.storage.from(BUCKET).createSignedUrl(path, 3);
     expect(signed.error).toBe(null);
     const url = new URL(signed.data!.signedUrl, supabaseUrl);
 
     expect((await fetch(url)).status, 'the link did not work while it was valid').toBe(200);
 
-    await new Promise((resolve) => setTimeout(resolve, 2_500));
+    await new Promise((resolve) => setTimeout(resolve, 4_500));
 
     const expired = await fetch(url);
     expect(expired.ok, 'an expired evidence link still served the file').toBe(false);

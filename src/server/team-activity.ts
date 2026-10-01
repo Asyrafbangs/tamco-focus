@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { ActivityEvent } from '@/domain/team-activity';
+import { dayOf, type ActivityEvent } from '@/domain/team-activity';
 import type { ResolvedPeriod } from '@/domain/period';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getTeamLoad } from '@/server/queries';
@@ -86,6 +86,87 @@ function blank(): Pick<
     priorityTo: null,
     stepName: null,
   };
+}
+
+/**
+ * How many activity cards the window holds, for the tab badge (v236, §20).
+ *
+ * The badge was left off because a figure there would cost a query on every
+ * other tab. It is wanted — a manager should be able to see whether the week
+ * had anything in it before clicking — so this is the cheapest read that can
+ * still give the right number: the same three sources and the same allow-list,
+ * selecting only the three columns the merge key is built from.
+ *
+ * It counts cards rather than rows, because that is what the tab shows. One
+ * person on one task for an afternoon is one card there, and a badge saying
+ * six would be counting something nobody can see.
+ */
+export async function getTeamActivityCount(
+  viewerId: string,
+  period: ResolvedPeriod,
+  timeZone: string,
+  limit = 400,
+): Promise<number> {
+  const team = await getTeamLoad(viewerId);
+  const ids = team.map((person) => person.userId);
+  if (ids.length === 0) return 0;
+
+  const supabase = await createSupabaseServerClient();
+
+  const auditQuery = supabase
+    .from('audit_events')
+    .select('occurred_at,actor_id,task_id')
+    .in('actor_id', ids)
+    .in('event_type', ACTIVITY_EVENT_TYPES)
+    .gte('occurred_at', period.since)
+    .order('occurred_at', { ascending: false })
+    .limit(limit);
+  const completedQuery = supabase
+    .from('task_overview')
+    .select('id,completed_at,completed_owner_id')
+    .in('completed_owner_id', ids)
+    .eq('status', 'completed')
+    .gte('completed_at', period.since)
+    .order('completed_at', { ascending: false })
+    .limit(limit);
+  const contributedQuery = supabase
+    .from('completed_contributions')
+    .select('task_id,completed_at,assignee_id')
+    .in('assignee_id', ids)
+    .gte('completed_at', period.since)
+    .order('completed_at', { ascending: false })
+    .limit(limit);
+
+  const [audit, completed, contributed] = await Promise.all([
+    period.until ? auditQuery.lte('occurred_at', period.until) : auditQuery,
+    period.until ? completedQuery.lte('completed_at', period.until) : completedQuery,
+    period.until ? contributedQuery.lte('completed_at', period.until) : contributedQuery,
+  ]);
+
+  /*
+   * A badge that cannot be read is left off, not reported as zero: "Recent
+   * activity 0" is a claim about the team, and a failed query does not support
+   * one.
+   */
+  if (audit.error || completed.error || contributed.error) {
+    console.error(
+      `[getTeamActivityCount] ${audit.error?.message ?? ''} ${completed.error?.message ?? ''} ${contributed.error?.message ?? ''}`,
+    );
+    return 0;
+  }
+
+  // The merge key `mergeActivity` uses, so this counts exactly what is shown.
+  const cards = new Set<string>();
+  for (const row of audit.data ?? []) {
+    cards.add(`${row.actor_id}|${row.task_id}|${dayOf(String(row.occurred_at), timeZone)}`);
+  }
+  for (const row of completed.data ?? []) {
+    cards.add(`${row.completed_owner_id}|${row.id}|${dayOf(String(row.completed_at), timeZone)}`);
+  }
+  for (const row of contributed.data ?? []) {
+    cards.add(`${row.assignee_id}|${row.task_id}|${dayOf(String(row.completed_at), timeZone)}`);
+  }
+  return cards.size;
 }
 
 export async function getTeamActivity(

@@ -111,6 +111,13 @@ test('v184 a manager asks for an update from My Team, and the owner answers it',
     await page.goto(`/work?scope=team&person=${AMER}`);
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
     const panel = page.getByTestId('my-team-person-panel');
+    /*
+     * v236 folded the lists: the panel opens on the figures and what the
+     * person is on, and "Other active work" is a disclosure under them. The
+     * work this test asks about is in there, so it is opened before it is
+     * clicked — which is what a manager now does too.
+     */
+    await panel.locator('.team-person-section[data-section="active"] > summary').click();
     await panel.locator('.member-work-row', { hasText: title }).click();
 
     const drawer = page.getByRole('dialog', { name: title });

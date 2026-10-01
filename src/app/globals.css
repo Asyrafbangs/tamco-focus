@@ -11722,6 +11722,71 @@ button.attachment-row {
   margin-top: 8px;
 }
 
+/* ---------------------------------------------------------------------------
+ * v236 — the person opens as an overview, not as an application.
+ * ------------------------------------------------------------------------- */
+
+/*
+  The figures before any of the lists.
+
+  A manager opens somebody to ask how much is wrong, what they are on and
+  whether they have moved. Each of those is one line; everything else is a
+  click down, which is the difference between reading a person and reading a
+  page about them.
+*/
+.team-person-overview {
+  padding: 2px 2px 4px;
+}
+
+.team-person-name {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.team-person-figures {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* What they said they are on, and what they agreed to deliver. */
+.member-focus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 0 0 4px;
+  font-size: 11px;
+}
+
+.member-focus:last-child {
+  margin-bottom: 0;
+}
+
+.member-focus .muted,
+.member-focus .tone-red {
+  font-size: 10px;
+}
+
+/*
+  Where the rest of this person's work is.
+
+  The panel is a bounded reading of one person; Records can filter, sort and go
+  back further than any expansion should try to.
+*/
+.team-person-exit {
+  margin: 0;
+  padding: 2px;
+  text-align: right;
+}
+
+.team-person-exit a {
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 600;
+}
+
 /* The count belongs to the heading, not to the content: it is what tells a
    manager whether opening the section is worth the click. */
 .team-person-count {

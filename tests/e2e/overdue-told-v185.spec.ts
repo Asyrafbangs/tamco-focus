@@ -166,10 +166,11 @@ test('v185 My Team lists late work first, paused work included', async ({ page }
     await expect(personRow).toContainText('2 overdue');
 
     const panel = page.getByTestId('my-team-person-panel');
-    const section = panel.locator('section', {
-      has: page.getByRole('heading', { name: /Other active work/ }),
-    });
-    await expect(section.getByRole('heading', { name: /Other active work/ })).toContainText('8');
+    // v236 folded this section, so it is a <details> and the count is on its
+    // summary rather than on a heading.
+    const section = panel.locator('.team-person-section[data-section="active"]');
+    await expect(section.locator('> summary')).toContainText('Other active work');
+    await expect(section.locator('> summary')).toContainText('8');
     await expect(section.locator('.member-signals')).toContainText('2 overdue');
 
     // Visible without "Show more", earliest due first, and saying it is paused.
