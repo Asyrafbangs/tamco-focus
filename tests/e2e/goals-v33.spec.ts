@@ -236,9 +236,10 @@ test('manager My Team and two-step setup retain the approved master-detail struc
   const goalAttention = page
     .getByTestId('my-team-person-row')
     .filter({ hasText: 'Goal support needed' });
-  // Direct children only: v130 put a tone dot inside the headline chip, so a
-  // descendant selector's second span is now that dot rather than the reason.
-  await expect(goalAttention.locator('[data-cell="needs-you"] > span').nth(1)).toHaveText(/\S/);
+  // Named rather than counted: v130 put a tone dot inside the headline chip and
+  // v235 put the overdue figures above it, so "the second span" has meant three
+  // different elements. The reason says what it is.
+  await expect(goalAttention.locator('[data-cell="attention-reason"]')).toHaveText(/\S/);
   await goalAttention.getByRole('button', { name: /Review goal for Amer Hakim/ }).click();
   await expect(page).toHaveURL(new RegExp(`goal=${SAFETY_GOAL}`));
   expect(new URL(page.url()).searchParams.has('action')).toBe(false);

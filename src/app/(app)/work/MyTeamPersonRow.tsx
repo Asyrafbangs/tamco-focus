@@ -18,6 +18,20 @@ function agoWords(iso: string, now: Date): string {
   return days === 1 ? 'yesterday' : `${days} days ago`;
 }
 
+/**
+ * Three columns, in the order a manager reads them (v235, §20).
+ *
+ * The row carried eight figures across five columns — overdue, due soon,
+ * active, shared steps, overdue shared steps, current work, agreed priorities
+ * and the latest update — so every person had to be decoded rather than read.
+ * Worse, two of the columns were mostly absence: "No agreed priorities" and
+ * "No action needed from you" repeated down the table were the loudest text on
+ * the page, and both said nothing.
+ *
+ * Now: who they are and how much they are carrying; what they are on; and what
+ * needs you, with when they were last heard from. Exceptions are in one place
+ * instead of split between the first column and the fourth.
+ */
 export function MyTeamListHeader() {
   return (
     <div className={styles.listHeader} aria-hidden="true">
@@ -26,14 +40,11 @@ export function MyTeamListHeader() {
           the most recently touched Active task until v140 §8 — a column that
           could never be empty, never be wrong, and never quite meant anything.
           It is now their own selection, and "Not set" is a real answer. */}
-      <span>Current focus</span>
-      {/* What they agreed to finish, which is a different question from what
-          they are on right now — §8 keeps the two independent. */}
-      <span>Next agreed result</span>
-      <span>Needs you</span>
-      {/* "Latest" alone could mean the latest task, the latest change or the
-          latest message. */}
-      <span>Latest update</span>
+      <span>Currently working on</span>
+      {/* One column, because they are one question: is this person in trouble,
+          and when did they last say anything. Split across two, a manager read
+          the exceptions in the middle of the row and the silence at the end. */}
+      <span>Needs attention · Latest</span>
       {/* The chevron's column. It needs no heading, and "Action" over a column
           of Open buttons described the buttons rather than the work. */}
       <span />
@@ -84,44 +95,53 @@ export function MyTeamPersonRow({
   const now = new Date(nowIso);
 
   /*
-   * The exception before the volume.
+   * How much this person is carrying. Volume only — the exceptions moved to
+   * the attention column, where the manager is already looking for them.
    *
-   * "4 active · 2 routines overdue" reads the wrong way round: the number that
-   * decides whether this person needs reading is second, behind a number that
-   * is the same shape on every row. Zeroes are left out entirely — a column of
-   * "0 overdue" is a column of nothing happening, said loudly.
-   *
-   * Waiting work comes last and is the reason this line has three figures
-   * rather than two. Load is what is carried plus what is queued, and the
-   * queued half was readable only in a view that replaces this table — so
-   * "who may be overloaded" could not be answered while looking at the people.
-   * A person with nothing active but nine waiting now says so here, where the
-   * line used to read "Nothing active" and mean the opposite of what it said.
+   * Zeroes are left out entirely: a column of "0 overdue" is a column of
+   * nothing happening, said loudly. Waiting work is included because load is
+   * what is carried plus what is queued, and the queued half used to be
+   * readable only in a view that replaces this table.
    */
-  const summary = [
-    // Only this part is ever red: it is the figure that decides whether the row
-    // needs reading, and a whole red line would shout down the step warning.
+  const volume = [
+    person.activeCount > 0 ? `${person.activeCount} active` : null,
+    // v157 — what they owe on other people's work, which their own list cannot
+    // show because the work is somebody else's.
+    person.sharedStepCount > 0
+      ? `${person.sharedStepCount} shared ${person.sharedStepCount === 1 ? 'step' : 'steps'}`
+      : null,
+    person.availableCount > 0 ? `${person.availableCount} waiting` : null,
+  ].filter((part): part is string => part !== null);
+
+  /*
+   * The figures that decide whether this row needs reading, in one place.
+   *
+   * They used to lead the person's summary line, where they sat beside volume
+   * figures of the same shape and weight — so "15 overdue" and "3 active" read
+   * as two facts of equal standing rather than a problem and a workload.
+   */
+  const exceptions = [
     person.overdueCount > 0
-      ? { text: `⚠ ${person.overdueCount} overdue`, alert: true as const }
+      ? { text: `⚠ ${person.overdueCount} overdue`, tone: 'alert' as const, testId: undefined }
       : null,
     // v189 — and what is about to be: the manager can step in before it is late.
     person.dueSoonCount > 0
       ? {
           text: `! ${person.dueSoonCount} due within ${attentionWindowDays} day${attentionWindowDays === 1 ? '' : 's'}`,
-          alert: 'soon' as const,
+          tone: 'soon' as const,
+          testId: undefined,
         }
       : null,
-    person.activeCount > 0 ? { text: `${person.activeCount} active`, alert: false } : null,
-    // v157 - what they owe on other people's work, which their own list
-    // cannot show because the work is somebody else's.
-    person.sharedStepCount > 0
+    // v157 — a late step is late for somebody else's work, so it is said on its
+    // own line rather than folded into a count of this person's own work.
+    person.sharedStepOverdueCount > 0
       ? {
-          text: `${person.sharedStepCount} shared ${person.sharedStepCount === 1 ? 'step' : 'steps'}`,
-          alert: false,
+          text: `⚠ ${person.sharedStepOverdueCount} assigned ${person.sharedStepOverdueCount === 1 ? 'step' : 'steps'} overdue`,
+          tone: 'alert' as const,
+          testId: 'assigned-step-overdue',
         }
       : null,
-    person.availableCount > 0 ? { text: `${person.availableCount} waiting`, alert: false } : null,
-  ].filter((part): part is { text: string; alert: boolean | 'soon' } => part !== null);
+  ].filter((part): part is NonNullable<typeof part> => part !== null);
 
   /*
    * §6 A01 — name, whitespace and chevron all do the same thing, because they
@@ -172,31 +192,7 @@ export function MyTeamPersonRow({
           >
             <strong>{person.fullName}</strong>
           </button>
-          <span>
-            {summary.length === 0
-              ? 'Nothing active'
-              : summary.flatMap((part, index) => [
-                  index > 0 ? ' · ' : '',
-                  part.alert ? (
-                    <span
-                      key={part.text}
-                      className={part.alert === 'soon' ? styles.summarySoon : styles.summaryAlert}
-                    >
-                      {part.text}
-                    </span>
-                  ) : (
-                    part.text
-                  ),
-                ])}
-          </span>
-          {/* v157 - a late step is late for somebody else's work, so it is said
-              on its own line rather than folded into the count above. */}
-          {person.sharedStepOverdueCount > 0 && (
-            <span className={styles.summaryAlert} data-testid="assigned-step-overdue">
-              ⚠ {person.sharedStepOverdueCount} assigned{' '}
-              {person.sharedStepOverdueCount === 1 ? 'step' : 'steps'} overdue
-            </span>
-          )}
+          <span>{volume.length === 0 ? 'Nothing active' : volume.join(' · ')}</span>
         </div>
 
         <div className={styles.working} data-cell="working-on">
@@ -204,11 +200,11 @@ export function MyTeamPersonRow({
             <>
               <strong>{person.workingOn.title}</strong>
               {/*
-              When it was said, not how long ago something was touched.
-              §8: this communicates a main focus, not presence — so a selection
-              made on Tuesday says Tuesday rather than implying somebody is at
-              it right now.
-            */}
+                When it was said, not how long ago something was touched.
+                §8: this communicates a main focus, not presence — so a
+                selection made on Tuesday says Tuesday rather than implying
+                somebody is at it right now.
+              */}
               <span>
                 Set {agoWords(person.workingOn.confirmedAt, now)}
                 {person.otherActiveCount > 0 ? ` · +${person.otherActiveCount} other active` : ''}
@@ -216,45 +212,85 @@ export function MyTeamPersonRow({
             </>
           ) : (
             /*
-            "Not set" is a real answer, and a different one from "nothing
-            active". The column used to name the most recently touched Active
-            task, so it could never be empty and never be wrong — and never
-            quite meant anything either.
-          */
+              "Not set" is a real answer, and a different one from "nothing
+              active". The column used to name the most recently touched Active
+              task, so it could never be empty and never be wrong — and never
+              quite meant anything either.
+            */
             <span className={styles.muted}>
               Not set
               {person.activeCount > 0 ? ` · ${person.activeCount} active` : ''}
             </span>
           )}
-        </div>
 
-        <div className={styles.nextResult} data-cell="next-result">
-          {person.nextAgreedResult ? (
-            <>
-              <strong>{person.nextAgreedResult.expectedResult}</strong>
+          {/*
+            The agreed result, only when there is one.
+
+            It had a column of its own, which meant most rows carried "No
+            agreed priorities" — the same absence restated on every line, in a
+            column a manager cannot act on. Said here it is a fact about what
+            this person is working towards, beside what they are working on.
+          */}
+          {person.nextAgreedResult && (
+            <span className={styles.agreed} data-cell="next-result">
+              <em>Agreed:</em> {person.nextAgreedResult.expectedResult}
               {person.nextAgreedResult.outcome === 'missed' && (
-                <span className={styles.summaryAlert}>Missed</span>
+                <span className={styles.summaryAlert}> · Missed</span>
               )}
-            </>
-          ) : (
-            // Not "nothing to do": nothing has been AGREED. Saying it this way
-            // keeps a proposal from reading as a commitment.
-            <span className={styles.muted}>No agreed priorities</span>
+            </span>
           )}
         </div>
 
         <div className={styles.attention} data-cell="needs-you">
-          {person.attention ? (
+          {/*
+            What is wrong and when they last spoke, on one line.
+
+            They are the two halves of the same glance — is this person in
+            trouble, and have they said anything about it — and stacked they
+            cost the cell a line it has not got: `team-context-v48` caps the
+            row, and this cell can already carry a flag, a button and a reason.
+          */}
+          <span className={styles.state}>
+            {exceptions.length > 0 && (
+              <span className={styles.exceptions}>
+                {exceptions.map((part) => (
+                  <span
+                    key={part.text}
+                    className={part.tone === 'soon' ? styles.summarySoon : styles.summaryAlert}
+                    data-testid={part.testId}
+                  >
+                    {part.text}
+                  </span>
+                ))}
+              </span>
+            )}
+            <span className={styles.latest} data-cell="latest">
+              {person.latestUpdate
+                ? `Updated ${agoWords(person.latestUpdate.at, now)}`
+                : 'No recent activity'}
+              {/*
+                Said for a screen reader only. Sighted readers take the absence
+                of a flag as the answer, which is why "No action needed from
+                you" was removed from every healthy row; a screen reader has no
+                absence to take, so it is given the words.
+              */}
+              {!person.attention && (
+                <span className="visually-hidden"> Nothing needed from you</span>
+              )}
+            </span>
+          </span>
+
+          {person.attention && (
             <>
               {/*
-              The state and the response on one line.
+                The state and the response on one line.
 
-              The button used to sit under the reason, which cost the cell a
-              third line. On a narrower screen the row already folds into two
-              bands, so that line pushed the row past the height the layout
-              test allows - and it separated "a decision is owed" from the
-              control that gives it by the width of the reason text.
-            */}
+                The button used to sit under the reason, which cost the cell a
+                third line. On a narrower screen the row already folds into two
+                bands, so that line pushed the row past the height the layout
+                test allows — and it separated "a decision is owed" from the
+                control that gives it by the width of the reason text.
+              */}
               <span className={styles.attentionHead}>
                 <span
                   className={styles.flag}
@@ -267,17 +303,17 @@ export function MyTeamPersonRow({
                   }
                 >
                   {/* Small, and only present on an exception. The words alone
-                    were easy to miss because a row with a problem was
-                    otherwise identical to a row without one. */}
+                      were easy to miss because a row with a problem was
+                      otherwise identical to a row without one. */}
                   <span className={styles.dot} aria-hidden="true" />
                   {person.attention.headline}
                 </span>
                 {/*
-                Not in a column of its own at the end of the row: that gave a
-                variable width to a column the header could not match, so the
-                table lost its alignment on exactly the rows a manager most
-                needs to read.
-              */}
+                  Not in a column of its own at the end of the row: that gave a
+                  variable width to a column the header could not match, so the
+                  table lost its alignment on exactly the rows a manager most
+                  needs to read.
+                */}
                 {managerAction ? (
                   <button
                     type="button"
@@ -289,29 +325,10 @@ export function MyTeamPersonRow({
                   </button>
                 ) : null}
               </span>
-              <span className={styles.reason}>{person.attention.reason}</span>
+              <span className={styles.reason} data-cell="attention-reason">
+                {person.attention.reason}
+              </span>
             </>
-          ) : (
-            /*
-            A dash, not a sentence. "No action needed from you" repeated down
-            every healthy row was the loudest text in the table, and it said
-            the same thing each time: nothing.
-          */
-            <span className={styles.none}>
-              <span aria-hidden="true">{'—'}</span>
-              <span className="visually-hidden">Nothing needed from you</span>
-            </span>
-          )}
-        </div>
-
-        <div className={styles.latest} data-cell="latest">
-          {person.latestUpdate ? (
-            <>
-              <strong>{agoWords(person.latestUpdate.at, now)}</strong>
-              <span>{person.latestUpdate.summary}</span>
-            </>
-          ) : (
-            <span className={styles.muted}>No recent activity</span>
           )}
         </div>
 
