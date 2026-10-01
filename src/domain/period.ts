@@ -14,7 +14,7 @@
  */
 
 export type PeriodPresetKey =
-  'all' | '30' | '60' | '90' | 'this-month' | 'last-month' | 'this-year' | 'last-year';
+  'all' | '7' | '14' | '30' | '60' | '90' | 'this-month' | 'last-month' | 'this-year' | 'last-year';
 
 export type PeriodKey = PeriodPresetKey | 'custom';
 
@@ -37,6 +37,10 @@ interface Preset {
  */
 export const PERIOD_PRESETS: readonly Preset[] = [
   { key: 'all', label: 'All time', short: 'all time', phrase: 'in total' },
+  // v231 — a fortnight and a week, for reading what changed recently rather
+  // than counting a quarter's output.
+  { key: '7', label: 'Last 7 days', short: '7 days', phrase: 'in the last 7 days' },
+  { key: '14', label: 'Last 14 days', short: '14 days', phrase: 'in the last 14 days' },
   { key: '30', label: 'Last 30 days', short: '30 days', phrase: 'in the last 30 days' },
   { key: '60', label: 'Last 60 days', short: '60 days', phrase: 'in the last 60 days' },
   { key: '90', label: 'Last 90 days', short: '90 days', phrase: 'in the last 90 days' },
@@ -60,6 +64,16 @@ export const STANDARD_PERIODS: readonly PeriodPresetKey[] = [
   'this-year',
   'last-year',
 ];
+
+/**
+ * What the team's Recent updates offers (v231).
+ *
+ * Shorter than everywhere else on purpose: this list answers "what has
+ * happened lately", and ninety days of it is a transcript rather than an
+ * answer. The longer ranges stay available for somebody catching up after
+ * leave.
+ */
+export const RECENT_PERIODS: readonly PeriodPresetKey[] = ['7', '14', '30', '60', '90'];
 
 /**
  * Records is the archive, and the only screen where "all time" belongs.
