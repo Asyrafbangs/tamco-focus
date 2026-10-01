@@ -21,6 +21,7 @@ import {
   DEFAULT_PERIOD,
   periodParams,
   resolvePeriod,
+  RECENT_PERIODS,
   STANDARD_PERIODS,
   type ResolvedPeriod,
 } from '@/domain/period';
@@ -51,6 +52,7 @@ import {
   getMajorProjectProposals,
   getTeamDeliveredWork,
   getTeamDeliveryCount,
+  getTeamRecentUpdates,
   getTeamMemberDetail,
   type CompletedRecord,
   type SharedContribution,
@@ -60,6 +62,7 @@ import { BinList } from './BinList';
 import { AttentionListView } from './AttentionListView';
 import { MyTeamListHeader, MyTeamPersonRow } from './MyTeamPersonRow';
 import { MyTeamPersonPanel } from './MyTeamPersonPanel';
+import { TeamRecentUpdates } from './TeamRecentUpdates';
 import { WeeklyPriorities } from './WeeklyPriorities';
 import { TaskActionFeedbackProvider } from './TaskActionFeedback';
 import { TaskDetailDrawer } from './TaskDetailDrawer';
@@ -689,7 +692,7 @@ export default async function WorkPage({
   const namesPerson = Boolean(params.person) && teamAvailableToLink;
   const scope: 'mine' | 'team' =
     (params.scope === 'team' || namesPerson) && teamAvailableToLink ? 'team' : 'mine';
-  const teamFilter: 'everyone' | 'attention' | 'available' | 'delivered' =
+  const teamFilter: 'everyone' | 'attention' | 'available' | 'delivered' | 'updates' =
     params.filter === 'attention'
       ? 'attention'
       : namesPerson
@@ -698,7 +701,9 @@ export default async function WorkPage({
           ? 'available'
           : params.filter === 'delivered'
             ? 'delivered'
-            : 'everyone';
+            : params.filter === 'updates'
+              ? 'updates'
+              : 'everyone';
 
   // `?filter=attention` outside team scope means "my own full list".
   const personalAttentionView = params.filter === 'attention' && params.scope !== 'team';
@@ -736,12 +741,19 @@ export default async function WorkPage({
    * most often wants.
    */
   const now = new Date();
+  /*
+   * v231 — Recent updates defaults to a fortnight, not thirty days.
+   *
+   * It answers "what has happened lately", and a month of it is a transcript.
+   * The default is per-tab rather than global because the other team views
+   * count output over a period, where thirty days is the right question.
+   */
   const period = resolvePeriod(
     params.period,
     params.period_from,
     params.period_to,
     now,
-    DEFAULT_PERIOD,
+    params.scope === 'team' && params.filter === 'updates' ? '14' : DEFAULT_PERIOD,
     // The reader's zone, not the server's: "this year" and a date range mean
     // the calendar on their wall.
     profile.timezone,
@@ -785,6 +797,7 @@ export default async function WorkPage({
     teamAvailable,
     teamAvailableCount,
     teamDelivered,
+    teamRecentUpdates,
     teamDeliveredWork,
     completedWork,
     currentFocus,
@@ -835,6 +848,11 @@ export default async function WorkPage({
     scope === 'team' ? getTeamAvailableCount(profile.id) : Promise.resolve(0),
     // The one number in the team snapshot that is not already on this page.
     scope === 'team' ? getTeamDeliveryCount(profile.id, period) : Promise.resolve(0),
+    // v231 — only for the tab that shows it; the count on the tab comes from
+    // the same read, so the number and the list can never disagree.
+    scope === 'team' && teamFilter === 'updates'
+      ? getTeamRecentUpdates(profile.id, period)
+      : Promise.resolve({ updates: [], failed: false }),
     // And what that number is made of, when the manager asks to see it. Two
     // table reads over the window, so it stays behind the click rather than
     // being paid for on every load of My Team.
@@ -978,7 +996,7 @@ export default async function WorkPage({
    * drawer to still be showing ninety days. Dropping the parameter on every
    * navigation would silently reset the question they just asked.
    */
-  const teamHref = (filter?: 'attention' | 'available' | 'delivered') => {
+  const teamHref = (filter?: 'attention' | 'available' | 'delivered' | 'updates') => {
     const query = new URLSearchParams({ scope: 'team', ...periodParams(period) });
     if (filter) query.set('filter', filter);
     return `/work?${query.toString()}`;
@@ -1420,6 +1438,14 @@ export default async function WorkPage({
                   active: teamFilter === 'delivered',
                   count: teamDelivered,
                 },
+                {
+                  href: teamHref('updates'),
+                  label: 'Recent updates',
+                  active: teamFilter === 'updates',
+                  // Counted only when it is the tab being read: a figure here
+                  // would cost every manager a second query on every other tab.
+                  count: teamFilter === 'updates' ? teamRecentUpdates.updates.length : undefined,
+                },
               ]}
             />
 
@@ -1429,7 +1455,7 @@ export default async function WorkPage({
                 scope: 'team',
                 ...(teamFilter !== 'everyone' ? { filter: teamFilter } : {}),
               }}
-              presets={STANDARD_PERIODS}
+              presets={teamFilter === 'updates' ? RECENT_PERIODS : STANDARD_PERIODS}
               period={period}
               ariaLabel="Change the reporting period"
               now={now}
@@ -1535,6 +1561,20 @@ export default async function WorkPage({
             </>
           )}
         </div>
+      )}
+
+      {/*
+        v231 — what the team has done lately, instead of opening each person
+        and then each task to find out.
+      */}
+      {scope === 'team' && teamFilter === 'updates' && (
+        <TeamRecentUpdates
+          updates={teamRecentUpdates.updates}
+          failed={teamRecentUpdates.failed}
+          phrase={period.phrase}
+          timeZone={profile.timezone ?? 'Asia/Kuala_Lumpur'}
+          period={periodParams(period)}
+        />
       )}
 
       {scope === 'team' && teamFilter === 'delivered' && (

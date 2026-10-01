@@ -38,20 +38,26 @@ test.describe('v132 the snapshot', () => {
     await openTeam(page);
   });
 
-  test('offers three views of the team and no card row above them', async ({ page }) => {
+  test('offers the team views as navigation and no card row above them', async ({ page }) => {
     /*
      * v132 put four figures here — People / Needs attention / Available work /
      * Completed — and section 3 of the change specification supersedes them:
      * that card row became the central navigation, which is a dashboard in
      * front of the list a manager came to read.
+     *
+     * The invariant is that absence, not the number of views. v231 adds Recent
+     * updates as a genuine fourth destination — a list of what the team did,
+     * which is a place to go rather than a figure to read. Attention stays a
+     * filter inside Team, as the next test insists.
      */
     await expect(page.locator('.team-snapshot')).toHaveCount(0);
 
     const views = page.getByRole('navigation', { name: 'Team views' });
-    await expect(views.getByRole('link')).toHaveCount(3);
+    await expect(views.getByRole('link')).toHaveCount(4);
     await expect(views.getByRole('link', { name: /Team/ })).toBeVisible();
     await expect(views.getByRole('link', { name: /Not started/ })).toBeVisible();
     await expect(views.getByRole('link', { name: /Completed/ })).toBeVisible();
+    await expect(views.getByRole('link', { name: /Recent updates/ })).toBeVisible();
   });
 
   test('reaches unstarted work as a view, with attention a filter inside Team', async ({

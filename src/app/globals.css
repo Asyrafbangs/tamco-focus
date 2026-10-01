@@ -15748,3 +15748,74 @@ span.deadline span.deadline-glyph,
   padding-top: 18px;
   border-top: 1px solid var(--line);
 }
+
+/* ---------------------------------------------------------------------------
+ * v231 — what the team has done lately, grouped by the day it happened.
+ * ------------------------------------------------------------------------- */
+
+.team-updates-day {
+  margin-top: 18px;
+}
+.team-updates-day h3 {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.team-updates-list {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.team-updates-row {
+  /*
+   * Positioned, because `.row-primary-link::after` stretches to `inset: 0` of
+   * the nearest positioned ancestor to make the whole row the target. Without
+   * this it anchors to something far up the page: the row is not clickable
+   * where it looks clickable, and the link itself measures as invisible.
+   */
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+}
+.team-updates-row:hover {
+  background: var(--surface-2, var(--bg));
+}
+.team-updates-time {
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+  font-variant-numeric: tabular-nums;
+}
+.team-updates-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.team-updates-what {
+  font-size: calc(14px * var(--font-scale));
+  line-height: 1.5;
+}
+.team-updates-detail {
+  color: var(--muted);
+  font-size: calc(13px * var(--font-scale));
+  line-height: 1.5;
+}
+/* A completion is the one kind worth finding at a glance. */
+.team-updates-row[data-kind='completed'] .team-updates-what strong,
+.team-updates-row[data-kind='contribution'] .team-updates-what strong {
+  color: var(--green);
+}
+@media (max-width: 640px) {
+  .team-updates-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}

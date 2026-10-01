@@ -1,3 +1,4 @@
+import { sortUpdates, type TeamUpdate } from '@/domain/team-updates';
 import 'server-only';
 
 import { cache } from 'react';
@@ -5498,4 +5499,108 @@ export async function getMajorProjectProposalDetail(
       canResubmit: Boolean(capabilities.can_resubmit),
     },
   };
+}
+
+/**
+ * What the team has done lately, newest first (v231, §20).
+ *
+ * The same visibility as every other team view — `getTeamLoad` decides whose
+ * work this manager may read — and the same two sources the Completed tab
+ * already uses, joined with the updates people wrote. Nothing here is a new
+ * claim about who may see what.
+ *
+ * `is_meaningful` is the application's own flag for "somebody said something
+ * about their work" rather than "a record was touched". A digest built from
+ * every row of `task_updates` would be mostly machinery.
+ */
+export async function getTeamRecentUpdates(
+  viewerId: string,
+  period: ResolvedPeriod,
+  limit = 200,
+): Promise<{ updates: TeamUpdate[]; failed: boolean }> {
+  const team = await getTeamLoad(viewerId);
+  const names = new Map(team.map((person) => [person.userId, person.fullName]));
+  const ids = [...names.keys()];
+  if (ids.length === 0) return { updates: [], failed: false };
+
+  const supabase = await createSupabaseServerClient();
+
+  const writtenQuery = supabase
+    .from('task_updates')
+    .select('id,task_id,author_id,body,is_evidence_only,created_at,tasks!inner(title)')
+    .in('author_id', ids)
+    .eq('is_meaningful', true)
+    .gte('created_at', period.since)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  const completedQuery = supabase
+    .from('task_overview')
+    // §20 — whoever owned it at completion, not whoever owns it now.
+    .select('id,title,completed_at,completed_owner_id')
+    .in('completed_owner_id', ids)
+    .eq('status', 'completed')
+    .gte('completed_at', period.since)
+    .order('completed_at', { ascending: false })
+    .limit(limit);
+  const contributedQuery = supabase
+    .from('completed_contributions')
+    .select('checklist_item_id,task_id,title,parent_title,completed_at,assignee_id')
+    .in('assignee_id', ids)
+    .gte('completed_at', period.since)
+    .order('completed_at', { ascending: false })
+    .limit(limit);
+
+  const [written, completed, contributed] = await Promise.all([
+    period.until ? writtenQuery.lte('created_at', period.until) : writtenQuery,
+    period.until ? completedQuery.lte('completed_at', period.until) : completedQuery,
+    period.until ? contributedQuery.lte('completed_at', period.until) : contributedQuery,
+  ]);
+
+  if (written.error || completed.error || contributed.error) {
+    console.error(
+      `[getTeamRecentUpdates] ${written.error?.message ?? ''} ${completed.error?.message ?? ''} ${contributed.error?.message ?? ''}`,
+    );
+    return { updates: [], failed: true };
+  }
+
+  const updates: TeamUpdate[] = [
+    ...(written.data ?? []).map((row) => {
+      const task = row.tasks as unknown as { title?: string } | null;
+      return {
+        id: `update-${row.id}`,
+        kind: (row.is_evidence_only ? 'evidence' : 'update') as TeamUpdate['kind'],
+        at: String(row.created_at),
+        personId: String(row.author_id),
+        personName: names.get(String(row.author_id)) ?? 'Somebody',
+        taskId: String(row.task_id),
+        taskTitle: String(task?.title ?? 'Work'),
+        parentTitle: null,
+        body: row.body ?? null,
+      };
+    }),
+    ...(completed.data ?? []).map((row) => ({
+      id: `done-${row.id}`,
+      kind: 'completed' as const,
+      at: String(row.completed_at),
+      personId: String(row.completed_owner_id),
+      personName: names.get(String(row.completed_owner_id)) ?? 'Somebody',
+      taskId: String(row.id),
+      taskTitle: String(row.title),
+      parentTitle: null,
+      body: null,
+    })),
+    ...(contributed.data ?? []).map((row) => ({
+      id: `part-${row.checklist_item_id}`,
+      kind: 'contribution' as const,
+      at: String(row.completed_at),
+      personId: String(row.assignee_id),
+      personName: names.get(String(row.assignee_id)) ?? 'Somebody',
+      taskId: String(row.task_id),
+      taskTitle: String(row.title),
+      parentTitle: row.parent_title ? String(row.parent_title) : null,
+      body: null,
+    })),
+  ];
+
+  return { updates: sortUpdates(updates).slice(0, limit), failed: false };
 }
