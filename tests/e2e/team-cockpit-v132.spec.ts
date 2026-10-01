@@ -55,7 +55,7 @@ test.describe('v132 the snapshot', () => {
     const views = page.getByRole('navigation', { name: 'Team views' });
     await expect(views.getByRole('link')).toHaveCount(4);
     await expect(views.getByRole('link', { name: /Team/ })).toBeVisible();
-    await expect(views.getByRole('link', { name: /Not started/ })).toBeVisible();
+    await expect(views.getByRole('link', { name: /Waiting/ })).toBeVisible();
     await expect(views.getByRole('link', { name: /Completed/ })).toBeVisible();
     await expect(views.getByRole('link', { name: /Recent activity/ })).toBeVisible();
   });
@@ -66,14 +66,39 @@ test.describe('v132 the snapshot', () => {
     // Attention narrows the people list; it is not a fourth destination.
     const filter = page.getByRole('navigation', { name: 'Team filter' });
     await expect(filter.getByRole('link')).toHaveCount(2);
-    await expect(filter.getByRole('link', { name: /Not started/i })).toHaveCount(0);
+    await expect(filter.getByRole('link', { name: /Waiting/i })).toHaveCount(0);
 
     await page
       .getByRole('navigation', { name: 'Team views' })
-      .getByRole('link', { name: /Not started/ })
+      .getByRole('link', { name: /Waiting/ })
       .click();
     await expect(page).toHaveURL(/filter=available/);
-    await expect(page.locator('.focus-panel')).toContainText('Work waiting to be picked up');
+    await expect(page.locator('.focus-panel')).toContainText('Work that has not started yet');
+  });
+
+  test('each view replaces the people table rather than stacking on top of it', async ({
+    page,
+  }) => {
+    /*
+     * The table was rendered for "every filter except Waiting and Completed",
+     * so each view added afterwards inherited it by default: Recent activity
+     * showed its cards and then the whole people table underneath, which is
+     * two answers to two different questions on one screen. A manager should
+     * never have to wonder why they clicked a tab.
+     */
+    const rows = page.getByTestId('my-team-person-row');
+    // Team is the view that is about people, so it is the view that has them.
+    expect(await rows.count()).toBeGreaterThan(0);
+
+    for (const filter of ['available', 'delivered', 'updates']) {
+      await openTeam(page, `&filter=${filter}`);
+      await expect(page.locator('.focus-tab-meaning')).toBeVisible();
+      expect(await rows.count(), `${filter} still renders the people table`).toBe(0);
+    }
+
+    // And attention is a filter inside Team, so it keeps them.
+    await openTeam(page, '&filter=attention');
+    await expect(page.getByTestId('my-team-person-row').first()).toBeVisible();
   });
 
   test('the window is a choice, and it is never all time', async ({ page }) => {
@@ -81,6 +106,10 @@ test.describe('v132 the snapshot', () => {
      * The rule outlives the strip it was written for: a lifetime figure
      * flatters whoever has been here longest and says nothing about now.
      */
+    // v233 — Completed is one of the two views read over a period, so it is
+    // where the control lives and where this rule is checked.
+    await page.goto('/work?scope=team&filter=delivered');
+    await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
     const picker = page.locator('.team-views .period-picker');
     await expect(picker.getByRole('button')).toContainText('Last 30 days');
     await picker.getByRole('button').click();

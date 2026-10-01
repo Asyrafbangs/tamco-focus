@@ -35,10 +35,11 @@ const OFF_LIMITS = ['Lim Wei Sheng', 'Temporary Tester', 'Izzul Asyraf', 'System
 /**
  * Every team surface, at the address the grant should now reach.
  *
- * `namesPeople` says whether a roster is expected. Two of these legitimately
- * name nobody: the delivered list shows an empty state when the window holds
- * no completions, and the "by routine" axis lists schedules rather than
- * people. Both must still be checked for the names that may never appear.
+ * `namesPeople` says whether a roster is expected. Several legitimately name
+ * nobody: the delivered list shows an empty state when the window holds no
+ * completions, the "by routine" axis lists schedules rather than people, and
+ * Waiting lists work rather than people. All are still checked for the names
+ * that may never appear.
  */
 const TEAM_SURFACES = [
   { name: 'Work → My Team', url: '/work?scope=team', anchor: 'Needs attention', namesPeople: true },
@@ -49,10 +50,13 @@ const TEAM_SURFACES = [
     namesPeople: true,
   },
   {
-    name: 'Work → My Team, available',
+    // v233 lists waiting work rather than people, so a name appears only where
+    // somebody has something waiting — which is data, not a guarantee. The
+    // check that matters here is the one below: no ungranted name, ever.
+    name: 'Work → My Team, waiting',
     url: '/work?scope=team&filter=available',
-    anchor: 'Work waiting to be picked up',
-    namesPeople: true,
+    anchor: 'Work that has not started yet',
+    namesPeople: false,
   },
   {
     name: 'Work → My Team, delivered',

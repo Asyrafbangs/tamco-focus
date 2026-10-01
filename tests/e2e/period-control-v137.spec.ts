@@ -13,9 +13,20 @@ import { expect, test, type Page } from '@playwright/test';
 
 const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
 
-/** Every screen that reports over a period, and what it opens on. */
+/**
+ * Every screen that reports over a period, and what it opens on.
+ *
+ * v233 — My Team is four views and only two of them are read over a period.
+ * Team and Waiting are the state of things now, and the control sitting
+ * above all four implied "the team, last 30 days", which is not a question
+ * anybody asks. It moved to the two views that answer one.
+ */
 const SURFACES = [
-  { name: 'My Team', url: '/work?scope=team', opensOn: 'Last 30 days' },
+  {
+    name: 'My Team → Completed',
+    url: '/work?scope=team&filter=delivered',
+    opensOn: 'Last 30 days',
+  },
   { name: 'My Work → Completed', url: '/work?tab=completed', opensOn: 'Last 30 days' },
   { name: 'Routine → My team', url: '/work/routine?panel=manager', opensOn: 'This month' },
   { name: 'Routine → Completed', url: '/work/routine?view=completed', opensOn: 'This month' },
@@ -78,7 +89,7 @@ test.describe('v137 the period control', () => {
   test('refuses a period in the future, on every surface that offers one', async ({ page }) => {
     // A report asks what has already happened. This is not validation for its
     // own sake: the same product let "15 Sep 2926" into a manager's backlog.
-    const picker = await open(page, '/work?scope=team');
+    const picker = await open(page, '/work?scope=team&filter=delivered');
     await picker.getByRole('button').click();
     const menu = page.locator('.period-picker-panel');
     const today = new Date().toISOString().slice(0, 10);
@@ -87,7 +98,7 @@ test.describe('v137 the period control', () => {
   });
 
   for (const surface of [
-    { name: 'My Team', url: '/work?scope=team' },
+    { name: 'My Team → Completed', url: '/work?scope=team&filter=delivered' },
     { name: 'My Work → Completed', url: '/work?tab=completed' },
   ]) {
     test(`a custom range is an address, not a mode, on ${surface.name}`, async ({ page }) => {
@@ -120,7 +131,7 @@ test.describe('v137 the period control', () => {
      * and the menu closed on the same click, taking the message that would
      * have explained it. Apply appeared to do nothing at all.
      */
-    const picker = await open(page, '/work?scope=team');
+    const picker = await open(page, '/work?scope=team&filter=delivered');
     await picker.getByRole('button').click();
     const menu = page.locator('.period-picker-panel');
     await menu.getByLabel('To').fill('2026-03-31');
@@ -140,7 +151,7 @@ test.describe('v137 the period control', () => {
      * could not contain anything. My Team then reported "0 completed" — a
      * claim about the team, from a period that cannot hold a single record.
      */
-    const picker = await open(page, '/work?scope=team');
+    const picker = await open(page, '/work?scope=team&filter=delivered');
     await picker.getByRole('button').click();
     const menu = page.locator('.period-picker-panel');
     await menu.getByLabel('From').fill('2026-03-31');
@@ -155,7 +166,7 @@ test.describe('v137 the period control', () => {
   test('an incomplete range keeps the menu open to say so', async ({ page }) => {
     // Closing on the click discarded the browser's own validation message
     // along with the panel it was anchored to.
-    const picker = await open(page, '/work?scope=team');
+    const picker = await open(page, '/work?scope=team&filter=delivered');
     await picker.getByRole('button').click();
     const menu = page.locator('.period-picker-panel');
     await menu.getByLabel('From').fill('2099-01-01');
@@ -173,6 +184,9 @@ test.describe('v137 the period control', () => {
      * somebody put the question silently back to thirty days, so the drawer
      * said "Last 30 days" under a strip that still said 90.
      */
+    // v233 — Team shows no period control, but the address still names one and
+    // the expansion inside it must count over that window rather than silently
+    // reverting to thirty days.
     await page.goto('/work?scope=team&period=90');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
     // The name, not the centre of the row: on a phone the row is a tall stack
@@ -205,6 +219,7 @@ test.describe('v137 the period control', () => {
       'Last year',
     );
     await expect(page.locator('.focus-panel')).toContainText('closed last year');
-    await expect(page.locator('.team-available-group')).toHaveCount(0);
+    // v233 — Waiting is its own view and carries no period at all.
+    await expect(page.locator('.team-waiting')).toHaveCount(0);
   });
 });

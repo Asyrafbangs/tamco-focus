@@ -231,6 +231,11 @@ export interface TeamAvailableGroup {
     workClass: TaskOverview['workClass'];
     dueAt: string | null;
     dueIsDateOnly: boolean;
+    /** v233 — the signals that decide whether this needs a manager. */
+    urgency: string | null;
+    createdAt: string;
+    assignedByName: string | null;
+    progressPercent: number;
   }>;
 }
 
@@ -260,10 +265,13 @@ export async function getTeamAvailableWork(
 
   const { data, error } = await supabase
     .from('task_overview')
-    // Team Available renders five fields. Selecting the full projection also
+    // Team Waiting renders a few fields. Selecting the full projection also
     // calculated checklist, evidence, attachment and collaborator aggregates
-    // for every row, then discarded them.
-    .select('id,title,work_class,primary_owner_id,due_at,due_is_date_only')
+    // for every row, then discarded them. v233 adds the four that decide
+    // whether an item is an exception rather than ordinary queued work.
+    .select(
+      'id,title,work_class,primary_owner_id,due_at,due_is_date_only,urgency,created_at,assigned_by_name,progress_percent',
+    )
     .eq('status', 'backlog')
     .in('primary_owner_id', ownerIds)
     // Excluded in the query, not afterwards. The count above filters routine
@@ -298,6 +306,10 @@ export async function getTeamAvailableWork(
       workClass: row.work_class as TaskOverview['workClass'],
       dueAt: row.due_at ? String(row.due_at) : null,
       dueIsDateOnly: Boolean(row.due_is_date_only),
+      urgency: row.urgency ? String(row.urgency) : null,
+      createdAt: String(row.created_at),
+      assignedByName: row.assigned_by_name ? String(row.assigned_by_name) : null,
+      progressPercent: Number(row.progress_percent ?? 0),
     });
   }
 

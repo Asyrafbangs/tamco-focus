@@ -62,6 +62,7 @@ import { AttentionListView } from './AttentionListView';
 import { MyTeamListHeader, MyTeamPersonRow } from './MyTeamPersonRow';
 import { MyTeamPersonPanel } from './MyTeamPersonPanel';
 import { TeamRecentActivity } from './TeamRecentActivity';
+import { TeamWaiting } from './TeamWaiting';
 import { ACTIVITY_FILTERS, type ActivityFilter } from '@/domain/team-activity';
 import { getTeamActivity } from '@/server/team-activity';
 import { WeeklyPriorities } from './WeeklyPriorities';
@@ -1108,8 +1109,6 @@ export default async function WorkPage({
    * person has nothing" from "this person is missing" — but the people with
    * nothing are a footnote, not five cards of white space.
    */
-  const availableWithWork = teamAvailable.groups.filter((group) => group.tasks.length > 0);
-  const availableWithNone = teamAvailable.groups.filter((group) => group.tasks.length === 0);
   const deliveredWithWork = teamDeliveredWork.groups.filter((group) => group.records.length > 0);
   const deliveredWithNone = teamDeliveredWork.groups.filter((group) => group.records.length === 0);
 
@@ -1454,7 +1453,7 @@ export default async function WorkPage({
                 },
                 {
                   href: teamHref('available'),
-                  label: 'Not started',
+                  label: 'Waiting',
                   active: teamFilter === 'available',
                   count: teamAvailableCount,
                 },
@@ -1475,17 +1474,23 @@ export default async function WorkPage({
               ]}
             />
 
-            <PeriodPicker
-              action="/work"
-              hidden={{
-                scope: 'team',
-                ...(teamFilter !== 'everyone' ? { filter: teamFilter } : {}),
-              }}
-              presets={teamFilter === 'updates' ? RECENT_PERIODS : STANDARD_PERIODS}
-              period={period}
-              ariaLabel="Change the reporting period"
-              now={now}
-            />
+            {/*
+              Only where a period means something. Team and Waiting are the
+              state of things now — "the team, last 30 days" is not a question
+              anybody asks, and a control sitting above all four views implied
+              it was. Completed and Recent activity are read over a window, and
+              keep theirs.
+            */}
+            {(teamFilter === 'delivered' || teamFilter === 'updates') && (
+              <PeriodPicker
+                action="/work"
+                hidden={{ scope: 'team', filter: teamFilter }}
+                presets={teamFilter === 'updates' ? RECENT_PERIODS : STANDARD_PERIODS}
+                period={period}
+                ariaLabel="Change the reporting period"
+                now={now}
+              />
+            )}
           </div>
 
           {/*
@@ -1521,72 +1526,24 @@ export default async function WorkPage({
         </>
       )}
 
+      {/*
+        v233 — exceptions first. It was every person's backlog under their
+        name: nineteen rows with nothing to say which of them mattered.
+      */}
       {scope === 'team' && teamFilter === 'available' && (
-        <div className="focus-panel">
-          <p className="focus-tab-meaning">
-            Work waiting to be picked up, grouped by the person who owns it. Your own Available work
-            stays under My Work.
-          </p>
-          {teamAvailable.failed ? (
-            <div className="notice error" role="alert">
-              <strong>Team Available work could not be loaded</strong>
-              <p>
-                Refresh the page, and tell an administrator if it persists. This is not a statement
-                that nobody has anything waiting.
-              </p>
-            </div>
-          ) : (
-            <>
-              {availableWithWork.map((group) => (
-                <section key={group.ownerId} className="team-available-group">
-                  <header>
-                    <strong>{group.ownerName}</strong>
-                    <span className="muted">{group.tasks.length} waiting</span>
-                    <Link href={`/work?scope=team&person=${group.ownerId}`}>Open person</Link>
-                  </header>
-                  <ul className="team-available-list">
-                    {group.tasks.map((task) => (
-                      <li key={task.id} className="team-available-row">
-                        <RowPrimaryLink href={`/work?scope=team&filter=available&task=${task.id}`}>
-                          {task.title}
-                        </RowPrimaryLink>
-                        <span className="muted">
-                          {WORK_CLASS_LABELS[task.workClass]}
-                          {task.dueAt ? ` · ${formatDue(task.dueAt, task.dueIsDateOnly)}` : ''}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
-
-              {availableWithWork.length === 0 && (
-                <div className="empty-state">
-                  <h3>Nobody has Available work waiting</h3>
-                  <p>Everything visible to you has been activated, completed or not yet created.</p>
-                </div>
-              )}
-
-              {/*
-                One line, not a card each.
-
-                The grouping was built from the task rows, so somebody with an
-                empty backlog had no group and simply was not on a page headed
-                "Available work" — and a manager reading five people on My Team
-                and four here cannot tell "nothing waiting" from "the page did
-                not show them". Nothing waiting is also the answer to who gets
-                the next thing, so it has to be said. Saying it in an empty card
-                per person rebuilds the wall of "No action needed from you" that
-                v130 took out: five names cost five words here instead.
-              */}
-              {availableWithNone.length > 0 && availableWithWork.length > 0 && (
-                <p className="team-group-none" data-testid="team-available-none">
-                  Nothing waiting for {nameList(availableWithNone.map((g) => g.ownerName))}.
-                </p>
-              )}
-            </>
+        <TeamWaiting
+          items={teamAvailable.groups.flatMap((group) =>
+            group.tasks.map((task) => ({
+              ...task,
+              ownerId: group.ownerId,
+              ownerName: group.ownerName,
+            })),
           )}
-        </div>
+          failed={teamAvailable.failed}
+          now={now}
+          timeZone={profile.timezone ?? 'Asia/Kuala_Lumpur'}
+          hrefFor={(taskId) => `/work?scope=team&filter=available&task=${taskId}`}
+        />
       )}
 
       {/*
@@ -1677,7 +1634,16 @@ export default async function WorkPage({
         </div>
       )}
 
-      {scope === 'team' && teamFilter !== 'available' && teamFilter !== 'delivered' && (
+      {/*
+        The people table belongs to the two views that are about people.
+
+        It was written as "every filter except these two", so each view added
+        since has quietly inherited it: Recent activity rendered its cards and
+        then the whole table underneath, which is the opposite of a tab having
+        one unmistakable purpose. Naming the two views that want it means a
+        fifth cannot inherit it by accident.
+      */}
+      {scope === 'team' && (teamFilter === 'everyone' || teamFilter === 'attention') && (
         <div className="focus-panel">
           {teamRows.length > 0 ? (
             <>

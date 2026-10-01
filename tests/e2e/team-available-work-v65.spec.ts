@@ -36,11 +36,22 @@ test.describe('v65 team Available work', () => {
     await page.goto('/work?scope=team&filter=available');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
-    const group = page.locator('.team-available-group', { hasText: 'Izzah Nurul' });
-    await expect(group).toBeVisible();
-    await expect(group.getByText(title, { exact: true })).toBeVisible();
-    // The header states the size, so the card answers "how much?" before it is read.
-    await expect(group.locator('header')).toContainText(/\d+ waiting/);
+    /*
+     * v233 — one list ordered by what needs a manager, not a card per person.
+     * The owner is named on the row, so her work is still attributed to her
+     * without the screen being a tour of people.
+     */
+    /*
+     * Brand new, no due date and nothing late about it: ordinary queued work,
+     * which lands in the folded Later group rather than shouting at a manager.
+     * Opening the fold is what makes the rest of the list reachable.
+     */
+    await page.locator('.team-waiting-later > summary').click();
+    const row = page.locator('.team-waiting-row', { hasText: title });
+    await expect(row).toBeVisible();
+    await expect(row).toContainText('Izzah Nurul');
+    // The summary answers "how much?" before any of it is read.
+    await expect(page.locator('.team-waiting-summary')).toContainText(/\d+ waiting/);
 
     /*
      * The badge counts from anywhere, not only from this tab. Built the other
@@ -60,7 +71,7 @@ test.describe('v65 team Available work', () => {
     // Reached as a view now rather than as a figure in a card row (v142 §3).
     const figure = page
       .getByRole('navigation', { name: 'Team views' })
-      .getByRole('link', { name: /Not started/ });
+      .getByRole('link', { name: /Waiting/ });
     await expect(figure).toBeVisible();
     const count = Number((await figure.textContent())?.replace(/\D/g, '') ?? '0');
     expect(count).toBeGreaterThan(0);
@@ -78,7 +89,7 @@ test.describe('v65 team Available work', () => {
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
     await expect(page.getByRole('navigation', { name: 'Team filter' })).toHaveCount(0);
-    await expect(page.locator('.team-available-group')).toHaveCount(0);
+    await expect(page.locator('.team-waiting-row')).toHaveCount(0);
   });
 
   test('the rows do not swallow the controls around them', async ({ page }) => {
@@ -93,18 +104,19 @@ test.describe('v65 team Available work', () => {
     await page.goto('/work?scope=team&filter=available');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
-    const group = page.locator('.team-available-group').first();
-    const owner = (await group.locator('header strong').innerText()).trim();
+    /*
+     * v233 — the same invariant, against the controls this view now has: the
+     * row's own task, the Later disclosure, and the tabs beside it.
+     */
+    const rows = page.locator('.team-waiting-row');
+    const wanted = (
+      await rows.first().locator('.team-waiting-main strong, a').first().innerText()
+    ).trim();
 
-    await group.getByRole('link', { name: 'Open person' }).click();
-    // The person, not a task that merely sits under the same overlay. Since
-    // v143 §6 that means their row is expanded on the Team view rather than a
-    // drawer over this one.
-    await expect(page.getByTestId('my-team-person-panel')).toBeVisible();
-    await expect(
-      page.getByTestId('my-team-person-row').filter({ hasText: owner }).locator('[aria-controls]'),
-    ).toHaveAttribute('aria-expanded', 'true');
-    await expect(page.locator('.task-detail-drawer')).toHaveCount(0);
+    await rows.first().click();
+    // The task on the row pressed, not whichever one is painted last.
+    await expect(page.locator('.task-detail-drawer')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('.task-detail-drawer')).toContainText(wanted);
 
     // And the sibling tabs still navigate.
     await page.goto('/work?scope=team&filter=available');

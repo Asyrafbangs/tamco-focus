@@ -15867,3 +15867,82 @@ span.deadline span.deadline-glyph,
   color: var(--muted);
   font-size: calc(12px * var(--font-scale));
 }
+
+/* ---------------------------------------------------------------------------
+ * v233 — Waiting: exceptions first, the bulk folded away.
+ * ------------------------------------------------------------------------- */
+
+.team-waiting-summary {
+  margin: 0 0 14px;
+  font-size: calc(14px * var(--font-scale));
+  font-weight: 600;
+}
+.team-waiting-group {
+  margin-bottom: 18px;
+}
+.team-waiting-group header h3 {
+  margin: 0;
+  font-size: calc(14px * var(--font-scale));
+}
+.team-waiting-group header p {
+  margin: 2px 0 8px;
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+}
+.team-waiting-group[data-exception] header h3 {
+  color: var(--red);
+}
+.team-waiting-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.team-waiting-row {
+  /* Positioned: the stretched link spans the nearest positioned ancestor. */
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.team-waiting-row:hover {
+  border-color: color-mix(in srgb, var(--blue) 35%, var(--line));
+}
+.team-waiting-row[data-overdue] {
+  border-left: 3px solid var(--red);
+}
+.team-waiting-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.team-waiting-main small {
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+}
+.team-waiting-row[data-overdue] .team-waiting-main small {
+  color: var(--red);
+}
+.team-waiting-open {
+  flex: none;
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+}
+.team-waiting-later > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: calc(13px * var(--font-scale));
+}
+.team-waiting-later .team-waiting-list {
+  margin-top: 8px;
+}
