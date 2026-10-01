@@ -15750,13 +15750,47 @@ span.deadline span.deadline-glyph,
 }
 
 /* ---------------------------------------------------------------------------
- * v231 — what the team has done lately, grouped by the day it happened.
+ * v232 — Recent activity: one card per person, per task, per day.
  * ------------------------------------------------------------------------- */
 
-.team-updates-day {
-  margin-top: 18px;
+.team-activity-filters,
+.team-activity-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0;
 }
-.team-updates-day h3 {
+.team-activity-filters a,
+.team-activity-people a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: calc(13px * var(--font-scale));
+  text-decoration: none;
+}
+.team-activity-filters a[aria-current],
+.team-activity-people a[aria-current] {
+  background: var(--blue-bg);
+  border-color: var(--blue);
+  color: var(--blue);
+  font-weight: 600;
+}
+/* Nobody is hidden for having done nothing, and nothing is shouted about it. */
+.team-activity-people a[data-quiet] {
+  color: var(--muted);
+}
+.team-activity-people a[data-quiet] strong {
+  font-weight: 400;
+}
+.team-activity-day {
+  margin-top: 20px;
+}
+.team-activity-day h3 {
   margin: 0 0 8px;
   color: var(--muted);
   font-size: calc(12px * var(--font-scale));
@@ -15764,58 +15798,72 @@ span.deadline span.deadline-glyph,
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.team-updates-list {
+.team-activity-list {
   display: grid;
-  gap: 2px;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.team-updates-row {
-  /*
-   * Positioned, because `.row-primary-link::after` stretches to `inset: 0` of
-   * the nearest positioned ancestor to make the whole row the target. Without
-   * this it anchors to something far up the page: the row is not clickable
-   * where it looks clickable, and the link itself measures as invisible.
-   */
+.team-activity-card {
+  /* Positioned: the row's stretched link spans the nearest positioned
+     ancestor, and without this the whole card is not the target it looks. */
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 12px;
-  align-items: baseline;
-  padding: 10px 12px;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: var(--radius-sm);
 }
-.team-updates-row:hover {
-  background: var(--surface-2, var(--bg));
+.team-activity-card:hover {
+  border-color: color-mix(in srgb, var(--blue) 35%, var(--line));
 }
-.team-updates-time {
-  color: var(--muted);
+.team-activity-card[data-done] {
+  border-left: 3px solid var(--green);
+}
+.team-activity-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
   font-size: calc(12px * var(--font-scale));
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.team-activity-time {
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.team-updates-main {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
+.team-activity-task {
+  margin: 0;
+  font-size: calc(15px * var(--font-scale));
+  font-weight: 600;
 }
-.team-updates-what {
-  font-size: calc(14px * var(--font-scale));
-  line-height: 1.5;
+.team-activity-changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 2px 0 0;
 }
-.team-updates-detail {
-  color: var(--muted);
+.team-activity-changes span {
+  padding: 2px 8px;
+  background: var(--surface-2, var(--bg));
+  border-radius: 999px;
+  font-size: calc(12px * var(--font-scale));
+}
+.team-activity-note,
+.team-activity-finding {
+  margin: 4px 0 0;
+  color: var(--text);
   font-size: calc(13px * var(--font-scale));
-  line-height: 1.5;
+  line-height: 1.55;
 }
-/* A completion is the one kind worth finding at a glance. */
-.team-updates-row[data-kind='completed'] .team-updates-what strong,
-.team-updates-row[data-kind='contribution'] .team-updates-what strong {
-  color: var(--green);
+.team-activity-finding {
+  color: var(--amber);
 }
-@media (max-width: 640px) {
-  .team-updates-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 2px;
-  }
+.team-activity-foot {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
 }

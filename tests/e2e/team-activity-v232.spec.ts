@@ -46,17 +46,34 @@ async function updateAt(ownerId: string, title: string, body: string, daysAgo: n
   if (error) throw new Error(`task insert failed: ${error.message}`);
 
   const at = new Date(Date.now() - daysAgo * 24 * 3_600_000).toISOString();
-  const { error: updateError } = await db
+  const { data: written, error: updateError } = await db
     .from('task_updates')
-    .insert({ task_id: task!.id, author_id: ownerId, body, is_meaningful: true, created_at: at });
+    .insert({ task_id: task!.id, author_id: ownerId, body, is_meaningful: true, created_at: at })
+    .select('id')
+    .single();
   if (updateError) throw new Error(`update insert failed: ${updateError.message}`);
+
+  /*
+   * The feed reads the audit trail, not the updates table — that is the whole
+   * design: one record of what happened, not two. So the fixture records the
+   * event as the application would, pointing at the update it describes.
+   */
+  const { error: auditError } = await db.from('audit_events').insert({
+    event_type: 'update_posted',
+    occurred_at: at,
+    actor_id: ownerId,
+    task_id: task!.id,
+    detail: { update_id: written!.id, evidence_only: false, attachment_count: 0 },
+  });
+  if (auditError) throw new Error(`audit insert failed: ${auditError.message}`);
   return task!.id as string;
 }
 
 /**
- * v231 — the manager reads what changed instead of touring people.
+ * v232 — the manager reads what changed instead of touring people, and reads
+ * it as one card per person per task per day rather than an audit trail.
  */
-test('v231 Recent updates lists what the team wrote, and each row opens its task', async ({
+test('v232 Recent activity merges a day into one card, and it opens its task', async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'One reading of the list is enough.');
@@ -78,7 +95,7 @@ test('v231 Recent updates lists what the team wrote, and each row opens its task
     // The tab sits beside Completed, as asked.
     const tabs = page.locator('.team-views');
     await expect(tabs).toContainText('Completed');
-    await tabs.getByRole('link', { name: /Recent updates/ }).click();
+    await tabs.getByRole('link', { name: /Recent activity/ }).click();
     await expect(page).toHaveURL(/filter=updates/);
 
     /*
@@ -87,32 +104,43 @@ test('v231 Recent updates lists what the team wrote, and each row opens its task
      * assertion below checks the control itself rather than only the range.
      */
     // The whole panel: the list is split into one <ul> per day.
-    const feed = page.locator('.team-updates-panel');
+    const feed = page.locator('.team-activity');
     await expect(feed).toContainText(recentBody);
     await expect(feed).not.toContainText(oldBody);
-    await expect(page.locator('.focus-tab-meaning')).toContainText('in the last 14 days');
+    // v232 — a week by default, not a fortnight.
+    await expect(page.locator('.focus-tab-meaning')).toContainText('in the last 7 days');
 
     // It says who did what, not just that something happened.
-    const row = page.locator('.team-updates-row', { hasText: recentBody });
-    await expect(row).toContainText('Amer');
-    await expect(row).toContainText('posted an update on');
+    const card = page.locator('.team-activity-card', { hasText: recentBody });
+    await expect(card).toContainText('Amer');
+    await expect(card).toContainText(recentTitle);
 
     // The range is the person's to choose, and a wider one reaches further back.
     await page.goto('/work?scope=team&filter=updates&period=90');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
-    await expect(page.locator('.team-updates-panel')).toContainText(oldBody);
-    await expect(page.locator('.team-updates-panel')).toContainText(recentBody);
+    await expect(page.locator('.team-activity')).toContainText(oldBody);
+    await expect(page.locator('.team-activity')).toContainText(recentBody);
 
     // And the row opens the task it is about.
     // The whole row, not the title: that is what the stretched link is for,
     // and clicking the row is what a person actually does.
-    await page.locator('.team-updates-row', { hasText: recentBody }).first().click();
+    await page.locator('.team-activity-card', { hasText: recentBody }).first().click();
     await expect(page).toHaveURL(new RegExp(`task=${recentTask}`), { timeout: 15_000 });
     await expect(page.locator('.task-detail-drawer')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('.task-detail-drawer')).toContainText(recentTitle);
   } finally {
+    /*
+     * `audit_events` is append-only — a trigger refuses deletion, because
+     * history that can be erased is not history. The task therefore cannot be
+     * deleted either while its events point at it, so it is cancelled instead
+     * and leaves every live view. The verify resets this database before the
+     * end-to-end run, so the events do not accumulate between runs.
+     */
     const db = service();
-    await db.from('task_updates').delete().in('task_id', [recentTask, oldTask]);
-    await db.from('tasks').delete().in('id', [recentTask, oldTask]);
+    const cancelled = await db
+      .from('tasks')
+      .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+      .in('id', [recentTask, oldTask]);
+    if (cancelled.error) throw new Error(`cleanup failed: ${cancelled.error.message}`);
   }
 });
