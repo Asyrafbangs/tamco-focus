@@ -45,6 +45,29 @@ describe('whether the backlog is growing', () => {
     expect(trend.words).toContain('The backlog shrank');
   });
 
+  it('refuses a direction while nothing has closed', () => {
+    /*
+     * The sign-in-free page led with "The backlog grew over the last 5
+     * complete months: 5 recorded against 0 closed", in amber, to everybody in
+     * the company. It was arithmetic about a young register, not a finding
+     * about how the work is going: with nothing closed there is no rate to
+     * compare the recordings against.
+     */
+    const trend = backlogTrend(months([2, 0], [3, 0], [0, 0]));
+    expect(trend.direction).toBe('too-early');
+    expect(trend.words).toBe(
+      '5 recorded over the last 2 complete months, and nothing has closed yet.',
+    );
+    // The figures are not hidden — only the verdict drawn from one of them.
+    expect(trend.opened).toBe(5);
+    expect(trend.closed).toBe(0);
+  });
+
+  it('calls it growing once there is something to compare against', () => {
+    const trend = backlogTrend(months([10, 1], [8, 1], [0, 0]));
+    expect(trend.direction).toBe('growing');
+  });
+
   it('claims nothing from an empty register', () => {
     const trend = backlogTrend(months([0, 0], [0, 0]));
     expect(trend.direction).toBe('level');

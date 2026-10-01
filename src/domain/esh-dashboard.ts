@@ -80,7 +80,7 @@ export function riskBars(openByRisk: Record<string, number>): Array<{
 export function backlogTrend(monthly: MonthPoint[]): {
   opened: number;
   closed: number;
-  direction: 'growing' | 'shrinking' | 'level';
+  direction: 'growing' | 'shrinking' | 'level' | 'too-early';
   words: string;
 } {
   const complete = monthly.slice(0, -1);
@@ -91,6 +91,27 @@ export function backlogTrend(monthly: MonthPoint[]): {
     return { opened, closed, direction: 'level', words: 'Nothing recorded or closed yet.' };
   }
   const span = `over the last ${months} complete month${months === 1 ? '' : 's'}`;
+  /*
+   * A direction needs both sides to have happened.
+   *
+   * With nothing closed there is no rate to compare one against, so "the
+   * backlog grew" is not a finding about how the work is going — it is the
+   * arithmetic of a register that is young. On the sign-in-free page it was
+   * the first sentence everybody in the company read, in amber, about five
+   * recordings and no closures.
+   *
+   * The same rule `onTimeRate` already follows: a figure computed from no
+   * closures is not a measurement, and showing one is how a dashboard starts
+   * lying on its first day. The fact is still stated, plainly and in full.
+   */
+  if (closed === 0) {
+    return {
+      opened,
+      closed,
+      direction: 'too-early',
+      words: `${opened} recorded ${span}, and nothing has closed yet.`,
+    };
+  }
   if (opened === closed) {
     return {
       opened,
