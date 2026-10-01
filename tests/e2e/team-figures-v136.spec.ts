@@ -19,6 +19,11 @@ import { expect, test, type Page } from '@playwright/test';
  * the answer to who gets the next thing. The same figure now also appears on
  * the person's own row, so "who may be overloaded" can be answered while
  * looking at the people rather than by leaving them.
+ *
+ * v233 replaced the grouping with a flat, exception-first list, so a person can
+ * no longer be missing from it. What is still worth guarding is that the two
+ * screens agree: the figures on the people table and the list of work read
+ * different queries off one definition of waiting work.
  */
 
 const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
@@ -44,7 +49,7 @@ async function rosterNames(page: Page): Promise<string[]> {
   return names.map((name) => name.trim()).sort();
 }
 
-/** The names each grouped view puts a card on screen for. */
+/** The names the Completed view puts a card on screen for. */
 async function groupNames(page: Page): Promise<string[]> {
   const names = await page.locator('.team-available-group > header strong').allInnerTexts();
   return names.map((name) => name.trim()).sort();
@@ -130,55 +135,84 @@ test.describe('v136 completed is reachable', () => {
   });
 });
 
-test.describe('v136 available work names everybody', () => {
+test.describe('v136 waiting work is all accounted for', () => {
   test.beforeEach(async ({ page }) => {
     await signIn(page, 'izzul@tamco.local');
   });
 
-  test('accounts for every visible person, including those carrying nothing', async ({ page }) => {
+  /** Every "N waiting" figure on the people table, by name. */
+  async function waitingByPerson(page: Page): Promise<Map<string, number>> {
+    const found = new Map<string, number>();
+    const rows = page.getByTestId('my-team-person-row');
+    for (let index = 0; index < (await rows.count()); index += 1) {
+      const cell = rows.nth(index).locator('[data-cell="person"]');
+      const name = (await cell.locator('strong').innerText()).trim();
+      const said = (await cell.innerText()).match(/(\d+) waiting/);
+      found.set(name, said ? Number(said[1]) : 0);
+    }
+    return found;
+  }
+
+  /** Every row in the Waiting view, counted by whose work it is. */
+  async function waitingRowsByOwner(page: Page): Promise<Map<string, number>> {
+    // Later is folded, and a closed <details> renders no text at all, so a
+    // count taken without opening it would be the exceptions only.
+    const later = page.locator('.team-waiting-later > summary');
+    if ((await later.count()) > 0) await later.click();
+
+    const found = new Map<string, number>();
+    const lines = await page.locator('.team-waiting-row .team-waiting-main small').allInnerTexts();
+    for (const line of lines) {
+      // "Amer · Due in 4 days · waiting 20 days" — the owner leads the line.
+      const name = line.split('·')[0]!.trim();
+      found.set(name, (found.get(name) ?? 0) + 1);
+    }
+    return found;
+  }
+
+  test('waiting work does not go missing between the two screens', async ({ page }) => {
+    /*
+     * The view was grouped by person and built from the task rows, so somebody
+     * with an empty backlog had no group and was simply absent from a page
+     * headed "Available work": a manager reading five people on My Team and
+     * four here could not tell "nothing waiting" from "the page did not show
+     * them".
+     *
+     * v233 answers that a different way — Waiting lists work rather than
+     * people, so a missing name is no longer possible — which moves the
+     * question to whether the two screens still agree about the volume. They
+     * read different queries off one shared definition of waiting work, so
+     * this is the assertion that catches a drift: drop somebody's items from
+     * the list, or count them twice on the people table, and the totals part
+     * company.
+     */
     await openTeam(page);
-    const roster = await rosterNames(page);
+    const byPerson = await waitingByPerson(page);
+    const expected = [...byPerson.values()].reduce((total, count) => total + count, 0);
 
     await openTeam(page, '&filter=available');
-    const named = await groupNames(page);
-    const line = page.getByTestId('team-available-none');
-    const footnote = (await line.count()) > 0 ? await line.innerText() : '';
+    const summary = await page.locator('.team-waiting-summary').innerText();
+    const stated = summary.match(/(\d+) waiting/);
+    expect(stated ? Number(stated[1]) : 0).toBe(expected);
 
-    /*
-     * Every name, somewhere. Before this a person with an empty backlog had no
-     * group at all, so the page showed four of five people and nothing said
-     * which one was missing or why.
-     */
-    for (const name of roster) {
-      expect(named.includes(name) || footnote.includes(name), `${name} is unaccounted for`).toBe(
-        true,
-      );
-    }
-
-    // A footnote, not five empty cards: the wall of "No action needed from
-    // you" that v130 removed must not come back in another view.
-    expect(await page.locator('.team-available-group').count()).toBe(named.length);
+    // A list of work, not a card per person: the wall of "No action needed
+    // from you" that v130 removed must not come back in another view.
+    expect(await page.locator('.team-available-group').count()).toBe(0);
   });
 
-  test('the row states waiting work, so the people view can answer it', async ({ page }) => {
+  test('the people table states what each person has waiting', async ({ page }) => {
     /*
      * This is the reported bug in its exact shape: from Needs attention, a
      * manager could not see what a person had waiting without leaving the
      * people table for a view that replaces it — losing the person they were
-     * reading in order to look them up.
+     * reading in order to look them up. The figure belongs on the row, and it
+     * has to be the figure the Waiting view would give for them.
      */
     await openTeam(page, '&filter=available');
-    const waiting = new Map<string, number>();
-    const groups = page.locator('.team-available-group');
-    for (let index = 0; index < (await groups.count()); index += 1) {
-      const group = groups.nth(index);
-      const name = (await group.locator('header strong').innerText()).trim();
-      waiting.set(name, await group.locator('.team-available-row').count());
-    }
-
-    const withWaiting = [...waiting.entries()].filter(([, count]) => count > 0);
+    const byOwner = await waitingRowsByOwner(page);
+    const withWaiting = [...byOwner.entries()].filter(([, count]) => count > 0);
     if (withWaiting.length === 0) {
-      test.skip(true, 'Nobody in this fixture has Available work.');
+      test.skip(true, 'Nobody in this fixture has waiting work.');
     }
 
     await openTeam(page);
