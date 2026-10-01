@@ -15553,3 +15553,198 @@ span.deadline span.deadline-glyph,
   max-height: 260px;
   object-fit: contain;
 }
+
+/* ---------------------------------------------------------------------------
+ * v230 — the dashboards. Bars are elements sized by percentage, not a charting
+ * library: they have to survive Night mode, a doubled text size and a phone,
+ * and the figures are in the table beside them either way.
+ * ------------------------------------------------------------------------- */
+
+.esh-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+  margin: 18px 0;
+}
+.esh-dash-panel {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.esh-dash-panel h2 {
+  margin: 0;
+  font-size: calc(15px * var(--font-scale));
+}
+.esh-dash-lead {
+  margin: 0;
+  color: var(--muted);
+  font-size: calc(13px * var(--font-scale));
+  line-height: 1.55;
+}
+.esh-dash-lead[data-direction='growing'] {
+  color: var(--amber);
+}
+.esh-dash-lead[data-direction='shrinking'] {
+  color: var(--green);
+}
+.esh-dash-big {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0;
+  font-size: calc(34px * var(--font-scale));
+  font-weight: 700;
+  line-height: 1.1;
+}
+.esh-dash-big small {
+  color: var(--muted);
+  font-size: calc(13px * var(--font-scale));
+  font-weight: 400;
+}
+.esh-dash-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+.esh-dash-facts dt {
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+}
+.esh-dash-facts dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+}
+.esh-dash-chart {
+  width: 100%;
+  border-collapse: collapse;
+}
+.esh-dash-chart th,
+.esh-dash-chart td {
+  padding: 4px 6px;
+  text-align: left;
+  font-size: calc(12px * var(--font-scale));
+  font-weight: 400;
+}
+.esh-dash-chart thead th {
+  color: var(--muted);
+}
+.esh-dash-chart tbody th {
+  white-space: nowrap;
+  color: var(--muted);
+}
+.esh-dash-chart td {
+  display: table-cell;
+  width: 42%;
+}
+.esh-dash-bars {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.esh-dash-bars li {
+  display: grid;
+  grid-template-columns: minmax(90px, auto) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  font-size: calc(13px * var(--font-scale));
+}
+.esh-dash-bar {
+  display: block;
+  height: 10px;
+  background: var(--surface-2, var(--bg));
+  border-radius: 999px;
+  overflow: hidden;
+}
+.esh-dash-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--blue);
+  border-radius: 999px;
+}
+.esh-dash-bar[data-kind='closed'] > span,
+.esh-dash-bar[data-risk='low'] > span {
+  background: var(--green);
+}
+.esh-dash-bar[data-kind='old'] > span,
+.esh-dash-bar[data-risk='critical'] > span {
+  background: var(--red);
+}
+.esh-dash-bar[data-risk='high'] > span {
+  background: var(--amber);
+}
+.esh-dash-figure {
+  min-width: 2ch;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+}
+.esh-dash-bar-label {
+  color: var(--muted);
+}
+
+/* The sign-in-free page: its own shell, since it has no application chrome. */
+.public-dash {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 20px 64px;
+}
+.public-dash-head {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+.public-dash-head h1 {
+  margin: 0;
+}
+.public-dash-lead {
+  margin: 0;
+  font-size: calc(17px * var(--font-scale));
+}
+.public-dash-time,
+.public-dash-foot {
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+  line-height: 1.6;
+}
+.esh-dash-headline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 16px;
+  margin: 18px 0;
+}
+.public-dash-figure {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.public-dash-figure strong {
+  font-size: calc(32px * var(--font-scale));
+  line-height: 1.1;
+}
+.public-dash-figure span {
+  color: var(--muted);
+  font-size: calc(13px * var(--font-scale));
+}
+.public-dash-figure[data-exception] strong {
+  color: var(--red);
+}
+.public-dash-foot {
+  display: grid;
+  gap: 8px;
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}

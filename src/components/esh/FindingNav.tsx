@@ -36,6 +36,11 @@ export function FindingNav({
        */}
       <ul>
         <li>
+          <Link href="/findings" aria-current={pathname === '/findings' ? 'page' : undefined}>
+            Dashboard
+          </Link>
+        </li>
+        <li>
           <Link href="/findings/register" aria-current={inRegister ? 'page' : undefined}>
             Register
           </Link>

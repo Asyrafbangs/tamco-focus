@@ -4,8 +4,18 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { publicEnv } from '@/lib/env';
 import { forwardedRequestHeaders } from '@/lib/supabase/session-header';
 
-/** Paths reachable without a session. Everything else requires one. */
-const PUBLIC_PATHS = ['/sign-in', '/auth/callback', '/forgot-password'];
+/**
+ * Paths reachable without a session. Everything else requires one.
+ *
+ * `/safety-performance` is the sign-in-free dashboard added in v230, at the Product
+ * Owner's explicit request. It is safe to serve to a stranger because of what
+ * it does not contain rather than because of who reaches it: the database
+ * function behind it returns counts over the whole organisation and no
+ * department, reference, title, owner, location or per-finding date, and
+ * excludes restricted findings. Anything richer must not be added to that page
+ * without moving it off this list.
+ */
+const PUBLIC_PATHS = ['/sign-in', '/auth/callback', '/forgot-password', '/safety-performance'];
 
 /**
  * Endpoints that carry their own authentication and must not be redirected.

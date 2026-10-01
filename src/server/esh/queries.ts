@@ -16,6 +16,7 @@ import type { ReportDefinitionSummary } from '@/domain/esh-reports';
 import type { Database } from '@/lib/database.types';
 import type { OperationalHealth } from '@/domain/esh-health';
 import type { RolloutStatus } from '@/domain/esh-rollout';
+import type { DashboardData, MonthPoint, PublicDashboardData } from '@/domain/esh-dashboard';
 import { cache } from 'react';
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
@@ -1312,5 +1313,90 @@ export async function getRolloutStatus(): Promise<RolloutStatus | null> {
     contactsRevoked: Number(row.contacts_revoked ?? 0),
     held: Number(row.held ?? 0),
     heldReleasable: Number(row.held_releasable ?? 0),
+  };
+}
+
+/** Shared parsing: the two dashboards return the same figures. */
+function toClosure(raw: Record<string, unknown> | undefined) {
+  const closure = (raw ?? {}) as Record<string, number>;
+  return {
+    closed: Number(closure.closed ?? 0),
+    onTime: Number(closure.on_time ?? 0),
+    late: Number(closure.late ?? 0),
+    medianDays: Number(closure.median_days ?? 0),
+  };
+}
+
+function toAge(raw: Record<string, unknown> | undefined) {
+  const age = (raw ?? {}) as Record<string, number>;
+  return {
+    under30: Number(age.under_30 ?? 0),
+    from30to90: Number(age.from_30_to_90 ?? 0),
+    over90: Number(age.over_90 ?? 0),
+  };
+}
+
+function toMonthly(raw: unknown): MonthPoint[] {
+  return (Array.isArray(raw) ? raw : []).map((point) => ({
+    month: String((point as Record<string, unknown>).month ?? ''),
+    opened: Number((point as Record<string, number>).opened ?? 0),
+    closed: Number((point as Record<string, number>).closed ?? 0),
+  }));
+}
+
+/**
+ * The ESH dashboard (v230, §33), in the caller's own Finding scope.
+ */
+export async function getDashboard(months = 6): Promise<DashboardData | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_dashboard', { p_months: months });
+  if (error) {
+    console.error(`[getDashboard] ${error.code ?? 'unknown'}: ${error.message}`);
+    return null;
+  }
+  const raw = (data ?? {}) as Record<string, unknown>;
+  if (!raw.ok) return null;
+  return {
+    asOf: String(raw.as_of ?? new Date().toISOString()),
+    openFindings: Number(raw.open_findings ?? 0),
+    overdueActions: Number(raw.overdue_actions ?? 0),
+    awaitingVerification: Number(raw.awaiting_verification ?? 0),
+    oldestOpenDays: Number(raw.oldest_open_days ?? 0),
+    openByRisk: (raw.open_by_risk ?? {}) as Record<string, number>,
+    openByAge: toAge(raw.open_by_age as Record<string, unknown>),
+    closure: toClosure(raw.closure as Record<string, unknown>),
+    monthly: toMonthly(raw.monthly),
+    byDepartment: (Array.isArray(raw.by_department) ? raw.by_department : []).map((row) => ({
+      name: String((row as Record<string, unknown>).name ?? ''),
+      openFindings: Number((row as Record<string, number>).open_findings ?? 0),
+      overdue: Number((row as Record<string, number>).overdue ?? 0),
+    })),
+  };
+}
+
+/**
+ * The sign-in-free dashboard (v230).
+ *
+ * Runs with no session, so the database function decides everything: it
+ * returns counts over the whole organisation and nothing that could identify a
+ * finding, a department or a person, and leaves restricted findings out.
+ */
+export async function getPublicDashboard(): Promise<PublicDashboardData | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_public_dashboard');
+  if (error) {
+    console.error(`[getPublicDashboard] ${error.code ?? 'unknown'}: ${error.message}`);
+    return null;
+  }
+  const raw = (data ?? {}) as Record<string, unknown>;
+  if (!raw.ok) return null;
+  return {
+    asOf: String(raw.as_of ?? new Date().toISOString()),
+    openFindings: Number(raw.open_findings ?? 0),
+    overdueActions: Number(raw.overdue_actions ?? 0),
+    openByRisk: (raw.open_by_risk ?? {}) as Record<string, number>,
+    openByAge: toAge(raw.open_by_age as Record<string, unknown>),
+    closure: toClosure(raw.closure as Record<string, unknown>),
+    monthly: toMonthly(raw.monthly),
   };
 }

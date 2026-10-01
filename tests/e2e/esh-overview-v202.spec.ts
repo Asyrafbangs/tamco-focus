@@ -74,7 +74,9 @@ test('v202 overview totals drill into the matching action rows without changing 
 
   await signIn(page);
   await page.goto('/findings');
-  await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
+  // v230 - the Overview became the Dashboard, and gained the panels that say
+  // how it is going rather than only how many there are.
+  await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible();
   const navigation = page.getByRole('navigation', { name: 'Finding Management' });
   // v227 - kept at its address, reached from the register's tools rather than
   // standing first in the navigation.
