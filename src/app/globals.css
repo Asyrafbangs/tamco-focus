@@ -8279,71 +8279,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   line-height: 1.45;
 }
 
-/* Team Available work, grouped by the person who owns it. One card per
-   person so the question "what is already on them?" is answered by looking,
-   not by counting rows and matching names. */
-.team-available-group {
-  margin-top: 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  overflow: hidden;
-}
-.team-available-group > header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 10px;
-  padding: 11px 14px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface-2);
-}
-.team-available-group > header strong {
-  font-size: 13px;
-}
-.team-available-group > header .muted {
-  font-size: 12px;
-}
-.team-available-group > header a {
-  margin-left: auto;
-  /* A colour of its own (v181): left to the browser it was link blue #0000ee,
-     1.88:1 on the header in Night mode. */
-  color: var(--blue);
-  font-size: 12px;
-  font-weight: 650;
-}
-.team-available-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.team-available-row {
-  /*
-   * Positioned so the row's own click overlay stays inside it.
-   *
-   * `.row-primary-link::after` is `position: absolute; inset: 0`, which
-   * resolves against the nearest positioned ancestor. Without this the overlay
-   * stretched across the whole panel: every row covered the group header and
-   * the filter tabs, so "Open person" opened whichever task was painted last
-   * and the Everyone tab did nothing at all.
-   */
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4px 12px;
-  padding: 10px 14px;
-  border-top: 1px solid var(--line-soft);
-  font-size: 13px;
-}
-.team-available-row:first-child {
-  border-top: 0;
-}
-.team-available-row .muted {
-  font-size: 11px;
-}
-
 /* The people a grouped view has nothing to show for, named in one line rather
    than given an empty card each. Quiet on purpose: nothing waiting is a normal
    state and often the useful one, not an absence to apologise for. */
@@ -15753,15 +15688,20 @@ span.deadline span.deadline-glyph,
  * v232 — Recent activity: one card per person, per task, per day.
  * ------------------------------------------------------------------------- */
 
+/* v234 — Completed uses the same two idioms, so they have one definition. */
 .team-activity-filters,
-.team-activity-people {
+.team-activity-people,
+.team-delivered-views,
+.team-delivered-people {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   margin: 12px 0;
 }
 .team-activity-filters a,
-.team-activity-people a {
+.team-activity-people a,
+.team-delivered-views a,
+.team-delivered-people a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -15774,23 +15714,29 @@ span.deadline span.deadline-glyph,
   text-decoration: none;
 }
 .team-activity-filters a[aria-current],
-.team-activity-people a[aria-current] {
+.team-activity-people a[aria-current],
+.team-delivered-views a[aria-current],
+.team-delivered-people a[aria-current] {
   background: var(--blue-bg);
   border-color: var(--blue);
   color: var(--blue);
   font-weight: 600;
 }
 /* Nobody is hidden for having done nothing, and nothing is shouted about it. */
-.team-activity-people a[data-quiet] {
+.team-activity-people a[data-quiet],
+.team-delivered-people a[data-quiet] {
   color: var(--muted);
 }
-.team-activity-people a[data-quiet] strong {
+.team-activity-people a[data-quiet] strong,
+.team-delivered-people a[data-quiet] strong {
   font-weight: 400;
 }
-.team-activity-day {
+.team-activity-day,
+.team-delivered-day {
   margin-top: 20px;
 }
-.team-activity-day h3 {
+.team-activity-day h3,
+.team-delivered-day h3 {
   margin: 0 0 8px;
   color: var(--muted);
   font-size: calc(12px * var(--font-scale));
@@ -15872,7 +15818,8 @@ span.deadline span.deadline-glyph,
  * v233 — Waiting: exceptions first, the bulk folded away.
  * ------------------------------------------------------------------------- */
 
-.team-waiting-summary {
+.team-waiting-summary,
+.team-delivered-summary {
   margin: 0 0 14px;
   font-size: calc(14px * var(--font-scale));
   font-weight: 600;
@@ -15945,4 +15892,88 @@ span.deadline span.deadline-glyph,
 }
 .team-waiting-later .team-waiting-list {
   margin-top: 8px;
+}
+
+/* ---------------------------------------------------------------------------
+ * v234 — Completed: a week first, people second.
+ * ------------------------------------------------------------------------- */
+
+/*
+  The two views sit together as one control, not as two unrelated links: they
+  are a choice of how to read one list, and spacing them apart would read as a
+  choice of what to read.
+*/
+.team-delivered-views {
+  gap: 0;
+}
+.team-delivered-views a:first-child {
+  border-radius: 999px 0 0 999px;
+}
+.team-delivered-views a:last-child {
+  border-radius: 0 999px 999px 0;
+  margin-left: -1px;
+}
+.team-delivered-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.team-delivered-row {
+  /* Positioned: the stretched link spans the nearest positioned ancestor, and
+     without this the whole row is not the target it looks like. */
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+.team-delivered-row:hover {
+  border-color: color-mix(in srgb, var(--blue) 35%, var(--line));
+}
+/* Green, and small. Every row here finished; the tick marks the kind of list
+   this is rather than distinguishing one row from another. */
+.team-delivered-tick {
+  flex: none;
+  color: var(--green);
+  font-size: calc(13px * var(--font-scale));
+  line-height: 1.5;
+}
+.team-delivered-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.team-delivered-main small {
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+}
+.team-delivered-group {
+  margin-bottom: 18px;
+}
+.team-delivered-group > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.team-delivered-group > header strong {
+  font-size: calc(14px * var(--font-scale));
+}
+.team-delivered-group > header .muted {
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+}
+.team-delivered-group > header a {
+  margin-left: auto;
+  /* Lines the link up with the text inside the rows below rather than with
+     their borders, where it sat hard against the panel edge. */
+  padding-right: 14px;
+  font-size: calc(12px * var(--font-scale));
 }

@@ -16,7 +16,11 @@ import { closeLayerHref, safeReturnPath, TASK_LAYER_PARAMS } from '@/domain/navi
 import { formatDue, formatDueShort, localDateString } from '@/domain/duration';
 import { compareDeadlines, deadlineFor, type Deadline } from '@/domain/deadline';
 import { DeadlineLabel } from '@/components/ui/DeadlineLabel';
-import { DELIVERY_KIND_WORD } from '@/domain/delivery';
+import {
+  readDeliveredView,
+  type DeliveredRecord,
+  type DeliveredView,
+} from '@/domain/team-delivered';
 import {
   DEFAULT_PERIOD,
   periodParams,
@@ -61,6 +65,7 @@ import { BinList } from './BinList';
 import { AttentionListView } from './AttentionListView';
 import { MyTeamListHeader, MyTeamPersonRow } from './MyTeamPersonRow';
 import { MyTeamPersonPanel } from './MyTeamPersonPanel';
+import { TeamDelivered } from './TeamDelivered';
 import { TeamRecentActivity } from './TeamRecentActivity';
 import { TeamWaiting } from './TeamWaiting';
 import { ACTIVITY_FILTERS, type ActivityFilter } from '@/domain/team-activity';
@@ -136,9 +141,6 @@ const MAX_KEPT_PEOPLE = 3;
 
 /** Anything arriving in `?person=` or `?kept=` that is not this is not asked about. */
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const NAME_LIST = new Intl.ListFormat('en-GB', { style: 'long', type: 'conjunction' });
-const nameList = (names: string[]) => NAME_LIST.format(names);
 
 const TAB_MEANING: Record<TabKey, string> = {
   active: 'Work you are currently carrying.',
@@ -597,9 +599,14 @@ export default async function WorkPage({
     sort?: string;
     scope?: string;
     filter?: string;
-    /** v232 — Recent activity's own two filters: which person, which kind. */
+    /**
+     * v232 — Recent activity's own two filters: which person, which kind.
+     * v234 — Completed shares `who` and adds `view`, which chooses between the
+     * timeline and the person grouping.
+     */
     who?: string;
     kind?: string;
+    view?: string;
     /** v46 §44 — "I was sent here to act", plus which request. */
     attention?: string;
     barrier?: string;
@@ -1023,6 +1030,29 @@ export default async function WorkPage({
     return `/work?${query.toString()}`;
   };
 
+  /*
+   * v234 — Completed reads two ways, and which way it is reading is in the
+   * address: a manager can send "what Fadli closed last month" to somebody,
+   * and closing a task drawer comes back to the same view rather than to the
+   * default one.
+   */
+  const deliveredView = readDeliveredView(params.view);
+  const deliveredPerson = typeof params.who === 'string' && params.who ? params.who : null;
+  const deliveredHref = (next: { view?: DeliveredView; who?: string | null; task?: string }) => {
+    const query = new URLSearchParams({
+      scope: 'team',
+      filter: 'delivered',
+      ...periodParams(period),
+    });
+    const who = next.who === undefined ? deliveredPerson : next.who;
+    const view = next.view ?? deliveredView;
+    if (who) query.set('who', who);
+    // The timeline is the default, so it is not written into the address.
+    if (view !== 'timeline') query.set('view', view);
+    if (next.task) query.set('task', next.task);
+    return `/work?${query.toString()}`;
+  };
+
   const teamHref = (filter?: 'attention' | 'available' | 'delivered' | 'updates') => {
     const query = new URLSearchParams({ scope: 'team', ...periodParams(period) });
     if (filter) query.set('filter', filter);
@@ -1109,17 +1139,27 @@ export default async function WorkPage({
    * person has nothing" from "this person is missing" — but the people with
    * nothing are a footnote, not five cards of white space.
    */
-  const deliveredWithWork = teamDeliveredWork.groups.filter((group) => group.records.length > 0);
-  const deliveredWithNone = teamDeliveredWork.groups.filter((group) => group.records.length === 0);
-
-  /* Day and month only. Every row in the delivered list falls inside the
-     window named above it, so the year is the same on all of them. */
-  const completedDay = (iso: string) =>
-    new Date(iso).toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      timeZone: profile.timezone,
-    });
+  /*
+   * One list of records, read as a week or as people.
+   *
+   * Flattened here because the query groups by owner and both views derive
+   * their own shape from this: two reads would be two chances to disagree
+   * about what closed, which is exactly how the old headline figure and the
+   * list beneath it came apart.
+   */
+  const deliveredRecords: DeliveredRecord[] = teamDeliveredWork.groups.flatMap((group) =>
+    group.records.map((record) => ({
+      ...record,
+      personId: group.ownerId,
+      personName: group.ownerName,
+    })),
+  );
+  // Everybody the manager can see, because the query seeds a group per person
+  // whether or not they closed anything.
+  const deliveredTeam = teamDeliveredWork.groups.map((group) => ({
+    userId: group.ownerId,
+    fullName: group.ownerName,
+  }));
 
   /*
    * v46 §9, §45 — resolve what the person was sent here to do.
@@ -1563,75 +1603,24 @@ export default async function WorkPage({
         />
       )}
 
+      {/*
+        v234 — a week first, people second. The grouping by person is kept as
+        the second view, because checking one person's output is a real
+        question; it is just not the one this tab opens on.
+      */}
       {scope === 'team' && teamFilter === 'delivered' && (
-        <div className="focus-panel">
-          <p className="focus-tab-meaning">
-            What your team closed {period.phrase}, grouped by who delivered it. Owned work,
-            contributions to somebody else&rsquo;s task, and routine occurrences — the three things
-            the figure above counts.
-          </p>
-          {teamDeliveredWork.failed ? (
-            <div className="notice error" role="alert">
-              <strong>Team delivery could not be loaded</strong>
-              <p>
-                Refresh the page, and tell an administrator if it persists. This is not a statement
-                that your team has delivered nothing.
-              </p>
-            </div>
-          ) : (
-            <>
-              {deliveredWithWork.map((group) => (
-                <section key={group.ownerId} className="team-available-group">
-                  <header>
-                    <strong>{group.ownerName}</strong>
-                    <span className="muted">{group.records.length} completed</span>
-                    <Link href={`/work?scope=team&person=${group.ownerId}`}>Open person</Link>
-                  </header>
-                  <ul className="team-available-list">
-                    {group.records.map((record) => (
-                      <li key={`${record.kind}-${record.id}`} className="team-available-row">
-                        <RowPrimaryLink
-                          href={`/work?scope=team&filter=delivered&task=${record.taskId}`}
-                        >
-                          {record.title}
-                        </RowPrimaryLink>
-                        <span className="muted">
-                          {DELIVERY_KIND_WORD[record.kind]}
-                          {record.parentTitle ? ` on ${record.parentTitle}` : ''}
-                          {record.at ? ` · ${completedDay(record.at)}` : ''}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
-
-              {deliveredWithWork.length === 0 && (
-                <div className="empty-state">
-                  <h3>Nothing closed in this window</h3>
-                  <p>
-                    Try a wider window before reading anything into it — a team working on Major
-                    Projects can go a month without closing one.
-                  </p>
-                </div>
-              )}
-
-              {/*
-                A period with nothing closed is as often a fact about the period
-                — a fortnight of holiday, one long Major Project still running —
-                as about the person. Dropping the name shows neither, and giving
-                each of them a card of their own makes the absence the loudest
-                thing on the page.
-              */}
-              {deliveredWithNone.length > 0 && deliveredWithWork.length > 0 && (
-                <p className="team-group-none" data-testid="team-delivered-none">
-                  Nothing closed {period.phrase} by{' '}
-                  {nameList(deliveredWithNone.map((g) => g.ownerName))}.
-                </p>
-              )}
-            </>
-          )}
-        </div>
+        <TeamDelivered
+          records={deliveredRecords}
+          team={deliveredTeam}
+          failed={teamDeliveredWork.failed}
+          view={deliveredView}
+          person={deliveredPerson}
+          now={now}
+          timeZone={profile.timezone ?? 'Asia/Kuala_Lumpur'}
+          phrase={period.phrase}
+          hrefFor={deliveredHref}
+          taskHref={(taskId) => deliveredHref({ task: taskId })}
+        />
       )}
 
       {/*

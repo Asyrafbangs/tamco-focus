@@ -112,9 +112,10 @@ test.describe('v69 Team visibility and navigation', () => {
 
       // Amer may see Izzah and Ajmal as people. The individual Lim task is
       // shared with him, but that does not make Lim one of his Team people.
-      await expect(page.locator('.team-available-group', { hasText: 'Lim Wei Sheng' })).toHaveCount(
-        0,
-      );
+      // v233 removed the per-person grouping here, which left this assertion
+      // passing because the selector matched nothing at all. The claim it was
+      // making — Lim is not one of Amer's people — is now made of the view.
+      await expect(page.locator('.team-waiting')).not.toContainText('Lim Wei Sheng');
       await expect(page.getByText(title, { exact: true })).toHaveCount(0);
     } finally {
       await service.from('tasks').delete().eq('id', task.id);
