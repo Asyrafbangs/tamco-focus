@@ -115,9 +115,15 @@ test('v189 a person’s row and panel say what is late and what is due soon', as
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
     const row = page.getByTestId('my-team-person-row').filter({ hasText: 'Lim Wei Sheng' });
-    await expect(row.locator('[data-cell="person"]')).toContainText(
-      '⚠ 1 overdue · ! 2 due within 5 days',
-    );
+    /*
+     * v235 moved these out of the person's summary, where they sat beside
+     * volume figures of the same shape and read as facts of equal standing.
+     * They are exceptions, and they now live in the column a manager reads to
+     * decide whether this row needs them at all.
+     */
+    await expect(row.locator('[data-cell="needs-you"]')).toContainText('⚠ 1 overdue');
+    await expect(row.locator('[data-cell="needs-you"]')).toContainText('! 2 due within 5 days');
+    await expect(row.locator('[data-cell="person"]')).not.toContainText('overdue');
 
     const attention = page
       .getByTestId('my-team-person-panel')

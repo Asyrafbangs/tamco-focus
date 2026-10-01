@@ -151,12 +151,18 @@ test.describe('v130 My Team is an exception list, not a table of buttons', () =>
 
   test('the columns say what they hold', async ({ page }) => {
     const header = page.locator('[class*="listHeader"]');
-    await expect(header).toContainText('Current focus');
-    await expect(header).toContainText('Latest update');
-    // "Working on" could not answer which of four Active items this was, and
-    // "Latest" could mean the latest task, change or message.
+    // v235 merged five columns into three. "Currently working on" still names
+    // the person's own selection rather than the most recently touched task,
+    // and "Latest" still says which latest it means — it now says it beside
+    // the exceptions, because they are one question.
+    await expect(header).toContainText('Currently working on');
+    await expect(header).toContainText('Needs attention · Latest');
+    // Still not the bare "Working on", which could not answer which of four
+    // Active items this was.
     await expect(header).not.toContainText('Working on');
     await expect(header.getByText('Action', { exact: true })).toHaveCount(0);
+    // The two columns of repeated absence are gone, not relabelled.
+    await expect(header).not.toContainText('Next agreed result');
   });
 
   test('healthy rows are quiet and carry no buttons', async ({ page }) => {

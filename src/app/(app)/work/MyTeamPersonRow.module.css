@@ -1,10 +1,12 @@
 /*
-  Weighted towards the two columns a manager is actually reading.
+  Three columns, weighted towards the one a manager acts on (v235).
 
-  The old split gave the widest column to what somebody is working on and the
-  narrowest to what the manager owes them, with a fifth column of buttons
-  taking real estate at the end. Needs you now matches Current focus, and the
-  last column is a chevron.
+  There were five, and two of them were mostly absence: a column of "No agreed
+  priorities" and a column of "No action needed from you", restated on every
+  line. The agreed result now sits with the work it is a result of, and the
+  latest update sits with the exceptions, because "is this person in trouble,
+  and when did they last say anything" is one question and was being read in
+  two places a row apart.
 */
 /*
   Named rather than found by position. These rules used to select the reason as
@@ -14,13 +16,11 @@
 .listHeader,
 .row {
   display: grid;
-  /* Person, current focus, next agreed result, needs you, latest, chevron. */
+  /* Person, current focus, what needs you and when they last spoke, chevron. */
   grid-template-columns:
-    minmax(130px, 1fr)
-    minmax(150px, 1.3fr)
-    minmax(150px, 1.3fr)
-    minmax(170px, 1.5fr)
-    minmax(120px, 1fr)
+    minmax(150px, 1fr)
+    minmax(190px, 1.25fr)
+    minmax(230px, 1.6fr)
     26px;
   gap: 14px;
   min-width: 0;
@@ -126,9 +126,7 @@
 
 .person,
 .working,
-.nextResult,
-.attention,
-.latest {
+.attention {
   display: grid;
   min-width: 0;
   gap: 3px;
@@ -136,12 +134,11 @@
 
 .person strong,
 .working strong,
-.nextResult strong,
-.latest strong,
 .person span,
 .working span,
+.agreed,
 .reason,
-.latest span {
+.latest {
   min-width: 0;
   overflow: hidden;
   overflow-wrap: anywhere;
@@ -149,8 +146,7 @@
 }
 
 .person strong,
-.working strong,
-.nextResult strong {
+.working strong {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -162,21 +158,57 @@
 
 .person span,
 .working span,
-.nextResult span,
+.agreed,
+.exceptions,
 .reason,
-.latest span,
-.latest strong {
+.latest {
   color: var(--muted);
   font-size: 9px;
   line-height: 1.4;
 }
 
 .working span,
-.reason,
-.latest span {
+.agreed,
+.reason {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+/*
+  The exceptions read as one line, wrapping if they must.
+
+  Stacked they cost the cell a line each, and the cell also carries the flag,
+  the decision button and a reason — the row has a height budget that
+  `team-context-v48` measures at eight widths.
+*/
+.exceptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 10px;
+}
+
+/*
+  What is wrong, and when they last spoke, on one line.
+
+  The timestamp goes to the right so the exceptions keep the reading edge: a
+  manager scanning the column is looking for the red, not for the clock.
+*/
+.state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 12px;
+}
+
+.state .latest {
+  margin-left: auto;
+}
+
+/* A label, not emphasis: italic made it read as a quotation of the result. */
+.agreed em {
+  font-style: normal;
+  font-weight: 650;
 }
 
 .flag {
@@ -204,16 +236,8 @@
   color: var(--amber);
 }
 
-.muted,
-.none {
+.muted {
   color: var(--muted);
-}
-
-/* Sized like the text it replaces so the row does not change height when a
-   person acquires a problem, or loses one. */
-.none {
-  font-size: 9px;
-  line-height: 1.4;
 }
 
 /*
@@ -221,11 +245,12 @@
   only part of that line in red.
 
   Scoped to the cells it sits in. As a bare class it lost to `.person span` and
-  `.nextResult span`, each one element more specific, so neither the overdue
-  count nor "Missed" ever actually turned red - they were bold and grey.
+  `.agreed`, each one element more specific, so neither the overdue count nor
+  "Missed" ever actually turned red - they were bold and grey.
 */
 .person .summaryAlert,
-.nextResult .summaryAlert,
+.agreed .summaryAlert,
+.exceptions .summaryAlert,
 .summaryAlert {
   color: var(--red);
   font-weight: 650;
@@ -233,6 +258,7 @@
 
 /* v189 — due inside the attention window: amber, as it is everywhere else. */
 .person .summarySoon,
+.exceptions .summarySoon,
 .summarySoon {
   color: var(--amber);
   font-weight: 650;
@@ -300,18 +326,49 @@
 
       The sixth column made a third band at this width and the row grew to
       159px against a 140px cap. Pairing the fields keeps the same height the
-      table had with four cells, and keeps current work and the next agreed
-      result on the first line where §5 wants them.
+      table had with four cells, and keeps who they are and what they are on
+      side by side on the first line where §5 wants them.
     */
     grid-template-areas:
-      'person working next action'
-      'attention attention latest action';
+      'person working action'
+      'attention attention action';
     grid-template-columns:
-      minmax(110px, 0.9fr)
-      minmax(140px, 1.2fr)
-      minmax(140px, 1.2fr)
+      minmax(120px, 0.95fr)
+      minmax(150px, 1.25fr)
       auto;
+    /*
+      The bands sit closer than the columns do.
+
+      `team-context-v48` caps this row at 140px and the merged attention cell
+      can carry four lines, so the 14px that separates columns is more than a
+      band boundary needs — the bands are already told apart by starting at the
+      left edge.
+    */
+    gap: 6px 14px;
     align-items: start;
+  }
+
+  /*
+    One line of reason at this width, not two.
+
+    The band is two columns wide here, so a line holds most of what a reason
+    says; the second line was costing the row more than it gave back.
+  */
+  .reason {
+    -webkit-line-clamp: 1;
+  }
+
+  /*
+    The timestamp follows the exceptions rather than being pushed to the far
+    edge of the row.
+
+    Right-aligned it reads as a column of its own, which is what it is above
+    1120 where the header names it. Here there is no header and the band is the
+    width of the whole row, so a person with nothing wrong had "No recent
+    activity" stranded alone on the right of an otherwise empty line.
+  */
+  .state .latest {
+    margin-left: 0;
   }
 
   .person {
@@ -322,16 +379,8 @@
     grid-area: working;
   }
 
-  .nextResult {
-    grid-area: next;
-  }
-
   .attention {
     grid-area: attention;
-  }
-
-  .latest {
-    grid-area: latest;
   }
 
   .action {
@@ -345,13 +394,11 @@
     grid-template-areas:
       'person action'
       'working working'
-      'next next'
-      'attention attention'
-      'latest latest';
+      'attention attention';
     grid-template-columns: minmax(0, 1fr) auto;
     /*
       Tighter than the wider layouts, because on a phone the row is a stack of
-      four labelled bands rather than a table row, and the separators already
+      three labelled bands rather than a table row, and the separators already
       do the work the whitespace was doing.
 
       The height matters here: a row that carries a manager action carries a
@@ -363,13 +410,11 @@
     padding: 11px 12px;
   }
 
-  /* Five bands rather than four now, so the separator spacing gives back what
-     the extra band costs. The 44px touch target is not negotiable and is left
-     alone, exactly as in v130. */
+  /* Three bands now, which gives back the height the merged attention cell
+     costs. The 44px touch target is not negotiable and is left alone, exactly
+     as in v130. */
   .working,
-  .attention,
-  .latest,
-  .nextResult {
+  .attention {
     padding-top: 4px;
     border-top: 1px solid var(--line-soft);
   }
