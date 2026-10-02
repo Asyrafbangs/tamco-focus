@@ -16040,5 +16040,50 @@ span.deadline span.deadline-glyph,
   /* Lines the link up with the text inside the rows below rather than with
      their borders, where it sat hard against the panel edge. */
   padding-right: 14px;
+  /*
+    A colour of its own.
+    
+    Left to the browser this is link blue #0000EE, which is 1.3:1 on the panel
+    in Night mode — the same defect v181 fixed on the view this replaced, and
+    v218 found again elsewhere. A link that states no colour has not chosen the
+    default; it has chosen whatever the browser does at night.
+  */
+  color: var(--blue);
   font-size: calc(12px * var(--font-scale));
+  font-weight: 650;
+}
+
+/* ---------------------------------------------------------------------------
+ * v237 — touch targets for the My Team chips and their links.
+ * ------------------------------------------------------------------------- */
+
+/*
+  A chip is a button in everything but its markup.
+
+  `Timeline`, `By person`, the activity kinds and the per-person filters are
+  pills with borders that a thumb taps, and they rendered at 34px on a phone.
+  The touch-target check selects `button, a.btn, .mobile-nav a, input, select,
+  summary`, so a plain anchor styled as a chip was outside the rule it plainly
+  belongs to — a crawl that measured every anchor is what found them.
+
+  Last in the stylesheet, naming each competing selector, because those sizes
+  are declared later than the v183 mobile block and a rule there never reaches
+  them.
+*/
+@media (max-width: 700px) {
+  .team-activity-filters a,
+  .team-activity-people a,
+  .team-delivered-views a,
+  .team-delivered-people a {
+    min-height: 44px;
+  }
+
+  /* Text links that are the way out of a view, at 18px and 15px: small enough
+     that hitting them is a second attempt. */
+  .team-delivered-group > header a,
+  .team-person-exit a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
 }
