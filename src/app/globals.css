@@ -16086,4 +16086,39 @@ span.deadline span.deadline-glyph,
     align-items: center;
     min-height: 44px;
   }
+
+  /*
+    One row that scrolls, rather than six rows that wrap.
+
+    Raising the chips to a 44px target made eleven of them — six activity kinds
+    and five people — take six lines on a phone, so the activity they filter
+    started below the fold: the screen opened on its own controls. A strip that
+    scrolls keeps the target and gives the content the screen back, and a
+    half-visible chip at the edge is what says there are more.
+
+    The page's own sideways scroll is unaffected, which is why that check never
+    saw any of this.
+  */
+  .team-activity-filters,
+  .team-activity-people,
+  .team-delivered-people {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* Room for the focus ring on the first and last chip. */
+    padding: 2px;
+    margin-inline: -2px;
+  }
+
+  .team-activity-filters::-webkit-scrollbar,
+  .team-activity-people::-webkit-scrollbar,
+  .team-delivered-people::-webkit-scrollbar {
+    display: none;
+  }
+
+  .team-activity-filters a,
+  .team-activity-people a,
+  .team-delivered-people a {
+    flex: 0 0 auto;
+  }
 }
