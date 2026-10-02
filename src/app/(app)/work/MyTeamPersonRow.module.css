@@ -353,6 +353,9 @@
 
     The band is two columns wide here, so a line holds most of what a reason
     says; the second line was costing the row more than it gave back.
+
+    Undone on a phone below, where the row is a stack rather than a table and
+    the reason is the whole of what the manager is being told.
   */
   .reason {
     -webkit-line-clamp: 1;
@@ -421,5 +424,31 @@
 
   .action {
     align-self: start;
+  }
+
+  /*
+    The reason gets its lines back.
+
+    v235 clamped it to one line to win back row height in the two-band table
+    layout, and a phone inherited that — so "Please confirm the approved pilot
+    platform and arrange access to three Operations…" was the whole of what a
+    manager was told. There is no table here to keep aligned: the row is a
+    stack of labelled bands, and the band is as wide as the screen.
+  */
+  .reason {
+    -webkit-line-clamp: 3;
+  }
+
+  /*
+    The decision button goes to the edge rather than floating beside its chip.
+
+    Chip then button then nothing left a ragged line with the button adrift in
+    the middle of the row, which reads as a control that belongs to neither
+    side. Against the edge it lines up down the column, which is how a reader
+    finds the rows that want something from them.
+  */
+  .attentionHead {
+    justify-content: space-between;
+    width: 100%;
   }
 }
