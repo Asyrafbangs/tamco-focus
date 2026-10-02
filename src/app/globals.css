@@ -1712,7 +1712,10 @@
     control has its share, so Completed was cut in half — the same defect the
     phone had, in a milder form. Sized to 120 they fit with room to spare.
   */
-  .work-tab-row .focus-tabs a {
+  /* `nav.focus-tabs a` rather than `.focus-tabs a`: this block sits earlier in
+     the file than the 150px base rule, and on equal specificity the later rule
+     wins. The element selector is what makes it reach. */
+  nav.focus-tabs a {
     min-width: 120px;
   }
 
@@ -4083,6 +4086,9 @@ fieldset:disabled label,
    them a step on the type scale. */
 .cal-item > span.cal-item-meta {
   display: flex;
+  /* Wraps rather than overflowing: every child is `flex: none`, so a day card
+     narrow enough pushed the Review by chip out through the side of itself. */
+  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   margin-top: 2px;
@@ -5643,40 +5649,38 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
     grid-template-columns: 34px minmax(0, 1fr) auto;
   }
 
+  /*
+    Every tab on screen, wrapping rather than scrolling out of sight.
+
+    A strip that scrolls hides whichever tab does not fit, and on Shared or
+    Completed that was the ACTIVE one — so it showed a clipped sliver beside the
+    More control and nothing said which list was being read. The app has four of
+    these strips and none holds more than four tabs, so wrapping costs at most
+    one line and shows everything.
+
+    Sized to their labels rather than to a 128px minimum, which is a desktop
+    density and is what made them not fit here in the first place. The 44px
+    touch rule is about height and is untouched.
+  */
   .focus-tabs {
+    flex-wrap: wrap;
+    overflow: visible;
     scrollbar-width: none;
   }
   .focus-tabs a {
-    flex: 0 0 auto;
-    min-width: 128px;
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  /* The boxed variant shares the row out between its tabs; the underline one is
+     text with a rule under it, and stretching that reads as a mistake. */
+  .focus-tabs:not(.underline) a {
+    flex: 1 1 auto;
   }
 
-  /*
-    My Work's four states fit, so none of them is scrolled out of sight.
-
-    At 128px apiece they needed 512px of a 390px screen, so the strip scrolled
-    — and on Shared or Completed the ACTIVE tab was the one off the end, which
-    left a clipped dark sliver beside the More control and no way to see which
-    list you were reading. Sized to their labels they all fit, and the 44px
-    touch rule is about height, which is untouched.
-  */
   .work-tab-row .focus-tabs {
-    /*
-      Two rows of two, rather than one row with two of them off the end.
-
-      The four states need 386px of a 281px strip once the More control has its
-      share, so one of them was always scrolled out of sight — and on Shared or
-      Completed it was the ACTIVE one, leaving a clipped dark sliver beside More
-      and no way to see which list you were reading. No amount of padding finds
-      a hundred pixels; wrapping shows all four and costs one line.
-    */
-    flex-wrap: wrap;
     gap: 4px;
-    overflow: visible;
   }
   .work-tab-row .focus-tabs a {
-    min-width: 0;
-    flex: 1 1 auto;
     padding-inline: 10px;
   }
 
