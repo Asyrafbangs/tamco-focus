@@ -5640,12 +5640,35 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
     min-width: 128px;
   }
 
+  /*
+    One column, except for the last line.
+
+    Stacking every cell gave the badges a line of their own, right-aligned
+    against nothing, and then the chevron a line of its own below that,
+    left-aligned against nothing — two ragged lines of chrome under every row.
+    The badges start where the title starts, and the affordance sits at the
+    end of that same line, which is where it is on a wider screen.
+  */
   .task-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .task-row > * {
+    grid-column: 1 / -1;
+  }
+  .task-row > .row-flags {
+    grid-column: 1;
+    justify-content: flex-start;
+  }
+  .task-row > .row-chevron {
+    grid-column: 2;
+    align-self: center;
+    justify-self: end;
   }
   .task-row .hide-mobile {
     display: none;
   }
+  /* An explicit action keeps its full width: Activate is a decision, and a
+     decision does not share a line with a row of badges. */
   .row-actions {
     justify-content: flex-start;
   }
