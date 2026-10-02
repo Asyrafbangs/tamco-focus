@@ -101,11 +101,23 @@ async function breaches(page: Page, defaults: string[]) {
     const out: string[] = [];
     const name = (element: Element) =>
       `${element.tagName.toLowerCase()}.${(element.className || '').toString().split(' ').slice(0, 2).join('.')}`;
-    const root = document.querySelector('main#main') ?? document.body;
+    const root =
+      document.querySelector('.task-detail-drawer') ??
+      document.querySelector('main#main') ??
+      document.body;
+
+    /*
+     * The screen-reader clip is `width: 1px; white-space: nowrap`, which looks
+     * exactly like text with nowhere to go. It is the opposite: text put there
+     * deliberately for somebody who cannot see the layout.
+     */
+    const clipped = (element: Element) =>
+      element.closest('.visually-hidden') !== null || element.clientWidth <= 1;
 
     for (const link of root.querySelectorAll('a')) {
       const box = link.getBoundingClientRect();
       if (box.width === 0 || box.height === 0) continue;
+      if (clipped(link)) continue;
       if (unstyled.includes(getComputedStyle(link).color)) {
         out.push(`BARE LINK "${(link.textContent ?? '').trim().slice(0, 30)}" ${name(link)}`);
       }
@@ -195,6 +207,46 @@ for (const theme of ['light', 'dark'] as const) {
             found.push(`${width} ${url}: ${breach}`);
           }
         }
+      }
+    }
+
+    /*
+     * And the drawer, which is not a route: it opens over one, and its sections
+     * are shut until somebody opens them, so the walk above sees none of it.
+     *
+     * `opened` is asserted because the first version of this clicked nothing —
+     * the sections are accordion buttons, not <summary> elements — and reported
+     * a shut drawer as clean.
+     */
+    await page.setViewportSize({ width: 390, height: 1000 });
+    // Back to somebody who carries work: the loop above ends as an
+    // administrator, whose Active list is empty.
+    await signIn(page, 'izzah@tamco.local');
+    await page.goto('/work?tab=active');
+    /*
+     * `.title-link` is what a work row's primary link is called. Written as
+     * `.row-primary-link` first, this matched nothing, the whole block was
+     * skipped, and breaking the section selector on purpose still passed —
+     * a guard that guarded nothing. So the row is asserted, not tested for.
+     */
+    const firstRow = page.locator('.task-row .title-link, .task-row .row-primary-link').first();
+    await expect(firstRow, 'no work row to open a drawer from').toBeVisible({ timeout: 20_000 });
+    {
+      await firstRow.click();
+      const drawer = page.locator('.task-detail-drawer');
+      await expect(drawer).toBeVisible({ timeout: 20_000 });
+      const sections = drawer.locator('.task-accordion-summary');
+      const opened = await sections.count();
+      expect(opened, 'the drawer offered no sections to open').toBeGreaterThan(0);
+      for (let index = 0; index < opened; index += 1) {
+        await sections
+          .nth(index)
+          .click({ timeout: 5_000 })
+          .catch(() => undefined);
+      }
+      await page.waitForTimeout(400);
+      for (const breach of await breaches(page, UNSTYLED_LINK)) {
+        found.push(`drawer open: ${breach}`);
       }
     }
 
