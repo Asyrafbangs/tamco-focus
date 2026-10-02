@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 export type SettingsKey =
   | 'workspace'
@@ -118,6 +118,27 @@ export function SettingsNavigation({
   onSelect: (key: SettingsKey) => void;
 }) {
   const groups = ['Personal', 'Organisation', 'Records'] as const;
+  const menu = useRef<HTMLElement>(null);
+
+  /*
+   * Bring the section you are on into view.
+   *
+   * On a phone this menu is a horizontal scroller at 132px a row, and eleven
+   * sections are 1500px of it in a 362px box — so opening Appearance, Delivery
+   * history or Security left the row you had just chosen somewhere off to the
+   * right, with the menu still showing the first three. Nothing said which
+   * section was open.
+   *
+   * `inline: 'nearest'` scrolls the strip by the least that reveals it, and
+   * `block: 'nearest'` keeps it from scrolling the page underneath — on a
+   * desktop the menu is a vertical list and already visible, so this does
+   * nothing there.
+   */
+  useEffect(() => {
+    const current = menu.current?.querySelector('[aria-current="page"]');
+    current?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  }, [active]);
+
   return (
     <aside className="settings-master" aria-label="Settings navigation">
       <div className="settings-master-head">
@@ -131,7 +152,7 @@ export function SettingsNavigation({
           />
         </label>
       </div>
-      <nav className="settings-menu">
+      <nav className="settings-menu" ref={menu}>
         {groups.map((group) => {
           const groupedItems = items.filter((item) => item.group === group);
           if (groupedItems.length === 0) return null;
