@@ -1705,6 +1705,17 @@
 }
 
 @media (max-width: 900px) {
+  /*
+    My Work's four states, between a phone and a desktop.
+
+    At 150px apiece they need 618px and the strip has about 588 once the More
+    control has its share, so Completed was cut in half — the same defect the
+    phone had, in a milder form. Sized to 120 they fit with room to spare.
+  */
+  .work-tab-row .focus-tabs a {
+    min-width: 120px;
+  }
+
   .record-row {
     grid-template-columns: minmax(0, 1fr) auto;
   }
@@ -5641,6 +5652,35 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   }
 
   /*
+    My Work's four states fit, so none of them is scrolled out of sight.
+
+    At 128px apiece they needed 512px of a 390px screen, so the strip scrolled
+    — and on Shared or Completed the ACTIVE tab was the one off the end, which
+    left a clipped dark sliver beside the More control and no way to see which
+    list you were reading. Sized to their labels they all fit, and the 44px
+    touch rule is about height, which is untouched.
+  */
+  .work-tab-row .focus-tabs {
+    /*
+      Two rows of two, rather than one row with two of them off the end.
+
+      The four states need 386px of a 281px strip once the More control has its
+      share, so one of them was always scrolled out of sight — and on Shared or
+      Completed it was the ACTIVE one, leaving a clipped dark sliver beside More
+      and no way to see which list you were reading. No amount of padding finds
+      a hundred pixels; wrapping shows all four and costs one line.
+    */
+    flex-wrap: wrap;
+    gap: 4px;
+    overflow: visible;
+  }
+  .work-tab-row .focus-tabs a {
+    min-width: 0;
+    flex: 1 1 auto;
+    padding-inline: 10px;
+  }
+
+  /*
     One column, except for the last line.
 
     Stacking every cell gave the badges a line of their own, right-aligned
@@ -5659,10 +5699,24 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
     grid-column: 1;
     justify-content: flex-start;
   }
+  /*
+    Where a row has badges the chevron ends their line. Where it has none — a
+    shared step, say — it was taking a line of its own to say one glyph, so it
+    is lifted out of the flow and parked against the row's edge instead. It is
+    decoration either way: the row is the control, and this is aria-hidden.
+  */
   .task-row > .row-chevron {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+  }
+  .task-row:has(> .row-flags) > .row-chevron {
+    position: static;
     grid-column: 2;
     align-self: center;
     justify-self: end;
+    transform: none;
   }
   .task-row .hide-mobile {
     display: none;
