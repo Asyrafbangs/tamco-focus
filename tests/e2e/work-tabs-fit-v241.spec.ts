@@ -23,19 +23,21 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/today$/, { timeout: 30_000 });
 }
 
-/** Which tabs are fully inside the strip that holds them. */
+/** Which tabs are fully inside the strip that holds them, across every strip. */
 async function tabsOnScreen(page: Page) {
   return page.evaluate(() => {
-    const strip = document.querySelector('.work-tab-row .focus-tabs');
-    if (!strip) return null;
-    const bounds = strip.getBoundingClientRect();
-    return [...strip.querySelectorAll('a')].map((tab) => {
-      const box = tab.getBoundingClientRect();
-      return {
-        label: (tab.textContent ?? '').trim(),
-        active: tab.getAttribute('aria-current') === 'page' || tab.classList.contains('active'),
-        whole: box.left >= bounds.left - 1 && box.right <= bounds.right + 1,
-      };
+    const strips = [...document.querySelectorAll('.focus-tabs')];
+    if (strips.length === 0) return null;
+    return strips.flatMap((strip) => {
+      const bounds = strip.getBoundingClientRect();
+      return [...strip.querySelectorAll('a')].map((tab) => {
+        const box = tab.getBoundingClientRect();
+        return {
+          label: (tab.textContent ?? '').trim(),
+          active: tab.getAttribute('aria-current') === 'page' || tab.classList.contains('active'),
+          whole: box.left >= bounds.left - 1 && box.right <= bounds.right + 1,
+        };
+      });
     });
   });
 }
@@ -46,11 +48,25 @@ test('v241 every work state is on screen at every width', async ({ page }, info)
   await signIn(page);
 
   const missing: string[] = [];
+  /*
+   * Every strip the app has, not only My Work's. There are four of them and
+   * none holds more than four tabs; Routine's three were cut at 390 for the
+   * same reason My Work's were, and the Team views strip lost "Recent
+   * activity" the same way.
+   */
+  const PLACES = [
+    '/work?tab=active',
+    '/work?tab=available',
+    '/work?tab=shared',
+    '/work?tab=completed',
+    '/work/routine',
+    '/work/routine?view=upcoming',
+  ];
   for (const width of [390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 1000 });
-    for (const tab of ['active', 'available', 'shared', 'completed']) {
-      await page.goto(`/work?tab=${tab}`);
-      await page.locator('.work-tab-row').waitFor({ state: 'visible' });
+    for (const tab of PLACES) {
+      await page.goto(tab);
+      await page.locator('.focus-tabs').first().waitFor({ state: 'visible' });
       const tabs = await tabsOnScreen(page);
       expect(tabs, 'the work tab row is missing').not.toBeNull();
       for (const one of tabs!) {
