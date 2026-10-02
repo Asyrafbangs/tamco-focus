@@ -26,6 +26,16 @@ const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
 /** The browser's own link colours, which nothing here should ever show. */
 const UNSTYLED_LINK = ['rgb(0, 0, 238)', 'rgb(0, 0, 204)', 'rgb(85, 26, 139)'];
 
+/** Reachable with no session at all; `src/proxy.ts` decides this list. */
+const PUBLIC_PAGES = [
+  '/sign-in',
+  '/forgot-password',
+  '/safety-performance',
+  '/respond/request-link',
+  '/respond/ended',
+  '/respond/my-actions',
+];
+
 const ROUTES: Array<{ email: string; pages: string[] }> = [
   {
     email: 'izzul@tamco.local',
@@ -103,6 +113,7 @@ async function breaches(page: Page, defaults: string[]) {
       `${element.tagName.toLowerCase()}.${(element.className || '').toString().split(' ').slice(0, 2).join('.')}`;
     const root =
       document.querySelector('.task-detail-drawer') ??
+      document.querySelector('[role="dialog"]') ??
       document.querySelector('main#main') ??
       document.body;
 
@@ -184,6 +195,32 @@ for (const theme of ['light', 'dark'] as const) {
     const found: string[] = [];
     let pagesSeen = 0;
 
+    /*
+     * The pages somebody sees without an account, first and without signing in.
+     *
+     * Everything below this needs a session, so until v246 the only screens
+     * anybody outside the company can reach — the sign-in page, the password
+     * reset, the public safety figures and the whole respond flow a contractor
+     * follows from an email — had no standing guard of any kind.
+     */
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      for (const url of PUBLIC_PAGES) {
+        await page.context().clearCookies();
+        const response = await page.goto(url);
+        if ((response?.status() ?? 0) >= 500) {
+          found.push(`${width} ${url}: HTTP ${response?.status()}`);
+          continue;
+        }
+        await page.locator('body').waitFor({ state: 'visible' });
+        await page.waitForTimeout(350);
+        pagesSeen += 1;
+        for (const breach of await breaches(page, UNSTYLED_LINK)) {
+          found.push(`${width} ${url}: ${breach}`);
+        }
+      }
+    }
+
     for (const who of ROUTES) {
       await signIn(page, who.email);
       for (const width of [390, 1440]) {
@@ -259,7 +296,7 @@ for (const theme of ['light', 'dark'] as const) {
      * passed against the very defects they were written for, both because they
      * measured something that could not have differed.
      */
-    expect(pagesSeen, 'no pages were measured').toBeGreaterThan(40);
+    expect(pagesSeen, 'no pages were measured').toBeGreaterThan(50);
     expect(found, 'layout rules broken').toEqual([]);
   });
 }
