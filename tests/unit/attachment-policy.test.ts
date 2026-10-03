@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -172,6 +175,33 @@ describe('the advertised formats', () => {
       .map((entry) => entry.slice(1));
     for (const extension of hints) {
       expect(REFUSED_EXTENSIONS).not.toContain(extension);
+    }
+  });
+});
+
+describe('the example environment', () => {
+  /*
+   * .env.example is not documentation here: scripts/write-env.mjs copies it to
+   * .env.local whenever none exists, which is every CI run and every fresh
+   * clone. So a value restated in it silently becomes the value CI runs under,
+   * and the list restated there had gone stale -- no PowerPoint, no Word, no
+   * Excel, no HEIC -- while the chooser, the storage bucket and the server
+   * default all offered them. CI refused a .pptx that a developer's machine
+   * accepted, and evidence-access-v152 A27 failed on main for a day with
+   * nothing to see locally.
+   */
+  const example = readFileSync(join(process.cwd(), '.env.example'), 'utf8');
+  const setting = example
+    .split(/\r?\n/)
+    .find((line) => line.startsWith('ATTACHMENT_ALLOWED_MIME='));
+
+  it('does not quietly narrow the types the server accepts', () => {
+    if (!setting) return; // Unset is the intended state: the default applies.
+    const listed = setting.slice('ATTACHMENT_ALLOWED_MIME='.length).split(',').filter(Boolean);
+    for (const type of DEFAULT_ALLOWED_MIME_TYPES) {
+      expect(listed, `.env.example omits ${type}, so CI and every fresh clone refuse it`).toContain(
+        type,
+      );
     }
   });
 });
