@@ -132,8 +132,22 @@ export function TeamRecentActivity({
                     className="team-activity-card"
                     data-done={card.completed || undefined}
                   >
+                    {/*
+                      Who, what kind of work, and when — one line.
+
+                      The relationship had a line of its own at the foot of the
+                      card, which spent a whole line on the word "Owned" and
+                      pushed the card to four lines for three short facts.
+                    */}
                     <p className="team-activity-head">
                       <strong>{card.personName}</strong>
+                      <span className="team-activity-kind">
+                        {card.relationship === 'contribution'
+                          ? `Contribution${card.parentTitle ? ` to ${card.parentTitle}` : ''}`
+                          : card.relationship === 'routine'
+                            ? 'Routine'
+                            : 'Owned'}
+                      </span>
                       <span className="team-activity-time">{clock.format(new Date(card.at))}</span>
                     </p>
                     <p className="team-activity-task">
@@ -154,13 +168,6 @@ export function TeamRecentActivity({
                         {finding}
                       </p>
                     ))}
-                    <p className="team-activity-foot">
-                      {card.relationship === 'contribution'
-                        ? `Contribution${card.parentTitle ? ` to ${card.parentTitle}` : ''}`
-                        : card.relationship === 'routine'
-                          ? 'Routine'
-                          : 'Owned'}
-                    </p>
                   </li>
                 );
               })}

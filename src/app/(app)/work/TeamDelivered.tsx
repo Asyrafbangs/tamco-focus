@@ -256,15 +256,20 @@ function Record({
       <span className="team-delivered-tick" aria-hidden="true">
         ✓
       </span>
+      {/*
+        Columns, so a day of closures reads down the list.
+
+        With the person and the kind stacked under the title, a wide screen gave
+        each row a short title on the left and nothing at all on the right —
+        sixty-seven of them, and no way to run an eye down "who" or "what kind".
+      */}
       <span className="team-delivered-main">
         <RowPrimaryLink href={taskHref(record.taskId)}>{record.title}</RowPrimaryLink>
-        <small>
-          {withPerson ? `${record.personName} · ` : ''}
-          {DELIVERY_KIND_WORD[record.kind]}
-          {record.parentTitle ? ` on ${record.parentTitle}` : ''}
-          {when ? ` · ${when}` : ''}
-        </small>
+        {record.parentTitle ? <small>on {record.parentTitle}</small> : null}
       </span>
+      <span className="team-delivered-person">{withPerson ? record.personName : ''}</span>
+      <span className="team-delivered-kind">{DELIVERY_KIND_WORD[record.kind]}</span>
+      <span className="team-delivered-when">{when ?? ''}</span>
     </li>
   );
 }
