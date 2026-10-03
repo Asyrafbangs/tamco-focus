@@ -16209,6 +16209,48 @@ span.deadline span.deadline-glyph,
   gap: 2px;
   min-width: 0;
 }
+/*
+ * v252: the title clamps to one line, like the cells beside it.
+ *
+ * The owner and reason columns have clamped since v247 with nowrap and an
+ * ellipsis. The title never did, and it is the one column that narrows as the
+ * window does (`minmax(0, 1fr)`), so at 900px a real sixty-character title
+ * wrapped to two lines on Waiting and Completed and three on Recent activity,
+ * taking a 38px row past 56px. The one-line row was chosen so a manager sees
+ * about twenty-six at once instead of thirteen; without this it quietly became
+ * the two-line form that was turned down.
+ *
+ * `min-width: 0` as well as `overflow: hidden`, or a grid item refuses to
+ * shrink below its content and the ellipsis never appears.
+ *
+ * The note and any finding under an activity title keep their own lines. Only
+ * the title is clamped: it has somewhere to be read in full, the row it links
+ * to.
+ */
+.team-waiting-main > .row-primary-link,
+.team-delivered-main > .row-primary-link,
+.team-activity-main > .row-primary-link {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 860px) {
+  /*
+   * The title wraps again once the row is a stack. There is a full width to
+   * wrap into, and an ellipsis on a phone hides words rather than saving
+   * space - the same reasoning that gives the owner and reason cells
+   * `white-space: normal` here, and that gave the attention reason its second
+   * line back in v239.
+   */
+  .team-waiting-main > .row-primary-link,
+  .team-delivered-main > .row-primary-link,
+  .team-activity-main > .row-primary-link {
+    overflow: visible;
+    white-space: normal;
+  }
+}
 .team-waiting-open {
   color: var(--muted);
   font-size: calc(16px * var(--font-scale));
