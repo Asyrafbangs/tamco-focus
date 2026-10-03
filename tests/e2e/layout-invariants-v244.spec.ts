@@ -78,6 +78,9 @@ const ROUTES: Array<{ email: string; pages: string[] }> = [
       '/findings/closed',
       '/findings/verification',
       '/findings/settings',
+      // Both reached only from a button, so neither was walked until v253.
+      '/findings/new',
+      '/findings/import',
     ],
   },
   {
@@ -253,6 +256,31 @@ for (const theme of ['light', 'dark'] as const) {
       }
     }
 
+    /*
+     * A finding's own page, which is the densest screen in the module and has
+     * no fixed URL. Resolved from the register rather than hardcoded: a seeded
+     * uuid written into a route list rots the first time the seed changes, and
+     * it fails loudly here instead of quietly walking one page fewer.
+     */
+    await signIn(page, 'izzul@tamco.local');
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto('/findings/register');
+      const href = await page
+        .locator('a[href^="/findings/"]')
+        .filter({ hasNotText: /register|closed|verification|settings|new|import/ })
+        .first()
+        .getAttribute('href')
+        .catch(() => null);
+      expect(href, 'the register offered no finding to open').toBeTruthy();
+      await page.goto(href!);
+      await page.locator('main#main, .esh-app').first().waitFor({ state: 'visible' });
+      await page.waitForTimeout(350);
+      pagesSeen += 1;
+      for (const breach of await breaches(page, UNSTYLED_LINK)) {
+        found.push(`${width} ${href}: ${breach}`);
+      }
+    }
     /*
      * And the drawer, which is not a route: it opens over one, and its sections
      * are shut until somebody opens them, so the walk above sees none of it.

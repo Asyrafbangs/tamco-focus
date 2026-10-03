@@ -34,9 +34,18 @@ export function RevealCurrent({
     const root = anchor.current?.closest('main, body');
     const strip = root?.querySelector(within);
     if (!strip) return;
-    // Only when it actually scrolls: elsewhere this would be a no-op that still
-    // moved the page.
-    if (strip.scrollWidth <= strip.clientWidth + 2) return;
+    /*
+     * Only when it actually scrolls: elsewhere this would be a no-op that
+     * still moved the page.
+     *
+     * Either axis, because the same strip is both. The settings menu is a
+     * horizontal scroller on a phone and a tall vertical list on a desktop,
+     * and a guard that only looked at width would quietly stop revealing the
+     * eleventh section on the desktop where it is furthest down.
+     */
+    const scrolls =
+      strip.scrollWidth > strip.clientWidth + 2 || strip.scrollHeight > strip.clientHeight + 2;
+    if (!scrolls) return;
     strip.querySelector(current)?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
   }, [within, current, watch]);
 

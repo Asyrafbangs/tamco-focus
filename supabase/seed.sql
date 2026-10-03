@@ -287,7 +287,7 @@ insert into public.tasks (
 
 -- Izzah: an active Major Project, within target.
 ('f0c05300-0000-4000-a000-000000000001',
- 'Reduce recordable incidents by 30% this year',
+ 'Reduce recordable incidents by 30% this year against the 2025 baseline',
  'Programme covering training, near-miss reporting, and corrective actions.',
  'Draft the near-miss reporting briefing for line supervisors',
  'active', 'major_project', 'major', 'manager_assigned', 'high',
@@ -312,7 +312,7 @@ insert into public.tasks (
 
 -- Izzah: active operational action with an open barrier.
 ('f0c05300-0000-4000-a000-000000000003',
- 'Install machine guarding on press line 2',
+ 'Install machine guarding on press line 2 before the October audit',
  'Guarding specified but the contractor has not confirmed a date.',
  'Escalate the contractor delay at the Monday meeting',
  'active', 'operational_action', 'operational', 'self_initiated', 'normal',
@@ -325,7 +325,7 @@ insert into public.tasks (
 -- Izzah: Available Work, ready to activate. Activating a fourth operational
 -- action stays within the target of five.
 ('f0c05300-0000-4000-a000-000000000004',
- 'Refresh the contractor induction pack',
+ 'Refresh the contractor induction pack for the new site access rules',
  'Content is two years old and references a withdrawn standard.',
  'Review the current induction slides',
  'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
@@ -337,7 +337,7 @@ insert into public.tasks (
 
 -- Izzah: an active Self-Development Plan, at target.
 ('f0c05300-0000-4000-a000-000000000005',
- 'NEBOSH General Certificate preparation',
+ 'NEBOSH General Certificate preparation and assessment booking',
  'Structured study plan ahead of the November sitting.',
  'Complete Unit IG1 element 4 revision questions',
  'active', 'self_development', 'self_development', 'self_initiated', 'normal',
@@ -349,7 +349,7 @@ insert into public.tasks (
 
 -- Amer: a Quick Action due today. Consumes no focus target.
 ('f0c05300-0000-4000-a000-000000000006',
- 'Replace the torn warning label on tank 3',
+ 'Replace the torn warning label on tank 3 in the solvent store',
  null,
  'Print the replacement label',
  'active', 'quick_action', null, 'self_initiated', 'normal',
@@ -362,7 +362,7 @@ insert into public.tasks (
 -- Amer: a mandatory operational action. Section 4 allows this to activate above
 -- target without the reason question.
 ('f0c05300-0000-4000-a000-000000000007',
- 'Isolate and tag out the faulty conveyor drive',
+ 'Isolate and tag out the faulty conveyor drive on the packing line',
  'Reported burning smell during the morning shift.',
  'Confirm isolation with the shift electrician',
  'active', 'operational_action', 'operational', 'self_initiated', 'critical',
@@ -375,7 +375,7 @@ insert into public.tasks (
 
 -- Amer: a shared task where Izzah contributes through a checklist handoff.
 ('f0c05300-0000-4000-a000-000000000008',
- 'Run the Q3 emergency evacuation drill',
+ 'Run the Q3 emergency evacuation drill across both warehouse bays',
  'Coordinated drill across both production halls.',
  'Confirm the drill date with Operations',
  'active', 'operational_action', 'operational', 'manager_assigned', 'normal',
@@ -387,7 +387,7 @@ insert into public.tasks (
 
 -- Ajmal: Available Work awaiting selection.
 ('f0c05300-0000-4000-a000-000000000009',
- 'Update the chemical inventory register',
+ 'Update the chemical inventory register after the solvent store move',
  'New solvents were received in July and are not yet listed.',
  'Collect the July delivery notes',
  'backlog', 'operational_action', 'operational', 'manager_assigned', 'normal',
@@ -399,7 +399,7 @@ insert into public.tasks (
 
 -- Ajmal: paused work with restart information.
 ('f0c05300-0000-4000-a000-00000000000a',
- 'Rewrite the confined space entry procedure',
+ 'Rewrite the confined space entry procedure for the new tank farm',
  'On hold until the revised standard is published.',
  'Recheck whether the standard has been issued',
  'paused', 'operational_action', 'operational', 'self_initiated', 'normal',
@@ -968,8 +968,8 @@ update public.tasks
    set work_purpose = 'reactive'
  where work_purpose is null
    and title in (
-     'Isolate and tag out the faulty conveyor drive',
-     'Replace the torn warning label on tank 3',
+     'Isolate and tag out the faulty conveyor drive on the packing line',
+     'Replace the torn warning label on tank 3 in the solvent store',
      'Close out corrective actions from the June audit'
    );
 
@@ -978,9 +978,9 @@ update public.tasks
    set work_purpose = 'planned_operations'
  where work_purpose is null
    and title in (
-     'Run the Q3 emergency evacuation drill',
-     'Update the chemical inventory register',
-     'Refresh the contractor induction pack'
+     'Run the Q3 emergency evacuation drill across both warehouse bays',
+     'Update the chemical inventory register after the solvent store move',
+     'Refresh the contractor induction pack for the new site access rules'
    );
 
 -- Making something better than it was.
@@ -988,9 +988,9 @@ update public.tasks
    set work_purpose = 'improvement_development'
  where work_purpose is null
    and title in (
-     'Reduce recordable incidents by 30% this year',
-     'Install machine guarding on press line 2',
-     'Rewrite the confined space entry procedure'
+     'Reduce recordable incidents by 30% this year against the 2025 baseline',
+     'Install machine guarding on press line 2 before the October audit',
+     'Rewrite the confined space entry procedure for the new tank farm'
    );
 
 -- ---------------------------------------------------------------------------
