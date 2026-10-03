@@ -64,6 +64,7 @@ const ROUTES: Array<{ email: string; pages: string[] }> = [
       '/work/routine?view=completed',
       '/goals',
       '/goals?view=team',
+      '/more/records?review=pending',
       '/plan',
       '/more',
       '/more/records',
@@ -162,7 +163,12 @@ async function breaches(page: Page, defaults: string[]) {
      * A strip that scrolls is fine. A strip that scrolls with the item you are
      * standing on outside it is not: nothing on screen then says where you are.
      */
-    for (const strip of root.querySelectorAll('nav')) {
+    /*
+     * `aside` as well as `nav` since v250: the Goals people column becomes a
+     * scrolling strip on a phone, and the person you had selected was the one
+     * off the end.
+     */
+    for (const strip of root.querySelectorAll('nav, aside')) {
       if (strip.scrollWidth <= strip.clientWidth + 2) continue;
       const current = strip.querySelector('[aria-current], a.active, button.active');
       if (!current) continue;
