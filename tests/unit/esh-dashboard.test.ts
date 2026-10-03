@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ageBars,
   backlogTrend,
+  TREND_MINIMUM_EVENTS,
   headline,
   onTimeRate,
   riskBars,
@@ -66,6 +67,39 @@ describe('whether the backlog is growing', () => {
   it('calls it growing once there is something to compare against', () => {
     const trend = backlogTrend(months([10, 1], [8, 1], [0, 0]));
     expect(trend.direction).toBe('growing');
+  });
+
+  it('will not call a direction that one more closure would reverse', () => {
+    /*
+     * The same fault as the nothing-closed case, one step along: "the backlog
+     * grew: 3 recorded against 2 closed" is arithmetic about five events. One
+     * closure the following week turns it into shrank, so the first sentence
+     * on the sign-in-free page would swing month to month while the work
+     * itself was unchanged.
+     */
+    const trend = backlogTrend(months([3, 2], [0, 0]));
+    expect(trend.direction).toBe('too-early');
+    expect(trend.words).toBe(
+      '3 recorded and 2 closed over the last 1 complete month, which is too few to call a direction.',
+    );
+    // Stated in full, as ever: it is the verdict that is withheld, not the figures.
+    expect(trend.opened).toBe(3);
+    expect(trend.closed).toBe(2);
+  });
+
+  it('calls the direction as soon as the floor is reached', () => {
+    // Exactly TREND_MINIMUM_EVENTS, so the boundary is asserted rather than
+    // assumed: an off-by-one here would silence a register that has earned a
+    // verdict.
+    const trend = backlogTrend(months([6, 4], [0, 0]));
+    expect(trend.opened + trend.closed).toBe(TREND_MINIMUM_EVENTS);
+    expect(trend.direction).toBe('growing');
+  });
+
+  it('still keeps pace at low volume, because that claims no direction', () => {
+    const trend = backlogTrend(months([2, 2], [0, 0]));
+    expect(trend.direction).toBe('level');
+    expect(trend.words).toBe('Keeping pace over the last 1 complete month: 2 recorded, 2 closed.');
   });
 
   it('claims nothing from an empty register', () => {

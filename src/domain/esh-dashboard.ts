@@ -77,6 +77,15 @@ export function riskBars(openByRisk: Record<string, number>): Array<{
  * current month is excluded because it is not over — comparing eleven days
  * against a full month always reads as improvement.
  */
+/**
+ * How many recordings and closures a direction needs behind it.
+ *
+ * A product judgement rather than a derived figure, kept here so it can be
+ * changed in one place: below this many events a single closure flips the
+ * direction, and a public sentence that reverses month to month without the
+ * work changing is worse than no sentence.
+ */
+export const TREND_MINIMUM_EVENTS = 10;
 export function backlogTrend(monthly: MonthPoint[]): {
   opened: number;
   closed: number;
@@ -118,6 +127,28 @@ export function backlogTrend(monthly: MonthPoint[]): {
       closed,
       direction: 'level',
       words: `Keeping pace ${span}: ${opened} recorded, ${closed} closed.`,
+    };
+  }
+  /*
+   * A direction also needs enough behind it to survive one more closure.
+   *
+   * "The backlog grew: 3 recorded against 2 closed" is arithmetic, not a
+   * trend: one late closure the following week reverses it, so the sentence
+   * everybody reads on the sign-in-free page would swing between grew and
+   * shrank while the work itself was unchanged. Below the floor the two
+   * numbers are still stated in full - nothing is hidden, and no direction is
+   * claimed on their behalf.
+   *
+   * Ten is a judgement, not a measurement, which is why it is a named
+   * constant: change it in one place. It was chosen because below it a single
+   * event moves the difference by more than a tenth of the total.
+   */
+  if (opened + closed < TREND_MINIMUM_EVENTS) {
+    return {
+      opened,
+      closed,
+      direction: 'too-early',
+      words: `${opened} recorded and ${closed} closed ${span}, which is too few to call a direction.`,
     };
   }
   const growing = opened > closed;
