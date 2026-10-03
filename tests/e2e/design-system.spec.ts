@@ -37,11 +37,17 @@ test.describe('design tokens match the approved prototype', () => {
       };
     });
 
-    // Values from the prototype's second :root block.
+    /*
+     * The prototype's second :root block, except for the two the density brief
+     * of v249 set deliberately: the content column came in from 1440px so a
+     * row's three columns stay readable instead of stretching across a wide
+     * screen, and the page gap from 20px as part of tightening the vertical
+     * rhythm. Both are the values asked for, so this guard follows them.
+     */
     expect(tokens).toEqual({
-      contentMax: '1440px',
+      contentMax: '1200px',
       controlHeight: '38px',
-      pageGap: '20px',
+      pageGap: '16px',
       sectionGap: '16px',
       radius: '14px',
       radiusSmall: '10px',
@@ -55,7 +61,8 @@ test.describe('design tokens match the approved prototype', () => {
       .locator('.main')
       .evaluate((element) => getComputedStyle(element).maxWidth);
 
-    expect(maxWidth).toBe('1440px');
+    // Reads the token, so it moves with it (v249: 1440px -> 1200px).
+    expect(maxWidth).toBe('1200px');
   });
 
   test('the app shell matches the prototype rail and header', async ({ page }, testInfo) => {
