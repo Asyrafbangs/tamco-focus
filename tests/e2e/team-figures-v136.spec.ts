@@ -163,11 +163,33 @@ test.describe('v136 waiting work is all accounted for', () => {
     if ((await later.count()) > 0) await later.click();
 
     const found = new Map<string, number>();
-    const lines = await page.locator('.team-waiting-row .team-waiting-main small').allInnerTexts();
-    for (const line of lines) {
-      // "Amer · Due in 4 days · waiting 20 days" — the owner leads the line.
-      const name = line.split('·')[0]!.trim();
-      found.set(name, (found.get(name) ?? 0) + 1);
+    /*
+     * The owner is its own cell, and reading it is not optional.
+     *
+     * This read `.team-waiting-main small` and split the owner off the front
+     * of a line like "Amer · Due in 4 days · waiting 20 days". v233 gave the
+     * row real columns and moved the owner into `.team-waiting-owner`, so
+     * there has been no `small` in that cell since: the map came back empty,
+     * `withWaiting` was empty, and the test below skipped itself with
+     * "Nobody in this fixture has waiting work" while sixteen waiting rows
+     * sat on the screen. It was dormant from v233 to v254 - the guard for a
+     * bug a manager actually reported - and a skip is silent, so nothing said
+     * so.
+     */
+    const rows = await page.locator('.team-waiting-row').count();
+    const owners = await page.locator('.team-waiting-row .team-waiting-owner').allInnerTexts();
+    /*
+     * An empty fixture and a stale selector both give nothing to count, and
+     * only one of them is allowed to skip the test. If there are rows but no
+     * owner cells in them, the markup moved again: fail, do not skip.
+     */
+    expect(
+      owners.length,
+      `${rows} waiting rows but ${owners.length} owner cells - has the row markup moved again?`,
+    ).toBe(rows);
+    for (const owner of owners) {
+      const name = owner.trim();
+      if (name) found.set(name, (found.get(name) ?? 0) + 1);
     }
     return found;
   }

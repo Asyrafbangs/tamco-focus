@@ -131,8 +131,12 @@ jobs:
       - name: End-to-end tests
         run: npm run test:e2e
 
+      # Always, not only on failure: a green run is the one worth reading when
+      # the question is what it skipped. `team-figures-v136` sat dormant from
+      # v233 to v254 behind a silent skip, and no artifact survived a pass to
+      # show it.
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
           name: playwright-report
           path: |
