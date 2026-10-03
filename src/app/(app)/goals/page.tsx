@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { GoalDetailDrawer } from '@/components/goals/GoalDetailDrawer';
+import { RevealCurrent } from '@/components/ui/RevealCurrent';
 import { GoalRow } from '@/components/goals/GoalRow';
 import { GoalSetupDialog } from '@/components/goals/GoalSetupDialog';
 import { GoalSessionPanel } from '@/components/goals/GoalSessionPanel';
@@ -476,6 +477,13 @@ export default async function GoalsPage({
         </section>
       ) : (
         <div className="team-goals-layout">
+          {/*
+            v250 — on a phone this column becomes a strip that scrolls, five
+            people at 210px in a 362px box, and the person you had selected was
+            the one off the end: the screen showed no sign of whose goals were
+            being read.
+          */}
+          <RevealCurrent within=".team-goal-people" watch={selectedPersonId} />
           <aside className="team-goal-people" aria-label="People with visible Goals">
             <div className="team-goal-people-head">
               <strong>People</strong>

@@ -5687,6 +5687,24 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
     flex: 1 1 auto;
   }
 
+  /*
+    v250 — the same for the workspace strip, which is the same control.
+
+    Records has five tabs measuring 592px in a 362px strip, so four of them
+    needed a sideways drag nobody knows to make. The active one happens to
+    render first there, so no tab is hidden — but "you can still see where you
+    are" is a lower bar than "you can see where you can go". Wrapping costs one
+    line and shows all five.
+  */
+  .workspace-tabs {
+    flex-wrap: wrap;
+    width: 100%;
+    overflow: visible;
+  }
+  .workspace-tabs a {
+    flex: 1 1 auto;
+  }
+
   .work-tab-row .focus-tabs {
     gap: 4px;
   }
