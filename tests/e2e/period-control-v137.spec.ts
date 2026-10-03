@@ -215,7 +215,7 @@ test.describe('v137 the period control', () => {
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
     // The card row this used to read is gone (v142 §3); the control itself
     // still has to name the period it applied.
-    await expect(page.locator('.team-views .period-picker').getByRole('button')).toContainText(
+    await expect(page.locator('.team-list-head .period-picker').getByRole('button')).toContainText(
       'Last year',
     );
     await expect(page.locator('.focus-panel')).toContainText('closed last year');

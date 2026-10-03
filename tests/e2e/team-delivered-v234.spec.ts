@@ -55,12 +55,13 @@ test.describe('v234 Completed is a week before it is a league table', () => {
   }) => {
     await openCompleted(page);
     const first = page.locator('.team-delivered-row').first();
-    await expect(first.locator('small')).toContainText(/Owned work|Contribution|Routine/);
-    // The owner's name leads the line: on a mixed day it is the only thing
-    // that says whose week this was.
+    // v247 gave the row columns, so the kind and the person each have one.
+    await expect(first.locator('.team-delivered-kind')).toContainText(
+      /Owned work|Contribution|Routine/,
+    );
     const people = await page.locator('.team-delivered-people > a > span').allInnerTexts();
     const names = people.map((name) => name.trim()).filter(Boolean);
-    const said = await first.locator('small').innerText();
+    const said = await first.locator('.team-delivered-person').innerText();
     expect(
       names.some((name) => said.includes(name)),
       `the row named nobody from ${names.join(', ')}`,
@@ -114,7 +115,7 @@ test.describe('v234 Completed is a week before it is a league table', () => {
     const rows = page.locator('.team-delivered-row');
     expect(await rows.count()).toBeGreaterThan(0);
     for (let index = 0; index < (await rows.count()); index += 1) {
-      await expect(rows.nth(index).locator('small')).toContainText(name);
+      await expect(rows.nth(index).locator('.team-delivered-person')).toContainText(name);
     }
   });
 

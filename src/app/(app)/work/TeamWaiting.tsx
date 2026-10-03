@@ -129,16 +129,36 @@ function WaitingList({
   return (
     <ul className="team-waiting-list">
       {entries.map((entry) => (
-        <li key={entry.id} className="team-waiting-row" data-overdue={entry.overdue || undefined}>
+        /*
+         * Columns, not a title with everything stacked under it.
+         *
+         * Stacked, a row on a wide screen was a short title on the left and
+         * "Open →" against the far edge with a thousand pixels of nothing
+         * between them: the eye had to cross the screen to join a task to its
+         * action, and twenty-one of them read as a wall. Whose it is and why it
+         * is here now line up down the list, which is what makes a list of
+         * twenty-one scannable at all.
+         */
+        <li
+          key={entry.id}
+          className="team-waiting-row"
+          /*
+           * Two levels, not one. Red is for work that is actually late; amber
+           * for the rest of what wants a manager — waiting unusually long,
+           * assigned and never touched, high attention. Everything in this
+           * group used to be red, so eleven rows shouted equally.
+           */
+          data-severity={
+            entry.overdue ? 'overdue' : entry.bucket === 'attention' ? 'watch' : undefined
+          }
+        >
           <span className="team-waiting-main">
             <RowPrimaryLink href={hrefFor(entry.id)}>{entry.title}</RowPrimaryLink>
-            <small>
-              {entry.ownerName}
-              {entry.reasons.length > 0 ? ` · ${entry.reasons.join(' · ')}` : ''}
-            </small>
           </span>
+          <span className="team-waiting-owner">{entry.ownerName}</span>
+          <span className="team-waiting-why">{entry.reasons.join(' · ')}</span>
           <span className="team-waiting-open" aria-hidden="true">
-            Open →
+            ›
           </span>
         </li>
       ))}
