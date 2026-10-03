@@ -54,11 +54,16 @@
      these values were scattered as literals through the stylesheet, so the
      content column and control heights drifted from the approved baseline. */
   --surface-soft: var(--surface-2);
-  /* v248 — 1440 gave a list row a corridor of empty space on a wide screen;
-     a reading column stops the eye travelling the width of the monitor. */
-  --content-max: 1320px;
+  /*
+    v249 — a reading column, not the width of the monitor.
+
+    1440 gave a list row a corridor of empty space on a wide screen, and 1320
+    still did. A row of two short facts does not want a thousand pixels; the
+    shell and the header stay full width, and the working area is capped.
+  */
+  --content-max: 1200px;
   --control-h: 38px;
-  --page-gap: 20px;
+  --page-gap: 16px;
   --section-gap: 16px;
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--blue) 24%, transparent);
   --motion-fast: 140ms;
@@ -3344,7 +3349,8 @@ button {
 .pagehead h1 {
   font-size: 24px;
   line-height: 1.2;
-  margin: 3px 0 5px;
+  /* v249 — 4px to the subtitle, which belongs to the title. */
+  margin: 2px 0 4px;
   font-weight: 620;
   letter-spacing: -0.025em;
 }
@@ -3784,7 +3790,9 @@ fieldset:disabled label,
   border: 1px solid var(--line);
   border-radius: 11px;
   padding: 4px;
-  margin-bottom: 14px;
+  /* v249 — 16px from the header above and 16px to the tabs below, so the
+     three layers are evenly spaced rather than drifting apart. */
+  margin-bottom: 16px;
 }
 .workspace-tabs a {
   flex: none;
@@ -11577,7 +11585,8 @@ button.attachment-row {
   align-items: center;
   justify-content: space-between;
   gap: 8px 16px;
-  margin: 0 0 4px;
+  /* v249 — 10px to the content it names. */
+  margin: 0 0 10px;
 }
 
 /* Attention is a filter inside Team, so it sits under the views rather than
@@ -15932,8 +15941,8 @@ span.deadline span.deadline-glyph,
   grid-template-columns: minmax(0, 1fr) minmax(0, 290px) minmax(0, 160px) 50px;
   align-items: center;
   gap: 10px;
-  min-height: 34px;
-  padding: 6px 14px 6px 11px;
+  min-height: 38px;
+  padding: 9px 14px 9px 11px;
   border-left: 3px solid transparent;
   border-bottom: 1px solid var(--line-soft);
 }
@@ -15989,10 +15998,6 @@ span.deadline span.deadline-glyph,
   text-align: right;
 }
 
-.team-activity-day {
-  margin-top: 14px;
-}
-
 @media (max-width: 860px) {
   /*
     Title, then what changed, then who and when together: three lines rather
@@ -16020,6 +16025,64 @@ span.deadline span.deadline-glyph,
  * v233 — Waiting: exceptions first, the bulk folded away.
  * ------------------------------------------------------------------------- */
 
+/*
+  v249 — one surface, inset, with the list as the thing on it.
+
+  The panel had no horizontal padding, so the summary and the headings started
+  hard against its edge while the rows were inset by their own padding: nothing
+  lined up with anything. Everything now shares one 16px inset, and the list is
+  a single bordered container with dividers rather than a stack of floating
+  cards inside a bigger card.
+*/
+.team-waiting,
+.team-delivered,
+.team-activity {
+  padding: 14px 16px 16px;
+}
+
+.team-waiting-list,
+.team-delivered-list,
+.team-activity-list {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Section heading 3px from its description, 10px from the first row, and 24px
+   from whatever section came before it. */
+.team-waiting-group,
+.team-delivered-group,
+.team-delivered-day,
+.team-activity-day {
+  margin: 24px 0 0;
+}
+.team-waiting-group:first-of-type,
+.team-delivered-group:first-of-type,
+.team-delivered-day:first-of-type,
+.team-activity-day:first-of-type {
+  margin-top: 0;
+}
+.team-waiting-group header h3,
+.team-delivered-group > header strong,
+.team-delivered-day h3,
+.team-activity-day h3 {
+  margin: 0 0 4px;
+}
+.team-waiting-group header p {
+  margin: 0 0 10px;
+}
+.team-waiting-group header h3 + .member-deadline-group,
+.team-delivered-day h3 + .team-delivered-list,
+.team-activity-day h3 + .team-activity-list {
+  margin-top: 10px;
+}
+
+/* The summary, 18px clear of the first section heading. */
+.team-waiting-summary,
+.team-delivered-summary {
+  margin: 0 0 18px;
+}
+
 /* The window beside the figure it changes, not above the whole workspace. */
 .team-list-head {
   display: flex;
@@ -16032,25 +16095,8 @@ span.deadline span.deadline-glyph,
   margin: 0;
 }
 
-.team-waiting-group {
-  margin-bottom: 10px;
-}
-.team-waiting-group header h3 {
-  margin: 0;
-}
-.team-waiting-group header p {
-  margin: 1px 0 4px;
-}
-.team-delivered-group {
-  margin-bottom: 10px;
-}
-.team-delivered-day {
-  margin-top: 12px;
-}
-
 .team-waiting-summary,
 .team-delivered-summary {
-  margin: 0 0 8px;
   font-size: calc(14px * var(--font-scale));
   font-weight: 600;
 }
@@ -16097,8 +16143,8 @@ span.deadline span.deadline-glyph,
   grid-template-columns: minmax(0, 1fr) minmax(0, 160px) minmax(0, 230px) 14px;
   align-items: center;
   gap: 10px;
-  min-height: 34px;
-  padding: 6px 14px 6px 11px;
+  min-height: 38px;
+  padding: 9px 14px 9px 11px;
   border-left: 3px solid transparent;
   border-bottom: 1px solid var(--line-soft);
 }
@@ -16221,8 +16267,8 @@ span.deadline span.deadline-glyph,
   grid-template-columns: 14px minmax(0, 1fr) minmax(0, 180px) minmax(0, 110px) 50px;
   align-items: center;
   gap: 10px;
-  min-height: 34px;
-  padding: 6px 14px;
+  min-height: 38px;
+  padding: 9px 14px;
   border-bottom: 1px solid var(--line-soft);
 }
 .team-delivered-row:last-child {
