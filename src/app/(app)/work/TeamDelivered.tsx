@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 
 import { RowPrimaryLink } from '@/components/ui/ParityPrimitives';
 import { DELIVERY_KIND_WORD } from '@/domain/delivery';
@@ -31,6 +32,7 @@ import {
 const NAME_LIST = new Intl.ListFormat('en-GB', { style: 'long', type: 'conjunction' });
 
 export function TeamDelivered({
+  period,
   records,
   team,
   failed,
@@ -42,6 +44,8 @@ export function TeamDelivered({
   hrefFor,
   taskHref,
 }: {
+  /** The window control, rendered beside the figure it changes. */
+  period: ReactNode;
   records: DeliveredRecord[];
   team: Array<{ userId: string; fullName: string }>;
   failed: boolean;
@@ -82,7 +86,10 @@ export function TeamDelivered({
         What your team closed: owned work, contributions to somebody else&rsquo;s task, and routine
         occurrences.
       </p>
-      <p className="team-delivered-summary">{deliveredSummary(shown, phrase)}</p>
+      <div className="team-list-head">
+        <p className="team-delivered-summary">{deliveredSummary(shown, phrase)}</p>
+        {period}
+      </div>
 
       {/*
         Two readings of one list, named by what they answer rather than by how

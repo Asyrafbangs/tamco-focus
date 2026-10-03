@@ -139,7 +139,19 @@ function WaitingList({
          * is here now line up down the list, which is what makes a list of
          * twenty-one scannable at all.
          */
-        <li key={entry.id} className="team-waiting-row" data-overdue={entry.overdue || undefined}>
+        <li
+          key={entry.id}
+          className="team-waiting-row"
+          /*
+           * Two levels, not one. Red is for work that is actually late; amber
+           * for the rest of what wants a manager — waiting unusually long,
+           * assigned and never touched, high attention. Everything in this
+           * group used to be red, so eleven rows shouted equally.
+           */
+          data-severity={
+            entry.overdue ? 'overdue' : entry.bucket === 'attention' ? 'watch' : undefined
+          }
+        >
           <span className="team-waiting-main">
             <RowPrimaryLink href={hrefFor(entry.id)}>{entry.title}</RowPrimaryLink>
           </span>

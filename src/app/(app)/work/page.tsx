@@ -1060,6 +1060,26 @@ export default async function WorkPage({
     return `/work?${query.toString()}`;
   };
 
+  /*
+   * v248 — the window belongs to the list it narrows.
+   *
+   * Beside the tabs it read as a control over the whole of My Team, which is
+   * what §20 said it was not: Team and Waiting are the state of things now.
+   * Inside the panel, next to the figure it changes, it is obviously the
+   * window for this list and nothing else.
+   */
+  const periodControl =
+    teamFilter === 'delivered' || teamFilter === 'updates' ? (
+      <PeriodPicker
+        action="/work"
+        hidden={{ scope: 'team', filter: teamFilter }}
+        presets={teamFilter === 'updates' ? RECENT_PERIODS : STANDARD_PERIODS}
+        period={period}
+        ariaLabel="Change the reporting period"
+        now={now}
+      />
+    ) : null;
+
   const teamHref = (filter?: 'attention' | 'available' | 'delivered' | 'updates') => {
     const query = new URLSearchParams({ scope: 'team', ...periodParams(period) });
     if (filter) query.set('filter', filter);
@@ -1518,24 +1538,6 @@ export default async function WorkPage({
                 },
               ]}
             />
-
-            {/*
-              Only where a period means something. Team and Waiting are the
-              state of things now — "the team, last 30 days" is not a question
-              anybody asks, and a control sitting above all four views implied
-              it was. Completed and Recent activity are read over a window, and
-              keep theirs.
-            */}
-            {(teamFilter === 'delivered' || teamFilter === 'updates') && (
-              <PeriodPicker
-                action="/work"
-                hidden={{ scope: 'team', filter: teamFilter }}
-                presets={teamFilter === 'updates' ? RECENT_PERIODS : STANDARD_PERIODS}
-                period={period}
-                ariaLabel="Change the reporting period"
-                now={now}
-              />
-            )}
           </div>
 
           {/*
@@ -1597,6 +1599,7 @@ export default async function WorkPage({
       */}
       {scope === 'team' && teamFilter === 'updates' && (
         <TeamRecentActivity
+          period={periodControl}
           events={teamActivity.events}
           team={teamActivity.team}
           failed={teamActivity.failed}
@@ -1615,6 +1618,7 @@ export default async function WorkPage({
       */}
       {scope === 'team' && teamFilter === 'delivered' && (
         <TeamDelivered
+          period={periodControl}
           records={deliveredRecords}
           team={deliveredTeam}
           failed={teamDeliveredWork.failed}

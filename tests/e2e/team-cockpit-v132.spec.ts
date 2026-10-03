@@ -110,7 +110,12 @@ test.describe('v132 the snapshot', () => {
     // where the control lives and where this rule is checked.
     await page.goto('/work?scope=team&filter=delivered');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
-    const picker = page.locator('.team-views .period-picker');
+    /*
+     * v248 moved the window out of the tab row and into the panel it narrows:
+     * beside the tabs it read as a control over the whole of My Team, which is
+     * exactly what §20 says it is not.
+     */
+    const picker = page.locator('.team-list-head .period-picker');
     await expect(picker.getByRole('button')).toContainText('Last 30 days');
     await picker.getByRole('button').click();
 
@@ -126,7 +131,7 @@ test.describe('v132 the snapshot', () => {
 
     await menu.getByRole('link', { name: 'Last 90 days' }).click();
     await expect(page).toHaveURL(/period=90/);
-    await expect(page.locator('.team-views .period-picker').getByRole('button')).toContainText(
+    await expect(page.locator('.team-list-head .period-picker').getByRole('button')).toContainText(
       'Last 90 days',
     );
   });

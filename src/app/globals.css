@@ -54,7 +54,9 @@
      these values were scattered as literals through the stylesheet, so the
      content column and control heights drifted from the approved baseline. */
   --surface-soft: var(--surface-2);
-  --content-max: 1440px;
+  /* v248 — 1440 gave a list row a corridor of empty space on a wide screen;
+     a reading column stops the eye travelling the width of the monitor. */
+  --content-max: 1320px;
   --control-h: 38px;
   --page-gap: 20px;
   --section-gap: 16px;
@@ -15892,92 +15894,163 @@ span.deadline span.deadline-glyph,
 }
 .team-activity-list {
   display: grid;
-  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-/*
-  Who, what kind, and when, on one line.
 
-  The kind sits between the name and the clock rather than on a line of its
-  own at the foot: a card was four lines tall for three short facts, and
-  thirteen of them filled a screen with mostly air.
+/*
+  One line of controls, with the people after the kinds rather than under them.
+
+  Wrapping is still allowed — a team of twenty will not fit on one line at any
+  width — but the common case stops costing two rows before the content.
 */
-.team-activity-kind {
-  margin-right: auto;
-  color: var(--muted);
-  font-size: calc(11px * var(--font-scale));
-  /* The header is uppercase for the name; the kind is a fact, not a label. */
-  letter-spacing: 0;
-  text-transform: none;
+.team-activity-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin: 10px 0;
+}
+.team-activity-controls .team-activity-filters,
+.team-activity-controls .team-activity-people {
+  margin: 0;
 }
 
-.team-activity-card {
-  /* Positioned: the row's stretched link spans the nearest positioned
-     ancestor, and without this the whole card is not the target it looks. */
+/*
+  v248 — a row with the same anatomy as Waiting and Completed.
+
+  As a card each activity was three or four lines, so a fortnight of a team's
+  work was a page of scrolling and the tab could not answer its own question in
+  the time anybody would give it. What changed sits beside the title, because
+  that is the part worth reading; who and when line up down the list.
+*/
+.team-activity-row {
+  /* Positioned: the stretched link spans the nearest positioned ancestor. */
   position: relative;
   display: grid;
-  gap: 4px;
-  padding: 14px 16px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 290px) minmax(0, 160px) 50px;
+  align-items: center;
+  gap: 10px;
+  min-height: 34px;
+  padding: 6px 14px 6px 11px;
+  border-left: 3px solid transparent;
+  border-bottom: 1px solid var(--line-soft);
 }
-.team-activity-card:hover {
-  border-color: color-mix(in srgb, var(--blue) 35%, var(--line));
+.team-activity-row:last-child {
+  border-bottom: 0;
 }
-.team-activity-card[data-done] {
-  border-left: 3px solid var(--green);
+.team-activity-row:hover {
+  background: var(--surface-2);
 }
-.team-activity-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 0;
-  font-size: calc(12px * var(--font-scale));
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+/* Something that closed is the one state worth a mark of its own. */
+.team-activity-row[data-done] {
+  border-left-color: var(--green);
 }
-.team-activity-time {
+.team-activity-main {
+  display: grid;
+  min-width: 0;
+}
+.team-activity-main small {
+  overflow: hidden;
   color: var(--muted);
-  font-variant-numeric: tabular-nums;
+  font-size: calc(11px * var(--font-scale));
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.team-activity-task {
-  margin: 0;
-  font-size: calc(15px * var(--font-scale));
-  font-weight: 600;
+.team-activity-main small.team-activity-finding {
+  color: var(--amber);
 }
 .team-activity-changes {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 10px;
-  margin: 2px 0 0;
+  gap: 4px 8px;
+  min-width: 0;
+  overflow: hidden;
 }
 .team-activity-changes span {
-  padding: 2px 8px;
-  background: var(--surface-2, var(--bg));
+  padding: 1px 6px;
   border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: calc(11px * var(--font-scale));
+  white-space: nowrap;
+}
+.team-activity-person,
+.team-activity-time {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
   font-size: calc(12px * var(--font-scale));
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.team-activity-note,
-.team-activity-finding {
-  margin: 4px 0 0;
-  color: var(--text);
-  font-size: calc(13px * var(--font-scale));
-  line-height: 1.55;
+.team-activity-time {
+  text-align: right;
 }
-.team-activity-finding {
-  color: var(--amber);
+
+.team-activity-day {
+  margin-top: 14px;
+}
+
+@media (max-width: 860px) {
+  /*
+    Title, then what changed, then who and when together: three lines rather
+    than four, and the clock stays beside the person it belongs to.
+  */
+  .team-activity-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 2px 8px;
+    padding-block: 7px;
+  }
+  .team-activity-main,
+  .team-activity-changes {
+    grid-column: 1 / -1;
+  }
+  .team-activity-person {
+    grid-column: 1;
+  }
+  .team-activity-time {
+    grid-column: 2;
+  }
 }
 
 /* ---------------------------------------------------------------------------
  * v233 — Waiting: exceptions first, the bulk folded away.
  * ------------------------------------------------------------------------- */
 
+/* The window beside the figure it changes, not above the whole workspace. */
+.team-list-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+}
+.team-list-head > p {
+  margin: 0;
+}
+
+.team-waiting-group {
+  margin-bottom: 10px;
+}
+.team-waiting-group header h3 {
+  margin: 0;
+}
+.team-waiting-group header p {
+  margin: 1px 0 4px;
+}
+.team-delivered-group {
+  margin-bottom: 10px;
+}
+.team-delivered-day {
+  margin-top: 12px;
+}
+
 .team-waiting-summary,
 .team-delivered-summary {
-  margin: 0 0 14px;
+  margin: 0 0 8px;
   font-size: calc(14px * var(--font-scale));
   font-weight: 600;
 }
@@ -15996,9 +16069,15 @@ span.deadline span.deadline-glyph,
 .team-waiting-group[data-exception] header h3 {
   color: var(--red);
 }
+/*
+  v248 — rows in a list, not a stack of cards.
+
+  Each row carried its own border, radius and 4px of gap, so twenty-one of them
+  were twenty-one boxes to look at before any of them said anything. A hairline
+  between rows costs one pixel and reads as one list.
+*/
 .team-waiting-list {
   display: grid;
-  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -16015,14 +16094,16 @@ span.deadline span.deadline-glyph,
   /* Positioned: the stretched link spans the nearest positioned ancestor. */
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 170px) minmax(0, 250px) 16px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 160px) minmax(0, 230px) 14px;
   align-items: center;
-  gap: 12px;
-  min-height: 44px;
-  padding: 10px 14px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  gap: 10px;
+  min-height: 34px;
+  padding: 6px 14px 6px 11px;
+  border-left: 3px solid transparent;
+  border-bottom: 1px solid var(--line-soft);
+}
+.team-waiting-row:last-child {
+  border-bottom: 0;
 }
 .team-waiting-owner,
 .team-waiting-why {
@@ -16033,15 +16114,31 @@ span.deadline span.deadline-glyph,
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The reason is the exception's own words, so it carries the exception's tone. */
-.team-waiting-row[data-overdue] .team-waiting-why {
+
+.team-waiting-row:hover {
+  background: var(--surface-2);
+}
+
+/*
+  v248 — two levels, not one.
+
+  Everything in "Needs attention" carried the same red stripe and red words, so
+  eleven rows shouted equally and none of them meant anything. Red is now only
+  for work that is actually late. Everything else that wants a manager — waiting
+  unusually long, assigned and never touched, high attention — is amber: worth
+  a look, not a failure.
+*/
+.team-waiting-row[data-severity='overdue'] {
+  border-left-color: var(--red);
+}
+.team-waiting-row[data-severity='overdue'] .team-waiting-why {
   color: var(--red);
 }
-.team-waiting-row:hover {
-  border-color: color-mix(in srgb, var(--blue) 35%, var(--line));
+.team-waiting-row[data-severity='watch'] {
+  border-left-color: var(--amber);
 }
-.team-waiting-row[data-overdue] {
-  border-left: 3px solid var(--red);
+.team-waiting-row[data-severity='watch'] .team-waiting-why {
+  color: var(--amber);
 }
 .team-waiting-main {
   display: grid;
@@ -16112,7 +16209,6 @@ span.deadline span.deadline-glyph,
 }
 .team-delivered-list {
   display: grid;
-  gap: 4px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -16122,14 +16218,15 @@ span.deadline span.deadline-glyph,
      without this the whole row is not the target it looks like. */
   position: relative;
   display: grid;
-  grid-template-columns: 14px minmax(0, 1fr) minmax(0, 190px) minmax(0, 120px) 54px;
+  grid-template-columns: 14px minmax(0, 1fr) minmax(0, 180px) minmax(0, 110px) 50px;
   align-items: center;
   gap: 10px;
-  min-height: 44px;
-  padding: 10px 14px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  min-height: 34px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.team-delivered-row:last-child {
+  border-bottom: 0;
 }
 .team-delivered-person,
 .team-delivered-kind,
@@ -16147,24 +16244,34 @@ span.deadline span.deadline-glyph,
 }
 
 @media (max-width: 860px) {
+  /*
+    Two lines, not five. Stacking every column gave a closed item the title and
+    then who, what kind and when on three more lines of their own; together
+    they are one sentence and they fit on one line.
+  */
   .team-delivered-row {
-    grid-template-columns: 14px minmax(0, 1fr);
+    grid-template-columns: 14px minmax(0, 1fr) auto;
     align-items: start;
-    gap: 2px 10px;
+    gap: 2px 8px;
   }
   .team-delivered-tick {
     grid-row: 1 / -1;
   }
-  .team-delivered-person,
-  .team-delivered-kind,
-  .team-delivered-when {
+  .team-delivered-main {
+    grid-column: 2 / -1;
+  }
+  .team-delivered-person {
     grid-column: 2;
-    text-align: left;
-    white-space: normal;
+  }
+  .team-delivered-kind {
+    display: none;
+  }
+  .team-delivered-when {
+    grid-column: 3;
   }
 }
 .team-delivered-row:hover {
-  border-color: color-mix(in srgb, var(--blue) 35%, var(--line));
+  background: var(--surface-2);
 }
 /* Green, and small. Every row here finished; the tick marks the kind of list
    this is rather than distinguishing one row from another. */

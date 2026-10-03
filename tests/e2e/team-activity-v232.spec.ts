@@ -111,7 +111,7 @@ test('v232 Recent activity merges a day into one card, and it opens its task', a
     await expect(page.locator('.focus-tab-meaning')).toContainText('in the last 7 days');
 
     // It says who did what, not just that something happened.
-    const card = page.locator('.team-activity-card', { hasText: recentBody });
+    const card = page.locator('.team-activity-row', { hasText: recentBody });
     await expect(card).toContainText('Amer');
     await expect(card).toContainText(recentTitle);
 
@@ -124,7 +124,7 @@ test('v232 Recent activity merges a day into one card, and it opens its task', a
     // And the row opens the task it is about.
     // The whole row, not the title: that is what the stretched link is for,
     // and clicking the row is what a person actually does.
-    await page.locator('.team-activity-card', { hasText: recentBody }).first().click();
+    await page.locator('.team-activity-row', { hasText: recentBody }).first().click();
     await expect(page).toHaveURL(new RegExp(`task=${recentTask}`), { timeout: 15_000 });
     await expect(page.locator('.task-detail-drawer')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('.task-detail-drawer')).toContainText(recentTitle);

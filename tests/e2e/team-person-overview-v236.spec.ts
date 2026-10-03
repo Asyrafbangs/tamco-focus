@@ -128,6 +128,6 @@ test.describe('v236 the Recent activity tab carries its figure', () => {
 
     await page.goto('/work?scope=team&filter=updates');
     await expect(page.locator('.team-activity')).toBeVisible();
-    expect(await page.locator('.team-activity-card').count()).toBe(badge);
+    expect(await page.locator('.team-activity-row').count()).toBe(badge);
   });
 });
