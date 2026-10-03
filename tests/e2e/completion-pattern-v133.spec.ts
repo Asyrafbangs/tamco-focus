@@ -112,7 +112,21 @@ test.describe('v133 a routine occurrence is not Focus work', () => {
     await signIn(page, 'izzah@tamco.local');
     await page.goto('/work/routine');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
-    await page.locator('.routine-row a, .routine-row button').first().click();
+    /*
+     * A row that is due, in preference to whichever is first.
+     *
+     * `.first()` here was the next upcoming occurrence, and an occurrence the
+     * schedule has not reached yet cannot be completed - so the completion
+     * test below found a disabled button and skipped itself with "this
+     * occurrence is not ready to complete in the seed", every run, silently.
+     * The seed does generate due and overdue occurrences; this was picking the
+     * wrong one. The other two tests in this group accept any state, so the
+     * fallback keeps them running on a fixture with nothing due.
+     */
+    const rows = page.locator('.routine-row');
+    const due = rows.filter({ hasText: /Overdue|Due today/ });
+    const target = (await due.count()) > 0 ? due.first() : rows.first();
+    await target.locator('a, button').first().click();
     await expect(page.locator('.task-detail-drawer')).toBeVisible();
   });
 
