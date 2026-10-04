@@ -1,8 +1,11 @@
 # PROJECT_PROGRESS.md
 
-Persistent implementation checkpoint, per `AGENTS.md` section 19. Factual and
-verified against the repository. `handoff.md` carries the detailed session
-narrative; this file carries current state.
+The single maintained checkpoint for current state, per `AGENTS.md` section 19.
+Factual and verified against the repository, not against conversation claims.
+
+`handoff.md` was an untracked duplicate of this information and has been
+removed; what was durable in it is below. Do not reintroduce a second
+current-state document.
 
 **Last verified:** 4 October 2026 · **main** @ `e4bee94`
 
@@ -102,12 +105,44 @@ None.
 - The repository is shared with other sessions. Stage by name; never `git add -A`.
 - Never pipe `npm run verify` — the exit code becomes the pipe's.
 
+## Fixture constraints that reject work
+
+Each of these refused a seed or test fixture and cost a run to diagnose:
+
+- `urgency_level` has no `low`: it is `normal`, `high`, `critical`,
+  `immediate_risk`.
+- `work_origin` has no `assigned`: it is `manager_assigned`.
+- A `paused` task requires restart information.
+- The table is `task_checklist_items`, not `checklist_items`.
+- `task_updates` carries `is_meaningful`, not `progress_percent`.
+- Cancelling a completed task needs `completed_at: null` in the same update,
+  or `tasks_completed_at_consistent` rejects it.
+- `audit_events` is append-only, so a task carrying audit rows cannot be
+  deleted. Fixtures must cancel instead.
+- `supabase/seed.sql` is applied only by a local `db reset` and by PGlite in
+  `scripts/check-schema.mjs`. Nothing deploys it.
+
+## Settled decisions
+
+Do not re-raise these without new information:
+
+- **Team rows stay one line at 39px**, three columns. The two-line 52–58px
+  reading of the density brief was considered and declined on 3 October.
+- **Evidence is never scanned.** `virus_scan_state` is pinned `not_scanned`
+  deliberately; do not add scan states or a queue.
+- **Successful email delivery is not shown to the user**, and a normal Action
+  Owner gets no bulk actions.
+- **A direction needs both sides to have happened.** `backlogTrend` returns
+  `too-early` rather than naming a direction from too few events, mirroring
+  `onTimeRate` returning `null` rather than 100% from no closures.
+
 ## Blocker
 
 None.
 
 ## Exact next action
 
-Open a pull request for `behavioural-fixture-assertions`, confirm the database
-job passes, merge, and confirm the push run on `main` is green. Then items 1–3
-above, of which only 2 is unattended engineering work.
+Item 2 under _Remaining work_ — add an import-batch fixture so
+`layout-invariants-v244` can walk `/findings/import/[batchId]`, the one screen
+it does not reach. Items 1 and 3 need a decision or a credential and are not
+unattended engineering work.
