@@ -98,7 +98,9 @@ insert into v203_ids
 select 'old_principal', id from public.esh_email_principals
  where canonical_email = 'wrong.v203@example.com';
 
-select is((select count(*) from auth.users), 7::bigint,
+-- Nine seeded accounts since v255. What this checks is that assigning an
+-- unknown address created none of them, so the number tracks the seed.
+select is((select count(*) from auth.users), 9::bigint,
           'assigning an unknown email creates no authentication account');
 select is((select staff_user_id from public.esh_email_principals
             where id = pg_temp.v203_id('old_principal')), null::uuid,
