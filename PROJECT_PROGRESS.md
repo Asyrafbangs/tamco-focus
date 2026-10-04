@@ -139,18 +139,29 @@ Do not re-raise these without new information:
 
 ## Known test brittleness
 
-Resolved for the database suite in v258 and v259. Assertions that counted whole
-tables or whole organisations now state what their own fixtures contributed, so
+**Database suite (v258, v259): resolved.** Assertions that counted whole tables
+or whole organisations now state what their own fixtures contributed, so
 `npx supabase test db` passes whether or not the end-to-end import spec has run
-first. Verified both ways: 23 files, 648 tests, with residue present and on a
-reset database.
+first. Verified both ways: 23 files, 648 tests.
 
-One assertion remains order-dependent on purpose:
-`esh_weekly_reports_v204` test 28 checks the open count a leadership report
-recorded, and that report is org-wide by definition, so any other open work
-belongs in its total. Isolating it would mean narrowing the fixture's scope to
-a single department and re-baselining several of that file's other assertions.
-Run it on a reset database, as the gate order does.
+One assertion is order-dependent on purpose: `esh_weekly_reports_v204` test 28
+checks the open count a leadership report recorded, and that report is org-wide
+by definition, so any other open work belongs in its total.
+
+**Browser suite (v260): mostly resolved.** Eleven fixture-gated skips became
+assertions, so a test that stops running now fails instead of printing a dash.
+Three remain conditional, two of them rightly -- one person in a loop with no
+active work, and a routine occurrence the schedule has not reached.
+
+The third is a real gap. `evidence-upload-v135` has six tests that each complete
+the work they open, and the viewport projects share one database, so the seed's
+completable work runs out: **its last three tests skip on mobile**, and have been
+doing so silently. They need their own work rather than the seed's. Creating it
+through the capture dialog was tried and failed -- the dialog does not open from
+where the helper runs -- and simply seeding Izzah more active work is not
+available either, because `scripts/check-schema.mjs` asserts her active count as
+a fixture invariant. The fix is a service-role fixture per test, in the shape
+`tests/e2e/helpers/capture.ts` uses.
 
 ## Blocker
 
@@ -161,7 +172,5 @@ None.
 Nothing unattended remains. Items 1 and 3 under _Remaining work_ need a
 credential and a product decision respectively.
 
-If more is wanted, the browser suite has the same habit in places: 148 of 751
-tests skip, and 20 of those skip sites are conditional on fixture data rather
-than on viewport. They were audited in v254 and all run today, but nothing
-stops one going dormant again.
+Give `evidence-upload-v135` a per-test fixture so its last three cases stop
+skipping on mobile, as described under _Known test brittleness_.
