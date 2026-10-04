@@ -269,10 +269,17 @@ select isnt_empty(
   format('select id from public.tasks where primary_owner_id = %L', pg_temp.uid('lim')),
   'Izzul can view every direct report, including Lim');
 
+-- Eight since v255: Izzul plus Amer, Izzah, Ajmal, Lim, the temporary tester,
+-- and Rafiq and Zainab, who carry the backlog volume.
+--
+-- Deliberately a literal rather than a count of user_profiles, which is how
+-- the administrator case below is written: under Izzul's own role that table
+-- is RLS-filtered the same way the projection is, so comparing the two would
+-- be equal by construction and would assert nothing.
 select is(
   (select count(*)::integer from public.team_load_summary),
-  6,
-  'Izzul Team projection contains himself and all five active direct reports');
+  8,
+  'Izzul Team projection contains himself and all seven active direct reports');
 
 select is_empty(
   format('select user_id from public.team_load_summary where user_id = %L', pg_temp.uid('admin')),
