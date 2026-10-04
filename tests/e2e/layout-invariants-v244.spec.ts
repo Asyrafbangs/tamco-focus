@@ -282,6 +282,31 @@ for (const theme of ['light', 'dark'] as const) {
       }
     }
     /*
+     * A staged import's review screen, resolved from the import list for the
+     * same reason as the finding page above: the batch id belongs to the seed,
+     * and a seeded uuid written into a route list rots the moment the seed
+     * changes. Until v257 there was no batch to walk to at all, so this was the
+     * one screen in the module the rules had never been applied to.
+     */
+    for (const width of [390, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto('/findings/import');
+      const batch = await page
+        .locator('a[href^="/findings/import/"]')
+        .first()
+        .getAttribute('href')
+        .catch(() => null);
+      expect(batch, 'no import batch to open; the seeded one is missing').toBeTruthy();
+      await page.goto(batch!);
+      await page.locator('main#main, .esh-app').first().waitFor({ state: 'visible' });
+      await page.waitForTimeout(350);
+      pagesSeen += 1;
+      for (const breach of await breaches(page, UNSTYLED_LINK)) {
+        found.push(`${width} ${batch}: ${breach}`);
+      }
+    }
+
+    /*
      * And the drawer, which is not a route: it opens over one, and its sections
      * are shut until somebody opens them, so the walk above sees none of it.
      *
