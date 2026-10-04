@@ -36,7 +36,35 @@ create temporary table v230 (name text primary key, id uuid);
 grant all on v230 to authenticated;
 
 -- A known baseline: this database carries whatever earlier use left behind.
+--
+-- Removing this test's own leftovers is not enough. The dashboards count
+-- every finding in scope, so anything else the database is carrying -- the
+-- end-to-end import spec releases about a hundred -- lands in these totals
+-- too. What is recorded below is therefore what the dashboards held before
+-- this test created anything, and each assertion states its own
+-- contribution (AGENTS.md section 10).
 delete from public.esh_findings where title like 'v230 %';
+
+create temporary table v230_before (
+  k text primary key, esh_open integer, esh_under_30 integer, public_open integer);
+grant all on v230_before to authenticated, anon;
+insert into v230_before values ('x', null, null, null);
+
+-- Each figure is read by the role that reads it in the assertions: both
+-- functions are RLS-aware, and a baseline taken as postgres would not be
+-- the same number.
+select pg_temp.act_as('f0c05000-0000-4000-a000-000000000002');
+update v230_before
+   set esh_open = (public.esh_dashboard()->>'open_findings')::integer,
+       esh_under_30 = (public.esh_dashboard()->'open_by_age'->>'under_30')::integer
+ where k = 'x';
+select pg_temp.reset_role();
+
+set local role anon;
+update v230_before
+   set public_open = (public.esh_public_dashboard()->>'open_findings')::integer
+ where k = 'x';
+reset role;
 
 -- One ordinary open finding, and one the register marks restricted.
 select pg_temp.act_as('f0c05000-0000-4000-a000-000000000002');
@@ -66,11 +94,13 @@ select 'secret',
 -- ---------------------------------------------------------------------------
 
 select ok((public.esh_dashboard()->>'ok')::boolean, 'ESH can read the dashboard');
-select is((public.esh_dashboard()->>'open_findings')::integer, 2,
+select is((public.esh_dashboard()->>'open_findings')::integer
+            - (select esh_open from v230_before), 2,
           'and it counts both findings, restricted included, in ESH scope');
 select is(public.esh_dashboard()->'open_by_risk'->>'critical', '1',
           'the risk mix is broken out');
-select is(public.esh_dashboard()->'open_by_age'->>'under_30', '2',
+select is((public.esh_dashboard()->'open_by_age'->>'under_30')::integer
+            - (select esh_under_30 from v230_before), 2,
           'and open work is aged from when it was recorded');
 select ok(jsonb_array_length(public.esh_dashboard()->'monthly') = 6,
           'six months of opened-against-closed by default');
@@ -90,7 +120,8 @@ set local role anon;
 
 select ok((public.esh_public_dashboard()->>'ok')::boolean,
           'an anonymous caller can read the public dashboard');
-select is((public.esh_public_dashboard()->>'open_findings')::integer, 1,
+select is((public.esh_public_dashboard()->>'open_findings')::integer
+            - (select public_open from v230_before), 1,
           'and a restricted finding is not counted in it');
 select is(public.esh_public_dashboard()->'open_by_risk'->>'critical', null,
           'so the restricted one does not even show up as a risk level');

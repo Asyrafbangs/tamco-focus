@@ -86,9 +86,17 @@ select ok((select needs_assignment from public.esh_import_rows
 select ok((select 'action_missing' = any(problems) from public.esh_import_rows
             where batch_id = pg_temp.v205_id('batch') and source_line = 4),
           'a row with no corrective action says so');
-select is((select count(*) from public.esh_findings where source = 'import'), 0::bigint,
+-- Scoped to this batch, not to the table. These counted every imported
+-- finding and every notice in the database, which is true only on a freshly
+-- reset one: after the end-to-end import spec has run, the same assertion
+-- sees its hundred released findings and fails for a reason that has nothing
+-- to do with staging.
+select is((select count(*) from public.esh_import_rows
+            where batch_id = pg_temp.v205_id('batch') and finding_id is not null),
+          0::bigint,
           'staging creates no findings at all');
-select is((select count(*) from public.esh_notification_outbox), 0::bigint,
+select is((select count(*) from public.esh_notification_outbox
+            where import_batch_id = pg_temp.v205_id('batch')), 0::bigint,
           'and tells nobody');
 
 -- Nothing is released until every row chosen for release is ready.
@@ -106,7 +114,9 @@ select is((public.esh_import_release(pg_temp.v205_id('batch'),
   array[pg_temp.v205_id('row_ready'), pg_temp.v205_id('row_no_action')],
   null, 'v205-refused')->>'code'),
   'row_not_ready', 'a batch containing an unready row releases nothing');
-select is((select count(*) from public.esh_findings where source = 'import'), 0::bigint,
+select is((select count(*) from public.esh_import_rows
+            where batch_id = pg_temp.v205_id('batch') and finding_id is not null),
+          0::bigint,
           'and really nothing');
 
 -- The decisions that make the other rows releasable.
@@ -166,17 +176,23 @@ select is((select count(*)::integer from public.esh_notification_outbox
                                   where imported.batch_id = pg_temp.v205_id('batch'))), 0,
           'nobody receives one email per backlog row');
 select is((select count(*)::integer from public.esh_notification_outbox
-            where event_type = 'import_assignment'), 2,
+            where event_type = 'import_assignment'
+              and import_batch_id = pg_temp.v205_id('batch')), 2,
           'each owner receives one summary of their own');
+-- `limit 1` over the whole table would read somebody else's notice.
 select is((select state from public.esh_notification_outbox
-            where event_type = 'import_assignment' limit 1), 'held_rollout',
+            where event_type = 'import_assignment'
+              and import_batch_id = pg_temp.v205_id('batch') limit 1),
+          'held_rollout',
           'held, because these contacts are not enabled yet');
 
 -- A second release of the same rows is the same release.
 select is((public.esh_import_release(pg_temp.v205_id('batch'),
   array[pg_temp.v205_id('row_ready')], null, 'v205-release')->>'released')::text, '3',
   'the same release key returns the first answer');
-select is((select count(*) from public.esh_findings where source = 'import'), 3::bigint,
+select is((select count(*) from public.esh_import_rows
+            where batch_id = pg_temp.v205_id('batch') and finding_id is not null),
+          3::bigint,
           'and creates nothing a second time');
 
 select is((public.esh_import_discard(pg_temp.v205_id('batch'), 'Changed my mind')->>'code'),

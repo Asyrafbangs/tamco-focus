@@ -23,6 +23,44 @@ grant all on ids to authenticated;
 create or replace function pg_temp.id(p_name text)
 returns uuid language sql stable as $$ select id from ids where name = p_name $$;
 
+-- What the overview already held before this test created anything.
+--
+-- esh_overview aggregates every finding in scope, so these totals are not
+-- this test's to own: a database that has run the end-to-end import spec
+-- carries its released backlog as well, and each total below moved by two
+-- for reasons that have nothing to do with the overview. Each assertion now
+-- states what its own fixtures contributed (AGENTS.md section 10).
+--
+-- Taken under the role the assertions use, because the function is
+-- RLS-aware and a baseline read as postgres would not be the same number.
+select pg_temp.act_as('f0c05000-0000-4000-a000-000000000002');
+create temporary table before_test as
+select 'wide'::text as window_key,
+       coalesce((select sum(open_findings) from public.esh_overview(
+         null, '2026-08-22T00:00:00Z', null, '2026-09-20T01:00:00Z')), 0)::numeric as open_findings,
+       coalesce((select sum(overdue_actions) from public.esh_overview(
+         null, '2026-08-22T00:00:00Z', null, '2026-09-20T01:00:00Z')), 0)::numeric as overdue_actions
+union all select 'ops',
+       coalesce((select open_findings from public.esh_overview(
+         (select id from public.departments where code = 'OPS'), '2026-08-22T00:00:00Z', null, '2026-09-20T01:00:00Z')), 0)::numeric, 0::numeric
+union all select 'old_closure',
+       coalesce((select sum(open_findings) from public.esh_overview(
+         null, '2020-01-01T00:00:00Z', '2020-01-31T23:59:59Z', '2026-09-20T01:00:00Z')), 0)::numeric, 0::numeric
+union all select 'after_reopen',
+       coalesce((select sum(open_findings) from public.esh_overview(
+         null, '2026-08-22T00:00:00Z', null, '2026-09-20T03:00:00Z')), 0)::numeric, 0::numeric
+union all select 'after_reclose',
+       coalesce((select sum(open_findings) from public.esh_overview(
+         null, '2026-09-20T03:30:00Z', null, '2026-09-20T05:00:00Z')), 0)::numeric, 0::numeric;
+select pg_temp.reset_role();
+grant all on before_test to authenticated;
+create or replace function pg_temp.was_open(p_key text)
+returns numeric language sql stable as $$
+  select open_findings from before_test where window_key = p_key $$;
+create or replace function pg_temp.was_overdue(p_key text)
+returns numeric language sql stable as $$
+  select overdue_actions from before_test where window_key = p_key $$;
+
 -- One finding with two overdue actions: it is one open finding, two overdue actions.
 select pg_temp.act_as('f0c05000-0000-4000-a000-000000000002');
 with saved as (
@@ -190,10 +228,12 @@ select lives_ok(
                                       '2026-09-20T01:00:00Z')$$,
   'the authorized overview is callable');
 select is((select sum(open_findings) from public.esh_overview(
-  null, '2026-08-22T00:00:00Z', null, '2026-09-20T01:00:00Z')), 3::numeric,
+  null, '2026-08-22T00:00:00Z', null, '2026-09-20T01:00:00Z'))
+    - pg_temp.was_open('wide'), 3::numeric,
   'open counts findings, including an unassigned import');
 select is((select sum(overdue_actions) from public.esh_overview(
-  null, '2026-08-22T00:00:00Z', null, '2026-09-20T01:00:00Z')), 2::numeric,
+  null, '2026-08-22T00:00:00Z', null, '2026-09-20T01:00:00Z'))
+    - pg_temp.was_overdue('wide'), 2::numeric,
   'both overdue actions are counted');
 select is((select sum(awaiting_review_actions) from public.esh_overview(
   null, '2026-08-22T00:00:00Z', null, '2026-09-20T01:00:00Z')), 1::numeric,
@@ -214,7 +254,7 @@ select is((select sum(open_findings) from public.esh_overview(
   'signal and register finding totals reconcile');
 select is((select open_findings from public.esh_overview(
   (select id from public.departments where code = 'OPS'), '2026-08-22T00:00:00Z', null,
-  '2026-09-20T01:00:00Z')), 2::bigint,
+  '2026-09-20T01:00:00Z'))::numeric - pg_temp.was_open('ops'), 2::numeric,
   'two actions do not double-count their finding');
 select is((select count(*) from public.esh_action_register_rows
   where finding_id = pg_temp.id('multi_finding') and is_overdue), 2::bigint,
@@ -223,7 +263,8 @@ select is((select count(*) from public.esh_register_rows
   where finding_id = pg_temp.id('multi_finding')), 1::bigint,
   'the open drill-down contains one finding row');
 select is((select sum(open_findings) from public.esh_overview(
-  null, '2020-01-01T00:00:00Z', '2020-01-31T23:59:59Z', '2026-09-20T01:00:00Z')),
+  null, '2020-01-01T00:00:00Z', '2020-01-31T23:59:59Z', '2026-09-20T01:00:00Z'))
+    - pg_temp.was_open('old_closure'),
   3::numeric, 'changing the closure period does not hide old open work');
 select is((select sum(closed_findings) from public.esh_overview(
   null, '2020-01-01T00:00:00Z', '2020-01-31T23:59:59Z', '2026-09-20T01:00:00Z')),
@@ -241,7 +282,8 @@ select is((select sum(closed_findings) from public.esh_overview(
   null, '2026-08-22T00:00:00Z', null, '2026-09-20T03:00:00Z')), 0::numeric,
   'a reopened finding leaves current closed totals');
 select is((select sum(open_findings) from public.esh_overview(
-  null, '2026-08-22T00:00:00Z', null, '2026-09-20T03:00:00Z')), 4::numeric,
+  null, '2026-08-22T00:00:00Z', null, '2026-09-20T03:00:00Z'))
+    - pg_temp.was_open('after_reopen'), 4::numeric,
   'that reopened finding returns to open');
 select pg_temp.reset_role();
 update public.esh_findings set status = 'closed', closed_at = '2026-09-20T04:00:00Z'
@@ -251,7 +293,8 @@ select is((select sum(closed_findings) from public.esh_overview(
   null, '2026-09-20T03:30:00Z', null, '2026-09-20T05:00:00Z')), 1::numeric,
   'reclosure uses the current closure event');
 select is((select sum(open_findings) from public.esh_overview(
-  null, '2026-09-20T03:30:00Z', null, '2026-09-20T05:00:00Z')), 3::numeric,
+  null, '2026-09-20T03:30:00Z', null, '2026-09-20T05:00:00Z'))
+    - pg_temp.was_open('after_reclose'), 3::numeric,
   'a reclosed finding no longer remains open');
 select is((select count(*) from public.esh_register_export_rows
   where finding_id = pg_temp.id('multi_finding')), 2::bigint,

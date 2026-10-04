@@ -139,13 +139,18 @@ Do not re-raise these without new information:
 
 ## Known test brittleness
 
-`esh_backlog_import_v205.test.sql` asserts global counts — findings with
-`source = 'import'`, and rows in `esh_notification_outbox`. They hold on a
-freshly reset database and fail on one that has run the e2e import spec,
-which releases around a hundred findings. The gate order resets before
-end-to-end and restores the seed afterwards, so this never bites in CI; it
-bites locally if database tests are run after browser tests. Reset first, or
-run them in gate order.
+Resolved for the database suite in v258 and v259. Assertions that counted whole
+tables or whole organisations now state what their own fixtures contributed, so
+`npx supabase test db` passes whether or not the end-to-end import spec has run
+first. Verified both ways: 23 files, 648 tests, with residue present and on a
+reset database.
+
+One assertion remains order-dependent on purpose:
+`esh_weekly_reports_v204` test 28 checks the open count a leadership report
+recorded, and that report is org-wide by definition, so any other open work
+belongs in its total. Isolating it would mean narrowing the fixture's scope to
+a single department and re-baselining several of that file's other assertions.
+Run it on a reset database, as the gate order does.
 
 ## Blocker
 
@@ -154,7 +159,9 @@ None.
 ## Exact next action
 
 Nothing unattended remains. Items 1 and 3 under _Remaining work_ need a
-credential and a product decision respectively. The next engineering work of
-real value would be converting the global-count assertions described under
-_Known test brittleness_ to before/after deltas, which `AGENTS.md` section 10
-prefers and which would make those tests order-independent.
+credential and a product decision respectively.
+
+If more is wanted, the browser suite has the same habit in places: 148 of 751
+tests skip, and 20 of those skip sites are conditional on fixture data rather
+than on viewport. They were audited in v254 and all run today, but nothing
+stops one going dormant again.

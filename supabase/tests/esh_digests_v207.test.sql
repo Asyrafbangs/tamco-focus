@@ -88,7 +88,20 @@ update public.esh_notification_outbox set state = 'cancelled'
  where event_type = 'owner_assignment'
    and recipient_principal_id = (select id from ids where name = 'owner');
 
-select is((public.esh_run_followups('2026-09-20 01:00:00+00')->>'owner_reminders')::text, '3',
+-- What this call raised for this test's owner, rather than what it raised
+-- for the whole organisation.
+--
+-- esh_run_followups reminds every overdue owner there is, so on a database
+-- carrying anything else overdue -- the end-to-end import spec releases a
+-- backlog with due dates in the past -- the returned total is larger and
+-- says nothing about these three actions (AGENTS.md section 10).
+create temporary table v207_before_first as
+  select id from public.esh_notification_outbox;
+select public.esh_run_followups('2026-09-20 01:00:00+00');
+select is((select count(*)::integer from public.esh_notification_outbox
+            where event_type = 'owner_reminder'
+              and recipient_principal_id = (select id from ids where name = 'owner')
+              and id not in (select id from v207_before_first)), 3,
           'each overdue action raises its own reminder');
 select is((select count(*)::integer from public.esh_notification_outbox
             where event_type = 'owner_reminder' and state = 'queued'), 3,
@@ -147,7 +160,13 @@ select is((select count(*)::integer from public.esh_notification_outbox
           'against their own events, so the register can say what went');
 
 -- A digest with nothing left in it is not sent at all.
-select is((public.esh_run_followups('2026-09-22 01:00:00+00')->>'owner_reminders')::text, '2',
+create temporary table v207_before_second as
+  select id from public.esh_notification_outbox;
+select public.esh_run_followups('2026-09-22 01:00:00+00');
+select is((select count(*)::integer from public.esh_notification_outbox
+            where event_type = 'owner_reminder'
+              and recipient_principal_id = (select id from ids where name = 'owner')
+              and id not in (select id from v207_before_second)), 2,
           'the next overdue cycle raises reminders again');
 select is((public.esh_build_digests(now() + interval '2 days')->>'digests')::text, '1',
           'and they gather into a second letter');
