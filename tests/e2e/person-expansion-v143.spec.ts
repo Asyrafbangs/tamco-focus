@@ -187,7 +187,10 @@ test.describe('v143 §6 inline person expansion', () => {
   test('A03 Keep open holds a person while the next one opens', async ({ page }) => {
     await openTeam(page);
     const rows = page.getByTestId('my-team-person-row');
-    test.skip((await rows.count()) < 2, 'Comparison needs two people.');
+    expect(
+      await rows.count(),
+      'the team must hold at least two people for this comparison',
+    ).toBeGreaterThanOrEqual(2);
 
     const firstName = (await rows.nth(0).locator('[data-cell="person"] strong').innerText()).trim();
     const secondName = (

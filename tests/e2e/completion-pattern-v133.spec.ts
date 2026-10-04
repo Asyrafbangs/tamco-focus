@@ -53,7 +53,10 @@ async function openCompletableTask(page: Page): Promise<boolean> {
 test.describe('v133 the completion form', () => {
   test('asks for evidence in a target worth aiming at', async ({ page }) => {
     await signIn(page, 'izzah@tamco.local');
-    if (!(await openCompletableTask(page))) test.skip(true, 'Nothing completable in this seed.');
+    expect(
+      await openCompletableTask(page),
+      'the seed must carry work Izzah can complete, or this test proves nothing',
+    ).toBe(true);
 
     const zone = page.locator('.evidence-target');
     await expect(zone).toBeVisible();
@@ -73,7 +76,10 @@ test.describe('v133 the completion form', () => {
 
   test('keeps the note collapsed until somebody wants it', async ({ page }) => {
     await signIn(page, 'izzah@tamco.local');
-    if (!(await openCompletableTask(page))) test.skip(true, 'Nothing completable in this seed.');
+    expect(
+      await openCompletableTask(page),
+      'the seed must carry work Izzah can complete, or this test proves nothing',
+    ).toBe(true);
 
     // A large empty box invites "Done.", which costs a line and says nothing.
     await expect(page.locator('textarea[name="completionNote"]')).toHaveCount(0);
@@ -83,7 +89,10 @@ test.describe('v133 the completion form', () => {
 
   test('offers a camera, because the proof is often taken there and then', async ({ page }) => {
     await signIn(page, 'izzah@tamco.local');
-    if (!(await openCompletableTask(page))) test.skip(true, 'Nothing completable in this seed.');
+    expect(
+      await openCompletableTask(page),
+      'the seed must carry work Izzah can complete, or this test proves nothing',
+    ).toBe(true);
 
     // Nobody drags a file on a phone. Open the work, photograph it, complete.
     await expect(page.getByRole('button', { name: 'Take photo' })).toBeVisible();
@@ -92,7 +101,10 @@ test.describe('v133 the completion form', () => {
 
   test('does not ask twice for evidence the work already has', async ({ page }) => {
     await signIn(page, 'izzah@tamco.local');
-    if (!(await openCompletableTask(page))) test.skip(true, 'Nothing completable in this seed.');
+    expect(
+      await openCompletableTask(page),
+      'the seed must carry work Izzah can complete, or this test proves nothing',
+    ).toBe(true);
 
     /*
      * A gate that demands a fresh upload when the step already carries the

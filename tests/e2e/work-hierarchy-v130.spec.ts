@@ -130,7 +130,10 @@ test.describe('v130 a work row says what differs', () => {
     await expect(page.locator('.task-row').first()).toBeVisible();
 
     const late = page.locator('.task-row', { has: page.locator('.deadline-overdue') });
-    if ((await late.count()) === 0) test.skip(true, 'Nothing overdue in this seed.');
+    expect(
+      await late.count(),
+      'the seed must carry overdue work, or this test proves nothing',
+    ).toBeGreaterThan(0);
 
     const row = late.first();
     await expect(row.locator('.deadline-overdue')).toContainText(/Overdue/);
