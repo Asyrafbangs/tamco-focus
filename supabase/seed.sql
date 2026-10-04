@@ -75,7 +75,11 @@ begin
         ('f0c05000-0000-4000-a000-000000000004'::uuid, 'izzah@tamco.local'),
         ('f0c05000-0000-4000-a000-000000000005'::uuid, 'ajmal@tamco.local'),
         ('f0c05000-0000-4000-a000-000000000006'::uuid, 'lim@tamco.local'),
-        ('f0c05000-0000-4000-a000-000000000007'::uuid, 'temp.tester@tamco.local')
+        ('f0c05000-0000-4000-a000-000000000007'::uuid, 'temp.tester@tamco.local'),
+        -- v255: two more of Izzul's team, so the backlog can carry a realistic
+        -- volume without touching anybody else's figures.
+        ('f0c05000-0000-4000-a000-000000000008'::uuid, 'rafiq@tamco.local'),
+        ('f0c05000-0000-4000-a000-000000000009'::uuid, 'zainab@tamco.local')
       ) as t(id, email)
   loop
     insert into auth.users (
@@ -158,6 +162,21 @@ select public.provision_user_profile(
   'f0c05000-0000-4000-a000-000000000002', 'off', 'off',
   'f0c05000-0000-4000-a000-000000000001');
 
+-- v255: the two who carry the backlog volume. Reporting to Izzul so their work
+-- reaches the Waiting view, and given nothing else at all -- no routines, no
+-- goals, no barriers -- so no existing expectation about anybody's day, needs
+-- you cell or late-and-due-soon figures moves.
+select public.provision_user_profile(
+  'f0c05000-0000-4000-a000-000000000008', 'EMP-205', 'rafiq@tamco.local',
+  'Rafiq Zulkifli', 'f0c05100-0000-4000-a000-000000000001', 'team_member',
+  'f0c05000-0000-4000-a000-000000000002', 'standard', 'off',
+  'f0c05000-0000-4000-a000-000000000001');
+
+select public.provision_user_profile(
+  'f0c05000-0000-4000-a000-000000000009', 'EMP-206', 'zainab@tamco.local',
+  'Zainab Omar', 'f0c05100-0000-4000-a000-000000000002', 'team_member',
+  'f0c05000-0000-4000-a000-000000000002', 'standard', 'off',
+  'f0c05000-0000-4000-a000-000000000001');
 select public.provision_user_profile(
   'f0c05000-0000-4000-a000-000000000007', 'TMP-900', 'temp.tester@tamco.local',
   'Temporary Tester', 'f0c05100-0000-4000-a000-000000000003', 'team_member',
@@ -195,6 +214,8 @@ update public.user_profiles set job_title = case id
     when 'f0c05000-0000-4000-a000-000000000004' then 'EHS Executive'
     when 'f0c05000-0000-4000-a000-000000000005' then 'Operations Executive'
     when 'f0c05000-0000-4000-a000-000000000006' then 'Operations Executive'
+    when 'f0c05000-0000-4000-a000-000000000008' then 'EHS Executive'
+    when 'f0c05000-0000-4000-a000-000000000009' then 'Operations Executive'
   end
  where id in (
    'f0c05000-0000-4000-a000-000000000001',
@@ -202,7 +223,9 @@ update public.user_profiles set job_title = case id
    'f0c05000-0000-4000-a000-000000000003',
    'f0c05000-0000-4000-a000-000000000004',
    'f0c05000-0000-4000-a000-000000000005',
-   'f0c05000-0000-4000-a000-000000000006'
+   'f0c05000-0000-4000-a000-000000000006',
+   'f0c05000-0000-4000-a000-000000000008',
+   'f0c05000-0000-4000-a000-000000000009'
  );
 
 -- ---------------------------------------------------------------------------
@@ -421,6 +444,240 @@ insert into public.tasks (
  100, false, null,
  now() - interval '35 days', now() - interval '2 days', now() - interval '2 days',
  now() - interval '30 days', 'f0c05000-0000-4000-a000-000000000006', now() - interval '2 days');
+
+
+-- v255: the backlog at something like the volume a real register carries.
+--
+-- Two backlog rows against the twenty-one in production meant the Waiting
+-- view and the people table were read all through v233-v254 with almost
+-- nothing in them, which is how a title that wrapped at 900px and a test
+-- that had been skipping itself since v233 both survived a green suite.
+--
+-- Owned by the two people added above rather than spread over the existing
+-- four, because every one of those four is load-bearing for a spec: Lim is
+-- the clear-queue and clear-day fixture and has his late-and-due-soon
+-- figures built by v189; Ajmal's needs-you cell has to keep naming the
+-- Daily PPE stock check occurrence; Izzah owns the active work the My Work
+-- specs read; and six specs sign in as Amer. Volume on any of them moves a
+-- test that has nothing to do with volume.
+insert into public.tasks (
+  id, title, description, next_action, status, work_class, focus_bucket, origin,
+  urgency, primary_owner_id, created_by, due_at, due_is_date_only, review_at,
+  progress_percent, is_mandatory, mandatory_justification,
+  created_at, state_entered_at, last_meaningful_update_at, activated_at, activated_by,
+  completed_at
+) values
+('f0c05301-0000-4000-a000-000000000001',
+ 'Replace the damaged guard rail on the mezzanine walkway',
+ 'Rail was struck by a pallet and is no longer rated for edge protection.',
+ 'Get a fabrication quote for the replacement section',
+ 'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
+ 'f0c05000-0000-4000-a000-000000000008', 'f0c05000-0000-4000-a000-000000000008',
+ now() - interval '6 days', true, null,
+ 0, false, null,
+ now() - interval '11 days', now() - interval '11 days', now() - interval '11 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000002',
+ 'Re-certify the overhead crane and both chain hoists in bay two',
+ 'Statutory inspection lapsed while the contractor changed hands.',
+ 'Confirm a date with the new inspection body',
+ 'backlog', 'operational_action', 'operational', 'manager_assigned', 'high',
+ 'f0c05000-0000-4000-a000-000000000008', 'f0c05000-0000-4000-a000-000000000002',
+ now() - interval '2 days', true, null,
+ 0, false, null,
+ now() - interval '21 days', now() - interval '21 days', now() - interval '21 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000003',
+ 'Review the noise survey results for the compressor room',
+ 'Readings came back above the action level at two positions.',
+ 'Compare the readings against the 2024 survey',
+ 'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
+ 'f0c05000-0000-4000-a000-000000000008', 'f0c05000-0000-4000-a000-000000000008',
+ now() + interval '4 days', true, null,
+ 0, false, null,
+ now() - interval '8 days', now() - interval '8 days', now() - interval '8 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000004',
+ 'Update the spill response plan for the new solvent store',
+ 'The plan still describes the old drum store layout.',
+ 'Walk the new store and mark the bund capacities',
+ 'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
+ 'f0c05000-0000-4000-a000-000000000008', 'f0c05000-0000-4000-a000-000000000008',
+ now() + interval '6 days', true, null,
+ 0, false, null,
+ now() - interval '5 days', now() - interval '5 days', now() - interval '5 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000005',
+ 'Standardise the lockout padlock scheme across both production lines',
+ 'Two colour schemes are in use and neither is documented.',
+ 'List every padlock currently issued',
+ 'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
+ 'f0c05000-0000-4000-a000-000000000008', 'f0c05000-0000-4000-a000-000000000008',
+ null, true, null,
+ 0, false, null,
+ now() - interval '4 days', now() - interval '4 days', now() - interval '4 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000006',
+ 'Refresh the first aid room stock list and expiry checks',
+ 'Several items expired before the last check was recorded.',
+ 'Agree a monthly check with the first aiders',
+ 'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
+ 'f0c05000-0000-4000-a000-000000000008', 'f0c05000-0000-4000-a000-000000000008',
+ now() + interval '30 days', true, null,
+ 0, false, null,
+ now() - interval '3 days', now() - interval '3 days', now() - interval '3 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000007',
+ 'Close out the three minor findings from the forklift inspection',
+ 'All three are housekeeping items in the charging area.',
+ 'Clear the charging bay and photograph it',
+ 'backlog', 'operational_action', 'operational', 'manager_assigned', 'normal',
+ 'f0c05000-0000-4000-a000-000000000008', 'f0c05000-0000-4000-a000-000000000002',
+ now() - interval '9 days', true, null,
+ 0, false, null,
+ now() - interval '26 days', now() - interval '26 days', now() - interval '26 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000008',
+ 'Rewrite the hot work permit to cover roof work by contractors',
+ 'The current permit assumes work at ground level only.',
+ 'Draft the roof access section',
+ 'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
+ 'f0c05000-0000-4000-a000-000000000008', 'f0c05000-0000-4000-a000-000000000008',
+ now() + interval '3 days', true, null,
+ 0, false, null,
+ now() - interval '12 days', now() - interval '12 days', now() - interval '12 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000009',
+ 'Survey the emergency lighting across the warehouse and offices',
+ 'Three fittings failed the last discharge test and were not retested.',
+ 'Mark the failed fittings on the floor plan',
+ 'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
+ 'f0c05000-0000-4000-a000-000000000008', 'f0c05000-0000-4000-a000-000000000008',
+ now() + interval '5 days', true, null,
+ 0, false, null,
+ now() - interval '7 days', now() - interval '7 days', now() - interval '7 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000010',
+ 'Introduce a pre-use check sheet for the mobile elevating platform',
+ 'Operators currently sign the handover book with no checks recorded.',
+ 'Borrow the manufacturer check list as a starting point',
+ 'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
+ 'f0c05000-0000-4000-a000-000000000009', 'f0c05000-0000-4000-a000-000000000009',
+ null, true, null,
+ 0, false, null,
+ now() - interval '6 days', now() - interval '6 days', now() - interval '6 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000011',
+ 'Translate the chemical handling toolbox talk into Bahasa Malaysia',
+ 'Half the team read the English version with difficulty.',
+ 'Send the current talk for translation',
+ 'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
+ 'f0c05000-0000-4000-a000-000000000009', 'f0c05000-0000-4000-a000-000000000009',
+ now() + interval '24 days', true, null,
+ 0, false, null,
+ now() - interval '5 days', now() - interval '5 days', now() - interval '5 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000012',
+ 'Agree a quarterly review of the contractor approval list',
+ 'Nobody owns the list and two approvals have lapsed.',
+ 'Propose the review at the next EHS meeting',
+ 'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
+ 'f0c05000-0000-4000-a000-000000000009', 'f0c05000-0000-4000-a000-000000000009',
+ null, true, null,
+ 0, false, null,
+ now() - interval '2 days', now() - interval '2 days', now() - interval '2 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000013',
+ 'Replace the faded eyewash signage in the plating area',
+ 'Existing signs are faded and hard to see with the lights off.',
+ 'Measure the sign positions for the order',
+ 'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
+ 'f0c05000-0000-4000-a000-000000000009', 'f0c05000-0000-4000-a000-000000000009',
+ now() + interval '2 days', true, null,
+ 0, false, null,
+ now() - interval '9 days', now() - interval '9 days', now() - interval '9 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000014',
+ 'Record the ventilation airflow readings for the welding booths',
+ 'Readings have not been logged since the extraction was serviced.',
+ 'Book the anemometer out for a morning',
+ 'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
+ 'f0c05000-0000-4000-a000-000000000009', 'f0c05000-0000-4000-a000-000000000009',
+ now() + interval '7 days', true, null,
+ 0, false, null,
+ now() - interval '10 days', now() - interval '10 days', now() - interval '10 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000015',
+ 'Tidy the gas cylinder compound and separate the oxidisers',
+ 'Full and empty cylinders are stored together against the fence.',
+ 'Mark out separate bays with the floor paint',
+ 'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
+ 'f0c05000-0000-4000-a000-000000000009', 'f0c05000-0000-4000-a000-000000000009',
+ null, true, null,
+ 0, false, null,
+ now() - interval '7 days', now() - interval '7 days', now() - interval '7 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000016',
+ 'Write a safe working procedure for the new shrink wrap machine',
+ 'The machine arrived with a manual but no site procedure.',
+ 'Watch a full cycle and note the trapping points',
+ 'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
+ 'f0c05000-0000-4000-a000-000000000009', 'f0c05000-0000-4000-a000-000000000009',
+ null, true, null,
+ 0, false, null,
+ now() - interval '6 days', now() - interval '6 days', now() - interval '6 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000017',
+ 'Audit the ladder register and remove anything unserviceable',
+ 'The register lists fourteen ladders and nine can be found.',
+ 'Walk the site and tag what is actually there',
+ 'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
+ 'f0c05000-0000-4000-a000-000000000009', 'f0c05000-0000-4000-a000-000000000009',
+ now() + interval '18 days', true, null,
+ 0, false, null,
+ now() - interval '4 days', now() - interval '4 days', now() - interval '4 days',
+ null, null, null),
+
+('f0c05301-0000-4000-a000-000000000018',
+ 'Collect the missing training records for the three new starters',
+ 'Induction was completed but the records were never filed.',
+ 'Ask the supervisors for the signed induction sheets',
+ 'backlog', 'operational_action', 'operational', 'self_initiated', 'normal',
+ 'f0c05000-0000-4000-a000-000000000009', 'f0c05000-0000-4000-a000-000000000009',
+ null, true, null,
+ 0, false, null,
+ now() - interval '3 days', now() - interval '3 days', now() - interval '3 days',
+ null, null, null);
+
+-- Purpose set by id, not by title: a rename left the title-matched updates
+-- further down this file stale once already.
+update public.tasks
+   set work_purpose = 'improvement_development'
+ where id in ('f0c05301-0000-4000-a000-000000000005','f0c05301-0000-4000-a000-000000000008','f0c05301-0000-4000-a000-000000000010','f0c05301-0000-4000-a000-000000000011');
+
+update public.tasks
+   set work_purpose = 'planned_operations'
+ where id in ('f0c05301-0000-4000-a000-000000000002','f0c05301-0000-4000-a000-000000000003','f0c05301-0000-4000-a000-000000000004','f0c05301-0000-4000-a000-000000000006','f0c05301-0000-4000-a000-000000000009','f0c05301-0000-4000-a000-000000000012','f0c05301-0000-4000-a000-000000000013','f0c05301-0000-4000-a000-000000000014','f0c05301-0000-4000-a000-000000000015','f0c05301-0000-4000-a000-000000000016','f0c05301-0000-4000-a000-000000000017','f0c05301-0000-4000-a000-000000000018');
+
+update public.tasks
+   set work_purpose = 'reactive'
+ where id in ('f0c05301-0000-4000-a000-000000000001','f0c05301-0000-4000-a000-000000000007');
 
 -- Review metadata, not a state (section 20.2). `completed_at` is already set by
 -- the insert above, so it is deliberately not repeated here.
