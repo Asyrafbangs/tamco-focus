@@ -1316,3 +1316,68 @@ values
   ('e5e50000-0000-4000-8000-000000000001', 'f0c05000-0000-4000-a000-000000000002',
    true, 'verifier', true, now())
 on conflict (organization_id, user_id) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- A staged backlog import, so the review screen has something to review.
+--
+-- `/findings/import/[batchId]` calls notFound() without a batch, so it was the
+-- one screen layout-invariants-v244 could not walk: there was nothing to walk
+-- to. Staged rather than released, so it creates no findings and leaves the
+-- import tests' own counts alone; they look their batches up by id.
+--
+-- The four rows carry one of each outcome the review screen renders, because a
+-- screen that only ever shows `ready` rows is not the screen people complain
+-- about.
+-- ---------------------------------------------------------------------------
+
+insert into public.esh_import_batches (
+  id, organization_id, source_name, source_hash, source_register,
+  sheet_name, header_line, date_convention, mapping, state,
+  source_rows, ignored_rows, created_by, created_at, staged_at
+) values (
+  'f0c05600-0000-4000-a000-000000000001', 'e5e50000-0000-4000-8000-000000000001',
+  'Legacy EHS register export September 2026.xlsx',
+  '3f786850e387550fdab836ed7e6dc881de23001b4d2d0a5c8c1f8f2b9a0c7e51',
+  'Legacy EHS register',
+  'Findings', 1, 'dmy',
+  jsonb_build_object(
+    'reference', 'Ref', 'description', 'Finding', 'owner_email', 'Owner',
+    'department', 'Dept', 'due_date', 'Target date', 'priority', 'Risk'),
+  'staged', 4, 1, 'f0c05000-0000-4000-a000-000000000002',
+  now() - interval '2 days', now() - interval '2 days'
+);
+
+insert into public.esh_import_rows (
+  organization_id, batch_id, source_line, raw, mapped, source_reference,
+  outcome, problems, needs_assignment, created_at, updated_at
+) values
+  ('e5e50000-0000-4000-8000-000000000001', 'f0c05600-0000-4000-a000-000000000001', 2,
+   jsonb_build_object('Ref', 'LEG-114', 'Finding', 'Emergency light in the dispatch bay fails its discharge test',
+                      'Owner', 'amer@tamco.local', 'Dept', 'OPS', 'Target date', '31/10/2026', 'Risk', 'Normal'),
+   jsonb_build_object('reference', 'LEG-114', 'description', 'Emergency light in the dispatch bay fails its discharge test',
+                      'owner_email', 'amer@tamco.local', 'due_date', '2026-10-31', 'priority', 'normal'),
+   'LEG-114', 'ready', '{}', false, now() - interval '2 days', now() - interval '2 days'),
+
+  ('e5e50000-0000-4000-8000-000000000001', 'f0c05600-0000-4000-a000-000000000001', 3,
+   jsonb_build_object('Ref', 'LEG-115', 'Finding', 'Chemical store ventilation not verified since the refit',
+                      'Owner', '', 'Dept', 'OPS', 'Target date', '', 'Risk', 'High'),
+   jsonb_build_object('reference', 'LEG-115', 'description', 'Chemical store ventilation not verified since the refit',
+                      'priority', 'high'),
+   'LEG-115', 'blocked',
+   array['No owner address in the file', 'No target date in the file'],
+   true, now() - interval '2 days', now() - interval '2 days'),
+
+  ('e5e50000-0000-4000-8000-000000000001', 'f0c05600-0000-4000-a000-000000000001', 4,
+   jsonb_build_object('Ref', 'LEG-116', 'Finding', 'Guard missing from the bench grinder in the workshop',
+                      'Owner', 'lim@tamco.local', 'Dept', 'OPS', 'Target date', '14/11/2026', 'Risk', 'Normal'),
+   jsonb_build_object('reference', 'LEG-116', 'description', 'Guard missing from the bench grinder in the workshop',
+                      'owner_email', 'lim@tamco.local', 'due_date', '2026-11-14', 'priority', 'normal'),
+   'LEG-116', 'duplicate', array['Looks like a finding already on the register'],
+   false, now() - interval '2 days', now() - interval '2 days'),
+
+  ('e5e50000-0000-4000-8000-000000000001', 'f0c05600-0000-4000-a000-000000000001', 5,
+   jsonb_build_object('Ref', '', 'Finding', '', 'Owner', '', 'Dept', '', 'Target date', '', 'Risk', ''),
+   '{}'::jsonb,
+   null, 'ignored', array['Empty line in the workbook'],
+   false, now() - interval '2 days', now() - interval '2 days');
+

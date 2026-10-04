@@ -7,7 +7,7 @@ Factual and verified against the repository, not against conversation claims.
 removed; what was durable in it is below. Do not reintroduce a second
 current-state document.
 
-**Last verified:** 4 October 2026 · **main** @ `e4bee94`
+**Last verified:** 4 October 2026 · **main** @ `a91ee6b`
 
 ---
 
@@ -82,8 +82,9 @@ None.
    chooser offers them. Unset is correct. Production once ran for weeks on the
    `log` email transport with every cron run returning 200, so `EMAIL_TRANSPORT`
    deserves the same check.
-2. **`/findings/import/[batchId]`** — the only screen `layout-invariants-v244`
-   does not walk. Needs an import-batch fixture.
+2. ~~`/findings/import/[batchId]`~~ — done in v257. The seed carries a staged
+   batch of four rows, one per outcome, and the walk resolves it from the
+   import list rather than hardcoding the id.
 3. **`TREND_MINIMUM_EVENTS = 10`** in `src/domain/esh-dashboard.ts` — decides
    when the sign-in-free page will name a backlog direction. A product
    judgement, not a measurement; one line to change.
@@ -136,13 +137,24 @@ Do not re-raise these without new information:
   `too-early` rather than naming a direction from too few events, mirroring
   `onTimeRate` returning `null` rather than 100% from no closures.
 
+## Known test brittleness
+
+`esh_backlog_import_v205.test.sql` asserts global counts — findings with
+`source = 'import'`, and rows in `esh_notification_outbox`. They hold on a
+freshly reset database and fail on one that has run the e2e import spec,
+which releases around a hundred findings. The gate order resets before
+end-to-end and restores the seed afterwards, so this never bites in CI; it
+bites locally if database tests are run after browser tests. Reset first, or
+run them in gate order.
+
 ## Blocker
 
 None.
 
 ## Exact next action
 
-Item 2 under _Remaining work_ — add an import-batch fixture so
-`layout-invariants-v244` can walk `/findings/import/[batchId]`, the one screen
-it does not reach. Items 1 and 3 need a decision or a credential and are not
-unattended engineering work.
+Nothing unattended remains. Items 1 and 3 under _Remaining work_ need a
+credential and a product decision respectively. The next engineering work of
+real value would be converting the global-count assertions described under
+_Known test brittleness_ to before/after deltas, which `AGENTS.md` section 10
+prefers and which would make those tests order-independent.
