@@ -68,6 +68,9 @@ as $$
     when 'izzah' then 'f0c05000-0000-4000-a000-000000000004'
     when 'ajmal' then 'f0c05000-0000-4000-a000-000000000005'
     when 'lim'   then 'f0c05000-0000-4000-a000-000000000006'
+    when 'tester' then 'f0c05000-0000-4000-a000-000000000007'
+    when 'rafiq' then 'f0c05000-0000-4000-a000-000000000008'
+    when 'zainab' then 'f0c05000-0000-4000-a000-000000000009'
   end::uuid;
 $$;
 
@@ -269,17 +272,30 @@ select isnt_empty(
   format('select id from public.tasks where primary_owner_id = %L', pg_temp.uid('lim')),
   'Izzul can view every direct report, including Lim');
 
--- Eight since v255: Izzul plus Amer, Izzah, Ajmal, Lim, the temporary tester,
--- and Rafiq and Zainab, who carry the backlog volume.
+-- Who is in the projection, not how many (AGENTS.md section 10).
 --
--- Deliberately a literal rather than a count of user_profiles, which is how
--- the administrator case below is written: under Izzul's own role that table
--- is RLS-filtered the same way the projection is, so comparing the two would
--- be equal by construction and would assert nothing.
+-- A count passes just as well when an outsider replaces a report, and it
+-- moves whenever the fixture gains a person: this read `6` until v255 added
+-- two team members, which is a fixture fact rather than a security one.
+--
+-- The expected set is written out as identities rather than selected from
+-- user_profiles, because under Izzul's own role that table is RLS-filtered
+-- the same way the projection is, so comparing the two would be equal by
+-- construction and would assert nothing (section 11). The administrator
+-- case below can derive its expectation safely, because an administrator
+-- reads every row.
 select is(
-  (select count(*)::integer from public.team_load_summary),
-  8,
-  'Izzul Team projection contains himself and all seven active direct reports');
+  (select array_agg(user_id order by user_id) from public.team_load_summary),
+  (select array_agg(who order by who)
+     from (values (pg_temp.uid('izzul')),
+                  (pg_temp.uid('amer')),
+                  (pg_temp.uid('izzah')),
+                  (pg_temp.uid('ajmal')),
+                  (pg_temp.uid('lim')),
+                  (pg_temp.uid('tester')),
+                  (pg_temp.uid('rafiq')),
+                  (pg_temp.uid('zainab'))) as t(who)),
+  'Izzul Team projection is exactly himself and his active direct reports');
 
 select is_empty(
   format('select user_id from public.team_load_summary where user_id = %L', pg_temp.uid('admin')),
