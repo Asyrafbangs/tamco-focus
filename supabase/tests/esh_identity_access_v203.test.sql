@@ -1,7 +1,7 @@
 -- ESH Finding Management v203: identity, module access and contact controls.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(28);
 
 create or replace function pg_temp.act_as(p_user_id uuid)
 returns void language plpgsql as $$
@@ -20,6 +20,12 @@ end;
 $$;
 create temporary table v203_ids (name text primary key, id uuid);
 grant all on v203_ids to authenticated;
+
+-- Captured before anything below runs. The requirement is that saving a
+-- finding against an unknown address adds no authentication account, which
+-- is a delta rather than a fixture size (AGENTS.md section 10).
+create temporary table v203_auth_before as
+  select count(*) as accounts from auth.users;
 create or replace function pg_temp.v203_id(p_name text)
 returns uuid language sql stable as $$ select id from v203_ids where name = p_name $$;
 
@@ -98,10 +104,13 @@ insert into v203_ids
 select 'old_principal', id from public.esh_email_principals
  where canonical_email = 'wrong.v203@example.com';
 
--- Nine seeded accounts since v255. What this checks is that assigning an
--- unknown address created none of them, so the number tracks the seed.
-select is((select count(*) from auth.users), 9::bigint,
+select is((select count(*) from auth.users),
+          (select accounts from v203_auth_before),
           'assigning an unknown email creates no authentication account');
+select is((select count(*) from auth.users
+            where email in ('wrong.v203@example.com', 'another.v203@example.com')),
+          0::bigint,
+          'and neither unknown address has an account of its own');
 select is((select staff_user_id from public.esh_email_principals
             where id = pg_temp.v203_id('old_principal')), null::uuid,
           'the unknown address remains a contact identity');
