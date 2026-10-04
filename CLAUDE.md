@@ -1,20 +1,17 @@
-# CLAUDE.md — TAMCO Focus Project Instructions
+# CLAUDE.md — TAMCO Focus
 
-Read and follow these files before implementing:
+@AGENTS.md
 
-- `MASTER_PRODUCT_SPEC.md`
-- `PRODUCTION_LOGIC.md`
-- `ONE_SHOT_LOCAL_BUILD_PROMPT.md`
-- `CHANGE_INTAKE_PROTOCOL.md`
-- `BUILD_ACCEPTANCE_GATES.md`
-- current desktop/mobile prototypes
+`AGENTS.md` is the canonical engineering and execution instruction for this repository. Follow it for the entire session.
 
-The product specification is expected to evolve. When newer approved Markdown or prototype files are added, re-run the change-intake process and update the implementation. Do not preserve an older interpretation merely because it existed when the project was first generated.
+Do not maintain a separate conflicting interpretation of project rules in this file.
 
-Build a complete local-first application, not a mock demonstration. Use real local Supabase Auth, Postgres, Storage, migrations, RLS, audit, tests, and seeded local-only fixtures.
+Before significant work:
 
-The local-build stage has ended. The cloud migration approved on 11 August 2026 supersedes the previous prohibition on deploying, linking hosted Supabase, adding a GitHub remote and connecting Vercel; those are now the work, subject to the approval gates in `MIGRATION_STATUS.md` and `DEPLOYMENT.md`. Local development continues unchanged and remains where fixtures, stress testing and experimentation belong — Production holds real operational data only.
+1. follow the mandatory reading order in `AGENTS.md`;
+2. inspect `PROJECT_PROGRESS.md` when present for the current verified project state;
+3. verify important current-state claims against the actual repository before acting on them.
 
-Do not leave TODO, FIXME, placeholders, disabled critical tests, or duplicated business logic. Keep desktop/mobile parity, security, permissions, audit, tests, and documentation complete.
+Use targeted local validation during implementation and the complete `BUILD_ACCEPTANCE_GATES.md` suite only at the appropriate final regression stage defined in `AGENTS.md`.
 
-Before finishing, execute every gate in `BUILD_ACCEPTANCE_GATES.md` and report failures honestly.
+Keep progress communication concise using the `STATUS` / `DONE` format from `AGENTS.md`.
