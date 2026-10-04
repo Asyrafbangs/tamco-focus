@@ -139,27 +139,18 @@ Do not re-raise these without new information:
 
 ## Known test brittleness
 
-Several ESH database tests count whole tables — every finding with
-`source = 'import'`, every row in `esh_notification_outbox` — which holds only
-on a freshly reset database. After the end-to-end import spec has run, they
-fail for reasons unrelated to what they test. The gate order resets before
-end-to-end and restores the seed afterwards, so **CI never sees this**; it bites
-anyone running database tests after browser tests.
+Resolved for the database suite in v258 and v259. Assertions that counted whole
+tables or whole organisations now state what their own fixtures contributed, so
+`npx supabase test db` passes whether or not the end-to-end import spec has run
+first. Verified both ways: 23 files, 648 tests, with residue present and on a
+reset database.
 
-`esh_backlog_import_v205` was scoped to its own batch in v258. Five files still
-carry the pattern, with the failing assertion counts measured against a database
-that had run the import spec once:
-
-| File                             | Failing |
-| -------------------------------- | ------- |
-| `esh_overview_v202`              | 6 of 25 |
-| `esh_followup_v201`              | 5 of 52 |
-| `esh_dashboards_v230`            | 3 of 16 |
-| `esh_digests_v207`               | 2 of 25 |
-| `esh_letter_preview_health_v210` | 2 of 35 |
-
-Until they are scoped, run `npx supabase db reset` before the database tests, or
-run the gates in order.
+One assertion remains order-dependent on purpose:
+`esh_weekly_reports_v204` test 28 checks the open count a leadership report
+recorded, and that report is org-wide by definition, so any other open work
+belongs in its total. Isolating it would mean narrowing the fixture's scope to
+a single department and re-baselining several of that file's other assertions.
+Run it on a reset database, as the gate order does.
 
 ## Blocker
 
@@ -167,10 +158,10 @@ None.
 
 ## Exact next action
 
-Scope the remaining five files listed under _Known test brittleness_ the way
-`esh_backlog_import_v205` was scoped in v258: count through the batch, finding
-or action under test rather than through the whole table. That makes the
-database suite order-independent, which it is not today.
+Nothing unattended remains. Items 1 and 3 under _Remaining work_ need a
+credential and a product decision respectively.
 
-Items 1 and 3 under _Remaining work_ need a credential and a product decision
-respectively, and are not unattended engineering work.
+If more is wanted, the browser suite has the same habit in places: 148 of 751
+tests skip, and 20 of those skip sites are conditional on fixture data rather
+than on viewport. They were audited in v254 and all run today, but nothing
+stops one going dormant again.
