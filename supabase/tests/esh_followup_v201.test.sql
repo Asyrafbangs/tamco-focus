@@ -161,12 +161,37 @@ select pg_temp.reset_role();
 -- 2. Owner reminders (§16, FM37)
 -- ---------------------------------------------------------------------------
 
+-- esh_run_followups reminds every overdue owner in the organisation, so its
+-- returned total is not this test's to assert: on a database carrying any
+-- other overdue work -- the end-to-end import spec releases a backlog with
+-- due dates in the past -- it is larger, and says nothing about these two
+-- owners. Each assertion below counts what its own call raised for them
+-- (AGENTS.md section 10).
+create temporary table outbox_mark (id uuid primary key);
+grant all on outbox_mark to authenticated;
+create or replace function pg_temp.mark_outbox() returns void
+language sql as $$
+  delete from outbox_mark where true;
+  insert into outbox_mark select id from public.esh_notification_outbox;
+$$;
+create or replace function pg_temp.reminded_since_mark() returns integer
+language sql stable as $$
+  select count(*)::int from public.esh_notification_outbox
+   where event_type = 'owner_reminder'
+     and recipient_principal_id in (pg_temp.id('guard_owner'), pg_temp.id('spill_owner'))
+     and id not in (select id from outbox_mark);
+$$;
+
+select pg_temp.mark_outbox();
+select public.esh_run_followups('2026-12-08 09:00+08');
 select is(
-  (public.esh_run_followups('2026-12-08 09:00+08')->>'owner_reminders')::int,
+  pg_temp.reminded_since_mark(),
   2,
   'two days before the due date, both owners are reminded');
+select pg_temp.mark_outbox();
+select public.esh_run_followups('2026-12-08 21:00+08');
 select is(
-  (public.esh_run_followups('2026-12-08 21:00+08')->>'owner_reminders')::int,
+  pg_temp.reminded_since_mark(),
   0,
   'a second run the same day adds nothing (FM37)');
 select is(
@@ -178,20 +203,28 @@ select is(
   (select kind from public.esh_followup_events where action_id = pg_temp.id('guard')),
   'owner_pre_due',
   'recorded as the pre-due reminder');
+select pg_temp.mark_outbox();
+select public.esh_run_followups('2026-12-09 09:00+08');
 select is(
-  (public.esh_run_followups('2026-12-09 09:00+08')->>'owner_reminders')::int,
+  pg_temp.reminded_since_mark(),
   0,
   'the day between is quiet');
+select pg_temp.mark_outbox();
+select public.esh_run_followups('2026-12-10 09:00+08');
 select is(
-  (public.esh_run_followups('2026-12-10 09:00+08')->>'owner_reminders')::int,
+  pg_temp.reminded_since_mark(),
   2,
   'on the due day itself they are reminded again');
+select pg_temp.mark_outbox();
+select public.esh_run_followups('2026-12-11 09:00+08');
 select is(
-  (public.esh_run_followups('2026-12-11 09:00+08')->>'owner_reminders')::int,
+  pg_temp.reminded_since_mark(),
   0,
   'one day late is not a reminder day, on a two-day cycle');
+select pg_temp.mark_outbox();
+select public.esh_run_followups('2026-12-12 09:00+08');
 select is(
-  (public.esh_run_followups('2026-12-12 09:00+08')->>'owner_reminders')::int,
+  pg_temp.reminded_since_mark(),
   2,
   'two days late is');
 

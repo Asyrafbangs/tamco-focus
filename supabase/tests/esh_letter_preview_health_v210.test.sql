@@ -93,6 +93,17 @@ insert into v210_ids
 select 'lead_principal', id from public.esh_email_principals
  where canonical_email = 'lead.v210@example.com';
 
+-- What the report would already carry, before this test adds anything.
+--
+-- The preview counts every open finding in the definition's scope, so a
+-- database carrying anything else open -- the end-to-end import spec
+-- releases a backlog -- reports a larger number that says nothing about
+-- this fixture (AGENTS.md section 10).
+create temporary table v210_before as
+  select (public.esh_preview_report(pg_temp.v210('definition'))->>'open_count')::integer
+           as open_count;
+grant all on v210_before to authenticated;
+
 -- One overdue action in Operations, one open finding in Administration, so the
 -- summary has something to rank and something to truncate.
 with saved as (
@@ -134,7 +145,8 @@ select is((public.esh_preview_report(pg_temp.v210('definition'))->>'state'), 'dr
           'the preview says it is still a draft');
 select is((public.esh_preview_report(pg_temp.v210('definition'))->>'sends_nothing')::boolean, true,
           'and says out loud that it sends nothing');
-select is((public.esh_preview_report(pg_temp.v210('definition'))->>'open_count')::integer, 2,
+select is((public.esh_preview_report(pg_temp.v210('definition'))->>'open_count')::integer
+            - (select open_count from v210_before), 2,
           'it counts the work the report would actually carry');
 select is(jsonb_array_length(public.esh_preview_report(pg_temp.v210('definition'))->'recipients'), 1,
           'with the audience named before anybody is written to');
@@ -186,8 +198,11 @@ select is(jsonb_array_length(focus.esh_report_letter(pg_temp.v210('run'), 1)->'d
           'a short letter carries fewer departments');
 select is((focus.esh_report_letter(pg_temp.v210('run'), 1)->>'department_total')::integer, 2,
           'while still saying how many were left out');
-select is(focus.esh_report_letter(pg_temp.v210('run'), 6)->'overdue'->0->>'owner',
-          'owner.v210@example.com',
+select ok(exists(
+            select 1
+              from jsonb_array_elements(
+                     focus.esh_report_letter(pg_temp.v210('run'), 6)->'overdue') entry
+             where entry->>'owner' = 'owner.v210@example.com'),
           'and names who the overdue work is waiting on');
 
 -- ---------------------------------------------------------------------------
