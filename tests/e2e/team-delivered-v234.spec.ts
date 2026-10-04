@@ -108,7 +108,10 @@ test.describe('v234 Completed is a week before it is a league table', () => {
         break;
       }
     }
-    if (!name) test.skip(true, 'Nobody in this fixture closed anything in the window.');
+    expect(
+      name,
+      'the seed must carry work closed inside the window, or this test proves nothing',
+    ).toBeTruthy();
     await expect(page.locator('.team-delivered')).toBeVisible();
 
     await expect(page).toHaveURL(/who=/);

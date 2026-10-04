@@ -83,9 +83,10 @@ test.describe('v136 completed is reachable', () => {
     // quarter. A list that does not say which is which reads as a ranking.
     await openTeam(page, '&filter=delivered&period=this-year');
     const rows = page.locator('.team-delivered-row');
-    if ((await rows.count()) === 0) {
-      test.skip(true, 'Nobody in this fixture has completed anything this year.');
-    }
+    expect(
+      await rows.count(),
+      'the seed must carry work completed this year, or this test proves nothing',
+    ).toBeGreaterThan(0);
     await expect(rows.first()).toContainText(/Owned work|Contribution|Routine/);
   });
 
@@ -118,7 +119,9 @@ test.describe('v136 completed is reachable', () => {
     await openTeam(page, '&filter=delivered&view=person');
     const delivered = await groupNames(page);
     if (delivered.length === 0) {
-      test.skip(true, 'Nobody in this fixture has completed anything in the default window.');
+      throw new Error(
+        'the seed must carry work completed inside the default window, or this test proves nothing',
+      );
     }
 
     /*

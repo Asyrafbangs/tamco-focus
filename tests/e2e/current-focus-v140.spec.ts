@@ -110,7 +110,10 @@ test.describe('v140 the employee sets it', () => {
     await signIn(page, 'ajmal@tamco.local');
     await openWork(page, '?tab=available');
     const row = page.locator('.task-row').first();
-    if ((await row.count()) === 0) test.skip(true, 'This fixture has no Available work.');
+    expect(
+      await row.count(),
+      'the seed must carry Available work, or this test proves nothing',
+    ).toBeGreaterThan(0);
     await row.locator('.row-primary-link').first().click();
 
     const drawer = page.locator('.task-detail-drawer');

@@ -292,5 +292,5 @@ test('v132 delivery is split by kind, not reported as one number', async ({ page
     await row.locator('strong').first().click();
     await expect(page.getByTestId('my-team-person-panel')).toHaveCount(0);
   }
-  test.skip(true, 'Nobody in this fixture has completed anything this year.');
+  throw new Error('the seed must carry work completed this year, or this test proves nothing');
 });
