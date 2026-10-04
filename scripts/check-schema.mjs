@@ -211,7 +211,9 @@ if (failures === 0) {
   await check('seeded fixtures loaded', async () => {
     const users = await db.query('select count(*)::int as n from public.user_profiles');
     const tasks = await db.query('select count(*)::int as n from public.tasks');
-    assert(users.rows[0].n === 7, `expected 7 users, found ${users.rows[0].n}`);
+    // Nine since v255: Rafiq and Zainab carry the backlog volume, so that
+    // adding it moved nobody else's figures.
+    assert(users.rows[0].n === 9, `expected 9 users, found ${users.rows[0].n}`);
     return `${users.rows[0].n} users, ${tasks.rows[0].n} tasks (routine occurrences included)`;
   });
 
