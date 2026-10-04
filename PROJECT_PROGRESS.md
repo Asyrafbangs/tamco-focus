@@ -139,13 +139,27 @@ Do not re-raise these without new information:
 
 ## Known test brittleness
 
-`esh_backlog_import_v205.test.sql` asserts global counts — findings with
-`source = 'import'`, and rows in `esh_notification_outbox`. They hold on a
-freshly reset database and fail on one that has run the e2e import spec,
-which releases around a hundred findings. The gate order resets before
-end-to-end and restores the seed afterwards, so this never bites in CI; it
-bites locally if database tests are run after browser tests. Reset first, or
-run them in gate order.
+Several ESH database tests count whole tables — every finding with
+`source = 'import'`, every row in `esh_notification_outbox` — which holds only
+on a freshly reset database. After the end-to-end import spec has run, they
+fail for reasons unrelated to what they test. The gate order resets before
+end-to-end and restores the seed afterwards, so **CI never sees this**; it bites
+anyone running database tests after browser tests.
+
+`esh_backlog_import_v205` was scoped to its own batch in v258. Five files still
+carry the pattern, with the failing assertion counts measured against a database
+that had run the import spec once:
+
+| File                             | Failing |
+| -------------------------------- | ------- |
+| `esh_overview_v202`              | 6 of 25 |
+| `esh_followup_v201`              | 5 of 52 |
+| `esh_dashboards_v230`            | 3 of 16 |
+| `esh_digests_v207`               | 2 of 25 |
+| `esh_letter_preview_health_v210` | 2 of 35 |
+
+Until they are scoped, run `npx supabase db reset` before the database tests, or
+run the gates in order.
 
 ## Blocker
 
@@ -153,8 +167,10 @@ None.
 
 ## Exact next action
 
-Nothing unattended remains. Items 1 and 3 under _Remaining work_ need a
-credential and a product decision respectively. The next engineering work of
-real value would be converting the global-count assertions described under
-_Known test brittleness_ to before/after deltas, which `AGENTS.md` section 10
-prefers and which would make those tests order-independent.
+Scope the remaining five files listed under _Known test brittleness_ the way
+`esh_backlog_import_v205` was scoped in v258: count through the batch, finding
+or action under test rather than through the whole table. That makes the
+database suite order-independent, which it is not today.
+
+Items 1 and 3 under _Remaining work_ need a credential and a product decision
+respectively, and are not unattended engineering work.
