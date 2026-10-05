@@ -1,5 +1,8 @@
+import { createClient } from '@supabase/supabase-js';
+import { config } from 'dotenv';
 import { expect, test, type Page } from '@playwright/test';
-import { showActiveWork } from './support/work-list';
+
+config({ path: '.env.local', quiet: true });
 
 /**
  * v135 — evidence goes up one file at a time.
@@ -9,9 +12,83 @@ import { showActiveWork } from './support/work-list';
  * — which is where people give up and complete the work with no evidence at
  * all. Per file, a failure names itself, offers Retry, and leaves the ones
  * that worked attached.
+ *
+ * ---
+ *
+ * Each test brings its own work, because hunting the seed for it does not
+ * survive a second viewport.
+ *
+ * These tests used to look through Izzah's lists for anything that could still
+ * be completed, and skip when they found nothing. The seed gives her exactly
+ * two such tasks; one of the tests below completes the work it opens; and the
+ * viewport projects share one database, running one after another. So desktop
+ * consumed one task, mobile consumed the other, and the last three tests on
+ * mobile found nothing and stopped running — while the run reported green,
+ * because a skip prints a dash and no reason. The guard has been here since
+ * v135 itself.
+ *
+ * Seeding Izzah more work is not available: `scripts/check-schema.mjs` holds
+ * her active count as a fixture invariant. So the work is created here, one
+ * task per test, and removed afterwards.
  */
 
 const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
+const IZZAH = 'f0c05000-0000-4000-a000-000000000004';
+const ZONE = 'Asia/Kuala_Lumpur';
+
+function service() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+}
+
+function dueInDays(offset: number): string {
+  const day = new Intl.DateTimeFormat('en-CA', { timeZone: ZONE }).format(
+    new Date(Date.now() + offset * 86_400_000),
+  );
+  return new Date(`${day}T23:59:59.999+08:00`).toISOString();
+}
+
+/**
+ * Work Izzah can complete, belonging to one test.
+ *
+ * Active and hers, with no steps and no evidence rule of its own, so `Complete
+ * work` is enabled for the reason under test rather than for whatever the seed
+ * happened to leave lying about.
+ */
+async function izzahsWork(title: string): Promise<string> {
+  const { data, error } = await service()
+    .from('tasks')
+    .insert({
+      title,
+      status: 'active',
+      work_class: 'operational_action',
+      focus_bucket: 'operational',
+      origin: 'self_initiated',
+      primary_owner_id: IZZAH,
+      created_by: IZZAH,
+      due_at: dueInDays(6),
+      due_is_date_only: true,
+    })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return String(data!.id);
+}
+
+/** Deleted where possible; binned where the audit trail forbids it (see v153). */
+async function removeWork(taskId: string) {
+  const admin = service();
+  const { error } = await admin.from('tasks').delete().eq('id', taskId);
+  if (!error) return;
+  const { error: binError } = await admin
+    .from('tasks')
+    .update({ deleted_at: new Date().toISOString(), deleted_by: IZZAH })
+    .eq('id', taskId);
+  if (binError) throw new Error(`Could not remove fixture ${taskId}: ${binError.message}`);
+}
 
 async function signIn(page: Page, email: string) {
   await page.goto('/sign-in');
@@ -22,29 +99,51 @@ async function signIn(page: Page, email: string) {
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 }
 
-/** Opens the completion form of the first task that can actually be completed. */
-async function openCompletion(page: Page): Promise<boolean> {
-  for (const tab of ['active', 'available']) {
-    await page.goto(`/work?tab=${tab}`);
-    await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
-    await showActiveWork(page);
-    const rows = page.locator('.task-row .title-link');
-    const total = await rows.count();
-    for (let index = 0; index < total; index += 1) {
-      await page.goto(`/work?tab=${tab}`);
-      await showActiveWork(page);
-      await rows.nth(index).click();
-      await expect(page.locator('.task-detail-drawer')).toBeVisible();
-      const complete = page.getByRole('button', { name: /^Complete work$/ }).first();
-      if ((await complete.count()) > 0 && (await complete.isEnabled())) {
-        await complete.click();
-        await expect(page.locator('.evidence-target')).toBeVisible();
-        return true;
-      }
-    }
-  }
-  return false;
+/** Opens the completion form of this test's own work, by id rather than by hunt. */
+async function openCompletion(page: Page, taskId: string, title: string) {
+  await page.goto(`/work?tab=active&task=${taskId}`);
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+  // By title, so this is the work this test created and not whatever else opened.
+  await expect(page.getByRole('dialog', { name: title })).toBeVisible({ timeout: 15_000 });
+
+  /*
+   * The drawer's own footer button. The dialog it opens carries the same
+   * accessible name, and so does that dialog's submit, so an unscoped locator
+   * resolves to a different control depending on when it is read.
+   */
+  const complete = page.locator('.task-detail-footer').getByRole('button', {
+    name: 'Complete work',
+  });
+  await expect(
+    complete,
+    'the work this test created must be completable, or the test proves nothing',
+  ).toBeEnabled();
+  await complete.click();
+  await expect(page.locator('.evidence-target')).toBeVisible();
 }
+
+/*
+ * One task per test, signed in and open at the completion form.
+ *
+ * Held in a module variable rather than a Playwright fixture to match the rest
+ * of the suite; the runner is serial (`workers: 1`, `fullyParallel: false`) and
+ * each worker loads its own copy of this module, so there is nothing to race.
+ */
+let work: { id: string; title: string } | null = null;
+
+test.beforeEach(async ({ page }, testInfo) => {
+  const title = `v135 ${testInfo.project.name} ${crypto.randomUUID().slice(0, 8)}`;
+  work = { id: await izzahsWork(title), title };
+  await signIn(page, 'izzah@tamco.local');
+  await openCompletion(page, work.id, title);
+});
+
+test.afterEach(async () => {
+  if (!work) return;
+  const created = work;
+  work = null;
+  await removeWork(created.id);
+});
 
 const csv = (name: string, body: string) => ({
   name,
@@ -53,9 +152,6 @@ const csv = (name: string, body: string) => ({
 });
 
 test('several files at once, each reporting its own outcome', async ({ page }) => {
-  await signIn(page, 'izzah@tamco.local');
-  if (!(await openCompletion(page))) test.skip(true, 'Nothing completable in this seed.');
-
   // Multi-select, not one at a time: nobody should choose, add, choose, add.
   await page
     .locator('.evidence-zone input[type="file"]')
@@ -74,9 +170,6 @@ test('several files at once, each reporting its own outcome', async ({ page }) =
 });
 
 test('a file already on the record cannot be tidied away from the form', async ({ page }) => {
-  await signIn(page, 'izzah@tamco.local');
-  if (!(await openCompletion(page))) test.skip(true, 'Nothing completable in this seed.');
-
   await page
     .locator('.evidence-zone input[type="file"]')
     .first()
@@ -92,9 +185,6 @@ test('a file already on the record cannot be tidied away from the form', async (
 });
 
 test('the completion counts what is attached, not what was chosen', async ({ page }) => {
-  await signIn(page, 'izzah@tamco.local');
-  if (!(await openCompletion(page))) test.skip(true, 'Nothing completable in this seed.');
-
   await page
     .locator('.evidence-zone input[type="file"]')
     .first()
@@ -136,9 +226,6 @@ test('the completion counts what is attached, not what was chosen', async ({ pag
  * rather than a simulated one.
  */
 test('§18 completion waits for a file that was refused, and says which', async ({ page }) => {
-  await signIn(page, 'izzah@tamco.local');
-  if (!(await openCompletion(page))) test.skip(true, 'Nothing completable in this seed.');
-
   const dialog = page.getByRole('dialog', { name: 'Complete work' });
   /*
    * By type, not by name: the submit relabels itself to "N requirements
@@ -190,9 +277,6 @@ test('§18 completion waits for a file that was refused, and says which', async 
  * take the same file twice.
  */
 test('§18 a file dropped on the panel uploads once and does not navigate', async ({ page }) => {
-  await signIn(page, 'izzah@tamco.local');
-  if (!(await openCompletion(page))) test.skip(true, 'Nothing completable in this seed.');
-
   const before = page.url();
 
   // Dropped on the note area, which is inside the panel and outside the
@@ -228,9 +312,6 @@ test('§18 a file dropped on the panel uploads once and does not navigate', asyn
  * attach it. Two inputs: one for the camera, one for everything.
  */
 test('§19 the camera route does not become the only route', async ({ page }) => {
-  await signIn(page, 'izzah@tamco.local');
-  if (!(await openCompletion(page))) test.skip(true, 'Nothing completable in this seed.');
-
   const zone = page.locator('.evidence-zone');
   const camera = zone.locator('input[type="file"][capture]');
   const chooser = zone.locator('input[type="file"]:not([capture])');

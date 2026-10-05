@@ -25,6 +25,14 @@ async function openPerson(page: Page) {
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page).toHaveURL(/\/today$/, { timeout: 30_000 });
   await page.goto('/work?scope=team');
+  /*
+   * The name is a button that expands the panel in the client, so a click
+   * landing before hydration does nothing at all and the panel simply never
+   * appears. Inside the full suite the server and the browser cache are warm
+   * enough that it happened to work; running this file on its own failed every
+   * time, which is the same bug either way.
+   */
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   const row = page.getByTestId('my-team-person-row').filter({ hasText: 'Izzah Nurul' });
   await expect(row).toBeVisible();
   await row.locator('[data-cell="person"] strong').click();
@@ -71,8 +79,16 @@ test.describe('v236 the person opens as an overview', () => {
       const details = panel.locator(`.team-person-section[data-section="${section}"]`);
       await expect(details, `${section} is missing from the panel`).toHaveCount(1);
       await expect(details, `${section} starts open`).not.toHaveAttribute('open', '');
-      // Folded, but the summary says whether opening it is worth the click.
-      await expect(details.locator('summary')).toHaveText(/\S/);
+      /*
+       * Folded, but the summary says whether opening it is worth the click.
+       *
+       * The section's own summary, not any summary inside it: Other active work
+       * puts everything past the fifth row behind a "Show N more" fold of its
+       * own, so an unscoped locator matches two elements as soon as somebody
+       * has six. It did not until v261, because `evidence-upload-v135` had been
+       * quietly completing two of Izzah's active tasks before this ran.
+       */
+      await expect(details.locator('> summary')).toHaveText(/\S/);
     }
   });
 
