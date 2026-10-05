@@ -148,20 +148,53 @@ One assertion is order-dependent on purpose: `esh_weekly_reports_v204` test 28
 checks the open count a leadership report recorded, and that report is org-wide
 by definition, so any other open work belongs in its total.
 
-**Browser suite (v260): mostly resolved.** Eleven fixture-gated skips became
-assertions, so a test that stops running now fails instead of printing a dash.
-Three remain conditional, two of them rightly -- one person in a loop with no
-active work, and a routine occurrence the schedule has not reached.
+**Browser suite (v260, v261): resolved.** Eleven fixture-gated skips became
+assertions, so a test that stops running now fails instead of printing a dash,
+and the one real gap behind them is closed.
 
-The third is a real gap. `evidence-upload-v135` has six tests that each complete
-the work they open, and the viewport projects share one database, so the seed's
-completable work runs out: **its last three tests skip on mobile**, and have been
-doing so silently. They need their own work rather than the seed's. Creating it
-through the capture dialog was tried and failed -- the dialog does not open from
-where the helper runs -- and simply seeding Izzah more active work is not
-available either, because `scripts/check-schema.mjs` asserts her active count as
-a fixture invariant. The fix is a service-role fixture per test, in the shape
-`tests/e2e/helpers/capture.ts` uses.
+`evidence-upload-v135` used to search Izzah's lists for anything completable and
+skip when it found nothing. The seed gives her exactly two such tasks, one of
+its tests completes the work it opens, and the viewport projects share one
+database and run one after another -- so desktop consumed one, mobile consumed
+the other, and its last three tests on mobile had been skipping silently.
+Seeding her more work is not available, because `scripts/check-schema.mjs` holds
+her active count as a fixture invariant. Each test now creates its own active
+task through the service role, opens it by id at `/work?tab=active&task=<id>`,
+and removes it afterwards -- binned rather than deleted where the completion
+left audit rows. All twelve cases pass on both projects **with no completable
+work left in the seed at all**, which is the condition that used to break them.
+Proved load-bearing by inserting the fixture as `backlog` instead of `active`:
+the test then fails naming the reason, rather than quietly finding something
+else or skipping.
+
+**That fix exposed two defects in `team-person-overview-v236`**, which had been
+living off the side effect. Not completing Izzah's work leaves her two more
+active tasks by the time the team panel is read, which is enough to cross
+`ACTIVE_PAGE_SIZE` and put a "Show N more" fold inside Other active work -- and
+the test's `details.locator('summary')` was not scoped to the section's own
+summary, so it matched two elements and threw a strict-mode violation. It is now
+`> summary`, which is what the rest of that file and every neighbouring spec
+already used. Proved both ways against a panel holding the extra rows.
+
+The second: `openPerson` clicked the person's name without waiting for
+`data-app-hydrated`, and that name is a button handled in the client. Inside the
+full suite the server and browser cache were warm enough that it worked; the
+file could not be run on its own at all, failing every time with the panel
+simply never appearing. The wait is now there, and the file passes standalone in
+a sixth of the time.
+
+Two conditional skips remain, both rightly: one person in a loop with no active
+work, and a routine occurrence the schedule has not reached. Neither is
+per-fixture.
+
+One conditional assertion is worth replacing when there is a reason to.
+`completion-pattern-v133`'s "does not ask twice for evidence the work already
+has" asserts only while `.completion-existing` is on screen, which depends on
+whichever seed task it happened to open. Making it unconditional needs a fixture
+that already carries evidence -- a storage object as well as an attachment row,
+not the bare task used above -- so it was left as it is rather than made to look
+finished. Nothing consumes Izzah's completable work any more, so that file is
+order-independent in the meantime.
 
 ## Blocker
 
@@ -171,6 +204,3 @@ None.
 
 Nothing unattended remains. Items 1 and 3 under _Remaining work_ need a
 credential and a product decision respectively.
-
-Give `evidence-upload-v135` a per-test fixture so its last three cases stop
-skipping on mobile, as described under _Known test brittleness_.
