@@ -13622,6 +13622,13 @@ span.deadline span.deadline-glyph,
   padding: 0 6px;
   border-radius: 11px;
   background: var(--surface-2);
+  /*
+   * Its own colour, because the selected tab sets `color: #fff` on everything
+   * inside it — and this pill keeps its pale background, so the count inherited
+   * white on #fafbfc and vanished. The number it was hiding is how much work
+   * the owner is being told they owe.
+   */
+  color: var(--text);
   font-size: 12px;
   font-weight: 750;
 }
@@ -13797,8 +13804,22 @@ span.deadline span.deadline-glyph,
   color: var(--muted);
   font-size: 12px;
 }
-.guest-action-main small.esh-overdue {
+/*
+ * The class sits on a span inside the `small`, not on the `small` itself, so
+ * `small.esh-overdue` matched nothing and overdue work had looked exactly like
+ * work due next month on the one screen an Action Owner ever sees.
+ */
+.guest-action-main .esh-overdue {
   color: var(--amber);
+  font-weight: 700;
+}
+/*
+ * Urgent and High carry weight rather than a second colour. Amber already
+ * means "this one is late"; a second alarm colour for "this one matters" makes
+ * the row a traffic light with two reds.
+ */
+.guest-action-main .guest-action-priority {
+  color: var(--text);
   font-weight: 700;
 }
 .guest-pager {
@@ -14538,6 +14559,21 @@ span.deadline span.deadline-glyph,
   padding: 10px 20px;
   background: var(--bg);
   border-bottom: 1px solid var(--line);
+}
+/*
+ * The bleed has to be the gutter it is cancelling, and the gutter is 16px on a
+ * phone. At 20px the header was 8px wider than the screen, so the whole action
+ * could be dragged sideways with a thumb.
+ *
+ * Kept here rather than with the other phone rules further up the file: those
+ * sit before this block, and a media query adds no specificity, so an override
+ * written there loses to this rule and silently does nothing.
+ */
+@media (max-width: 720px) {
+  .guest-chat-head {
+    margin: 0 -16px;
+    padding: 10px 16px;
+  }
 }
 .guest-chat-back {
   display: inline-flex;
