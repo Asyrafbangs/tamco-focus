@@ -136,6 +136,23 @@ Do not re-raise these without new information:
 - **A direction needs both sides to have happened.** `backlogTrend` returns
   `too-early` rather than naming a direction from too few events, mirroring
   `onTimeRate` returning `null` rather than 100% from no closures.
+- **Action Owners stay passwordless. No Microsoft SSO** (6 October). SSO would
+  need an Entra app registration and, depending on two tenant switches nobody
+  here can see, an administrator's consent — to save one tap for staff on
+  managed devices, while the audience that matters is on a personal phone in a
+  plant, for whom SSO is a full Microsoft login and therefore worse. Identity
+  is already keyed on the verified email address rather than an account, so
+  SSO can be added later as another way to verify the same address without
+  touching My Actions, the digests or the escalation engine.
+- **The emailed link lives 24 hours** and that is deliberate: it is the
+  exposure if a notification is forwarded or leaked. How long an already
+  verified person stays verified is a different question, answered by the
+  session rules below.
+- **A guest session is eight hours idle, twelve hours absolute** (v262). Two
+  hours was shorter than walking to the machine and back with the photograph.
+  The twelve-hour cap is what stops a verified session becoming a standing
+  login on a shared or personal phone, and it is now the rule that ends most
+  sessions.
 
 ## Known test brittleness
 
@@ -195,6 +212,46 @@ that already carries evidence -- a storage object as well as an attachment row,
 not the bare task used above -- so it was left as it is rather than made to look
 finished. Nothing consumes Izzah's completable work any more, so that file is
 order-independent in the meantime.
+
+## The Action Owner's screens (v262)
+
+Walked at 390px as an owner rather than reasoned about, which found three
+things no passing test had noticed, because each is about what the screen looks
+like rather than what it says:
+
+- **The count on the selected tab was invisible.** `.guest-tab-count` keeps its
+  pale pill background inside a tab that sets `color: #fff`, and it set no
+  colour of its own — white on `#fafbfc`, a contrast ratio of about 1.03. The
+  number it was hiding is how much work the owner is being told they owe.
+- **Overdue had never been marked anywhere.** The rule was written
+  `small.esh-overdue`; the class sits on a `span` inside the `small`. That is
+  the only use of the class in the product, so late work had looked exactly
+  like work due next month, on the one screen an owner ever sees.
+- **The action page was 4px wider than the screen.** The sticky header bleeds
+  to the page edges with `margin: 0 -20px` while the phone gutter is 16px, so
+  the page dragged sideways under a thumb.
+
+Urgent and High now carry weight rather than sitting in the same grey as the
+department name — weight and not a second colour, because amber already means
+"late" and two alarm colours on one line is a traffic light with two reds.
+
+`esh-owner-floor-v262` asserts all four by appearance — contrast ratio,
+difference against a non-overdue row, computed weight, document width — because
+asserting the markup is what let them through. Each proved to fail without its
+fix.
+
+A trap worth remembering: the phone override for the sticky header first went
+in with the other phone rules higher up `globals.css` and did nothing, because
+the base rule appears later in the file and a media query adds no specificity.
+It now sits immediately after the rule it overrides.
+
+**Not changed, and worth a decision.** On a 390px phone the owner scrolls past
+the whole read-only finding record — description, department, evidence needed,
+ESH contact — before reaching the box they came to type in. Measured, the
+compose box starts at 742px of an 844px viewport, which is below the fold on a
+real phone once browser chrome is counted. Collapsing "The original finding"
+behind a disclosure would put the update box, the camera and Submit on the
+first screen without removing anything.
 
 ## Blocker
 
