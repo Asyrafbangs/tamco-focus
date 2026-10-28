@@ -5,7 +5,7 @@ import { EscalationComposer } from '@/components/esh/guest/EscalationComposer';
 import { GuestTopBar } from '@/components/esh/guest/GuestTopBar';
 import { OwnerComposer } from '@/components/esh/guest/OwnerComposer';
 import { RequestLinkForm } from '@/components/esh/guest/RequestLinkForm';
-import { EVIDENCE_IMAGE_TYPES, evidenceLabel } from '@/domain/esh-evidence';
+import { EVIDENCE_IMAGE_TYPES, EVIDENCE_KIND_LABELS, evidenceLabel } from '@/domain/esh-evidence';
 import { ACTION_STATE_LABELS } from '@/domain/esh-findings';
 import { firstName } from '@/domain/esh-guest';
 import { orgConfig } from '@/lib/env';
@@ -183,86 +183,24 @@ export default async function GuestActionPage({
               </section>
             )}
             {/*
-             * v227 - the finding and what was seen stand open beside the
-             * conversation. Folded, the owner had to know to open it to learn
-             * what they were fixing.
+             * v263 — what is holding the hazard while they do the permanent
+             * fix. Pinned beside the instruction rather than filed in the
+             * record below it, because the person standing next to the machine
+             * is the one who most needs to know a temporary gate is fitted and
+             * who is keeping it there — and the one most likely to notice when
+             * it is not.
              */}
-            <section className="guest-original" aria-labelledby="guest-original-title">
-              <h2 id="guest-original-title" className="guest-original-title">
-                The original finding
-              </h2>
-              <dl className="esh-facts">
-                <div>
-                  <dt>Finding</dt>
-                  <dd>{data.finding.title}</dd>
-                </div>
-                {data.finding.description && (
-                  <div>
-                    <dt>What was found</dt>
-                    <dd className="esh-detail-text">{data.finding.description}</dd>
-                  </div>
+            {data.finding.interimControl && (
+              <section className="guest-pinned guest-interim" aria-label="Until it is fixed">
+                <span className="guest-pinned-label">Until it is fixed</span>
+                <p>{data.finding.interimControl}</p>
+                {data.finding.interimOwner && (
+                  <p className="guest-interim-owner">
+                    Kept in place by {data.finding.interimOwner}
+                  </p>
                 )}
-                {data.finding.department && (
-                  <div>
-                    <dt>Department</dt>
-                    <dd>{data.finding.department}</dd>
-                  </div>
-                )}
-                <div>
-                  <dt>Evidence ESH needs</dt>
-                  <dd>
-                    {data.action.evidenceInstruction ??
-                      (data.action.evidenceRule === 'file_required'
-                        ? 'A short result and at least one file'
-                        : 'A short result')}
-                  </dd>
-                </div>
-                {(data.eshContact.name || data.eshContact.email) && (
-                  <div>
-                    <dt>ESH contact</dt>
-                    <dd>
-                      {[
-                        data.eshContact.name ? firstName(data.eshContact.name) : null,
-                        data.eshContact.email,
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </dd>
-                  </div>
-                )}
-              </dl>
-              {data.originalEvidence.length > 0 && (
-                <ul className="esh-file-list guest-original-files" aria-label="Original evidence">
-                  {data.originalEvidence.map((file) => (
-                    <li key={file.id} className="esh-file">
-                      <a
-                        href={`/respond/files/${file.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {EVIDENCE_IMAGE_TYPES.has(file.type) ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            className="esh-file-thumb"
-                            src={`/respond/files/${file.id}`}
-                            alt=""
-                            loading="lazy"
-                          />
-                        ) : (
-                          <span className="esh-file-icon" aria-hidden="true">
-                            ▧
-                          </span>
-                        )}
-                        <span>
-                          <strong>{file.name}</strong>
-                          <small>{evidenceLabel(file.name, file.size)}</small>
-                        </span>
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+              </section>
+            )}
           </aside>
 
           <div className="guest-work">
@@ -315,6 +253,100 @@ export default async function GuestActionPage({
               />
             )}
           </div>
+
+          {/*
+           * v227 - the finding and what was seen stand open beside the
+           * conversation. Folded, the owner had to know to open it to learn
+           * what they were fixing.
+           *
+           * v263 - and below it on a phone, where "beside" becomes "above"
+           * and this record was pushing the update box off the first screen.
+           * It is still open and still before the conversation on a desktop,
+           * placed there by the grid; what changed is the source order, so a
+           * phone reads instruction, then the work, then the record. Nothing
+           * is folded: the owner was never meant to have to go looking for
+           * what they are fixing.
+           */}
+          <section className="guest-original" aria-labelledby="guest-original-title">
+            <h2 id="guest-original-title" className="guest-original-title">
+              The original finding
+            </h2>
+            <dl className="esh-facts">
+              <div>
+                <dt>Finding</dt>
+                <dd>{data.finding.title}</dd>
+              </div>
+              {data.finding.description && (
+                <div>
+                  <dt>What was found</dt>
+                  <dd className="esh-detail-text">{data.finding.description}</dd>
+                </div>
+              )}
+              {data.finding.department && (
+                <div>
+                  <dt>Department</dt>
+                  <dd>{data.finding.department}</dd>
+                </div>
+              )}
+              <div>
+                <dt>Evidence ESH needs</dt>
+                <dd>
+                  {/*
+                    v266 — the kind first, then whatever ESH wrote. A
+                    photograph proves a walkway was cleared and proves nothing
+                    at all about an interlock, and the owner should learn which
+                    this is before walking to the machine.
+                  */}
+                  {data.action.evidenceKind &&
+                    `${EVIDENCE_KIND_LABELS[data.action.evidenceKind] ?? data.action.evidenceKind}. `}
+                  {data.action.evidenceInstruction ??
+                    (data.action.evidenceRule === 'file_required'
+                      ? 'A short result and at least one file'
+                      : 'A short result')}
+                </dd>
+              </div>
+              {(data.eshContact.name || data.eshContact.email) && (
+                <div>
+                  <dt>ESH contact</dt>
+                  <dd>
+                    {[
+                      data.eshContact.name ? firstName(data.eshContact.name) : null,
+                      data.eshContact.email,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </dd>
+                </div>
+              )}
+            </dl>
+            {data.originalEvidence.length > 0 && (
+              <ul className="esh-file-list guest-original-files" aria-label="Original evidence">
+                {data.originalEvidence.map((file) => (
+                  <li key={file.id} className="esh-file">
+                    <a href={`/respond/files/${file.id}`} target="_blank" rel="noopener noreferrer">
+                      {EVIDENCE_IMAGE_TYPES.has(file.type) ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          className="esh-file-thumb"
+                          src={`/respond/files/${file.id}`}
+                          alt=""
+                          loading="lazy"
+                        />
+                      ) : (
+                        <span className="esh-file-icon" aria-hidden="true">
+                          ▧
+                        </span>
+                      )}
+                      <span>
+                        <strong>{file.name}</strong>
+                        <small>{evidenceLabel(file.name, file.size)}</small>
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
       </main>
     </>

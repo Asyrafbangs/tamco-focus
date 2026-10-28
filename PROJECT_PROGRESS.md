@@ -253,6 +253,69 @@ real phone once browser chrome is counted. Collapsing "The original finding"
 behind a disclosure would put the update box, the camera and Submit on the
 first screen without removing anything.
 
+## Corrective action quality (v263-v267)
+
+Five changes answering an external review of the module, each verified against
+the repository first -- six of that review's recommendations were already built
+(operational health in v210, the shared-device identity and sign-out in v198's
+top bar, the private evidence bucket with no `storage.objects` policy at all,
+the `principal` actor kind in the audit trail, the claim/complete dispatch with
+a 15-minute reclaim and eight backoff attempts, and the v262 regression checks
+it suggested adding).
+
+**v263 - what protects people while the finding is open.** The record could say
+who owns a fix and when it is due. It could not say whether anybody is safe in
+the meantime, which for a six-week procurement is the only question that
+matters. Four facts on the finding: what was done immediately, what controls
+the hazard until the permanent fix and who keeps it in place, who checked it
+and when, or an explicit decision that none is needed with a reason. The rule
+with teeth is that **changing the control clears its verification** -- a barrier
+nobody has checked since it changed is not a verified barrier. The owner sees
+it pinned beside the instruction, because the person standing next to the
+machine is the one who most needs to know a temporary gate is fitted.
+
+**v263 also reordered the owner's phone screen.** The read-only finding record
+was pushing the update box to 771px of an 844px screen. The fix is source order
+plus explicit grid placement, not folding: the v227 desktop arrangement is
+unchanged and asserted, and nothing is hidden from an owner who needs to know
+what they are fixing.
+
+**v264 - whether the owner was slow, or we were.** Closure against the date
+first promised was one number doing two jobs. Measuring only the first
+submission rewards sending anything before the deadline; measuring only the
+accepted one blames an owner for a review that took eleven days. Both now, plus
+ESH review turnaround and how long owners take to answer a rejection, each
+carrying the number of events behind it.
+
+**v265 - blockers as facts.** Category, what help is needed, who can give it,
+when the next decision is expected. It changes nothing else: no pause, no new
+deadline, no reminder skipped, because a self-service pause is how a tracker
+quietly stops tracking.
+
+**v266 - what kind of proof.** A photograph shows a walkway was cleared and
+shows nothing about an interlock. The kind is a field now, chosen at
+assignment and shown to the owner before they walk to the machine. Null where
+nobody said, because a default would answer a question ESH never asked.
+
+**v267 - did the fix hold.** A date, somebody to look, and what they have to
+see. A failure raises a linked finding and leaves the original closed: that
+closure was true on the day it was made, and overwriting it would destroy the
+only evidence that the fix was once in place and later was not.
+
+### Not done, and worth knowing
+
+- **Nobody is reminded when an effectiveness check falls due.** The record, the
+  decisions and the linked follow-up all work; the follow-up engine does not
+  yet sweep `esh_effectiveness_checks` the way it sweeps actions. Until it
+  does, a scheduled check depends on somebody opening the finding.
+- **Virus scanning stays out** (settled; see _Settled decisions_). The external
+  review raised it; what is in place is a private bucket with no direct access
+  path, permission-checked downloads, extension and MIME allow-lists and size
+  caps. The accepted exposure is content validation.
+- **The public dashboard's counts are not a privacy guarantee.** Differencing
+  two monthly snapshots of a small population can reveal a single finding's
+  timing. Suppression below a threshold is the fix, not redacting more fields.
+
 ## Blocker
 
 None.

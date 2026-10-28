@@ -6,6 +6,8 @@ import {
   type ClosureFacts,
   type DashboardData,
   type MonthPoint,
+  type ProtectionFacts,
+  type ResponsivenessFacts,
 } from '@/domain/esh-dashboard';
 
 /**
@@ -148,6 +150,117 @@ export function ClosurePanel({ closure }: { closure: ClosureFacts }) {
           </dl>
           <p className="form-hint">
             On time means the date the owner was first given, not a date it was later moved to.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
+/**
+ * v263 — whether anybody is protected, which closure percentage cannot say.
+ *
+ * Deliberately the first panel on the page. A backlog that is shrinking while
+ * four critical findings have nothing holding them is not a safety programme
+ * going well, and the figure that shows it should not be below the fold.
+ */
+export function ProtectionPanel({ protection }: { protection: ProtectionFacts }) {
+  const { significant, unprotected, unverified, unassessed } = protection;
+  return (
+    <section className="esh-dash-panel" aria-labelledby="dash-protection">
+      <h2 id="dash-protection">Protected while it is open</h2>
+      {significant === 0 && unassessed === 0 ? (
+        <p className="esh-dash-lead">No significant findings are open.</p>
+      ) : (
+        <>
+          <p className="esh-dash-big" data-tone={unprotected > 0 ? 'red' : undefined}>
+            {unprotected}
+            <small>
+              of {significant} significant finding{significant === 1 ? '' : 's'} with nothing
+              recorded
+            </small>
+          </p>
+          <dl className="esh-dash-facts">
+            <div>
+              <dt>Control written, nobody has checked</dt>
+              <dd>{unverified}</dd>
+            </div>
+            <div>
+              <dt>Not yet risk assessed</dt>
+              <dd>{unassessed}</dd>
+            </div>
+          </dl>
+          <p className="form-hint">
+            Significant means High or Critical. A finding counts as protected once somebody has
+            checked the interim control, or recorded that none is needed.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
+/**
+ * v264 — who is actually slow.
+ *
+ * Every figure carries what it was drawn from, because a percentage over three
+ * closures is not a rate, and a dashboard that prints it as one invites a
+ * decision nobody should be making on three events.
+ */
+export function ResponsivenessPanel({ facts }: { facts: ResponsivenessFacts }) {
+  const { firstSubmission, acceptedSubmission, eshReview, afterChanges } = facts;
+  const share = (part: number, whole: number) =>
+    whole === 0 ? '—' : `${Math.round((part / whole) * 100)}%`;
+  const hours = (value: number) =>
+    value >= 48 ? `${Math.round(value / 24)} days` : `${Math.round(value)} hours`;
+
+  return (
+    <section className="esh-dash-panel" aria-labelledby="dash-responsive">
+      <h2 id="dash-responsive">Owners, and us</h2>
+      {firstSubmission.counted === 0 && eshReview.counted === 0 ? (
+        <p className="esh-dash-lead">Nothing has been submitted or reviewed in this period.</p>
+      ) : (
+        <>
+          <dl className="esh-dash-facts">
+            <div>
+              <dt>Something in by the deadline</dt>
+              <dd>
+                {share(firstSubmission.onTime ?? 0, firstSubmission.counted)}
+                <small> of {firstSubmission.counted}</small>
+              </dd>
+            </div>
+            <div>
+              <dt>What was accepted, by the deadline</dt>
+              <dd>
+                {share(acceptedSubmission.onTime ?? 0, acceptedSubmission.counted)}
+                <small> of {acceptedSubmission.counted}</small>
+              </dd>
+            </div>
+            <div>
+              <dt>Our time to review a submission</dt>
+              <dd>
+                {hours(eshReview.medianHours ?? 0)}
+                <small> of {eshReview.counted}</small>
+              </dd>
+            </div>
+            <div>
+              <dt>Owner&rsquo;s time to answer a rejection</dt>
+              <dd>
+                {hours(afterChanges.medianHours ?? 0)}
+                <small> of {afterChanges.counted}</small>
+              </dd>
+            </div>
+          </dl>
+          {(afterChanges.waiting ?? 0) > 0 && (
+            <p className="form-hint">
+              {afterChanges.waiting} rejection{afterChanges.waiting === 1 ? ' has' : 's have'} not
+              been answered yet, and {afterChanges.waiting === 1 ? 'is' : 'are'} left out of that
+              figure rather than counted as quick.
+            </p>
+          )}
+          <p className="form-hint">
+            The two deadline figures differ when what arrived first was not what was accepted. The
+            gap between them is a review problem or a quality problem, not an owner being late.
           </p>
         </>
       )}

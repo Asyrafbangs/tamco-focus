@@ -228,3 +228,16 @@ export function evidenceLabel(name: string, size: number): string {
   const extension = extensionOf(name).toUpperCase() || 'FILE';
   return `${extension} · ${formatBytes(size)} · Not scanned`;
 }
+
+/**
+ * v266 — what ESH will accept as proof, said before the owner goes and takes
+ * the wrong photograph.
+ */
+export const EVIDENCE_KIND_LABELS: Record<string, string> = {
+  photograph: 'A photograph',
+  inspection: 'An inspection record',
+  functional_test: 'A functional test result',
+  measurement: 'A measurement',
+  procedure: 'The revised procedure',
+  other: 'Something else ESH has described',
+};

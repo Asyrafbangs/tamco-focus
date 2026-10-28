@@ -217,13 +217,24 @@ test('v219 the owner screen is two columns, with one Submit and help behind a co
 
   // What am I supposed to fix, on the left; what is happening, on the right.
   await expect(page.locator('.guest-context')).toContainText('What ESH needs');
-  await expect(page.locator('.guest-context')).toContainText('The original finding');
   // The owner's thread carries no heading of its own, so the composer is what
   // identifies the working column.
   await expect(page.locator('.guest-work').getByLabel('Message ESH')).toBeVisible();
   const context = await page.locator('.guest-context').boundingBox();
   const work = await page.locator('.guest-work').boundingBox();
   expect(context!.x).toBeLessThan(work!.x);
+
+  /*
+   * v263 — the record is in the left column, asserted by where it is rather
+   * than by whose child it is. It left `.guest-context` so that a phone reads
+   * instruction, work, record without the update box being pushed off the
+   * first screen; on a desktop the grid puts it back under the instruction,
+   * which is what this test has always been about.
+   */
+  await expect(page.locator('.guest-original')).toContainText('The original finding');
+  const record = await page.locator('.guest-original').boundingBox();
+  expect(record!.x).toBeLessThan(work!.x);
+  expect(record!.y).toBeGreaterThan(context!.y);
 
   // The owner works in the room a monitor has, not a phone-width strip.
   const main = await page.locator('#guest-main').boundingBox();

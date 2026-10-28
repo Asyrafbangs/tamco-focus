@@ -66,6 +66,7 @@ export default async function NewFindingPage() {
           isRestricted: false,
           requiredOutcome: '',
           evidenceInstruction: 'Photo showing the corrected condition.',
+          evidenceKind: '',
           priority: '',
           ownerEmail: '',
           dueDate: '',
