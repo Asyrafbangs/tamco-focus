@@ -8,7 +8,9 @@ import {
   ChangePriorityForm,
   ChangeRiskForm,
   EditFindingForm,
+  ClearBlockerButton,
   EffectivenessForm,
+  EvidenceKindForm,
   InterimControlForm,
 } from '@/components/esh/FindingControls';
 import { FindingActionsMenu, type FindingMenuItem } from '@/components/esh/FindingActionsMenu';
@@ -20,6 +22,7 @@ import { VerifyPanel } from '@/components/esh/VerifyPanel';
 import { FindingForm } from '@/components/esh/FindingForm';
 import { StaffMessageForm } from '@/components/esh/StaffMessageForm';
 import { activityLabel, humanActivity } from '@/domain/esh-activity';
+import { EvidenceSource } from '@/components/esh/EvidenceSource';
 import { EVIDENCE_IMAGE_TYPES, evidenceLabel } from '@/domain/esh-evidence';
 import { nextActor } from '@/domain/esh-next-actor';
 import { VERIFICATION_METHOD_LABELS, type VerificationMethod } from '@/domain/esh-verification';
@@ -298,6 +301,13 @@ export default async function FindingPage({
         panel: <EffectivenessForm actionId={finding.action.id} check={finding.effectiveness} />,
       });
     }
+    if (finding.action) {
+      menu.push({
+        key: 'evidence-kind',
+        label: 'Change what is accepted',
+        panel: <EvidenceKindForm actionId={finding.action.id} kind={finding.action.evidenceKind} />,
+      });
+    }
     menu.push({
       key: 'interim',
       label: 'Interim control',
@@ -421,9 +431,10 @@ function FileList({ files, label }: { files: FindingDetail['originalEvidence']; 
             )}
             <span>
               <strong>{file.name}</strong>
-              <small>{evidenceLabel(file.name, file.size)}</small>
+              <small>{evidenceLabel(file.name, file.size, file.scan)}</small>
             </span>
           </a>
+          <EvidenceSource file={file} base="/findings/files" />
         </li>
       ))}
     </ul>
@@ -499,7 +510,27 @@ function InterimProtection({ finding, timeZone }: { finding: FindingDetail; time
  */
 function EffectivenessNotice({ finding }: { finding: FindingDetail }) {
   const check = finding.effectiveness;
-  if (!check || check.state === 'cancelled') return null;
+  const accepted = finding.action?.state === 'accepted';
+  const significant = finding.riskLevel === 'high' || finding.riskLevel === 'critical';
+
+  /*
+   * v269 - nothing booked on significant work that has been corrected.
+   *
+   * Scheduling a check is entirely manual, so on the findings where it matters
+   * most it is the thing most likely to be forgotten: by the time anybody
+   * wonders whether the fix held, the finding is closed and nobody is looking
+   * at it. The prompt is the only reason one ever gets booked.
+   */
+  if (!check) {
+    if (!accepted || !significant) return null;
+    return (
+      <p className="notice neutral compact esh-interim" data-state="check-none">
+        <strong>Nobody is going back to check this held.</strong> It was significant enough to be
+        worth one. Book it from the ••• menu.
+      </p>
+    );
+  }
+  if (check.state === 'cancelled') return null;
   if (check.state === 'scheduled') {
     return (
       <p className="notice neutral compact esh-interim" data-state="check-scheduled">
@@ -545,7 +576,15 @@ const BLOCKER_LABELS: Record<string, string> = {
  * the answer is a purchase order nobody has signed. It is an overlay: the work
  * is still late if it is late, and nothing here moves a date.
  */
-function OwnerBlocked({ finding, timeZone }: { finding: FindingDetail; timeZone: string }) {
+function OwnerBlocked({
+  finding,
+  timeZone,
+  canCoordinate,
+}: {
+  finding: FindingDetail;
+  timeZone: string;
+  canCoordinate: boolean;
+}) {
   const blocker = finding.blocker;
   if (!blocker) return null;
   const day = (value: string) =>
@@ -566,6 +605,7 @@ function OwnerBlocked({ finding, timeZone }: { finding: FindingDetail; timeZone:
         {blocker.nextDecisionOn ? `Next decision expected ${day(blocker.nextDecisionOn)}. ` : ''}
         Reported {day(blocker.raisedAt)}.
       </p>
+      {canCoordinate && <ClearBlockerButton blockerId={blocker.id} />}
     </div>
   );
 }
@@ -731,7 +771,7 @@ function FindingSummary({
           </p>
 
           <InterimProtection finding={finding} timeZone={timeZone} />
-          <OwnerBlocked finding={finding} timeZone={timeZone} />
+          <OwnerBlocked finding={finding} timeZone={timeZone} canCoordinate={canCoordinate} />
           <EffectivenessNotice finding={finding} />
 
           <h2 id="esh-detail-finding" className="esh-subheading">

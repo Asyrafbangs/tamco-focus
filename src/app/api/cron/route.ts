@@ -186,6 +186,19 @@ export async function GET(request: Request) {
    * assignments, replies and decisions were never queued as routine.
    */
   try {
+    const { runEshScanWorker } = await import('@/server/esh/scan');
+    const scan = await runEshScanWorker(client);
+    results.push({
+      worker: 'esh_scan',
+      ok: true,
+      detail: scan.skipped ? 'no scanner configured' : JSON.stringify(scan),
+    });
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    results.push({ worker: 'esh_scan', ok: false, detail });
+  }
+
+  try {
     const { data, error } = await client.rpc('esh_run_effectiveness_due');
     if (error) throw new Error(error.message);
     results.push({

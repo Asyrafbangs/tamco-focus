@@ -282,6 +282,15 @@ export interface EvidenceFile {
   name: string;
   type: string;
   size: number;
+  /**
+   * v270/v271, and only on ESH's own pages. The owner's side is served by a
+   * procedure that returns neither, so these are undefined there and the
+   * markup that depends on them simply does not appear -- which is the
+   * intended permission boundary, not an accident of it.
+   */
+  scan?: string;
+  sourceState?: string;
+  sourceBytes?: number;
 }
 
 /** Where a submission sits in the conversation: under the message it came from. */

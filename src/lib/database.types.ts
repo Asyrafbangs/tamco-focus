@@ -3258,10 +3258,20 @@ export type Database = {
           rejected_reason: string | null
           removed_at: string | null
           removed_by: string | null
+          scan_attempts: number
+          scan_detail: string | null
           scan_state: string
+          scanned_at: string | null
           shared_from_asset_id: string | null
           shared_operation_id: string | null
           size_bytes: number | null
+          source_file_name: string | null
+          source_kept_at: string | null
+          source_object_key: string | null
+          source_sha256: string | null
+          source_size_bytes: number | null
+          source_started_at: string | null
+          source_state: string
           state: string
           uploader_kind: string
           uploader_principal_id: string | null
@@ -3284,10 +3294,20 @@ export type Database = {
           rejected_reason?: string | null
           removed_at?: string | null
           removed_by?: string | null
+          scan_attempts?: number
+          scan_detail?: string | null
           scan_state?: string
+          scanned_at?: string | null
           shared_from_asset_id?: string | null
           shared_operation_id?: string | null
           size_bytes?: number | null
+          source_file_name?: string | null
+          source_kept_at?: string | null
+          source_object_key?: string | null
+          source_sha256?: string | null
+          source_size_bytes?: number | null
+          source_started_at?: string | null
+          source_state?: string
           state?: string
           uploader_kind: string
           uploader_principal_id?: string | null
@@ -3310,10 +3330,20 @@ export type Database = {
           rejected_reason?: string | null
           removed_at?: string | null
           removed_by?: string | null
+          scan_attempts?: number
+          scan_detail?: string | null
           scan_state?: string
+          scanned_at?: string | null
           shared_from_asset_id?: string | null
           shared_operation_id?: string | null
           size_bytes?: number | null
+          source_file_name?: string | null
+          source_kept_at?: string | null
+          source_object_key?: string | null
+          source_sha256?: string | null
+          source_size_bytes?: number | null
+          source_started_at?: string | null
+          source_state?: string
           state?: string
           uploader_kind?: string
           uploader_principal_id?: string | null
@@ -15696,6 +15726,16 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_guest_record_source: {
+        Args: {
+          p_asset_id: string
+          p_ok: boolean
+          p_session: string
+          p_sha256: string
+          p_size: number
+        }
+        Returns: Json
+      }
       esh_guest_remove_upload: {
         Args: { p_asset_id: string; p_session: string }
         Returns: Json
@@ -15747,6 +15787,19 @@ export type Database = {
           p_asset_id: string
           p_operation_key: string
           p_session: string
+        }
+        Returns: Json
+      }
+      esh_guest_source_target: {
+        Args: { p_asset_id: string; p_session: string }
+        Returns: Json
+      }
+      esh_guest_start_source: {
+        Args: {
+          p_asset_id: string
+          p_name: string
+          p_session: string
+          p_size: number
         }
         Returns: Json
       }
@@ -15882,6 +15935,15 @@ export type Database = {
         Args: { p_check_id: string; p_note: string; p_passed: boolean }
         Returns: Json
       }
+      esh_record_source: {
+        Args: {
+          p_asset_id: string
+          p_ok: boolean
+          p_sha256: string
+          p_size: number
+        }
+        Returns: Json
+      }
       esh_record_worker_run: {
         Args: { p_detail?: Json; p_ok: boolean; p_worker: string }
         Returns: Json
@@ -15959,6 +16021,11 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_scan_claim: { Args: { p_limit?: number }; Returns: Json }
+      esh_scan_record: {
+        Args: { p_asset_id: string; p_detail?: string; p_verdict: string }
+        Returns: Json
+      }
       esh_schedule_effectiveness_check: {
         Args: {
           p_action_id: string
@@ -15974,6 +16041,10 @@ export type Database = {
       }
       esh_set_department_escalation: {
         Args: { p_department_id: string; p_levels: Json }
+        Returns: Json
+      }
+      esh_set_evidence_kind: {
+        Args: { p_action_id: string; p_kind: string }
         Returns: Json
       }
       esh_set_followup_policy: {
@@ -16038,6 +16109,10 @@ export type Database = {
           p_exceptions: Json
           p_working_weekdays: number[]
         }
+        Returns: Json
+      }
+      esh_start_source: {
+        Args: { p_asset_id: string; p_name: string; p_size: number }
         Returns: Json
       }
       esh_start_upload: {

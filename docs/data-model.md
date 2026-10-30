@@ -100,6 +100,28 @@ Generated TypeScript definitions in `src/lib/database.types.ts` must match the r
 - `shared_contributions` leaves out steps whose work is binned or purged, as
   `completed_contributions` has since v87; its columns are unchanged.
 
+## v271 Evidence: a preserved original, and a record that can be learned about
+
+- `esh_evidence_assets` gains `source_object_key`, `source_file_name`, `source_size_bytes`,
+  `source_sha256`, `source_state` and `source_kept_at`, plus `source_started_at`. The stored object
+  is the compressed copy that was sent; the source columns describe the file as it came off the
+  camera, kept beside it in the same private bucket. `source_state = 'none'` means nothing was
+  compressed and the stored object _is_ what was chosen, so silence there is information. A CHECK
+  refuses `'kept'` without the key, size, hash and timestamp to back it: nothing claims an original
+  was preserved when it was not. `source_started_at` lets a second upload that never finished be
+  written off rather than holding the row out of the scan queue for ever.
+- `focus.esh_reject_sent_evidence_change` no longer refuses every update to a sent row. It compares
+  `to_jsonb(new)` against `to_jsonb(old)` with the _mutable_ columns removed — the scan verdict and
+  the source-file columns — so what a file is, where it lives and who sent it still cannot change,
+  and a column added in future is immutable until somebody names it. `state` is mutable for exactly
+  one move, `ready -> rejected` with `scan_state = 'infected'`, which is quarantine; 'removed' is
+  still unreachable on a sent file, so §23's rule that a later deletion must not silently remove
+  proof stays a constraint rather than a comment.
+- The companion constraint `message_id is null or (purpose = 'message' and state = 'ready')` is
+  replaced by one allowing `'rejected'` as well, dropped by lookup rather than by its
+  system-generated name. Without both changes v270's scanner raised an exception on every file
+  that had actually been sent.
+
 ## v223 A department's escalation route
 
 - `esh_department_escalation_defaults` holds the recipients a department normally escalates to,

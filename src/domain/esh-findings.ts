@@ -221,12 +221,20 @@ export function findingProblem(code: string): { field: string; message: string }
  * Register views (§24). One set of definitions, used for the list and for any
  * count that links to it, so a number and the list behind it never disagree.
  */
-export type RegisterFilter = 'attention' | 'open' | 'overdue' | 'closed';
+export type RegisterFilter = 'attention' | 'open' | 'overdue' | 'unassessed' | 'closed';
 
 export const REGISTER_FILTERS: Array<{ key: RegisterFilter; label: string }> = [
   { key: 'attention', label: 'Needs attention' },
   { key: 'open', label: 'All open' },
   { key: 'overdue', label: 'Overdue' },
+  /*
+   * v269 - findings nobody has graded yet.
+   *
+   * A count on the dashboard could be read and not acted on. These are
+   * invisible to every risk-based figure in the product, including the one
+   * that asks whether anybody is protected, so they need somewhere to go.
+   */
+  { key: 'unassessed', label: 'Not assessed' },
   { key: 'closed', label: 'Closed' },
 ];
 

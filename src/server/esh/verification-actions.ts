@@ -280,7 +280,59 @@ export async function verifyInterimControl(input: { findingId: string }): Promis
   return { ok: true };
 }
 
-/** v267 — book somebody to go and look, once the correction has been accepted. */
+/** v269 - ESH marks a blocker resolved once the help has been given. */
+export async function clearBlocker(input: {
+  blockerId: string;
+  note?: string;
+}): Promise<EshDecision> {
+  await requireProfile();
+  const blockerId = uuid.safeParse(input.blockerId);
+  if (!blockerId.success) return { ok: false, message: editProblem('not_found') };
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_clear_blocker', {
+    p_blocker_id: blockerId.data,
+    p_note: String(input.note ?? ''),
+  });
+  if (error) {
+    console.error(`[esh_clear_blocker] ${error.message}`);
+    return { ok: false, message: editProblem(undefined) };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (!result.ok) return { ok: false, message: editProblem(result.code) };
+  revalidatePath('/findings');
+  return { ok: true };
+}
+
+/**
+ * v269 - correct what will be accepted as proof, after assignment.
+ *
+ * The case this exists for: the owner sent a photograph and a photograph
+ * cannot show that an interlock functions. Saying so in the conversation is
+ * the unenforceable sentence v266 replaced.
+ */
+export async function changeEvidenceKind(input: {
+  actionId: string;
+  kind: string;
+}): Promise<EshDecision> {
+  await requireProfile();
+  const actionId = uuid.safeParse(input.actionId);
+  if (!actionId.success) return { ok: false, message: editProblem('not_found') };
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_set_evidence_kind', {
+    p_action_id: actionId.data,
+    p_kind: String(input.kind ?? ''),
+  });
+  if (error) {
+    console.error(`[esh_set_evidence_kind] ${error.message}`);
+    return { ok: false, message: editProblem(undefined) };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (!result.ok) return { ok: false, message: editProblem(result.code) };
+  revalidatePath('/findings');
+  return { ok: true };
+}
+
+/** v267 - book somebody to go and look, once the correction has been accepted. */
 export async function scheduleEffectivenessCheck(input: {
   actionId: string;
   dueOn: string;

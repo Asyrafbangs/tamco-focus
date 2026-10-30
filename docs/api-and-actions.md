@@ -100,6 +100,31 @@ the service role. These operations remain local-only in this stage.
   `esh_admin_disable_contact` and `esh_admin_correct_contact_email` re-check live relationships,
   revoke stale capability, preserve history and write immutable audit detail.
 
+## v271 Keeping the camera's own file
+
+- `compressImage` returns `{ copy, source }` instead of one `File`. The copy is uploaded and
+  attached as before; `source` is the untouched file, or null when nothing was altered.
+- Five new procedures, mirroring an ordinary upload because the bytes take the same route:
+  `esh_guest_start_source` / `esh_guest_source_target` / `esh_guest_record_source` for an owner on
+  an email link, and `esh_start_source` / `esh_record_source` for ESH. Both sides are restricted to
+  the person who uploaded the copy — a principal for the owner, `auth.uid()` for staff — so nobody
+  can put bytes behind somebody else's photograph. The object key is derived from the copy's, so a
+  retry after a dropped connection overwrites rather than orphaning.
+- `startOwnerSource` / `finishOwnerSource` and `startStaffSource` / `finishStaffSource` are the
+  Server Actions. They return a boolean, not a sentence: by the time they run the file has attached
+  and the message may already be sent, so there is no screen left to put a message on. The record
+  says whether an original was preserved, and that is what ESH reads.
+- The second upload is started but never awaited by anything the person is waiting on, which is the
+  whole point. `finishSource` runs the same `inspectUpload` an ordinary upload gets — the browser's
+  word is not taken for the camera's file either.
+- `esh_remove_upload` and `esh_guest_remove_upload` now return `source_object_key` too, so a
+  dropped draft does not leave bytes nothing points at.
+- `/findings/files/<id>?source=1` serves the preserved original to ESH, always as a download and
+  only when `source_state = 'kept'`; an asset without one is a 404 rather than a quiet fall back to
+  the copy. The owner's route has no equivalent.
+- `runEshScanWorker` refuses a non-loopback `ESH_SCANNER_URL` with no `ESH_SCANNER_TOKEN`, and sends
+  the token as a bearer header. Every byte of somebody's evidence goes to that URL.
+
 ## v227 One screen, one job
 
 - **Corrections.** `editFinding(...)` → `esh_edit_finding` and `changeRisk(...)` →

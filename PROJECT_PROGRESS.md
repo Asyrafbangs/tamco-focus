@@ -302,16 +302,67 @@ see. A failure raises a linked finding and leaves the original closed: that
 closure was true on the day it was made, and overwriting it would destroy the
 only evidence that the fix was once in place and later was not.
 
+### v269-v270 — the audit gaps, and scanning
+
+An audit of what was built against what could be _reached_ found four things
+the database could do that no screen could ask for. All four are closed: a
+blocker can be cleared, the kind of evidence can be corrected after assignment,
+significant closed work is prompted to book an effectiveness check, and
+unassessed findings are a register view rather than a number with nowhere to go.
+
+**v270 reverses the "evidence is never scanned" decision** at the Product
+Owner's request (30 October). Scanning runs on the scheduled worker _after_
+the file has landed, so an owner on one bar of signal never waits for it. The
+scanner is whatever answers `ESH_SCANNER_URL`; unset, the feature is inert.
+`unavailable` is deliberately distinct from `clean` — see `docs/evidence-scanner.md`.
+
+Photographs are now resized to 2000px and re-encoded before upload, which costs
+the EXIF block. The trade is recorded in `compress-image.ts`: the record
+already carries who uploaded what and when, which is better provenance than a
+phone clock, but it would be the wrong trade if these photographs ever had to
+prove where or when.
+
+### v271 — scanning that works, and the camera's own file kept
+
+**v270 could not scan a single real file.** A trigger from v199 refuses any
+update to an evidence row whose `message_id` is set, and v199 also pins such a
+row to `state = 'ready'`. Every file that matters is sent in a message, so
+`esh_scan_claim` raised an exception on the first row it claimed, and
+quarantine could not have moved a file out of 'ready' either. v270's own
+fixture never sent a file, so eleven assertions passed over an inert feature.
+The guard now separates the record — what a file is, where it lives, who sent
+it, which cannot change — from what we have since learned about it, and lists
+the mutable columns rather than the immutable ones, so a column added later is
+immutable until somebody names it. Every scanning assertion now runs against a
+sent file.
+
+**The photograph that came off the camera is kept.** v270's compression costs
+the EXIF block and every pixel past 2000px; that is right for getting work
+reported from a plant floor and wrong for the one photograph somebody later has
+to argue about, and which one that is cannot be known at upload. So both are
+kept: the compressed copy is what is sent first and what everybody views, and
+the untouched file follows in the background into the same private bucket. The
+owner waits for neither. If the second upload never finishes, `source_state`
+says so rather than implying an original exists — the same rule as `unavailable`
+versus `clean`. The full-size file is reachable only by ESH, through
+`/findings/files/<id>?source=1`, and it is the file the scanner looks at.
+
+**A remote scanner now needs a shared secret.** Every byte of somebody's
+evidence is POSTed to `ESH_SCANNER_URL`, and the worker refuses to send it to a
+host with no `ESH_SCANNER_TOKEN` in front of it. Loopback is exempt, which is
+how it runs locally.
+
 ### Not done, and worth knowing
 
-- **Nobody is reminded when an effectiveness check falls due.** The record, the
-  decisions and the linked follow-up all work; the follow-up engine does not
-  yet sweep `esh_effectiveness_checks` the way it sweeps actions. Until it
-  does, a scheduled check depends on somebody opening the finding.
-- **Virus scanning stays out** (settled; see _Settled decisions_). The external
-  review raised it; what is in place is a private bucket with no direct access
-  path, permission-checked downloads, extension and MIME allow-lists and size
-  caps. The accepted exposure is content validation.
+- **No scanner is hosted yet.** The container, the hosting options with current
+  costs and the deployment steps are in `docs/evidence-scanner-deployment.md`
+  and `deploy/evidence-scanner/`; what remains is a decision and a credit card.
+  Cloud Run scaling to zero is nearly free if the signature databases are baked
+  into the image and that image is rebuilt weekly; Fly.io always-on is about
+  $13/month at 2GB, $25 at the 4GB ClamAV recommends. Until `ESH_SCANNER_URL`
+  is set, every file stays `not_scanned` and nothing claims otherwise.
+- **Only ESH evidence is covered.** `virus_scan_state` on `task_attachments`
+  and the goal evidence tables is untouched.
 - **The public dashboard's counts are not a privacy guarantee.** Differencing
   two monthly snapshots of a small population can reveal a single finding's
   timing. Suppression below a threshold is the fix, not redacting more fields.

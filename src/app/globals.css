@@ -14056,6 +14056,34 @@ span.deadline span.deadline-glyph,
   color: var(--muted);
   font-size: 11px;
 }
+/*
+ * v271 - whether the picture on screen is the picture that was taken. Sits
+ * under the file it describes, quiet enough to be ignored by anybody who does
+ * not need it and legible to the verifier who does.
+ */
+.esh-file-source {
+  margin: 2px 0 0;
+  padding-left: 2px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.esh-file-source a {
+  color: var(--muted);
+  text-decoration: underline;
+}
+
+.esh-file-source a:hover,
+.esh-file-source a:focus-visible {
+  color: var(--text);
+}
+
+/* The only one of the three worth noticing: there is no original to fetch. */
+.esh-file-source[data-state='unavailable'] {
+  color: var(--amber);
+}
+
 .esh-file-icon {
   display: inline-grid;
   flex: none;
@@ -16590,5 +16618,15 @@ span.deadline span.deadline-glyph,
 }
 .guest-blocker-fields select,
 .guest-blocker-fields input {
+  width: 100%;
+}
+
+/* v269 — clearing a blocker, said where the blocker is read. */
+.esh-blocker-clear {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.esh-blocker-clear input {
   width: 100%;
 }

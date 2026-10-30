@@ -223,10 +223,55 @@ export function formatBytes(size: number): string {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** The short label under a file: "JPG · 1.2 MB · Not scanned". */
-export function evidenceLabel(name: string, size: number): string {
+/**
+ * What a scan state is called in front of somebody (v271).
+ *
+ * v270 made these states real, so the label can no longer be the constant
+ * "Not scanned" v199 wrote when there was no scanner. `clean` is called
+ * "Scanned" rather than "Clean": a scanner finding nothing is not a promise,
+ * and the stronger word would be read as one.
+ */
+export const SCAN_LABELS: Record<string, string> = {
+  not_scanned: 'Not scanned',
+  pending: 'Being scanned',
+  clean: 'Scanned',
+  infected: 'Quarantined',
+  unavailable: 'Scan unavailable',
+};
+
+/**
+ * The short label under a file: "JPG · 1.2 MB · Not scanned".
+ *
+ * The scan state is said only where it is actually known. v199 appended a
+ * constant "Not scanned" because nothing could scan; now that something can,
+ * a page without the scan state to hand says nothing about scanning rather
+ * than repeating a word that has stopped being true. The owner's pages are
+ * served by a procedure that does not return it, so that is where this
+ * matters -- and an unrecognised state reads as "Not scanned", which is the
+ * one wrong answer that cannot mislead.
+ */
+export function evidenceLabel(name: string, size: number, scan?: string | null): string {
   const extension = extensionOf(name).toUpperCase() || 'FILE';
-  return `${extension} · ${formatBytes(size)} · Not scanned`;
+  const head = `${extension} · ${formatBytes(size)}`;
+  if (scan === undefined || scan === null) return head;
+  return `${head} · ${SCAN_LABELS[scan] ?? SCAN_LABELS.not_scanned}`;
+}
+
+/**
+ * Whether the file somebody is looking at is the file that was taken (v271).
+ *
+ * Only shown to ESH, and only worth a sentence when a photograph was shrunk
+ * to send it. `none` is silence on purpose: the stored object *is* what was
+ * chosen, and saying "original kept" about a file nobody compressed would
+ * train people to read the phrase as decoration.
+ */
+export function sourceNote(state: string | null | undefined, bytes?: number | null): string | null {
+  if (state === 'kept') {
+    return bytes ? `Full-size original kept · ${formatBytes(bytes)}` : 'Full-size original kept';
+  }
+  if (state === 'pending') return 'Full-size original still arriving';
+  if (state === 'unavailable') return 'Compressed copy only — the original never arrived';
+  return null;
 }
 
 /**
@@ -241,3 +286,24 @@ export const EVIDENCE_KIND_LABELS: Record<string, string> = {
   procedure: 'The revised procedure',
   other: 'Something else ESH has described',
 };
+
+/**
+ * v270 — when a photograph is worth shrinking before it is sent.
+ *
+ * Only images, and only ones big enough that the saving is worth the loss of
+ * the EXIF block (see `compress-image.ts`). A 400KB photograph is already fine
+ * on a weak signal, and re-encoding it would cost provenance for nothing.
+ *
+ * PNG is included because phone screenshots of permits and labels arrive as
+ * PNG and are frequently several megabytes.
+ */
+export const COMPRESS_OVER_BYTES = 1_500_000;
+export const COMPRESS_MAX_EDGE = 2000;
+export const COMPRESS_QUALITY = 0.82;
+
+const COMPRESSIBLE = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+
+export function shouldCompress(type: string | null | undefined, size: number): boolean {
+  if (!type || !COMPRESSIBLE.has(type.toLowerCase())) return false;
+  return size > COMPRESS_OVER_BYTES;
+}
