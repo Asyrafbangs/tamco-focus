@@ -195,6 +195,9 @@ export async function listRegister(options: {
     case 'overdue':
       query = query.in('status', ['draft', 'new', 'open']).eq('is_overdue', true);
       break;
+    case 'unassessed':
+      query = query.in('status', ['draft', 'new', 'open']).eq('risk_level', 'not_assessed');
+      break;
     case 'closed': {
       query = query.eq('status', 'closed').gte('closed_at', options.closedSince);
       if (options.closedUntil) query = query.lte('closed_at', options.closedUntil);

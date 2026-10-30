@@ -3258,7 +3258,10 @@ export type Database = {
           rejected_reason: string | null
           removed_at: string | null
           removed_by: string | null
+          scan_attempts: number
+          scan_detail: string | null
           scan_state: string
+          scanned_at: string | null
           shared_from_asset_id: string | null
           shared_operation_id: string | null
           size_bytes: number | null
@@ -3284,7 +3287,10 @@ export type Database = {
           rejected_reason?: string | null
           removed_at?: string | null
           removed_by?: string | null
+          scan_attempts?: number
+          scan_detail?: string | null
           scan_state?: string
+          scanned_at?: string | null
           shared_from_asset_id?: string | null
           shared_operation_id?: string | null
           size_bytes?: number | null
@@ -3310,7 +3316,10 @@ export type Database = {
           rejected_reason?: string | null
           removed_at?: string | null
           removed_by?: string | null
+          scan_attempts?: number
+          scan_detail?: string | null
           scan_state?: string
+          scanned_at?: string | null
           shared_from_asset_id?: string | null
           shared_operation_id?: string | null
           size_bytes?: number | null
@@ -15959,6 +15968,11 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_scan_claim: { Args: { p_limit?: number }; Returns: Json }
+      esh_scan_record: {
+        Args: { p_asset_id: string; p_detail?: string; p_verdict: string }
+        Returns: Json
+      }
       esh_schedule_effectiveness_check: {
         Args: {
           p_action_id: string
@@ -15974,6 +15988,10 @@ export type Database = {
       }
       esh_set_department_escalation: {
         Args: { p_department_id: string; p_levels: Json }
+        Returns: Json
+      }
+      esh_set_evidence_kind: {
+        Args: { p_action_id: string; p_kind: string }
         Returns: Json
       }
       esh_set_followup_policy: {

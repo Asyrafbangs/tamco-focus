@@ -27,9 +27,17 @@ test('v217 Closed is a destination, not a chip competing with the navigation', a
   // v227 - the Overview is not daily work, so it is not in the navigation.
   await expect(nav.getByRole('link', { name: 'Overview' })).toHaveCount(0);
 
-  // Three views in the register itself; Closed is no longer one of them.
+  /*
+   * The register's own views, by name rather than by count.
+   *
+   * This asserted "three" until v269 added a fourth, which broke a test whose
+   * actual claim -- Closed is a destination in the navigation and not a chip
+   * competing with it -- was never about how many chips there are.
+   */
   const views = page.getByRole('navigation', { name: 'Register views' }).getByRole('link');
-  await expect(views).toHaveCount(3);
+  for (const view of ['Needs attention', 'All open', 'Overdue', 'Not assessed']) {
+    await expect(views.filter({ hasText: view })).toHaveCount(1);
+  }
   await expect(views.filter({ hasText: 'Closed' })).toHaveCount(0);
 
   // The destination shows the closed register, and the navigation says so.

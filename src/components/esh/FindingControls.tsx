@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
+import { EVIDENCE_KIND_LABELS } from '@/domain/esh-evidence';
 import { RISK_LABELS, type RiskLevel } from '@/domain/esh-findings';
 import {
   changeDueDate,
@@ -10,6 +11,8 @@ import {
   changeRisk,
   editFinding,
   reassignAction,
+  changeEvidenceKind,
+  clearBlocker,
   recordEffectivenessCheck,
   scheduleEffectivenessCheck,
   setInterimControl,
@@ -494,6 +497,84 @@ export function InterimControlForm({
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * v269 - ESH says the help has been given.
+ *
+ * On the blocker itself rather than in the menu: the person reading "waiting
+ * for a purchase order" is the person who just signed it, and making them hunt
+ * through a menu to say so is how a blocker stays open for a month after it
+ * stopped blocking anything.
+ */
+export function ClearBlockerButton({ blockerId }: { blockerId: string }) {
+  const { run, pending, status } = useChange();
+  const [note, setNote] = useState('');
+  return (
+    <div className="esh-blocker-clear">
+      {status}
+      <label className="esh-field">
+        <span>What was done about it</span>
+        <input
+          maxLength={500}
+          value={note}
+          placeholder="Line stop booked for Tuesday"
+          onChange={(event) => setNote(event.target.value)}
+        />
+      </label>
+      <button
+        type="button"
+        className="btn small"
+        disabled={pending}
+        onClick={() => run(() => clearBlocker({ blockerId, note }), 'Blocker cleared.')}
+      >
+        This is no longer blocking
+      </button>
+    </div>
+  );
+}
+
+/** v269 - correct what will be accepted as proof, after assignment. */
+export function EvidenceKindForm({ actionId, kind }: { actionId: string; kind: string | null }) {
+  const { run, pending, status, clear } = useChange();
+  const [next, setNext] = useState(kind ?? '');
+  return (
+    <div className="esh-action-menu-panel">
+      {status}
+      <p className="form-hint">
+        What the owner has to send. A photograph shows a walkway was cleared and shows nothing about
+        an interlock.
+      </p>
+      <div className="esh-field">
+        <label htmlFor="evidence-kind-change">Kind of evidence</label>
+        <select
+          id="evidence-kind-change"
+          value={next}
+          onChange={(event) => {
+            setNext(event.target.value);
+            clear();
+          }}
+        >
+          <option value="">Not specified</option>
+          {Object.entries(EVIDENCE_KIND_LABELS).map(([key, label]) => (
+            <option key={key} value={key}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <button
+        type="button"
+        className="btn"
+        disabled={pending}
+        onClick={() =>
+          run(() => changeEvidenceKind({ actionId, kind: next }), 'Evidence kind changed.')
+        }
+      >
+        Change what is accepted
+      </button>
     </div>
   );
 }

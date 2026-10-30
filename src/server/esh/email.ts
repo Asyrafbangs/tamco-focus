@@ -26,6 +26,7 @@ export interface EshEmailInput {
     | 'escalation'
     | 'review_reminder'
     | 'effectiveness_due'
+    | 'evidence_infected'
     | 'escalation_exhausted'
     | 'owner_reply'
     | 'escalation_reply';
@@ -167,6 +168,17 @@ export function renderEshEmail(input: EshEmailInput): RenderedEmail {
        */
       lead =
         'This finding was closed on the strength of a correction, and somebody said they would go back and confirm it held. Today is that day. If it did not hold, recording the failure raises a linked finding and leaves this one closed.';
+      if (input.findingUrl) links.push({ href: input.findingUrl, label: 'Open the finding' });
+      break;
+    case 'evidence_infected':
+      subject = `Evidence quarantined: ${heading}`;
+      headline = 'A file was quarantined after scanning';
+      /*
+       * v270 - the owner believes they have submitted evidence. Somebody has
+       * to tell them otherwise, and nobody can if ESH is not told first.
+       */
+      lead =
+        'A file attached to this finding was found to be infected and has been quarantined, so it can no longer be opened. The owner has not been told: decide whether to ask them for a clean copy.';
       if (input.findingUrl) links.push({ href: input.findingUrl, label: 'Open the finding' });
       break;
     case 'escalation_exhausted':

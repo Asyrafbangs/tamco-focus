@@ -241,3 +241,24 @@ export const EVIDENCE_KIND_LABELS: Record<string, string> = {
   procedure: 'The revised procedure',
   other: 'Something else ESH has described',
 };
+
+/**
+ * v270 — when a photograph is worth shrinking before it is sent.
+ *
+ * Only images, and only ones big enough that the saving is worth the loss of
+ * the EXIF block (see `compress-image.ts`). A 400KB photograph is already fine
+ * on a weak signal, and re-encoding it would cost provenance for nothing.
+ *
+ * PNG is included because phone screenshots of permits and labels arrive as
+ * PNG and are frequently several megabytes.
+ */
+export const COMPRESS_OVER_BYTES = 1_500_000;
+export const COMPRESS_MAX_EDGE = 2000;
+export const COMPRESS_QUALITY = 0.82;
+
+const COMPRESSIBLE = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+
+export function shouldCompress(type: string | null | undefined, size: number): boolean {
+  if (!type || !COMPRESSIBLE.has(type.toLowerCase())) return false;
+  return size > COMPRESS_OVER_BYTES;
+}

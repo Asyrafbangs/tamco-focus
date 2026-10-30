@@ -1,5 +1,6 @@
 'use client';
 
+import { compressImage } from '@/components/esh/compress-image';
 import { createClient } from '@supabase/supabase-js';
 import { useRef, useState } from 'react';
 
@@ -113,8 +114,13 @@ export function useEvidenceUploads(
     }
   }
 
-  function add(files: FileList | File[]) {
-    const list = Array.from(files);
+  async function add(files: FileList | File[]) {
+    /*
+     * v270 — shrink the photographs before anything is measured, so a twelve
+     * megabyte picture is judged at the megabyte it will actually be. Doing it
+     * after the size check would refuse files that fit perfectly well.
+     */
+    const list = await Promise.all(Array.from(files).map((file) => compressImage(file)));
     /*
      * v226 — the count and the total for the whole update, decided before any
      * bytes move. A file that cannot fit is listed as refused with the reason

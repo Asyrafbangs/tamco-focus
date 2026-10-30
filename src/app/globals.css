@@ -16592,3 +16592,13 @@ span.deadline span.deadline-glyph,
 .guest-blocker-fields input {
   width: 100%;
 }
+
+/* v269 — clearing a blocker, said where the blocker is read. */
+.esh-blocker-clear {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.esh-blocker-clear input {
+  width: 100%;
+}

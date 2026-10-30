@@ -302,16 +302,36 @@ see. A failure raises a linked finding and leaves the original closed: that
 closure was true on the day it was made, and overwriting it would destroy the
 only evidence that the fix was once in place and later was not.
 
+### v269-v270 — the audit gaps, and scanning
+
+An audit of what was built against what could be _reached_ found four things
+the database could do that no screen could ask for. All four are closed: a
+blocker can be cleared, the kind of evidence can be corrected after assignment,
+significant closed work is prompted to book an effectiveness check, and
+unassessed findings are a register view rather than a number with nowhere to go.
+
+**v270 reverses the "evidence is never scanned" decision** at the Product
+Owner's request (30 October). Scanning runs on the scheduled worker _after_
+the file has landed, so an owner on one bar of signal never waits for it. The
+scanner is whatever answers `ESH_SCANNER_URL`; unset, the feature is inert.
+`unavailable` is deliberately distinct from `clean` — see `docs/evidence-scanner.md`.
+
+Photographs are now resized to 2000px and re-encoded before upload, which costs
+the EXIF block. The trade is recorded in `compress-image.ts`: the record
+already carries who uploaded what and when, which is better provenance than a
+phone clock, but it would be the wrong trade if these photographs ever had to
+prove where or when.
+
 ### Not done, and worth knowing
 
-- **Nobody is reminded when an effectiveness check falls due.** The record, the
-  decisions and the linked follow-up all work; the follow-up engine does not
-  yet sweep `esh_effectiveness_checks` the way it sweeps actions. Until it
-  does, a scheduled check depends on somebody opening the finding.
-- **Virus scanning stays out** (settled; see _Settled decisions_). The external
-  review raised it; what is in place is a private bucket with no direct access
-  path, permission-checked downloads, extension and MIME allow-lists and size
-  caps. The accepted exposure is content validation.
+- **No scanner is hosted yet.** v270 built the whole path and left the host a
+  configuration choice, because nothing free runs ClamAV properly: Render sleeps
+  and has no disk, Cloudmersive's free tier caps files at 3.5MB, and
+  VirusTotal's free API bars commercial use and feeds a shared corpus. Fly.io is
+  about $6.70/month. Until `ESH_SCANNER_URL` is set, every file stays
+  `not_scanned` and nothing claims otherwise.
+- **Only ESH evidence is covered.** `virus_scan_state` on `task_attachments`
+  and the goal evidence tables is untouched.
 - **The public dashboard's counts are not a privacy guarantee.** Differencing
   two monthly snapshots of a small population can reveal a single finding's
   timing. Suppression below a threshold is the fix, not redacting more fields.
