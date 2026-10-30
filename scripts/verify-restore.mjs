@@ -94,19 +94,22 @@ function main() {
   console.log(`Before: ${populated.length} of ${tables.length} tables hold data.`);
 
   /*
-   * `auth.users` and `storage.objects` are emptied too.
+   * `auth.users` is emptied too.
    *
-   * The dump carries them — a restore without identities is a database nobody
-   * can sign in to — so leaving them in place turns the restore into a
-   * duplicate-key failure. Truncating `auth.users` cascades through identities,
-   * sessions and refresh tokens, which is what a real recovery does.
+   * The dump carries it — a restore without identities is a database nobody can
+   * sign in to — so leaving it in place turns the restore into a duplicate-key
+   * failure. Truncating it cascades through identities, sessions and refresh
+   * tokens, which is what a real recovery does.
+   *
+   * `storage` is deliberately left alone. Its rows are backed up to their own
+   * file and are not restored here: Supabase owns that schema, a hosted project
+   * runs a newer Storage than the local CLI bundles, and in October 2026 three
+   * columns of difference in `storage.buckets` were enough to fail an otherwise
+   * perfect restore under ON_ERROR_STOP. More to the point, `storage.objects` is
+   * a row per file rather than the file, so restoring it would prove nothing
+   * except that a database can be made to claim evidence it does not have.
    */
-  const list = [
-    ...tables.map((table) => `public.${table}`),
-    'auth.users',
-    'storage.objects',
-    'storage.buckets',
-  ].join(', ');
+  const list = [...tables.map((table) => `public.${table}`), 'auth.users'].join(', ');
   // No RESTART IDENTITY: the auth sequences belong to `supabase_auth_admin`,
   // and the dump carries its own sequence values regardless.
   psql(`truncate ${list} cascade`);
@@ -164,6 +167,8 @@ function main() {
   }
 
   console.log('\nRestore verified: every populated table came back with its full row count.');
+  console.log('This proves `auth` and `public`. It does not prove the `storage` schema, and');
+  console.log('nothing here backs up the files inside the buckets — only the rows naming them.');
   console.log('Local now holds the restored data. `npm run db:reset` returns it to fixtures.');
 }
 
