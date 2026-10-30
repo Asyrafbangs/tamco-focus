@@ -12,7 +12,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(50);
+select plan(53);
 
 create or replace function pg_temp.act_as(p_user_id uuid)
 returns void
@@ -396,6 +396,50 @@ select is(
   public.esh_guest_request_link(null, null, 'nobody.v198@example.com', 'tamco'),
   '{"ok": true}'::jsonb,
   'an unknown address gets the same answer as a known one');
+
+-- ---------------------------------------------------------------------------
+-- The session outlasts a shift, but not the day (§18, v262).
+--
+-- An owner opens the action, walks to the machine, does the work and comes
+-- back with the photograph. Two hours was shorter than that errand, so the one
+-- thing they returned to do began by asking them to go and find an email.
+-- Eight hours is not. Both edges are stated here, not only the one that moved:
+-- the twelve-hour cap is what keeps a verified session from becoming a
+-- standing login on a shared phone, and it is untested if only the idle rule
+-- is asserted.
+-- ---------------------------------------------------------------------------
+
+create or replace function pg_temp.parked_session(p_seed text, p_idle interval, p_life interval)
+returns void
+language sql
+as $$
+  insert into public.esh_guest_sessions
+    (organization_id, principal_id, session_hash, inbox_scope, identity_version,
+     issued_at, last_used_at, absolute_expires_at)
+  select p.organization_id, p.id, focus.esh_secret_hash(pg_temp.secret(p_seed)), true,
+         p.identity_version, now() - p_idle, now() - p_idle, now() + p_life
+    from public.esh_email_principals p
+   where p.id = (select id from ids where name = 'owner');
+$$;
+
+select pg_temp.parked_session('idle-seven', interval '7 hours', interval '5 hours');
+select isnt(
+  (focus.esh_guest_resolve(pg_temp.secret('idle-seven'), false)).id,
+  null,
+  'seven hours away and the owner is still signed in');
+
+select pg_temp.parked_session('idle-nine', interval '9 hours', interval '3 hours');
+select is(
+  (focus.esh_guest_resolve(pg_temp.secret('idle-nine'), false)).id,
+  null,
+  'nine hours away and the session is gone');
+
+-- Used a minute ago, so only the cap can end this one.
+select pg_temp.parked_session('idle-capped', interval '1 minute', interval '-1 minute');
+select is(
+  (focus.esh_guest_resolve(pg_temp.secret('idle-capped'), false)).id,
+  null,
+  'and twelve hours ends a session that has been in constant use');
 
 -- ---------------------------------------------------------------------------
 -- Switching a contact off ends everything at once (FM107).

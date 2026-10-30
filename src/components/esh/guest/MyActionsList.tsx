@@ -34,7 +34,12 @@ export function MyActionsList({ rows }: { rows: OwnerActionRow[] }) {
               <small>
                 {row.place ? `${row.place} · ` : ''}
                 <span className={row.overdue ? 'esh-overdue' : undefined}>{row.dueText}</span>
-                {row.priorityLabel ? ` · ${row.priorityLabel} priority` : ''}
+                {row.priorityLabel ? (
+                  <>
+                    {' · '}
+                    <span className="guest-action-priority">{row.priorityLabel} priority</span>
+                  </>
+                ) : null}
               </small>
             </span>
             <span className={`guest-action-turn${row.turn === 'Owner action' ? ' is-owner' : ''}`}>
