@@ -25,6 +25,7 @@ export interface EshEmailInput {
     | 'owner_reminder'
     | 'escalation'
     | 'review_reminder'
+    | 'effectiveness_due'
     | 'escalation_exhausted'
     | 'owner_reply'
     | 'escalation_reply';
@@ -154,6 +155,18 @@ export function renderEshEmail(input: EshEmailInput): RenderedEmail {
       subject = `Still waiting for review: ${heading}`;
       headline = 'A submission is still waiting for you';
       lead = `${input.ownerEmail ?? 'The Action Owner'} sent version ${input.submissionVersion ?? 1} for verification and nothing has been decided yet. The owner is not being chased while it sits with ESH.`;
+      if (input.findingUrl) links.push({ href: input.findingUrl, label: 'Open the finding' });
+      break;
+    case 'effectiveness_due':
+      subject = `Time to check it held: ${heading}`;
+      headline = 'An effectiveness check is due';
+      /*
+       * v268 - addressed to ESH, never to the named checker. `checker` is free
+       * text, often a supervisor with no contact record, so there is nobody to
+       * write to and no entitlement to write with (section 8).
+       */
+      lead =
+        'This finding was closed on the strength of a correction, and somebody said they would go back and confirm it held. Today is that day. If it did not hold, recording the failure raises a linked finding and leaves this one closed.';
       if (input.findingUrl) links.push({ href: input.findingUrl, label: 'Open the finding' });
       break;
     case 'escalation_exhausted':

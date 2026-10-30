@@ -15933,6 +15933,7 @@ export type Database = {
         Returns: Json
       }
       esh_rollout_status: { Args: never; Returns: Json }
+      esh_run_effectiveness_due: { Args: never; Returns: Json }
       esh_run_followups: { Args: { p_now?: string }; Returns: Json }
       esh_save_finding: {
         Args: {
