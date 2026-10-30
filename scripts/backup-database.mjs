@@ -11,14 +11,28 @@
  * PostgREST would silently drop the audit trail — and the honest fix is to use a
  * mechanism that can carry it, not to weaken the table.
  *
- * Two files per run:
+ * Three files per run:
  *
- *   *-roles-schema.sql   every object: tables, functions, policies, triggers
- *   *-data.sql           every row, in dependency order
+ *   *-schema.sql    every object: tables, functions, policies, triggers
+ *   *-data.sql      every row of `auth` and `public`, in dependency order
+ *   *-storage.sql   the `storage` schema's own rows, separately
  *
  * The schema file is a convenience; `supabase/migrations` remains authoritative
  * and is what a real rebuild applies. The data file is the part that cannot be
- * reconstructed from the repository.
+ * reconstructed from the repository, and is what `restore:verify` proves.
+ *
+ * `storage` is split out because Supabase owns that schema and a hosted project
+ * runs a newer Storage than the local CLI bundles. On 30 October 2026
+ * production's `storage.buckets` had three columns local's did not, so one
+ * INSERT in the middle of a single combined dump failed under ON_ERROR_STOP and
+ * took the entire restore proof down with it — a backup reported unprovable for
+ * a reason that had nothing to do with the data in it. Splitting it means a skew
+ * in a schema we do not own cannot stop us proving the data we do.
+ *
+ * WHAT THIS DOES NOT BACK UP: the files in the buckets. `storage.objects` is a
+ * row per file, not the file. Restoring those rows alone produces a database
+ * that believes evidence exists when the bytes are gone, which is why they are
+ * kept out of the proven file and out of the restore.
  *
  * Backups are written OUTSIDE the repository so one can never be committed.
  */
@@ -90,14 +104,18 @@ function main() {
   const base = join(directory, `tamco-focus-${target.environment}-${stamp}`);
   const schemaFile = `${base}-schema.sql`;
   const dataFile = `${base}-data.sql`;
+  const storageFile = `${base}-storage.sql`;
 
   console.log(`Backing up ${target.environment} (${target.host})…`);
   dump(targetArgs, schemaFile);
-  dump([...targetArgs, '--data-only'], dataFile);
+  dump([...targetArgs, '--data-only', '--schema', 'auth,public'], dataFile);
+  dump([...targetArgs, '--data-only', '--schema', 'storage'], storageFile);
 
-  console.log(`  schema: ${schemaFile}`);
-  console.log(`  data:   ${dataFile}`);
-  console.log('\nNot proven until `npm run restore:verify` has restored it.');
+  console.log(`  schema:  ${schemaFile}`);
+  console.log(`  data:    ${dataFile}`);
+  console.log(`  storage: ${storageFile}`);
+  console.log('\nThe files inside the buckets are not in any of these.');
+  console.log('Not proven until `npm run restore:verify` has restored it.');
 }
 
 main();
