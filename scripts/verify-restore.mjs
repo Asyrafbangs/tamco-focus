@@ -82,10 +82,37 @@ function newestDataDump() {
   return candidates[0];
 }
 
+/**
+ * Which database the dump came from, read off its own name.
+ *
+ * This decides what "proved" can mean. A local dump restored into local has a
+ * baseline: the counts this database held a moment ago. A Production dump
+ * restored into local has none — the two hold different data, and on
+ * 30 October 2026 comparing the two reported twelve tables "short" on a restore
+ * that had in fact loaded perfectly, because the fixtures populate
+ * `goal_milestones` and Production does not. A proof that cries wolf on a good
+ * backup is worse than no proof, so cross-environment runs are checked against
+ * the dump instead.
+ */
+function dumpSource(file) {
+  const match = /tamco-focus-([a-z]+)-\d{4}-/.exec(file.replace(/\\/g, '/').split('/').pop() ?? '');
+  return match?.[1] ?? 'unknown';
+}
+
+/** Every table the dump carries rows for, qualified, in the order it writes them. */
+function tablesInDump(text, schema) {
+  const pattern = new RegExp(`INSERT INTO "(${schema ?? '[a-z_]+'})"\\."([a-z0-9_]+)"`, 'g');
+  const found = new Set();
+  for (const match of text.matchAll(pattern)) found.add(`${match[1]}.${match[2]}`);
+  return [...found].sort();
+}
+
 function main() {
   assertLocal('restore a backup');
 
   const dumpFile = newestDataDump();
+  const source = dumpSource(dumpFile);
+  const dumpText = readFileSync(dumpFile, 'utf8');
   console.log(`Restoring ${dumpFile}\n`);
 
   const tables = applicationTables();
@@ -94,12 +121,15 @@ function main() {
   console.log(`Before: ${populated.length} of ${tables.length} tables hold data.`);
 
   /*
-   * `auth.users` is emptied too.
+   * What to empty is read off the dump, not listed by hand.
    *
-   * The dump carries it — a restore without identities is a database nobody can
-   * sign in to — so leaving it in place turns the restore into a duplicate-key
-   * failure. Truncating it cascades through identities, sessions and refresh
-   * tokens, which is what a real recovery does.
+   * The dump's `auth` rows have to go somewhere empty or the load collides on a
+   * primary key, and the hand-written list was wrong twice for the same reason:
+   * it named `auth.users` and trusted the cascade. `auth.flow_state`,
+   * `auth.mfa_amr_claims` and `auth.sessions` are not all children of `users`,
+   * so a second run against the same dump failed on `flow_state_pkey` — a
+   * backup reported unprovable because the restore target was not actually a
+   * restore target. Whatever the dump writes, this empties.
    *
    * `storage` is deliberately left alone. Its rows are backed up to their own
    * file and are not restored here: Supabase owns that schema, a hosted project
@@ -109,7 +139,9 @@ function main() {
    * a row per file rather than the file, so restoring it would prove nothing
    * except that a database can be made to claim evidence it does not have.
    */
-  const list = [...tables.map((table) => `public.${table}`), 'auth.users'].join(', ');
+  const list = [
+    ...new Set([...tables.map((table) => `public.${table}`), ...tablesInDump(dumpText, 'auth')]),
+  ].join(', ');
   // No RESTART IDENTITY: the auth sequences belong to `supabase_auth_admin`,
   // and the dump carries its own sequence values regardless.
   psql(`truncate ${list} cascade`);
@@ -141,7 +173,7 @@ function main() {
     ],
     {
       encoding: 'utf8',
-      input: readFileSync(dumpFile, 'utf8'),
+      input: dumpText,
       maxBuffer: 256 * 1024 * 1024,
     },
   );
@@ -152,22 +184,56 @@ function main() {
   console.log('Loaded the data dump.\n');
 
   const after = counts(tables);
-  const short = populated
-    .map(([table, expected]) => ({ table, expected, restored: after[table] ?? 0 }))
-    .filter((row) => row.restored < row.expected);
+  const carried = tablesInDump(dumpText, 'public').map((name) => name.replace('public.', ''));
+  const identities = Number(psql('select count(*) from auth.users'));
 
-  console.table(
-    populated.map(([table, expected]) => ({ table, expected, restored: after[table] ?? 0 })),
-  );
+  if (source === 'local') {
+    /*
+     * Same database in and out, so the counts it held a moment ago are a real
+     * baseline and every one of them must come back.
+     */
+    const short = populated
+      .map(([table, expected]) => ({ table, expected, restored: after[table] ?? 0 }))
+      .filter((row) => row.restored < row.expected);
 
-  if (short.length) {
-    console.error('\nRESTORE NOT PROVEN — these tables came back short:');
-    for (const row of short) console.error(`  ${row.table}: ${row.restored}/${row.expected}`);
-    process.exit(1);
+    console.table(
+      populated.map(([table, expected]) => ({ table, expected, restored: after[table] ?? 0 })),
+    );
+
+    if (short.length) {
+      console.error('\nRESTORE NOT PROVEN — these tables came back short:');
+      for (const row of short) console.error(`  ${row.table}: ${row.restored}/${row.expected}`);
+      process.exit(1);
+    }
+    console.log('\nRestore verified: every populated table came back with its full row count.');
+  } else {
+    /*
+     * A dump from somewhere else. There is no baseline here, so the dump is the
+     * baseline: every table it carries an INSERT for must hold rows afterwards,
+     * and identities must exist, or it is a restore nobody can sign in to.
+     *
+     * Checking it the other way round — against what this database happened to
+     * hold before — reported twelve tables "short" on a perfect Production
+     * restore, because the fixtures populate tables Production does not use.
+     */
+    console.table(carried.map((table) => ({ table, restored: after[table] ?? 0 })));
+
+    const missing = carried.filter((table) => (after[table] ?? 0) === 0);
+    if (missing.length || identities === 0) {
+      console.error(`\nRESTORE NOT PROVEN — the dump is from ${source}, and after loading it:`);
+      for (const table of missing) console.error(`  ${table}: carries rows, restored 0`);
+      if (identities === 0) console.error('  auth.users: nobody could sign in to this restore');
+      process.exit(1);
+    }
+    console.log(
+      `\nRestore verified: the ${source} dump loaded without a single error, and all ` +
+        `${carried.length} tables it carries hold rows (${identities} identities).`,
+    );
+    console.log('Row counts are the dump’s, not this database’s previous contents —');
+    console.log(`read the table above as "is this what ${source} looks like?".`);
   }
 
-  console.log('\nRestore verified: every populated table came back with its full row count.');
-  console.log('This proves `auth` and `public`. It does not prove the `storage` schema, and');
+  console.log('\nThis proves `auth` and `public`. It does not prove the `storage` schema, and');
   console.log('nothing here backs up the files inside the buckets — only the rows naming them.');
   console.log('Local now holds the restored data. `npm run db:reset` returns it to fixtures.');
 }

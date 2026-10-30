@@ -83,8 +83,8 @@ overwrites, and Staging may be mid-verification for somebody else.
 The script does the whole loop, because no step alone proves anything:
 
 1. count every table — what should come back
-2. empty every application table, plus `auth.users` — a real restore target.
-   `storage` is left alone, for the reasons above
+2. empty every application table, plus every `auth` table the dump writes to —
+   a real restore target. `storage` is left alone, for the reasons above
 3. confirm it is empty — the emptying actually happened
 4. load the data dump
 5. count again and compare — the proof
@@ -94,12 +94,39 @@ the data API, because `audit_events` revokes DELETE from every role. TRUNCATE by
 the owner is not blocked by those grants and does not fire the immutability
 trigger.
 
-## Proven again, 30 October 2026
+### What counts as proved depends on where the dump came from
 
-The split above was found by running the loop against Production rather than
-assuming it. Re-proved afterwards: all 40 populated tables returned their full
-row counts, and the script now says in as many words what it has and has not
-proved.
+A local dump restored into local has a baseline: the counts this database held a
+moment ago, every one of which must come back. A Production dump restored into
+local has none — the two hold different data. Comparing against the previous
+contents reported twelve tables "short" on a Production restore that had loaded
+perfectly, because the fixtures populate `goal_milestones` and `esh_import_rows`
+and Production does not use them.
+
+So a cross-environment run is checked against the dump instead: it must load
+without a single error, every table it carries an INSERT for must hold rows
+afterwards, and `auth.users` must not be empty — a restore nobody can sign in to
+is not a restore. The counts are printed for a human to read as _is this what
+Production looks like?_, which is a judgement no script can make.
+
+## Proven against Production, 30 October 2026
+
+The first real Production backup. Everything below was found by running the loop
+rather than assuming it, and each one would have reported a perfectly good
+backup as unprovable:
+
+1. `storage.buckets` had three columns the local stack did not — split out, as
+   above.
+2. The baseline was the restore target's old contents rather than the dump —
+   fixed, as above.
+3. The truncate list named `auth.users` and trusted the cascade.
+   `auth.flow_state`, `auth.sessions` and `auth.mfa_amr_claims` are not all its
+   children, so a second run collided on `flow_state_pkey`. The list is now read
+   off the dump: whatever it writes, the loop empties.
+
+Proved afterwards, both ways round: the Production dump loaded without a single
+error with all 69 tables it carries holding rows and 8 identities, and a local
+dump still returns every one of its 40 populated tables at full count.
 
 ## Proven, 11 August 2026
 
