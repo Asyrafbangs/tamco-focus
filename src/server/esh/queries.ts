@@ -381,6 +381,40 @@ export interface FindingDetail {
   departmentName: string | null;
   riskLevel: RiskLevel;
   isRestricted: boolean;
+  /**
+   * v263 — what protects people while this is still open.
+   *
+   * `control` and `notRequiredReason` are mutually exclusive by constraint, and
+   * both being null means nobody has considered the question yet, which is a
+   * third state and not the same as deciding none is needed.
+   */
+  interim: {
+    containment: string | null;
+    control: string | null;
+    owner: string | null;
+    verifiedAt: string | null;
+    verifiedByName: string | null;
+    notRequiredReason: string | null;
+  };
+  /** v267 — the most recent effectiveness check, scheduled or decided. */
+  effectiveness: {
+    id: string;
+    dueOn: string;
+    passCriteria: string;
+    checker: string | null;
+    state: string;
+    decisionNote: string | null;
+    followUpReference: string | null;
+  } | null;
+  /** v265 — what the owner says is stopping them, if anything, right now. */
+  blocker: {
+    id: string;
+    category: string;
+    helpNeeded: string;
+    responsible: string | null;
+    nextDecisionOn: string | null;
+    raisedAt: string;
+  } | null;
   status: FindingStatus;
   /** v209 - an administrative outcome, where one was recorded (§6). */
   resolvedOutcome: string | null;
@@ -393,6 +427,8 @@ export interface FindingDetail {
     title: string;
     requiredOutcome: string | null;
     evidenceInstruction: string | null;
+    /** v266 - the kind of proof ESH will accept, where one was named. */
+    evidenceKind: string | null;
     priority: ActionPriority | null;
     state: ActionState;
     ownerEmail: string | null;
@@ -555,6 +591,7 @@ export async function getFindingDetail(
           ...(outboxResult.data ?? []).map((row) => row.recipient_user_id),
           finding.closed_by,
           finding.reopened_by,
+          finding.interim_verified_by,
         ].filter((id): id is string => Boolean(id)),
       ),
     action
@@ -703,6 +740,32 @@ export async function getFindingDetail(
     (peopleResult.data ?? []).map((row) => [String(row.id), String(row.full_name)]),
   );
 
+  const { data: blockerRow } = action
+    ? await supabase
+        .from('esh_action_blockers')
+        .select('id, category, help_needed, responsible, next_decision_on, raised_at')
+        .eq('action_id', action.id)
+        .is('cleared_at', null)
+        .maybeSingle()
+    : { data: null };
+
+  const { data: checkRow } = action
+    ? await supabase
+        .from('esh_effectiveness_checks')
+        .select('id, due_on, pass_criteria, checker, state, decision_note, follow_up_finding_id')
+        .eq('action_id', action.id)
+        .order('scheduled_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    : { data: null };
+  const { data: followUpRow } = checkRow?.follow_up_finding_id
+    ? await supabase
+        .from('esh_findings')
+        .select('reference')
+        .eq('id', checkRow.follow_up_finding_id)
+        .maybeSingle()
+    : { data: null };
+
   const draftEscalation = Array.isArray(action?.draft_escalation)
     ? (action.draft_escalation as Array<{ level?: number; email?: string }>)
         .filter((entry) => typeof entry?.email === 'string' && typeof entry?.level === 'number')
@@ -722,6 +785,37 @@ export async function getFindingDetail(
     departmentName: (departmentResult.data as { name?: string } | null)?.name ?? null,
     riskLevel: finding.risk_level as RiskLevel,
     isRestricted: Boolean(finding.is_restricted),
+    interim: {
+      containment: finding.immediate_containment ?? null,
+      control: finding.interim_control ?? null,
+      owner: finding.interim_owner ?? null,
+      verifiedAt: finding.interim_verified_at ? String(finding.interim_verified_at) : null,
+      verifiedByName: finding.interim_verified_by
+        ? (nameOf.get(String(finding.interim_verified_by)) ?? 'ESH')
+        : null,
+      notRequiredReason: finding.interim_not_required_reason ?? null,
+    },
+    effectiveness: checkRow
+      ? {
+          id: String(checkRow.id),
+          dueOn: String(checkRow.due_on),
+          passCriteria: String(checkRow.pass_criteria),
+          checker: checkRow.checker ?? null,
+          state: String(checkRow.state),
+          decisionNote: checkRow.decision_note ?? null,
+          followUpReference: (followUpRow as { reference?: string } | null)?.reference ?? null,
+        }
+      : null,
+    blocker: blockerRow
+      ? {
+          id: String(blockerRow.id),
+          category: String(blockerRow.category),
+          helpNeeded: String(blockerRow.help_needed),
+          responsible: blockerRow.responsible ?? null,
+          nextDecisionOn: blockerRow.next_decision_on ?? null,
+          raisedAt: String(blockerRow.raised_at),
+        }
+      : null,
     resolvedOutcome: finding.resolved_outcome ? String(finding.resolved_outcome) : null,
     statusReason: finding.status_reason ? String(finding.status_reason) : null,
     duplicateOfReference: duplicateOf?.reference ? String(duplicateOf.reference) : null,
@@ -734,6 +828,7 @@ export async function getFindingDetail(
           title: String(action.title),
           requiredOutcome: action.required_outcome ?? null,
           evidenceInstruction: action.evidence_instruction ?? null,
+          evidenceKind: action.evidence_kind ?? null,
           priority: (action.priority ?? null) as ActionPriority | null,
           state: action.state as ActionState,
           ownerEmail: action.owner_principal_id
@@ -1327,6 +1422,37 @@ function toClosure(raw: Record<string, unknown> | undefined) {
   };
 }
 
+/** v263 — who is protected while the work is still open. */
+function toProtection(raw: Record<string, unknown> | undefined) {
+  const protection = (raw ?? {}) as Record<string, number>;
+  return {
+    significant: Number(protection.significant ?? 0),
+    unprotected: Number(protection.unprotected ?? 0),
+    unverified: Number(protection.unverified ?? 0),
+    unassessed: Number(protection.unassessed ?? 0),
+  };
+}
+
+/** v264 — each rate with the number of events behind it, never one without. */
+function toResponsiveness(raw: Record<string, unknown> | undefined) {
+  const measured = (value: unknown) => {
+    const row = (value ?? {}) as Record<string, number>;
+    return {
+      counted: Number(row.counted ?? 0),
+      onTime: Number(row.on_time ?? 0),
+      medianHours: Number(row.median_hours ?? 0),
+      waiting: Number(row.waiting ?? 0),
+    };
+  };
+  const source = (raw ?? {}) as Record<string, unknown>;
+  return {
+    firstSubmission: measured(source.first_submission),
+    acceptedSubmission: measured(source.accepted_submission),
+    eshReview: measured(source.esh_review),
+    afterChanges: measured(source.after_changes),
+  };
+}
+
 function toAge(raw: Record<string, unknown> | undefined) {
   const age = (raw ?? {}) as Record<string, number>;
   return {
@@ -1365,11 +1491,14 @@ export async function getDashboard(months = 6): Promise<DashboardData | null> {
     openByRisk: (raw.open_by_risk ?? {}) as Record<string, number>,
     openByAge: toAge(raw.open_by_age as Record<string, unknown>),
     closure: toClosure(raw.closure as Record<string, unknown>),
+    protection: toProtection(raw.protection as Record<string, unknown>),
+    responsiveness: toResponsiveness(raw.responsiveness as Record<string, unknown>),
     monthly: toMonthly(raw.monthly),
     byDepartment: (Array.isArray(raw.by_department) ? raw.by_department : []).map((row) => ({
       name: String((row as Record<string, unknown>).name ?? ''),
       openFindings: Number((row as Record<string, number>).open_findings ?? 0),
       overdue: Number((row as Record<string, number>).overdue ?? 0),
+      unprotected: Number((row as Record<string, number>).unprotected ?? 0),
     })),
   };
 }

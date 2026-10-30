@@ -10,6 +10,10 @@ import {
   changeRisk,
   editFinding,
   reassignAction,
+  recordEffectivenessCheck,
+  scheduleEffectivenessCheck,
+  setInterimControl,
+  verifyInterimControl,
   type EshDecision,
 } from '@/server/esh/verification-actions';
 
@@ -319,6 +323,323 @@ export function EditFindingForm({
         onClick={() => run(() => editFinding({ findingId, ...values }), 'Finding updated.')}
       >
         Save changes
+      </button>
+    </div>
+  );
+}
+
+export interface InterimPosition {
+  containment: string | null;
+  control: string | null;
+  owner: string | null;
+  verifiedAt: string | null;
+  notRequiredReason: string | null;
+}
+
+/**
+ * v263 — what is protecting people until the permanent fix lands.
+ *
+ * Two answers, and the form makes you pick one: there is an interim control,
+ * or none is needed and here is why. The third state — nobody has considered
+ * it — is what an untouched finding is already in, and is the one the register
+ * counts against you.
+ *
+ * Checking the control is a separate button, deliberately. Writing down a
+ * barrier and confirming the barrier exists are different claims, usually made
+ * on different days, and the second is the only one that is evidence.
+ */
+export function InterimControlForm({
+  findingId,
+  position,
+}: {
+  findingId: string;
+  position: InterimPosition;
+}) {
+  const { run, pending, status, clear } = useChange();
+  const [needed, setNeeded] = useState(position.notRequiredReason === null);
+  const [containment, setContainment] = useState(position.containment ?? '');
+  const [control, setControl] = useState(position.control ?? '');
+  const [owner, setOwner] = useState(position.owner ?? '');
+  const [reason, setReason] = useState(position.notRequiredReason ?? '');
+  const changed = control.trim() !== (position.control ?? '').trim();
+
+  return (
+    <div className="esh-action-menu-panel">
+      {status}
+      <p className="form-hint">
+        An owner and a due date do not say whether anybody is safe today. This does.
+      </p>
+
+      <div className="esh-field">
+        <label htmlFor="interim-containment">What was done immediately</label>
+        <textarea
+          id="interim-containment"
+          rows={2}
+          maxLength={2000}
+          value={containment}
+          onChange={(event) => {
+            setContainment(event.target.value);
+            clear();
+          }}
+        />
+      </div>
+
+      <fieldset className="esh-field">
+        <legend>Until the permanent fix</legend>
+        <label className="esh-choice">
+          <input
+            type="radio"
+            name="interim-needed"
+            checked={needed}
+            onChange={() => {
+              setNeeded(true);
+              clear();
+            }}
+          />
+          <span>Something is controlling the hazard</span>
+        </label>
+        <label className="esh-choice">
+          <input
+            type="radio"
+            name="interim-needed"
+            checked={!needed}
+            onChange={() => {
+              setNeeded(false);
+              clear();
+            }}
+          />
+          <span>No interim control is needed</span>
+        </label>
+      </fieldset>
+
+      {needed ? (
+        <div className="form-grid two">
+          <div className="esh-field">
+            <label htmlFor="interim-control">The interim control</label>
+            <textarea
+              id="interim-control"
+              rows={3}
+              maxLength={2000}
+              value={control}
+              onChange={(event) => {
+                setControl(event.target.value);
+                clear();
+              }}
+            />
+          </div>
+          <div className="esh-field">
+            <label htmlFor="interim-owner">Who keeps it in place</label>
+            <input
+              id="interim-owner"
+              maxLength={200}
+              value={owner}
+              onChange={(event) => {
+                setOwner(event.target.value);
+                clear();
+              }}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="esh-field">
+          <label htmlFor="interim-none">Why none is needed</label>
+          <input
+            id="interim-none"
+            maxLength={500}
+            value={reason}
+            onChange={(event) => {
+              setReason(event.target.value);
+              clear();
+            }}
+          />
+        </div>
+      )}
+
+      {needed && changed && position.verifiedAt && (
+        <p className="form-hint" role="status">
+          Saving this clears the check recorded against the control it replaces. The new one has not
+          been checked yet.
+        </p>
+      )}
+
+      <div className="esh-menu-actions">
+        <button
+          type="button"
+          className="btn"
+          disabled={pending}
+          onClick={() =>
+            run(
+              () =>
+                setInterimControl({
+                  findingId,
+                  containment,
+                  control: needed ? control : '',
+                  owner: needed ? owner : '',
+                  notRequiredReason: needed ? '' : reason,
+                }),
+              'Interim position saved.',
+            )
+          }
+        >
+          Save interim position
+        </button>
+        {needed && position.control && !changed && !position.verifiedAt && (
+          <button
+            type="button"
+            className="btn primary"
+            disabled={pending}
+            onClick={() => run(() => verifyInterimControl({ findingId }), 'Recorded as checked.')}
+          >
+            I have checked it is in place
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export interface EffectivenessState {
+  id: string;
+  dueOn: string;
+  passCriteria: string;
+  state: string;
+}
+
+/**
+ * v267 - book somebody to go and look, or record what they found.
+ *
+ * One panel doing both jobs, because they are the same question at two points
+ * in time, and splitting them across two menu items would make the second one
+ * impossible to find three months after anybody thought about the first.
+ */
+export function EffectivenessForm({
+  actionId,
+  check,
+}: {
+  actionId: string;
+  check: EffectivenessState | null;
+}) {
+  const { run, pending, status, clear } = useChange();
+  const [dueOn, setDueOn] = useState('');
+  const [criteria, setCriteria] = useState('');
+  const [checker, setChecker] = useState('');
+  const [note, setNote] = useState('');
+  const waiting = check?.state === 'scheduled' ? check : null;
+
+  if (waiting) {
+    return (
+      <div className="esh-action-menu-panel">
+        {status}
+        <p className="form-hint">
+          Due {waiting.dueOn}. What has to be seen: {waiting.passCriteria}
+        </p>
+        <div className="esh-field">
+          <label htmlFor="effectiveness-note">What was actually found</label>
+          <textarea
+            id="effectiveness-note"
+            rows={3}
+            maxLength={1000}
+            value={note}
+            onChange={(event) => {
+              setNote(event.target.value);
+              clear();
+            }}
+          />
+        </div>
+        <div className="esh-menu-actions">
+          <button
+            type="button"
+            className="btn primary"
+            disabled={pending}
+            onClick={() =>
+              run(
+                () => recordEffectivenessCheck({ checkId: waiting.id, passed: true, note }),
+                'Recorded as holding.',
+              )
+            }
+          >
+            It is still holding
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={pending}
+            onClick={() =>
+              run(
+                () => recordEffectivenessCheck({ checkId: waiting.id, passed: false, note }),
+                'Recorded. A linked finding has been raised.',
+              )
+            }
+          >
+            It is not
+          </button>
+        </div>
+        <p className="form-hint">
+          A failure raises a new finding and links it back. This one stays closed: it was true on
+          the day it was closed, and that is the only record that the fix was once in place.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="esh-action-menu-panel">
+      {status}
+      <p className="form-hint">
+        For the findings worth it. A check on every observation is a backlog of checks, and the
+        first thing an overloaded team stops doing.
+      </p>
+      <div className="form-grid two">
+        <div className="esh-field">
+          <label htmlFor="effectiveness-due">Check it on</label>
+          <input
+            id="effectiveness-due"
+            type="date"
+            value={dueOn}
+            onChange={(event) => {
+              setDueOn(event.target.value);
+              clear();
+            }}
+          />
+        </div>
+        <div className="esh-field">
+          <label htmlFor="effectiveness-who">Who looks</label>
+          <input
+            id="effectiveness-who"
+            maxLength={200}
+            value={checker}
+            onChange={(event) => {
+              setChecker(event.target.value);
+              clear();
+            }}
+          />
+        </div>
+      </div>
+      <div className="esh-field">
+        <label htmlFor="effectiveness-criteria">What they have to see</label>
+        <textarea
+          id="effectiveness-criteria"
+          rows={2}
+          maxLength={1000}
+          value={criteria}
+          onChange={(event) => {
+            setCriteria(event.target.value);
+            clear();
+          }}
+        />
+      </div>
+      <button
+        type="button"
+        className="btn"
+        disabled={pending}
+        onClick={() =>
+          run(
+            () => scheduleEffectivenessCheck({ actionId, dueOn, passCriteria: criteria, checker }),
+            'Check scheduled.',
+          )
+        }
+      >
+        Schedule the check
       </button>
     </div>
   );

@@ -1,6 +1,13 @@
 import Link from 'next/link';
 
-import { AgePanel, ClosurePanel, RiskPanel, TrendPanel } from '@/components/esh/DashboardPanels';
+import {
+  AgePanel,
+  ClosurePanel,
+  ProtectionPanel,
+  ResponsivenessPanel,
+  RiskPanel,
+  TrendPanel,
+} from '@/components/esh/DashboardPanels';
 import { headline } from '@/domain/esh-dashboard';
 import { HeldNoticesRelease } from '@/components/esh/HeldNoticesRelease';
 import { OperationalHealth } from '@/components/esh/OperationalHealth';
@@ -199,8 +206,16 @@ export default async function FindingsOverviewPage({
           */}
           {dashboard && (
             <div className="esh-dash-grid">
+              {/*
+                v263 — protection first. A shrinking backlog beside four
+                critical findings with nothing holding them is not a safety
+                programme going well, and that figure should not be below
+                the ones that flatter it.
+              */}
+              <ProtectionPanel protection={dashboard.protection} />
               <TrendPanel monthly={dashboard.monthly} />
               <ClosurePanel closure={dashboard.closure} />
+              <ResponsivenessPanel facts={dashboard.responsiveness} />
               <RiskPanel openByRisk={dashboard.openByRisk} />
               <AgePanel openByAge={dashboard.openByAge} />
             </div>

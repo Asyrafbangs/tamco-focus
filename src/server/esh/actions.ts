@@ -88,6 +88,7 @@ export async function saveFinding(
     action_title: text(formData, 'action_title'),
     required_outcome: text(formData, 'required_outcome'),
     evidence_instruction: text(formData, 'evidence_instruction'),
+    evidence_kind: text(formData, 'evidence_kind'),
     priority: text(formData, 'priority'),
     owner_email: text(formData, 'owner_email'),
     due_date: text(formData, 'due_date'),

@@ -20,6 +20,36 @@ export interface ClosureFacts {
   medianDays: number;
 }
 
+/**
+ * v263 — whether anybody is protected while the work is still open.
+ *
+ * `unprotected` is significant work where nobody has either verified a control
+ * or decided none is needed; `unverified` is the narrower case of a control
+ * written down that nobody has been to look at. `unassessed` is the triage
+ * queue: findings nobody has graded, which no risk-based figure can see.
+ */
+export interface ProtectionFacts {
+  significant: number;
+  unprotected: number;
+  unverified: number;
+  unassessed: number;
+}
+
+/** v264 — a rate, and the number of events it was drawn from. */
+export interface Measured {
+  counted: number;
+  onTime?: number;
+  medianHours?: number;
+  waiting?: number;
+}
+
+export interface ResponsivenessFacts {
+  firstSubmission: Measured;
+  acceptedSubmission: Measured;
+  eshReview: Measured;
+  afterChanges: Measured;
+}
+
 export interface DashboardData {
   asOf: string;
   openFindings: number;
@@ -29,14 +59,21 @@ export interface DashboardData {
   openByRisk: Record<string, number>;
   openByAge: { under30: number; from30to90: number; over90: number };
   closure: ClosureFacts;
+  protection: ProtectionFacts;
+  responsiveness: ResponsivenessFacts;
   monthly: MonthPoint[];
-  byDepartment: Array<{ name: string; openFindings: number; overdue: number }>;
+  byDepartment: Array<{
+    name: string;
+    openFindings: number;
+    overdue: number;
+    unprotected: number;
+  }>;
 }
 
 /** The public page carries the same figures without the department table. */
 export type PublicDashboardData = Omit<
   DashboardData,
-  'byDepartment' | 'awaitingVerification' | 'oldestOpenDays'
+  'byDepartment' | 'awaitingVerification' | 'oldestOpenDays' | 'protection' | 'responsiveness'
 >;
 
 export const RISK_ORDER = ['critical', 'high', 'medium', 'low', 'not_assessed'] as const;

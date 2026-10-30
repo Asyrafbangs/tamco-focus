@@ -186,6 +186,19 @@ export async function GET(request: Request) {
    * assignments, replies and decisions were never queued as routine.
    */
   try {
+    const { data, error } = await client.rpc('esh_run_effectiveness_due');
+    if (error) throw new Error(error.message);
+    results.push({
+      worker: 'esh_effectiveness_due',
+      ok: true,
+      detail: JSON.stringify(data ?? {}),
+    });
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    results.push({ worker: 'esh_effectiveness_due', ok: false, detail });
+  }
+
+  try {
     const { data, error } = await client.rpc('esh_build_digests', {});
     if (error) throw new Error(error.message);
     results.push({ worker: 'esh_digests', ok: true, detail: JSON.stringify(data ?? {}) });

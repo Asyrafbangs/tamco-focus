@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 
 import { DepartmentChooser } from '@/components/esh/DepartmentChooser';
 import { AttachButtons } from '@/components/esh/EvidenceUploader';
+import { EVIDENCE_KIND_LABELS } from '@/domain/esh-evidence';
 import { evidenceLabel, evidenceProblem, uploadContentType } from '@/domain/esh-evidence';
 import { publicEnv } from '@/lib/env';
 import { finishStaffUpload, startStaffUpload } from '@/server/esh/evidence-actions';
@@ -38,6 +39,7 @@ export interface FindingFormInitial {
   isRestricted: boolean;
   requiredOutcome: string;
   evidenceInstruction: string;
+  evidenceKind: string;
   priority: ActionPriority | '';
   ownerEmail: string;
   dueDate: string;
@@ -172,6 +174,7 @@ export function FindingForm({
     'source_reference',
     'due_time',
     'evidence_instruction',
+    'evidence_kind',
     'reviewer_user_id',
     'risk_level',
   ];
@@ -608,20 +611,44 @@ export function FindingForm({
             )}
           </Field>
         </div>
-        <Field
-          label="Completion evidence"
-          problems={problemsFor('evidence_instruction')}
-          hint="What the owner must send before ESH can verify it. A photo or file is required."
-        >
-          {(props) => (
-            <input
-              name="evidence_instruction"
-              maxLength={400}
-              defaultValue={initial.evidenceInstruction}
-              {...props}
-            />
-          )}
-        </Field>
+        <div className="form-grid two">
+          {/*
+            v266 — the kind of proof beside the sentence describing it. A
+            photograph shows a walkway was cleared and shows nothing about an
+            interlock; saying which before the owner walks to the machine is
+            the difference between evidence and a file.
+          */}
+          <Field
+            label="Kind of evidence"
+            problems={problemsFor('evidence_kind')}
+            hint="What will be accepted. Leave unset if it genuinely does not matter."
+          >
+            {(props) => (
+              <select name="evidence_kind" defaultValue={initial.evidenceKind} {...props}>
+                <option value="">Not specified</option>
+                {Object.entries(EVIDENCE_KIND_LABELS).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </Field>
+          <Field
+            label="Completion evidence"
+            problems={problemsFor('evidence_instruction')}
+            hint="What the owner must send before ESH can verify it. A photo or file is required."
+          >
+            {(props) => (
+              <input
+                name="evidence_instruction"
+                maxLength={400}
+                defaultValue={initial.evidenceInstruction}
+                {...props}
+              />
+            )}
+          </Field>
+        </div>
         <div className="form-grid two">
           <Field
             label="ESH reviewer"

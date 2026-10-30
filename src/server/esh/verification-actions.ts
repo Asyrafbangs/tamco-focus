@@ -219,6 +219,126 @@ export async function changeRisk(input: {
 }
 
 /**
+ * v263 — what protects people until the permanent fix lands.
+ *
+ * The whole position at once, because the parts are not independent: deciding
+ * none is needed has to remove any control already recorded, and recording a
+ * control has to remove that decision. Splitting it into separate saves would
+ * let the record sit, briefly, saying both.
+ */
+export async function setInterimControl(input: {
+  findingId: string;
+  containment?: string;
+  control?: string;
+  owner?: string;
+  notRequiredReason?: string;
+}): Promise<EshDecision> {
+  await requireProfile();
+  const findingId = uuid.safeParse(input.findingId);
+  if (!findingId.success) return { ok: false, message: editProblem('not_found') };
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_set_interim_control', {
+    p_finding_id: findingId.data,
+    p_payload: {
+      immediate_containment: input.containment ?? '',
+      interim_control: input.control ?? '',
+      interim_owner: input.owner ?? '',
+      not_required_reason: input.notRequiredReason ?? '',
+    },
+  });
+  if (error) {
+    console.error(`[esh_set_interim_control] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false, message: editProblem(undefined) };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (!result.ok) return { ok: false, message: editProblem(result.code) };
+  refresh(findingId.data);
+  return { ok: true };
+}
+
+/**
+ * v263 — somebody has been and checked the interim control is working.
+ *
+ * A separate decision from writing it down, because they are separate claims:
+ * one says what should be protecting people, the other says somebody looked.
+ */
+export async function verifyInterimControl(input: { findingId: string }): Promise<EshDecision> {
+  await requireProfile();
+  const findingId = uuid.safeParse(input.findingId);
+  if (!findingId.success) return { ok: false, message: editProblem('not_found') };
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_verify_interim_control', {
+    p_finding_id: findingId.data,
+  });
+  if (error) {
+    console.error(`[esh_verify_interim_control] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false, message: editProblem(undefined) };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (!result.ok) return { ok: false, message: editProblem(result.code) };
+  refresh(findingId.data);
+  return { ok: true };
+}
+
+/** v267 — book somebody to go and look, once the correction has been accepted. */
+export async function scheduleEffectivenessCheck(input: {
+  actionId: string;
+  dueOn: string;
+  passCriteria: string;
+  checker?: string;
+}): Promise<EshDecision> {
+  await requireProfile();
+  const actionId = uuid.safeParse(input.actionId);
+  if (!actionId.success) return { ok: false, message: editProblem('not_found') };
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_schedule_effectiveness_check', {
+    p_action_id: actionId.data,
+    p_due_on: day.safeParse(input.dueOn).success ? input.dueOn : null,
+    p_pass_criteria: String(input.passCriteria ?? ''),
+    p_checker: input.checker?.trim() || null,
+  });
+  if (error) {
+    console.error(`[esh_schedule_effectiveness_check] ${error.message}`);
+    return { ok: false, message: editProblem(undefined) };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (!result.ok) return { ok: false, message: editProblem(result.code) };
+  revalidatePath('/findings');
+  return { ok: true };
+}
+
+/**
+ * v267 — what was found when somebody looked.
+ *
+ * A failure raises a linked finding and leaves the original closure alone:
+ * it was true on the day it was made, and it is the only evidence that the
+ * fix was once in place.
+ */
+export async function recordEffectivenessCheck(input: {
+  checkId: string;
+  passed: boolean;
+  note?: string;
+}): Promise<EshDecision> {
+  await requireProfile();
+  const checkId = uuid.safeParse(input.checkId);
+  if (!checkId.success) return { ok: false, message: editProblem('not_found') };
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_record_effectiveness_check', {
+    p_check_id: checkId.data,
+    p_passed: Boolean(input.passed),
+    p_note: String(input.note ?? ''),
+  });
+  if (error) {
+    console.error(`[esh_record_effectiveness_check] ${error.message}`);
+    return { ok: false, message: editProblem(undefined) };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (!result.ok) return { ok: false, message: editProblem(result.code) };
+  revalidatePath('/findings');
+  return { ok: true };
+}
+
+/**
  * v209 — an outcome that is not a closure (§6); v227 — Cancel, Duplicate or
  * Raised in error.
  *

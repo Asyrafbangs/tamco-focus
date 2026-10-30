@@ -95,6 +95,17 @@ const EDIT_PROBLEMS: Record<string, string> = {
   unchanged: 'Nothing was different, so nothing was changed.',
   invalid: 'Choose one of the listed values.',
   reason_required: 'Say why, in a few words. The change is kept on the record.',
+  // v263 — the interim position.
+  owner_required: 'Name who is responsible for keeping the interim control in place.',
+  both_given: 'Record an interim control, or say none is needed. A finding cannot do both at once.',
+  no_control: 'Write down the interim control before recording that somebody has checked it.',
+  too_long: 'That is longer than the record will hold. Shorten it.',
+  // v267 — the effectiveness check.
+  not_accepted: 'Book the check once the correction has been accepted.',
+  criteria_required: 'Say what the person checking has to see. "Still fine" is not a criterion.',
+  date_invalid: 'Choose a date in the future, within the next three years.',
+  already_scheduled: 'This action already has a check waiting to be done.',
+  note_required: 'A failed check has to say what was actually found.',
 };
 
 export function editProblem(code: string | undefined): string {

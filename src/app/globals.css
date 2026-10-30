@@ -15137,6 +15137,13 @@ span.deadline span.deadline-glyph,
   display: flex;
   flex-direction: column;
 }
+/*
+ * v263 — the source order is instruction, work, record, because that is the
+ * order a phone reads it in and the record was pushing the update box off the
+ * first screen. Desktop keeps the approved v227 arrangement by placing the
+ * three explicitly: context and record stacked in the left column, the
+ * conversation beside them.
+ */
 @media (min-width: 980px) {
   .guest-split {
     grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
@@ -15145,7 +15152,40 @@ span.deadline span.deadline-glyph,
   .guest-context {
     position: sticky;
     top: 84px;
+    grid-column: 1;
+    grid-row: 1;
   }
+  .guest-work {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+  .guest-split > .guest-original {
+    grid-column: 1;
+    grid-row: 2;
+  }
+}
+.guest-interim {
+  border-left-color: var(--amber);
+}
+.guest-interim-owner {
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+}
+.esh-interim p {
+  margin: 0;
+}
+.esh-interim p + p {
+  margin-top: 4px;
+}
+.esh-interim-meta {
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+}
+.esh-menu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 /* v219 — one Submit, and the requests that are not everyday work. */
@@ -16535,4 +16575,20 @@ span.deadline span.deadline-glyph,
   .team-delivered-people a {
     flex: 0 0 auto;
   }
+}
+
+/* v265 — the owner saying what is stopping them, as fields rather than prose. */
+.guest-blocker-fields {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+@media (min-width: 600px) {
+  .guest-blocker-fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.guest-blocker-fields select,
+.guest-blocker-fields input {
+  width: 100%;
 }

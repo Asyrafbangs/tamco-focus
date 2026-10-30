@@ -8,6 +8,8 @@ import {
   ChangePriorityForm,
   ChangeRiskForm,
   EditFindingForm,
+  EffectivenessForm,
+  InterimControlForm,
 } from '@/components/esh/FindingControls';
 import { FindingActionsMenu, type FindingMenuItem } from '@/components/esh/FindingActionsMenu';
 import { OriginalEvidence } from '@/components/esh/OriginalEvidence';
@@ -202,6 +204,7 @@ export default async function FindingPage({
             isRestricted: finding.isRestricted,
             requiredOutcome: finding.action.requiredOutcome ?? '',
             evidenceInstruction: finding.action.evidenceInstruction ?? '',
+            evidenceKind: finding.action.evidenceKind ?? '',
             priority: finding.action.priority ?? '',
             ownerEmail: finding.action.draftOwnerEmail ?? '',
             dueDate: dayOf(finding.action.dueAt),
@@ -287,6 +290,18 @@ export default async function FindingPage({
           departments={departments}
         />
       ),
+    });
+    if (finding.action && finding.action.state === 'accepted') {
+      menu.push({
+        key: 'effectiveness',
+        label: finding.effectiveness?.state === 'scheduled' ? 'Record the check' : 'Check it later',
+        panel: <EffectivenessForm actionId={finding.action.id} check={finding.effectiveness} />,
+      });
+    }
+    menu.push({
+      key: 'interim',
+      label: 'Interim control',
+      panel: <InterimControlForm findingId={finding.id} position={finding.interim} />,
     });
     menu.push({
       key: 'risk',
@@ -412,6 +427,146 @@ function FileList({ files, label }: { files: FindingDetail['originalEvidence']; 
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * v263 — what protects people while this finding is still open.
+ *
+ * It sits above "What was found" rather than inside the folded Full record,
+ * because on a finding that is still open it is the more urgent of the two: a
+ * description of a hazard nobody has contained is a worse thing to read half
+ * of. Silence is called out only where the risk warrants it — a Low finding
+ * with no interim control is usually right, and an alarm there would teach
+ * people to ignore the alarm.
+ */
+function InterimProtection({ finding, timeZone }: { finding: FindingDetail; timeZone: string }) {
+  const open = finding.status === 'new' || finding.status === 'open';
+  const significant = finding.riskLevel === 'high' || finding.riskLevel === 'critical';
+  const { control, owner, containment, verifiedAt, verifiedByName, notRequiredReason } =
+    finding.interim;
+
+  if (!open && !control && !notRequiredReason) return null;
+
+  if (notRequiredReason) {
+    return (
+      <p className="notice neutral compact esh-interim" data-state="not-required">
+        <strong>No interim control needed.</strong> {notRequiredReason}
+      </p>
+    );
+  }
+
+  if (!control) {
+    if (!significant) return null;
+    return (
+      <p className="notice amber esh-interim" data-state="unprotected" role="status">
+        <strong>Nothing is recorded as protecting people while this stays open.</strong> Say what is
+        controlling the hazard, or that none is needed, from the ••• menu.
+      </p>
+    );
+  }
+
+  return (
+    <div
+      className={`notice ${verifiedAt ? 'neutral' : 'amber'} esh-interim`}
+      data-state={verifiedAt ? 'verified' : 'unverified'}
+    >
+      <p>
+        <strong>Until the fix:</strong> {control}
+      </p>
+      <p className="esh-interim-meta">
+        {owner ? `Kept in place by ${owner}. ` : ''}
+        {verifiedAt
+          ? `Checked by ${verifiedByName ?? 'ESH'} on ${new Intl.DateTimeFormat('en-MY', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+              timeZone,
+            }).format(new Date(verifiedAt))}.`
+          : 'Nobody has recorded checking it is in place.'}
+      </p>
+      {containment && <p className="esh-interim-meta">At the time: {containment}</p>}
+    </div>
+  );
+}
+
+/**
+ * v267 - whether anybody has been back to look, and what they found.
+ *
+ * A failure is louder than a closure. "Closed" with a failed check under it is
+ * the most useful sentence this page can say, and burying it in the history
+ * drawer would make the check pointless.
+ */
+function EffectivenessNotice({ finding }: { finding: FindingDetail }) {
+  const check = finding.effectiveness;
+  if (!check || check.state === 'cancelled') return null;
+  if (check.state === 'scheduled') {
+    return (
+      <p className="notice neutral compact esh-interim" data-state="check-scheduled">
+        <strong>Someone checks this on {check.dueOn}.</strong> {check.passCriteria}
+        {check.checker ? ` — ${check.checker}.` : ''}
+      </p>
+    );
+  }
+  if (check.state === 'passed') {
+    return (
+      <p className="notice neutral compact esh-interim" data-state="check-passed">
+        <strong>Checked, and still holding.</strong> {check.decisionNote ?? ''}
+      </p>
+    );
+  }
+  return (
+    <div className="notice amber esh-interim" data-state="check-failed">
+      <p>
+        <strong>The fix did not hold.</strong> {check.decisionNote ?? ''}
+      </p>
+      {check.followUpReference && (
+        <p className="esh-interim-meta">Raised again as {check.followUpReference}.</p>
+      )}
+    </div>
+  );
+}
+
+const BLOCKER_LABELS: Record<string, string> = {
+  materials: 'Waiting for parts or materials',
+  budget: 'Waiting for budget or a purchase order',
+  shutdown: 'Needs a line stop or shutdown window',
+  contractor: 'Waiting for a contractor',
+  technical_decision: 'Needs a technical decision',
+  access: 'Cannot get access to the area',
+  other: 'Something else',
+};
+
+/**
+ * v265 — what the owner says is stopping them.
+ *
+ * On the page rather than only in the thread, because an escalation recipient
+ * arriving at level 2 should not have to read a conversation to discover that
+ * the answer is a purchase order nobody has signed. It is an overlay: the work
+ * is still late if it is late, and nothing here moves a date.
+ */
+function OwnerBlocked({ finding, timeZone }: { finding: FindingDetail; timeZone: string }) {
+  const blocker = finding.blocker;
+  if (!blocker) return null;
+  const day = (value: string) =>
+    new Intl.DateTimeFormat('en-MY', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone,
+    }).format(new Date(value));
+  return (
+    <div className="notice amber esh-interim" data-state="blocked">
+      <p>
+        <strong>The owner is stuck:</strong> {BLOCKER_LABELS[blocker.category] ?? blocker.category}
+      </p>
+      <p>{blocker.helpNeeded}</p>
+      <p className="esh-interim-meta">
+        {blocker.responsible ? `${blocker.responsible} can unstick it. ` : ''}
+        {blocker.nextDecisionOn ? `Next decision expected ${day(blocker.nextDecisionOn)}. ` : ''}
+        Reported {day(blocker.raisedAt)}.
+      </p>
+    </div>
   );
 }
 
@@ -574,6 +729,10 @@ function FindingSummary({
               </span>
             )}
           </p>
+
+          <InterimProtection finding={finding} timeZone={timeZone} />
+          <OwnerBlocked finding={finding} timeZone={timeZone} />
+          <EffectivenessNotice finding={finding} />
 
           <h2 id="esh-detail-finding" className="esh-subheading">
             What was found

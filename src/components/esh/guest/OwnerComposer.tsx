@@ -18,10 +18,25 @@ import {
   type ReadyFile,
 } from '@/server/esh/evidence-actions';
 import {
+  reportBlocker,
   sendOwnerUpdate,
   submitOwnerWork,
   withdrawOwnerSubmission,
 } from '@/server/esh/guest-actions';
+
+/**
+ * v265 — the shapes being stuck actually takes, so escalation gets something
+ * it can resolve instead of another overdue notice.
+ */
+const BLOCKER_CATEGORIES: Array<{ key: string; label: string }> = [
+  { key: 'materials', label: 'Waiting for parts or materials' },
+  { key: 'budget', label: 'Waiting for budget or a purchase order' },
+  { key: 'shutdown', label: 'Needs a line stop or shutdown window' },
+  { key: 'contractor', label: 'Waiting for a contractor' },
+  { key: 'technical_decision', label: 'Needs a technical decision' },
+  { key: 'access', label: 'Cannot get access to the area' },
+  { key: 'other', label: 'Something else' },
+];
 
 /**
  * The owner's composer (§11, §12): a chat bar — attach, write, send — with
@@ -68,6 +83,11 @@ export function OwnerComposer({
   // the deadline: only ESH moves a due date (§14).
   const [askingTime, setAskingTime] = useState(false);
   const [proposedDate, setProposedDate] = useState('');
+  // v265 - being stuck, said as facts. It moves no deadline either.
+  const [blocked, setBlocked] = useState(false);
+  const [category, setCategory] = useState(BLOCKER_CATEGORIES[0]!.key);
+  const [helper, setHelper] = useState('');
+  const [decisionOn, setDecisionOn] = useState('');
   // Naming somebody else is a request too: an owner cannot hand their own
   // work away, or an action could be passed round until it expired (§14).
   const [handingOver, setHandingOver] = useState(false);
@@ -146,6 +166,41 @@ export function OwnerComposer({
           setProblem({ code: result.code, message: ownerMessageProblem(result.code) });
           return;
         }
+        afterSending();
+      } catch {
+        setProblem({ code: 'invalid', message: ownerMessageProblem('invalid') });
+      }
+    });
+  }
+
+  /*
+   * The report and the message together: the facts so ESH and escalation can
+   * act on them, and the owner's own words in the thread so the conversation
+   * does not go silent at the moment it matters most.
+   */
+  function reportStuck() {
+    if (!body.trim()) {
+      setProblem({ code: 'body_required', message: ownerMessageProblem('body_required') });
+      return;
+    }
+    const text = body;
+    startTransition(async () => {
+      try {
+        const result = await reportBlocker({
+          actionId,
+          category,
+          helpNeeded: text,
+          responsible: helper,
+          nextDecisionOn: decisionOn || null,
+        });
+        if (!result.ok) {
+          setProblem({ code: result.code, message: ownerMessageProblem(result.code) });
+          return;
+        }
+        await sendOwnerUpdate({ actionId, body: text, clientKey: key() });
+        setBlocked(false);
+        setHelper('');
+        setDecisionOn('');
         afterSending();
       } catch {
         setProblem({ code: 'invalid', message: ownerMessageProblem('invalid') });
@@ -366,15 +421,63 @@ export function OwnerComposer({
                 >
                   {handingOver ? 'Cancel' : 'Wrong owner'}
                 </button>
+                <button
+                  type="button"
+                  className="btn small ghost"
+                  aria-pressed={blocked}
+                  disabled={pending || askingTime || handingOver}
+                  onClick={() => {
+                    setBlocked((was) => !was);
+                    if (!body.trim()) setBody('I cannot finish this because ');
+                  }}
+                >
+                  {blocked ? 'Cancel' : 'I am stuck'}
+                </button>
               </div>
             </details>
+            {blocked && (
+              <div className="guest-blocker-fields">
+                <div className="esh-field">
+                  <label htmlFor="blocker-category">What is stopping you</label>
+                  <select
+                    id="blocker-category"
+                    value={category}
+                    onChange={(event) => setCategory(event.target.value)}
+                  >
+                    {BLOCKER_CATEGORIES.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="esh-field">
+                  <label htmlFor="blocker-who">Who can unstick it</label>
+                  <input
+                    id="blocker-who"
+                    maxLength={200}
+                    value={helper}
+                    onChange={(event) => setHelper(event.target.value)}
+                  />
+                </div>
+                <div className="esh-field">
+                  <label htmlFor="blocker-when">Next decision expected</label>
+                  <input
+                    id="blocker-when"
+                    type="date"
+                    value={decisionOn}
+                    onChange={(event) => setDecisionOn(event.target.value)}
+                  />
+                </div>
+              </div>
+            )}
             <button
               type="button"
               className="btn primary small"
               disabled={pending || waitingOnFiles || askingTime || handingOver}
-              onClick={submit}
+              onClick={blocked ? reportStuck : submit}
             >
-              Submit for review
+              {blocked ? 'Report this' : 'Submit for review'}
             </button>
           </div>
         </>

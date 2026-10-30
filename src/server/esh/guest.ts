@@ -192,6 +192,8 @@ export interface GuestAction {
     priority: ActionPriority | null;
     requiredOutcome: string | null;
     evidenceInstruction: string | null;
+    /** v266 - the kind of proof, where ESH named one. */
+    evidenceKind: string | null;
     evidenceRule: 'file_required' | 'no_file_exception';
     dueAt: string | null;
     dueIsDateOnly: boolean;
@@ -204,6 +206,10 @@ export interface GuestAction {
     location: string | null;
     department: string | null;
     reportedOn: string | null;
+    /** v263 - what is controlling the hazard until the permanent fix lands. */
+    interimControl: string | null;
+    interimOwner: string | null;
+    interimVerifiedAt: string | null;
   };
   eshContact: { name: string | null; email: string | null };
   messages: ConversationEntry[];
@@ -270,6 +276,7 @@ export async function loadGuestAction(
         priority: (action.priority as ActionPriority | null) ?? null,
         requiredOutcome: (action.required_outcome as string | null) ?? null,
         evidenceInstruction: (action.evidence_instruction as string | null) ?? null,
+        evidenceKind: (action.evidence_kind as string | null) ?? null,
         evidenceRule:
           action.evidence_rule === 'no_file_exception' ? 'no_file_exception' : 'file_required',
         dueAt: (action.due_at as string | null) ?? null,
@@ -283,6 +290,9 @@ export async function loadGuestAction(
         location: (finding.location as string | null) ?? null,
         department: (finding.department as string | null) ?? null,
         reportedOn: (finding.reported_on as string | null) ?? null,
+        interimControl: (finding.interim_control as string | null) ?? null,
+        interimOwner: (finding.interim_owner as string | null) ?? null,
+        interimVerifiedAt: (finding.interim_verified_at as string | null) ?? null,
       },
       eshContact: {
         name: (contact.name as string | null) ?? null,

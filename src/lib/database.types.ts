@@ -1862,6 +1862,101 @@ export type Database = {
           },
         ]
       }
+      esh_action_blockers: {
+        Row: {
+          action_id: string
+          category: string
+          cleared_at: string | null
+          cleared_by: string | null
+          cleared_note: string | null
+          help_needed: string
+          id: string
+          next_decision_on: string | null
+          organization_id: string
+          raised_at: string
+          raised_by_principal_id: string
+          responsible: string | null
+        }
+        Insert: {
+          action_id: string
+          category: string
+          cleared_at?: string | null
+          cleared_by?: string | null
+          cleared_note?: string | null
+          help_needed: string
+          id?: string
+          next_decision_on?: string | null
+          organization_id: string
+          raised_at?: string
+          raised_by_principal_id: string
+          responsible?: string | null
+        }
+        Update: {
+          action_id?: string
+          category?: string
+          cleared_at?: string | null
+          cleared_by?: string | null
+          cleared_note?: string | null
+          help_needed?: string
+          id?: string
+          next_decision_on?: string | null
+          organization_id?: string
+          raised_at?: string
+          raised_by_principal_id?: string
+          responsible?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_action_blockers_cleared_by_fkey"
+            columns: ["cleared_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_action_blockers_cleared_by_fkey"
+            columns: ["cleared_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_action_blockers_cleared_by_fkey"
+            columns: ["cleared_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_action_blockers_cleared_by_fkey"
+            columns: ["cleared_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_action_blockers_cleared_by_fkey"
+            columns: ["cleared_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_action_blockers_organization_id_action_id_fkey"
+            columns: ["organization_id", "action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_finding_actions"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_action_blockers_organization_id_raised_by_principal_id_fkey"
+            columns: ["organization_id", "raised_by_principal_id"]
+            isOneToOne: false
+            referencedRelation: "esh_email_principals"
+            referencedColumns: ["organization_id", "id"]
+          },
+        ]
+      }
       esh_action_escalation_recipients: {
         Row: {
           action_id: string
@@ -2692,6 +2787,184 @@ export type Database = {
           },
         ]
       }
+      esh_effectiveness_checks: {
+        Row: {
+          action_id: string
+          checker: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          due_on: string
+          finding_id: string
+          follow_up_finding_id: string | null
+          id: string
+          organization_id: string
+          pass_criteria: string
+          scheduled_at: string
+          scheduled_by: string
+          state: string
+        }
+        Insert: {
+          action_id: string
+          checker?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          due_on: string
+          finding_id: string
+          follow_up_finding_id?: string | null
+          id?: string
+          organization_id: string
+          pass_criteria: string
+          scheduled_at?: string
+          scheduled_by: string
+          state?: string
+        }
+        Update: {
+          action_id?: string
+          checker?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          due_on?: string
+          finding_id?: string
+          follow_up_finding_id?: string | null
+          id?: string
+          organization_id?: string
+          pass_criteria?: string
+          scheduled_at?: string
+          scheduled_by?: string
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_effectiveness_checks_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_follow_up_finding_id_fkey"
+            columns: ["follow_up_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_register_rows"
+            referencedColumns: ["finding_id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_follow_up_finding_id_fkey"
+            columns: ["follow_up_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_follow_up_finding_id_fkey"
+            columns: ["follow_up_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_export_rows"
+            referencedColumns: ["finding_id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_follow_up_finding_id_fkey"
+            columns: ["follow_up_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_rows"
+            referencedColumns: ["finding_id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_organization_id_action_id_fkey"
+            columns: ["organization_id", "action_id"]
+            isOneToOne: false
+            referencedRelation: "esh_finding_actions"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_organization_id_finding_id_fkey"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_organization_id_finding_id_fkey"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_findings"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_organization_id_finding_id_fkey"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_scheduled_by_fkey"
+            columns: ["scheduled_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_scheduled_by_fkey"
+            columns: ["scheduled_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_scheduled_by_fkey"
+            columns: ["scheduled_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_scheduled_by_fkey"
+            columns: ["scheduled_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_effectiveness_checks_scheduled_by_fkey"
+            columns: ["scheduled_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       esh_email_principals: {
         Row: {
           access_disabled_at: string | null
@@ -3197,6 +3470,7 @@ export type Database = {
           due_is_date_only: boolean
           evidence_exception_reason: string | null
           evidence_instruction: string | null
+          evidence_kind: string | null
           evidence_rule: string
           finding_id: string
           followup_active_from: string | null
@@ -3227,6 +3501,7 @@ export type Database = {
           due_is_date_only?: boolean
           evidence_exception_reason?: string | null
           evidence_instruction?: string | null
+          evidence_kind?: string | null
           evidence_rule?: string
           finding_id: string
           followup_active_from?: string | null
@@ -3257,6 +3532,7 @@ export type Database = {
           due_is_date_only?: boolean
           evidence_exception_reason?: string | null
           evidence_instruction?: string | null
+          evidence_kind?: string | null
           evidence_rule?: string
           finding_id?: string
           followup_active_from?: string | null
@@ -3392,8 +3668,14 @@ export type Database = {
           description: string | null
           duplicate_of_finding_id: string | null
           id: string
+          immediate_containment: string | null
           import_batch_id: string | null
           import_row_id: string | null
+          interim_control: string | null
+          interim_not_required_reason: string | null
+          interim_owner: string | null
+          interim_verified_at: string | null
+          interim_verified_by: string | null
           is_restricted: boolean
           location: string | null
           organization_id: string
@@ -3427,8 +3709,14 @@ export type Database = {
           description?: string | null
           duplicate_of_finding_id?: string | null
           id?: string
+          immediate_containment?: string | null
           import_batch_id?: string | null
           import_row_id?: string | null
+          interim_control?: string | null
+          interim_not_required_reason?: string | null
+          interim_owner?: string | null
+          interim_verified_at?: string | null
+          interim_verified_by?: string | null
           is_restricted?: boolean
           location?: string | null
           organization_id: string
@@ -3462,8 +3750,14 @@ export type Database = {
           description?: string | null
           duplicate_of_finding_id?: string | null
           id?: string
+          immediate_containment?: string | null
           import_batch_id?: string | null
           import_row_id?: string | null
+          interim_control?: string | null
+          interim_not_required_reason?: string | null
+          interim_owner?: string | null
+          interim_verified_at?: string | null
+          interim_verified_by?: string | null
           is_restricted?: boolean
           location?: string | null
           organization_id?: string
@@ -3570,6 +3864,41 @@ export type Database = {
             columns: ["import_batch_id"]
             isOneToOne: false
             referencedRelation: "esh_import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_interim_verified_by_fkey"
+            columns: ["interim_verified_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_findings_interim_verified_by_fkey"
+            columns: ["interim_verified_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_interim_verified_by_fkey"
+            columns: ["interim_verified_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_interim_verified_by_fkey"
+            columns: ["interim_verified_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_findings_interim_verified_by_fkey"
+            columns: ["interim_verified_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -15256,6 +15585,10 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_clear_blocker: {
+        Args: { p_blocker_id: string; p_note: string }
+        Returns: Json
+      }
       esh_current_access: { Args: never; Returns: Json }
       esh_dashboard: { Args: { p_months?: number }; Returns: Json }
       esh_digest_prepare: { Args: { p_outbox_id: string }; Returns: Json }
@@ -15369,6 +15702,17 @@ export type Database = {
       }
       esh_guest_report: {
         Args: { p_live?: boolean; p_run_id: string; p_session: string }
+        Returns: Json
+      }
+      esh_guest_report_blocker: {
+        Args: {
+          p_action_id: string
+          p_category: string
+          p_help_needed: string
+          p_next_decision_on?: string
+          p_responsible?: string
+          p_session: string
+        }
         Returns: Json
       }
       esh_guest_request_link: {
@@ -15534,6 +15878,10 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_record_effectiveness_check: {
+        Args: { p_check_id: string; p_note: string; p_passed: boolean }
+        Returns: Json
+      }
       esh_record_worker_run: {
         Args: { p_detail?: Json; p_ok: boolean; p_worker: string }
         Returns: Json
@@ -15585,6 +15933,7 @@ export type Database = {
         Returns: Json
       }
       esh_rollout_status: { Args: never; Returns: Json }
+      esh_run_effectiveness_due: { Args: never; Returns: Json }
       esh_run_followups: { Args: { p_now?: string }; Returns: Json }
       esh_save_finding: {
         Args: {
@@ -15607,6 +15956,15 @@ export type Database = {
           p_schedule_local_time: string
           p_state: string
           p_timezone: string
+        }
+        Returns: Json
+      }
+      esh_schedule_effectiveness_check: {
+        Args: {
+          p_action_id: string
+          p_checker?: string
+          p_due_on: string
+          p_pass_criteria: string
         }
         Returns: Json
       }
@@ -15643,6 +16001,10 @@ export type Database = {
           p_remove?: boolean
           p_review_reminder_days: number
         }
+        Returns: Json
+      }
+      esh_set_interim_control: {
+        Args: { p_finding_id: string; p_payload: Json }
         Returns: Json
       }
       esh_set_priority: {
@@ -15686,6 +16048,10 @@ export type Database = {
           p_purpose: string
           p_size: number
         }
+        Returns: Json
+      }
+      esh_verify_interim_control: {
+        Args: { p_finding_id: string }
         Returns: Json
       }
       esh_verify_submission: {

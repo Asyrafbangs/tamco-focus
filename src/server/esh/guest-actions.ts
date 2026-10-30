@@ -247,6 +247,43 @@ export async function sendOwnerUpdate(input: {
 }
 
 /**
+ * v265 — what is stopping them, as facts an escalation recipient can act on.
+ *
+ * It changes nothing about the work: no pause, no new deadline, no reminder
+ * skipped. Being stuck is a fact about the job, not a release from it.
+ */
+export async function reportBlocker(input: {
+  actionId: string;
+  category: string;
+  helpNeeded: string;
+  responsible?: string;
+  nextDecisionOn?: string | null;
+}): Promise<{ ok: true } | { ok: false; code: string }> {
+  const actionId = uuid.safeParse(input.actionId);
+  if (!actionId.success) return { ok: false, code: 'not_available' };
+  const secret = await guestSecret();
+  if (!secret) return { ok: false, code: 'no_session' };
+  const { data, error } = await guestClient().rpc('esh_guest_report_blocker', {
+    p_session: secret,
+    p_action_id: actionId.data,
+    p_category: String(input.category ?? ''),
+    p_help_needed: String(input.helpNeeded ?? ''),
+    p_responsible: input.responsible?.trim() || null,
+    p_next_decision_on: /^\d{4}-\d{2}-\d{2}$/.test(input.nextDecisionOn ?? '')
+      ? input.nextDecisionOn
+      : null,
+  });
+  if (error) {
+    console.error(`[esh_guest_report_blocker] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false, code: 'invalid' };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (!result.ok) return { ok: false, code: result.code ?? 'invalid' };
+  revalidatePath(`/respond/actions/${actionId.data}`);
+  return { ok: true };
+}
+
+/**
  * Record that an activated escalation recipient has seen the request. This
  * never changes the action state, owner, due date or submission (§15).
  */
