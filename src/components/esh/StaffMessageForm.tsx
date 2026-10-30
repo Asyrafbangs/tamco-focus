@@ -7,8 +7,10 @@ import { AttachButtons, UploadList, useEvidenceUploads } from '@/components/esh/
 import { MESSAGE_MAX_LENGTH } from '@/domain/esh-guest';
 import { postEshMessage } from '@/server/esh/conversation-actions';
 import {
+  finishStaffSource,
   finishStaffUpload,
   removeStaffUpload,
+  startStaffSource,
   startStaffUpload,
 } from '@/server/esh/evidence-actions';
 
@@ -42,6 +44,8 @@ export function StaffMessageForm({
       }),
     finish: (assetId) => finishStaffUpload({ assetId, findingId }),
     remove: (assetId) => removeStaffUpload({ assetId, findingId }),
+    startSource: (assetId, file) => startStaffSource({ assetId, name: file.name, size: file.size }),
+    finishSource: (assetId, arrived) => finishStaffSource({ assetId, findingId, arrived }),
   });
   const waitingOnFiles = uploads.busy || uploads.unresolved;
 

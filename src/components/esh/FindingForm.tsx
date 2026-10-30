@@ -389,7 +389,7 @@ export function FindingForm({
                 <li key={`${file.name}-${index}`} className="esh-file">
                   <span>
                     <strong>{file.name}</strong>
-                    <small>{evidenceLabel(file.name, file.size)}</small>
+                    <small>{evidenceLabel(file.name, file.size, 'not_scanned')}</small>
                   </span>
                   <button
                     type="button"

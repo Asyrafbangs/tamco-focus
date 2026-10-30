@@ -2,6 +2,7 @@ import { COMPRESS_MAX_EDGE, COMPRESS_QUALITY, shouldCompress } from '@/domain/es
 
 /**
  * v270 — a plant photograph, made small enough to send on one bar of signal.
+ * v271 — and the one that came off the camera, handed back rather than lost.
  *
  * A modern phone camera produces eight to twelve megabytes per picture, and an
  * Action Owner attaching three of them from the factory floor is uploading
@@ -10,22 +11,35 @@ import { COMPRESS_MAX_EDGE, COMPRESS_QUALITY, shouldCompress } from '@/domain/es
  * exactly the same thing: nobody is reading a serial number off the evidence
  * for a blocked walkway.
  *
- * **What this costs.** Re-encoding through a canvas drops the EXIF block, so
- * the camera's own timestamp and any GPS co-ordinates do not survive. For this
- * product that is a fair trade — the record already carries who uploaded the
- * file, when, and against which finding, which is better provenance than a
- * phone clock anybody can change. It would not be a fair trade if the
- * photograph were ever evidence in a dispute about where or when, so this is
- * worth revisiting if the module ever supports incident investigation.
+ * **What re-encoding costs.** Drawing through a canvas drops the EXIF block,
+ * so the camera's own timestamp and any GPS co-ordinates do not survive, and
+ * everything past 2000px is gone. For getting work reported that is a fair
+ * trade. For the one photograph somebody later has to argue about it is the
+ * wrong one, and which photograph that turns out to be is not knowable at the
+ * moment of upload.
+ *
+ * So v271 stops choosing. `copy` is what is sent first and what everybody
+ * views; `source` is the untouched file, which the caller uploads afterwards,
+ * in the background, into the same private bucket. The owner waits for
+ * neither.
  *
  * Anything that cannot be decoded — HEIC on a browser without support, a
- * corrupt file, a PDF — is returned untouched rather than refused. Compression
- * is an optimisation, and an optimisation that loses somebody's evidence is a
- * defect.
+ * corrupt file, a PDF — comes back as the copy with no source beside it,
+ * because there is nothing to preserve: those bytes were never altered.
+ * Compression is an optimisation, and an optimisation that loses somebody's
+ * evidence is a defect.
  */
-export async function compressImage(file: File): Promise<File> {
-  if (!shouldCompress(file.type, file.size)) return file;
-  if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return file;
+export interface StagedFile {
+  /** What goes up first, and what the conversation shows. */
+  copy: File;
+  /** The file as it was chosen, when that is not the same bytes. */
+  source: File | null;
+}
+
+export async function compressImage(file: File): Promise<StagedFile> {
+  const untouched: StagedFile = { copy: file, source: null };
+  if (!shouldCompress(file.type, file.size)) return untouched;
+  if (typeof createImageBitmap !== 'function' || typeof document === 'undefined') return untouched;
 
   try {
     // `from-image` so a portrait photograph does not come out on its side:
@@ -42,7 +56,7 @@ export async function compressImage(file: File): Promise<File> {
     const context = canvas.getContext('2d');
     if (!context) {
       bitmap.close();
-      return file;
+      return untouched;
     }
     context.drawImage(bitmap, 0, 0, width, height);
     bitmap.close();
@@ -50,14 +64,22 @@ export async function compressImage(file: File): Promise<File> {
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob(resolve, 'image/jpeg', COMPRESS_QUALITY),
     );
-    if (!blob || blob.size >= file.size) return file;
+    /*
+     * A re-encode that saved nothing is not worth having, and the database
+     * refuses a source file that is not larger than its copy anyway — the two
+     * rules are the same rule, so the one that runs first says so here.
+     */
+    if (!blob || blob.size >= file.size) return untouched;
 
-    return new File([blob], renameToJpeg(file.name), {
-      type: 'image/jpeg',
-      lastModified: file.lastModified,
-    });
+    return {
+      copy: new File([blob], renameToJpeg(file.name), {
+        type: 'image/jpeg',
+        lastModified: file.lastModified,
+      }),
+      source: file,
+    };
   } catch {
-    return file;
+    return untouched;
   }
 }
 

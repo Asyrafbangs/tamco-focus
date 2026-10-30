@@ -9,6 +9,7 @@ import {
   evidenceProblem,
   safeEvidenceName,
   sniffEvidenceType,
+  sourceNote,
   uploadContentType,
 } from '@/domain/esh-evidence';
 import { submitProblems } from '@/domain/esh-guest';
@@ -110,8 +111,37 @@ describe('v199 — evidence files', () => {
     expect(EVIDENCE_ACCEPT).not.toContain('.exe');
   });
 
-  it('never calls a file clean', () => {
-    expect(evidenceLabel('after.jpg', 1_258_291)).toBe('JPG · 1.2 MB · Not scanned');
+  it('says what a scanner found, and nothing when it does not know', () => {
+    expect(evidenceLabel('after.jpg', 1_258_291, 'not_scanned')).toBe('JPG · 1.2 MB · Not scanned');
+    // v270 made these real. 'clean' reads as "Scanned", never "Clean": a
+    // scanner finding nothing is not the promise the stronger word makes.
+    expect(evidenceLabel('after.jpg', 1_258_291, 'clean')).toBe('JPG · 1.2 MB · Scanned');
+    expect(evidenceLabel('after.jpg', 1_258_291, 'unavailable')).toBe(
+      'JPG · 1.2 MB · Scan unavailable',
+    );
+    // A state nobody recognises is reported as the one answer that cannot
+    // mislead, rather than echoed at somebody.
+    expect(evidenceLabel('after.jpg', 1_258_291, 'something-new')).toBe(
+      'JPG · 1.2 MB · Not scanned',
+    );
+    /*
+     * And the owner's pages, which are served by a procedure that does not
+     * return the scan state: silence, not the stale "Not scanned" v199 wrote
+     * when nothing could scan anything.
+     */
+    expect(evidenceLabel('after.jpg', 1_258_291)).toBe('JPG · 1.2 MB');
+  });
+
+  it('says whether the picture on screen is the picture that was taken', () => {
+    expect(sourceNote('kept', 9_123_456)).toBe('Full-size original kept · 8.7 MB');
+    expect(sourceNote('unavailable')).toBe('Compressed copy only — the original never arrived');
+    /*
+     * Silence for a file nobody compressed. The stored object *is* what was
+     * chosen, and saying "original kept" about every PDF would train people
+     * to read the phrase as decoration and miss it where it matters.
+     */
+    expect(sourceNote('none')).toBeNull();
+    expect(sourceNote(undefined)).toBeNull();
   });
 
   it('says what a submission is missing, in one sentence', () => {

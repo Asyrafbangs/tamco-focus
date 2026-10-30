@@ -3265,6 +3265,13 @@ export type Database = {
           shared_from_asset_id: string | null
           shared_operation_id: string | null
           size_bytes: number | null
+          source_file_name: string | null
+          source_kept_at: string | null
+          source_object_key: string | null
+          source_sha256: string | null
+          source_size_bytes: number | null
+          source_started_at: string | null
+          source_state: string
           state: string
           uploader_kind: string
           uploader_principal_id: string | null
@@ -3294,6 +3301,13 @@ export type Database = {
           shared_from_asset_id?: string | null
           shared_operation_id?: string | null
           size_bytes?: number | null
+          source_file_name?: string | null
+          source_kept_at?: string | null
+          source_object_key?: string | null
+          source_sha256?: string | null
+          source_size_bytes?: number | null
+          source_started_at?: string | null
+          source_state?: string
           state?: string
           uploader_kind: string
           uploader_principal_id?: string | null
@@ -3323,6 +3337,13 @@ export type Database = {
           shared_from_asset_id?: string | null
           shared_operation_id?: string | null
           size_bytes?: number | null
+          source_file_name?: string | null
+          source_kept_at?: string | null
+          source_object_key?: string | null
+          source_sha256?: string | null
+          source_size_bytes?: number | null
+          source_started_at?: string | null
+          source_state?: string
           state?: string
           uploader_kind?: string
           uploader_principal_id?: string | null
@@ -15705,6 +15726,16 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_guest_record_source: {
+        Args: {
+          p_asset_id: string
+          p_ok: boolean
+          p_session: string
+          p_sha256: string
+          p_size: number
+        }
+        Returns: Json
+      }
       esh_guest_remove_upload: {
         Args: { p_asset_id: string; p_session: string }
         Returns: Json
@@ -15756,6 +15787,19 @@ export type Database = {
           p_asset_id: string
           p_operation_key: string
           p_session: string
+        }
+        Returns: Json
+      }
+      esh_guest_source_target: {
+        Args: { p_asset_id: string; p_session: string }
+        Returns: Json
+      }
+      esh_guest_start_source: {
+        Args: {
+          p_asset_id: string
+          p_name: string
+          p_session: string
+          p_size: number
         }
         Returns: Json
       }
@@ -15889,6 +15933,15 @@ export type Database = {
       }
       esh_record_effectiveness_check: {
         Args: { p_check_id: string; p_note: string; p_passed: boolean }
+        Returns: Json
+      }
+      esh_record_source: {
+        Args: {
+          p_asset_id: string
+          p_ok: boolean
+          p_sha256: string
+          p_size: number
+        }
         Returns: Json
       }
       esh_record_worker_run: {
@@ -16056,6 +16109,10 @@ export type Database = {
           p_exceptions: Json
           p_working_weekdays: number[]
         }
+        Returns: Json
+      }
+      esh_start_source: {
+        Args: { p_asset_id: string; p_name: string; p_size: number }
         Returns: Json
       }
       esh_start_upload: {

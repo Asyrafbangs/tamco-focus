@@ -26,6 +26,8 @@ export interface ScanSummary {
   infected: number;
   unavailable: number;
   skipped: boolean;
+  /** Why nothing ran, when nothing ran. */
+  reason?: 'not_configured' | 'no_token';
 }
 
 interface ClaimedFile {
@@ -34,6 +36,8 @@ interface ClaimedFile {
   name: string;
   type: string | null;
   size: number | null;
+  /** v271 - whether this is the camera's own file rather than the copy. */
+  source?: boolean;
 }
 
 const BUCKET = 'finding-evidence';
@@ -43,9 +47,10 @@ const SCAN_TIMEOUT_MS = 20_000;
 
 export async function runEshScanWorker(
   client: SupabaseClient,
-  options: { scannerUrl?: string; limit?: number } = {},
+  options: { scannerUrl?: string; token?: string; limit?: number } = {},
 ): Promise<ScanSummary> {
   const scannerUrl = options.scannerUrl ?? process.env.ESH_SCANNER_URL ?? '';
+  const token = options.token ?? process.env.ESH_SCANNER_TOKEN ?? '';
   const empty: ScanSummary = {
     claimed: 0,
     clean: 0,
@@ -53,7 +58,28 @@ export async function runEshScanWorker(
     unavailable: 0,
     skipped: true,
   };
-  if (!scannerUrl) return empty;
+  if (!scannerUrl) return { ...empty, reason: 'not_configured' };
+
+  /*
+   * v271 - a scanner reached over the internet must be ours.
+   *
+   * Every byte of somebody's evidence is POSTed to this URL. An endpoint with
+   * no shared secret in front of it is an open scanning service for anyone who
+   * learns the address, and a place to send site photographs by accident if
+   * the variable is ever mistyped. So a remote scanner without a token is a
+   * misconfiguration the worker refuses rather than a default it tolerates --
+   * the files stay `not_scanned`, which is true, and the log says why.
+   *
+   * A scanner on the loopback interface needs no token: nothing outside the
+   * machine can reach it, and this is how it runs in development.
+   */
+  if (!token && !isLoopback(scannerUrl)) {
+    console.error(
+      '[esh-scan] ESH_SCANNER_URL is set to a remote host but ESH_SCANNER_TOKEN is empty; ' +
+        'refusing to send evidence to an unauthenticated scanner',
+    );
+    return { ...empty, reason: 'no_token' };
+  }
 
   const { data, error } = await client.rpc('esh_scan_claim', { p_limit: options.limit ?? 20 });
   if (error) {
@@ -70,15 +96,26 @@ export async function runEshScanWorker(
   };
 
   for (const file of files) {
-    const verdict = await scanOne(client, scannerUrl, file);
+    const verdict = await scanOne(client, scannerUrl, token, file);
     summary[verdict] += 1;
   }
   return summary;
 }
 
+/** Localhost, by any of its spellings, and nothing that merely looks like it. */
+function isLoopback(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.replace(/^\[|\]$/g, '').toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+  } catch {
+    return false;
+  }
+}
+
 async function scanOne(
   client: SupabaseClient,
   scannerUrl: string,
+  token: string,
   file: ClaimedFile,
 ): Promise<'clean' | 'infected' | 'unavailable'> {
   let verdict: 'clean' | 'infected' | 'unavailable' = 'unavailable';
@@ -96,6 +133,7 @@ async function scanOne(
       headers: {
         'Content-Type': file.type ?? 'application/octet-stream',
         'X-File-Name': encodeURIComponent(file.name),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: bytes,
       signal: AbortSignal.timeout(SCAN_TIMEOUT_MS),

@@ -1,5 +1,6 @@
 import { AcceptHandover } from '@/components/esh/AcceptHandover';
 import { AcceptProposedDate } from '@/components/esh/AcceptProposedDate';
+import { EvidenceSource } from '@/components/esh/EvidenceSource';
 import { EVIDENCE_IMAGE_TYPES, evidenceLabel } from '@/domain/esh-evidence';
 import {
   conversationDay,
@@ -130,9 +131,10 @@ export function Conversation({
                           )}
                           <span>
                             <strong>{file.name}</strong>
-                            <small>{evidenceLabel(file.name, file.size)}</small>
+                            <small>{evidenceLabel(file.name, file.size, file.scan)}</small>
                           </span>
                         </a>
+                        <EvidenceSource file={file} base={fileBase} />
                       </li>
                     ))}
                   </ul>

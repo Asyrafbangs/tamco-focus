@@ -22,6 +22,7 @@ import { VerifyPanel } from '@/components/esh/VerifyPanel';
 import { FindingForm } from '@/components/esh/FindingForm';
 import { StaffMessageForm } from '@/components/esh/StaffMessageForm';
 import { activityLabel, humanActivity } from '@/domain/esh-activity';
+import { EvidenceSource } from '@/components/esh/EvidenceSource';
 import { EVIDENCE_IMAGE_TYPES, evidenceLabel } from '@/domain/esh-evidence';
 import { nextActor } from '@/domain/esh-next-actor';
 import { VERIFICATION_METHOD_LABELS, type VerificationMethod } from '@/domain/esh-verification';
@@ -430,9 +431,10 @@ function FileList({ files, label }: { files: FindingDetail['originalEvidence']; 
             )}
             <span>
               <strong>{file.name}</strong>
-              <small>{evidenceLabel(file.name, file.size)}</small>
+              <small>{evidenceLabel(file.name, file.size, file.scan)}</small>
             </span>
           </a>
+          <EvidenceSource file={file} base="/findings/files" />
         </li>
       ))}
     </ul>

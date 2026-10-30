@@ -31,6 +31,18 @@ export type StartUpload =
 
 export type FinishUpload = { ok: true; file: ReadyFile } | { ok: false; message: string };
 
+/**
+ * v271 — the second upload: the file as it came off the camera, kept beside
+ * the compressed copy that was sent.
+ *
+ * Nothing the browser is told here reaches a person. It happens after the
+ * file has attached and often after the message has gone, so there is no
+ * screen left to put a message on; the record itself says whether an original
+ * was preserved, and that is what ESH reads. A failure is therefore a
+ * boolean, not a sentence.
+ */
+export type StartSource = { ok: true; path: string; token: string } | { ok: false };
+
 const START_PROBLEMS: Record<string, string> = {
   no_session: 'Your access on this device has ended. Get a new link to add files.',
   not_available: 'Files can no longer be added here.',
@@ -66,6 +78,35 @@ async function signed(result: {
   const upload = await signedUploadFor(result.object_key);
   if (!upload.ok) return { ok: false as const, message: 'The file could not be added. Try again.' };
   return { ok: true as const, assetId: result.asset_id, path: upload.path, token: upload.token };
+}
+
+async function signedSource(result: {
+  ok?: boolean;
+  code?: string;
+  object_key?: string;
+}): Promise<StartSource> {
+  if (!result.ok || !result.object_key) return { ok: false };
+  const upload = await signedUploadFor(result.object_key);
+  if (!upload.ok) return { ok: false };
+  return { ok: true, path: upload.path, token: upload.token };
+}
+
+/**
+ * What arrived in the source object, or null if it should not be kept.
+ *
+ * The same inspection an ordinary upload gets, for the same reason: the
+ * browser said this was the camera's own file, and the browser is not
+ * trusted. `inspectUpload` deletes anything that is not what its name claims,
+ * so a refused source file leaves nothing in the bucket -- and the asset is
+ * then recorded as having no original rather than a bad one.
+ */
+async function keptSource(
+  objectKey: string,
+  name: string,
+): Promise<{ size: number; sha256: string } | null> {
+  const inspection = await inspectUpload(objectKey, name);
+  if (!inspection.ok) return null;
+  return { size: inspection.size, sha256: inspection.sha256 };
 }
 
 // ---------------------------------------------------------------------------
@@ -143,10 +184,61 @@ export async function removeOwnerUpload(input: { assetId: string }): Promise<{ o
     p_session: secret,
     p_asset_id: assetId.data,
   });
-  const result = (data ?? {}) as { ok?: boolean; object_key?: string };
+  const result = (data ?? {}) as { ok?: boolean; object_key?: string; source_object_key?: string };
   if (error || !result.ok) return { ok: false };
   if (result.object_key) await removeObject(result.object_key);
+  // v271 - and the source file with it. A dropped draft that leaves its
+  // original behind leaves bytes nothing points at and nobody can reach.
+  if (result.source_object_key) await removeObject(result.source_object_key);
   return { ok: true };
+}
+
+export async function startOwnerSource(input: {
+  assetId: string;
+  name: string;
+  size: number;
+}): Promise<StartSource> {
+  const assetId = uuid.safeParse(input.assetId);
+  const secret = await guestSecret();
+  if (!assetId.success || !secret) return { ok: false };
+  const name = safeEvidenceName(String(input.name ?? ''));
+  if (evidenceProblem(name, Number(input.size))) return { ok: false };
+  const { data, error } = await guestClient().rpc('esh_guest_start_source', {
+    p_session: secret,
+    p_asset_id: assetId.data,
+    p_name: name,
+    p_size: Number(input.size),
+  });
+  if (error) {
+    console.error(`[esh_guest_start_source] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false };
+  }
+  return signedSource((data ?? {}) as Parameters<typeof signedSource>[0]);
+}
+
+export async function finishOwnerSource(input: {
+  assetId: string;
+  arrived: boolean;
+}): Promise<{ ok: boolean }> {
+  const assetId = uuid.safeParse(input.assetId);
+  const secret = await guestSecret();
+  if (!assetId.success || !secret) return { ok: false };
+  const client = guestClient();
+  const target = await client.rpc('esh_guest_source_target', {
+    p_session: secret,
+    p_asset_id: assetId.data,
+  });
+  const found = (target.data ?? {}) as { ok?: boolean; object_key?: string; name?: string };
+  if (target.error || !found.ok || !found.object_key || !found.name) return { ok: false };
+  const kept = input.arrived ? await keptSource(found.object_key, found.name) : null;
+  const { error } = await client.rpc('esh_guest_record_source', {
+    p_session: secret,
+    p_asset_id: assetId.data,
+    p_ok: kept !== null,
+    p_size: (kept?.size ?? null) as number,
+    p_sha256: (kept?.sha256 ?? null) as string,
+  });
+  return { ok: !error };
 }
 
 // ---------------------------------------------------------------------------
@@ -238,9 +330,67 @@ export async function removeStaffUpload(input: {
   if (!assetId.success) return { ok: false };
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc('esh_remove_upload', { p_asset_id: assetId.data });
-  const result = (data ?? {}) as { ok?: boolean; object_key?: string };
+  const result = (data ?? {}) as { ok?: boolean; object_key?: string; source_object_key?: string };
   if (error || !result.ok) return { ok: false };
   if (result.object_key) await removeObject(result.object_key);
+  if (result.source_object_key) await removeObject(result.source_object_key);
   if (uuid.safeParse(input.findingId).success) revalidatePath(`/findings/${input.findingId}`);
   return { ok: true };
+}
+
+export async function startStaffSource(input: {
+  assetId: string;
+  name: string;
+  size: number;
+}): Promise<StartSource> {
+  await requireProfile();
+  const assetId = uuid.safeParse(input.assetId);
+  if (!assetId.success) return { ok: false };
+  const name = safeEvidenceName(String(input.name ?? ''));
+  if (evidenceProblem(name, Number(input.size))) return { ok: false };
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_start_source', {
+    p_asset_id: assetId.data,
+    p_name: name,
+    p_size: Number(input.size),
+  });
+  if (error) {
+    console.error(`[esh_start_source] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false };
+  }
+  return signedSource((data ?? {}) as Parameters<typeof signedSource>[0]);
+}
+
+export async function finishStaffSource(input: {
+  assetId: string;
+  findingId: string;
+  arrived: boolean;
+}): Promise<{ ok: boolean }> {
+  await requireProfile();
+  const assetId = uuid.safeParse(input.assetId);
+  if (!assetId.success) return { ok: false };
+  const supabase = await createSupabaseServerClient();
+  // Read as the person: the policy shows them their own upload and nobody
+  // else's, and the procedure refuses an asset they did not upload anyway.
+  const { data: asset } = await supabase
+    .from('esh_evidence_assets')
+    .select('source_object_key, source_file_name, source_state')
+    .eq('id', assetId.data)
+    .maybeSingle();
+  if (!asset?.source_object_key || !asset.source_file_name || asset.source_state !== 'pending') {
+    return { ok: false };
+  }
+  const kept = input.arrived
+    ? await keptSource(asset.source_object_key, asset.source_file_name)
+    : null;
+  const { error } = await supabase.rpc('esh_record_source', {
+    p_asset_id: assetId.data,
+    p_ok: kept !== null,
+    p_size: (kept?.size ?? null) as number,
+    p_sha256: (kept?.sha256 ?? null) as string,
+  });
+  if (!error && uuid.safeParse(input.findingId).success) {
+    revalidatePath(`/findings/${input.findingId}`);
+  }
+  return { ok: !error };
 }

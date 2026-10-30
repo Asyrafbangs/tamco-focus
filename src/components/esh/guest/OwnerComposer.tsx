@@ -12,8 +12,10 @@ import {
   useEvidenceUploads,
 } from '@/components/esh/EvidenceUploader';
 import {
+  finishOwnerSource,
   finishOwnerUpload,
   removeOwnerUpload,
+  startOwnerSource,
   startOwnerUpload,
   type ReadyFile,
 } from '@/server/esh/evidence-actions';
@@ -121,6 +123,9 @@ export function OwnerComposer({
       start: (file) => startOwnerUpload({ actionId, name: file.name, size: file.size }),
       finish: (assetId) => finishOwnerUpload({ assetId }),
       remove: (assetId) => removeOwnerUpload({ assetId }),
+      startSource: (assetId, file) =>
+        startOwnerSource({ assetId, name: file.name, size: file.size }),
+      finishSource: (assetId, arrived) => finishOwnerSource({ assetId, arrived }),
     },
     readyItems(drafts),
   );

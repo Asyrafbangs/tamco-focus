@@ -3,12 +3,15 @@
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 
+import { EvidenceSource } from '@/components/esh/EvidenceSource';
 import { EVIDENCE_IMAGE_TYPES, evidenceLabel } from '@/domain/esh-evidence';
 import type { EvidenceFile } from '@/domain/esh-guest';
 import { AttachButtons, UploadList, useEvidenceUploads } from '@/components/esh/EvidenceUploader';
 import {
+  finishStaffSource,
   finishStaffUpload,
   removeStaffUpload,
+  startStaffSource,
   startStaffUpload,
 } from '@/server/esh/evidence-actions';
 
@@ -42,6 +45,9 @@ export function OriginalEvidence({
         }),
       finish: (assetId) => finishStaffUpload({ assetId, findingId }),
       remove: (assetId) => removeStaffUpload({ assetId, findingId }),
+      startSource: (assetId, file) =>
+        startStaffSource({ assetId, name: file.name, size: file.size }),
+      finishSource: (assetId, arrived) => finishStaffSource({ assetId, findingId, arrived }),
     },
     [],
     { dropWhenReady: true, onReady: () => router.refresh() },
@@ -69,9 +75,10 @@ export function OriginalEvidence({
                 )}
                 <span>
                   <strong>{file.name}</strong>
-                  <small>{evidenceLabel(file.name, file.size)}</small>
+                  <small>{evidenceLabel(file.name, file.size, file.scan)}</small>
                 </span>
               </a>
+              <EvidenceSource file={file} base="/findings/files" />
               {canChange && (
                 <button
                   type="button"

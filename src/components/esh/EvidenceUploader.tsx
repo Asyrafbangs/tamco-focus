@@ -12,7 +12,12 @@ import {
   uploadContentType,
 } from '@/domain/esh-evidence';
 import { publicEnv } from '@/lib/env';
-import type { FinishUpload, ReadyFile, StartUpload } from '@/server/esh/evidence-actions';
+import type {
+  FinishUpload,
+  ReadyFile,
+  StartSource,
+  StartUpload,
+} from '@/server/esh/evidence-actions';
 
 const BUCKET = 'finding-evidence';
 
@@ -24,12 +29,21 @@ export interface UploadItem {
   message: string | null;
   assetId: string | null;
   file: File | null;
+  /** v271 - the file as it was chosen, when what we sent was a copy of it. */
+  source: File | null;
 }
 
 export interface UploaderApi {
   start: (file: File) => Promise<StartUpload>;
   finish: (assetId: string) => Promise<FinishUpload>;
   remove: (assetId: string) => Promise<{ ok: boolean }>;
+  /**
+   * v271 - keeping the source file. Optional: a surface that does not offer
+   * it simply sends the copy, and the record says no original was kept rather
+   * than implying one was.
+   */
+  startSource?: (assetId: string, file: File) => Promise<StartSource>;
+  finishSource?: (assetId: string, arrived: boolean) => Promise<{ ok: boolean }>;
 }
 
 /** Items from files already uploaded and not yet sent (a reload keeps them). */
@@ -42,6 +56,7 @@ export function readyItems(files: ReadyFile[]): UploadItem[] {
     message: null,
     assetId: file.id,
     file: null,
+    source: null,
   }));
 }
 
@@ -66,7 +81,38 @@ export function useEvidenceUploads(
     setItems((current) => current.map((item) => (item.key === key ? { ...item, ...patch } : item)));
   }
 
-  async function run(key: string, file: File) {
+  function storageFor() {
+    return createClient(
+      publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+      publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    ).storage.from(BUCKET);
+  }
+
+  /**
+   * v271 - the source file, afterwards.
+   *
+   * Deliberately not awaited by anything the person is waiting on. The copy
+   * has already attached and they may well have sent the message by now; this
+   * is eight more megabytes going up in its own time, and if the signal dies
+   * the record says the original never arrived rather than pretending it did.
+   */
+  async function keepSource(assetId: string, source: File) {
+    if (!api.startSource || !api.finishSource) return;
+    try {
+      const started = await api.startSource(assetId, source);
+      if (!started.ok) return;
+      const sent = await storageFor().uploadToSignedUrl(started.path, started.token, source, {
+        contentType: uploadContentType(source.name),
+      });
+      await api.finishSource(assetId, !sent.error);
+    } catch {
+      // Nothing to tell anybody: there is no screen left to tell. The row
+      // stays 'pending' and the worker writes it off after an hour.
+    }
+  }
+
+  async function run(key: string, file: File, source: File | null) {
     update(key, { status: 'uploading', message: null });
     const problem = evidenceProblem(file.name, file.size);
     if (problem) {
@@ -79,11 +125,7 @@ export function useEvidenceUploads(
         update(key, { status: 'failed', message: started.message });
         return;
       }
-      const storage = createClient(
-        publicEnv.NEXT_PUBLIC_SUPABASE_URL,
-        publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        { auth: { persistSession: false, autoRefreshToken: false } },
-      ).storage.from(BUCKET);
+      const storage = storageFor();
       const sent = await storage.uploadToSignedUrl(started.path, started.token, file, {
         contentType: uploadContentType(file.name),
       });
@@ -103,6 +145,7 @@ export function useEvidenceUploads(
         update(key, { status: 'failed', message: finished.message, assetId: null });
         return;
       }
+      if (source) void keepSource(finished.file.id, source);
       if (options.dropWhenReady) {
         setItems((current) => current.filter((item) => item.key !== key));
       } else {
@@ -133,30 +176,33 @@ export function useEvidenceUploads(
         files: 0,
         bytes: 0,
       });
-    const fresh = list.map((file) => {
+    const fresh = list.map(({ copy, source }) => {
       counter.current += 1;
-      const tooMuch = evidenceAdditionProblem(staged, file.size);
+      const tooMuch = evidenceAdditionProblem(staged, copy.size);
       if (!tooMuch) {
         staged.files += 1;
-        staged.bytes += file.size;
+        staged.bytes += copy.size;
       }
       return {
         key: `new-${counter.current}`,
-        name: file.name,
-        size: file.size,
+        name: copy.name,
+        size: copy.size,
         status: tooMuch ? ('failed' as const) : ('uploading' as const),
         message: tooMuch,
         assetId: null,
-        file,
+        file: copy,
+        source,
       };
     });
     setItems((current) => [...current, ...fresh]);
-    for (const item of fresh) if (item.status === 'uploading') void run(item.key, item.file);
+    for (const item of fresh) {
+      if (item.status === 'uploading') void run(item.key, item.file, item.source);
+    }
   }
 
   function retry(key: string) {
     const item = items.find((entry) => entry.key === key);
-    if (item?.file) void run(key, item.file);
+    if (item?.file) void run(key, item.file, item.source);
   }
 
   async function remove(key: string) {
@@ -198,7 +244,7 @@ export function UploadList({
                 ? 'Uploading…'
                 : item.status === 'failed'
                   ? item.message
-                  : `${evidenceLabel(item.name, item.size)} · Ready to send`}
+                  : `${evidenceLabel(item.name, item.size, 'not_scanned')} · Ready to send`}
             </small>
           </span>
           <span className="esh-upload-actions">

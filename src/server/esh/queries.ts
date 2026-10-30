@@ -620,7 +620,13 @@ export async function getFindingDetail(
         }),
     supabase
       .from('esh_evidence_assets')
-      .select('id, original_name, content_type, size_bytes, purpose, message_id, created_at')
+      // One literal, long: supabase-js infers the row type from the string
+      // itself, and a concatenation widens it to `string` and loses every
+      // column name.
+      // prettier-ignore
+      .select(
+        'id, original_name, content_type, size_bytes, purpose, message_id, created_at, scan_state, source_state, source_size_bytes',
+      )
       .eq('finding_id', findingId)
       .eq('state', 'ready')
       .order('created_at'),
@@ -684,13 +690,27 @@ export async function getFindingDetail(
     size: Number(row.size_bytes ?? 0),
     purpose: String(row.purpose),
     messageId: row.message_id ? String(row.message_id) : null,
+    scan: String(row.scan_state ?? 'not_scanned'),
+    sourceState: String(row.source_state ?? 'none'),
+    sourceBytes: row.source_size_bytes ? Number(row.source_size_bytes) : undefined,
   }));
   const fileOf = new Map(evidence.map((file) => [file.id, file]));
-  const toFile = ({ id, name, type, size }: (typeof evidence)[number]): EvidenceFile => ({
+  const toFile = ({
     id,
     name,
     type,
     size,
+    scan,
+    sourceState,
+    sourceBytes,
+  }: (typeof evidence)[number]): EvidenceFile => ({
+    id,
+    name,
+    type,
+    size,
+    scan,
+    sourceState,
+    sourceBytes,
   });
   const pending = (submissionsResult.data ?? []).find((row) => row.state === 'pending') ?? null;
   const pendingId = pending ? String(pending.id) : null;

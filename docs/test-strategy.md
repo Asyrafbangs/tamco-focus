@@ -106,6 +106,31 @@ historical authorship. The real-stack integration test repeats the RLS boundary 
 transaction. Playwright verifies the consolidated All / Registered users / Email-link contacts
 directory, independent module controls and contact access operations at desktop and mobile widths.
 
+## v271 source-file and scanning evidence
+
+- pgTAP runs every scanning assertion against a file that has been **sent**, which is the only kind
+  there will ever be. That is the fixture v270 lacked: it attached files with no `message_id`, so
+  eleven assertions passed over a feature that raised an exception on its first production row.
+  Restoring v199's guard makes the whole file unrunnable, which is the proof it was broken.
+- The guard's remaining job is asserted on the same row: a sent file still cannot be marked
+  `removed`, and its name still cannot be changed. Quarantine is asserted as the one state move
+  that is allowed, on a sent file, which is where it has to work.
+- The source-file lifecycle is proved in order — pending, not claimable while pending, kept with
+  its own size beside the copy's, the scan reset because these are not bytes anybody has looked at,
+  and the queue then handing over the source object rather than the copy. A source no larger than
+  its copy is refused, as is ESH attaching one to an owner's photograph, as is anybody without
+  Finding access.
+- Unit tests hold the two ways the worker could quietly do harm: calling something clean that
+  nothing looked at (a 504, and a 200 carrying no JSON, both record `unavailable`), and sending
+  evidence to an unauthenticated host. The second asserts the negative — `fetch` is never called —
+  because the failure would be bytes leaving, not a wrong answer.
+- Playwright does the compression in a real browser, because a canvas re-encode cannot be asserted
+  from Node without asserting something other than what ships. It generates a 1.7MB PNG, watches the
+  owner attach it, and proves the copy is a tenth of the size, the original follows without the
+  owner waiting, ESH is told and can fetch exactly `BIG.byteLength` bytes back, and somebody without
+  Finding access gets the same 404 for the original as for the copy. Raising the compression
+  threshold so nothing compresses fails both tests.
+
 ## v227 one-screen-one-job evidence
 
 - pgTAP (13) proves: editing an open finding records before and after and refuses an unchanged
