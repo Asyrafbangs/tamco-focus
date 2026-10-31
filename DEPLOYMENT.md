@@ -41,7 +41,7 @@ the end-to-end job runs there specifically because it is the last chance.
 1. Write a **forward** migration. Never edit one that has been applied.
 2. `npm run db:reset` locally — it rebuilds from migrations alone, so if the
    change is not in a migration it does not exist.
-3. `npm run verify` — all 16 gates.
+3. `npm run verify` — all 17 gates, including the backup guards.
 4. Push; CI applies the migrations to a fresh Postgres and runs RLS and
    integration against them.
 5. Apply to Staging: `supabase db push` against the Staging project. Verify.

@@ -11,7 +11,7 @@
  * PostgREST would silently drop the audit trail — and the honest fix is to use a
  * mechanism that can carry it, not to weaken the table.
  *
- * Three files per run:
+ * A complete run directory contains:
  *
  *   *-schema.sql    every object: tables, functions, policies, triggers
  *   *-data.sql      every row of `auth` and `public`, in dependency order
@@ -29,20 +29,21 @@
  * a reason that had nothing to do with the data in it. Splitting it means a skew
  * in a schema we do not own cannot stop us proving the data we do.
  *
- * WHAT THIS DOES NOT BACK UP: the files in the buckets. `storage.objects` is a
- * row per file, not the file. Restoring those rows alone produces a database
- * that believes evidence exists when the bytes are gone, which is why they are
- * kept out of the proven file and out of the restore.
+ *   storage-manifest.json and objects/  private bucket bytes and their hashes
  *
  * Backups are written OUTSIDE the repository so one can never be committed.
  */
 
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { randomBytes } from 'node:crypto';
+
+import { createClient } from '@supabase/supabase-js';
 
 import { resolveEnvironment } from './lib/environment.mjs';
+import { assertOutsideRepository, backupStorage } from './lib/storage-backup.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -66,7 +67,30 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
  */
 function dumpTarget(environment) {
   const explicit = process.env.SUPABASE_DB_URL;
-  if (explicit) return ['--db-url', explicit];
+  if (explicit) {
+    // A wrong DB URL beside the right Storage URL would create a plausible but
+    // unusable mixed-project backup. Check identity without printing the URL.
+    let parsed;
+    try {
+      parsed = new URL(explicit);
+    } catch {
+      throw new Error('SUPABASE_DB_URL is not a valid connection URL.');
+    }
+    const localHost = ['127.0.0.1', 'localhost', '::1'].includes(parsed.hostname);
+    if ((environment === 'local') !== localHost) {
+      throw new Error('Database URL and declared Storage environment disagree.');
+    }
+    if (environment !== 'local') {
+      const projectRef = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname.split('.')[0];
+      const databaseRef = parsed.hostname.startsWith('db.')
+        ? parsed.hostname.split('.')[1]
+        : decodeURIComponent(parsed.username).split('.')[1];
+      if (!projectRef || databaseRef !== projectRef) {
+        throw new Error('Database URL and Storage URL do not identify the same project.');
+      }
+    }
+    return ['--db-url', explicit];
+  }
 
   if (environment === 'local') {
     return ['--db-url', 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'];
@@ -89,19 +113,46 @@ function dump(args, outputFile) {
     { cwd: repoRoot, stdio: 'pipe', encoding: 'utf8', env: process.env },
   );
   if (result.status !== 0) {
-    throw new Error(`supabase db dump failed:\n${result.stderr || result.stdout}`);
+    // CLI diagnostics can repeat --db-url, which may contain a password.
+    throw new Error(
+      'supabase db dump failed; inspect the CLI locally without sharing credentials.',
+    );
   }
 }
 
-function main() {
+function storageClient(target) {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY is required to back up private storage.');
+  // The same positively identified URL drives the environment check and Storage API.
+  return createClient(target.url, key, { auth: { persistSession: false } });
+}
+
+function assertLinkedTarget(targetArgs, target) {
+  if (!targetArgs.includes('--linked')) return;
+  const ref = readFileSync(join(repoRoot, 'supabase', '.temp', 'project-ref'), 'utf8').trim();
+  const host = new URL(target.url).hostname;
+  if (!ref || host !== `${ref}.supabase.co`) {
+    throw new Error('Linked database and Supabase Storage URL do not identify the same project.');
+  }
+}
+
+async function main() {
   const target = resolveEnvironment();
   const targetArgs = dumpTarget(target.environment);
+  assertLinkedTarget(targetArgs, target);
+  const client = storageClient(target);
 
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
   const directory = process.env.TAMCO_BACKUP_DIR ?? join(repoRoot, '..', 'tamco-focus-backups');
+  assertOutsideRepository(directory, repoRoot);
   mkdirSync(directory, { recursive: true });
+  assertOutsideRepository(realpathSync(directory), realpathSync(repoRoot));
 
-  const base = join(directory, `tamco-focus-${target.environment}-${stamp}`);
+  const name = `tamco-focus-${target.environment}-${stamp}-${randomBytes(3).toString('hex')}`;
+  const runDirectory = join(directory, `${name}.incomplete`);
+  const completeDirectory = join(directory, name);
+  mkdirSync(runDirectory, { mode: 0o700 });
+  const base = join(runDirectory, name);
   const schemaFile = `${base}-schema.sql`;
   const dataFile = `${base}-data.sql`;
   const storageFile = `${base}-storage.sql`;
@@ -110,12 +161,15 @@ function main() {
   dump(targetArgs, schemaFile);
   dump([...targetArgs, '--data-only', '--schema', 'auth,public'], dataFile);
   dump([...targetArgs, '--data-only', '--schema', 'storage'], storageFile);
+  const manifest = await backupStorage(client, runDirectory);
+  renameSync(runDirectory, completeDirectory);
 
-  console.log(`  schema:  ${schemaFile}`);
-  console.log(`  data:    ${dataFile}`);
-  console.log(`  storage: ${storageFile}`);
-  console.log('\nThe files inside the buckets are not in any of these.');
+  console.log(`  complete run: ${completeDirectory}`);
+  console.log(`  private storage objects copied: ${manifest.count}`);
   console.log('Not proven until `npm run restore:verify` has restored it.');
 }
 
-main();
+main().catch((error) => {
+  console.error(`Backup incomplete: ${error.message}`);
+  process.exitCode = 1;
+});
