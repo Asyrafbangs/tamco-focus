@@ -24,10 +24,13 @@ need a decision.
 | ------------ | --------------------------------------------------------------------------------- |
 | Branch       | `main` @ `e4bee94`, in sync with `origin/main`                                    |
 | Open work    | `behavioural-fixture-assertions` @ `d66296f` (v256)                               |
-| Migrations   | 174; `local` == `remote` through `20261001001000`. **None created in v233–v256.** |
+| Migrations   | 184; `local` == `remote` through `20261030004000` (v271), verified 30 October.    |
 | Schema drift | None. Type diff is 48 lines, all `__InternalSupabase` and parenthesis formatting. |
 | Local seed   | 9 users, 52 tasks. Waiting view renders 20 rows.                                  |
-| Production   | Live, untouched by this work. No `db push`, no remote reset.                      |
+| Production   | v269-v271 applied 30 October. Checked against a fresh schema dump, not the CLI's  |
+|              | word: the sent-file constraint admits `rejected`, the source columns and their    |
+|              | CHECK are present, and `esh_scan_claim` carries the stale-source sweep.           |
+|              | `ESH_SCANNER_URL` is unset, so nothing is scanned and every file says so.         |
 
 ### Validation last run (4 October)
 
