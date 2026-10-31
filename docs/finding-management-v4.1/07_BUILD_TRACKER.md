@@ -1,16 +1,16 @@
 # TAMCO Finding Management v4.1 — Build and Release Tracker
 
-> S0 is in review; no stage is approved and no production implementation is claimed by the v4.1 package or this baseline report.
+> The user approved local-only Stage 1 testing on 31 October 2026. This does not approve hosted staging, Production deployment, public QR intake or live email rollout.
 
-| Stage                 | Done | PR / commit             | CI incl. browser    | Staging demo | Migration deployed | Approved by |
-| --------------------- | ---- | ----------------------- | ------------------- | ------------ | ------------------ | ----------- |
-| S0 Baseline           | [ ]  | Draft PR #49; `030bf19` | [x] run 41179525074 | N/A          | N/A                | Pending     |
-| S1 UI/nav             | [ ]  | —                       | [ ]                 | [ ]          | N/A unless needed  | —           |
-| S2 QR intake          | [ ]  | —                       | [ ]                 | [ ]          | [ ]                | —           |
-| S3 Taxonomy/links     | [ ]  | —                       | [ ]                 | [ ]          | [ ]                | —           |
-| S4 Patterns           | [ ]  | —                       | [ ]                 | [ ]          | [ ]                | —           |
-| S5 Workflow hardening | [ ]  | —                       | [ ]                 | [ ]          | if needed          | —           |
-| S6 Pilot/rollout      | [ ]  | —                       | [ ]                 | [ ]          | checked            | —           |
+| Stage                 | Done | PR / commit            | CI incl. browser                                  | Staging demo | Migration deployed | Approved by                 |
+| --------------------- | ---- | ---------------------- | ------------------------------------------------- | ------------ | ------------------ | --------------------------- |
+| S0 Baseline           | [ ]  | PR #49; rebased on #50 | [x] run 41179525074; current branch rerun pending | Local only   | N/A                | User: local testing, 31 Oct |
+| S1 UI/nav             | [ ]  | —                      | [ ]                                               | [ ]          | N/A unless needed  | —                           |
+| S2 QR intake          | [ ]  | —                      | [ ]                                               | [ ]          | [ ]                | —                           |
+| S3 Taxonomy/links     | [ ]  | —                      | [ ]                                               | [ ]          | [ ]                | —                           |
+| S4 Patterns           | [ ]  | —                      | [ ]                                               | [ ]          | [ ]                | —                           |
+| S5 Workflow hardening | [ ]  | —                      | [ ]                                               | [ ]          | if needed          | —                           |
+| S6 Pilot/rollout      | [ ]  | —                      | [ ]                                               | [ ]          | checked            | —                           |
 
 ## Decisions requiring human ownership before relevant rollout
 
@@ -26,10 +26,10 @@
 
 ## Change record
 
-| Date       | Stage  | What changed                                                                                                  | Why                                                                   | Tests                                                                                                                                                                                    | Decision / remaining risk                                                 |
-| ---------- | ------ | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| 2026-10-30 | Design | v4.1 concept and source handoff only                                                                          | Practical three-page ecosystem with real email-owner engine preserved | Standalone prototype screenshots and smoke checks (see test report)                                                                                                                      | No backend implementation or production authorization included            |
-| 2026-10-31 | S0     | Local baseline drafted; fresh Production backup restore-proven; eight fixture-only desktop/mobile screenshots | Reconcile package with v271 and establish gates before UI changes     | Local 17/17; 354 saved/restored object hashes; baseline captures 2/2 and 2/2; S0 run 41179525074 and backup run 41180345379 each passed all three jobs, 626 browser passed / 155 skipped | Documented Staging project absent; current target and S0 approval pending |
+| Date       | Stage  | What changed                                                                                                  | Why                                                                   | Tests                                                                                                                                                                                    | Decision / remaining risk                                                              |
+| ---------- | ------ | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| 2026-10-30 | Design | v4.1 concept and source handoff only                                                                          | Practical three-page ecosystem with real email-owner engine preserved | Standalone prototype screenshots and smoke checks (see test report)                                                                                                                      | No backend implementation or production authorization included                         |
+| 2026-10-31 | S0     | Local baseline drafted; fresh Production backup restore-proven; eight fixture-only desktop/mobile screenshots | Reconcile package with v271 and establish gates before UI changes     | Local 17/17; 354 saved/restored object hashes; baseline captures 2/2 and 2/2; S0 run 41179525074 and backup run 41180345379 each passed all three jobs, 626 browser passed / 155 skipped | User approved local-only testing for S1; rebase and current branch CI still to confirm |
 
 ## Stage handover snippet (fill for each PR)
 

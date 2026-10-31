@@ -17,8 +17,9 @@ approved visual concept with fictional data, not evidence of implemented code.
   did not alter the application UI or schema. Stage 0 is draft PR #49. Its
   dispatched full workflow run 41179525074 passed all three jobs at `030bf19`,
   including the on-demand browser suite (626 passed, 155 intentionally skipped).
-  Subsequent report/tracker edits are documentation only; S0 still requires a
-  deployment target decision and approval.
+  Subsequent report/tracker edits are documentation only. The user approved
+  local-only testing for S1 on 31 October; current-branch CI after stacking
+  Stage 0 on the backup branch remains to be confirmed before S0 closes.
 - Backup draft PR #50 is published. Its dispatched full workflow run
   41180345379 passed static, database/RLS/integration and on-demand browser
   jobs at `8f13d37` (626 passed, 155 intentionally skipped). Its later
@@ -81,6 +82,9 @@ the fallback and forbids Preview from connecting to Production. This is the
 last documented state, not a current infrastructure inspection. An authorized
 operator must confirm whether Staging has since been provisioned or approve a
 specific local-only demonstration path before S1's deployment gate is judged.
+The user chose the local-only path for Stage 1 testing on 31 October 2026;
+there is no permission to use a hosted Preview or Production as the test
+database. A hosted Staging project remains unverified.
 The repository does not prove the current deployed commit, environment
 variables, scanner service, email transport, QR policy or rollout permission.
 The Production migration claim is corroborated only for the v271 schema
@@ -90,8 +94,8 @@ captures above show the current implementation.
 
 ## S0 gate and next action
 
-S0 remains unchecked in `07_BUILD_TRACKER.md`. Both the backup and Stage 0
-dispatched browser CI runs passed. Before S1, confirm and approve the documented Staging target or its
-local-only fallback, and record the current deployment configuration through
-permitted non-Production sources or authorized operator evidence. No schema or
-v4.1 application feature changed here.
+S0 remains unchecked in `07_BUILD_TRACKER.md` until the rebased Stage 0 branch
+passes its full dispatched workflow. The backup and original Stage 0 browser
+runs passed; local-only Stage 1 testing is approved. Current hosted deployment
+configuration remains unverified, so no hosted demo or Production rollout is
+authorized. No schema or v4.1 application feature changed here.

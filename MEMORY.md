@@ -53,7 +53,7 @@ surfaces in one codebase:
 
 ## 2. Current status
 
-The Production evidence backup is restore-proven. The authorized user ran it on 31 October; the saved manifest has 354 objects (349 task attachments, 5 finding evidence). The agent checked every saved byte hash, restored all 354 objects to isolated local Storage, downloaded them and matched sizes and SHA-256. The Production data dump loaded 69 populated tables and 8 identities locally. `npm run db:reset` returned local to fixtures with exit 0. Full unpiped `npm run verify` passed 17/17. Backup PR #50 is ready for review; separate Stage 0 PR #49 remains draft. Each passed all three jobs in a dispatched workflow, including the on-demand browser suite (626 passed, 155 intentionally skipped). Stage 0 still needs its deployment target and approval decision.
+The Production evidence backup is restore-proven. The authorized user ran it on 31 October; the saved manifest has 354 objects (349 task attachments, 5 finding evidence). The agent checked every saved byte hash, restored all 354 objects to isolated local Storage, downloaded them and matched sizes and SHA-256. The Production data dump loaded 69 populated tables and 8 identities locally. `npm run db:reset` returned local to fixtures with exit 0. Full unpiped `npm run verify` passed 17/17. Backup PR #50 is ready for review; Stage 0 PR #49 is stacked on it. Each passed all three jobs in a dispatched workflow on its original implementation commit (626 browser cases passed, 155 intentionally skipped). The user approved local-only Stage 1 testing on 31 October. Stage 0 awaits full CI on its rebased branch before its gate closes.
 
 **Deployed and complete:** v262 (owner screens on a phone, 8h idle / 12h maximum
 guest session) · v263–v267 (interim controls, who is actually slow, blockers,
@@ -65,7 +65,7 @@ v271 (**fixed v270, which was inert**, and keeps the camera's own file).
 
 | Risk                                                            | Severity |
 | --------------------------------------------------------------- | -------- |
-| Stage 0 deployment target and approval remain pending           | Medium   |
+| Hosted Staging remains unverified; S1 testing is local only     | Medium   |
 | Vercel `ATTACHMENT_ALLOWED_MIME` / `EMAIL_TRANSPORT` unverified | Medium   |
 | No scanner hosted (honest: files read "Not scanned")            | Low      |
 | Public dashboard differencing                                   | Low      |
@@ -75,7 +75,7 @@ v271 (**fixed v270, which was inert**, and keeps the camera's own file).
 ## 3. Next steps, in priority order
 
 1. **Complete backup PR #50 review.** Local recovery and dispatched CI passed; the PR is ready for review and unmerged. Its ten backup guards run in the existing CI unit step without a workflow-file change.
-2. **Finish v4.1 Stage 0 gate.** Draft PR #49 has the baseline/delta report, package tracker and eight fixture-only desktop/mobile captures; dispatched CI passed. `DEPLOYMENT.md` names Vercel Preview with `tamco-focus-staging`, while `MIGRATION_STATUS.md` last records that Staging project absent and local Supabase as fallback. Confirm the current target and obtain S0 approval before S1.
+2. **Finish v4.1 Stage 0 gate.** PR #49 has the baseline/delta report, package tracker and eight fixture-only desktop/mobile captures. The user approved local-only Stage 1 testing; no hosted or Production deployment is approved. Confirm dispatched CI on the rebased Stage 0 branch, then begin S1 in its own branch/PR.
 3. **Host the scanner** — a decision and a card, not engineering. Cloud Run
    scaling to zero is ≈$0/month if the signature databases are baked into the
    image *and that image is rebuilt weekly*; Fly.io always-on is ≈$13/month at
@@ -142,9 +142,9 @@ bulk UI, rollout not yet. See `PROJECT_PROGRESS.md` → _Settled decisions_.
 
 ## 5. Last agent handover note
 
-Current branch: `codex/evidence-storage-backup`, published implementation
-commit `8f13d37`, based on `origin/main` @ `2591c27`. A follow-up checkpoint
-commit may advance HEAD.
+Current branch: `codex/finding-v41-stage0`, stacked on backup branch
+`codex/evidence-storage-backup` @ `1de7ef0`. Check current HEAD and PR state;
+the approval/checkpoint commit will advance HEAD.
 Check current HEAD and PR/workflow state before continuing.
 `PROJECT_PROGRESS.md` is the current-state authority.
 
@@ -203,13 +203,14 @@ Vercel variables or staging readiness from this dump.
 The v4.1 package at
 `D:/Download/TAMCO_Finding_Management_v4.1_Claude_Complete_Build_Package.zip`
 was read in numeric order and its illustrative screenshots inspected. The
-Stage 0 baseline/delta report, tracker and eight local-fixture captures are
-committed as `030bf19` in `codex/finding-v41-stage0` at
+Stage 0 baseline/delta report, tracker and eight local-fixture captures were
+originally committed as `030bf19` in `codex/finding-v41-stage0` at
 `C:/Users/User/.codex/visualizations/2026/10/31/01a18fb9-87ef-7f11-aeba-43d8967c29d9/v41-review/stage0-worktree`.
 Draft PR: `https://github.com/Asyrafbangs/tamco-focus/pull/49`. Full workflow:
 `https://github.com/Asyrafbangs/tamco-focus/actions/runs/41179525074`
-passed all three jobs at `030bf19`, including the browser suite. S0 is **not
-approved**; deployment/staging target remains open. No v4.1 feature is
-implemented. Do not deploy Production
+passed all three jobs at `030bf19`, including the browser suite. The branch
+is now stacked on backup PR #50; its new HEAD requires a dispatched full run.
+The user approved local-only Stage 1 testing, but the S0 gate stays unchecked
+until that run passes. No v4.1 feature is implemented. Do not deploy Production
 or publish QR intake before the package's security, operational and approval
 gates pass.
