@@ -7,7 +7,8 @@ Factual and verified against the repository, not against conversation claims.
 removed; what was durable in it is below. Do not reintroduce a second
 current-state document.
 
-**Last verified:** 31 October 2026 · **main** @ `1816684`
+**Last verified:** 31 October 2026 · written against **main** @ `9c7f6ee`
+(provenance, not the current head — run `git log --oneline -1` for that)
 
 ---
 
@@ -27,7 +28,7 @@ or a product decision.
 
 | Area         | State                                                                             |
 | ------------ | --------------------------------------------------------------------------------- |
-| Branch       | `main` @ `1816684`, in sync with `origin/main`                                    |
+| Branch       | `main`, in sync with `origin/main`. Confirm with `git log --oneline -1`.          |
 | Open work    | None. Two stale `codex/*` branches from August are unmerged and unowned.          |
 | Migrations   | 184; `local` == `remote` through `20261030004000` (v271), verified 30 October.    |
 | Schema drift | None. Type diff is 48 lines, all `__InternalSupabase` and parenthesis formatting. |

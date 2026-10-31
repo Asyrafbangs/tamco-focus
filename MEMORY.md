@@ -14,8 +14,13 @@ deliberately short.
 > environment facts that have each already produced a wrong conclusion here.
 > Read §27 before running anything.
 
-**Last verified:** 31 October 2026 · `main` @ `1816684` · production at
-migration `20261030004000` (v271)
+**Last verified:** 31 October 2026 · production at migration
+`20261030004000` (v271) · documents written against `main` @ `9c7f6ee`
+
+A commit hash in a document goes stale the moment the document is merged, so
+treat that one as provenance, not as the current head. For the head, run
+`git log --oneline -1`. The migration version above is the claim worth
+checking, and `AGENTS.md` §27 says how to check it against production.
 
 ---
 
