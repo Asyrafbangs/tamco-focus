@@ -8,7 +8,7 @@ removed; what was durable in it is below. Do not reintroduce a second
 current-state document.
 
 **Last verified:** 31 October 2026 · backup work on
-`codex/evidence-storage-backup`, local commit `91187e2`, based on `origin/main`
+`codex/evidence-storage-backup`, published implementation commit `8f13d37`, based on `origin/main`
 @ `2591c27`. A follow-up checkpoint commit may advance HEAD; run
 `git log --oneline -1` before continuing.
 
@@ -21,10 +21,11 @@ then review Finding Management v4.1 at Stage 0. The backup implementation and
 local byte restore proof are complete; the full repository gate passed 17/17.
 The authorized user made a fresh Production backup, and its database rows and
 all 354 private Storage objects were restored and verified in isolated local.
-The backup PR and dispatched CI remain blocked by GitHub workflow permission.
-Stage 0 baseline review is committed on a separate branch and open as draft
-PR #49; its dispatched full workflow is running. No v4.1 application feature
-has been implemented.
+The backup branch is published as draft PR #50; its dispatched full workflow
+passed all three jobs, including the browser suite. Stage 0 baseline review is
+committed on a separate branch as draft PR #49; its dispatched full workflow
+also passed all three jobs. Stage 0 still needs a confirmed deployment target
+and approval. No v4.1 application feature has been implemented.
 
 The ESH corrective-action work (v262–v271) is complete and deployed. Earlier
 arcs — the My Team redesign (v233–v250), the CI and fixture corrections
@@ -75,7 +76,10 @@ viewports.
 - Full unpiped `npm run verify` passed 17/17 with exit 0 (748/748 pgTAP,
   401/401 integration, 626 passed / 155 intentionally skipped Playwright).
   The final ten backup guards passed separately after the full gate began.
-  Local implementation commit `91187e2`; CI and PR pending.
+  Published implementation commit `8f13d37`; draft PR #50 and dispatched full
+  workflow run 41180345379 passed static, database and browser jobs. The CI
+  browser job reported 626 passed and 155 intentionally skipped. The final CI
+  unit script passed 550 unit tests and ten backup guards locally.
 - The user ran a **local**, zero-object backup on 31 October at
   `D:/AI Project/Task Management/tamco-focus-backups/tamco-focus-local-2026-10-31T05-51-03-158Z-445267`.
   Its manifest lists both buckets and zero objects. `npm run restore:verify`
@@ -94,12 +98,13 @@ viewports.
   and 8 identities, uploaded all 354 objects to isolated local Storage,
   downloaded them and matched each size/hash. `npm run db:reset` exited 0 and
   returned local to fixtures. **Production evidence backup is restore-proven.**
-- Push rejected by GitHub because the configured PAT cannot update
-  `.github/workflows/verify.yml` without workflow write permission. The
-  retry after the user local run failed the same way. The connected GitHub
-  integration also returned 403 for branch creation. Keep the
-  CI backup guard; the authorized user was asked to update permission, without
-  supplying credential text. No branch/PR exists remotely yet.
+- GitHub rejected the original push because its PAT cannot update workflow
+  files. The unpublished branch was rebuilt without a workflow-file diff:
+  `test:unit` now invokes `test:backup`, so the existing CI unit step runs all
+  ten backup guards. This passed locally (550 unit + 10 backup) and the branch
+  pushed. The connected GitHub integration returned 403 on PR creation; `gh`
+  opened draft PR #50. Dispatched full workflow run 41180345379 passed all
+  three jobs, including on-demand browser coverage at `8f13d37`.
 - The prior estimate of 354 objects is now corroborated by this fresh run,
   but is not a permanent expected count. No Production read or write was made
   by the agent; only the user's saved local artifacts were inspected.
@@ -129,10 +134,11 @@ desktop/mobile captures are committed as `030bf19` on
 Draft PR #49: `https://github.com/Asyrafbangs/tamco-focus/pull/49`.
 Dispatched full workflow run 41179525074:
 `https://github.com/Asyrafbangs/tamco-focus/actions/runs/41179525074`
-(in progress when written). The captures use only local seed and temporary
+passed all three jobs at `030bf19`, including 626 passed and 155 intentionally
+skipped browser cases. The captures use only local seed and temporary
 fixture findings; both targeted capture runs passed 2/2 and local fixtures
-were reset. The package tracker leaves S0 unchecked while CI, backup PR,
-deployment target and approval are unresolved. No S1 feature work has begun.
+were reset. The package tracker leaves S0 unchecked while the current
+deployment target and S0 approval are unresolved. No S1 feature work has begun.
 
 ## Completed work
 
@@ -162,10 +168,11 @@ deployment target and approval are unresolved. No S1 feature work has begun.
 
 ## Partial work
 
-Backup code, full local regression and Production byte recovery are verified;
-backup PR and dispatched CI remain. The supplied v4.1 package was read in numbered order and its
-illustrative screenshots inspected. Stage 0 baseline/delta report is pending
-in a separate PR after the backup prerequisite checkpoint.
+Backup code, full local regression, Production byte recovery and dispatched CI
+are verified; draft PR #50 remains for review. The supplied v4.1 package was
+read in numbered order and its illustrative screenshots inspected. Stage 0
+baseline/delta report is in draft PR #49 with dispatched CI passed. Its S0 gate
+remains open pending a confirmed deployment target and approval.
 
 ## Remaining work
 
@@ -464,10 +471,10 @@ how it runs locally.
   into the image and that image is rebuilt weekly; Fly.io always-on is about
   $13/month at 2GB, $25 at the 4GB ClamAV recommends. Until `ESH_SCANNER_URL`
   is set, every file stays `not_scanned` and nothing claims otherwise.
-- **Backup PR and dispatched CI remain pending.** Production bytes are now
-  saved and restore-proven, but GitHub rejects the branch push because its PAT
-  lacks workflow write permission. Keep `.github/workflows/verify.yml` in the
-  scoped backup PR and dispatch the browser workflow before relying on CI.
+- **Backup PR remains draft.** Production bytes are saved and restore-proven;
+  dispatched workflow run 41180345379 passed all three jobs. The backup guard
+  runs via `test:unit` in existing CI, with no workflow-file change. The PR is
+  not merged or deployed.
 - **Only ESH evidence is scannable.** `virus_scan_state` on `task_attachments`
   and the goal evidence tables is untouched.
 - **The public dashboard's counts are not a privacy guarantee.** Differencing
@@ -478,7 +485,7 @@ how it runs locally.
 
 | Risk                                        | Severity | Note                                                                                                               |
 | ------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
-| Backup PR and dispatched CI blocked         | Medium   | PAT lacks workflow write permission; the local full gate passed and Production backup restore is proven.           |
+| Stage 0 deployment target and approval      | Medium   | Last documented Staging project state is absent; local-only fallback needs an explicit decision.                   |
 | Vercel `ATTACHMENT_ALLOWED_MIME` unverified | Medium   | A stale list silently refuses HEIC and PowerPoint that the file chooser offers. Vercel values cannot be read back. |
 | Vercel `EMAIL_TRANSPORT` unverified         | Medium   | Production once ran for weeks on `log` with every cron run returning 200.                                          |
 | No scanner hosted                           | Low      | Honest: every file reads "Not scanned". Nothing is misreported.                                                    |
@@ -487,17 +494,13 @@ how it runs locally.
 ## Blocker
 
 The authorized user completed the Production backup and the agent proved its
-recovery in isolated local. The remaining backup-stage blocker is GitHub: its
-PAT must gain workflow write permission before this branch can be pushed.
-Public QR rollout and production changes remain gated.
+recovery in isolated local. Both draft PRs passed dispatched full workflows.
+The Stage 0 deployment target and approval are unresolved. Public QR rollout
+and production changes remain gated.
 
 ## Exact next action
 
-Confirm the outcome of Stage 0 dispatched workflow run 41179525074, including
-the browser job, then update its package tracker and this checkpoint. When
-GitHub workflow write permission is available, push the already scoped backup
-branch, open its PR, dispatch `verify.yml` on
-`codex/evidence-storage-backup`, and confirm its browser job actually ran and
-passed. Stage 0's deployment/staging target and approval remain open. Do not
-start S1 features or public QR rollout before their required gates and
-decisions are recorded.
+Confirm which non-Production deployment target is available for Stage 1 and
+obtain S0 approval; record the decision in the Stage 0 tracker. Review draft
+PRs #50 and #49. Do not start S1 features or public QR rollout before their
+required gates and decisions are recorded.

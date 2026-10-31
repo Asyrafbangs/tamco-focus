@@ -53,7 +53,7 @@ surfaces in one codebase:
 
 ## 2. Current status
 
-The Production evidence backup is now restore-proven. The authorized user ran it on 31 October; the saved manifest has 354 objects (349 task attachments, 5 finding evidence). The agent checked every saved byte hash, restored all 354 objects to isolated local Storage, downloaded them and matched sizes and SHA-256. The Production data dump loaded 69 populated tables and 8 identities locally. `npm run db:reset` then returned local to fixtures with exit 0. Full unpiped `npm run verify` passed 17/17. GitHub still rejects the backup branch push because its PAT lacks workflow write permission, so its PR and dispatched CI are pending. A separate Stage 0 baseline is in draft PR #49; its full browser workflow run 41179525074 is in progress.
+The Production evidence backup is restore-proven. The authorized user ran it on 31 October; the saved manifest has 354 objects (349 task attachments, 5 finding evidence). The agent checked every saved byte hash, restored all 354 objects to isolated local Storage, downloaded them and matched sizes and SHA-256. The Production data dump loaded 69 populated tables and 8 identities locally. `npm run db:reset` returned local to fixtures with exit 0. Full unpiped `npm run verify` passed 17/17. Backup draft PR #50 and separate Stage 0 draft PR #49 each passed all three jobs in a dispatched workflow, including the on-demand browser suite (626 passed, 155 intentionally skipped). Stage 0 still needs its deployment target and approval decision.
 
 **Deployed and complete:** v262 (owner screens on a phone, 8h idle / 12h maximum
 guest session) · v263–v267 (interim controls, who is actually slow, blockers,
@@ -65,7 +65,7 @@ v271 (**fixed v270, which was inert**, and keeps the camera's own file).
 
 | Risk                                                            | Severity |
 | --------------------------------------------------------------- | -------- |
-| Backup branch PR and dispatched CI remain blocked by GitHub PAT | Medium   |
+| Stage 0 deployment target and approval remain pending           | Medium   |
 | Vercel `ATTACHMENT_ALLOWED_MIME` / `EMAIL_TRANSPORT` unverified | Medium   |
 | No scanner hosted (honest: files read "Not scanned")            | Low      |
 | Public dashboard differencing                                   | Low      |
@@ -74,8 +74,8 @@ v271 (**fixed v270, which was inert**, and keeps the camera's own file).
 
 ## 3. Next steps, in priority order
 
-1. **Publish and verify the backup branch.** The user must grant the GitHub PAT workflow write permission. Then push this branch, open its PR, dispatch `verify.yml` and check that the browser job passed. Do not remove the CI backup guard.
-2. **Finish v4.1 Stage 0 review.** Draft PR #49 has the baseline/delta report, package tracker and eight fixture-only desktop/mobile captures. Confirm dispatched workflow run 41179525074, then update its tracker. Deployment/staging facts and S0 approval remain unverified.
+1. **Complete backup PR #50 review.** Local recovery and dispatched CI passed; the PR is still draft and unmerged. Its ten backup guards run in the existing CI unit step without a workflow-file change.
+2. **Finish v4.1 Stage 0 gate.** Draft PR #49 has the baseline/delta report, package tracker and eight fixture-only desktop/mobile captures; dispatched CI passed. `DEPLOYMENT.md` names Vercel Preview with `tamco-focus-staging`, while `MIGRATION_STATUS.md` last records that Staging project absent and local Supabase as fallback. Confirm the current target and obtain S0 approval before S1.
 3. **Host the scanner** — a decision and a card, not engineering. Cloud Run
    scaling to zero is ≈$0/month if the signature databases are baked into the
    image *and that image is rebuilt weekly*; Fly.io always-on is ≈$13/month at
@@ -87,8 +87,8 @@ v271 (**fixed v270, which was inert**, and keeps the camera's own file).
    judgement about when the sign-in-free page may name a backlog direction.
 6. **Public-dashboard suppression below a threshold.**
 
-Item 1 needs GitHub permission; items 3–6 need a credential or product
-decision.
+Item 2 needs the deployment/approval decision; items 3–6 need a credential or
+product decision.
 
 ---
 
@@ -142,8 +142,9 @@ bulk UI, rollout not yet. See `PROJECT_PROGRESS.md` → _Settled decisions_.
 
 ## 5. Last agent handover note
 
-Current branch: `codex/evidence-storage-backup`, local commit `91187e2`, based
-on `origin/main` @ `2591c27`. A follow-up checkpoint commit may advance HEAD.
+Current branch: `codex/evidence-storage-backup`, published implementation
+commit `8f13d37`, based on `origin/main` @ `2591c27`. A follow-up checkpoint
+commit may advance HEAD.
 Check current HEAD and PR/workflow state before continuing.
 `PROJECT_PROGRESS.md` is the current-state authority.
 
@@ -167,13 +168,18 @@ restored all 40 populated tables, and `npm run db:reset` exited 0 afterward.
 Full unpiped `npm run verify` passed 17/17 gates with exit 0:
 748/748 pgTAP, 401/401 integration and 626 passed / 155 intentionally skipped
 Playwright cases. The final ten backup guards passed in a separate targeted run
-after the full gate began. Commit `91187e2` is local. The 31 October push was
-rejected, and the retry after the user's local backup was rejected again: the
-configured `github_pat_…` lacks permission to write
-`.github/workflows/verify.yml`; connected GitHub integration also returned
-403 on branch creation. Do not strip the CI backup guard to bypass this.
-PR and dispatched CI remain pending. The user was asked to grant workflow
-write permission without sharing any credential.
+after the full gate began. The final `test:unit` script also passed 550 unit
+tests plus all ten backup guards. GitHub rejected the original branch because
+the configured PAT cannot update workflow files. The unpublished branch was
+rebuilt without a workflow-file diff; the existing CI unit step now invokes
+the backup guards. Backup draft PR #50 is
+`https://github.com/Asyrafbangs/tamco-focus/pull/50`; full workflow run
+`https://github.com/Asyrafbangs/tamco-focus/actions/runs/41180345379`
+passed static, database/RLS/integration and on-demand browser jobs at
+`8f13d37`; the browser job reported 626 passed and 155 intentionally skipped.
+Stage 0 draft PR #49 passed the same three jobs at `030bf19` in run
+`https://github.com/Asyrafbangs/tamco-focus/actions/runs/41179525074`.
+Subsequent checkpoint edits are documentation only. Neither PR is merged.
 
 **Production backup and recovery were proven on 31 October** from a fresh
 user-run backup, without agent access to Production. Complete run:
@@ -199,7 +205,8 @@ committed as `030bf19` in `codex/finding-v41-stage0` at
 `C:/Users/User/.codex/visualizations/2026/10/31/01a18fb9-87ef-7f11-aeba-43d8967c29d9/v41-review/stage0-worktree`.
 Draft PR: `https://github.com/Asyrafbangs/tamco-focus/pull/49`. Full workflow:
 `https://github.com/Asyrafbangs/tamco-focus/actions/runs/41179525074`
-(running when written). S0 is **not approved**; deployment/staging target and
-CI outcome remain open. No v4.1 feature is implemented. Do not deploy Production
+passed all three jobs at `030bf19`, including the browser suite. S0 is **not
+approved**; deployment/staging target remains open. No v4.1 feature is
+implemented. Do not deploy Production
 or publish QR intake before the package's security, operational and approval
 gates pass.
