@@ -14,8 +14,15 @@ approved visual concept with fictional data, not evidence of implemented code.
 - Local verification: unpiped `npm run verify` on the backup branch passed
   17/17 gates, including 748 pgTAP assertions, 401 integration assertions and
   626 passed Playwright cases (155 intentionally skipped). The backup changes
-  did not alter the application UI or schema. The Stage 0 branch still needs its
-  own PR and dispatched browser CI before the gate can close.
+  did not alter the application UI or schema. Stage 0 is draft PR #49. Its
+  dispatched full workflow run 41179525074 passed all three jobs at `030bf19`,
+  including the on-demand browser suite (626 passed, 155 intentionally skipped).
+  Subsequent report/tracker edits are documentation only; S0 still requires a
+  deployment target decision and approval.
+- Backup draft PR #50 is published. Its dispatched full workflow run
+  41180345379 passed static, database/RLS/integration and on-demand browser
+  jobs at `8f13d37` (626 passed, 155 intentionally skipped). Its later
+  handover-file edits are documentation only.
 - Production evidence: an authorized operator created a fresh backup on
   31 October 2026. Local inspection found 349 `task-attachments` and 5
   `finding-evidence` objects (107,357,176 saved bytes). Every saved file matched
@@ -54,23 +61,37 @@ approved visual concept with fictional data, not evidence of implemented code.
 | Categories and relationships | No v4.1 hazard taxonomy or `esh_finding_relationships` table found. Existing duplicate outcomes and linked effectiveness failures must be retained.                                                                                                                        | S3 adds reviewed classification and explicit duplicate/recurrence/related links. Do not infer historical categories or causes.                                                                                                                       |
 | Patterns                     | Existing dashboard panels and leadership reports are present.                                                                                                                                                                                                              | S4 must preserve those views, reconcile counts with scoped source rows, and open only findings visible to the viewer. No predictive score or parallel task tracker.                                                                                  |
 
+The operational sources behind this map are also present: `src/domain/esh-dashboard.ts`
+distinguishes significant work without verified protection from unassessed
+findings; `src/server/esh/queries.ts` supplies the scoped dashboard and register
+queries. `src/server/esh/dispatch.ts`, `email.ts` and `schedule-dispatch.ts`
+handle outbox claims, templates and delivery; `src/domain/esh-rollout.ts`
+defines the existing restricted/live contact gate. That gate is separate from
+the new, independent QR intake flag. `src/domain/esh-reports.ts` and
+`src/app/(esh)/findings/register/export/route.ts` support reporting/export.
+The current test inventory has 118 Playwright specs, 50 unit files and 60
+integration files; RLS policies are authoritative in SQL migrations.
+
 ## Deployment and acceptance gaps
 
-The local repository names a Vercel schedule and Supabase project. It does not
-prove the current deployed commit, environment variables, staging target,
-scanner service, email transport, QR policy or rollout permission. The previous
-Production migration claim is corroborated only for the v271 schema symbols
-listed above; no live Production migration query was made. Staging configuration
-and the exact approved target for S1 remain to be confirmed by an authorized
-operator. The package's prototype screenshots remain concept references; the
-fixture-only captures above show the current implementation.
+`DEPLOYMENT.md` names Vercel Preview with Supabase `tamco-focus-staging`, but
+`MIGRATION_STATUS.md` records that this Staging project does **not** exist
+because the available free slot went to Production. It names local Supabase as
+the fallback and forbids Preview from connecting to Production. This is the
+last documented state, not a current infrastructure inspection. An authorized
+operator must confirm whether Staging has since been provisioned or approve a
+specific local-only demonstration path before S1's deployment gate is judged.
+The repository does not prove the current deployed commit, environment
+variables, scanner service, email transport, QR policy or rollout permission.
+The Production migration claim is corroborated only for the v271 schema
+symbols listed above; no live Production migration query was made. The
+package's prototype screenshots remain concept references; the fixture-only
+captures above show the current implementation.
 
 ## S0 gate and next action
 
-S0 remains unchecked in `07_BUILD_TRACKER.md`. Required before S1: publish and
-dispatch browser CI for the backup PR and this Stage 0 PR; name and approve the deployment/staging target;
-record the current deployment configuration through permitted non-Production
-sources or authorized operator evidence. The GitHub PAT currently lacks
-workflow write permission, so the backup branch cannot be pushed with its CI
-guard. Keep that guard and resolve the credential permission rather than
-weakening verification. No schema or v4.1 application feature changed here.
+S0 remains unchecked in `07_BUILD_TRACKER.md`. Both the backup and Stage 0
+dispatched browser CI runs passed. Before S1, confirm and approve the documented Staging target or its
+local-only fallback, and record the current deployment configuration through
+permitted non-Production sources or authorized operator evidence. No schema or
+v4.1 application feature changed here.
