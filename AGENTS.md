@@ -710,6 +710,58 @@ Be concise without skipping engineering work.
 
 ---
 
+# 27. Environment facts that have each cost a day
+
+These are not preferences. Each one has already produced a wrong conclusion in
+this repository, and none of them is detectable from the code.
+
+**Never pipe `npm run verify`.** The exit code becomes the pipe's, so a failed
+gate reads as green. Run it unpiped and read the summary.
+
+**`autocrlf=true` here.** `git checkout` rewrites files as CRLF, Prettier's LF
+check then fails against an empty `git diff`, and `git status` shows ~120
+phantom modifications. Fix with `prettier --write`, and compare with
+`git diff --ignore-cr-at-eol` when you need to see real changes.
+
+**The repository is shared.** Another session may hold changes on `main` in this
+same folder. **Stage files by name — never `git add -A`** — and re-check the
+tree around every run. A `git checkout main` that refuses is this, not a fault.
+
+**A green pull request has run no browser test.** The e2e job runs only on a
+push to `main` or a dispatch. Before relying on a PR being green, dispatch it:
+`gh workflow run verify.yml --ref <branch>`.
+
+**`.env.example` is CI's configuration.** `write-env.mjs` copies it on every CI
+run, so a stale value there is what CI accepts. A new environment variable
+belongs in it, empty, with a comment.
+
+**An agent cannot read production here.** The permission classifier blocks it.
+To establish what production actually contains, ask the user to run
+`npm run backup:database` with `TAMCO_ENV=production` set **in the shell**
+(Node's `--env-file` never overrides an existing variable) and then grep the
+resulting `*-schema.sql`, which is an ordinary local file. Take a **fresh** dump
+for the question at hand: an hour-old dump and `db push` reporting "Remote
+database is up to date" have both misled. Filenames are UTC; the machine runs
+UTC+8.
+
+**`supabase db push` sends whatever migration files are on disk,** committed or
+not. Ask for it only once the stage is committed and green.
+
+**Never run the `migration repair --status reverted` list the CLI suggests.** It
+would mark every applied migration as reverted.
+
+**A failed `npm run restore:verify` leaves the local database empty.** It
+truncates before loading. Run `npm run db:reset` immediately; otherwise the next
+test failure looks like a product bug.
+
+**Test the state production keeps data in.** An ESH evidence fixture without a
+`message_id` obeys none of the rules a sent file obeys, and that gap let v270
+ship a scanner that raised an exception on its first production row behind
+eleven passing assertions. Before trusting a suite, ask which rows the guard
+actually governs and fixture *those*.
+
+---
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
