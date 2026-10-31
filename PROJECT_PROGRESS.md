@@ -7,23 +7,28 @@ Factual and verified against the repository, not against conversation claims.
 removed; what was durable in it is below. Do not reintroduce a second
 current-state document.
 
-**Last verified:** 4 October 2026 · **main** @ `a91ee6b`
+**Last verified:** 31 October 2026 · **main** @ `1816684`
 
 ---
 
 ## Current objective
 
-None outstanding. The My Team redesign (v233–v250), the CI and fixture
-corrections that followed (v251–v255), and the test-quality work in v256 are
-complete. Remaining items are listed under _Remaining work_ and are small or
-need a decision.
+None in progress. The repository is in a handover state: every branch worth
+keeping is merged, production matches the migrations in this repository, and the
+next task is named under _Exact next action_.
+
+The ESH corrective-action work (v262–v271) is complete and deployed. Earlier
+arcs — the My Team redesign (v233–v250), the CI and fixture corrections
+(v251–v255) and the test-quality work in v256 — are also complete. What remains
+is listed under _Remaining work_ and is either small, blocked on a credential,
+or a product decision.
 
 ## Current verified state
 
 | Area         | State                                                                             |
 | ------------ | --------------------------------------------------------------------------------- |
-| Branch       | `main` @ `e4bee94`, in sync with `origin/main`                                    |
-| Open work    | `behavioural-fixture-assertions` @ `d66296f` (v256)                               |
+| Branch       | `main` @ `1816684`, in sync with `origin/main`                                    |
+| Open work    | None. Two stale `codex/*` branches from August are unmerged and unowned.          |
 | Migrations   | 184; `local` == `remote` through `20261030004000` (v271), verified 30 October.    |
 | Schema drift | None. Type diff is 48 lines, all `__InternalSupabase` and parenthesis formatting. |
 | Local seed   | 9 users, 52 tasks. Waiting view renders 20 rows.                                  |
@@ -32,20 +37,20 @@ need a decision.
 |              | CHECK are present, and `esh_scan_claim` carries the stale-source sweep.           |
 |              | `ESH_SCANNER_URL` is unset, so nothing is scanned and every file says so.         |
 
-### Validation last run (4 October)
+### Validation last run (30 October, for v271)
 
-| Gate                     | Result                                                                                                                                                    |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Full `npm run verify`    | 15/16. The one failure was `Format check` on `scripts/check-schema.mjs`, CRLF-only with identical content; resolved, and `prettier --check .` now passes. |
-| End-to-end               | 605 passed, 146 skipped, 23.5 min                                                                                                                         |
-| RLS / database (pgTAP)   | 23 files, 648 tests, PASS                                                                                                                                 |
-| Integration              | 401 passed                                                                                                                                                |
-| Unit                     | 535 passed                                                                                                                                                |
-| Production build + smoke | PASS — served sign-in, enforced headers, gated `/more`                                                                                                    |
-| Generated types          | Match the local schema                                                                                                                                    |
+| Gate                  | Result                                                                    |
+| --------------------- | ------------------------------------------------------------------------- |
+| Full `npm run verify` | **16/16, exit 0.** Every gate, including production build and smoke.      |
+| CI on the branch      | **7/7**, browser job included, via `workflow_dispatch` (PR #43)           |
+| Suite inventory       | 31 pgTAP files, 118 Playwright specs, 50 unit files, 60 integration files |
 
-This was the first complete local verification since v242. It needs Docker
-running and roughly 3.5 GB free.
+Per-suite test counts were not captured from that run; the gate summary was.
+The run needs Docker and roughly 3.5 GB free, and takes about 25 minutes.
+
+Targeted figures that were captured, each proven by breaking what it guards:
+19 new pgTAP assertions, 16 unit tests across two files, 4 browser tests on two
+viewports.
 
 ## Completed work
 
@@ -91,9 +96,17 @@ None.
 3. **`TREND_MINIMUM_EVENTS = 10`** in `src/domain/esh-dashboard.ts` — decides
    when the sign-in-free page will name a backlog direction. A product
    judgement, not a measurement; one line to change.
-4. **Virus scanning and the email provider adapter** — both stubbed, both
-   blocked on external services. `virus_scan_state` is pinned `not_scanned`
-   deliberately; do not add scan states or a queue.
+4. **Back up the evidence files.** The highest-value outstanding item, and the
+   recommended next task. See _Exact next action_.
+5. **Host the scanner.** Built in v270–v271 and inert until `ESH_SCANNER_URL`
+   and `ESH_SCANNER_TOKEN` are set. Not a defect: every file reads "Not
+   scanned" and nothing claims otherwise.
+6. **The email provider adapter** remains stubbed and blocked on an external
+   service.
+
+> Superseded: this list previously said virus scanning was stubbed and that
+> `virus_scan_state` must stay pinned to `not_scanned`. v270 reversed that at
+> the Product Owner's request and v271 made it work. Do not reinstate the pin.
 
 ## Durable constraints
 
@@ -364,11 +377,28 @@ how it runs locally.
   into the image and that image is rebuilt weekly; Fly.io always-on is about
   $13/month at 2GB, $25 at the 4GB ClamAV recommends. Until `ESH_SCANNER_URL`
   is set, every file stays `not_scanned` and nothing claims otherwise.
-- **Only ESH evidence is covered.** `virus_scan_state` on `task_attachments`
+- **The evidence files are not backed up.** `npm run backup:database` captures
+  the database; `storage.objects` is a row per file, not the file. Production
+  holds **354 objects — 349 in `task-attachments`, 5 in `finding-evidence`** —
+  and none of their bytes are in any backup. Lose the Supabase project and every
+  site photograph goes with it while the database returns intact, which defeats
+  the point of v271 keeping full-size originals. This is the largest known risk
+  in the product.
+- **Only ESH evidence is scannable.** `virus_scan_state` on `task_attachments`
   and the goal evidence tables is untouched.
 - **The public dashboard's counts are not a privacy guarantee.** Differencing
   two monthly snapshots of a small population can reveal a single finding's
   timing. Suppression below a threshold is the fix, not redacting more fields.
+
+## Known risks
+
+| Risk                                        | Severity | Note                                                                                                               |
+| ------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
+| Evidence files unbacked (354 objects)       | **High** | Unrecoverable if the project is lost. Next action below.                                                           |
+| Vercel `ATTACHMENT_ALLOWED_MIME` unverified | Medium   | A stale list silently refuses HEIC and PowerPoint that the file chooser offers. Vercel values cannot be read back. |
+| Vercel `EMAIL_TRANSPORT` unverified         | Medium   | Production once ran for weeks on `log` with every cron run returning 200.                                          |
+| No scanner hosted                           | Low      | Honest: every file reads "Not scanned". Nothing is misreported.                                                    |
+| Public dashboard differencing               | Low      | Two monthly snapshots of a small population can reveal one finding's timing.                                       |
 
 ## Blocker
 
@@ -376,5 +406,28 @@ None.
 
 ## Exact next action
 
-Nothing unattended remains. Items 1 and 3 under _Remaining work_ need a
-credential and a product decision respectively.
+**Back up the evidence files.** Start at `scripts/backup-database.mjs:112` —
+the third `dump(...)` call, which is where the database backup ends and the gap
+begins:
+
+```js
+110:  dump(targetArgs, schemaFile);
+111:  dump([...targetArgs, '--data-only', '--schema', 'auth,public'], dataFile);
+112:  dump([...targetArgs, '--data-only', '--schema', 'storage'], storageFile);
+```
+
+Add a step that copies the objects out of both private buckets
+(`finding-evidence`, `task-attachments`) into the same `../tamco-focus-backups/`
+folder, keyed by `object_key` so a restore can match rows to files, with a
+manifest recording each object's size and sha256. Then extend
+`scripts/verify-restore.mjs` to **prove** it the way the rest of the loop is
+proven — restore the files and compare hashes, rather than assuming them — and
+correct the _What is not in the backup_ section of `BACKUP_AND_RECOVERY.md`,
+which currently states plainly that the files are not covered.
+
+Read `BACKUP_AND_RECOVERY.md` first: it records three faults that each reported
+a perfectly good backup as unprovable, and the shape of a proof that holds.
+`src/server/esh/evidence.ts` shows how the server reaches a private bucket.
+
+Items 1 and 5 under _Remaining work_ need a credential and a product decision
+respectively, and are the user's to make, not an agent's.
