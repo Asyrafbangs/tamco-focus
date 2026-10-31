@@ -21,7 +21,7 @@ then review Finding Management v4.1 at Stage 0. The backup implementation and
 local byte restore proof are complete; the full repository gate passed 17/17.
 The authorized user made a fresh Production backup, and its database rows and
 all 354 private Storage objects were restored and verified in isolated local.
-The backup branch is published as draft PR #50; its dispatched full workflow
+The backup branch is published as PR #50, ready for review; its dispatched full workflow
 passed all three jobs, including the browser suite. Stage 0 baseline review is
 committed on a separate branch as draft PR #49; its dispatched full workflow
 also passed all three jobs. Stage 0 still needs a confirmed deployment target
@@ -76,10 +76,13 @@ viewports.
 - Full unpiped `npm run verify` passed 17/17 with exit 0 (748/748 pgTAP,
   401/401 integration, 626 passed / 155 intentionally skipped Playwright).
   The final ten backup guards passed separately after the full gate began.
-  Published implementation commit `8f13d37`; draft PR #50 and dispatched full
+  Published implementation commit `8f13d37`; PR #50 and dispatched full
   workflow run 41180345379 passed static, database and browser jobs. The CI
   browser job reported 626 passed and 155 intentionally skipped. The final CI
-  unit script passed 550 unit tests and ten backup guards locally.
+  unit script passed 550 unit tests and ten backup guards locally. PR run
+  41183430389 passed static, database/RLS/integration and production build on
+  documentation-only handover commit `149c1aa`; its browser job was skipped by
+  the pull-request trigger rule.
 - The user ran a **local**, zero-object backup on 31 October at
   `D:/AI Project/Task Management/tamco-focus-backups/tamco-focus-local-2026-10-31T05-51-03-158Z-445267`.
   Its manifest lists both buckets and zero objects. `npm run restore:verify`
@@ -169,7 +172,7 @@ deployment target and S0 approval are unresolved. No S1 feature work has begun.
 ## Partial work
 
 Backup code, full local regression, Production byte recovery and dispatched CI
-are verified; draft PR #50 remains for review. The supplied v4.1 package was
+are verified; PR #50 is ready for review. The supplied v4.1 package was
 read in numbered order and its illustrative screenshots inspected. Stage 0
 baseline/delta report is in draft PR #49 with dispatched CI passed. Its S0 gate
 remains open pending a confirmed deployment target and approval.
@@ -471,7 +474,7 @@ how it runs locally.
   into the image and that image is rebuilt weekly; Fly.io always-on is about
   $13/month at 2GB, $25 at the 4GB ClamAV recommends. Until `ESH_SCANNER_URL`
   is set, every file stays `not_scanned` and nothing claims otherwise.
-- **Backup PR remains draft.** Production bytes are saved and restore-proven;
+- **Backup PR is ready for review.** Production bytes are saved and restore-proven;
   dispatched workflow run 41180345379 passed all three jobs. The backup guard
   runs via `test:unit` in existing CI, with no workflow-file change. The PR is
   not merged or deployed.
@@ -494,7 +497,7 @@ how it runs locally.
 ## Blocker
 
 The authorized user completed the Production backup and the agent proved its
-recovery in isolated local. Both draft PRs passed dispatched full workflows.
+recovery in isolated local. Both PRs passed dispatched full workflows.
 The Stage 0 deployment target and approval are unresolved. Public QR rollout
 and production changes remain gated.
 

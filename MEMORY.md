@@ -53,7 +53,7 @@ surfaces in one codebase:
 
 ## 2. Current status
 
-The Production evidence backup is restore-proven. The authorized user ran it on 31 October; the saved manifest has 354 objects (349 task attachments, 5 finding evidence). The agent checked every saved byte hash, restored all 354 objects to isolated local Storage, downloaded them and matched sizes and SHA-256. The Production data dump loaded 69 populated tables and 8 identities locally. `npm run db:reset` returned local to fixtures with exit 0. Full unpiped `npm run verify` passed 17/17. Backup draft PR #50 and separate Stage 0 draft PR #49 each passed all three jobs in a dispatched workflow, including the on-demand browser suite (626 passed, 155 intentionally skipped). Stage 0 still needs its deployment target and approval decision.
+The Production evidence backup is restore-proven. The authorized user ran it on 31 October; the saved manifest has 354 objects (349 task attachments, 5 finding evidence). The agent checked every saved byte hash, restored all 354 objects to isolated local Storage, downloaded them and matched sizes and SHA-256. The Production data dump loaded 69 populated tables and 8 identities locally. `npm run db:reset` returned local to fixtures with exit 0. Full unpiped `npm run verify` passed 17/17. Backup PR #50 is ready for review; separate Stage 0 PR #49 remains draft. Each passed all three jobs in a dispatched workflow, including the on-demand browser suite (626 passed, 155 intentionally skipped). Stage 0 still needs its deployment target and approval decision.
 
 **Deployed and complete:** v262 (owner screens on a phone, 8h idle / 12h maximum
 guest session) · v263–v267 (interim controls, who is actually slow, blockers,
@@ -74,7 +74,7 @@ v271 (**fixed v270, which was inert**, and keeps the camera's own file).
 
 ## 3. Next steps, in priority order
 
-1. **Complete backup PR #50 review.** Local recovery and dispatched CI passed; the PR is still draft and unmerged. Its ten backup guards run in the existing CI unit step without a workflow-file change.
+1. **Complete backup PR #50 review.** Local recovery and dispatched CI passed; the PR is ready for review and unmerged. Its ten backup guards run in the existing CI unit step without a workflow-file change.
 2. **Finish v4.1 Stage 0 gate.** Draft PR #49 has the baseline/delta report, package tracker and eight fixture-only desktop/mobile captures; dispatched CI passed. `DEPLOYMENT.md` names Vercel Preview with `tamco-focus-staging`, while `MIGRATION_STATUS.md` last records that Staging project absent and local Supabase as fallback. Confirm the current target and obtain S0 approval before S1.
 3. **Host the scanner** — a decision and a card, not engineering. Cloud Run
    scaling to zero is ≈$0/month if the signature databases are baked into the
@@ -172,11 +172,14 @@ after the full gate began. The final `test:unit` script also passed 550 unit
 tests plus all ten backup guards. GitHub rejected the original branch because
 the configured PAT cannot update workflow files. The unpublished branch was
 rebuilt without a workflow-file diff; the existing CI unit step now invokes
-the backup guards. Backup draft PR #50 is
+the backup guards. Backup PR #50, ready for review, is
 `https://github.com/Asyrafbangs/tamco-focus/pull/50`; full workflow run
 `https://github.com/Asyrafbangs/tamco-focus/actions/runs/41180345379`
 passed static, database/RLS/integration and on-demand browser jobs at
 `8f13d37`; the browser job reported 626 passed and 155 intentionally skipped.
+PR CI run `41183430389` passed static, database/RLS/integration and production
+build on documentation-only handover commit `149c1aa`; its browser job was
+skipped by the repository's pull-request trigger rule.
 Stage 0 draft PR #49 passed the same three jobs at `030bf19` in run
 `https://github.com/Asyrafbangs/tamco-focus/actions/runs/41179525074`.
 Subsequent checkpoint edits are documentation only. Neither PR is merged.
