@@ -14,8 +14,7 @@ deliberately short.
 > environment facts that have each already produced a wrong conclusion here.
 > Read §27 before running anything.
 
-**Last verified:** 31 October 2026 · production at migration
-`20261030004000` (v271) · documents written against `main` @ `9c7f6ee`
+**Last verified:** 31 October 2026 · backup prerequisite on `codex/evidence-storage-backup` based on `origin/main` @ `2591c27`; fresh user-run Production schema dump inspected locally on 31 October (v271 evidence objects present, v4.1 QR intake absent).
 
 A commit hash in a document goes stale the moment the document is merged, so
 treat that one as provenance, not as the current head. For the head, run
@@ -47,15 +46,14 @@ surfaces in one codebase:
 - **Tests**: Vitest (`unit`, `integration`), pgTAP via `supabase test db`,
   Playwright across 5 viewport projects — all Chromium, `workers: 1`,
   `fullyParallel: false`, **one shared database**.
-- `npm run verify` runs 16 gates. **Never pipe it** (AGENTS.md §27).
+- `npm run verify` runs 17 gates, including backup guards. **Never pipe it**
+  (AGENTS.md §27).
 
 ---
 
 ## 2. Current status
 
-Nothing is broken, nothing is half-finished, and every branch worth keeping is
-merged. Production runs every migration in this repository, confirmed against a
-fresh schema dump rather than the CLI's word.
+The Production evidence backup is now restore-proven. The authorized user ran it on 31 October; the saved manifest has 354 objects (349 task attachments, 5 finding evidence). The agent checked every saved byte hash, restored all 354 objects to isolated local Storage, downloaded them and matched sizes and SHA-256. The Production data dump loaded 69 populated tables and 8 identities locally. `npm run db:reset` then returned local to fixtures with exit 0. Full unpiped `npm run verify` passed 17/17. GitHub still rejects the backup branch push because its PAT lacks workflow write permission, so its PR and dispatched CI are pending. A separate Stage 0 baseline is in draft PR #49; its full browser workflow run 41179525074 is in progress.
 
 **Deployed and complete:** v262 (owner screens on a phone, 8h idle / 12h maximum
 guest session) · v263–v267 (interim controls, who is actually slow, blockers,
@@ -67,7 +65,7 @@ v271 (**fixed v270, which was inert**, and keeps the camera's own file).
 
 | Risk                                                            | Severity |
 | --------------------------------------------------------------- | -------- |
-| **354 evidence/attachment files have no backup**                | **High** |
+| Backup branch PR and dispatched CI remain blocked by GitHub PAT | Medium   |
 | Vercel `ATTACHMENT_ALLOWED_MIME` / `EMAIL_TRANSPORT` unverified | Medium   |
 | No scanner hosted (honest: files read "Not scanned")            | Low      |
 | Public dashboard differencing                                   | Low      |
@@ -76,20 +74,21 @@ v271 (**fixed v270, which was inert**, and keeps the camera's own file).
 
 ## 3. Next steps, in priority order
 
-1. **Back up the evidence files.** See §5 for exactly where to start.
-2. **Host the scanner** — a decision and a card, not engineering. Cloud Run
+1. **Publish and verify the backup branch.** The user must grant the GitHub PAT workflow write permission. Then push this branch, open its PR, dispatch `verify.yml` and check that the browser job passed. Do not remove the CI backup guard.
+2. **Finish v4.1 Stage 0 review.** Draft PR #49 has the baseline/delta report, package tracker and eight fixture-only desktop/mobile captures. Confirm dispatched workflow run 41179525074, then update its tracker. Deployment/staging facts and S0 approval remain unverified.
+3. **Host the scanner** — a decision and a card, not engineering. Cloud Run
    scaling to zero is ≈$0/month if the signature databases are baked into the
    image *and that image is rebuilt weekly*; Fly.io always-on is ≈$13/month at
    2GB, ≈$25 at the 4GB ClamAV recommends. Then set `ESH_SCANNER_URL` **and**
    `ESH_SCANNER_TOKEN` in Vercel and redeploy. See
    `docs/evidence-scanner-deployment.md` and `deploy/evidence-scanner/`.
-3. **Check two Vercel variables** — user action; they cannot be read back.
-4. **`TREND_MINIMUM_EVENTS = 10`** in `src/domain/esh-dashboard.ts` — a product
+4. **Check two Vercel variables** — user action; they cannot be read back.
+5. **`TREND_MINIMUM_EVENTS = 10`** in `src/domain/esh-dashboard.ts` — a product
    judgement about when the sign-in-free page may name a backlog direction.
-5. **Public-dashboard suppression below a threshold.**
+6. **Public-dashboard suppression below a threshold.**
 
-Items 2–5 need a credential or a product decision. Item 1 does not, which is
-why it is first.
+Item 1 needs GitHub permission; items 3–6 need a credential or product
+decision.
 
 ---
 
@@ -127,13 +126,14 @@ exactly one move: `ready → rejected` with `scan_state = 'infected'`.
 POSTed to `ESH_SCANNER_URL`, so the worker refuses a non-loopback URL with no
 `ESH_SCANNER_TOKEN`. Loopback is exempt; that is how it runs locally.
 
-**Backups are three files** — `*-schema.sql`, `*-data.sql` (`auth` + `public`,
-the proven one) and `*-storage.sql`. `storage` is split out because Supabase owns
-that schema and a hosted project runs a newer Storage than the local CLI bundles.
-What _proved_ means depends on provenance: a local dump is checked against the
-counts this database held a moment ago; a cross-environment dump is checked
-against **itself** — it must load with zero errors, every table it carries must
-hold rows, and `auth.users` must not be empty.
+**A complete backup run** contains `*-schema.sql`, `*-data.sql` (`auth` +
+`public`), `*-storage.sql`, `storage-manifest.json` and the private bucket
+bytes. `storage` SQL is split out because Supabase owns that schema and a
+hosted project runs a newer Storage than the local CLI bundles. A local data
+dump is checked against the counts this database held a moment ago; a
+cross-environment dump is checked against **itself** — zero load errors,
+rows in every table it carries, and nonempty `auth.users`. Storage proof
+uploads saved bytes to isolated local Storage and checks downloaded hashes.
 
 Three settled product decisions not to re-raise: no delivery ticks, no owner
 bulk UI, rollout not yet. See `PROJECT_PROGRESS.md` → _Settled decisions_.
@@ -142,37 +142,64 @@ bulk UI, rollout not yet. See `PROJECT_PROGRESS.md` → _Settled decisions_.
 
 ## 5. Last agent handover note
 
-**Open `scripts/backup-database.mjs` at line 112.**
+Current branch: `codex/evidence-storage-backup`, local commit `91187e2`, based
+on `origin/main` @ `2591c27`. A follow-up checkpoint commit may advance HEAD.
+Check current HEAD and PR/workflow state before continuing.
+`PROJECT_PROGRESS.md` is the current-state authority.
 
-```js
-110:  dump(targetArgs, schemaFile);
-111:  dump([...targetArgs, '--data-only', '--schema', 'auth,public'], dataFile);
-112:  dump([...targetArgs, '--data-only', '--schema', 'storage'], storageFile);
-```
+The backup prerequisite now copies actual bytes from both private buckets into
+an outside-Git, complete-run directory. `storage-manifest.json` records exact
+bucket/key, downloaded size and SHA-256; a failed run stays `.incomplete`.
+`scripts/verify-restore.mjs` validates saved bytes before truncating local,
+then uploads to local private Storage, reads back and compares size/hash. See
+`scripts/lib/storage-backup.mjs`, `BACKUP_AND_RECOVERY.md` and the ten guard
+tests in `tests/scripts/storage-backup.test.mjs`.
 
-Those three lines back up the _database_. Nothing backs up the **bucket
-contents** — 354 objects, 349 in `task-attachments` and 5 in `finding-evidence`.
-`storage.objects` is a row per file, not the file, so today a restore produces a
-database that names evidence nobody can open. That defeats the point of v271,
-which exists so somebody can produce a full-size original years later.
+Verified locally on 31 October: `node --test tests/scripts/storage-backup.test.mjs`
+passed 10/10. A real local backup copied two harmless proof objects with the
+same nested key in different buckets; `npm run restore:verify` restored all
+40 populated tables at full count and read both objects back at matching
+size/hash. The proof objects were removed and `npm run db:reset` returned
+local to fixtures. The user then made a new local run at
+`D:/AI Project/Task Management/tamco-focus-backups/tamco-focus-local-2026-10-31T05-51-03-158Z-445267`;
+its manifest lists zero objects. `npm run restore:verify -- <that directory>`
+restored all 40 populated tables, and `npm run db:reset` exited 0 afterward.
+Full unpiped `npm run verify` passed 17/17 gates with exit 0:
+748/748 pgTAP, 401/401 integration and 626 passed / 155 intentionally skipped
+Playwright cases. The final ten backup guards passed in a separate targeted run
+after the full gate began. Commit `91187e2` is local. The 31 October push was
+rejected, and the retry after the user's local backup was rejected again: the
+configured `github_pat_…` lacks permission to write
+`.github/workflows/verify.yml`; connected GitHub integration also returned
+403 on branch creation. Do not strip the CI backup guard to bypass this.
+PR and dispatched CI remain pending. The user was asked to grant workflow
+write permission without sharing any credential.
 
-Add a step after line 112 that copies both private buckets into the same
-`../tamco-focus-backups/` folder, keyed by `object_key` so a restore can match
-rows to files, with a manifest recording each object's size and sha256. Then
-extend `scripts/verify-restore.mjs` to **prove** it the way the rest of the loop
-is proven — restore the files and compare hashes, not merely count them — and
-correct the _What is not in the backup_ section of `BACKUP_AND_RECOVERY.md`,
-which currently states plainly that the files are not covered.
+**Production backup and recovery were proven on 31 October** from a fresh
+user-run backup, without agent access to Production. Complete run:
+`D:/AI Project/Task Management/tamco-focus-backups/tamco-focus-production-2026-10-31T06-30-14-696Z-014892`.
+The manifest lists 354 objects, 349 in `task-attachments` and 5 in
+`finding-evidence`, totalling 107,357,176 downloaded bytes. Every saved file
+matched its recorded size and SHA-256. The first user restore attempt correctly
+refused because `.env.local` resolved to Production. The agent then set the
+Supabase URL and service-role key from positively identified **local** CLI
+status in a process environment, ran `npm run restore:verify -- <run>`, and
+confirmed that 69 Production data tables loaded (8 identities) and all 354
+objects uploaded to isolated local Storage, downloaded and matched size/hash.
+The local `npm run db:reset` exited 0 afterward. The fresh schema dump was
+searched locally with `rg`: v271 source and scan guard symbols are present;
+`esh_report_intake` and `esh_qr_locations` are absent. Do not infer current
+Vercel variables or staging readiness from this dump.
 
-Read first, in this order:
-
-1. `AGENTS.md` §27 — nine environment facts that have each cost a day
-2. `BACKUP_AND_RECOVERY.md` — three faults that each reported a perfectly good
-   backup as unprovable, and the shape of a proof that holds
-3. `scripts/verify-restore.mjs` — the proof loop, especially `dumpSource()` and
-   `tablesInDump()`
-4. `PROJECT_PROGRESS.md` — the canonical current state
-
-`src/server/esh/evidence.ts` shows how the server reaches a private bucket
-(`createSupabaseServiceRoleClient().storage.from(…)`). Write backups **outside**
-the repository, as the existing script does, so one can never be committed.
+The v4.1 package at
+`D:/Download/TAMCO_Finding_Management_v4.1_Claude_Complete_Build_Package.zip`
+was read in numeric order and its illustrative screenshots inspected. The
+Stage 0 baseline/delta report, tracker and eight local-fixture captures are
+committed as `030bf19` in `codex/finding-v41-stage0` at
+`C:/Users/User/.codex/visualizations/2026/10/31/01a18fb9-87ef-7f11-aeba-43d8967c29d9/v41-review/stage0-worktree`.
+Draft PR: `https://github.com/Asyrafbangs/tamco-focus/pull/49`. Full workflow:
+`https://github.com/Asyrafbangs/tamco-focus/actions/runs/41179525074`
+(running when written). S0 is **not approved**; deployment/staging target and
+CI outcome remain open. No v4.1 feature is implemented. Do not deploy Production
+or publish QR intake before the package's security, operational and approval
+gates pass.

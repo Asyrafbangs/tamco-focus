@@ -25,8 +25,10 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createClient } from '@supabase/supabase-js';
 
 import { assertLocal } from './lib/environment.mjs';
+import { readVerifiedManifest, restoreStorage } from './lib/storage-backup.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CONTAINER = process.env.TAMCO_DB_CONTAINER ?? 'supabase_db_tamco-focus';
@@ -68,13 +70,22 @@ function counts(tables) {
 function newestDataDump() {
   const explicit = process.argv[2];
   if (explicit) {
-    if (!existsSync(explicit)) throw new Error(`No such backup file: ${explicit}`);
-    return explicit;
+    const file = statSync(explicit).isDirectory()
+      ? readdirSync(explicit)
+          .filter((name) => name.endsWith('-data.sql'))
+          .map((name) => join(explicit, name))[0]
+      : explicit;
+    if (!file || !existsSync(file)) throw new Error(`No such backup data file: ${explicit}`);
+    return file;
   }
   const directory = process.env.TAMCO_BACKUP_DIR ?? join(repoRoot, '..', 'tamco-focus-backups');
-  const candidates = readdirSync(directory)
-    .filter((name) => name.endsWith('-data.sql'))
-    .map((name) => join(directory, name))
+  const candidates = readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && !entry.name.endsWith('.incomplete'))
+    .flatMap((entry) =>
+      readdirSync(join(directory, entry.name))
+        .filter((name) => name.endsWith('-data.sql'))
+        .map((name) => join(directory, entry.name, name)),
+    )
     .sort((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs);
   if (!candidates.length) {
     throw new Error(`No *-data.sql backup found in ${directory}. Run \`npm run backup:database\`.`);
@@ -107,10 +118,16 @@ function tablesInDump(text, schema) {
   return [...found].sort();
 }
 
-function main() {
-  assertLocal('restore a backup');
+async function main() {
+  const local = assertLocal('restore a backup');
 
   const dumpFile = newestDataDump();
+  const runDirectory = dirname(dumpFile);
+  // Validate saved bytes before the database is truncated.
+  const manifest = await readVerifiedManifest(runDirectory);
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) throw new Error('Local service role key is required for storage restore verification.');
+  const storageClient = createClient(local.url, key, { auth: { persistSession: false } });
   const source = dumpSource(dumpFile);
   const dumpText = readFileSync(dumpFile, 'utf8');
   console.log(`Restoring ${dumpFile}\n`);
@@ -233,9 +250,16 @@ function main() {
     console.log(`read the table above as "is this what ${source} looks like?".`);
   }
 
-  console.log('\nThis proves `auth` and `public`. It does not prove the `storage` schema, and');
-  console.log('nothing here backs up the files inside the buckets — only the rows naming them.');
+  const restored = await restoreStorage(storageClient, runDirectory, manifest);
+  console.log(
+    `\nStorage verified: ${restored} private objects uploaded to local Storage and read back`,
+  );
+  console.log('with the manifest byte sizes and SHA-256 hashes.');
+  console.log('The hosted Storage schema rows are retained separately, not loaded into local.');
   console.log('Local now holds the restored data. `npm run db:reset` returns it to fixtures.');
 }
 
-main();
+main().catch((error) => {
+  console.error(`RESTORE NOT PROVEN: ${error.message}`);
+  process.exitCode = 1;
+});

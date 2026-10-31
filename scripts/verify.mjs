@@ -61,6 +61,11 @@ const GATES = [
   { name: 'Type check', command: 'node', args: [bin.tsc, '--noEmit'] },
   { name: 'Unit tests', command: 'node', args: [bin.vitest, 'run', '--project', 'unit'] },
   {
+    name: 'Backup guards',
+    command: 'node',
+    args: ['--test', 'tests/scripts/storage-backup.test.mjs'],
+  },
+  {
     name: 'Production build',
     command: 'node',
     args: [bin.next, 'build'],
