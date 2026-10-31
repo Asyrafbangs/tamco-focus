@@ -7,10 +7,10 @@ Factual and verified against the repository, not against conversation claims.
 removed; what was durable in it is below. Do not reintroduce a second
 current-state document.
 
-**Last verified:** 31 October 2026 · backup work on
-`codex/evidence-storage-backup`, published implementation commit `8f13d37`, based on `origin/main`
-@ `2591c27`. A follow-up checkpoint commit may advance HEAD; run
-`git log --oneline -1` before continuing.
+**Last verified:** 31 October 2026 · Stage 0 branch
+`codex/finding-v41-stage0`, stacked on backup branch
+`codex/evidence-storage-backup` @ `1de7ef0`. Run `git log --oneline -1`
+before continuing.
 
 ---
 
@@ -23,9 +23,10 @@ The authorized user made a fresh Production backup, and its database rows and
 all 354 private Storage objects were restored and verified in isolated local.
 The backup branch is published as PR #50, ready for review; its dispatched full workflow
 passed all three jobs, including the browser suite. Stage 0 baseline review is
-committed on a separate branch as draft PR #49; its dispatched full workflow
-also passed all three jobs. Stage 0 still needs a confirmed deployment target
-and approval. No v4.1 application feature has been implemented.
+committed on a separate branch as PR #49; its original dispatched workflow
+passed all three jobs. The user approved local-only Stage 1 testing on 31
+October. Stage 0 was rebased onto the backup branch and needs full CI on its
+new HEAD before S1. No v4.1 application feature has been implemented.
 
 The ESH corrective-action work (v262–v271) is complete and deployed. Earlier
 arcs — the My Team redesign (v233–v250), the CI and fixture corrections
@@ -37,8 +38,8 @@ or a product decision.
 
 | Area         | State                                                                             |
 | ------------ | --------------------------------------------------------------------------------- |
-| Branch       | `codex/evidence-storage-backup`, based on `origin/main` @ `2591c27`.              |
-| Open work    | Scoped backup code and documentation; no v4.1 feature changes.                    |
+| Branch       | `codex/finding-v41-stage0`, stacked on backup @ `1de7ef0`.                        |
+| Open work    | Stage 0 review and local-only S1 decision; no v4.1 feature changes.               |
 | Migrations   | 184; `local` == `remote` through `20261030004000` (v271), verified 30 October.    |
 | Schema drift | None. Type diff is 48 lines, all `__InternalSupabase` and parenthesis formatting. |
 | Local seed   | 9 users, 52 tasks. Waiting view renders 20 rows.                                  |
@@ -140,8 +141,9 @@ Dispatched full workflow run 41179525074:
 passed all three jobs at `030bf19`, including 626 passed and 155 intentionally
 skipped browser cases. The captures use only local seed and temporary
 fixture findings; both targeted capture runs passed 2/2 and local fixtures
-were reset. The package tracker leaves S0 unchecked while the current
-deployment target and S0 approval are unresolved. No S1 feature work has begun.
+were reset. The user approved local-only Stage 1 testing. PR #49 is stacked
+on backup PR #50; S0 remains unchecked until the rebased branch's dispatched
+full CI passes. No S1 feature work has begun.
 
 ## Completed work
 
@@ -174,8 +176,9 @@ deployment target and S0 approval are unresolved. No S1 feature work has begun.
 Backup code, full local regression, Production byte recovery and dispatched CI
 are verified; PR #50 is ready for review. The supplied v4.1 package was
 read in numbered order and its illustrative screenshots inspected. Stage 0
-baseline/delta report is in draft PR #49 with dispatched CI passed. Its S0 gate
-remains open pending a confirmed deployment target and approval.
+baseline/delta report is in PR #49 with its original dispatched CI passed.
+The user approved local-only Stage 1 testing; the rebased Stage 0 branch needs
+full dispatched CI before S0 closes.
 
 ## Remaining work
 
@@ -488,7 +491,7 @@ how it runs locally.
 
 | Risk                                        | Severity | Note                                                                                                               |
 | ------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
-| Stage 0 deployment target and approval      | Medium   | Last documented Staging project state is absent; local-only fallback needs an explicit decision.                   |
+| Hosted Staging remains unverified           | Medium   | User approved local-only Stage 1 testing; no hosted demo or Production rollout is authorized.                      |
 | Vercel `ATTACHMENT_ALLOWED_MIME` unverified | Medium   | A stale list silently refuses HEIC and PowerPoint that the file chooser offers. Vercel values cannot be read back. |
 | Vercel `EMAIL_TRANSPORT` unverified         | Medium   | Production once ran for weeks on `log` with every cron run returning 200.                                          |
 | No scanner hosted                           | Low      | Honest: every file reads "Not scanned". Nothing is misreported.                                                    |
@@ -497,13 +500,14 @@ how it runs locally.
 ## Blocker
 
 The authorized user completed the Production backup and the agent proved its
-recovery in isolated local. Both PRs passed dispatched full workflows.
-The Stage 0 deployment target and approval are unresolved. Public QR rollout
-and production changes remain gated.
+recovery in isolated local. Both PRs passed dispatched full workflows on their
+original implementation commits. The user approved local-only S1 testing.
+The rebased Stage 0 branch still needs its own full CI before S0 closes. Public
+QR rollout and production changes remain gated.
 
 ## Exact next action
 
-Confirm which non-Production deployment target is available for Stage 1 and
-obtain S0 approval; record the decision in the Stage 0 tracker. Review draft
-PRs #50 and #49. Do not start S1 features or public QR rollout before their
-required gates and decisions are recorded.
+Push the rebased Stage 0 branch, dispatch `verify.yml` on
+`codex/finding-v41-stage0` and confirm all three jobs, including the browser
+job, pass. Then mark S0 complete in the tracker and begin S1 in a separate
+stacked branch. No hosted deployment or public QR rollout is approved.
