@@ -5278,6 +5278,73 @@ export type Database = {
           },
         ]
       }
+      esh_qr_intake_settings: {
+        Row: {
+          enabled: boolean
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_qr_intake_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_qr_locations: {
+        Row: {
+          active: boolean
+          created_at: string
+          display_label: string
+          id: string
+          organization_id: string
+          public_code: string
+          retired_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          display_label: string
+          id?: string
+          organization_id: string
+          public_code: string
+          retired_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          display_label?: string
+          id?: string
+          organization_id?: string
+          public_code?: string
+          retired_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_qr_locations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       esh_reference_counters: {
         Row: {
           next_value: number
@@ -5465,6 +5532,60 @@ export type Database = {
             columns: ["report_definition_id"]
             isOneToOne: false
             referencedRelation: "esh_report_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_report_intake: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          public_reference: string
+          qr_location_id: string | null
+          received_at: string
+          report_text: string
+          reported_location: string | null
+          source: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          public_reference?: string
+          qr_location_id?: string | null
+          received_at?: string
+          report_text: string
+          reported_location?: string | null
+          source: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          public_reference?: string
+          qr_location_id?: string | null
+          received_at?: string
+          report_text?: string
+          reported_location?: string | null
+          source?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_report_intake_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_qr_location_id_fkey"
+            columns: ["qr_location_id"]
+            isOneToOne: false
+            referencedRelation: "esh_qr_locations"
             referencedColumns: ["id"]
           },
         ]
