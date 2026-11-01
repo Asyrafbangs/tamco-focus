@@ -186,7 +186,7 @@ test('v200 ESH reviews from the queue, asks for more, then accepts and closes', 
   const row = page.locator('.esh-register-row').filter({ hasText: work.title });
   await expect(row).toContainText('Version 1');
   await expect(row).toContainText(work.ownerEmail);
-  await row.click();
+  await row.getByRole('link').click();
   await expect(page).toHaveURL(
     new RegExp(`/findings/${work.findingId}\\?action=${work.actionId}$`),
   );

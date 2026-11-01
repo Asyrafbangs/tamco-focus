@@ -70,10 +70,10 @@ test('v197 ESH Home offers both modules to someone with Finding access', async (
   await expect(cards.nth(0)).toContainText('TAMCO Focus');
   await expect(cards.nth(1)).toContainText('Finding Management');
 
-  // v227 - Finding Management opens on its Register, the daily work.
+  // v4.1 — Finding Management opens on Today, the daily work.
   await cards.nth(1).click();
-  await expect(page).toHaveURL(/\/findings\/register$/);
-  await expect(page.getByRole('heading', { name: 'Finding Register' })).toBeVisible();
+  await expect(page).toHaveURL(/\/findings$/);
+  await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible();
   // The Finding menu replaces Focus's: none of Focus's destinations are here.
   await expect(page.getByRole('navigation', { name: 'Finding Management' })).toBeVisible();
   await expect(page.locator('.rail')).toHaveCount(0);

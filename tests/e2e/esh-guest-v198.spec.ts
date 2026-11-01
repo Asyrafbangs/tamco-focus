@@ -352,7 +352,7 @@ test('v198 a staff login and an owner link never lend each other anything', asyn
   await expect(page.locator('.guest-account-email')).toContainText(arranged.owner);
   // The staff login is untouched, and is still only itself.
   await page.goto('/findings/register');
-  await expect(page.getByRole('heading', { name: 'Finding Register' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Findings', exact: true })).toBeVisible();
   await expect(page.locator('.esh-account')).toContainText('Izzul');
 
   // A staff login alone opens no owner's page.

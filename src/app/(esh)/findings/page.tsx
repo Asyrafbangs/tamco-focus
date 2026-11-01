@@ -258,12 +258,16 @@ function VerificationRow({ row, timeZone }: { row: VerificationQueueRow; timeZon
     timeZone,
   }).format(new Date(row.submittedAt));
   return (
-    <li>
-      <Link href={`/findings/${row.findingId}?action=${row.actionId}&review=1`}>
+    <li className="esh-register-row">
+      <Link href={`/findings/${row.findingId}?action=${row.actionId}`}>
         <span className="esh-today-row-main">
           <strong>{row.reference}</strong>
           <b>{row.title}</b>
-          <small>{[row.location, `Submitted ${submitted}`].filter(Boolean).join(' · ')}</small>
+          <small>
+            {[row.location, `Submitted ${submitted}`, `Version ${row.version}`, row.ownerEmail]
+              .filter(Boolean)
+              .join(' · ')}
+          </small>
         </span>
       </Link>
     </li>
