@@ -8,8 +8,10 @@ removed; what was durable in it is below. Do not reintroduce a second
 current-state document.
 
 **Last verified:** 1 November 2026 · Stage 1 branch
-`codex/finding-v41-stage1` @ `697935d`. The dispatched full workflow run
-`41311926177` passed static, database/integration, production-build and browser gates.
+`codex/finding-v41-stage1` @ `95c937d`. Implementation commit `697935d` has
+full workflow `41311926177` passing static, database/integration,
+production-build and browser gates; documentation head `95c937d` passed its
+static and database/integration PR checks in run `41315767414`.
 
 ---
 
@@ -37,7 +39,7 @@ or a product decision.
 
 | Area         | State                                                                             |
 | ------------ | --------------------------------------------------------------------------------- |
-| Branch       | `codex/finding-v41-stage1` @ `697935d`, stacked on the approved baseline.         |
+| Branch       | `codex/finding-v41-stage1` @ `95c937d`, stacked on the approved baseline.         |
 | Open work    | Stage 2 QR intake is blocked on its listed product, privacy and safety decisions. |
 | Migrations   | 184; `local` == `remote` through `20261030004000` (v271), verified 30 October.    |
 | Schema drift | None. Type diff is 48 lines, all `__InternalSupabase` and parenthesis formatting. |
