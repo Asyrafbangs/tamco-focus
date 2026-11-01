@@ -505,16 +505,16 @@ how it runs locally.
 The authorized user completed the Production backup and the agent proved its
 recovery in isolated local. Both PRs passed dispatched full workflows on their
 original implementation commits. The user approved local-only S1 testing.
-The rebased Stage 0 branch passed full CI, so S0 is closed. Public QR rollout
-and production changes remain gated.
+The rebased Stage 0 branch passed full CI, and dispatched workflow 41311926177
+passed Stage 1's static, database, build and browser gates, so S0 and S1 are
+closed for the approved local-only scope. Public QR rollout and production
+changes remain gated.
 
 ## Exact next action
 
-Stage 1 targeted browser coverage now passes against the restored local
-Docker/Supabase stack: dashboard, navigation, Today desktop and Today mobile.
-The full `npm run verify` command was started after the formatting gate was
-normalized, but this session does not yet have a complete, trustworthy summary;
-do not record it as a pass. Finish the full local gate, capture desktop/mobile
-screenshots, commit/push the Stage 1 delta, then dispatch and confirm browser
-CI. Do not begin Stage 2 before its separate QR policy and emergency-contact
-decisions are documented.
+Stage 1 is complete on draft PR #51 at implementation commit `697935d`.
+Targeted local dashboard/navigation/Today desktop and mobile coverage passed;
+the dispatched full workflow `41311926177` independently passed static,
+database/RLS/integration, production build and browser E2E. The durable
+checkpoint commit is `8f6fd96`. Do not begin Stage 2 before its separate QR,
+privacy, emergency-contact and safety-routing decisions are documented.
