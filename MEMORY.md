@@ -140,7 +140,19 @@ bulk UI, rollout not yet. See `PROJECT_PROGRESS.md` → _Settled decisions_.
 
 ---
 
-## 5. Last agent handover note
+## 5. Current Stage 1 checkpoint
+
+Stage 1 is in progress on `codex/finding-v41-stage1` / draft PR #51. The
+Today/Findings/Patterns navigation, disabled Incoming reports queue and
+department-preserving verification redirect are implemented. Targeted local
+browser coverage passed for historical insights, navigation, Today desktop and
+Today mobile after Docker/Supabase was restored. The full `npm run verify`
+run has not yet yielded a trustworthy final summary, so it is not a pass.
+Complete that gate, capture the two viewports, then commit/push and dispatch
+the branch’s browser CI. Stage 2 remains blocked by the documented QR and
+emergency-contact policy decisions; do not invent them.
+
+## 6. Last agent handover note
 
 Current branch: `codex/finding-v41-stage0`, stacked on backup branch
 `codex/evidence-storage-backup` @ `1de7ef0`. Check current HEAD and PR state;

@@ -82,7 +82,7 @@ test('v4101 Today counters keep their scoped drill-downs without changing open w
   await expect(page.getByText('New reports')).toBeVisible();
   await expect(page.getByText('Significant risks without verified protection')).toBeVisible();
 
-  await page.locator('.esh-signal').filter({ hasText: 'Overdue actions' }).click();
+  await page.locator('.esh-signal').filter({ hasText: 'Overdue owner actions' }).click();
   await expect(page).toHaveURL(/\/findings\/register\?filter=overdue/);
   await expect(page.getByRole('heading', { name: 'Findings' })).toBeVisible();
   await expect(page.getByText(title, { exact: true })).toBeVisible();

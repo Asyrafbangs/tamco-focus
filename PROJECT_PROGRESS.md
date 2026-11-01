@@ -509,7 +509,11 @@ and production changes remain gated.
 
 ## Exact next action
 
-Restore local Docker Desktop/Supabase availability, then run targeted Stage 1
-browser tests followed by `npm run verify` unpiped. Capture desktop and mobile
-screenshots, finish the Stage 1 PR/CI, and do not begin Stage 2 before its
-separate QR policy and emergency-contact decisions are documented.
+Stage 1 targeted browser coverage now passes against the restored local
+Docker/Supabase stack: dashboard, navigation, Today desktop and Today mobile.
+The full `npm run verify` command was started after the formatting gate was
+normalized, but this session does not yet have a complete, trustworthy summary;
+do not record it as a pass. Finish the full local gate, capture desktop/mobile
+screenshots, commit/push the Stage 1 delta, then dispatch and confirm browser
+CI. Do not begin Stage 2 before its separate QR policy and emergency-contact
+decisions are documented.

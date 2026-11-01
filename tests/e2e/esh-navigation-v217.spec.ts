@@ -49,4 +49,10 @@ test('v4101 keeps one primary navigation while preserving the closed deep link',
   await page.goto('/findings/verification');
   await expect(page).toHaveURL(/\/findings\?queue=verification/);
   await expect(page.getByRole('heading', { name: 'To verify', level: 1 })).toBeVisible();
+
+  // A historical dashboard link can keep its department scope when it reaches
+  // the Today-owned verification queue.
+  await page.goto('/findings/verification?department=unassigned');
+  await expect(page).toHaveURL(/\/findings\?queue=verification&department=unassigned/);
+  await expect(page.getByRole('heading', { name: 'To verify', level: 1 })).toBeVisible();
 });

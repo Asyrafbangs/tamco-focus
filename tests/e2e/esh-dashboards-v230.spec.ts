@@ -38,7 +38,7 @@ test('v230 the ESH dashboard is back in the sidebar and shows movement', async (
   // v227 took Overview out of the sidebar; v230 puts a dashboard worth having
   // back into it.
   await page.goto('/findings/patterns/insights');
-  await expect(page).toHaveURL(/\/findings$/);
+  await expect(page).toHaveURL(/\/findings\/patterns\/insights$/);
   await expect(page.getByRole('heading', { name: 'Historical insights', level: 1 })).toBeVisible();
 
   // Counters alone were the old Overview. These are the four that say how it

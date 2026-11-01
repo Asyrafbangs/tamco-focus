@@ -14,11 +14,13 @@ import {
   type VerificationQueueRow,
 } from '@/server/esh/queries';
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** Daily decisions belong here; historical measures remain in Patterns. */
 export default async function FindingsTodayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ queue?: string }>;
+  searchParams: Promise<{ queue?: string; department?: string }>;
 }) {
   const access = await requireEshAccess();
   const profile = await requireProfile();
@@ -26,17 +28,26 @@ export default async function FindingsTodayPage({
   const timeZone = profile.timezone ?? 'Asia/Kuala_Lumpur';
   const query = await searchParams;
   const verificationOnly = query.queue === 'verification';
+  const departmentUnassigned = query.department === 'unassigned';
+  const departmentId = query.department && UUID.test(query.department) ? query.department : null;
+  const verificationHref = (() => {
+    const params = new URLSearchParams({ queue: 'verification' });
+    if (departmentUnassigned) params.set('department', 'unassigned');
+    else if (departmentId) params.set('department', departmentId);
+    return `/findings?${params}`;
+  })();
   const [dashboard, attention, verification, health, rollout] = await Promise.all([
     getDashboard(),
     listRegister({
       filter: 'attention',
       search: '',
-      departmentId: null,
+      departmentId,
+      departmentUnassigned,
       closedSince: now.toISOString(),
       closedUntil: null,
       page: 0,
     }),
-    listVerificationQueue(),
+    listVerificationQueue(departmentId, departmentUnassigned),
     getOperationalHealth(),
     access.canCoordinate ? getRolloutStatus() : Promise.resolve(null),
   ]);
@@ -85,7 +96,7 @@ export default async function FindingsTodayPage({
             label="Waiting for ESH verification"
             value={awaiting}
             detail="Submitted proof needs a decision"
-            href="/findings/verification"
+            href={verificationHref}
             exception={awaiting > 0}
           />
         </section>
@@ -130,7 +141,7 @@ export default async function FindingsTodayPage({
               <h2 id="today-verification-title">To verify</h2>
               <p>Owner submissions, oldest first.</p>
             </div>
-            <Link href="/findings/verification">Open queue</Link>
+            <Link href={verificationHref}>Open queue</Link>
           </div>
           {verification.length === 0 ? (
             <QueueEmpty
@@ -145,6 +156,20 @@ export default async function FindingsTodayPage({
             </ul>
           )}
         </section>
+        {!verificationOnly && (
+          <section className="esh-form-card" aria-labelledby="today-incoming-title">
+            <div className="esh-section-head">
+              <div>
+                <h2 id="today-incoming-title">Incoming reports</h2>
+                <p>Public QR reporting is not enabled in this environment.</p>
+              </div>
+            </div>
+            <QueueEmpty
+              title="No incoming reports"
+              detail="This queue remains intentionally empty until the approved Stage 2 rollout enables QR intake."
+            />
+          </section>
+        )}
         {!verificationOnly && (
           <section className="esh-form-card" aria-labelledby="today-escalations-title">
             <div className="esh-section-head">
