@@ -75,7 +75,7 @@ v271 (**fixed v270, which was inert**, and keeps the camera's own file).
 ## 3. Next steps, in priority order
 
 1. **Complete backup PR #50 review.** Local recovery and dispatched CI passed; the PR is ready for review and unmerged. Its ten backup guards run in the existing CI unit step without a workflow-file change.
-2. **Finish v4.1 Stage 1.** `codex/finding-v41-stage1` contains Today / Findings / Patterns navigation, working Today queues and preserved historical insights. Static checks pass. Local Docker is unavailable, so Supabase Auth and browser/full verification remain blocked. No hosted or Production deployment is approved.
+2. **Finish v4.1 Stage 1.** Draft PR #51 (`codex/finding-v41-stage1`) contains Today / Findings / Patterns navigation, working Today queues and preserved historical insights. Static checks pass. Local Docker is unavailable, so Supabase Auth and browser/full verification remain blocked. No hosted or Production deployment is approved.
 3. **Host the scanner** — a decision and a card, not engineering. Cloud Run
    scaling to zero is ≈$0/month if the signature databases are baked into the
    image *and that image is rebuilt weekly*; Fly.io always-on is ≈$13/month at

@@ -25,7 +25,7 @@ The backup branch is published as PR #50, ready for review; its dispatched full 
 passed all three jobs, including the browser suite. Stage 0 baseline review is
 committed on a separate branch as PR #49; its original dispatched workflow
 passed all three jobs. The user approved local-only Stage 1 testing on 31
-October. Stage 0 passed its full rebased CI. Stage 1 is now in progress on
+October. Stage 0 passed its full rebased CI. Stage 1 is now in draft PR #51 on
 `codex/finding-v41-stage1`; no hosted or Production deployment is approved.
 
 The ESH corrective-action work (v262–v271) is complete and deployed. Earlier

@@ -2,15 +2,15 @@
 
 > The user approved local-only Stage 1 testing on 31 October 2026. This does not approve hosted staging, Production deployment, public QR intake or live email rollout.
 
-| Stage                 | Done | PR / commit                | CI incl. browser                     | Staging demo | Migration deployed | Approved by                 |
-| --------------------- | ---- | -------------------------- | ------------------------------------ | ------------ | ------------------ | --------------------------- |
-| S0 Baseline           | [x]  | PR #49; `2dc2f59`          | [x] runs 41179525074, 41198290935    | Local only   | N/A                | User: local testing, 31 Oct |
-| S1 UI/nav             | [ ]  | `codex/finding-v41-stage1` | Static/type pass; Docker unavailable | Local only   | N/A unless needed  | In progress                 |
-| S2 QR intake          | [ ]  | —                          | [ ]                                  | [ ]          | [ ]                | —                           |
-| S3 Taxonomy/links     | [ ]  | —                          | [ ]                                  | [ ]          | [ ]                | —                           |
-| S4 Patterns           | [ ]  | —                          | [ ]                                  | [ ]          | [ ]                | —                           |
-| S5 Workflow hardening | [ ]  | —                          | [ ]                                  | [ ]          | if needed          | —                           |
-| S6 Pilot/rollout      | [ ]  | —                          | [ ]                                  | [ ]          | checked            | —                           |
+| Stage                 | Done | PR / commit             | CI incl. browser                     | Staging demo | Migration deployed | Approved by                 |
+| --------------------- | ---- | ----------------------- | ------------------------------------ | ------------ | ------------------ | --------------------------- |
+| S0 Baseline           | [x]  | PR #49; `2dc2f59`       | [x] runs 41179525074, 41198290935    | Local only   | N/A                | User: local testing, 31 Oct |
+| S1 UI/nav             | [ ]  | Draft PR #51; `f46e287` | Static/type pass; Docker unavailable | Local only   | N/A unless needed  | In progress                 |
+| S2 QR intake          | [ ]  | —                       | [ ]                                  | [ ]          | [ ]                | —                           |
+| S3 Taxonomy/links     | [ ]  | —                       | [ ]                                  | [ ]          | [ ]                | —                           |
+| S4 Patterns           | [ ]  | —                       | [ ]                                  | [ ]          | [ ]                | —                           |
+| S5 Workflow hardening | [ ]  | —                       | [ ]                                  | [ ]          | if needed          | —                           |
+| S6 Pilot/rollout      | [ ]  | —                       | [ ]                                  | [ ]          | checked            | —                           |
 
 ## Decisions requiring human ownership before relevant rollout
 
