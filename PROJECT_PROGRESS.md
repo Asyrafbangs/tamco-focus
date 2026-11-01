@@ -39,8 +39,8 @@ or a product decision.
 
 | Area         | State                                                                             |
 | ------------ | --------------------------------------------------------------------------------- |
-| Branch       | `codex/finding-v41-stage1` @ `95c937d`, stacked on the approved baseline.         |
-| Open work    | Stage 2 QR intake is blocked on its listed product, privacy and safety decisions. |
+| Branch       | `codex/finding-v41-stage2`, based on the verified Stage 1 branch.                  |
+| Open work    | Stage 2 private QR-intake foundations; disabled by default pending policy gates.   |
 | Migrations   | 184; `local` == `remote` through `20261030004000` (v271), verified 30 October.    |
 | Schema drift | None. Type diff is 48 lines, all `__InternalSupabase` and parenthesis formatting. |
 | Local seed   | 9 users, 52 tasks. Waiting view renders 20 rows.                                  |
@@ -518,5 +518,6 @@ Stage 1 is complete on draft PR #51 at implementation commit `697935d`.
 Targeted local dashboard/navigation/Today desktop and mobile coverage passed;
 the dispatched full workflow `41311926177` independently passed static,
 database/RLS/integration, production build and browser E2E. The durable
-checkpoint commit is `8f6fd96`. Do not begin Stage 2 before its separate QR,
-privacy, emergency-contact and safety-routing decisions are documented.
+checkpoint commit is `8f6fd96`. Stage 2 may build private, disabled-by-default
+foundations only; do not publish QR intake, uploads or emergency delivery
+before its separate QR, privacy, emergency-contact and safety-routing decisions.

@@ -148,8 +148,9 @@ department-preserving verification redirect are implemented. Targeted local
 desktop/mobile coverage passed. Dispatched full workflow `41311926177` passed
 format/lint/types/unit/secrets, migrations/RLS/integration, production build
 and browser E2E. PR #51 is unmerged and has no hosted or Production approval.
-Stage 2 remains blocked by the documented QR, privacy and emergency-contact
-policy decisions; do not invent them.
+Stage 2 foundations are in progress on `codex/finding-v41-stage2`. They remain
+disabled by default: do not publish QR intake, uploads or emergency delivery
+without the documented QR, privacy and emergency-contact policy decisions.
 
 ## 6. Last agent handover note
 
