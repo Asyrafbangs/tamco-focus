@@ -7,10 +7,9 @@ Factual and verified against the repository, not against conversation claims.
 removed; what was durable in it is below. Do not reintroduce a second
 current-state document.
 
-**Last verified:** 31 October 2026 · Stage 0 branch
-`codex/finding-v41-stage0`, stacked on backup branch
-`codex/evidence-storage-backup` @ `1de7ef0`. Run `git log --oneline -1`
-before continuing.
+**Last verified:** 1 November 2026 · Stage 1 branch
+`codex/finding-v41-stage1` @ `697935d`. The dispatched full workflow run
+`41311926177` passed static, database/integration, production-build and browser gates.
 
 ---
 
@@ -25,8 +24,8 @@ The backup branch is published as PR #50, ready for review; its dispatched full 
 passed all three jobs, including the browser suite. Stage 0 baseline review is
 committed on a separate branch as PR #49; its original dispatched workflow
 passed all three jobs. The user approved local-only Stage 1 testing on 31
-October. Stage 0 passed its full rebased CI. Stage 1 is now in draft PR #51 on
-`codex/finding-v41-stage1`; no hosted or Production deployment is approved.
+October. Stage 0 passed its full rebased CI. Stage 1 is complete in draft PR
+#51 on `codex/finding-v41-stage1`; no hosted or Production deployment is approved.
 
 The ESH corrective-action work (v262–v271) is complete and deployed. Earlier
 arcs — the My Team redesign (v233–v250), the CI and fixture corrections
@@ -38,8 +37,8 @@ or a product decision.
 
 | Area         | State                                                                             |
 | ------------ | --------------------------------------------------------------------------------- |
-| Branch       | `codex/finding-v41-stage0`, stacked on backup @ `1de7ef0`.                        |
-| Open work    | Stage 1 navigation/queue implementation; local-only verification is pending.      |
+| Branch       | `codex/finding-v41-stage1` @ `697935d`, stacked on the approved baseline.         |
+| Open work    | Stage 2 QR intake is blocked on its listed product, privacy and safety decisions. |
 | Migrations   | 184; `local` == `remote` through `20261030004000` (v271), verified 30 October.    |
 | Schema drift | None. Type diff is 48 lines, all `__InternalSupabase` and parenthesis formatting. |
 | Local seed   | 9 users, 52 tasks. Waiting view renders 20 rows.                                  |
@@ -178,9 +177,11 @@ are verified; PR #50 is ready for review. The supplied v4.1 package was
 read in numbered order and its illustrative screenshots inspected. Stage 0
 baseline/delta report is in PR #49 with its original dispatched CI passed.
 The user approved local-only Stage 1 testing and the rebased Stage 0 branch
-passed full dispatched CI. Stage 1 source and updated browser assertions pass
-Prettier, targeted ESLint and TypeScript. The browser build compiled, but its
-local Supabase Auth readiness probe timed out because Docker Desktop is absent.
+passed full dispatched CI. Stage 1 is implemented and independently verified:
+targeted local desktop/mobile browser coverage, formatting, lint, TypeScript,
+database/RLS/integration, production build and the dispatched browser suite
+all passed in run 41311926177. PR #51 remains draft and unmerged; no hosted
+staging or Production deployment is approved.
 
 ## Remaining work
 

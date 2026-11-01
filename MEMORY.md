@@ -142,15 +142,14 @@ bulk UI, rollout not yet. See `PROJECT_PROGRESS.md` → _Settled decisions_.
 
 ## 5. Current Stage 1 checkpoint
 
-Stage 1 is in progress on `codex/finding-v41-stage1` / draft PR #51. The
-Today/Findings/Patterns navigation, disabled Incoming reports queue and
+Stage 1 is complete on `codex/finding-v41-stage1` / draft PR #51 at `697935d`.
+Today/Findings/Patterns navigation, disabled Incoming reports and the
 department-preserving verification redirect are implemented. Targeted local
-browser coverage passed for historical insights, navigation, Today desktop and
-Today mobile after Docker/Supabase was restored. The full `npm run verify`
-run has not yet yielded a trustworthy final summary, so it is not a pass.
-Complete that gate, capture the two viewports, then commit/push and dispatch
-the branch’s browser CI. Stage 2 remains blocked by the documented QR and
-emergency-contact policy decisions; do not invent them.
+desktop/mobile coverage passed. Dispatched full workflow `41311926177` passed
+format/lint/types/unit/secrets, migrations/RLS/integration, production build
+and browser E2E. PR #51 is unmerged and has no hosted or Production approval.
+Stage 2 remains blocked by the documented QR, privacy and emergency-contact
+policy decisions; do not invent them.
 
 ## 6. Last agent handover note
 
