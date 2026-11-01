@@ -12856,7 +12856,10 @@ span.deadline span.deadline-glyph,
 }
 .esh-today-signals .esh-signal[data-disabled] {
   cursor: default;
-  opacity: 0.72;
+}
+.esh-today-signals .esh-signal[data-disabled] span,
+.esh-today-signals .esh-signal[data-disabled] small {
+  color: var(--text);
 }
 .esh-today-queue {
   margin-top: 20px;
@@ -12884,9 +12887,9 @@ span.deadline span.deadline-glyph,
 }
 .esh-today-queue .esh-section-head > a,
 .esh-today-columns .esh-section-head > a {
-  color: var(--blue);
+  color: var(--text);
   font-weight: 700;
-  text-decoration: none;
+  text-decoration: underline;
 }
 .esh-today-list {
   margin: 0;
