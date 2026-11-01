@@ -94,8 +94,9 @@ captures above show the current implementation.
 
 ## S0 gate and next action
 
-S0 remains unchecked in `07_BUILD_TRACKER.md` until the rebased Stage 0 branch
-passes its full dispatched workflow. The backup and original Stage 0 browser
-runs passed; local-only Stage 1 testing is approved. Current hosted deployment
-configuration remains unverified, so no hosted demo or Production rollout is
-authorized. No schema or v4.1 application feature changed here.
+S0 is complete in `07_BUILD_TRACKER.md`: dispatched workflow
+`41198290935` passed static, database/RLS/integration and browser jobs after
+the Stage 0 branch was stacked on the backup prerequisite. Local-only Stage 1
+testing is approved. Current hosted deployment configuration remains
+unverified, so no hosted demo or Production rollout is authorized. No schema
+or v4.1 application feature changed here.

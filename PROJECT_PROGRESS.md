@@ -502,12 +502,11 @@ how it runs locally.
 The authorized user completed the Production backup and the agent proved its
 recovery in isolated local. Both PRs passed dispatched full workflows on their
 original implementation commits. The user approved local-only S1 testing.
-The rebased Stage 0 branch still needs its own full CI before S0 closes. Public
-QR rollout and production changes remain gated.
+The rebased Stage 0 branch passed full CI, so S0 is closed. Public QR rollout
+and production changes remain gated.
 
 ## Exact next action
 
-Push the rebased Stage 0 branch, dispatch `verify.yml` on
-`codex/finding-v41-stage0` and confirm all three jobs, including the browser
-job, pass. Then mark S0 complete in the tracker and begin S1 in a separate
-stacked branch. No hosted deployment or public QR rollout is approved.
+Complete S1 in `codex/finding-v41-stage1`: implement the Today / Findings /
+Patterns navigation and working queues using the existing scoped query and
+security contracts. No hosted deployment or public QR rollout is approved.
