@@ -12,7 +12,7 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/(today|work|goals|more)/, { timeout: 30_000 });
 }
 
-test('v217 Closed is a destination, not a chip competing with the navigation', async ({
+test('v4101 keeps one primary navigation while preserving the closed deep link', async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'One reading of the navigation is enough.');
@@ -21,18 +21,18 @@ test('v217 Closed is a destination, not a chip competing with the navigation', a
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
   const nav = page.getByRole('navigation', { name: 'Finding Management' });
-  for (const destination of ['Register', 'Verification', 'Closed', 'Settings']) {
+  for (const destination of ['Today', 'Findings', 'Patterns', 'Configuration']) {
     await expect(nav.getByRole('link', { name: new RegExp(`^${destination}`) })).toBeVisible();
   }
-  // v227 - the Overview is not daily work, so it is not in the navigation.
-  await expect(nav.getByRole('link', { name: 'Overview' })).toHaveCount(0);
+  await expect(nav.getByRole('link', { name: 'Dashboard' })).toHaveCount(0);
+  await expect(nav.getByRole('link', { name: 'Register' })).toHaveCount(0);
 
   /*
    * The register's own views, by name rather than by count.
    *
    * This asserted "three" until v269 added a fourth, which broke a test whose
-   * actual claim -- Closed is a destination in the navigation and not a chip
-   * competing with it -- was never about how many chips there are.
+   * actual claim -- filters remain focused record views rather than another
+   * competing navigation system -- was never about how many chips there are.
    */
   const views = page.getByRole('navigation', { name: 'Register views' }).getByRole('link');
   for (const view of ['Needs attention', 'All open', 'Overdue', 'Not assessed']) {
@@ -40,13 +40,13 @@ test('v217 Closed is a destination, not a chip competing with the navigation', a
   }
   await expect(views.filter({ hasText: 'Closed' })).toHaveCount(0);
 
-  // The destination shows the closed register, and the navigation says so.
-  await nav.getByRole('link', { name: 'Closed' }).click();
+  // The retained deep link reaches the closed Findings filter.
+  await page.goto('/findings/closed');
   await expect(page).toHaveURL(/filter=closed/);
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
-  await expect(nav.getByRole('link', { name: 'Closed' })).toHaveAttribute('aria-current', 'page');
-  await expect(nav.getByRole('link', { name: 'Register' })).not.toHaveAttribute(
-    'aria-current',
-    'page',
-  );
+  await expect(nav.getByRole('link', { name: 'Findings' })).toHaveAttribute('aria-current', 'page');
+
+  await page.goto('/findings/verification');
+  await expect(page).toHaveURL(/\/findings\?queue=verification/);
+  await expect(page.getByRole('heading', { name: 'To verify', level: 1 })).toBeVisible();
 });

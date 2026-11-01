@@ -53,7 +53,7 @@ surfaces in one codebase:
 
 ## 2. Current status
 
-The Production evidence backup is restore-proven. The authorized user ran it on 31 October; the saved manifest has 354 objects (349 task attachments, 5 finding evidence). The agent checked every saved byte hash, restored all 354 objects to isolated local Storage, downloaded them and matched sizes and SHA-256. The Production data dump loaded 69 populated tables and 8 identities locally. `npm run db:reset` returned local to fixtures with exit 0. Full unpiped `npm run verify` passed 17/17. Backup PR #50 is ready for review; Stage 0 PR #49 is stacked on it. Each passed all three jobs in a dispatched workflow on its original implementation commit (626 browser cases passed, 155 intentionally skipped). The user approved local-only Stage 1 testing on 31 October. Stage 0 awaits full CI on its rebased branch before its gate closes.
+The Production evidence backup is restore-proven. The authorized user ran it on 31 October; the saved manifest has 354 objects (349 task attachments, 5 finding evidence). The agent checked every saved byte hash, restored all 354 objects to isolated local Storage, downloaded them and matched sizes and SHA-256. The Production data dump loaded 69 populated tables and 8 identities locally. `npm run db:reset` returned local to fixtures with exit 0. Full unpiped `npm run verify` passed 17/17. Backup PR #50 is ready for review; Stage 0 PR #49 is stacked on it and passed its rebased full CI. The user approved local-only Stage 1 testing. Stage 1 implementation is in progress; its browser/full validation is blocked by unavailable local Docker.
 
 **Deployed and complete:** v262 (owner screens on a phone, 8h idle / 12h maximum
 guest session) · v263–v267 (interim controls, who is actually slow, blockers,
@@ -75,7 +75,7 @@ v271 (**fixed v270, which was inert**, and keeps the camera's own file).
 ## 3. Next steps, in priority order
 
 1. **Complete backup PR #50 review.** Local recovery and dispatched CI passed; the PR is ready for review and unmerged. Its ten backup guards run in the existing CI unit step without a workflow-file change.
-2. **Finish v4.1 Stage 0 gate.** PR #49 has the baseline/delta report, package tracker and eight fixture-only desktop/mobile captures. The user approved local-only Stage 1 testing; no hosted or Production deployment is approved. Confirm dispatched CI on the rebased Stage 0 branch, then begin S1 in its own branch/PR.
+2. **Finish v4.1 Stage 1.** `codex/finding-v41-stage1` contains Today / Findings / Patterns navigation, working Today queues and preserved historical insights. Static checks pass. Local Docker is unavailable, so Supabase Auth and browser/full verification remain blocked. No hosted or Production deployment is approved.
 3. **Host the scanner** — a decision and a card, not engineering. Cloud Run
    scaling to zero is ≈$0/month if the signature databases are baked into the
    image *and that image is rebuilt weekly*; Fly.io always-on is ≈$13/month at

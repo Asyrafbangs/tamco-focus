@@ -25,8 +25,8 @@ The backup branch is published as PR #50, ready for review; its dispatched full 
 passed all three jobs, including the browser suite. Stage 0 baseline review is
 committed on a separate branch as PR #49; its original dispatched workflow
 passed all three jobs. The user approved local-only Stage 1 testing on 31
-October. Stage 0 was rebased onto the backup branch and needs full CI on its
-new HEAD before S1. No v4.1 application feature has been implemented.
+October. Stage 0 passed its full rebased CI. Stage 1 is now in progress on
+`codex/finding-v41-stage1`; no hosted or Production deployment is approved.
 
 The ESH corrective-action work (v262–v271) is complete and deployed. Earlier
 arcs — the My Team redesign (v233–v250), the CI and fixture corrections
@@ -39,7 +39,7 @@ or a product decision.
 | Area         | State                                                                             |
 | ------------ | --------------------------------------------------------------------------------- |
 | Branch       | `codex/finding-v41-stage0`, stacked on backup @ `1de7ef0`.                        |
-| Open work    | Stage 0 review and local-only S1 decision; no v4.1 feature changes.               |
+| Open work    | Stage 1 navigation/queue implementation; local-only verification is pending.      |
 | Migrations   | 184; `local` == `remote` through `20261030004000` (v271), verified 30 October.    |
 | Schema drift | None. Type diff is 48 lines, all `__InternalSupabase` and parenthesis formatting. |
 | Local seed   | 9 users, 52 tasks. Waiting view renders 20 rows.                                  |
@@ -142,8 +142,8 @@ passed all three jobs at `030bf19`, including 626 passed and 155 intentionally
 skipped browser cases. The captures use only local seed and temporary
 fixture findings; both targeted capture runs passed 2/2 and local fixtures
 were reset. The user approved local-only Stage 1 testing. PR #49 is stacked
-on backup PR #50; S0 remains unchecked until the rebased branch's dispatched
-full CI passes. No S1 feature work has begun.
+on backup PR #50 and Stage 0 passed its rebased dispatched full CI. Stage 1
+implements its navigation and queues in a separate branch.
 
 ## Completed work
 
@@ -177,8 +177,10 @@ Backup code, full local regression, Production byte recovery and dispatched CI
 are verified; PR #50 is ready for review. The supplied v4.1 package was
 read in numbered order and its illustrative screenshots inspected. Stage 0
 baseline/delta report is in PR #49 with its original dispatched CI passed.
-The user approved local-only Stage 1 testing; the rebased Stage 0 branch needs
-full dispatched CI before S0 closes.
+The user approved local-only Stage 1 testing and the rebased Stage 0 branch
+passed full dispatched CI. Stage 1 source and updated browser assertions pass
+Prettier, targeted ESLint and TypeScript. The browser build compiled, but its
+local Supabase Auth readiness probe timed out because Docker Desktop is absent.
 
 ## Remaining work
 
@@ -507,6 +509,7 @@ and production changes remain gated.
 
 ## Exact next action
 
-Complete S1 in `codex/finding-v41-stage1`: implement the Today / Findings /
-Patterns navigation and working queues using the existing scoped query and
-security contracts. No hosted deployment or public QR rollout is approved.
+Restore local Docker Desktop/Supabase availability, then run targeted Stage 1
+browser tests followed by `npm run verify` unpiped. Capture desktop and mobile
+screenshots, finish the Stage 1 PR/CI, and do not begin Stage 2 before its
+separate QR policy and emergency-contact decisions are documented.

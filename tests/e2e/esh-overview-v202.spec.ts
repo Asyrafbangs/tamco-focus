@@ -38,7 +38,7 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/(today|work|goals)/, { timeout: 30_000 });
 }
 
-test('v202 overview totals drill into the matching action rows without changing open work', async ({
+test('v4101 Today counters keep their scoped drill-downs without changing open work', async ({
   page,
 }, testInfo) => {
   test.skip(
@@ -74,28 +74,17 @@ test('v202 overview totals drill into the matching action rows without changing 
 
   await signIn(page);
   await page.goto('/findings');
-  // v230 - the Overview became the Dashboard, and gained the panels that say
-  // how it is going rather than only how many there are.
-  await expect(page.getByRole('heading', { name: 'Dashboard', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Today', level: 1 })).toBeVisible();
   const navigation = page.getByRole('navigation', { name: 'Finding Management' });
-  // v227 - kept at its address, reached from the register's tools rather than
-  // standing first in the navigation.
-  await expect(navigation.getByRole('link', { name: 'Overview' })).toHaveCount(0);
-  await expect(navigation.getByRole('link', { name: 'Register' })).toBeVisible();
-  await expect(navigation.getByRole('link', { name: /Verification/ })).toBeVisible();
-  await expect(page.getByText('By accountable department')).toBeVisible();
-  await expect(page.getByText(/Data at/)).toBeVisible();
-
-  const openSignal = page.locator('.esh-signal').filter({ hasText: 'Open findings' });
-  const openBefore = await openSignal.locator('strong').innerText();
-  await page.getByRole('button', { name: 'Change the closure period' }).click();
-  await page.getByRole('link', { name: 'Last 90 days' }).click();
-  await expect(page).toHaveURL(/period=90/);
-  await expect(openSignal.locator('strong')).toHaveText(openBefore);
+  for (const destination of ['Today', 'Findings', 'Patterns']) {
+    await expect(navigation.getByRole('link', { name: destination })).toBeVisible();
+  }
+  await expect(page.getByText('New reports')).toBeVisible();
+  await expect(page.getByText('Significant risks without verified protection')).toBeVisible();
 
   await page.locator('.esh-signal').filter({ hasText: 'Overdue actions' }).click();
   await expect(page).toHaveURL(/\/findings\/register\?filter=overdue/);
-  await expect(page.getByRole('heading', { name: 'Finding Register' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Findings' })).toBeVisible();
   await expect(page.getByText(title, { exact: true })).toBeVisible();
   await expect(page.getByText(/actions? in this view/)).toBeVisible();
 
