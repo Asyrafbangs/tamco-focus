@@ -101,8 +101,10 @@ export default async function FindingRegisterPage({
     <>
       <div className="pagehead">
         <div>
-          <h1>Finding Register</h1>
-          <p>See what needs action and who is responsible.</p>
+          <h1>Findings</h1>
+          <p>
+            Every accepted finding, action owner, due date and review state in one scoped register.
+          </p>
         </div>
         <div className="pagehead-actions">
           {/* The backlog arrives through the register it belongs to, rather

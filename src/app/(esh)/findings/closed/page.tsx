@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-/** Preserve the v200 deep link while Closed becomes a canonical Register view. */
+/** Preserve the old Closed deep link while Findings owns the canonical view. */
 export default async function ClosedFindingsRedirect({
   searchParams,
 }: {
