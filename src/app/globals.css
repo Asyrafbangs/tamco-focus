@@ -12886,7 +12886,8 @@ span.deadline span.deadline-glyph,
   color: var(--muted);
 }
 .esh-today-queue .esh-section-head > a,
-.esh-today-columns .esh-section-head > a {
+.esh-today-columns .esh-section-head > a,
+.esh-form-card .esh-section-head > a {
   color: var(--text);
   font-weight: 700;
   text-decoration: underline;
