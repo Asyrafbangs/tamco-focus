@@ -39,8 +39,8 @@ or a product decision.
 
 | Area         | State                                                                             |
 | ------------ | --------------------------------------------------------------------------------- |
-| Branch       | `codex/finding-v41-stage2`, based on the verified Stage 1 branch.                  |
-| Open work    | Stage 2 private QR-intake foundations; disabled by default pending policy gates.   |
+| Branch       | `codex/finding-v41-stage2`, based on the verified Stage 1 branch.                 |
+| Open work    | Stage 2 private QR-intake foundations; disabled by default pending policy gates.  |
 | Migrations   | 184; `local` == `remote` through `20261030004000` (v271), verified 30 October.    |
 | Schema drift | None. Type diff is 48 lines, all `__InternalSupabase` and parenthesis formatting. |
 | Local seed   | 9 users, 52 tasks. Waiting view renders 20 rows.                                  |

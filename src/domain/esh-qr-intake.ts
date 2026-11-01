@@ -8,6 +8,5 @@ export const publicQrIntakeEnabled = false;
 export const publicQrIntakeUnavailable = {
   title: 'Safety reporting is not available from this link',
   detail: 'This link does not submit a report or notify anyone.',
-  immediateDanger:
-    'For immediate danger, follow your site’s established emergency procedure.',
+  immediateDanger: 'For immediate danger, follow your site’s established emergency procedure.',
 } as const;
