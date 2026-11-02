@@ -89,12 +89,15 @@ export async function markReportIntakeDuplicate(input: {
     p_reason: reason,
   });
   if (error) {
-    console.error(`[esh_mark_report_intake_duplicate] ${error.code ?? 'unknown'}: ${error.message}`);
+    console.error(
+      `[esh_mark_report_intake_duplicate] ${error.code ?? 'unknown'}: ${error.message}`,
+    );
     return { ok: false, message: 'The duplicate link could not be saved.' };
   }
   const result = (data ?? {}) as { ok?: boolean; code?: string };
   if (result.ok) return { ok: true, message: 'Linked as a duplicate without creating an action.' };
-  if (result.code === 'reason_required') return { ok: false, message: 'Explain why this is a duplicate.' };
+  if (result.code === 'reason_required')
+    return { ok: false, message: 'Explain why this is a duplicate.' };
   return { ok: false, message: 'That report or Finding is no longer available.' };
 }
 
