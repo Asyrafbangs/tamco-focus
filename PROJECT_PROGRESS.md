@@ -7,16 +7,25 @@ Factual and verified against the repository, not against conversation claims.
 removed; what was durable in it is below. Do not reintroduce a second
 current-state document.
 
-**Last verified:** 31 October 2026 · written against **main** @ `9c7f6ee`
-(provenance, not the current head — run `git log --oneline -1` for that)
+**Last verified:** 31 October 2026 · backup work on
+`codex/evidence-storage-backup`, published implementation commit `8f13d37`, based on `origin/main`
+@ `2591c27`. A follow-up checkpoint commit may advance HEAD; run
+`git log --oneline -1` before continuing.
 
 ---
 
 ## Current objective
 
-None in progress. The repository is in a handover state: every branch worth
-keeping is merged, production matches the migrations in this repository, and the
-next task is named under _Exact next action_.
+Complete the private evidence-byte backup prerequisite in its own branch/PR,
+then review Finding Management v4.1 at Stage 0. The backup implementation and
+local byte restore proof are complete; the full repository gate passed 17/17.
+The authorized user made a fresh Production backup, and its database rows and
+all 354 private Storage objects were restored and verified in isolated local.
+The backup branch is published as PR #50, ready for review; its dispatched full workflow
+passed all three jobs, including the browser suite. Stage 0 baseline review is
+committed on a separate branch as draft PR #49; its dispatched full workflow
+also passed all three jobs. Stage 0 still needs a confirmed deployment target
+and approval. No v4.1 application feature has been implemented.
 
 The ESH corrective-action work (v262–v271) is complete and deployed. Earlier
 arcs — the My Team redesign (v233–v250), the CI and fixture corrections
@@ -28,15 +37,14 @@ or a product decision.
 
 | Area         | State                                                                             |
 | ------------ | --------------------------------------------------------------------------------- |
-| Branch       | `main`, in sync with `origin/main`. Confirm with `git log --oneline -1`.          |
-| Open work    | None. Two stale `codex/*` branches from August are unmerged and unowned.          |
+| Branch       | `codex/evidence-storage-backup`, based on `origin/main` @ `2591c27`.              |
+| Open work    | Scoped backup code and documentation; no v4.1 feature changes.                    |
 | Migrations   | 184; `local` == `remote` through `20261030004000` (v271), verified 30 October.    |
 | Schema drift | None. Type diff is 48 lines, all `__InternalSupabase` and parenthesis formatting. |
 | Local seed   | 9 users, 52 tasks. Waiting view renders 20 rows.                                  |
-| Production   | v269-v271 applied 30 October. Checked against a fresh schema dump, not the CLI's  |
-|              | word: the sent-file constraint admits `rejected`, the source columns and their    |
-|              | CHECK are present, and `esh_scan_claim` carries the stale-source sweep.           |
-|              | `ESH_SCANNER_URL` is unset, so nothing is scanned and every file says so.         |
+| Production   | Fresh 31 October user-run schema dump checked locally: v271 source and scan       |
+|              | guard symbols present; v4.1 QR intake/location tables absent.                     |
+|              | Vercel variables and scanner hosting were not rechecked in this session.          |
 
 ### Validation last run (30 October, for v271)
 
@@ -52,6 +60,88 @@ The run needs Docker and roughly 3.5 GB free, and takes about 25 minutes.
 Targeted figures that were captured, each proven by breaking what it guards:
 19 new pgTAP assertions, 16 unit tests across two files, 4 browser tests on two
 viewports.
+
+### Backup prerequisite checkpoint (31 October)
+
+- `scripts/backup-database.mjs` now writes a complete run directory with SQL,
+  both private buckets' bytes and a manifest of exact keys, sizes and SHA-256.
+  Failed or changing inventories remain `.incomplete`.
+- `scripts/verify-restore.mjs` checks saved bytes before truncating local data,
+  uploads them to local private Storage, downloads them and compares hashes.
+- `tests/scripts/storage-backup.test.mjs`: 10/10 negative/positive guard tests.
+  A real isolated local backup with the same nested key in both buckets copied
+  2 objects; `npm run restore:verify` loaded all 40 populated tables at full
+  count and read both restored objects back at matching size/hash. Proof
+  fixtures were removed and `npm run db:reset` returned local to the seed.
+- Full unpiped `npm run verify` passed 17/17 with exit 0 (748/748 pgTAP,
+  401/401 integration, 626 passed / 155 intentionally skipped Playwright).
+  The final ten backup guards passed separately after the full gate began.
+  Published implementation commit `8f13d37`; PR #50 and dispatched full
+  workflow run 41180345379 passed static, database and browser jobs. The CI
+  browser job reported 626 passed and 155 intentionally skipped. The final CI
+  unit script passed 550 unit tests and ten backup guards locally. PR run
+  41183430389 passed static, database/RLS/integration and production build on
+  documentation-only handover commit `149c1aa`; its browser job was skipped by
+  the pull-request trigger rule.
+- The user ran a **local**, zero-object backup on 31 October at
+  `D:/AI Project/Task Management/tamco-focus-backups/tamco-focus-local-2026-10-31T05-51-03-158Z-445267`.
+  Its manifest lists both buckets and zero objects. `npm run restore:verify`
+  loaded all 40 populated local tables at full count, then `npm run db:reset`
+  returned local to fixtures with exit 0. This does not establish a current
+  Production inventory or byte recovery.
+- The authorized user then ran a fresh **Production** backup at
+  `D:/AI Project/Task Management/tamco-focus-backups/tamco-focus-production-2026-10-31T06-30-14-696Z-014892`.
+  Local artifact inspection found 354 objects: 349 task attachments and 5
+  finding evidence, 107,357,176 downloaded bytes in total. All saved files
+  matched their manifest sizes and SHA-256 hashes. The user's first restore
+  attempt safely refused because its target resolved to Production. The agent
+  obtained the local URL and service-role key from local Supabase CLI status
+  without printing them, set the process target to local, then ran
+  `npm run restore:verify -- <run>`. It loaded 69 populated Production tables
+  and 8 identities, uploaded all 354 objects to isolated local Storage,
+  downloaded them and matched each size/hash. `npm run db:reset` exited 0 and
+  returned local to fixtures. **Production evidence backup is restore-proven.**
+- GitHub rejected the original push because its PAT cannot update workflow
+  files. The unpublished branch was rebuilt without a workflow-file diff:
+  `test:unit` now invokes `test:backup`, so the existing CI unit step runs all
+  ten backup guards. This passed locally (550 unit + 10 backup) and the branch
+  pushed. The connected GitHub integration returned 403 on PR creation; `gh`
+  opened draft PR #50. Dispatched full workflow run 41180345379 passed all
+  three jobs, including on-demand browser coverage at `8f13d37`.
+- The prior estimate of 354 objects is now corroborated by this fresh run,
+  but is not a permanent expected count. No Production read or write was made
+  by the agent; only the user's saved local artifacts were inspected.
+
+### v4.1 Stage 0 preliminary delta (read-only, 31 October)
+
+Source: `D:/Download/TAMCO_Finding_Management_v4.1_Claude_Complete_Build_Package.zip`
+(integrity checked; numbered Markdown read in order; illustrative HTML/screenshot
+concept inspected). The package's claims about v269/v270 being on an unmerged
+branch are stale: this checkout contains v269–v271 migrations and code. The
+current ESH navigation is Dashboard / Register / Verification / Closed, with
+Settings secondary; Today / Findings / Patterns is absent. Existing guest
+owner, verification, interim control, follow-up, escalation, scanning state,
+effectiveness and private evidence paths are present. No QR intake route,
+`esh_report_intake`, `esh_qr_locations`, QR rollout flag, hazard taxonomy or
+confirmed pattern relation table was found in local source/migrations. The
+original ESH v1.3 spec explicitly excluded public QR; v4.1 adds it behind
+separate security and rollout gates. The fresh user-run Production schema dump
+was searched locally with `rg`: v271 source/scan guard symbols are present;
+`esh_report_intake` and `esh_qr_locations` are absent. Current deployment
+configuration and staging readiness were not verified here.
+
+The Stage 0 risk/delta report, `07_BUILD_TRACKER.md` and eight fixture-only
+desktop/mobile captures are committed as `030bf19` on
+`codex/finding-v41-stage0`, in worktree
+`C:/Users/User/.codex/visualizations/2026/10/31/01a18fb9-87ef-7f11-aeba-43d8967c29d9/v41-review/stage0-worktree`.
+Draft PR #49: `https://github.com/Asyrafbangs/tamco-focus/pull/49`.
+Dispatched full workflow run 41179525074:
+`https://github.com/Asyrafbangs/tamco-focus/actions/runs/41179525074`
+passed all three jobs at `030bf19`, including 626 passed and 155 intentionally
+skipped browser cases. The captures use only local seed and temporary
+fixture findings; both targeted capture runs passed 2/2 and local fixtures
+were reset. The package tracker leaves S0 unchecked while the current
+deployment target and S0 approval are unresolved. No S1 feature work has begun.
 
 ## Completed work
 
@@ -81,7 +171,11 @@ viewports.
 
 ## Partial work
 
-None.
+Backup code, full local regression, Production byte recovery and dispatched CI
+are verified; PR #50 is ready for review. The supplied v4.1 package was
+read in numbered order and its illustrative screenshots inspected. Stage 0
+baseline/delta report is in draft PR #49 with dispatched CI passed. Its S0 gate
+remains open pending a confirmed deployment target and approval.
 
 ## Remaining work
 
@@ -97,8 +191,10 @@ None.
 3. **`TREND_MINIMUM_EVENTS = 10`** in `src/domain/esh-dashboard.ts` — decides
    when the sign-in-free page will name a backlog direction. A product
    judgement, not a measurement; one line to change.
-4. **Back up the evidence files.** The highest-value outstanding item, and the
-   recommended next task. See _Exact next action_.
+4. **Prove a current Production evidence backup.** Local implementation is
+   tested; an authorized user must run the production command, then the
+   resulting artifacts must pass local restore byte verification. See
+   _Exact next action_.
 5. **Host the scanner.** Built in v270–v271 and inert until `ESH_SCANNER_URL`
    and `ESH_SCANNER_TOKEN` are set. Not a defect: every file reads "Not
    scanned" and nothing claims otherwise.
@@ -146,8 +242,8 @@ Do not re-raise these without new information:
 
 - **Team rows stay one line at 39px**, three columns. The two-line 52–58px
   reading of the density brief was considered and declined on 3 October.
-- **Evidence is never scanned.** `virus_scan_state` is pinned `not_scanned`
-  deliberately; do not add scan states or a queue.
+- **Evidence scanning was approved in v270 and repaired in v271.** Without a
+  hosted scanner the honest state is `not_scanned`; do not represent it as clean.
 - **Successful email delivery is not shown to the user**, and a normal Action
   Owner gets no bulk actions.
 - **A direction needs both sides to have happened.** `backlogTrend` returns
@@ -378,13 +474,10 @@ how it runs locally.
   into the image and that image is rebuilt weekly; Fly.io always-on is about
   $13/month at 2GB, $25 at the 4GB ClamAV recommends. Until `ESH_SCANNER_URL`
   is set, every file stays `not_scanned` and nothing claims otherwise.
-- **The evidence files are not backed up.** `npm run backup:database` captures
-  the database; `storage.objects` is a row per file, not the file. Production
-  holds **354 objects — 349 in `task-attachments`, 5 in `finding-evidence`** —
-  and none of their bytes are in any backup. Lose the Supabase project and every
-  site photograph goes with it while the database returns intact, which defeats
-  the point of v271 keeping full-size originals. This is the largest known risk
-  in the product.
+- **Backup PR is ready for review.** Production bytes are saved and restore-proven;
+  dispatched workflow run 41180345379 passed all three jobs. The backup guard
+  runs via `test:unit` in existing CI, with no workflow-file change. The PR is
+  not merged or deployed.
 - **Only ESH evidence is scannable.** `virus_scan_state` on `task_attachments`
   and the goal evidence tables is untouched.
 - **The public dashboard's counts are not a privacy guarantee.** Differencing
@@ -395,7 +488,7 @@ how it runs locally.
 
 | Risk                                        | Severity | Note                                                                                                               |
 | ------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
-| Evidence files unbacked (354 objects)       | **High** | Unrecoverable if the project is lost. Next action below.                                                           |
+| Stage 0 deployment target and approval      | Medium   | Last documented Staging project state is absent; local-only fallback needs an explicit decision.                   |
 | Vercel `ATTACHMENT_ALLOWED_MIME` unverified | Medium   | A stale list silently refuses HEIC and PowerPoint that the file chooser offers. Vercel values cannot be read back. |
 | Vercel `EMAIL_TRANSPORT` unverified         | Medium   | Production once ran for weeks on `log` with every cron run returning 200.                                          |
 | No scanner hosted                           | Low      | Honest: every file reads "Not scanned". Nothing is misreported.                                                    |
@@ -403,32 +496,14 @@ how it runs locally.
 
 ## Blocker
 
-None.
+The authorized user completed the Production backup and the agent proved its
+recovery in isolated local. Both PRs passed dispatched full workflows.
+The Stage 0 deployment target and approval are unresolved. Public QR rollout
+and production changes remain gated.
 
 ## Exact next action
 
-**Back up the evidence files.** Start at `scripts/backup-database.mjs:112` —
-the third `dump(...)` call, which is where the database backup ends and the gap
-begins:
-
-```js
-110:  dump(targetArgs, schemaFile);
-111:  dump([...targetArgs, '--data-only', '--schema', 'auth,public'], dataFile);
-112:  dump([...targetArgs, '--data-only', '--schema', 'storage'], storageFile);
-```
-
-Add a step that copies the objects out of both private buckets
-(`finding-evidence`, `task-attachments`) into the same `../tamco-focus-backups/`
-folder, keyed by `object_key` so a restore can match rows to files, with a
-manifest recording each object's size and sha256. Then extend
-`scripts/verify-restore.mjs` to **prove** it the way the rest of the loop is
-proven — restore the files and compare hashes, rather than assuming them — and
-correct the _What is not in the backup_ section of `BACKUP_AND_RECOVERY.md`,
-which currently states plainly that the files are not covered.
-
-Read `BACKUP_AND_RECOVERY.md` first: it records three faults that each reported
-a perfectly good backup as unprovable, and the shape of a proof that holds.
-`src/server/esh/evidence.ts` shows how the server reaches a private bucket.
-
-Items 1 and 5 under _Remaining work_ need a credential and a product decision
-respectively, and are the user's to make, not an agent's.
+Confirm which non-Production deployment target is available for Stage 1 and
+obtain S0 approval; record the decision in the Stage 0 tracker. Review draft
+PRs #50 and #49. Do not start S1 features or public QR rollout before their
+required gates and decisions are recorded.
