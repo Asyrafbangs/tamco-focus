@@ -66,3 +66,34 @@ export async function declineReportIntake(input: {
   }
   return { ok: false, message: 'That report is no longer available.' };
 }
+
+/** Link a duplicate report to an existing visible Finding without new work. */
+export async function markReportIntakeDuplicate(input: {
+  intakeId: string;
+  findingId: string;
+  reason: string;
+}): Promise<IntakeActionResult> {
+  const intakeId = parseReportIntakeId(input.intakeId);
+  const findingId = parseReportIntakeId(input.findingId);
+  const reason = input.reason.trim();
+  if (!intakeId || !findingId) return { ok: false, message: 'That report is no longer available.' };
+  if (!reason) return { ok: false, message: 'Explain why this is a duplicate.' };
+  const access = await getEshAccess();
+  if (!access.enabled || !access.canCoordinate) {
+    return { ok: false, message: 'You do not have triage access.' };
+  }
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_mark_report_intake_duplicate', {
+    p_intake_id: intakeId,
+    p_finding_id: findingId,
+    p_reason: reason,
+  });
+  if (error) {
+    console.error(`[esh_mark_report_intake_duplicate] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false, message: 'The duplicate link could not be saved.' };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (result.ok) return { ok: true, message: 'Linked as a duplicate without creating an action.' };
+  if (result.code === 'reason_required') return { ok: false, message: 'Explain why this is a duplicate.' };
+  return { ok: false, message: 'That report or Finding is no longer available.' };
+}

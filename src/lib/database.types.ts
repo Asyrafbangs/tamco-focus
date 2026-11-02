@@ -5552,6 +5552,7 @@ export type Database = {
           created_at: string
           decision_reason: string | null
           department_id: string | null
+          duplicate_of_finding_id: string | null
           id: string
           organization_id: string
           public_reference: string
@@ -5568,6 +5569,7 @@ export type Database = {
           created_at?: string
           decision_reason?: string | null
           department_id?: string | null
+          duplicate_of_finding_id?: string | null
           id?: string
           organization_id: string
           public_reference?: string
@@ -5584,6 +5586,7 @@ export type Database = {
           created_at?: string
           decision_reason?: string | null
           department_id?: string | null
+          duplicate_of_finding_id?: string | null
           id?: string
           organization_id?: string
           public_reference?: string
@@ -5637,6 +5640,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_duplicate_of_finding_id_fkey"
+            columns: ["duplicate_of_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_register_rows"
+            referencedColumns: ["finding_id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_duplicate_of_finding_id_fkey"
+            columns: ["duplicate_of_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_duplicate_of_finding_id_fkey"
+            columns: ["duplicate_of_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_export_rows"
+            referencedColumns: ["finding_id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_duplicate_of_finding_id_fkey"
+            columns: ["duplicate_of_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_rows"
+            referencedColumns: ["finding_id"]
           },
           {
             foreignKeyName: "esh_report_intake_organization_id_fkey"
@@ -16077,6 +16108,10 @@ export type Database = {
           full_name: string
           user_id: string
         }[]
+      }
+      esh_mark_report_intake_duplicate: {
+        Args: { p_finding_id: string; p_intake_id: string; p_reason: string }
+        Returns: Json
       }
       esh_operational_health: { Args: never; Returns: Json }
       esh_overview: {
