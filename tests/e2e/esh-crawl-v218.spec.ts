@@ -142,6 +142,7 @@ test('v218 every rebuilt Finding screen holds up at both widths, in Day and Nigh
     '/findings/new',
     `/findings/${saved.finding_id}`,
     '/findings/verification',
+    '/findings/intake',
     '/findings/patterns',
     '/findings/patterns/insights',
     '/findings/settings',

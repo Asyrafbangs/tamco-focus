@@ -11,8 +11,10 @@ import {
   getOperationalHealth,
   getRolloutStatus,
   listRegister,
+  listReportIntake,
   listVerificationQueue,
   type RegisterListRow,
+  type ReportIntakeRow,
   type VerificationQueueRow,
 } from '@/server/esh/queries';
 
@@ -49,7 +51,7 @@ export default async function FindingsTodayPage({
 
 async function today(access: EshAccess, timeZone: string) {
   const now = new Date();
-  const [dashboard, attention, verification, health, rollout] = await Promise.all([
+  const [dashboard, attention, verification, health, rollout, intake] = await Promise.all([
     getDashboard(),
     listRegister({
       filter: 'attention',
@@ -62,11 +64,18 @@ async function today(access: EshAccess, timeZone: string) {
     listVerificationQueue(),
     getOperationalHealth(),
     access.canCoordinate ? getRolloutStatus() : Promise.resolve(null),
+    /*
+     * Only a coordinator may triage, and `/findings/intake` refuses anyone
+     * else, so a reader without that authority is not given a counter and a
+     * card leading somewhere they cannot go.
+     */
+    access.canCoordinate ? listReportIntake() : Promise.resolve(null),
   ]);
 
   const protection = dashboard?.protection.unprotected ?? 0;
   const overdue = dashboard?.overdueActions ?? 0;
   const awaiting = dashboard?.awaitingVerification ?? verification.length;
+  const incoming = intake?.rows ?? [];
 
   return (
     <>
@@ -91,7 +100,24 @@ async function today(access: EshAccess, timeZone: string) {
        * arrived at forty rows with no way to tell which three were meant.
        */}
       <section className="esh-signals esh-today-signals" aria-label="Today’s queues">
-        <Signal label="New reports" value={0} detail="QR intake is not enabled" disabled />
+        {intake && !intake.failed ? (
+          <Signal
+            label="New reports"
+            value={incoming.length}
+            detail="Private reports waiting for triage"
+            href="/findings/intake"
+            exception={incoming.length > 0}
+          />
+        ) : (
+          <Signal
+            label="New reports"
+            value={0}
+            detail={
+              intake ? 'The intake queue could not be read' : 'Triage needs coordinator access'
+            }
+            disabled
+          />
+        )}
         <Signal
           label="Significant risks without verified protection"
           value={protection}
@@ -185,13 +211,39 @@ async function today(access: EshAccess, timeZone: string) {
           <div className="esh-section-head">
             <div>
               <h2 id="today-incoming-title">Incoming reports</h2>
-              <p>Public QR reporting is not enabled in this environment.</p>
+              <p>Reports recorded by ESH. Public QR reporting is not enabled.</p>
             </div>
+            {intake && !intake.failed && <Link href="/findings/intake">Open queue</Link>}
           </div>
-          <QueueEmpty
-            title="No incoming reports"
-            detail="This queue remains intentionally empty until the approved Stage 2 rollout enables QR intake."
-          />
+          {!intake ? (
+            <QueueEmpty
+              title="Triage needs coordinator access"
+              detail="A report is triaged by a coordinator for the department it came from."
+            />
+          ) : intake.failed ? (
+            <div className="notice error" role="alert">
+              <strong>The intake queue could not be read</strong>
+              <p>No rows are shown rather than a list that might be incomplete.</p>
+            </div>
+          ) : incoming.length === 0 ? (
+            <QueueEmpty
+              title="No reports need triage"
+              detail="A report recorded here is not a Finding until a coordinator reviews it."
+            />
+          ) : (
+            <>
+              <ul className="esh-today-list">
+                {incoming.slice(0, TODAY_PREVIEW).map((row) => (
+                  <IntakeRow key={row.id} row={row} timeZone={timeZone} />
+                ))}
+              </ul>
+              {incoming.length > TODAY_PREVIEW && (
+                <p className="esh-register-foot">
+                  <Link href="/findings/intake">{incoming.length} waiting · see them all</Link>
+                </p>
+              )}
+            </>
+          )}
         </section>
         <section className="esh-form-card" aria-labelledby="today-escalations-title">
           <div className="esh-section-head">
@@ -383,6 +435,38 @@ function VerificationRow({ row, timeZone }: { row: VerificationQueueRow; timeZon
           <b>{row.title}</b>
           <small>
             {[row.location, `Submitted ${submitted}`, `Version ${row.version}`, row.ownerEmail]
+              .filter(Boolean)
+              .join(' · ')}
+          </small>
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+/**
+ * A private report has no reference and no title yet — it is somebody's
+ * sentence about what they saw — so the row shows the beginning of it and
+ * leaves the rest to the queue.
+ */
+function IntakeRow({ row, timeZone }: { row: ReportIntakeRow; timeZone: string }) {
+  const received = new Intl.DateTimeFormat('en-MY', {
+    day: 'numeric',
+    month: 'short',
+    timeZone,
+  }).format(new Date(row.receivedAt));
+  const flat = row.reportText.replace(/\s+/g, ' ').trim();
+  return (
+    <li className="esh-register-row">
+      <Link href="/findings/intake">
+        <span className="esh-today-row-main">
+          <b>{flat.length <= 90 ? flat : `${flat.slice(0, 89).trimEnd()}…`}</b>
+          <small>
+            {[
+              row.reportedLocation,
+              `Received ${received}`,
+              row.status === 'new' ? 'Needs triage' : 'Being triaged',
+            ]
               .filter(Boolean)
               .join(' · ')}
           </small>

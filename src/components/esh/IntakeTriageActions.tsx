@@ -49,12 +49,14 @@ export function IntakeTriageActions({ intakeId, status }: { intakeId: string; st
   return (
     <div className="esh-intake-actions">
       {status === 'new' && (
-        <button type="button" onClick={claim} disabled={pending}>
+        <button className="btn primary small" type="button" onClick={claim} disabled={pending}>
           {pending ? 'Saving…' : 'Claim for triage'}
         </button>
       )}
       {status === 'triaging' && (
-        <Link href={`/findings/new?intake=${intakeId}`}>Review as Finding</Link>
+        <Link className="btn primary small" href={`/findings/new?intake=${intakeId}`}>
+          Review as Finding
+        </Link>
       )}
       <details>
         <summary>Mark as duplicate</summary>
@@ -67,7 +69,7 @@ export function IntakeTriageActions({ intakeId, status }: { intakeId: string; st
             <span>Reason</span>
             <textarea name="reason" rows={2} maxLength={2000} required />
           </label>
-          <button type="submit" disabled={pending}>
+          <button className="btn small" type="submit" disabled={pending}>
             {pending ? 'Saving…' : 'Link duplicate without action'}
           </button>
         </form>
@@ -79,7 +81,7 @@ export function IntakeTriageActions({ intakeId, status }: { intakeId: string; st
             <span>Reason</span>
             <textarea name="reason" rows={2} maxLength={2000} required />
           </label>
-          <button type="submit" disabled={pending}>
+          <button className="btn small" type="submit" disabled={pending}>
             {pending ? 'Saving…' : 'Decline without action'}
           </button>
         </form>

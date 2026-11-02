@@ -27,7 +27,7 @@ begin
   select * into intake from public.esh_report_intake
    where id = p_intake_id and organization_id = focus.esh_organization_id() for update;
   if not found or (not focus.esh_scope_all() and (intake.department_id is null
-      or intake.department_id <> any (focus.esh_visible_department_ids()))) then
+      or intake.department_id <> all (focus.esh_visible_department_ids()))) then
     return jsonb_build_object('ok', false, 'code', 'not_found');
   end if;
   if intake.status not in ('new', 'triaging') then
@@ -37,7 +37,7 @@ begin
    where id = p_finding_id and organization_id = intake.organization_id;
   if not found or target.status not in ('new', 'open')
      or (not focus.esh_scope_all() and (target.accountable_department_id is null
-       or target.accountable_department_id <> any (focus.esh_visible_department_ids()))) then
+       or target.accountable_department_id <> all (focus.esh_visible_department_ids()))) then
     return jsonb_build_object('ok', false, 'code', 'finding_not_found');
   end if;
   update public.esh_report_intake set status = 'duplicate', duplicate_of_finding_id = target.id,

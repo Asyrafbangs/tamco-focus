@@ -13177,6 +13177,45 @@ span.deadline span.deadline-glyph,
 .esh-register-foot p {
   margin: 0;
 }
+
+/*
+ * Private intake triage controls, inside a register row's fourth column.
+ * The class was referenced before it existed, so the whole block rendered as
+ * unstyled browser default: stacked full-width details, no tap target and
+ * forms running off the row.
+ */
+.esh-intake-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: min(230px, 100%);
+}
+.esh-intake-actions > details {
+  width: 100%;
+}
+.esh-intake-actions summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 650;
+}
+.esh-intake-actions .settings-form {
+  gap: 8px;
+  padding: 10px 0 4px;
+}
+.esh-intake-actions .notice {
+  margin: 0;
+  width: 100%;
+}
+@media (max-width: 860px) {
+  .esh-intake-actions {
+    min-width: 100%;
+  }
+}
 .esh-pager {
   display: flex;
   gap: 14px;

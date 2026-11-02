@@ -184,6 +184,14 @@ public uploads and emergency delivery remain disabled by a database `check`
 constraint, so the outstanding policy decisions gate activation, not this
 stage.
 
+Two rules it added to the two above. **A negated scope check is `<> all`, never
+`<> any`** — six procedures had the wrong one, which refused every
+department-scoped coordinator on reports they do cover while the RLS policies
+still showed them the rows, and a `scope_all` test actor returns before
+reaching the comparison. **A queue is reached from Today, not by address** —
+`/findings/intake` had no inbound link in the whole application, and the card
+that exists to surface it still said QR intake was not enabled.
+
 ## 6. Last agent handover note
 
 `main` is at merge commit `10848ba`: the backup prerequisite (PR #50) and Stage

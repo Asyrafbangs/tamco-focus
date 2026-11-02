@@ -84,6 +84,7 @@ const ROUTES: Array<{ email: string; pages: string[] }> = [
       '/findings/register?filter=all',
       '/findings/closed',
       '/findings/verification',
+      '/findings/intake',
       '/findings/patterns',
       '/findings/patterns/insights',
       '/findings/settings',

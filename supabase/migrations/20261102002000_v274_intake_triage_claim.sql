@@ -25,7 +25,7 @@ begin
   end if;
   if not focus.esh_scope_all()
      and (intake.department_id is null
-          or intake.department_id <> any (focus.esh_visible_department_ids())) then
+          or intake.department_id <> all (focus.esh_visible_department_ids())) then
     return jsonb_build_object('ok', false, 'code', 'not_found');
   end if;
   if intake.status <> 'new' then

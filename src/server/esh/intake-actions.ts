@@ -11,6 +11,16 @@ export interface IntakeActionResult {
   message: string;
 }
 
+/**
+ * Today carries the intake counter and a preview of this queue, so a triage
+ * decision has to clear both. Clearing only the queue left Today's number
+ * showing the value it had before the decision.
+ */
+function revalidateIntake() {
+  revalidatePath('/findings/intake');
+  revalidatePath('/findings');
+}
+
 /** Claim one private intake before an ESH coordinator begins triage. */
 export async function claimReportIntake(input: { intakeId: string }): Promise<IntakeActionResult> {
   const intakeId = parseReportIntakeId(input.intakeId);
@@ -32,7 +42,7 @@ export async function claimReportIntake(input: { intakeId: string }): Promise<In
 
   const result = (data ?? {}) as { ok?: boolean; code?: string };
   if (result.ok) {
-    revalidatePath('/findings/intake');
+    revalidateIntake();
     return { ok: true, message: 'Report claimed for triage.' };
   }
   if (result.code === 'not_available') {
@@ -66,7 +76,7 @@ export async function declineReportIntake(input: {
   }
   const result = (data ?? {}) as { ok?: boolean; code?: string };
   if (result.ok) {
-    revalidatePath('/findings/intake');
+    revalidateIntake();
     return { ok: true, message: 'Report declined without creating an action.' };
   }
   if (result.code === 'reason_required') {
@@ -121,7 +131,7 @@ export async function markReportIntakeDuplicate(input: {
   }
   const result = (data ?? {}) as { ok?: boolean; code?: string };
   if (result.ok) {
-    revalidatePath('/findings/intake');
+    revalidateIntake();
     return { ok: true, message: 'Linked as a duplicate without creating an action.' };
   }
   if (result.code === 'reason_required')
@@ -143,6 +153,15 @@ export async function createManualReportIntake(input: {
   if (!access.enabled || !access.canCoordinate) {
     return { ok: false, message: 'You do not have triage access.' };
   }
+  /*
+   * The intake policy scopes rows by department, and `department_id = any(…)`
+   * is NULL-safe-false, so a report with no department is visible only to a
+   * coordinator who covers the whole organisation. Letting a scoped
+   * coordinator record one would lose it the instant it was saved.
+   */
+  if (!access.scopeAll && !input.departmentId) {
+    return { ok: false, message: 'Choose the department the report belongs to.' };
+  }
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc('esh_create_manual_report_intake', {
     p_report_text: reportText,
@@ -155,8 +174,11 @@ export async function createManualReportIntake(input: {
   }
   const result = (data ?? {}) as { ok?: boolean; code?: string };
   if (result.ok) {
-    revalidatePath('/findings/intake');
+    revalidateIntake();
     return { ok: true, message: 'Private report recorded for triage.' };
+  }
+  if (result.code === 'department_not_found') {
+    return { ok: false, message: 'Choose a department you cover.' };
   }
   return { ok: false, message: 'The manual report could not be saved.' };
 }

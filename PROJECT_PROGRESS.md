@@ -11,9 +11,12 @@ current-state document.
 prerequisite (PR #50), Stage 0 (PR #49) and the reviewed Stage 1 (PR #51),
 whose dispatched run `41440950624` passed all three jobs with the browser job
 executed, not skipped. Stage 2 private intake is on `codex/finding-v41-stage2`
-/ PR #52, now merged up to `main`: locally reset-tested through v278, with
-generated types, SQL parsing, TypeScript, focused unit coverage and the v278
-pgTAP file passing. Full Stage 2 regression and dispatched CI remain pending.
+/ PR #52, merged up to `main` and reviewed against gate S2; see
+`docs/finding-management-v4.1/stage2-review.md`. The review found that six
+intake scope checks used `<> any` where the predicate needs `<> all`, which
+refused every department-scoped coordinator, and that nothing in the
+application linked to the intake queue. Both are fixed. Full Stage 2
+regression and dispatched CI remain pending.
 
 ---
 
@@ -526,9 +529,9 @@ rollout and every Production change remain gated on explicit approval.
 
 ## Exact next action
 
-Stage 2 is on `codex/finding-v41-stage2` / PR #52, merged up to `main`. Next,
-complete its targeted browser coverage and the final local and dispatched
-gates. Its migrations stay local until the stage is committed and fully
+Stage 2 is on `codex/finding-v41-stage2` / PR #52, merged up to `main`, with
+the scope-operator defect and the unlinked queue both closed. Next, the final
+local and dispatched gates. Its migrations stay local until the stage is committed and fully
 verified. Do not publish public QR intake, public uploads or emergency
 delivery before their separate QR, privacy and safety-routing decisions; those
 activation decisions do not block the private staff workflow.

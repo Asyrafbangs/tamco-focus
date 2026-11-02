@@ -708,6 +708,28 @@ Be rigorous without being wasteful.
 
 Be concise without skipping engineering work.
 
+## 26.1 Never idle while a long run is in flight
+
+A dispatched CI run takes about forty minutes and a full local gate about the
+same. Waiting for one, with a report of what is running, is not progress. The
+user asked for this explicitly on 2 November 2026: while a run is in flight,
+carry on with work that does not depend on its result, and report both when the
+run lands.
+
+What is safe to do meanwhile:
+
+- read and review anything — a stacked branch, a migration, a specification;
+- write documentation, trackers, review notes and commit messages;
+- plan the next stage and list the decisions it needs;
+- investigate a defect found earlier, up to the point of changing a file.
+
+The one hard rule: **while a browser suite is running locally, do not edit a
+file it reads.** The suite runs against a development server serving from disk,
+so a source or style edit mid-run invalidates every case after it and the
+result cannot be believed. Editing while a *dispatched* run is in flight is
+fine — CI has its own checkout — but remember that the run then proves the
+commit it was given, not the working tree, and say which.
+
 ---
 
 # 27. Environment facts that have each cost a day
@@ -799,6 +821,19 @@ same-document navigation about 370 ms after load, which is suspicious but is
 not by itself enough to destroy a context. **Do not loosen the crawl to get
 past this.** Establish it is pre-existing by stashing and re-running, then rely
 on a dispatched CI run for the verdict and chase the mechanism separately.
+
+**A negated scope check must be `<> all`, and a `scope_all` test actor hides
+it.** `'a' <> any {a,b}` is **true** in Postgres, so
+`department_id <> any (focus.esh_visible_department_ids())` refuses a
+coordinator on the departments they *do* cover as soon as they cover more than
+one. Six Stage 2 procedures shipped this way behind fifteen passing pgTAP
+assertions, because those assertions act as the seeded organisation-wide
+Verifier and every scope branch begins `if not focus.esh_scope_all()`, which
+returns first. Prefer this repository's positive idiom,
+`focus.esh_scope_all() or x = any (…)`, keep the explicit `x is null` branch
+because `= any` on NULL is NULL-safe-false, and make any scope test act as an
+actor scoped to **two** departments — at one department the wrong operator
+reads exactly like the right one.
 
 **Repeated full verifies exhaust the machine's sockets.** A second or third
 `npm run verify` in one session fails with `net::ERR_NO_BUFFER_SPACE`, and —

@@ -85,7 +85,7 @@ test('v278 a claimed private report becomes one explicitly assigned Finding', as
   const row = page.locator('.esh-register-row').filter({ hasText: reportText });
   await expect(row).toBeVisible();
   await row.getByRole('button', { name: 'Claim for triage' }).click();
-  await expect(row.locator('.status-chip')).toHaveText('triaging');
+  await expect(row.locator('.esh-register-status .flag')).toHaveText('Being triaged');
   await row.getByRole('link', { name: 'Review as Finding' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/findings/new\\?intake=${intake!.id}`));
