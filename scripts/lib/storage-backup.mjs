@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 export const BACKUP_BUCKETS = ['task-attachments', 'finding-evidence'];
@@ -124,6 +124,202 @@ function validateManifest(manifest) {
     throw new Error('Storage manifest count mismatch.');
 }
 
+// ---------------------------------------------------------------------------
+// Completeness, checked against something other than ourselves
+//
+// Everything above is self-consistent: the manifest comes from a bucket
+// listing, the saved bytes are checked against the manifest, and the restored
+// bytes are checked against the manifest again. None of that can notice a
+// listing that came back short, which is the one failure a backup must not
+// have — and AGENTS.md section 11 is explicit that an expected value must not
+// be derived from the thing under test.
+//
+// The independent witness is already in the run directory. `storage.objects`
+// is Postgres's own record of what the buckets hold, dumped moments earlier by
+// this same backup. A row in it with no object in the manifest means something
+// was missed, and a run that missed something is not a backup.
+//
+// Object keys carry original filenames, so nothing below ever prints a key.
+// Bucket names and counts only.
+// ---------------------------------------------------------------------------
+
+/** Split a VALUES block into tuples, respecting quotes so JSON commas survive. */
+function tuples(block) {
+  const rows = [];
+  let depth = 0;
+  let quoted = false;
+  let current = '';
+  for (let i = 0; i < block.length; i += 1) {
+    const ch = block[i];
+    if (quoted) {
+      if (ch === "'" && block[i + 1] === "'") {
+        current += "''";
+        i += 1;
+        continue;
+      }
+      if (ch === "'") quoted = false;
+      current += ch;
+      continue;
+    }
+    if (ch === "'") {
+      quoted = true;
+      current += ch;
+      continue;
+    }
+    if (ch === '(') {
+      depth += 1;
+      if (depth === 1) {
+        current = '';
+        continue;
+      }
+    }
+    if (ch === ')') {
+      depth -= 1;
+      if (depth === 0) {
+        rows.push(current);
+        continue;
+      }
+    }
+    if (ch === ';' && depth === 0) break;
+    if (depth > 0) current += ch;
+  }
+  if (depth !== 0 || quoted) {
+    throw new Error('Storage dump is truncated; completeness cannot be proven.');
+  }
+  return rows;
+}
+
+/** One tuple's fields, with quotes removed and doubled quotes unescaped. */
+function fields(row) {
+  const out = [];
+  let quoted = false;
+  let current = '';
+  for (let i = 0; i < row.length; i += 1) {
+    const ch = row[i];
+    if (quoted) {
+      if (ch === "'" && row[i + 1] === "'") {
+        current += "'";
+        i += 1;
+        continue;
+      }
+      if (ch === "'") {
+        quoted = false;
+        continue;
+      }
+      current += ch;
+      continue;
+    }
+    if (ch === "'") {
+      quoted = true;
+      continue;
+    }
+    if (ch === ',') {
+      out.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  out.push(current.trim());
+  return out;
+}
+
+/**
+ * What `storage.objects` says exists, from a `*-storage.sql` dump, as
+ * `Map<bucket, Set<key>>`.
+ *
+ * A row that cannot be parsed throws rather than being skipped: skipping is
+ * precisely how a short list becomes an apparently complete backup. Delete
+ * markers are not objects and are not expected on disk.
+ */
+export function objectsInStorageDump(sql) {
+  const marker = /INSERT INTO "storage"\."objects" \(([^)]*)\)\s*VALUES/.exec(sql);
+  if (!marker) return new Map();
+  const columns = marker[1].split(',').map((name) => name.trim().replaceAll('"', ''));
+  const bucketAt = columns.indexOf('bucket_id');
+  const nameAt = columns.indexOf('name');
+  const markerAt = columns.indexOf('is_delete_marker');
+  if (bucketAt < 0 || nameAt < 0) {
+    throw new Error('Storage dump names no bucket_id/name column; completeness unproven.');
+  }
+  const found = new Map();
+  for (const row of tuples(sql.slice(marker.index + marker[0].length))) {
+    const parts = fields(row);
+    if (parts.length !== columns.length) {
+      throw new Error('Storage dump row does not match its columns; completeness unproven.');
+    }
+    if (markerAt >= 0 && parts[markerAt].toLowerCase() === 'true') continue;
+    const bucket = parts[bucketAt];
+    const key = parts[nameAt];
+    if (!bucket || !key) {
+      throw new Error('Storage dump row has no bucket or key; completeness unproven.');
+    }
+    if (!found.has(bucket)) found.set(bucket, new Set());
+    found.get(bucket).add(key);
+  }
+  return found;
+}
+
+/** The run's own `*-storage.sql`. Absent means completeness cannot be claimed. */
+export async function readStorageDump(runDirectory) {
+  const dumps = (await readdir(runDirectory)).filter((name) => name.endsWith('-storage.sql'));
+  if (dumps.length !== 1) {
+    throw new Error(
+      'Exactly one *-storage.sql must sit beside the manifest to prove completeness.',
+    );
+  }
+  return readFile(join(runDirectory, dumps[0]), 'utf8');
+}
+
+/**
+ * Refuse a manifest that does not account for every object the database lists.
+ *
+ * Asymmetric on purpose. The storage dump is taken moments before the bucket
+ * walk, so a file uploaded in between appears in the manifest and not in the
+ * dump — harmless, the backup simply holds more than the record, and the count
+ * is reported. The other direction is not harmless: a recorded row with no
+ * saved bytes is either an omission or a deletion mid-run, and neither may
+ * pass as a proven backup.
+ */
+export function assertManifestCovers(manifest, sql) {
+  validateManifest(manifest);
+  const recorded = objectsInStorageDump(sql);
+  const saved = new Map();
+  for (const object of manifest.objects) {
+    if (!saved.has(object.bucket)) saved.set(object.bucket, new Set());
+    saved.get(object.bucket).add(object.object_key);
+  }
+
+  const describe = (counts) => [...counts].map(([bucket, n]) => `${bucket}: ${n}`).join(', ');
+  const foreign = new Map();
+  const missing = new Map();
+  let recordedTotal = 0;
+  for (const [bucket, keys] of recorded) {
+    recordedTotal += keys.size;
+    if (!BACKUP_BUCKETS.includes(bucket)) {
+      foreign.set(bucket, keys.size);
+      continue;
+    }
+    const here = saved.get(bucket) ?? new Set();
+    const absent = [...keys].filter((key) => !here.has(key)).length;
+    if (absent) missing.set(bucket, absent);
+  }
+
+  if (foreign.size) {
+    throw new Error(
+      `Storage holds objects in buckets this backup does not cover (${describe(foreign)}); ` +
+        'add the bucket or record the exclusion before claiming a complete backup.',
+    );
+  }
+  if (missing.size) {
+    throw new Error(
+      `The database lists objects with no saved bytes (${describe(missing)}); ` +
+        'the backup is incomplete. Re-run it; if it repeats, the listing is short.',
+    );
+  }
+  return { recorded: recordedTotal, saved: manifest.objects.length };
+}
+
 export async function backupStorage(client, runDirectory, createdAt = new Date().toISOString()) {
   const objects = [];
   for (const bucket of BACKUP_BUCKETS) {
@@ -160,6 +356,8 @@ export async function backupStorage(client, runDirectory, createdAt = new Date()
     objects,
   };
   validateManifest(manifest);
+  // Against the database's own record, before this run may call itself complete.
+  assertManifestCovers(manifest, await readStorageDump(runDirectory));
   await writeFile(
     join(runDirectory, 'storage-manifest.json'),
     JSON.stringify(manifest, null, 2) + '\n',
@@ -189,6 +387,9 @@ export async function readVerifiedManifest(runDirectory) {
       throw new Error('Storage backup bytes mismatch; restore not proven.');
     }
   }
+  // Again at restore time, so a backup that lost objects after it was written,
+  // or was taken before this check existed, cannot be restored as proven.
+  assertManifestCovers(manifest, await readStorageDump(runDirectory));
   return manifest;
 }
 
