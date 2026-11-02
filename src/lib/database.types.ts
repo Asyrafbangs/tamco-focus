@@ -15836,6 +15836,14 @@ export type Database = {
         Args: { p_blocker_id: string; p_note: string }
         Returns: Json
       }
+      esh_create_manual_report_intake: {
+        Args: {
+          p_department_id?: string
+          p_report_text: string
+          p_reported_location?: string
+        }
+        Returns: Json
+      }
       esh_current_access: { Args: never; Returns: Json }
       esh_dashboard: { Args: { p_months?: number }; Returns: Json }
       esh_decline_report_intake: {

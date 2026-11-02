@@ -97,3 +97,32 @@ export async function markReportIntakeDuplicate(input: {
   if (result.code === 'reason_required') return { ok: false, message: 'Explain why this is a duplicate.' };
   return { ok: false, message: 'That report or Finding is no longer available.' };
 }
+
+/** Record an ESH-verbal report as private intake, never as an assigned Finding. */
+export async function createManualReportIntake(input: {
+  reportText: string;
+  reportedLocation?: string;
+  departmentId?: string;
+}): Promise<IntakeActionResult> {
+  const reportText = input.reportText.trim();
+  if (!reportText || reportText.length > 4000) {
+    return { ok: false, message: 'Describe what was reported in up to 4,000 characters.' };
+  }
+  const access = await getEshAccess();
+  if (!access.enabled || !access.canCoordinate) {
+    return { ok: false, message: 'You do not have triage access.' };
+  }
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_create_manual_report_intake', {
+    p_report_text: reportText,
+    p_reported_location: input.reportedLocation?.trim() || null,
+    p_department_id: input.departmentId || null,
+  });
+  if (error) {
+    console.error(`[esh_create_manual_report_intake] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false, message: 'The manual report could not be saved.' };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (result.ok) return { ok: true, message: 'Private report recorded for triage.' };
+  return { ok: false, message: 'The manual report could not be saved.' };
+}
