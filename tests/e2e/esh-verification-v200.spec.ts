@@ -186,10 +186,11 @@ test('v200 ESH reviews from the queue, asks for more, then accepts and closes', 
   const row = page.locator('.esh-register-row').filter({ hasText: work.title });
   await expect(row).toContainText('Version 1');
   await expect(row).toContainText(work.ownerEmail);
-  await row.getByRole('link').click();
+  await row.click();
   await expect(page).toHaveURL(
     new RegExp(`/findings/${work.findingId}\\?action=${work.actionId}$`),
   );
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
   // Before and after, side by side (§13), under what was required (v217).
   const submission = page.getByRole('region', { name: /Submitted for review/ });
@@ -220,6 +221,7 @@ test('v200 ESH reviews from the queue, asks for more, then accepts and closes', 
   // The owner sends a second version; ESH accepts it and the finding closes.
   await submit(work.session, work.actionId, 'Lower fixing photographed.', `${id}-2`);
   await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   const second = page.getByRole('region', { name: /Submitted for review · version 2/ });
   await second.getByRole('button', { name: 'Accept & close finding' }).click();
   await expect(page.locator('.esh-status-flag')).toHaveText('Closed');
@@ -245,6 +247,7 @@ test('v200 ESH reviews from the queue, asks for more, then accepts and closes', 
     'Closed',
   );
   await page.goto(`/findings/${work.findingId}`);
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   await page.getByRole('button', { name: 'More actions for this finding' }).click();
   await page
     .getByRole('list', { name: 'Finding actions' })
@@ -291,6 +294,7 @@ test('v200 ESH moves the due date and the owner, and says why', async ({ page },
 
   await signIn(page, 'izzul@tamco.local');
   await page.goto(`/findings/${work.findingId}`);
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   await page.getByRole('button', { name: 'More actions for this finding' }).click();
   const actions = page.getByRole('list', { name: 'Finding actions' });
   await actions.getByRole('button', { name: 'Change due date' }).click();

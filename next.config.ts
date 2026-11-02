@@ -30,6 +30,17 @@ const nextConfig: NextConfig = {
   // keeps the two from colliding.
   distDir: process.env.NEXT_DIST_DIR ?? '.next',
 
+  /*
+   * The framework's own development badge, off for the browser suite only.
+   *
+   * Its button is named "Open Next.js Dev Tools", so a `getByRole('button',
+   * { name: 'Next' })` for a form's own Next button matched two elements and
+   * three specs failed on a control that is not part of the product. The
+   * badge is not something the suite should have to work around, and the
+   * person running `npm run dev` keeps it.
+   */
+  devIndicators: process.env.E2E_NO_DEV_INDICATORS === '1' ? false : undefined,
+
   // Attachments are streamed through authorised server routes, never proxied
   // through the Next.js image optimiser.
   images: { remotePatterns: [] },

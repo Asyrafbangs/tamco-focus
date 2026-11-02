@@ -760,6 +760,55 @@ ship a scanner that raised an exception on its first production row behind
 eleven passing assertions. Before trusting a suite, ask which rows the guard
 actually governs and fixture *those*.
 
+**Local Storage can break outright, and it looks like an application bug.**
+After `restore:verify` has uploaded objects into the local buckets, local
+Storage can start answering every upload with `database error, code: 42P10`.
+The browser suite then fails on eight unrelated specs — assignment files,
+private evidence, PDF viewing, Excel import, photographs — because all of them
+upload. Our code is not at fault, and nor is the application's `ON CONFLICT`:
+reproduce it in two lines with a service-role `storage.from(bucket).upload(...)`
+before touching source. The fix is a clean rebuild of the local stack:
+`npx supabase stop --no-backup` then `npx supabase start`, which drops the local
+volume and lets the running storage image build the schema it expects.
+
+**The framework's development badge is a button on every page.** Its
+accessible name is "Open Next.js Dev Tools", so
+`getByRole('button', { name: 'Next' })` matches it as well as a form's own Next
+button, and three `esh-foundations-v197` specs failed in strict mode on a
+control that is not part of the product. `scripts/start-e2e-server.mjs` now
+sets `E2E_NO_DEV_INDICATORS=1` and `next.config.ts` turns the badge off for
+that server only. Do not reintroduce it, and do not "fix" a spec that trips
+over it by loosening the selector.
+
+**The browser suite leaves its fixtures behind, and the register paginates at
+50.** Each run adds findings, actions and pending submissions; after a few
+runs a fixture that used to be the only row is on page two, and a spec that
+looked for it by title fails with `element(s) not found` as if the feature had
+broken. Find a fixture by searching for it (`?q=<title>`), never by assuming
+which page it landed on, and run `npm run db:reset` before a gate run you
+intend to believe.
+
+**`layout-invariants-v244` dies locally on this machine, and not on the
+change you are making.** Both themes fail with
+`page.evaluate: Execution context was destroyed, most likely because of a
+navigation`, deterministically, four runs out of four — and identically with
+every local change stashed, which is how to tell. CI passes the same spec. The
+mechanism is a hard navigation landing inside the crawl's measuring window,
+not the walk's own assertions; `/more/admin/users` makes a second
+same-document navigation about 370 ms after load, which is suspicious but is
+not by itself enough to destroy a context. **Do not loosen the crawl to get
+past this.** Establish it is pre-existing by stashing and re-running, then rely
+on a dispatched CI run for the verdict and chase the mechanism separately.
+
+**Repeated full verifies exhaust the machine's sockets.** A second or third
+`npm run verify` in one session fails with `net::ERR_NO_BUFFER_SPACE`, and —
+more misleadingly — with a sign-in that half-loads into `?error=invalid` and
+reads exactly like a real authentication regression. Check
+`Get-NetTCPConnection -State TimeWait` before believing it; a few minutes of
+drain and a re-run is the remedy. Budget one full local gate run per sitting,
+and remember CI's dispatched run takes about 40 minutes end to end, so a
+dispatch that has only *started* proves nothing.
+
 ---
 
 <!-- BEGIN:nextjs-agent-rules -->

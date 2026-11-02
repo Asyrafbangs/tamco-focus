@@ -10,14 +10,18 @@ deliberately short.
 > sections below stop being true. If the two ever disagree,
 > `PROJECT_PROGRESS.md` wins and this file is the bug.
 >
-> `AGENTS.md` holds the permanent development rules, including §27 — nine
+> `AGENTS.md` holds the permanent development rules, including §27 — the
 > environment facts that have each already produced a wrong conclusion here.
 > Read §27 before running anything.
 
 **Last verified:** 2 November 2026 · Stage 2 private intake on
-`codex/finding-v41-stage2` @ `4946115`; local schema reset through v278,
-generated types, SQL parser, TypeScript, focused unit coverage and v278 pgTAP
-(11 assertions) pass. Full Stage 2 regression and CI remain pending.
+`codex/finding-v41-stage2`, based on `origin/main` @ `07c1054`, which carries
+Stage 0 (PR #49), the backup prerequisite (PR #50) and the reviewed Stage 1
+(PR #51). Local schema is reset through v278; generated types, SQL parser,
+TypeScript, focused unit coverage and v278 pgTAP pass. Full Stage 2 regression
+and CI remain pending. The last Production evidence is still the user-run
+schema dump of 31 October: v271 evidence objects present, v4.1 QR intake
+absent.
 
 A commit hash in a document goes stale the moment the document is merged, so
 treat that one as provenance, not as the current head. For the head, run
@@ -56,7 +60,9 @@ surfaces in one codebase:
 
 ## 2. Current status
 
-The Production evidence backup is restore-proven. The authorized user ran it on 31 October; the saved manifest has 354 objects (349 task attachments, 5 finding evidence). The agent checked every saved byte hash, restored all 354 objects to isolated local Storage, downloaded them and matched sizes and SHA-256. The Production data dump loaded 69 populated tables and 8 identities locally. `npm run db:reset` returned local to fixtures with exit 0. Full unpiped `npm run verify` passed 17/17. Backup PR #50 is ready for review; Stage 0 PR #49 is stacked on it and passed its rebased full CI. The user approved local-only Stage 1 testing. Stage 1 is complete in draft PR #51: targeted local browser coverage passed and dispatched workflow 41311926177 passed static, database/RLS/integration, production build and browser E2E. No hosted or Production deployment is approved.
+The backup prerequisite and Stage 0 are **merged** (PR #50, then PR #49 as merge commit `10848ba`). The backup loop now checks its own completeness against `storage.objects` rather than against the bucket listing it was built from, so a short listing can no longer produce a backup that passes every check while missing files; that was proven against the 31 October Production run, 354 recorded and 354 saved with every byte re-hashed.
+
+Stage 1 is implemented and has been **reviewed against its own gate**, which found five defects the stage's own acceptance criteria ask about — a verification queue that showed six of however many were waiting, four controls lost from it in the move, a counter linking to a list that was not its own, two missing register views, and a menu item pointing at what is now Today. All five are fixed, each with a browser case proven by breaking what it guards. See `docs/finding-management-v4.1/stage1-review.md`. No schema change in Stage 1, and no hosted or Production deployment is approved.
 
 **Deployed and complete:** v262 (owner screens on a phone, 8h idle / 12h maximum
 guest session) · v263–v267 (interim controls, who is actually slow, blockers,
@@ -77,13 +83,17 @@ v271 (**fixed v270, which was inert**, and keeps the camera's own file).
 
 ## 3. Next steps, in priority order
 
-1. **Complete backup PR #50 review.** Local recovery and dispatched CI passed; the PR is ready for review and unmerged. Its ten backup guards run in the existing CI unit step without a workflow-file change.
-2. **Finish Stage 2 verification.** Draft PR #52 (`codex/finding-v41-stage2`)
-   implements private staff intake only: manual report capture, claim, decline,
-   duplicate linking and atomic Finding acceptance. Add relevant browser
-   coverage and run the full local/CI gates. Public QR, public uploads,
-   emergency delivery and any hosted rollout stay disabled pending their
-   documented operating decisions.
+1. **Finish Stage 2.** PR #52 (`codex/finding-v41-stage2`) implements private
+   staff intake only: manual report capture, claim, decline, duplicate linking
+   and atomic Finding acceptance. Public QR, public uploads, emergency delivery
+   and any hosted rollout stay disabled, so the stage does not depend on the
+   decisions below.
+2. **The Stage 2 activation decisions** — anonymous reporting and its notice,
+   emergency-contact routing in and out of hours, photo retention/EXIF and
+   scanner hosting — are in
+   `docs/finding-management-v4.1/07_BUILD_TRACKER.md` under _Decisions
+   requiring human ownership_. They gate the **public** QR half only.
+   **Do not invent any of them.**
 3. **Host the scanner** — a decision and a card, not engineering. Cloud Run
    scaling to zero is ≈$0/month if the signature databases are baked into the
    image *and that image is rebuilt weekly*; Fly.io always-on is ≈$13/month at
@@ -150,88 +160,54 @@ bulk UI, rollout not yet. See `PROJECT_PROGRESS.md` → _Settled decisions_.
 
 ## 5. Current Stage 2 checkpoint
 
-Stage 1 is complete on `codex/finding-v41-stage1` / draft PR #51 at `697935d`.
-Today/Findings/Patterns navigation, disabled Incoming reports and the
-department-preserving verification redirect are implemented. Targeted local
-desktop/mobile coverage passed. Dispatched full workflow `41311926177` passed
-format/lint/types/unit/secrets, migrations/RLS/integration, production build
-and browser E2E. PR #51 is unmerged and has no hosted or Production approval.
-Stage 2 private intake is implemented through v278 on `codex/finding-v41-stage2`
-/ draft PR #52 at `4946115`. It is RLS-protected, staff-only and locally
-reset-tested. Public QR intake, uploads and emergency delivery remain disabled;
-Stage 2 still needs targeted browser coverage plus full regression and CI.
+Today / Findings / Patterns navigation, the four Today counters, the Needs
+attention queue, the Incoming reports queue and the department-preserving
+verification redirect are implemented and **merged**. The historical panels
+were **moved, not rebuilt**: `/findings/patterns/insights` renders the same
+`DashboardPanels` from the same queries, and the sign-in-free leadership route
+is untouched.
+
+Two rules this screen keeps, and that a later stage must not undo:
+
+- **A counter links to a list that holds exactly it.** Each live counter has a
+  named register view behind it, and a browser case compares the number with
+  the view's own total. They are read through different paths — the
+  `esh_dashboard` procedure and the register views under RLS — so the
+  comparison is two answers to one question, not an assertion with itself.
+- **A queue that is the only route to an obligation is complete.** The
+  verification queue shows every waiting row; Today's card shows six and says
+  how many it is not showing. Incoming reports now follows the same rule.
+
+Stage 2 adds private staff intake through v278 on `codex/finding-v41-stage2` /
+PR #52: RLS-protected, staff-only, locally reset-tested. Public QR intake,
+public uploads and emergency delivery remain disabled by a database `check`
+constraint, so the outstanding policy decisions gate activation, not this
+stage.
 
 ## 6. Last agent handover note
 
-Current branch: `codex/finding-v41-stage0`, stacked on backup branch
-`codex/evidence-storage-backup` @ `1de7ef0`. Check current HEAD and PR state;
-the approval/checkpoint commit will advance HEAD.
-Check current HEAD and PR/workflow state before continuing.
-`PROJECT_PROGRESS.md` is the current-state authority.
+`main` is at merge commit `10848ba`: the backup prerequisite (PR #50) and Stage
+0 (PR #49) are both in. Run `git log --oneline -1` rather than trusting that
+hash. Stage 1 lives on `codex/finding-v41-stage1` / PR #51, rebased onto `main`,
+reviewed and corrected; `docs/finding-management-v4.1/stage1-review.md` says
+what the review found and how each fix was proven. The stacked Stage 2 branch
+(PR #52, `codex/finding-v41-stage2`) exists but is **unreviewed** and its policy
+inputs are undecided — do not merge it on the strength of a green run.
 
-The backup prerequisite now copies actual bytes from both private buckets into
-an outside-Git, complete-run directory. `storage-manifest.json` records exact
-bucket/key, downloaded size and SHA-256; a failed run stays `.incomplete`.
-`scripts/verify-restore.mjs` validates saved bytes before truncating local,
-then uploads to local private Storage, reads back and compares size/hash. See
-`scripts/lib/storage-backup.mjs`, `BACKUP_AND_RECOVERY.md` and the ten guard
-tests in `tests/scripts/storage-backup.test.mjs`.
+Three things worth knowing before you run anything:
 
-Verified locally on 31 October: `node --test tests/scripts/storage-backup.test.mjs`
-passed 10/10. A real local backup copied two harmless proof objects with the
-same nested key in different buckets; `npm run restore:verify` restored all
-40 populated tables at full count and read both objects back at matching
-size/hash. The proof objects were removed and `npm run db:reset` returned
-local to fixtures. The user then made a new local run at
-`D:/AI Project/Task Management/tamco-focus-backups/tamco-focus-local-2026-10-31T05-51-03-158Z-445267`;
-its manifest lists zero objects. `npm run restore:verify -- <that directory>`
-restored all 40 populated tables, and `npm run db:reset` exited 0 afterward.
-Full unpiped `npm run verify` passed 17/17 gates with exit 0:
-748/748 pgTAP, 401/401 integration and 626 passed / 155 intentionally skipped
-Playwright cases. The final ten backup guards passed in a separate targeted run
-after the full gate began. The final `test:unit` script also passed 550 unit
-tests plus all ten backup guards. GitHub rejected the original branch because
-the configured PAT cannot update workflow files. The unpublished branch was
-rebuilt without a workflow-file diff; the existing CI unit step now invokes
-the backup guards. Backup PR #50, ready for review, is
-`https://github.com/Asyrafbangs/tamco-focus/pull/50`; full workflow run
-`https://github.com/Asyrafbangs/tamco-focus/actions/runs/41180345379`
-passed static, database/RLS/integration and on-demand browser jobs at
-`8f13d37`; the browser job reported 626 passed and 155 intentionally skipped.
-PR CI run `41183430389` passed static, database/RLS/integration and production
-build on documentation-only handover commit `149c1aa`; its browser job was
-skipped by the repository's pull-request trigger rule.
-Stage 0 draft PR #49 passed the same three jobs at `030bf19` in run
-`https://github.com/Asyrafbangs/tamco-focus/actions/runs/41179525074`.
-Subsequent checkpoint edits are documentation only. Neither PR is merged.
+- **Read `AGENTS.md` §27 first.** It is the list of environment facts that have
+  each already cost a day here, and it now includes two more: the framework's
+  development badge is a button on every page that collides with a spec looking
+  for a form's Next button, and the browser suite leaves its fixtures behind so
+  a register view outgrows its first page. `npm run db:reset` before a gate run
+  you intend to believe.
+- **A green pull request has run no browser test.** The e2e job runs only on a
+  push to `main` or a dispatch: `gh workflow run verify.yml --ref <branch>`.
+- **Production is not readable from here.** To establish what it contains, ask
+  the user to run `npm run backup:database` with `TAMCO_ENV=production` set in
+  the shell, then grep the resulting `*-schema.sql`. Take a fresh dump; `db
+push` reporting "up to date" has misled before.
 
-**Production backup and recovery were proven on 31 October** from a fresh
-user-run backup, without agent access to Production. Complete run:
-`D:/AI Project/Task Management/tamco-focus-backups/tamco-focus-production-2026-10-31T06-30-14-696Z-014892`.
-The manifest lists 354 objects, 349 in `task-attachments` and 5 in
-`finding-evidence`, totalling 107,357,176 downloaded bytes. Every saved file
-matched its recorded size and SHA-256. The first user restore attempt correctly
-refused because `.env.local` resolved to Production. The agent then set the
-Supabase URL and service-role key from positively identified **local** CLI
-status in a process environment, ran `npm run restore:verify -- <run>`, and
-confirmed that 69 Production data tables loaded (8 identities) and all 354
-objects uploaded to isolated local Storage, downloaded and matched size/hash.
-The local `npm run db:reset` exited 0 afterward. The fresh schema dump was
-searched locally with `rg`: v271 source and scan guard symbols are present;
-`esh_report_intake` and `esh_qr_locations` are absent. Do not infer current
-Vercel variables or staging readiness from this dump.
-
-The v4.1 package at
-`D:/Download/TAMCO_Finding_Management_v4.1_Claude_Complete_Build_Package.zip`
-was read in numeric order and its illustrative screenshots inspected. The
-Stage 0 baseline/delta report, tracker and eight local-fixture captures were
-originally committed as `030bf19` in `codex/finding-v41-stage0` at
-`C:/Users/User/.codex/visualizations/2026/10/31/01a18fb9-87ef-7f11-aeba-43d8967c29d9/v41-review/stage0-worktree`.
-Draft PR: `https://github.com/Asyrafbangs/tamco-focus/pull/49`. Full workflow:
-`https://github.com/Asyrafbangs/tamco-focus/actions/runs/41179525074`
-passed all three jobs at `030bf19`, including the browser suite. The branch
-is now stacked on backup PR #50; its new HEAD requires a dispatched full run.
-The user approved local-only Stage 1 testing, but the S0 gate stays unchecked
-until that run passes. No v4.1 feature is implemented. Do not deploy Production
-or publish QR intake before the package's security, operational and approval
-gates pass.
+`PROJECT_PROGRESS.md` is the current-state authority, and the history that used
+to sit in this section lives there.

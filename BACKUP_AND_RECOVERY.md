@@ -91,8 +91,40 @@ created, changed or deleted between the database dump and the two bucket walks
 can leave a row and byte set from different moments. The script compares each
 bucket inventory before and after downloading, but cannot prevent all concurrent
 writes across the database and Storage services. For a recovery-grade snapshot,
-pause writes during the backup or reconcile database references with the
-manifest and restored files before relying on the recovered system.
+pause writes during the backup.
+
+### Completeness is checked against the database, not against itself
+
+Everything else in this loop is self-consistent, and self-consistency is not
+completeness. The manifest is built from a bucket listing, the saved bytes are
+checked against the manifest, and the restored bytes are checked against the
+manifest again — so a listing that quietly came back short would produce a
+backup that passes every check while missing files. That is the one failure a
+backup must not have, and `AGENTS.md` section 11 forbids deriving an expected
+value from the thing under test.
+
+The independent witness is already in the run directory. `storage.objects` is
+Postgres's own record of what the buckets hold, dumped by the same run moments
+before the walk. Every object in it must have bytes in the manifest, or the run
+refuses to complete — the directory keeps its `.incomplete` suffix and cannot be
+restored. The same check runs again in `restore:verify`, so a backup that lost
+objects after it was written, or was taken before this check existed, cannot be
+restored as proven.
+
+Three deliberate details:
+
+- **It is asymmetric.** The dump precedes the walk, so a file uploaded in
+  between is in the manifest and not in the record. Holding more than the record
+  is not an incomplete backup; the count is reported. A recorded object with no
+  saved bytes is refused.
+- **An unknown bucket is a failure, not a silence.** If `storage.objects` names
+  a bucket outside the two covered here, the run stops. Adding a bucket must be
+  a decision, not something a backup discovers and ignores.
+- **No object key is ever printed.** Keys carry original filenames — a
+  photograph's name can identify a person or an incident — so failures report
+  bucket names and counts only. A test asserts that.
+
+Delete markers are records, not files, and are not expected on disk.
 
 ## Restore
 

@@ -131,13 +131,19 @@ test('v218 every rebuilt Finding screen holds up at both widths, in Day and Nigh
   await signIn(page);
   const paths = [
     '/findings',
+    '/findings?queue=verification',
     '/findings/register',
     '/findings/register?filter=open',
+    '/findings/register?filter=unprotected',
     '/findings/register?filter=overdue',
+    '/findings/register?filter=verification',
     '/findings/register?filter=closed',
+    '/findings/register?filter=all',
     '/findings/new',
     `/findings/${saved.finding_id}`,
     '/findings/verification',
+    '/findings/patterns',
+    '/findings/patterns/insights',
     '/findings/settings',
   ];
 

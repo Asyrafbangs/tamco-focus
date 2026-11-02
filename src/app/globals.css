@@ -12945,6 +12945,26 @@ span.deadline span.deadline-glyph,
   color: var(--amber-text);
   font-weight: 700;
 }
+/* The card's "see them all" link appears only past six waiting submissions,
+   which is exactly how the pager's links went unnoticed in v227: rare, and
+   therefore left on the browser's own #0000EE against the Night surface. The
+   layout crawl caught the bare link and the ESH crawl caught its contrast in
+   Night, both on the day it was written. It is styled like the other links in
+   the same card rather than like the pager, which sits on the page background
+   and not on a card. */
+.esh-today-columns .esh-register-foot {
+  padding: 12px 20px;
+  margin-top: 0;
+  border-top: 1px solid var(--line);
+}
+.esh-today-columns .esh-register-foot a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: underline;
+}
 .esh-today-columns {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

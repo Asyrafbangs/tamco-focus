@@ -20,11 +20,12 @@ import {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * The Finding Register (§24, screen 03).
+ * Findings — the canonical record list (§24, screen 03).
  *
- * Four views of one definition — Needs attention, All open, Overdue, Closed —
- * with search and a department filter applied by the database, so a count and
- * the rows behind it always agree. Open work has no age cutoff; Closed
+ * One definition read several ways: Needs attention, All open, Unprotected
+ * risks, Overdue, Waiting verification, Not assessed, Closed and All records.
+ * Search and the department filter are applied by the database, so a count
+ * and the rows behind it always agree. Open work has no age cutoff; Closed
  * defaults to the last 30 days.
  */
 export default async function FindingRegisterPage({
@@ -237,7 +238,7 @@ export default async function FindingRegisterPage({
         <div className="esh-register-foot">
           <p>
             {register.total}{' '}
-            {filter === 'overdue'
+            {filter === 'overdue' || filter === 'verification'
               ? register.total === 1
                 ? 'action'
                 : 'actions'

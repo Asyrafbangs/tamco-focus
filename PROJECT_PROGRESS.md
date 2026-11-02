@@ -7,21 +7,37 @@ Factual and verified against the repository, not against conversation claims.
 removed; what was durable in it is below. Do not reintroduce a second
 current-state document.
 
-**Last verified:** 2 November 2026 · Stage 2 branch
-`codex/finding-v41-stage2` @ `4946115`. The private intake implementation is
-locally reset-tested through v278; generated types, SQL parsing, TypeScript,
-focused unit coverage and the v278 pgTAP file (11 assertions) pass. Full
-Stage 2 regression and dispatched CI remain pending.
+**Last verified:** 2 November 2026 · `main` @ `07c1054` carries the backup
+prerequisite (PR #50), Stage 0 (PR #49) and the reviewed Stage 1 (PR #51),
+whose dispatched run `41440950624` passed all three jobs with the browser job
+executed, not skipped. Stage 2 private intake is on `codex/finding-v41-stage2`
+/ PR #52, now merged up to `main`: locally reset-tested through v278, with
+generated types, SQL parsing, TypeScript, focused unit coverage and the v278
+pgTAP file passing. Full Stage 2 regression and dispatched CI remain pending.
 
 ---
 
 ## Current objective
 
-Complete Finding Management v4.1 Stage 2 on draft PR #52, then continue the
-authorized staff-only stages through S6 in scoped branches. Stage 2 is a
-private, disabled-by-default intake workflow: public QR intake, public uploads,
-emergency notification delivery, scanner hosting and Production rollout remain
-off until their independently owned operating decisions are supplied.
+Deliver Finding Management v4.1 stage by stage, one pull request per stage,
+preserving what already works. The backup prerequisite, Stage 0 and Stage 1
+are **merged**; `main` is at `07c1054`.
+
+Stage 1 — navigation and the working queue — was reviewed against its own
+acceptance gate rather than accepted on a green run; the five defects it found
+are fixed and recorded in `docs/finding-management-v4.1/stage1-review.md`.
+
+Stage 2 is under way on PR #52: a private, staff-only intake workflow. Public
+QR intake, public uploads, emergency notification delivery, scanner hosting
+and Production rollout remain off until their independently owned operating
+decisions are supplied; a database `check` constraint, not configuration,
+keeps them off.
+
+The ESH corrective-action work (v262–v271) is complete and deployed. Earlier
+arcs — the My Team redesign (v233–v250), the CI and fixture corrections
+(v251–v255) and the test-quality work in v256 — are also complete. What
+remains is listed under _Remaining work_ and is either small, blocked on a
+credential, or a product decision.
 
 ## Current verified state
 
@@ -162,16 +178,12 @@ implements its navigation and queues in a separate branch.
 
 ## Partial work
 
-Backup code, full local regression, Production byte recovery and dispatched CI
-are verified; PR #50 is ready for review. The supplied v4.1 package was
-read in numbered order and its illustrative screenshots inspected. Stage 0
-baseline/delta report is in PR #49 with its original dispatched CI passed.
-The user approved local-only Stage 1 testing and the rebased Stage 0 branch
-passed full dispatched CI. Stage 1 is implemented and independently verified:
-targeted local desktop/mobile browser coverage, formatting, lint, TypeScript,
-database/RLS/integration, production build and the dispatched browser suite
-all passed in run 41311926177. PR #51 remains draft and unmerged; no hosted
-staging or Production deployment is approved.
+Stage 2 is the only v4.1 work started and not finished. `codex/finding-v41-stage2`
+/ PR #52 carries 59 files of QR intake and triage, stacked on Stage 1. It has
+**not been reviewed**, and its policy inputs — anonymous reporting, the
+emergency-contact route, retention and EXIF, and whether a public scanner is
+hosted — are all undecided. A green run on that branch proves nothing about
+those questions. Do not merge it on the strength of one.
 
 Stage 2 has its private core on draft PR #52 (`4946115`): v272–v278 provide
 RLS-protected disabled QR settings, scoped staff access, manual report capture,
@@ -505,18 +517,18 @@ how it runs locally.
 
 ## Blocker
 
-The authorized user completed the Production backup and the agent proved its
-recovery in isolated local. Both PRs passed dispatched full workflows on their
-original implementation commits. The user approved local-only S1 testing.
-The rebased Stage 0 branch passed full CI, and dispatched workflow 41311926177
-passed Stage 1's static, database, build and browser gates, so S0 and S1 are
-closed for the approved local-only scope. Public QR rollout and production
-changes remain gated.
+Stage 2. It needs decisions nobody has made: whether anonymous reporting is
+permitted and under what notice, who receives an immediate-hazard alert in and
+out of hours and by what route, what happens to photograph originals and their
+EXIF, and whether a private upload scanner is hosted or the pilot goes
+text-only. These are the user's calls and the tracker lists them. Public QR
+rollout and every Production change remain gated on explicit approval.
 
 ## Exact next action
 
-Stage 2 draft PR #52 is at `4946115`. Next, complete its targeted browser
-coverage and final local/CI gate. Its migrations stay local until the stage is
-committed and fully verified. Do not publish public QR intake, public uploads
-or emergency delivery before their separate QR, privacy and safety-routing
-decisions; those activation decisions do not block private staff workflows.
+Stage 2 is on `codex/finding-v41-stage2` / PR #52, merged up to `main`. Next,
+complete its targeted browser coverage and the final local and dispatched
+gates. Its migrations stay local until the stage is committed and fully
+verified. Do not publish public QR intake, public uploads or emergency
+delivery before their separate QR, privacy and safety-routing decisions; those
+activation decisions do not block the private staff workflow.
