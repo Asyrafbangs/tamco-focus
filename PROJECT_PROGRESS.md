@@ -7,50 +7,53 @@ Factual and verified against the repository, not against conversation claims.
 removed; what was durable in it is below. Do not reintroduce a second
 current-state document.
 
-**Last verified:** 2 November 2026 · `main` @ merge commit `10848ba` carries
-the backup prerequisite (PR #50) and Stage 0 (PR #49). Stage 0's dispatched
-full workflow `41416164133` passed all three jobs with the browser job
-executed, not skipped. Stage 1 on `codex/finding-v41-stage1` / PR #51 has been
-rebased onto `main`, reviewed against gate S1 and corrected; see
-`docs/finding-management-v4.1/stage1-review.md`.
+**Last verified:** 2 November 2026 · `main` @ `07c1054` carries the backup
+prerequisite (PR #50), Stage 0 (PR #49) and the reviewed Stage 1 (PR #51),
+whose dispatched run `41440950624` passed all three jobs with the browser job
+executed, not skipped. Stage 2 private intake is on `codex/finding-v41-stage2`
+/ PR #52, merged up to `main` and reviewed against gate S2; see
+`docs/finding-management-v4.1/stage2-review.md`. The review found that six
+intake scope checks used `<> any` where the predicate needs `<> all`, which
+refused every department-scoped coordinator, and that nothing in the
+application linked to the intake queue. Both are fixed. Full Stage 2
+regression and dispatched CI remain pending.
 
 ---
 
 ## Current objective
 
 Deliver Finding Management v4.1 stage by stage, one pull request per stage,
-preserving what already works. The backup prerequisite and Stage 0 are
-**merged**; `main` is at `10848ba`.
+preserving what already works. The backup prerequisite, Stage 0 and Stage 1
+are **merged**; `main` is at `07c1054`.
 
-Stage 1 — navigation and the working queue — is implemented and has been
-reviewed against its own acceptance gate rather than accepted on a green run.
-The review found five defects that gate S1 explicitly asks about: the
-verification queue rendered six rows however many were waiting, four controls
-it used to have were dropped in the move, the protection counter linked to
-every open finding instead of the ones it counted, the canonical list was
-missing the `Waiting verification` and `All records` views the stage names, and
-"Overview by department" still pointed at what is now Today. All five are
-fixed, each with a browser case proven by breaking what it guards. No schema
-change. No hosted or Production deployment is approved.
+Stage 1 — navigation and the working queue — was reviewed against its own
+acceptance gate rather than accepted on a green run; the five defects it found
+are fixed and recorded in `docs/finding-management-v4.1/stage1-review.md`.
+
+Stage 2 is under way on PR #52: a private, staff-only intake workflow. Public
+QR intake, public uploads, emergency notification delivery, scanner hosting
+and Production rollout remain off until their independently owned operating
+decisions are supplied; a database `check` constraint, not configuration,
+keeps them off.
 
 The ESH corrective-action work (v262–v271) is complete and deployed. Earlier
 arcs — the My Team redesign (v233–v250), the CI and fixture corrections
-(v251–v255) and the test-quality work in v256 — are also complete. What remains
-is listed under _Remaining work_ and is either small, blocked on a credential,
-or a product decision.
+(v251–v255) and the test-quality work in v256 — are also complete. What
+remains is listed under _Remaining work_ and is either small, blocked on a
+credential, or a product decision.
 
 ## Current verified state
 
-| Area         | State                                                                             |
-| ------------ | --------------------------------------------------------------------------------- |
-| Branch       | `codex/finding-v41-stage1` @ `95c937d`, stacked on the approved baseline.         |
-| Open work    | Stage 2 QR intake is blocked on its listed product, privacy and safety decisions. |
-| Migrations   | 184; `local` == `remote` through `20261030004000` (v271), verified 30 October.    |
-| Schema drift | None. Type diff is 48 lines, all `__InternalSupabase` and parenthesis formatting. |
-| Local seed   | 9 users, 52 tasks. Waiting view renders 20 rows.                                  |
-| Production   | Fresh 31 October user-run schema dump checked locally: v271 source and scan       |
-|              | guard symbols present; v4.1 QR intake/location tables absent.                     |
-|              | Vercel variables and scanner hosting were not rechecked in this session.          |
+| Area         | State                                                                                |
+| ------------ | ------------------------------------------------------------------------------------ |
+| Branch       | `codex/finding-v41-stage2`, based on the verified Stage 1 branch.                    |
+| Open work    | Stage 2 staff-only intake workflow; full regression, browser coverage and CI remain. |
+| Migrations   | 191 locally reset through `20261102006000` (v278); no hosted migration applied.      |
+| Schema drift | None; generated database types match the local schema.                               |
+| Local seed   | 9 users, 52 tasks. Waiting view renders 20 rows.                                     |
+| Production   | Fresh 31 October user-run schema dump checked locally: v271 source and scan          |
+|              | guard symbols present; v4.1 QR intake/location tables absent.                        |
+|              | Vercel variables and scanner hosting were not rechecked in this session.             |
 
 ### Validation last run (30 October, for v271)
 
@@ -185,28 +188,41 @@ emergency-contact route, retention and EXIF, and whether a public scanner is
 hosted — are all undecided. A green run on that branch proves nothing about
 those questions. Do not merge it on the strength of one.
 
+Stage 2 has its private core on draft PR #52 (`4946115`): v272–v278 provide
+RLS-protected disabled QR settings, scoped staff access, manual report capture,
+claim/decline/duplicate decisions and a claimed report's atomic conversion to
+the existing Finding/assignment transaction. There is no anonymous database
+policy, active public intake route, public upload, emergency dispatch or
+automatic owner action. `npm run db:reset`, `npm run check:sql`, `npm run db:types:check`,
+TypeScript, the focused unit test and `esh_intake_accept_v278.test.sql` (11/11)
+pass locally. Full Stage 2 regression and browser/CI confirmation are pending.
+
 ## Remaining work
 
-1. **`ATTACHMENT_ALLOWED_MIME` and `EMAIL_TRANSPORT` in Vercel** — user action.
+1. **Stage 2 final verification** — add relevant browser coverage, run the full
+   local acceptance gate once, inspect the final diff, then dispatch CI on PR #52.
+   Public QR intake, uploads and emergency delivery remain disabled regardless
+   of the private staff workflow's completion.
+2. **`ATTACHMENT_ALLOWED_MIME` and `EMAIL_TRANSPORT` in Vercel** — user action.
    Vercel values cannot be read back. If `ATTACHMENT_ALLOWED_MIME` carries the
    stale list, production refuses HEIC photos and PowerPoint while the file
    chooser offers them. Unset is correct. Production once ran for weeks on the
    `log` email transport with every cron run returning 200, so `EMAIL_TRANSPORT`
    deserves the same check.
-2. ~~`/findings/import/[batchId]`~~ — done in v257. The seed carries a staged
+3. ~~`/findings/import/[batchId]`~~ — done in v257. The seed carries a staged
    batch of four rows, one per outcome, and the walk resolves it from the
    import list rather than hardcoding the id.
-3. **`TREND_MINIMUM_EVENTS = 10`** in `src/domain/esh-dashboard.ts` — decides
+4. **`TREND_MINIMUM_EVENTS = 10`** in `src/domain/esh-dashboard.ts` — decides
    when the sign-in-free page will name a backlog direction. A product
    judgement, not a measurement; one line to change.
-4. **Prove a current Production evidence backup.** Local implementation is
+5. **Prove a current Production evidence backup.** Local implementation is
    tested; an authorized user must run the production command, then the
    resulting artifacts must pass local restore byte verification. See
    _Exact next action_.
-5. **Host the scanner.** Built in v270–v271 and inert until `ESH_SCANNER_URL`
+6. **Host the scanner.** Built in v270–v271 and inert until `ESH_SCANNER_URL`
    and `ESH_SCANNER_TOKEN` are set. Not a defect: every file reads "Not
    scanned" and nothing claims otherwise.
-6. **The email provider adapter** remains stubbed and blocked on an external
+7. **The email provider adapter** remains stubbed and blocked on an external
    service.
 
 > Superseded: this list previously said virus scanning was stubbed and that
@@ -513,10 +529,9 @@ rollout and every Production change remain gated on explicit approval.
 
 ## Exact next action
 
-Stage 1's review is on `codex/finding-v41-stage1` / PR #51, rebased onto
-`main`. Read `docs/finding-management-v4.1/stage1-review.md` for what the
-review found and how each fix was proven, then merge the stage.
-
-Then stop and ask for the Stage 2 decisions. Do not begin Stage 2 — or review
-PR #52 as though it were ready — before they are documented, and do not
-invent any of them.
+Stage 2 is on `codex/finding-v41-stage2` / PR #52, merged up to `main`, with
+the scope-operator defect and the unlinked queue both closed. Next, the final
+local and dispatched gates. Its migrations stay local until the stage is committed and fully
+verified. Do not publish public QR intake, public uploads or emergency
+delivery before their separate QR, privacy and safety-routing decisions; those
+activation decisions do not block the private staff workflow.

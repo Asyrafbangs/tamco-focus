@@ -14,7 +14,14 @@ deliberately short.
 > environment facts that have each already produced a wrong conclusion here.
 > Read §27 before running anything.
 
-**Last verified:** 2 November 2026 · Stage 1 reviewed and corrected on `codex/finding-v41-stage1`, based on `origin/main` @ `10848ba` (Stage 0 and the backup prerequisite are merged). The last Production evidence is still the user-run schema dump of 31 October: v271 evidence objects present, v4.1 QR intake absent.
+**Last verified:** 2 November 2026 · Stage 2 private intake on
+`codex/finding-v41-stage2`, based on `origin/main` @ `07c1054`, which carries
+Stage 0 (PR #49), the backup prerequisite (PR #50) and the reviewed Stage 1
+(PR #51). Local schema is reset through v278; generated types, SQL parser,
+TypeScript, focused unit coverage and v278 pgTAP pass. Full Stage 2 regression
+and CI remain pending. The last Production evidence is still the user-run
+schema dump of 31 October: v271 evidence objects present, v4.1 QR intake
+absent.
 
 A commit hash in a document goes stale the moment the document is merged, so
 treat that one as provenance, not as the current head. For the head, run
@@ -76,8 +83,17 @@ v271 (**fixed v270, which was inert**, and keeps the camera's own file).
 
 ## 3. Next steps, in priority order
 
-1. **Await the Stage 2 decisions.** Stage 2 is QR intake, and it cannot begin until the anonymous-reporting, privacy, emergency-contact, retention/EXIF and safety-routing decisions are made. They are in `docs/finding-management-v4.1/07_BUILD_TRACKER.md` under _Decisions requiring human ownership_. **Do not invent any of them.**
-2. **Everything the stage plan can do without those answers** — S3's category work and S5's hardening both touch them, so there is no stage to run ahead on. Ask rather than guess.
+1. **Finish Stage 2.** PR #52 (`codex/finding-v41-stage2`) implements private
+   staff intake only: manual report capture, claim, decline, duplicate linking
+   and atomic Finding acceptance. Public QR, public uploads, emergency delivery
+   and any hosted rollout stay disabled, so the stage does not depend on the
+   decisions below.
+2. **The Stage 2 activation decisions** — anonymous reporting and its notice,
+   emergency-contact routing in and out of hours, photo retention/EXIF and
+   scanner hosting — are in
+   `docs/finding-management-v4.1/07_BUILD_TRACKER.md` under _Decisions
+   requiring human ownership_. They gate the **public** QR half only.
+   **Do not invent any of them.**
 3. **Host the scanner** — a decision and a card, not engineering. Cloud Run
    scaling to zero is ≈$0/month if the signature databases are baked into the
    image *and that image is rebuilt weekly*; Fly.io always-on is ≈$13/month at
@@ -142,29 +158,39 @@ bulk UI, rollout not yet. See `PROJECT_PROGRESS.md` → _Settled decisions_.
 
 ---
 
-## 5. Current Stage 1 checkpoint
+## 5. Current Stage 2 checkpoint
 
 Today / Findings / Patterns navigation, the four Today counters, the Needs
-attention queue, the disabled Incoming reports queue and the
-department-preserving verification redirect are implemented on
-`codex/finding-v41-stage1`, now based on `main`. The historical panels were
-**moved, not rebuilt**: `/findings/patterns/insights` renders the same
+attention queue, the Incoming reports queue and the department-preserving
+verification redirect are implemented and **merged**. The historical panels
+were **moved, not rebuilt**: `/findings/patterns/insights` renders the same
 `DashboardPanels` from the same queries, and the sign-in-free leadership route
 is untouched.
 
-Two rules this screen now keeps, and that a later stage must not undo:
+Two rules this screen keeps, and that a later stage must not undo:
 
-- **A counter links to a list that holds exactly it.** Each of the three live
-  counters has a named register view behind it, and a browser case compares the
-  number with the view's own total. They are read through different paths — the
+- **A counter links to a list that holds exactly it.** Each live counter has a
+  named register view behind it, and a browser case compares the number with
+  the view's own total. They are read through different paths — the
   `esh_dashboard` procedure and the register views under RLS — so the
   comparison is two answers to one question, not an assertion with itself.
-- **The verification queue is complete.** It is the only route to a submitted
-  correction, so it shows every waiting row; Today's card shows six and says
-  how many it is not showing.
+- **A queue that is the only route to an obligation is complete.** The
+  verification queue shows every waiting row; Today's card shows six and says
+  how many it is not showing. Incoming reports now follows the same rule.
 
-Stage 2 remains blocked by the documented QR, privacy and emergency-contact
-policy decisions; do not invent them.
+Stage 2 adds private staff intake through v278 on `codex/finding-v41-stage2` /
+PR #52: RLS-protected, staff-only, locally reset-tested. Public QR intake,
+public uploads and emergency delivery remain disabled by a database `check`
+constraint, so the outstanding policy decisions gate activation, not this
+stage.
+
+Two rules it added to the two above. **A negated scope check is `<> all`, never
+`<> any`** — six procedures had the wrong one, which refused every
+department-scoped coordinator on reports they do cover while the RLS policies
+still showed them the rows, and a `scope_all` test actor returns before
+reaching the comparison. **A queue is reached from Today, not by address** —
+`/findings/intake` had no inbound link in the whole application, and the card
+that exists to surface it still said QR intake was not enabled.
 
 ## 6. Last agent handover note
 

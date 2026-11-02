@@ -5278,6 +5278,83 @@ export type Database = {
           },
         ]
       }
+      esh_qr_intake_settings: {
+        Row: {
+          enabled: boolean
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_qr_intake_settings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_qr_locations: {
+        Row: {
+          active: boolean
+          created_at: string
+          department_id: string | null
+          display_label: string
+          id: string
+          organization_id: string
+          public_code: string
+          retired_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          department_id?: string | null
+          display_label: string
+          id?: string
+          organization_id: string
+          public_code: string
+          retired_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          department_id?: string | null
+          display_label?: string
+          id?: string
+          organization_id?: string
+          public_code?: string
+          retired_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_qr_locations_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_qr_locations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       esh_reference_counters: {
         Row: {
           next_value: number
@@ -5465,6 +5542,176 @@ export type Database = {
             columns: ["report_definition_id"]
             isOneToOne: false
             referencedRelation: "esh_report_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_report_intake: {
+        Row: {
+          accepted_finding_id: string | null
+          assigned_triager_id: string | null
+          created_at: string
+          decision_reason: string | null
+          department_id: string | null
+          duplicate_of_finding_id: string | null
+          id: string
+          organization_id: string
+          public_reference: string
+          qr_location_id: string | null
+          received_at: string
+          report_text: string
+          reported_location: string | null
+          source: string
+          status: string
+          triaged_at: string | null
+        }
+        Insert: {
+          accepted_finding_id?: string | null
+          assigned_triager_id?: string | null
+          created_at?: string
+          decision_reason?: string | null
+          department_id?: string | null
+          duplicate_of_finding_id?: string | null
+          id?: string
+          organization_id: string
+          public_reference?: string
+          qr_location_id?: string | null
+          received_at?: string
+          report_text: string
+          reported_location?: string | null
+          source: string
+          status?: string
+          triaged_at?: string | null
+        }
+        Update: {
+          accepted_finding_id?: string | null
+          assigned_triager_id?: string | null
+          created_at?: string
+          decision_reason?: string | null
+          department_id?: string | null
+          duplicate_of_finding_id?: string | null
+          id?: string
+          organization_id?: string
+          public_reference?: string
+          qr_location_id?: string | null
+          received_at?: string
+          report_text?: string
+          reported_location?: string | null
+          source?: string
+          status?: string
+          triaged_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_report_intake_accepted_finding_id_fkey"
+            columns: ["accepted_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_register_rows"
+            referencedColumns: ["finding_id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_accepted_finding_id_fkey"
+            columns: ["accepted_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_accepted_finding_id_fkey"
+            columns: ["accepted_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_export_rows"
+            referencedColumns: ["finding_id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_accepted_finding_id_fkey"
+            columns: ["accepted_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_rows"
+            referencedColumns: ["finding_id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_assigned_triager_id_fkey"
+            columns: ["assigned_triager_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_assigned_triager_id_fkey"
+            columns: ["assigned_triager_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_assigned_triager_id_fkey"
+            columns: ["assigned_triager_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_assigned_triager_id_fkey"
+            columns: ["assigned_triager_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_assigned_triager_id_fkey"
+            columns: ["assigned_triager_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_duplicate_of_finding_id_fkey"
+            columns: ["duplicate_of_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_register_rows"
+            referencedColumns: ["finding_id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_duplicate_of_finding_id_fkey"
+            columns: ["duplicate_of_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_duplicate_of_finding_id_fkey"
+            columns: ["duplicate_of_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_export_rows"
+            referencedColumns: ["finding_id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_duplicate_of_finding_id_fkey"
+            columns: ["duplicate_of_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_rows"
+            referencedColumns: ["finding_id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_qr_location_id_fkey"
+            columns: ["qr_location_id"]
+            isOneToOne: false
+            referencedRelation: "esh_qr_locations"
             referencedColumns: ["id"]
           },
         ]
@@ -15540,6 +15787,15 @@ export type Database = {
         Args: { p_employee_id_confirmation: string; p_user_id: string }
         Returns: Json
       }
+      esh_accept_report_intake: {
+        Args: {
+          p_assign?: boolean
+          p_idempotency_key?: string
+          p_intake_id: string
+          p_payload: Json
+        }
+        Returns: Json
+      }
       esh_admin_contact_access_items: {
         Args: { p_principal_id: string }
         Returns: {
@@ -15615,12 +15871,25 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_claim_report_intake: { Args: { p_intake_id: string }; Returns: Json }
       esh_clear_blocker: {
         Args: { p_blocker_id: string; p_note: string }
         Returns: Json
       }
+      esh_create_manual_report_intake: {
+        Args: {
+          p_department_id?: string
+          p_report_text: string
+          p_reported_location?: string
+        }
+        Returns: Json
+      }
       esh_current_access: { Args: never; Returns: Json }
       esh_dashboard: { Args: { p_months?: number }; Returns: Json }
+      esh_decline_report_intake: {
+        Args: { p_intake_id: string; p_reason: string }
+        Returns: Json
+      }
       esh_digest_prepare: { Args: { p_outbox_id: string }; Returns: Json }
       esh_dispatch_claim: {
         Args: { p_outbox_id: string; p_secrets: Json }
@@ -15887,6 +16156,10 @@ export type Database = {
           full_name: string
           user_id: string
         }[]
+      }
+      esh_mark_report_intake_duplicate: {
+        Args: { p_finding_id: string; p_intake_id: string; p_reason: string }
+        Returns: Json
       }
       esh_operational_health: { Args: never; Returns: Json }
       esh_overview: {

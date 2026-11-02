@@ -27,6 +27,8 @@ import { saveFinding, type SaveFindingState } from '@/server/esh/actions';
 
 export interface FindingFormInitial {
   findingId: string | null;
+  /** The claimed private report this save atomically accepts, if any. */
+  intakeId?: string | null;
   reference: string | null;
   title: string;
   description: string;
@@ -274,6 +276,7 @@ export function FindingForm({
       noValidate
     >
       <input type="hidden" name="finding_id" value={initial.findingId ?? ''} />
+      <input type="hidden" name="intake_id" value={initial.intakeId ?? ''} />
       <input type="hidden" name="idempotency_key" value={idempotencyKey} />
 
       {state && !state.ok && state.problems.length > 0 && (

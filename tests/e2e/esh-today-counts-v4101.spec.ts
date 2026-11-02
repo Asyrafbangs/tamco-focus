@@ -223,7 +223,6 @@ test('v4101 every Today counter lands on a list holding exactly what it counted'
   await expect(page.getByRole('heading', { name: 'Today', level: 1 })).toBeVisible();
 
   const protection = await counter(page, 'Significant risks without verified protection');
-  const overdue = await counter(page, 'Overdue owner actions');
   const awaiting = await counter(page, 'Waiting for ESH verification');
   expect(protection).toBeGreaterThan(0);
   expect(awaiting).toBeGreaterThan(0);
@@ -240,7 +239,31 @@ test('v4101 every Today counter lands on a list holding exactly what it counted'
   await page.goto('/findings');
   await page.locator('.esh-signal').filter({ hasText: 'Overdue owner actions' }).click();
   await expect(page).toHaveURL(/filter=overdue/);
-  expect(await registerTotal(page)).toBe(overdue);
+  /*
+   * Overdue is the one counter whose value depends on the clock: both sides
+   * count `a.due_at < now()`, and they are read from two different pages. An
+   * action falling due between the two reads makes them differ by one with
+   * nothing wrong, which this test saw once in four runs against a database
+   * holding a hundred-odd past-due fixtures.
+   *
+   * So the pair is read again rather than once. This does not soften the
+   * guard: a register view holding a different set from the number that opened
+   * it differs by the same amount every time and still fails here. Only a
+   * difference that resolves itself is tolerated, and only because the clock
+   * moving is not a defect.
+   */
+  await expect
+    .poll(
+      async () => {
+        const total = await registerTotal(page);
+        await page.goto('/findings');
+        const shown = await counter(page, 'Overdue owner actions');
+        await page.goto('/findings/register?filter=overdue');
+        return total - shown;
+      },
+      { timeout: 20_000, intervals: [0, 1_000, 2_000] },
+    )
+    .toBe(0);
 
   await page.goto('/findings');
   await page.locator('.esh-signal').filter({ hasText: 'Waiting for ESH verification' }).click();
@@ -249,12 +272,15 @@ test('v4101 every Today counter lands on a list holding exactly what it counted'
   const waiting = page.getByRole('list', { name: 'Waiting for verification' }).locator('> li');
   await expect(waiting).toHaveCount(awaiting);
 
-  // The disabled counter has no drill-down, and says why rather than inviting
-  // a click that would go nowhere.
-  const reports = page.locator('.esh-signal').filter({ hasText: 'New reports' });
+  /*
+   * New reports was a disabled counter in Stage 1, because nothing had reached
+   * the intake store yet. Stage 2 gave it one, so it follows the same rule as
+   * the rest: a counter is a way in to the list it counted.
+   */
   await page.goto('/findings');
-  await expect(reports).toHaveAttribute('data-disabled', 'true');
-  await expect(reports.locator('a')).toHaveCount(0);
+  const reports = page.locator('.esh-signal').filter({ hasText: 'New reports' });
+  await expect(reports).toHaveAttribute('href', '/findings/intake');
+  await expect(reports).not.toHaveAttribute('data-disabled', 'true');
 });
 
 /*
