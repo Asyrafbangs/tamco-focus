@@ -3,6 +3,9 @@ import { createServer } from 'node:http';
 import next from 'next';
 
 process.env.NEXT_DIST_DIR = '.next-e2e';
+// Hide the framework's development badge: it adds a button to every page that
+// no test is about. See next.config.ts.
+process.env.E2E_NO_DEV_INDICATORS = '1';
 
 // Chosen by the runner. Defaults to 3000 so nothing about the ordinary gate
 // changes; an override lets the suite run beside a development server the

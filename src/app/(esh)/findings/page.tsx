@@ -1,360 +1,402 @@
 import Link from 'next/link';
 
-import {
-  AgePanel,
-  ClosurePanel,
-  ProtectionPanel,
-  ResponsivenessPanel,
-  RiskPanel,
-  TrendPanel,
-} from '@/components/esh/DashboardPanels';
-import { headline } from '@/domain/esh-dashboard';
 import { HeldNoticesRelease } from '@/components/esh/HeldNoticesRelease';
 import { OperationalHealth } from '@/components/esh/OperationalHealth';
-import { PeriodPicker } from '@/components/ui/PeriodPicker';
-import { SubmitOnSelect } from '@/components/ui/SubmitOnSelect';
-import { ESH_CLOSURE_PERIODS, closurePeriodParams, totalOverview } from '@/domain/esh-overview';
-import { resolvePeriod } from '@/domain/period';
+import { PRIORITY_LABELS, type EshAccess } from '@/domain/esh-findings';
 import { requireProfile } from '@/lib/supabase/server';
 import { requireEshAccess } from '@/server/esh/access';
 import {
-  getDepartmentsInScope,
-  getEshOverview,
   getDashboard,
+  getDepartmentsInScope,
   getOperationalHealth,
   getRolloutStatus,
+  listRegister,
+  listVerificationQueue,
+  type RegisterListRow,
+  type VerificationQueueRow,
 } from '@/server/esh/queries';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function FindingsOverviewPage({
+/** How many submissions Today shows before sending the reader to the queue. */
+const TODAY_PREVIEW = 6;
+
+type Query = { queue?: string; department?: string };
+
+/** Daily decisions belong here; historical measures remain in Patterns. */
+export default async function FindingsTodayPage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    department?: string;
-    period?: string;
-    period_from?: string;
-    period_to?: string;
-  }>;
+  searchParams: Promise<Query>;
 }) {
   const access = await requireEshAccess();
   const profile = await requireProfile();
   const query = await searchParams;
   const timeZone = profile.timezone ?? 'Asia/Kuala_Lumpur';
-  const now = new Date();
-  const departmentUnassigned = query.department === 'unassigned';
-  const departmentId = query.department && UUID.test(query.department) ? query.department : null;
-  const departmentParam = departmentUnassigned ? 'unassigned' : departmentId;
-  const closurePeriod = resolvePeriod(
-    query.period,
-    query.period_from,
-    query.period_to,
-    now,
-    '30',
-    timeZone,
-  );
-  const [overview, departments, health, rollout, dashboard] = await Promise.all([
-    getEshOverview({
-      departmentId,
-      closedSince: closurePeriod.since,
-      closedUntil: closurePeriod.until,
-      asOf: now.toISOString(),
-    }),
-    getDepartmentsInScope(access),
-    getOperationalHealth(),
-    // v224 — how much held mail could actually go out. Returns nothing for
-    // somebody who may only read, so the release is never offered to them.
-    access.canCoordinate ? getRolloutStatus() : Promise.resolve(null),
-    // v230 — the trend, the ageing and the closure record.
-    getDashboard(),
-  ]);
-  const visibleRows = departmentUnassigned
-    ? overview.rows.filter((row) => row.departmentId === null)
-    : overview.rows;
-  const signals = totalOverview(visibleRows);
+  /*
+   * The verification queue is a view of Today rather than a page of its own
+   * (v4.1 S1), so `/findings/verification` redirects here. It is the only
+   * view that takes a department, because it is the only one with a control
+   * for choosing one: a department in the address with no control to change
+   * it would scope the rows while leaving the counters above them counting
+   * the whole organisation, and a number that disagrees with its own list is
+   * the failure this screen exists to prevent.
+   */
+  return query.queue === 'verification'
+    ? await verificationQueue(access, query, timeZone)
+    : await today(access, timeZone);
+}
 
-  const registerHref = (
-    filter: 'open' | 'overdue' | 'closed',
-    rowDepartment: string | null = departmentParam,
-  ) => {
-    const params = new URLSearchParams({ filter });
-    if (rowDepartment) params.set('department', rowDepartment);
-    if (filter === 'closed') {
-      for (const [name, value] of Object.entries(closurePeriodParams(closurePeriod))) {
-        params.set(name, value);
-      }
-    }
-    return `/findings/register?${params}`;
-  };
-  const verificationHref = (rowDepartment: string | null = departmentParam) => {
-    const params = new URLSearchParams();
-    if (rowDepartment) params.set('department', rowDepartment);
-    const text = params.toString();
-    return `/findings/verification${text ? `?${text}` : ''}`;
-  };
-  const timestamp = new Intl.DateTimeFormat('en-MY', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone,
-  }).format(now);
+async function today(access: EshAccess, timeZone: string) {
+  const now = new Date();
+  const [dashboard, attention, verification, health, rollout] = await Promise.all([
+    getDashboard(),
+    listRegister({
+      filter: 'attention',
+      search: '',
+      departmentId: null,
+      closedSince: now.toISOString(),
+      closedUntil: null,
+      page: 0,
+    }),
+    listVerificationQueue(),
+    getOperationalHealth(),
+    access.canCoordinate ? getRolloutStatus() : Promise.resolve(null),
+  ]);
+
+  const protection = dashboard?.protection.unprotected ?? 0;
+  const overdue = dashboard?.overdueActions ?? 0;
+  const awaiting = dashboard?.awaitingVerification ?? verification.length;
 
   return (
     <>
-      <div className="pagehead esh-overview-head">
+      <div className="pagehead esh-today-head">
         <div>
           <p className="eyebrow">Finding Management</p>
-          <h1>Dashboard</h1>
-          <p>
-            {dashboard
-              ? headline(dashboard)
-              : 'What remains unresolved, where follow-up is needed, and what closed recently.'}
-          </p>
+          <h1>Today</h1>
+          <p>What needs a decision now, and who owes the next move.</p>
         </div>
-        <p className="esh-data-time">Data at {timestamp}</p>
+        {access.canCoordinate && (
+          <Link className="btn primary" href="/findings/new">
+            + New finding
+          </Link>
+        )}
       </div>
 
-      <div className="esh-overview-controls">
-        <form action="/findings">
-          <label>
-            <span>Department</span>
-            <select
-              name="department"
-              defaultValue={departmentUnassigned ? 'unassigned' : (departmentId ?? '')}
-            >
-              <option value="">All departments in your scope</option>
-              {departments.map((department) => (
-                <option key={department.id} value={department.id}>
-                  {department.name}
-                </option>
-              ))}
-              <option value="unassigned">Unassigned</option>
-            </select>
-          </label>
-          {Object.entries(closurePeriodParams(closurePeriod)).map(([name, value]) => (
-            <input key={name} type="hidden" name={name} value={value} />
-          ))}
-          <button className="btn small" type="submit">
-            Apply
-          </button>
-          <SubmitOnSelect />
-        </form>
-        <div className="esh-closure-control">
-          <span>Closures</span>
-          <PeriodPicker
-            action="/findings"
-            hidden={departmentParam ? { department: departmentParam } : {}}
-            presets={ESH_CLOSURE_PERIODS}
-            period={closurePeriod}
-            ariaLabel="Change the closure period"
-            now={now}
+      {/*
+       * Four obligations, each counted once, each with a list holding exactly
+       * what the number says. Every destination is a named register view
+       * rather than a search that merely looks close: the protection figure
+       * used to link to every open finding, so a reader who clicked three
+       * arrived at forty rows with no way to tell which three were meant.
+       */}
+      <section className="esh-signals esh-today-signals" aria-label="Today’s queues">
+        <Signal label="New reports" value={0} detail="QR intake is not enabled" disabled />
+        <Signal
+          label="Significant risks without verified protection"
+          value={protection}
+          detail="Open, high or critical, nothing verified in place"
+          href="/findings/register?filter=unprotected"
+          exception={protection > 0}
+        />
+        <Signal
+          label="Overdue owner actions"
+          value={overdue}
+          detail="Owner action past its due date"
+          href="/findings/register?filter=overdue"
+          exception={overdue > 0}
+        />
+        <Signal
+          label="Waiting for ESH verification"
+          value={awaiting}
+          detail="Submitted proof needs a decision"
+          href="/findings?queue=verification"
+          exception={awaiting > 0}
+        />
+      </section>
+
+      <OperationalHealth health={health} />
+      {rollout && <HeldNoticesRelease releasable={rollout.heldReleasable} />}
+
+      <section className="esh-today-queue" aria-labelledby="today-queue-title">
+        <div className="esh-section-head">
+          <div>
+            <h2 id="today-queue-title">Needs attention</h2>
+            <p>One row per finding. The reason labels identify the current work.</p>
+          </div>
+          <Link href="/findings/register?filter=attention">Open all</Link>
+        </div>
+        {attention.failed ? (
+          <div className="notice error" role="alert">
+            <strong>The queue could not be read</strong>
+            <p>No rows are shown rather than a list that might be incomplete.</p>
+          </div>
+        ) : attention.rows.length === 0 ? (
+          <QueueEmpty
+            title="No items need attention"
+            detail="No open finding currently needs an ESH decision."
           />
+        ) : (
+          <ul className="esh-today-list" aria-label="Needs attention">
+            {attention.rows.map((row) => (
+              <AttentionRow key={row.actionId ?? row.findingId} row={row} />
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <div className="esh-today-columns">
+        <section className="esh-form-card" aria-labelledby="today-verification-title">
+          <div className="esh-section-head">
+            <div>
+              <h2 id="today-verification-title">To verify</h2>
+              <p>Owner submissions, oldest first.</p>
+            </div>
+            <Link href="/findings?queue=verification">Open queue</Link>
+          </div>
+          {verification.length === 0 ? (
+            <QueueEmpty
+              title="No actions waiting for verification"
+              detail="Submitted work will appear here when ESH has the next move."
+            />
+          ) : (
+            <>
+              <ul className="esh-today-list">
+                {verification.slice(0, TODAY_PREVIEW).map((row) => (
+                  <VerificationRow key={row.submissionId} row={row} timeZone={timeZone} />
+                ))}
+              </ul>
+              {/*
+               * Six rows is a preview, so the card says how many there are.
+               * Showing six of eleven and saying nothing about it read as a
+               * complete queue.
+               */}
+              {verification.length > TODAY_PREVIEW && (
+                <p className="esh-register-foot">
+                  <Link href="/findings?queue=verification">
+                    {verification.length} waiting · see them all
+                  </Link>
+                </p>
+              )}
+            </>
+          )}
+        </section>
+        <section className="esh-form-card" aria-labelledby="today-incoming-title">
+          <div className="esh-section-head">
+            <div>
+              <h2 id="today-incoming-title">Incoming reports</h2>
+              <p>Public QR reporting is not enabled in this environment.</p>
+            </div>
+          </div>
+          <QueueEmpty
+            title="No incoming reports"
+            detail="This queue remains intentionally empty until the approved Stage 2 rollout enables QR intake."
+          />
+        </section>
+        <section className="esh-form-card" aria-labelledby="today-escalations-title">
+          <div className="esh-section-head">
+            <div>
+              <h2 id="today-escalations-title">Escalations</h2>
+              <p>Delivery failures and overdue work remain with the affected finding.</p>
+            </div>
+            <Link href="/findings/register?filter=attention">Review</Link>
+          </div>
+          <QueueEmpty
+            title="No separate escalation queue"
+            detail="Keeping escalation with the finding preserves the owner, protection and due-date context."
+          />
+        </section>
+      </div>
+    </>
+  );
+}
+
+/**
+ * Everything waiting for ESH, oldest submission first (§13, §24).
+ *
+ * The whole queue, not a page of it. Nothing here is reachable another way,
+ * so a row left off the screen is a correction nobody ever looks at.
+ */
+async function verificationQueue(access: EshAccess, query: Query, timeZone: string) {
+  const departmentUnassigned = query.department === 'unassigned';
+  const departmentId = query.department && UUID.test(query.department) ? query.department : null;
+  const [rows, departments] = await Promise.all([
+    listVerificationQueue(departmentId, departmentUnassigned),
+    getDepartmentsInScope(access),
+  ]);
+  const when = (instant: string) =>
+    new Intl.DateTimeFormat('en-MY', { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(
+      new Date(instant),
+    );
+
+  return (
+    <>
+      <div className="pagehead">
+        <div>
+          <p className="eyebrow">Finding Management</p>
+          <h1>To verify</h1>
+          <p>Corrections submitted for ESH to check, oldest first.</p>
         </div>
       </div>
 
-      {overview.failed ? (
-        <div className="notice error" role="alert">
-          <strong>The overview could not be read</strong>
-          <p>No figures are shown rather than numbers that may be incomplete. Try again.</p>
-        </div>
+      <form className="filterbar esh-register-search" action="/findings">
+        <input type="hidden" name="queue" value="verification" />
+        <label>
+          <span>Department</span>
+          <select
+            name="department"
+            defaultValue={departmentUnassigned ? 'unassigned' : (departmentId ?? '')}
+          >
+            <option value="">All departments in your scope</option>
+            {departments.map((department) => (
+              <option key={department.id} value={department.id}>
+                {department.name}
+              </option>
+            ))}
+            <option value="unassigned">Unassigned</option>
+          </select>
+        </label>
+        <button className="btn small" type="submit">
+          Apply
+        </button>
+      </form>
+
+      {rows.length === 0 ? (
+        <p className="guest-empty">Nothing is waiting for verification.</p>
       ) : (
-        <>
-          <section className="esh-signals" aria-label="Finding signals">
-            <Signal
-              href={registerHref('open')}
-              label="Open findings"
-              value={signals.openFindings}
-              unit="findings"
-              detail="All ages, including new and unassigned work"
-            />
-            <Signal
-              href={registerHref('overdue')}
-              label="Overdue actions"
-              value={signals.overdueActions}
-              unit="actions"
-              detail="Assigned or in progress; not awaiting review"
-              exception={signals.overdueActions > 0}
-            />
-            <Signal
-              href={verificationHref()}
-              label="Awaiting ESH review"
-              value={signals.awaitingReviewActions}
-              unit="actions"
-              detail={
-                signals.reviewOverdueActions > 0
-                  ? `${signals.reviewOverdueActions} review overdue`
-                  : 'Current owner submissions only'
-              }
-              exception={signals.reviewOverdueActions > 0}
-            />
-            <Signal
-              href={registerHref('closed')}
-              label="Closed findings"
-              value={signals.closedFindings}
-              unit="findings"
-              detail={closurePeriod.label}
-            />
-          </section>
-
-          <OperationalHealth health={health} />
-          {rollout && <HeldNoticesRelease releasable={rollout.heldReleasable} />}
-
-          {/*
-            v230 — the counters above say how many; these say how it is going.
-            A backlog of fourteen that is shrinking and a backlog of fourteen
-            that is growing are not the same situation, and the four numbers
-            alone could not tell them apart.
-          */}
-          {dashboard && (
-            <div className="esh-dash-grid">
-              {/*
-                v263 — protection first. A shrinking backlog beside four
-                critical findings with nothing holding them is not a safety
-                programme going well, and that figure should not be below
-                the ones that flatter it.
-              */}
-              <ProtectionPanel protection={dashboard.protection} />
-              <TrendPanel monthly={dashboard.monthly} />
-              <ClosurePanel closure={dashboard.closure} />
-              <ResponsivenessPanel facts={dashboard.responsiveness} />
-              <RiskPanel openByRisk={dashboard.openByRisk} />
-              <AgePanel openByAge={dashboard.openByAge} />
-            </div>
-          )}
-
-          <section className="esh-department-summary" aria-labelledby="department-summary-title">
-            <div className="esh-section-head">
-              <div>
-                <h2 id="department-summary-title">By accountable department</h2>
-                <p>Actions stay with their finding’s accountable department.</p>
-              </div>
-            </div>
-            {visibleRows.length === 0 ? (
-              <p className="guest-empty">No findings are visible in this scope.</p>
-            ) : (
-              /* v218 — scrollable by keyboard as well as by finger. The box
-                 already clipped correctly; what it lacked was a tab stop, so
-                 its right-hand columns were unreachable without a mouse, the
-                 same gap v181 closed on the attachments table. */
-              <div
-                className="table-scroll"
-                role="region"
-                aria-label="Findings by department"
-                tabIndex={0}
+        <ul className="esh-register" aria-label="Waiting for verification">
+          {rows.map((row) => (
+            <li key={row.submissionId}>
+              <Link
+                href={`/findings/${row.findingId}?action=${row.actionId}`}
+                className="esh-register-row"
               >
-                <table className="esh-overview-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Department</th>
-                      <th scope="col">Open findings</th>
-                      <th scope="col">Overdue actions</th>
-                      <th scope="col">Awaiting review</th>
-                      <th scope="col">Closed findings</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleRows.map((row) => (
-                      <tr key={row.departmentId ?? 'unassigned'}>
-                        <th scope="row">{row.departmentName}</th>
-                        <MetricLink
-                          href={registerHref(
-                            'open',
-                            row.departmentId === null ? 'unassigned' : row.departmentId,
-                          )}
-                          value={row.openFindings}
-                          unit="findings"
-                        />
-                        <MetricLink
-                          href={registerHref(
-                            'overdue',
-                            row.departmentId === null ? 'unassigned' : row.departmentId,
-                          )}
-                          value={row.overdueActions}
-                          unit="actions"
-                          exception={row.overdueActions > 0}
-                        />
-                        <MetricLink
-                          href={verificationHref(
-                            row.departmentId === null ? 'unassigned' : row.departmentId,
-                          )}
-                          value={row.awaitingReviewActions}
-                          unit="actions"
-                          exception={row.reviewOverdueActions > 0}
-                          note={
-                            row.reviewOverdueActions > 0
-                              ? `${row.reviewOverdueActions} overdue`
-                              : undefined
-                          }
-                        />
-                        <MetricLink
-                          href={registerHref(
-                            'closed',
-                            row.departmentId === null ? 'unassigned' : row.departmentId,
-                          )}
-                          value={row.closedFindings}
-                          unit="findings"
-                        />
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            <p className="esh-definition-note">
-              Closed means the finding is still closed and its current official closure falls in{' '}
-              {closurePeriod.phrase}. Reopened findings return to open; earlier closure history is
-              retained but not counted here.
-            </p>
-          </section>
-        </>
+                <span className="esh-register-finding">
+                  <small>
+                    {[row.reference, row.location ?? row.departmentName]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </small>
+                  <strong>{row.title}</strong>
+                  <small>
+                    Submitted by {row.ownerEmail} · {when(row.submittedAt)}
+                  </small>
+                </span>
+                <span className="esh-register-owner">
+                  <small>Version {row.version}</small>
+                  <span>
+                    {row.files} file{row.files === 1 ? '' : 's'}
+                  </span>
+                </span>
+                <span className="esh-register-status">
+                  <span className="flag neutral">Awaiting ESH review</span>
+                  {row.priority && row.priority !== 'normal' && (
+                    <small className="esh-priority" data-priority={row.priority}>
+                      {PRIORITY_LABELS[row.priority]} priority
+                    </small>
+                  )}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
+      <p className="esh-register-foot">
+        {rows.length} waiting · A Verifier who submitted the work cannot verify it themselves.
+      </p>
     </>
   );
 }
 
 function Signal({
-  href,
   label,
   value,
-  unit,
   detail,
+  href,
   exception = false,
+  disabled = false,
 }: {
-  href: string;
   label: string;
   value: number;
-  unit: 'findings' | 'actions';
   detail: string;
+  href?: string;
   exception?: boolean;
+  disabled?: boolean;
 }) {
-  return (
-    <Link className="esh-signal" data-exception={exception || undefined} href={href}>
+  const content = (
+    <>
       <span>{label}</span>
       <strong>{value}</strong>
-      <small>{unit}</small>
-      <p>{detail}</p>
+      <small>{detail}</small>
+    </>
+  );
+  return href ? (
+    <Link className="esh-signal" data-exception={exception || undefined} href={href}>
+      {content}
     </Link>
+  ) : (
+    <div className="esh-signal" data-disabled={disabled || undefined}>
+      {content}
+    </div>
   );
 }
 
-function MetricLink({
-  href,
-  value,
-  unit,
-  note,
-  exception = false,
-}: {
-  href: string;
-  value: number;
-  unit: 'findings' | 'actions';
-  note?: string;
-  exception?: boolean;
-}) {
+function AttentionRow({ row }: { row: RegisterListRow }) {
+  const reasons = [
+    row.isOverdue && 'Overdue owner action',
+    row.actionState === 'awaiting_verification' && 'Waiting for ESH verification',
+    row.notificationFailed && 'Notification needs attention',
+    row.changesRequested && 'Owner needs to improve proof',
+  ].filter((value): value is string => Boolean(value));
+  const href = row.actionId
+    ? `/findings/${row.findingId}?action=${row.actionId}`
+    : `/findings/${row.findingId}`;
   return (
-    <td>
-      <Link href={href} className={exception ? 'esh-metric-exception' : undefined}>
-        <strong>{value}</strong> <span className="visually-hidden">{unit}</span>
-        {note && <small>{note}</small>}
+    <li>
+      <Link href={href}>
+        <span className="esh-today-row-main">
+          <strong>{row.reference}</strong>
+          <b>{row.title}</b>
+          <small>{[row.location, row.departmentName].filter(Boolean).join(' · ')}</small>
+        </span>
+        <span className="esh-today-row-reasons">
+          {reasons.map((reason) => (
+            <small key={reason}>{reason}</small>
+          ))}
+        </span>
       </Link>
-    </td>
+    </li>
+  );
+}
+
+function VerificationRow({ row, timeZone }: { row: VerificationQueueRow; timeZone: string }) {
+  const submitted = new Intl.DateTimeFormat('en-MY', {
+    day: 'numeric',
+    month: 'short',
+    timeZone,
+  }).format(new Date(row.submittedAt));
+  return (
+    <li className="esh-register-row">
+      <Link href={`/findings/${row.findingId}?action=${row.actionId}`}>
+        <span className="esh-today-row-main">
+          <strong>{row.reference}</strong>
+          <b>{row.title}</b>
+          <small>
+            {[row.location, `Submitted ${submitted}`, `Version ${row.version}`, row.ownerEmail]
+              .filter(Boolean)
+              .join(' · ')}
+          </small>
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+function QueueEmpty({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className="empty-state compact">
+      <h3>{title}</h3>
+      <p>{detail}</p>
+    </div>
   );
 }

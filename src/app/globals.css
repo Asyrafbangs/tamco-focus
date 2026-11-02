@@ -12849,6 +12849,143 @@ span.deadline span.deadline-glyph,
   gap: 12px;
   margin-bottom: 24px;
 }
+
+/* v4.1 S1 — Today keeps operational work ahead of historical charts. */
+.esh-today-head {
+  align-items: start;
+}
+.esh-today-signals .esh-signal[data-disabled] {
+  cursor: default;
+}
+.esh-today-signals .esh-signal[data-disabled] span,
+.esh-today-signals .esh-signal[data-disabled] small {
+  color: var(--text);
+}
+.esh-today-queue {
+  margin-top: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.esh-today-queue .esh-section-head,
+.esh-today-columns .esh-section-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 20px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.esh-today-queue .esh-section-head h2,
+.esh-today-columns .esh-section-head h2 {
+  margin: 0;
+}
+.esh-today-queue .esh-section-head p,
+.esh-today-columns .esh-section-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+.esh-today-queue .esh-section-head > a,
+.esh-today-columns .esh-section-head > a,
+.esh-form-card .esh-section-head > a {
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: underline;
+}
+.esh-today-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.esh-today-list li + li {
+  border-top: 1px solid var(--line);
+}
+.esh-today-list a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 78px;
+  padding: 14px 20px;
+  color: var(--text);
+  text-decoration: none;
+}
+.esh-today-list a:hover,
+.esh-today-list a:focus-visible {
+  background: var(--blue-bg);
+}
+.esh-today-row-main {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.esh-today-row-main strong {
+  color: var(--blue);
+  font-size: 12px;
+}
+.esh-today-row-main b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.esh-today-row-main small,
+.esh-today-row-reasons small {
+  color: var(--muted);
+}
+.esh-today-row-reasons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 6px;
+}
+.esh-today-row-reasons small {
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: var(--amber-bg);
+  color: var(--amber-text);
+  font-weight: 700;
+}
+/* The card's "see them all" link appears only past six waiting submissions,
+   which is exactly how the pager's links went unnoticed in v227: rare, and
+   therefore left on the browser's own #0000EE against the Night surface. The
+   layout crawl caught the bare link and the ESH crawl caught its contrast in
+   Night, both on the day it was written. It is styled like the other links in
+   the same card rather than like the pager, which sits on the page background
+   and not on a card. */
+.esh-today-columns .esh-register-foot {
+  padding: 12px 20px;
+  margin-top: 0;
+  border-top: 1px solid var(--line);
+}
+.esh-today-columns .esh-register-foot a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: underline;
+}
+.esh-today-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+.esh-today-columns .esh-form-card {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.esh-today-columns .empty-state,
+.esh-today-queue .empty-state {
+  margin: 0;
+}
+.esh-pattern-empty {
+  max-width: 760px;
+}
+.esh-pattern-empty h2 {
+  margin-top: 0;
+}
 .esh-signal {
   display: grid;
   align-content: start;
@@ -13471,6 +13608,17 @@ span.deadline span.deadline-glyph,
   }
   .esh-signals {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .esh-today-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .esh-today-list a {
+    align-items: start;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .esh-today-row-reasons {
+    justify-content: start;
   }
   .esh-register-status {
     flex-direction: row;

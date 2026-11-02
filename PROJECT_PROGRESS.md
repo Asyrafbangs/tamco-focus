@@ -7,26 +7,31 @@ Factual and verified against the repository, not against conversation claims.
 removed; what was durable in it is below. Do not reintroduce a second
 current-state document.
 
-**Last verified:** 31 October 2026 · Stage 0 branch
-`codex/finding-v41-stage0`, stacked on backup branch
-`codex/evidence-storage-backup` @ `1de7ef0`. Run `git log --oneline -1`
-before continuing.
+**Last verified:** 2 November 2026 · `main` @ merge commit `10848ba` carries
+the backup prerequisite (PR #50) and Stage 0 (PR #49). Stage 0's dispatched
+full workflow `41416164133` passed all three jobs with the browser job
+executed, not skipped. Stage 1 on `codex/finding-v41-stage1` / PR #51 has been
+rebased onto `main`, reviewed against gate S1 and corrected; see
+`docs/finding-management-v4.1/stage1-review.md`.
 
 ---
 
 ## Current objective
 
-Complete the private evidence-byte backup prerequisite in its own branch/PR,
-then review Finding Management v4.1 at Stage 0. The backup implementation and
-local byte restore proof are complete; the full repository gate passed 17/17.
-The authorized user made a fresh Production backup, and its database rows and
-all 354 private Storage objects were restored and verified in isolated local.
-The backup branch is published as PR #50, ready for review; its dispatched full workflow
-passed all three jobs, including the browser suite. Stage 0 baseline review is
-committed on a separate branch as PR #49; its original dispatched workflow
-passed all three jobs. The user approved local-only Stage 1 testing on 31
-October. Stage 0 was rebased onto the backup branch and needs full CI on its
-new HEAD before S1. No v4.1 application feature has been implemented.
+Deliver Finding Management v4.1 stage by stage, one pull request per stage,
+preserving what already works. The backup prerequisite and Stage 0 are
+**merged**; `main` is at `10848ba`.
+
+Stage 1 — navigation and the working queue — is implemented and has been
+reviewed against its own acceptance gate rather than accepted on a green run.
+The review found five defects that gate S1 explicitly asks about: the
+verification queue rendered six rows however many were waiting, four controls
+it used to have were dropped in the move, the protection counter linked to
+every open finding instead of the ones it counted, the canonical list was
+missing the `Waiting verification` and `All records` views the stage names, and
+"Overview by department" still pointed at what is now Today. All five are
+fixed, each with a browser case proven by breaking what it guards. No schema
+change. No hosted or Production deployment is approved.
 
 The ESH corrective-action work (v262–v271) is complete and deployed. Earlier
 arcs — the My Team redesign (v233–v250), the CI and fixture corrections
@@ -38,8 +43,8 @@ or a product decision.
 
 | Area         | State                                                                             |
 | ------------ | --------------------------------------------------------------------------------- |
-| Branch       | `codex/finding-v41-stage0`, stacked on backup @ `1de7ef0`.                        |
-| Open work    | Stage 0 review and local-only S1 decision; no v4.1 feature changes.               |
+| Branch       | `codex/finding-v41-stage1` @ `95c937d`, stacked on the approved baseline.         |
+| Open work    | Stage 2 QR intake is blocked on its listed product, privacy and safety decisions. |
 | Migrations   | 184; `local` == `remote` through `20261030004000` (v271), verified 30 October.    |
 | Schema drift | None. Type diff is 48 lines, all `__InternalSupabase` and parenthesis formatting. |
 | Local seed   | 9 users, 52 tasks. Waiting view renders 20 rows.                                  |
@@ -142,8 +147,8 @@ passed all three jobs at `030bf19`, including 626 passed and 155 intentionally
 skipped browser cases. The captures use only local seed and temporary
 fixture findings; both targeted capture runs passed 2/2 and local fixtures
 were reset. The user approved local-only Stage 1 testing. PR #49 is stacked
-on backup PR #50; S0 remains unchecked until the rebased branch's dispatched
-full CI passes. No S1 feature work has begun.
+on backup PR #50 and Stage 0 passed its rebased dispatched full CI. Stage 1
+implements its navigation and queues in a separate branch.
 
 ## Completed work
 
@@ -173,12 +178,12 @@ full CI passes. No S1 feature work has begun.
 
 ## Partial work
 
-Backup code, full local regression, Production byte recovery and dispatched CI
-are verified; PR #50 is ready for review. The supplied v4.1 package was
-read in numbered order and its illustrative screenshots inspected. Stage 0
-baseline/delta report is in PR #49 with its original dispatched CI passed.
-The user approved local-only Stage 1 testing; the rebased Stage 0 branch needs
-full dispatched CI before S0 closes.
+Stage 2 is the only v4.1 work started and not finished. `codex/finding-v41-stage2`
+/ PR #52 carries 59 files of QR intake and triage, stacked on Stage 1. It has
+**not been reviewed**, and its policy inputs — anonymous reporting, the
+emergency-contact route, retention and EXIF, and whether a public scanner is
+hosted — are all undecided. A green run on that branch proves nothing about
+those questions. Do not merge it on the strength of one.
 
 ## Remaining work
 
@@ -499,14 +504,19 @@ how it runs locally.
 
 ## Blocker
 
-The authorized user completed the Production backup and the agent proved its
-recovery in isolated local. Both PRs passed dispatched full workflows on their
-original implementation commits. The user approved local-only S1 testing.
-The rebased Stage 0 branch passed full CI, so S0 is closed. Public QR rollout
-and production changes remain gated.
+Stage 2. It needs decisions nobody has made: whether anonymous reporting is
+permitted and under what notice, who receives an immediate-hazard alert in and
+out of hours and by what route, what happens to photograph originals and their
+EXIF, and whether a private upload scanner is hosted or the pilot goes
+text-only. These are the user's calls and the tracker lists them. Public QR
+rollout and every Production change remain gated on explicit approval.
 
 ## Exact next action
 
-Complete S1 in `codex/finding-v41-stage1`: implement the Today / Findings /
-Patterns navigation and working queues using the existing scoped query and
-security contracts. No hosted deployment or public QR rollout is approved.
+Stage 1's review is on `codex/finding-v41-stage1` / PR #51, rebased onto
+`main`. Read `docs/finding-management-v4.1/stage1-review.md` for what the
+review found and how each fix was proven, then merge the stage.
+
+Then stop and ask for the Stage 2 decisions. Do not begin Stage 2 — or review
+PR #52 as though it were ready — before they are documented, and do not
+invent any of them.
