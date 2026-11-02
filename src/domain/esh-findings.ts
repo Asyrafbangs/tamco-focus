@@ -221,12 +221,30 @@ export function findingProblem(code: string): { field: string; message: string }
  * Register views (§24). One set of definitions, used for the list and for any
  * count that links to it, so a number and the list behind it never disagree.
  */
-export type RegisterFilter = 'attention' | 'open' | 'overdue' | 'unassessed' | 'closed';
+export type RegisterFilter =
+  | 'attention'
+  | 'open'
+  | 'unprotected'
+  | 'overdue'
+  | 'verification'
+  | 'unassessed'
+  | 'closed'
+  | 'all';
 
 export const REGISTER_FILTERS: Array<{ key: RegisterFilter; label: string }> = [
   { key: 'attention', label: 'Needs attention' },
   { key: 'open', label: 'All open' },
+  /*
+   * v4.1 S1 - where the protection figure on Today lands.
+   *
+   * Today says how many significant risks have no verified protection. That
+   * number used to link to every open finding, so a reader who clicked three
+   * arrived at forty rows and had no way to tell which three were meant. The
+   * view exists so the number has somewhere to go that holds exactly it.
+   */
+  { key: 'unprotected', label: 'Unprotected risks' },
   { key: 'overdue', label: 'Overdue' },
+  { key: 'verification', label: 'Waiting verification' },
   /*
    * v269 - findings nobody has graded yet.
    *
@@ -236,6 +254,7 @@ export const REGISTER_FILTERS: Array<{ key: RegisterFilter; label: string }> = [
    */
   { key: 'unassessed', label: 'Not assessed' },
   { key: 'closed', label: 'Closed' },
+  { key: 'all', label: 'All records' },
 ];
 
 /**
@@ -243,9 +262,13 @@ export const REGISTER_FILTERS: Array<{ key: RegisterFilter; label: string }> = [
  *
  * Closed is still a register view, and every link to it keeps working; it is
  * simply reached from the module's own navigation now, because two navigation
- * systems on one screen made the reader choose between them.
+ * systems on one screen made the reader choose between them. Unprotected
+ * risks is the same arrangement in reverse: a counter on Today owns the link,
+ * so the chip bar does not grow a seventh entry for it.
  */
-export const REGISTER_VIEWS = REGISTER_FILTERS.filter((filter) => filter.key !== 'closed');
+const OFF_CHIP: RegisterFilter[] = ['closed', 'unprotected'];
+
+export const REGISTER_VIEWS = REGISTER_FILTERS.filter((filter) => !OFF_CHIP.includes(filter.key));
 
 export function registerFilterFrom(value: string | undefined): RegisterFilter {
   return REGISTER_FILTERS.some((filter) => filter.key === value)

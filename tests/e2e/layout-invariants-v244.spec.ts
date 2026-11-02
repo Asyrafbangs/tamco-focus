@@ -74,9 +74,18 @@ const ROUTES: Array<{ email: string; pages: string[] }> = [
       '/more/settings?section=security',
       '/esh',
       '/findings',
+      '/findings?queue=verification',
       '/findings/register',
+      // v4.1 S1 - the views a Today counter lands on, and the two records
+      // views the register gained. A count that cannot be read at a phone
+      // width is a count nobody checks.
+      '/findings/register?filter=unprotected',
+      '/findings/register?filter=verification',
+      '/findings/register?filter=all',
       '/findings/closed',
       '/findings/verification',
+      '/findings/patterns',
+      '/findings/patterns/insights',
       '/findings/settings',
       // Both reached only from a button, so neither was walked until v253.
       '/findings/new',

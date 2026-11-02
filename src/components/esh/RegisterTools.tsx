@@ -45,8 +45,14 @@ export function RegisterTools({ canCoordinate }: { canCoordinate: boolean }) {
       </button>
       {open && (
         <div className="esh-register-menu" role="menu">
-          {/* v227 - the Overview lives here now, not first in the navigation. */}
-          <Link role="menuitem" href="/findings" onClick={() => setOpen(false)}>
+          {/*
+           * v227 - the Overview lives here now, not first in the navigation.
+           * v4.1 S1 - and at the historical insights address, because
+           * `/findings` became Today, which carries no department breakdown.
+           * The menu item kept its old destination for a while and quietly
+           * took the reader somewhere that did not answer its own label.
+           */}
+          <Link role="menuitem" href="/findings/patterns/insights" onClick={() => setOpen(false)}>
             Overview by department
           </Link>
           <Link role="menuitem" href="/findings/register/export" onClick={() => setOpen(false)}>

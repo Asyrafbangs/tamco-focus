@@ -182,7 +182,37 @@ export async function listRegister(options: {
   page: number;
 }): Promise<{ rows: RegisterListRow[]; total: number; failed: boolean }> {
   const supabase = await createSupabaseServerClient();
-  const source = options.filter === 'overdue' ? 'esh_action_register_rows' : 'esh_register_rows';
+  const perAction = options.filter === 'overdue' || options.filter === 'verification';
+  const source = perAction ? 'esh_action_register_rows' : 'esh_register_rows';
+
+  /*
+   * v4.1 S1 - the protection view, read the way the protection figure is.
+   *
+   * `esh_dashboard` counts significant risks with nothing verified standing
+   * between people and the hazard. Neither register view carries the interim
+   * columns, so the identifiers come from the findings themselves under the
+   * reader's own row-level security, by the same predicate, and the register
+   * then shows those rows in its own shape. Done this way the number and the
+   * list cannot drift apart without one of them being wrong.
+   */
+  let unprotectedIds: string[] | null = null;
+  if (options.filter === 'unprotected') {
+    const { data, error } = await supabase
+      .from('esh_findings')
+      .select('id')
+      .in('status', ['new', 'open'])
+      .in('risk_level', ['high', 'critical'])
+      .is('interim_verified_at', null)
+      .is('interim_not_required_reason', null)
+      .limit(1000);
+    if (error) {
+      console.error(`[listRegister] ${error.code ?? 'unknown'}: ${error.message}`);
+      return { rows: [], total: 0, failed: true };
+    }
+    unprotectedIds = (data ?? []).map((row) => String(row.id));
+    if (unprotectedIds.length === 0) return { rows: [], total: 0, failed: false };
+  }
+
   let query = supabase.from(source).select('*', { count: 'exact' });
 
   switch (options.filter) {
@@ -192,8 +222,16 @@ export async function listRegister(options: {
     case 'open':
       query = query.in('status', ['draft', 'new', 'open']);
       break;
+    case 'unprotected':
+      query = query.in('finding_id', unprotectedIds ?? []);
+      break;
     case 'overdue':
       query = query.in('status', ['draft', 'new', 'open']).eq('is_overdue', true);
+      break;
+    case 'verification':
+      // The same obligation the dashboard counts: a correction submitted and
+      // waiting on ESH, on a finding that is still open.
+      query = query.in('status', ['new', 'open']).eq('action_state', 'awaiting_verification');
       break;
     case 'unassessed':
       query = query.in('status', ['draft', 'new', 'open']).eq('risk_level', 'not_assessed');
@@ -203,6 +241,10 @@ export async function listRegister(options: {
       if (options.closedUntil) query = query.lte('closed_at', options.closedUntil);
       break;
     }
+    case 'all':
+      // Every record, whatever its state: the view people reach for when they
+      // are looking something up rather than working through a queue.
+      break;
   }
 
   if (options.departmentUnassigned) {
