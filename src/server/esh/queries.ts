@@ -269,6 +269,47 @@ export async function listRegister(options: {
   };
 }
 
+export interface ReportIntakeRow {
+  id: string;
+  source: 'qr' | 'esh_manual';
+  status: 'new' | 'triaging' | 'accepted' | 'duplicate' | 'declined';
+  reportText: string;
+  reportedLocation: string | null;
+  departmentId: string | null;
+  receivedAt: string;
+}
+
+/**
+ * The staff-only intake queue. The database RLS policy makes this empty for
+ * readers without coordinator authority or department scope; this query does
+ * not recreate those permission rules in the application.
+ */
+export async function listReportIntake(): Promise<{ rows: ReportIntakeRow[]; failed: boolean }> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('esh_report_intake')
+    .select('id, source, status, report_text, reported_location, department_id, received_at')
+    .in('status', ['new', 'triaging'])
+    .order('received_at')
+    .limit(200);
+  if (error) {
+    console.error(`[listReportIntake] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { rows: [], failed: true };
+  }
+  return {
+    failed: false,
+    rows: (data ?? []).map((row) => ({
+      id: String(row.id),
+      source: row.source === 'esh_manual' ? 'esh_manual' : 'qr',
+      status: row.status as ReportIntakeRow['status'],
+      reportText: String(row.report_text),
+      reportedLocation: row.reported_location ?? null,
+      departmentId: row.department_id ?? null,
+      receivedAt: String(row.received_at),
+    })),
+  };
+}
+
 export async function getEshOverview(options: {
   departmentId: string | null;
   closedSince: string;

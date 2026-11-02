@@ -5308,6 +5308,7 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          department_id: string | null
           display_label: string
           id: string
           organization_id: string
@@ -5318,6 +5319,7 @@ export type Database = {
         Insert: {
           active?: boolean
           created_at?: string
+          department_id?: string | null
           display_label: string
           id?: string
           organization_id: string
@@ -5328,6 +5330,7 @@ export type Database = {
         Update: {
           active?: boolean
           created_at?: string
+          department_id?: string | null
           display_label?: string
           id?: string
           organization_id?: string
@@ -5336,6 +5339,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "esh_qr_locations_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "esh_qr_locations_organization_id_fkey"
             columns: ["organization_id"]
@@ -5538,7 +5548,10 @@ export type Database = {
       }
       esh_report_intake: {
         Row: {
+          assigned_triager_id: string | null
           created_at: string
+          decision_reason: string | null
+          department_id: string | null
           id: string
           organization_id: string
           public_reference: string
@@ -5548,9 +5561,13 @@ export type Database = {
           reported_location: string | null
           source: string
           status: string
+          triaged_at: string | null
         }
         Insert: {
+          assigned_triager_id?: string | null
           created_at?: string
+          decision_reason?: string | null
+          department_id?: string | null
           id?: string
           organization_id: string
           public_reference?: string
@@ -5560,9 +5577,13 @@ export type Database = {
           reported_location?: string | null
           source: string
           status?: string
+          triaged_at?: string | null
         }
         Update: {
+          assigned_triager_id?: string | null
           created_at?: string
+          decision_reason?: string | null
+          department_id?: string | null
           id?: string
           organization_id?: string
           public_reference?: string
@@ -5572,8 +5593,51 @@ export type Database = {
           reported_location?: string | null
           source?: string
           status?: string
+          triaged_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "esh_report_intake_assigned_triager_id_fkey"
+            columns: ["assigned_triager_id"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_assigned_triager_id_fkey"
+            columns: ["assigned_triager_id"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_assigned_triager_id_fkey"
+            columns: ["assigned_triager_id"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_assigned_triager_id_fkey"
+            columns: ["assigned_triager_id"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_assigned_triager_id_fkey"
+            columns: ["assigned_triager_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "esh_report_intake_organization_id_fkey"
             columns: ["organization_id"]
