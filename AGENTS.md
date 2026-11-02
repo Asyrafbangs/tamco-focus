@@ -738,7 +738,15 @@ These are not preferences. Each one has already produced a wrong conclusion in
 this repository, and none of them is detectable from the code.
 
 **Never pipe `npm run verify`.** The exit code becomes the pipe's, so a failed
-gate reads as green. Run it unpiped and read the summary.
+gate reads as green. Run it unpiped and read the summary. The same masking
+bites the backgrounded form: a trailing `echo "EXIT=$?"` is what the task
+notification reports, so append the code to the log instead of printing it.
+And `scripts/verify.mjs` exits **0, 1 or 2 and nothing else** — any other code
+means the gate was *killed*, not that it failed. Exit 4 on 2 November 2026 came
+with a log that stopped mid-browser-stage at test 237 of 797, four
+`destination stream closed early` errors and two failures in specs that pass
+cleanly on their own. Without the `Verification summary` block the run has no
+verdict at all.
 
 **`autocrlf=true` here.** `git checkout` rewrites files as CRLF, Prettier's LF
 check then fails against an empty `git diff`, and `git status` shows ~120
