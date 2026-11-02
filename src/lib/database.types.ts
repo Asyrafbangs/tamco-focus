@@ -5548,6 +5548,7 @@ export type Database = {
       }
       esh_report_intake: {
         Row: {
+          accepted_finding_id: string | null
           assigned_triager_id: string | null
           created_at: string
           decision_reason: string | null
@@ -5565,6 +5566,7 @@ export type Database = {
           triaged_at: string | null
         }
         Insert: {
+          accepted_finding_id?: string | null
           assigned_triager_id?: string | null
           created_at?: string
           decision_reason?: string | null
@@ -5582,6 +5584,7 @@ export type Database = {
           triaged_at?: string | null
         }
         Update: {
+          accepted_finding_id?: string | null
           assigned_triager_id?: string | null
           created_at?: string
           decision_reason?: string | null
@@ -5599,6 +5602,34 @@ export type Database = {
           triaged_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "esh_report_intake_accepted_finding_id_fkey"
+            columns: ["accepted_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_register_rows"
+            referencedColumns: ["finding_id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_accepted_finding_id_fkey"
+            columns: ["accepted_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_findings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_accepted_finding_id_fkey"
+            columns: ["accepted_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_export_rows"
+            referencedColumns: ["finding_id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_accepted_finding_id_fkey"
+            columns: ["accepted_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_rows"
+            referencedColumns: ["finding_id"]
+          },
           {
             foreignKeyName: "esh_report_intake_assigned_triager_id_fkey"
             columns: ["assigned_triager_id"]
@@ -15754,6 +15785,15 @@ export type Database = {
       }
       delete_user_permanently: {
         Args: { p_employee_id_confirmation: string; p_user_id: string }
+        Returns: Json
+      }
+      esh_accept_report_intake: {
+        Args: {
+          p_assign?: boolean
+          p_idempotency_key?: string
+          p_intake_id: string
+          p_payload: Json
+        }
         Returns: Json
       }
       esh_admin_contact_access_items: {

@@ -280,6 +280,39 @@ export interface ReportIntakeRow {
 }
 
 /**
+ * One in-scope report for the Finding review form. RLS remains the authority;
+ * a report that is no longer triaging is not offered as a fresh Finding.
+ */
+export async function getReportIntakeForFinding(
+  intakeId: string,
+): Promise<{ row: ReportIntakeRow | null; failed: boolean }> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('esh_report_intake')
+    .select('id, source, status, report_text, reported_location, department_id, received_at')
+    .eq('id', intakeId)
+    .eq('status', 'triaging')
+    .maybeSingle();
+  if (error) {
+    console.error(`[getReportIntakeForFinding] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { row: null, failed: true };
+  }
+  if (!data) return { row: null, failed: false };
+  return {
+    failed: false,
+    row: {
+      id: String(data.id),
+      source: data.source === 'esh_manual' ? 'esh_manual' : 'qr',
+      status: data.status as ReportIntakeRow['status'],
+      reportText: String(data.report_text),
+      reportedLocation: data.reported_location ?? null,
+      departmentId: data.department_id ?? null,
+      receivedAt: String(data.received_at),
+    },
+  };
+}
+
+/**
  * The staff-only intake queue. The database RLS policy makes this empty for
  * readers without coordinator authority or department scope; this query does
  * not recreate those permission rules in the application.

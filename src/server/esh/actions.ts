@@ -73,6 +73,7 @@ export async function saveFinding(
   await requireProfile();
   const assign = text(formData, 'intent') === 'assign';
   const findingId = uuid.safeParse(text(formData, 'finding_id'));
+  const intakeId = uuid.safeParse(text(formData, 'intake_id'));
   const key = text(formData, 'idempotency_key');
 
   const payload = {
@@ -102,14 +103,21 @@ export async function saveFinding(
   };
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc('esh_save_finding', {
-    // Sent as an explicit null for a new finding: an absent key matches no
-    // function signature at all.
-    p_finding_id: (findingId.success ? findingId.data : null) as string,
-    p_payload: payload,
-    p_assign: assign,
-    p_idempotency_key: key || undefined,
-  });
+  const { data, error } = intakeId.success
+    ? await supabase.rpc('esh_accept_report_intake', {
+        p_intake_id: intakeId.data,
+        p_payload: payload,
+        p_assign: assign,
+        p_idempotency_key: key || undefined,
+      })
+    : await supabase.rpc('esh_save_finding', {
+        // Sent as an explicit null for a new finding: an absent key matches no
+        // function signature at all.
+        p_finding_id: (findingId.success ? findingId.data : null) as string,
+        p_payload: payload,
+        p_assign: assign,
+        p_idempotency_key: key || undefined,
+      });
 
   if (error) {
     console.error(`[esh_save_finding] ${error.code ?? 'unknown'}: ${error.message}`);
@@ -141,9 +149,11 @@ export async function saveFinding(
               message:
                 result.code === 'not_permitted'
                   ? 'You do not have permission to create findings.'
-                  : result.code === 'not_a_draft'
-                    ? 'This finding has already been assigned.'
-                    : 'This finding could not be saved.',
+                  : result.code === 'not_claimed'
+                    ? 'Claim this private report before creating its Finding.'
+                    : result.code === 'not_a_draft'
+                      ? 'This finding has already been assigned.'
+                      : 'This finding could not be saved.',
             },
           ];
     return { ok: false, problems, warnings: [] };

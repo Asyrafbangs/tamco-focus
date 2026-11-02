@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition, type FormEvent } from 'react';
+import Link from 'next/link';
 
 import {
   claimReportIntake,
@@ -36,6 +37,9 @@ export function IntakeTriageActions({ intakeId, status }: { intakeId: string; st
         <button type="button" onClick={claim} disabled={pending}>
           {pending ? 'Saving…' : 'Claim for triage'}
         </button>
+      )}
+      {status === 'triaging' && (
+        <Link href={`/findings/new?intake=${intakeId}`}>Review as Finding</Link>
       )}
       <details>
         <summary>Decline report</summary>
