@@ -1,3 +1,4 @@
+import { IntakeTriageActions } from '@/components/esh/IntakeTriageActions';
 import { ManualIntakeForm } from '@/components/esh/ManualIntakeForm';
 import { requireEshAccess } from '@/server/esh/access';
 import { listReportIntake } from '@/server/esh/queries';
@@ -47,7 +48,10 @@ export default async function IntakeQueuePage() {
                   }).format(new Date(report.receivedAt))}
                 </small>
               </div>
-              <span className="status-chip">{report.status}</span>
+              <div>
+                <span className="status-chip">{report.status}</span>
+                <IntakeTriageActions intakeId={report.id} status={report.status} />
+              </div>
             </li>
           ))}
         </ul>
