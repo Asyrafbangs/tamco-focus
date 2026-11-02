@@ -1,11 +1,8 @@
 'use server';
 
-import { z } from 'zod';
-
+import { parseReportIntakeId } from '@/domain/esh-intake';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getEshAccess } from '@/server/esh/access';
-
-const uuid = z.string().uuid();
 
 export interface IntakeActionResult {
   ok: boolean;
@@ -14,8 +11,8 @@ export interface IntakeActionResult {
 
 /** Claim one private intake before an ESH coordinator begins triage. */
 export async function claimReportIntake(input: { intakeId: string }): Promise<IntakeActionResult> {
-  const parsed = uuid.safeParse(input.intakeId);
-  if (!parsed.success) return { ok: false, message: 'That report is no longer available.' };
+  const intakeId = parseReportIntakeId(input.intakeId);
+  if (!intakeId) return { ok: false, message: 'That report is no longer available.' };
 
   const access = await getEshAccess();
   if (!access.enabled || !access.canCoordinate) {
@@ -24,7 +21,7 @@ export async function claimReportIntake(input: { intakeId: string }): Promise<In
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc('esh_claim_report_intake', {
-    p_intake_id: parsed.data,
+    p_intake_id: intakeId,
   });
   if (error) {
     console.error(`[esh_claim_report_intake] ${error.code ?? 'unknown'}: ${error.message}`);

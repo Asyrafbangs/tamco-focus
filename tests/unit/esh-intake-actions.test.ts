@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { claimReportIntake } from '@/server/esh/intake-actions';
+import { parseReportIntakeId } from '@/domain/esh-intake';
 
-describe('intake claim action', () => {
-  it('rejects an invalid intake identifier before any database call', async () => {
-    await expect(claimReportIntake({ intakeId: 'not-a-uuid' })).resolves.toEqual({
-      ok: false,
-      message: 'That report is no longer available.',
-    });
+describe('intake identifier', () => {
+  it('refuses malformed input before a server action reaches the database', () => {
+    expect(parseReportIntakeId('not-a-uuid')).toBeNull();
+    expect(parseReportIntakeId('00000000-0000-4000-8000-000000000000')).toBe(
+      '00000000-0000-4000-8000-000000000000',
+    );
   });
 });
