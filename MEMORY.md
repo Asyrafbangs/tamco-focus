@@ -14,7 +14,10 @@ deliberately short.
 > environment facts that have each already produced a wrong conclusion here.
 > Read §27 before running anything.
 
-**Last verified:** 31 October 2026 · backup prerequisite on `codex/evidence-storage-backup` based on `origin/main` @ `2591c27`; fresh user-run Production schema dump inspected locally on 31 October (v271 evidence objects present, v4.1 QR intake absent).
+**Last verified:** 2 November 2026 · Stage 2 private intake on
+`codex/finding-v41-stage2` @ `4946115`; local schema reset through v278,
+generated types, SQL parser, TypeScript, focused unit coverage and v278 pgTAP
+(11 assertions) pass. Full Stage 2 regression and CI remain pending.
 
 A commit hash in a document goes stale the moment the document is merged, so
 treat that one as provenance, not as the current head. For the head, run
@@ -75,7 +78,12 @@ v271 (**fixed v270, which was inert**, and keeps the camera's own file).
 ## 3. Next steps, in priority order
 
 1. **Complete backup PR #50 review.** Local recovery and dispatched CI passed; the PR is ready for review and unmerged. Its ten backup guards run in the existing CI unit step without a workflow-file change.
-2. **Await Stage 2 decisions.** Stage 1 is complete in draft PR #51 (`codex/finding-v41-stage1`) with independent full CI. QR intake cannot begin until the documented anonymous-reporting, privacy, emergency-contact and safety-routing decisions are made. No hosted or Production deployment is approved.
+2. **Finish Stage 2 verification.** Draft PR #52 (`codex/finding-v41-stage2`)
+   implements private staff intake only: manual report capture, claim, decline,
+   duplicate linking and atomic Finding acceptance. Add relevant browser
+   coverage and run the full local/CI gates. Public QR, public uploads,
+   emergency delivery and any hosted rollout stay disabled pending their
+   documented operating decisions.
 3. **Host the scanner** — a decision and a card, not engineering. Cloud Run
    scaling to zero is ≈$0/month if the signature databases are baked into the
    image *and that image is rebuilt weekly*; Fly.io always-on is ≈$13/month at
@@ -140,7 +148,7 @@ bulk UI, rollout not yet. See `PROJECT_PROGRESS.md` → _Settled decisions_.
 
 ---
 
-## 5. Current Stage 1 checkpoint
+## 5. Current Stage 2 checkpoint
 
 Stage 1 is complete on `codex/finding-v41-stage1` / draft PR #51 at `697935d`.
 Today/Findings/Patterns navigation, disabled Incoming reports and the
@@ -148,9 +156,10 @@ department-preserving verification redirect are implemented. Targeted local
 desktop/mobile coverage passed. Dispatched full workflow `41311926177` passed
 format/lint/types/unit/secrets, migrations/RLS/integration, production build
 and browser E2E. PR #51 is unmerged and has no hosted or Production approval.
-Stage 2 foundations are in progress on `codex/finding-v41-stage2`. They remain
-disabled by default: do not publish QR intake, uploads or emergency delivery
-without the documented QR, privacy and emergency-contact policy decisions.
+Stage 2 private intake is implemented through v278 on `codex/finding-v41-stage2`
+/ draft PR #52 at `4946115`. It is RLS-protected, staff-only and locally
+reset-tested. Public QR intake, uploads and emergency delivery remain disabled;
+Stage 2 still needs targeted browser coverage plus full regression and CI.
 
 ## 6. Last agent handover note
 
