@@ -64,3 +64,9 @@ LOCAL_TEST_ACCOUNTS.local.md
 skills-lock.json
 .vercel
 .env*
+
+# Design handover archives. The v4.1 package's own notice says
+# references_current_ui/ may carry employee email addresses, internal findings
+# and site photographs, and a 3MB archive at the repo root is one careless
+# `git add -A` away from GitHub. No .zip has ever been tracked here.
+*.zip

@@ -760,6 +760,26 @@ ship a scanner that raised an exception on its first production row behind
 eleven passing assertions. Before trusting a suite, ask which rows the guard
 actually governs and fixture *those*.
 
+**Local Storage can break outright, and it looks like an application bug.**
+After `restore:verify` has uploaded objects into the local buckets, local
+Storage can start answering every upload with `database error, code: 42P10`.
+The browser suite then fails on eight unrelated specs — assignment files,
+private evidence, PDF viewing, Excel import, photographs — because all of them
+upload. Our code is not at fault, and nor is the application's `ON CONFLICT`:
+reproduce it in two lines with a service-role `storage.from(bucket).upload(...)`
+before touching source. The fix is a clean rebuild of the local stack:
+`npx supabase stop --no-backup` then `npx supabase start`, which drops the local
+volume and lets the running storage image build the schema it expects.
+
+**Repeated full verifies exhaust the machine's sockets.** A second or third
+`npm run verify` in one session fails with `net::ERR_NO_BUFFER_SPACE`, and —
+more misleadingly — with a sign-in that half-loads into `?error=invalid` and
+reads exactly like a real authentication regression. Check
+`Get-NetTCPConnection -State TimeWait` before believing it; a few minutes of
+drain and a re-run is the remedy. Budget one full local gate run per sitting,
+and remember CI's dispatched run takes about 40 minutes end to end, so a
+dispatch that has only *started* proves nothing.
+
 ---
 
 <!-- BEGIN:nextjs-agent-rules -->

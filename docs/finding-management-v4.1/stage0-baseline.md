@@ -100,3 +100,51 @@ the Stage 0 branch was stacked on the backup prerequisite. Local-only Stage 1
 testing is approved. Current hosted deployment configuration remains
 unverified, so no hosted demo or Production rollout is authorized. No schema
 or v4.1 application feature changed here.
+
+## Addenda from the 2 November re-verification
+
+The baseline above was re-checked rather than taken on trust, as a handover
+should be. Everything in it held. Four things were added or corrected.
+
+**The backup prerequisite gained a completeness gate, and has merged.** Every
+check in the backup loop previously traced back to one bucket listing, so a
+listing that came back short would have produced a backup that passed every
+check while missing files. `storage.objects` — the database's own record,
+already dumped into each run directory — is now the independent witness, at
+backup time and again at restore time. Verified against the 31 October
+production backup: 354 recorded, 354 saved, and all 354 saved objects
+re-hashed independently with zero mismatches. Merged as PR #50 after a
+dispatched run whose browser job executed and passed.
+
+**The package's own dependency warning is out of date.** `00_START_HERE.md`
+says v269/v270 "were not confirmed merged". They are merged, and so is v271:
+confirmed from a fresh production `*-schema.sql` carrying `source_state`,
+`source_object_key`, `source_started_at`, `esh_start_source`,
+`esh_guest_start_source`, `esh_record_source`, `esh_evidence_sent_state_check`
+and the stale-source sweep inside `esh_scan_claim`. No live production query
+was made; the claim rests on that dump, as S0 requires.
+
+**Local Storage is a standing hazard for every stage's browser gate.** After
+the restore proof had uploaded objects into the local buckets, local Storage
+began answering every upload with `42P10`, failing eight specs that have
+nothing in common except that they upload a file. It is not an application
+defect and it is not the application's `ON CONFLICT`. A clean
+`supabase stop --no-backup && supabase start` fixes it. Recorded in
+`AGENTS.md` section 27 so the next stage does not spend a day on it.
+
+**Repeated local gates exhaust sockets.** A second full `npm run verify` in one
+sitting failed two specs with `ERR_NO_BUFFER_SPACE` and a sign-in that
+half-loaded into `?error=invalid` — indistinguishable from an authentication
+regression until you count `TIME_WAIT`. After a drain, the same commit passed
+**17/17 with 626 browser tests**. Also in `AGENTS.md` section 27.
+
+One housekeeping fix outside S0's scope but inside its risk surface: the v4.1
+design package was sitting unignored as a 3MB archive at the repository root.
+Its own notice says `references_current_ui/` may contain employee email
+addresses, internal findings and site photographs. `*.zip` is now ignored; no
+archive had ever been tracked.
+
+**S0 gate, re-confirmed on 2 November:** full suite green (17/17 locally, and a
+dispatched CI run whose browser job executed and passed), repository and
+database state reconciled against evidence, and the deployment target named and
+approved by the user as local-only. No schema change. S1 may proceed.
