@@ -15800,6 +15800,7 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_claim_report_intake: { Args: { p_intake_id: string }; Returns: Json }
       esh_clear_blocker: {
         Args: { p_blocker_id: string; p_note: string }
         Returns: Json
