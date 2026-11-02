@@ -16817,3 +16817,57 @@ span.deadline span.deadline-glyph,
 .esh-blocker-clear input {
   width: 100%;
 }
+
+/* v279 - the findings related to this one, on the finding detail page. */
+.esh-related {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.esh-link-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.esh-link-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+.esh-link-row a {
+  color: var(--blue);
+  min-width: 0;
+  font-size: calc(13px * var(--font-scale));
+  font-weight: 650;
+}
+.esh-link-row .btn {
+  flex: none;
+}
+.esh-link-note {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: calc(12px * var(--font-scale));
+}
+.esh-related-add {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.esh-related-add .esh-field {
+  flex: 1 1 200px;
+}
+@media (max-width: 860px) {
+  .esh-related-add {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .esh-related-add .btn {
+    width: 100%;
+  }
+}

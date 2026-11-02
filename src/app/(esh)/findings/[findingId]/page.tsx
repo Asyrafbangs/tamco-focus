@@ -17,6 +17,7 @@ import { FindingActionsMenu, type FindingMenuItem } from '@/components/esh/Findi
 import { OriginalEvidence } from '@/components/esh/OriginalEvidence';
 import { FindingOutcome } from '@/components/esh/FindingOutcome';
 import { HistoryDrawer } from '@/components/esh/HistoryDrawer';
+import { RelatedFindings } from '@/components/esh/RelatedFindings';
 import { ReopenFinding } from '@/components/esh/ReopenFinding';
 import { VerifyPanel } from '@/components/esh/VerifyPanel';
 import { FindingForm } from '@/components/esh/FindingForm';
@@ -552,7 +553,15 @@ function EffectivenessNotice({ finding }: { finding: FindingDetail }) {
         <strong>The fix did not hold.</strong> {check.decisionNote ?? ''}
       </p>
       {check.followUpReference && (
-        <p className="esh-interim-meta">Raised again as {check.followUpReference}.</p>
+        <p className="esh-interim-meta">
+          Raised again as{' '}
+          {check.followUpId ? (
+            <Link href={`/findings/${check.followUpId}`}>{check.followUpReference}</Link>
+          ) : (
+            check.followUpReference
+          )}
+          .
+        </p>
       )}
     </div>
   );
@@ -788,7 +797,18 @@ function FindingSummary({
             <p className="notice neutral">
               <strong>
                 {OUTCOME_LABELS[finding.resolvedOutcome] ?? finding.resolvedOutcome}
-                {finding.duplicateOfReference ? ` of ${finding.duplicateOfReference}` : ''}
+                {finding.duplicateOfReference ? (
+                  <>
+                    {' of '}
+                    {finding.duplicateOfId ? (
+                      <Link href={`/findings/${finding.duplicateOfId}`}>
+                        {finding.duplicateOfReference}
+                      </Link>
+                    ) : (
+                      finding.duplicateOfReference
+                    )}
+                  </>
+                ) : null}
               </strong>
               {finding.statusReason ? ` — ${finding.statusReason}` : ''}
             </p>
@@ -1017,6 +1037,42 @@ function FindingSummary({
             </details>
           </section>
         )}
+
+        <section className="esh-form-card" aria-labelledby="esh-detail-connections">
+          <h2 id="esh-detail-connections" className="esh-form-card-title">
+            Related findings
+          </h2>
+          {finding.links.raisedFrom && (
+            <p className="form-hint">
+              Raised because the correction on{' '}
+              <Link href={`/findings/${finding.links.raisedFrom.id}`}>
+                {finding.links.raisedFrom.reference}
+              </Link>{' '}
+              did not hold.
+            </p>
+          )}
+          {finding.links.duplicatedBy.length > 0 && (
+            <>
+              <h3 className="esh-subheading">Reported again as</h3>
+              <ul className="esh-link-list">
+                {finding.links.duplicatedBy.map((item) => (
+                  <li key={item.id}>
+                    <div className="esh-link-row">
+                      <Link href={`/findings/${item.id}`}>
+                        {item.reference} — {item.title}
+                      </Link>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <RelatedFindings
+            findingId={finding.id}
+            related={finding.links.related}
+            canCoordinate={canCoordinate}
+          />
+        </section>
 
         {action && action.state !== 'draft' && (
           <section className="esh-form-card" aria-labelledby="esh-detail-conversation">

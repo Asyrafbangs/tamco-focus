@@ -3687,6 +3687,121 @@ export type Database = {
           },
         ]
       }
+      esh_finding_links: {
+        Row: {
+          created_at: string
+          created_by: string
+          finding_id: string
+          id: string
+          note: string | null
+          organization_id: string
+          related_finding_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          finding_id: string
+          id?: string
+          note?: string | null
+          organization_id: string
+          related_finding_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          finding_id?: string
+          id?: string
+          note?: string | null
+          organization_id?: string
+          related_finding_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_finding_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_finding_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_finding_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_finding_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_finding_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_finding_links_organization_id_finding_id_fkey"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
+          },
+          {
+            foreignKeyName: "esh_finding_links_organization_id_finding_id_fkey"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_findings"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_finding_links_organization_id_finding_id_fkey"
+            columns: ["organization_id", "finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
+          },
+          {
+            foreignKeyName: "esh_finding_links_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_finding_links_organization_id_related_finding_id_fkey"
+            columns: ["organization_id", "related_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_action_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
+          },
+          {
+            foreignKeyName: "esh_finding_links_organization_id_related_finding_id_fkey"
+            columns: ["organization_id", "related_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_findings"
+            referencedColumns: ["organization_id", "id"]
+          },
+          {
+            foreignKeyName: "esh_finding_links_organization_id_related_finding_id_fkey"
+            columns: ["organization_id", "related_finding_id"]
+            isOneToOne: false
+            referencedRelation: "esh_register_rows"
+            referencedColumns: ["organization_id", "finding_id"]
+          },
+        ]
+      }
       esh_findings: {
         Row: {
           accountable_department_id: string | null
@@ -16149,6 +16264,14 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_link_related_findings: {
+        Args: {
+          p_finding_id: string
+          p_note?: string
+          p_related_finding_id: string
+        }
+        Returns: Json
+      }
       esh_list_verifiers: {
         Args: never
         Returns: {
@@ -16396,6 +16519,10 @@ export type Database = {
           p_purpose: string
           p_size: number
         }
+        Returns: Json
+      }
+      esh_unlink_related_findings: {
+        Args: { p_finding_id: string; p_related_finding_id: string }
         Returns: Json
       }
       esh_verify_interim_control: {

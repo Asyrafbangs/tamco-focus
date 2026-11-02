@@ -520,18 +520,35 @@ how it runs locally.
 
 ## Blocker
 
-Stage 2. It needs decisions nobody has made: whether anonymous reporting is
-permitted and under what notice, who receives an immediate-hazard alert in and
-out of hours and by what route, what happens to photograph originals and their
-EXIF, and whether a private upload scanner is hosted or the pilot goes
-text-only. These are the user's calls and the tracker lists them. Public QR
-rollout and every Production change remain gated on explicit approval.
+Nothing blocks the private staff workflow. What is blocked is activation and
+classification, and both are decisions rather than engineering:
+
+- **Public QR intake** needs four calls nobody has made: whether anonymous
+  reporting is permitted and under what notice, who receives an immediate-hazard
+  alert in and out of hours and by what route, what happens to photograph
+  originals and their EXIF, and whether a private upload scanner is hosted or
+  the pilot goes text-only. The public half stays closed behind
+  `check (enabled = false)`, so it cannot be switched on by configuration.
+- **S3b classification** needs the hazard categories confirmed by ESH and plant
+  representatives. Stage 0 forbids inferring historical categories, so there is
+  nothing to build until the list exists.
+
+Every Production change remains gated on explicit approval.
 
 ## Exact next action
 
-Stage 2 is on `codex/finding-v41-stage2` / PR #52, merged up to `main`, with
-the scope-operator defect and the unlinked queue both closed. Next, the final
-local and dispatched gates. Its migrations stay local until the stage is committed and fully
-verified. Do not publish public QR intake, public uploads or emergency
-delivery before their separate QR, privacy and safety-routing decisions; those
-activation decisions do not block the private staff workflow.
+Stage 2 is merged. PR #52 landed on `main` as `36d6a95`, dispatched run
+41486208163 passed all three jobs including the browser job, and a full local
+gate on the same tree passed all 17 checks.
+
+Stage 3a is built on `stage3-links`, off `36d6a95`: `v279` adds
+`esh_finding_links` for the symmetric "related" case, and the duplicate and
+recurrence links that already existed are now navigable and readable in both
+directions. Targeted validation is green — 19 pgTAP assertions and two browser
+cases, each proven by breaking what it guards — and the full gate is the next
+step, then a pull request.
+
+`v279` has not been pushed to the hosted database and must not be until the
+stage is committed and green. Note that `codex/finding-v41-stage3` already
+exists as a stale pointer at an old Stage 2 commit and is checked out in
+another worktree, which is why this work is on `stage3-links`.
