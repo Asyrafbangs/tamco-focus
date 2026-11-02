@@ -1,5 +1,7 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
+
 import { parseReportIntakeId } from '@/domain/esh-intake';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { getEshAccess } from '@/server/esh/access';
@@ -29,7 +31,10 @@ export async function claimReportIntake(input: { intakeId: string }): Promise<In
   }
 
   const result = (data ?? {}) as { ok?: boolean; code?: string };
-  if (result.ok) return { ok: true, message: 'Report claimed for triage.' };
+  if (result.ok) {
+    revalidatePath('/findings/intake');
+    return { ok: true, message: 'Report claimed for triage.' };
+  }
   if (result.code === 'not_available') {
     return { ok: false, message: 'Another coordinator has already started this report.' };
   }
@@ -60,7 +65,10 @@ export async function declineReportIntake(input: {
     return { ok: false, message: 'The report could not be declined.' };
   }
   const result = (data ?? {}) as { ok?: boolean; code?: string };
-  if (result.ok) return { ok: true, message: 'Report declined without creating an action.' };
+  if (result.ok) {
+    revalidatePath('/findings/intake');
+    return { ok: true, message: 'Report declined without creating an action.' };
+  }
   if (result.code === 'reason_required') {
     return { ok: false, message: 'Explain why the report is being declined.' };
   }
@@ -95,7 +103,10 @@ export async function markReportIntakeDuplicate(input: {
     return { ok: false, message: 'The duplicate link could not be saved.' };
   }
   const result = (data ?? {}) as { ok?: boolean; code?: string };
-  if (result.ok) return { ok: true, message: 'Linked as a duplicate without creating an action.' };
+  if (result.ok) {
+    revalidatePath('/findings/intake');
+    return { ok: true, message: 'Linked as a duplicate without creating an action.' };
+  }
   if (result.code === 'reason_required')
     return { ok: false, message: 'Explain why this is a duplicate.' };
   return { ok: false, message: 'That report or Finding is no longer available.' };
@@ -126,6 +137,9 @@ export async function createManualReportIntake(input: {
     return { ok: false, message: 'The manual report could not be saved.' };
   }
   const result = (data ?? {}) as { ok?: boolean; code?: string };
-  if (result.ok) return { ok: true, message: 'Private report recorded for triage.' };
+  if (result.ok) {
+    revalidatePath('/findings/intake');
+    return { ok: true, message: 'Private report recorded for triage.' };
+  }
   return { ok: false, message: 'The manual report could not be saved.' };
 }

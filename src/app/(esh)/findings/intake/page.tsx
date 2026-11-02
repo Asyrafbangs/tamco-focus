@@ -1,3 +1,4 @@
+import { ManualIntakeForm } from '@/components/esh/ManualIntakeForm';
 import { requireEshAccess } from '@/server/esh/access';
 import { listReportIntake } from '@/server/esh/queries';
 
@@ -22,6 +23,8 @@ export default async function IntakeQueuePage() {
           </p>
         </div>
       </header>
+
+      <ManualIntakeForm />
 
       {intake.failed ? (
         <p role="alert">The private intake queue could not be read. Nothing has been changed.</p>
