@@ -15807,6 +15807,10 @@ export type Database = {
       }
       esh_current_access: { Args: never; Returns: Json }
       esh_dashboard: { Args: { p_months?: number }; Returns: Json }
+      esh_decline_report_intake: {
+        Args: { p_intake_id: string; p_reason: string }
+        Returns: Json
+      }
       esh_digest_prepare: { Args: { p_outbox_id: string }; Returns: Json }
       esh_dispatch_claim: {
         Args: { p_outbox_id: string; p_secrets: Json }

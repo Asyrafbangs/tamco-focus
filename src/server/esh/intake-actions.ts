@@ -35,3 +35,34 @@ export async function claimReportIntake(input: { intakeId: string }): Promise<In
   }
   return { ok: false, message: 'That report is no longer available.' };
 }
+
+/** Decline an invalid intake without creating any Finding or owner action. */
+export async function declineReportIntake(input: {
+  intakeId: string;
+  reason: string;
+}): Promise<IntakeActionResult> {
+  const intakeId = parseReportIntakeId(input.intakeId);
+  const reason = input.reason.trim();
+  if (!intakeId) return { ok: false, message: 'That report is no longer available.' };
+  if (!reason) return { ok: false, message: 'Explain why the report is being declined.' };
+
+  const access = await getEshAccess();
+  if (!access.enabled || !access.canCoordinate) {
+    return { ok: false, message: 'You do not have triage access.' };
+  }
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('esh_decline_report_intake', {
+    p_intake_id: intakeId,
+    p_reason: reason,
+  });
+  if (error) {
+    console.error(`[esh_decline_report_intake] ${error.code ?? 'unknown'}: ${error.message}`);
+    return { ok: false, message: 'The report could not be declined.' };
+  }
+  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  if (result.ok) return { ok: true, message: 'Report declined without creating an action.' };
+  if (result.code === 'reason_required') {
+    return { ok: false, message: 'Explain why the report is being declined.' };
+  }
+  return { ok: false, message: 'That report is no longer available.' };
+}
