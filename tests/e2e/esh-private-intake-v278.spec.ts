@@ -111,7 +111,7 @@ test('v278 a claimed private report becomes one explicitly assigned Finding', as
   const sourceReference = `private-intake:${intake!.id}`;
   const { data: finding, error: findingError } = await db
     .from('esh_findings')
-    .select('id, source, source_reference, status')
+    .select('id, reference, source, source_reference, status')
     .eq('source_reference', sourceReference)
     .single();
   expect(findingError).toBeNull();
@@ -136,4 +136,39 @@ test('v278 a claimed private report becomes one explicitly assigned Finding', as
   expect(acceptedIntake).toMatchObject({ status: 'accepted', accepted_finding_id: finding!.id });
   expect(actionError).toBeNull();
   expect(action).toMatchObject({ state: 'assigned' });
+
+  const duplicateText = `v278 duplicate guard ${suffix}`;
+  const { data: duplicateIntake, error: duplicateIntakeError } = await db
+    .from('esh_report_intake')
+    .insert({
+      organization_id: ORGANIZATION_ID,
+      source: 'esh_manual',
+      report_text: duplicateText,
+      department_id: department!.id,
+    })
+    .select('id')
+    .single();
+  expect(duplicateIntakeError).toBeNull();
+
+  await page.goto('/findings/intake');
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+  const duplicateRow = page.locator('.esh-register-row').filter({ hasText: duplicateText });
+  await expect(duplicateRow).toBeVisible();
+  await duplicateRow.getByText('Mark as duplicate', { exact: true }).click();
+  const duplicateForm = duplicateRow.locator('form').first();
+  await duplicateForm.getByLabel('Existing Finding reference').fill(finding!.reference);
+  await duplicateForm.getByLabel('Reason').fill('It describes the same press guard.');
+  await duplicateForm.getByRole('button', { name: 'Link duplicate without action' }).click();
+  await expect(duplicateRow).toHaveCount(0);
+
+  const { data: duplicateState, error: duplicateStateError } = await db
+    .from('esh_report_intake')
+    .select('status, duplicate_of_finding_id')
+    .eq('id', duplicateIntake!.id)
+    .single();
+  expect(duplicateStateError).toBeNull();
+  expect(duplicateState).toMatchObject({
+    status: 'duplicate',
+    duplicate_of_finding_id: finding!.id,
+  });
 });

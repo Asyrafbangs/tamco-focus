@@ -3,7 +3,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(15);
 
 create or replace function pg_temp.act_as(p_user_id uuid)
 returns void language plpgsql as $$
@@ -128,6 +128,42 @@ select is(
     where source_reference = 'private-intake:f2780000-0000-4000-a000-000000000001'),
   1,
   'the report produces exactly one Finding despite the retry'
+);
+
+insert into public.esh_report_intake
+  (id, organization_id, source, report_text, department_id)
+values
+  ('f2780000-0000-4000-a000-000000000003', 'e5e50000-0000-4000-8000-000000000001',
+   'esh_manual', 'The same press guard has been reported again.',
+   (select id from public.departments where code = 'OPS'));
+
+select pg_temp.act_as('f0c05000-0000-4000-a000-000000000002');
+select ok(
+  (public.esh_mark_report_intake_duplicate(
+    'f2780000-0000-4000-a000-000000000003',
+    (select (result->>'finding_id')::uuid from v278_result),
+    'It describes the same missing press guard.'
+  )->>'ok')::boolean,
+  'a coordinator can link another report to the visible open Finding'
+);
+select pg_temp.reset_role();
+
+select is(
+  (select status from public.esh_report_intake where id = 'f2780000-0000-4000-a000-000000000003'),
+  'duplicate',
+  'a duplicate report has a terminal duplicate outcome'
+);
+select is(
+  (select duplicate_of_finding_id::text from public.esh_report_intake
+    where id = 'f2780000-0000-4000-a000-000000000003'),
+  (select result->>'finding_id' from v278_result),
+  'the duplicate report links to the original Finding'
+);
+select is(
+  (select count(*)::int from public.esh_finding_actions
+    where finding_id = (select (result->>'finding_id')::uuid from v278_result)),
+  1,
+  'linking a duplicate report creates no second owner action'
 );
 
 select * from finish();

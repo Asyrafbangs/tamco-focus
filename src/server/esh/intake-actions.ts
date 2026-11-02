@@ -78,22 +78,39 @@ export async function declineReportIntake(input: {
 /** Link a duplicate report to an existing visible Finding without new work. */
 export async function markReportIntakeDuplicate(input: {
   intakeId: string;
-  findingId: string;
+  findingReference: string;
   reason: string;
 }): Promise<IntakeActionResult> {
   const intakeId = parseReportIntakeId(input.intakeId);
-  const findingId = parseReportIntakeId(input.findingId);
+  const findingReference = input.findingReference.trim();
   const reason = input.reason.trim();
-  if (!intakeId || !findingId) return { ok: false, message: 'That report is no longer available.' };
+  if (!intakeId) return { ok: false, message: 'That report is no longer available.' };
+  if (!findingReference) return { ok: false, message: 'Enter the existing Finding reference.' };
   if (!reason) return { ok: false, message: 'Explain why this is a duplicate.' };
   const access = await getEshAccess();
   if (!access.enabled || !access.canCoordinate) {
     return { ok: false, message: 'You do not have triage access.' };
   }
   const supabase = await createSupabaseServerClient();
+  // This only resolves a visible reference for usability. The write procedure
+  // rechecks organization, status and department scope atomically.
+  const { data: target, error: targetError } = await supabase
+    .from('esh_findings')
+    .select('id')
+    .eq('reference', findingReference)
+    .in('status', ['new', 'open'])
+    .maybeSingle();
+  if (targetError || !target) {
+    if (targetError) {
+      console.error(
+        `[markReportIntakeDuplicate] ${targetError.code ?? 'unknown'}: ${targetError.message}`,
+      );
+    }
+    return { ok: false, message: 'No visible open Finding has that reference.' };
+  }
   const { data, error } = await supabase.rpc('esh_mark_report_intake_duplicate', {
     p_intake_id: intakeId,
-    p_finding_id: findingId,
+    p_finding_id: target.id,
     p_reason: reason,
   });
   if (error) {
