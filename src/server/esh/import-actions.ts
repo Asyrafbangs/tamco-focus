@@ -73,6 +73,10 @@ export async function readImportWorkbook(input: {
       missing: 'That file did not arrive. Try the upload again.',
       too_large: 'That file is larger than 10 MB. Split the backlog or remove its photographs.',
       type_mismatch: 'That file is not the kind of file its name says it is.',
+      // A workbook cannot trip the v285 pixel check - it is only applied to
+      // image types - but the union covers it, and a silent `undefined`
+      // message would be worse than a sentence nobody reads.
+      image_too_large: 'That file is not the kind of file its name says it is.',
     } as const;
     return { ok: false, message: reasons[inspected.reason] };
   }
