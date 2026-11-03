@@ -24,24 +24,57 @@ const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
 const ORGANIZATION = 'e5e50000-0000-4000-8000-000000000001';
 
 /**
- * A PNG too big to send as it is, and trivial for JPEG to shrink.
+ * A PNG too big to send as it is. Two kinds, because v285 stopped treating
+ * them the same.
  *
- * Deflated at level 0, so the stored size is the raw size: 1000x600 RGB comes
- * to about 1.8MB, over v270's 1.5MB threshold. The picture itself is a smooth
- * gradient, so the JPEG the browser makes of it is a few tens of kilobytes —
- * which is the point. A noise image would compress to nothing like that ratio
- * and would prove less.
+ * Deflated at level 0 either way, so the stored size is the raw size: 1000x600
+ * RGB comes to about 1.8MB, over v270's 1.5MB threshold.
+ *
+ * `photo` is deterministic noise, which is what a photograph of a machine
+ * actually looks like to an encoder: PNG cannot compress it, JPEG can, so the
+ * copy becomes a JPEG. This fixture was a smooth gradient until v285, and a
+ * gradient is now the other case — JPEG saves almost nothing on flat tone, so
+ * the copy stays a PNG. The test's subject is the kept original, not the
+ * format, and a photograph that behaves like a photograph is the fixture it
+ * should always have had.
+ *
+ * `flat` is thin black lines on white: a screenshot of a permit, which is how
+ * half the PNGs in this module arrive. JPEG puts a coloured halo on every edge
+ * and barely saves a byte, so v285 leaves it as a PNG.
  */
-function bigPng(width = 1000, height = 600): Buffer {
+function bigPng(width = 1000, height = 600, kind: 'photo' | 'flat' = 'photo'): Buffer {
   const raw = Buffer.alloc(height * (1 + width * 3));
+  // A fixed sequence rather than Math.random: a fixture that differs between
+  // runs cannot be reasoned about when it fails.
+  let seed = 0x5eed1234;
+  const clamp = (value: number) => Math.max(0, Math.min(255, value));
+  const next = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed >>> 24;
+  };
   for (let y = 0; y < height; y += 1) {
     const row = y * (1 + width * 3);
     raw[row] = 0; // filter: none
     for (let x = 0; x < width; x += 1) {
       const at = row + 1 + x * 3;
-      raw[at] = Math.round((x / width) * 255);
-      raw[at + 1] = Math.round((y / height) * 255);
-      raw[at + 2] = 128;
+      if (kind === 'flat') {
+        const ink = x % 37 === 0 || y % 23 === 0 ? 0 : 255;
+        raw[at] = ink;
+        raw[at + 1] = ink;
+        raw[at + 2] = ink;
+      } else {
+        /*
+         * A gradient with fine grain on top, which is what a photograph of a
+         * machine is to an encoder: smooth enough that JPEG throws most of it
+         * away, grainy enough that PNG's deflate cannot. Pure noise would
+         * satisfy the format rule and then fail the size one, because nothing
+         * compresses random bytes - and a real photograph is not random.
+         */
+        const grain = (next() % 25) - 12;
+        raw[at] = clamp(Math.round((x / width) * 255) + grain);
+        raw[at + 1] = clamp(Math.round((y / height) * 255) + grain);
+        raw[at + 2] = clamp(128 + grain);
+      }
     }
   }
 
@@ -68,6 +101,7 @@ function bigPng(width = 1000, height = 600): Buffer {
 }
 
 const BIG = bigPng();
+const FLAT = bigPng(1000, 600, 'flat');
 
 function service() {
   return createClient(
@@ -170,7 +204,7 @@ async function asset(actionId: string) {
   const { data } = await service()
     .from('esh_evidence_assets')
     .select(
-      'id, original_name, size_bytes, state, scan_state, source_state, source_file_name, source_size_bytes',
+      'id, original_name, content_type, size_bytes, state, scan_state, source_state, source_file_name, source_size_bytes',
     )
     .eq('action_id', actionId)
     .eq('purpose', 'message')
@@ -303,4 +337,45 @@ test('v271 ESH can fetch the full-size original, and nobody else can', async ({
   expect(
     (await page.request.get(`/findings/files/${sent!.id}`, { maxRedirects: 0 })).status(),
   ).toBe(404);
+});
+
+test('v285 a screenshot stays a PNG, and its original is still kept', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'One flow; the format rule is width-independent.');
+
+  /*
+   * The other half of v285's rule, on the real screen. Half the PNGs in this
+   * module are screenshots of permits and labels: thin dark text on white,
+   * where JPEG puts a coloured halo on every character and saves almost
+   * nothing. The copy must stay a PNG - and the original must still be kept,
+   * because the rule changed the format, not the promise.
+   */
+  const id = `${testInfo.project.name.slice(0, 1)}${crypto.randomUUID().slice(0, 6)}`;
+  const { principalId, actionId } = await arrange(id);
+  await openAsOwner(page, principalId, actionId);
+
+  await page.getByLabel('Attach files').setInputFiles({
+    name: 'Permit to work.png',
+    mimeType: 'image/png',
+    buffer: FLAT,
+  });
+
+  const staged = page.locator('.esh-upload');
+  await expect(staged).toContainText('Permit to work.png');
+  await expect(staged).toContainText('Ready to send', { timeout: 30_000 });
+  // Not renamed, because it was not converted.
+  await expect(staged).not.toContainText('Permit to work.jpg');
+
+  await expect
+    .poll(async () => (await asset(actionId))?.source_state ?? null, { timeout: 60_000 })
+    .toBe('kept');
+
+  const kept = await asset(actionId);
+  expect(kept!.content_type).toBe('image/png');
+  // Smaller than what was chosen - a re-encode that saved nothing is refused -
+  // and the full-size original is beside it either way.
+  expect(kept!.size_bytes!).toBeLessThan(FLAT.byteLength);
+  expect(kept!.source_file_name).toBe('Permit to work.png');
+  expect(kept!.source_size_bytes).toBe(FLAT.byteLength);
 });
