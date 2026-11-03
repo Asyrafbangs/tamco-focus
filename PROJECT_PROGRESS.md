@@ -537,30 +537,21 @@ Every Production change remains gated on explicit approval.
 
 ## Exact next action
 
-Stage 3a is pushed: `7c9d8a8` on `codex/finding-v41-stage3a`, PR #53 against
-`main`, with a full local gate of 17/17 behind it and dispatched run
-41546376559 running the browser job.
+Stages 3a, 4a, 5a and the Stage 6 readiness assessment are merged. PR #53
+landed on `main` as `55f593a`, with a full local gate of 17/17 and dispatched
+run 41564776028 green on the head commit including the browser job.
 
-Stage 4a is built on the same branch and not yet committed. `v280` adds
-`esh_finding_connections`, a `security_invoker` view over the three reviewed
-links, and the Patterns page reports them instead of promising them. The
-insights reconciliation case passes, so Stage 4's "counts reconcile with
-scoped source rows" is evidenced rather than asserted. 19 pgTAP assertions and
-2 browser cases, each guard proven by breaking it. Stage 5a is on the same branch: the outbox drain took the oldest rows of each
-state, so an infected-evidence or escalation-exhausted notice queued after a
-bulk release waited for the next drain, in the worst case the daily cron. Urgent
-types now have their own queries and rank ahead of ordinary post, proven by
-removing each half of the fix separately. No migration.
+Nothing in Finding Management v4.1 is now blocked on engineering. What remains
+is blocked on decisions, and the three the user chose to settle first are the
+hazard taxonomy, the administrator role split, and whether a private upload
+scanner is hosted or the pilot goes text-only. `stage6-rollout-readiness.md`
+holds the full list and, for the Production facts no agent here can read, the
+exact commands that settle them.
 
-Stage 4a's first gate failed on two counts: a Night-mode contrast failure in the
-new Patterns links, now fixed and re-verified by the crawl, and one unreproduced
-`esh-evidence-v199` failure whose trace was lost. The full gate on S4a plus S5a
-is next, then one pull request covering both.
+Neither `v279` nor `v280` has been applied to the hosted database, and neither
+should be until explicitly asked for.
 
-Neither `v279` nor `v280` has been pushed to the hosted database, and neither
-should be until the stage is committed and green.
-
-Open decisions, unchanged: the hazard taxonomy (blocks S3b and any grouping of
-patterns by category), and the four public-QR calls. `codex/finding-v41-stage3`
-remains a stale pointer checked out in another worktree, which is why this work
-is on `stage3-links`.
+A separate session is adding the coverage that proves `getEshAccess` and
+`getFindingDetail` still call their domain helpers, on branch
+`claude/esh-server-only-tests`, together with a `resolve.alias` for
+`server-only` in both vitest projects.

@@ -2,18 +2,18 @@
 
 > The user approved local-only Stage 1 testing on 31 October 2026. This does not approve hosted staging, Production deployment, public QR intake or live email rollout.
 
-| Stage                  | Done | PR / commit                                                 | CI incl. browser                             | Staging demo | Migration deployed | Approved by                                                          |
-| ---------------------- | ---- | ----------------------------------------------------------- | -------------------------------------------- | ------------ | ------------------ | -------------------------------------------------------------------- |
-| S0 Baseline            | [x]  | PR #49 merged; `10848ba`                                    | [x] run 41416164133                          | Local only   | N/A                | User: local testing, 31 Oct                                          |
-| S1 UI/nav              | [x]  | PR #51 merged; `07c1054`                                    | [x] run 41440950624 + local gate             | Local only   | N/A                | User: local testing, 31 Oct                                          |
-| S2 QR intake           | [x]  | PR #52 merged; `36d6a95`                                    | [x] run 41486208163 + local gate             | Local only   | N/A                | Private half only; public QR held shut by `check (enabled = false)`  |
-| S3a Links              | [ ]  | PR #53 open; `7c9d8a8`                                      | [x] local gate 17/17; dispatched 41546376559 | Local only   | N/A                | Links need no decision                                               |
-| S3b Classification     | [ ]  | —                                                           | [ ]                                          | [ ]          | [ ]                | Blocked on the hazard taxonomy                                       |
-| S4a Patterns/reconcile | [ ]  | built on `stage3-links`; see `stage4-patterns.md`           | Targeted local PASS; full gate pending       | Local only   | N/A                | Reviewed links only; no category grouping                            |
-| S5a Urgent notices     | [ ]  | built on `stage3-links`; see `stage5-workflow-hardening.md` | Targeted local PASS; full gate pending       | Local only   | N/A                | Audit-driven; no new policy                                          |
-| S5 Workflow hardening  | [ ]  | —                                                           | [ ]                                          | [ ]          | if needed          | —                                                                    |
-| S6 readiness           | [ ]  | assessed; see `stage6-rollout-readiness.md`                 | N/A (no change to gate)                      | Local only   | not deployed       | Blocked: administrator role split, Production state, pilot decisions |
-| S6 Pilot/rollout       | [ ]  | —                                                           | [ ]                                          | [ ]          | checked            | —                                                                    |
+| Stage                  | Done | PR / commit                                 | CI incl. browser                             | Staging demo | Migration deployed | Approved by                                                          |
+| ---------------------- | ---- | ------------------------------------------- | -------------------------------------------- | ------------ | ------------------ | -------------------------------------------------------------------- |
+| S0 Baseline            | [x]  | PR #49 merged; `10848ba`                    | [x] run 41416164133                          | Local only   | N/A                | User: local testing, 31 Oct                                          |
+| S1 UI/nav              | [x]  | PR #51 merged; `07c1054`                    | [x] run 41440950624 + local gate             | Local only   | N/A                | User: local testing, 31 Oct                                          |
+| S2 QR intake           | [x]  | PR #52 merged; `36d6a95`                    | [x] run 41486208163 + local gate             | Local only   | N/A                | Private half only; public QR held shut by `check (enabled = false)`  |
+| S3a Links              | [x]  | PR #53 merged; `55f593a`                    | [x] local gate 17/17; dispatched 41546376559 | Local only   | N/A                | Links need no decision                                               |
+| S3b Classification     | [ ]  | —                                           | [ ]                                          | [ ]          | [ ]                | Blocked on the hazard taxonomy                                       |
+| S4a Patterns/reconcile | [x]  | PR #53 merged; `55f593a`                    | [x] local gate 17/17 + run 41564776028       | Local only   | N/A                | Reviewed links only; no category grouping                            |
+| S5a Urgent notices     | [x]  | PR #53 merged; `55f593a`                    | [x] local gate 17/17 + run 41564776028       | Local only   | N/A                | Audit-driven; no new policy                                          |
+| S5 Workflow hardening  | [ ]  | —                                           | [ ]                                          | [ ]          | if needed          | —                                                                    |
+| S6 readiness           | [ ]  | assessed; see `stage6-rollout-readiness.md` | N/A (no change to gate)                      | Local only   | not deployed       | Blocked: administrator role split, Production state, pilot decisions |
+| S6 Pilot/rollout       | [ ]  | —                                           | [ ]                                          | [ ]          | checked            | —                                                                    |
 
 ## Decisions requiring human ownership before relevant rollout
 
