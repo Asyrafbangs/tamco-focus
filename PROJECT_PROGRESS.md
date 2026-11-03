@@ -535,33 +535,59 @@ classification, and both are decisions rather than engineering:
 
 Every Production change remains gated on explicit approval.
 
+## The lean package (approved 3 November 2026)
+
+A second approved package arrived after the v4.1 stages: "Lean Implementation,
+UX Improvement and Production Readiness". It settles three decisions that had
+blocked building - the administrator role split is **deferred and must not
+block this workstream**, the hazard taxonomy is supplied as nine candidate
+categories, and the scanner stays optional provided nothing is ever labelled
+scanned or clean - and asks for four stages.
+
+- **Stage A (PR #56)** - repairs to what exists. The scanner recorded a clean
+  bill of health for every answer whose `infected` was merely falsy, including
+  a scanner reporting its own failure in valid JSON; pixel limits now refuse
+  the flat PNG that fits inside every byte limit and asks a browser for 3.6
+  billion pixels; a PNG is converted to JPEG only when JPEG clearly wins; and
+  v286 sweeps uploads that never finished.
+- **Stage B (PR #57)** - v287's hazard classification: a table rather than an
+  enum, stable codes, one primary and an optional secondary, optional and
+  never required, with the register and Patterns both counting what is
+  uncategorised.
+- **Stage C (PR #58)** - v288's public QR reporting, built and left closed.
+  Nothing is granted to `anon`; the reporter is anonymous unless they choose
+  otherwise; every photograph is re-encoded on the phone and rebuilt on the
+  server, so no EXIF block and nothing appended survives.
+- **Stage D (PR #59)** - `npm run check:deployment`, which asks the deployment
+  what is applied and what is configured instead of asking a document, plus the
+  rotation runbook and rollout plan in `stageD-readiness-and-rollout.md`.
+
+Five migrations are now waiting for `npx supabase db push --linked` from a
+clean `main`: v279, v280, v286, v287 and v288. None drops or rewrites an
+existing object.
+
 ## Exact next action
 
-Stages 3a, 4a, 5a and the Stage 6 readiness assessment are merged. PR #53
-landed on `main` as `55f593a`, with a full local gate of 17/17 and dispatched
-run 41564776028 green on the head commit including the browser job.
+The four lean-package stages are built and pushed: PR #56 (Stage A), #57
+(Stage B), #58 (Stage C) and #59 (Stage D), each stacked on the one before and
+each dispatched for a run that includes the browser job, since the e2e job does
+not run on pull requests.
 
-Two follow-ups have since landed. PR #55 (`301227f`) finished the
-swallowed-read sweep: `countAwaitingVerification` no longer returns `0` for a
-read that failed, and `stage5-workflow-hardening.md` records the verdict for
-every other site in `src/server` that turns a read error into a default, so the
-audit is not re-run. Dispatched run 41583759610 was green on all three jobs
-including End-to-end.
+Nothing in the package is now blocked on engineering. What remains is the
+owner's:
 
-PR #54 added the v284 call-site coverage — a `server-only` no-op resolved by
-`vitest.config.ts` in both projects, and tests that prove `getEshAccess` and
-`getFindingDetail` still call the helpers v282 and v283 introduced. It was
-opened against `codex/finding-v41-stage3a` rather than `main`, so merging it
-landed the tests on a branch `main` had already absorbed; the four files were
-merged across to `main` separately. Each guard was broken individually first,
-and the full unit project is 56 files / 571.
+1. merge the four stages once their dispatched runs are green;
+2. `npx supabase db push --linked` from a clean `main` for v279, v280, v286,
+   v287 and v288;
+3. `npm run check:deployment` against Production, to see those versions under
+   Remote and to read `EMAIL_TRANSPORT`, `CRON_SECRET`,
+   `ATTACHMENT_ALLOWED_MIME` and the scanner pair;
+4. rotate the exposed service-role key, following the runbook in
+   `stageD-readiness-and-rollout.md`, and redeploy so Vercel picks it up;
+5. set `PUBLIC_REPORT_SALT`;
+6. real photographs - Android and iPhone, one HEIC and one screenshot - so the
+   compression table can be measured rather than quoted.
 
-Nothing in Finding Management v4.1 is now blocked on engineering. What remains
-is blocked on decisions, and the three the user chose to settle first are the
-hazard taxonomy, the administrator role split, and whether a private upload
-scanner is hosted or the pilot goes text-only. `stage6-rollout-readiness.md`
-holds the full list and, for the Production facts no agent here can read, the
-exact commands that settle them.
-
-Neither `v279` nor `v280` has been applied to the hosted database, and neither
-should be until explicitly asked for.
+Public QR reporting is **closed** and stays closed until an administrator opens
+it with a reason. The administrator role split remains deferred by the
+package's own instruction.

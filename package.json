@@ -36,6 +36,7 @@
     "test:smoke": "node scripts/run-production-smoke.mjs",
     "test:e2e:install": "playwright install --with-deps chromium",
     "check:sql": "node scripts/check-sql-syntax.mjs",
+    "check:deployment": "node scripts/check-deployment.mjs",
     "check:schema": "node scripts/check-schema.mjs",
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "worker:weekly": "tsx --env-file=.env.local scripts/run-weekly-summaries.ts",
