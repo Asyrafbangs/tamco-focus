@@ -316,9 +316,9 @@ async function main() {
     say('ok', 'scanner configured');
   }
   say(
-    process.env.PUBLIC_REPORT_SALT ? 'ok' : 'warn',
-    'PUBLIC_REPORT_SALT' +
-      (process.env.PUBLIC_REPORT_SALT ? '' : ' — rate-limit buckets fall back to a constant salt'),
+    process.env.ESH_REPORT_SALT ? 'ok' : 'warn',
+    'ESH_REPORT_SALT' +
+      (process.env.ESH_REPORT_SALT ? '' : ' — rate-limit buckets fall back to a constant salt'),
   );
 
   if (process.argv.includes('--smoke')) {

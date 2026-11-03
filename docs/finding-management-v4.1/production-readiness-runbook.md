@@ -187,7 +187,7 @@ this is a quiet-hours job.
 
 ---
 
-## Step 5 — `PUBLIC_REPORT_SALT`
+## Step 5 — `ESH_REPORT_SALT`
 
 Generate it on your machine and paste it only into Vercel:
 
@@ -195,7 +195,7 @@ Generate it on your machine and paste it only into Vercel:
 node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
 ```
 
-Vercel → Environment Variables → new variable `PUBLIC_REPORT_SALT`, scope
+Vercel → Environment Variables → new variable `ESH_REPORT_SALT`, scope
 **Production**, mark it sensitive, then **redeploy**. Add the same name to your
 own `.env.local` with a different value if you want local parity; it is already
 in `.env.example` as an empty line, which is what CI uses.
@@ -285,7 +285,7 @@ Restore verified     PASS / FAIL   tables: <n>, storage objects: <n>
 Migrations applied   PASS / FAIL   v279 v280 v286 v287 v288
 check:deployment     PASS / FAIL   (output pasted separately)
 Key rotated          PASS / FAIL   issued: <date from the check>
-PUBLIC_REPORT_SALT   PASS / FAIL
+ESH_REPORT_SALT   PASS / FAIL
 Smoke 1-9            <n> PASS / <n> FAIL
 Public QR reporting  CLOSED (expected)
 

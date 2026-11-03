@@ -81,7 +81,7 @@ Present for Production: `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`,
 
 Absent, each deliberately or still to do:
 
-- **`PUBLIC_REPORT_SALT` — missing.** The only configuration item still
+- **`ESH_REPORT_SALT` — missing.** The only configuration item still
   outstanding. Rate-limit buckets fall back to a constant salt until it is set.
 - `ESH_SCANNER_URL` / `ESH_SCANNER_TOKEN` — no scanner is hosted, which is why
   every file reads "Not scanned".
@@ -111,7 +111,7 @@ or deleted.
 
 Four of these write or send, which is why they were not done for you:
 
-1. **`PUBLIC_REPORT_SALT`** in Vercel, then redeploy. A secret has to be typed
+1. **`ESH_REPORT_SALT`** in Vercel, then redeploy. A secret has to be typed
    by its owner.
 2. **Classify one finding** and save, to prove the write path end to end.
 3. **Upload one photograph** to a finding's action.
@@ -124,13 +124,13 @@ Four of these write or send, which is why they were not done for you:
 
 None of these can be closed from a session that cannot reach Production.
 
-| Step                     | What it needs                                                      |
-| ------------------------ | ------------------------------------------------------------------ |
-| 3 — configuration        | `npm run check:deployment` against Production, and its output read |
-| 4 — key rotation         | The Supabase dashboard, the Vercel variable, **and a redeploy**    |
-| 5 — `PUBLIC_REPORT_SALT` | Generated locally, set in Vercel, redeployed                       |
-| 6 — smoke test           | Nine checks, signed in to the deployed site                        |
-| 7 — report               | Assembled from 3 to 6                                              |
+| Step                  | What it needs                                                      |
+| --------------------- | ------------------------------------------------------------------ |
+| 3 — configuration     | `npm run check:deployment` against Production, and its output read |
+| 4 — key rotation      | The Supabase dashboard, the Vercel variable, **and a redeploy**    |
+| 5 — `ESH_REPORT_SALT` | Generated locally, set in Vercel, redeployed                       |
+| 6 — smoke test        | Nine checks, signed in to the deployed site                        |
+| 7 — report            | Assembled from 3 to 6                                              |
 
 ### The one thing that is time-sensitive
 

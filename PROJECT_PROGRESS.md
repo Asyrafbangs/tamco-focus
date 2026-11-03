@@ -583,7 +583,7 @@ Closed.
 Five things remain, and each writes or sends, which is why they are the
 owner's:
 
-1. `PUBLIC_REPORT_SALT` in Vercel, then redeploy.
+1. `ESH_REPORT_SALT` in Vercel, then redeploy.
 2. Classify one finding and save it.
 3. Upload one photograph to a finding's action.
 4. Receive one email - the only honest proof that `EMAIL_TRANSPORT` is `smtp`

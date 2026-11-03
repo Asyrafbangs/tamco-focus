@@ -35,7 +35,7 @@ It prints:
 - **The configuration whose absence is silent**: `EMAIL_TRANSPORT`,
   `CRON_SECRET`, `ATTACHMENT_ALLOWED_MIME`, the scanner pair (a remote
   `ESH_SCANNER_URL` with an empty `ESH_SCANNER_TOKEN` makes the worker refuse
-  to send evidence, by design), and `PUBLIC_REPORT_SALT`.
+  to send evidence, by design), and `ESH_REPORT_SALT`.
 
 It writes nothing, and there is no flag that makes it write. `--no-migrations`
 skips the one step that reaches the linked project, which is how the
@@ -139,7 +139,7 @@ administrator's reason, and these are the steps between here and that call.
 2. `npx supabase db push --linked` from a clean `main`, then
    `npm run check:deployment` to see v286–v288 under Remote.
 3. Rotate the service-role key (above), and redeploy.
-4. Set `PUBLIC_REPORT_SALT` in Vercel and redeploy. Without it the rate-limit
+4. Set `ESH_REPORT_SALT` in Vercel and redeploy. Without it the rate-limit
    buckets fall back to a constant salt — still a working limit, but one that
    does not resist somebody holding both the database and the repository.
 5. Decide the scanner: host one and set `ESH_SCANNER_URL` with a token, or run
