@@ -13914,6 +13914,17 @@ export type Database = {
         }
         Relationships: []
       }
+      esh_finding_connections: {
+        Row: {
+          finding_id: string | null
+          kind: string | null
+          note: string | null
+          occurred_at: string | null
+          organization_id: string | null
+          other_finding_id: string | null
+        }
+        Relationships: []
+      }
       esh_register_export_rows: {
         Row: {
           accountable_department: string | null

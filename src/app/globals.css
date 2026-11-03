@@ -16853,6 +16853,13 @@ span.deadline span.deadline-glyph,
   color: var(--muted);
   font-size: calc(12px * var(--font-scale));
 }
+/* A link inside the muted note inherits nothing usable: `--muted` is chosen to
+   recede, and in Night mode an unstyled anchor on it fails contrast outright.
+   The same `--blue` the row's own link uses passes on this background at this
+   size, so the note's links take it too. */
+.esh-link-note a {
+  color: var(--blue);
+}
 .esh-related-add {
   display: flex;
   align-items: flex-end;

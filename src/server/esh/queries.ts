@@ -1757,3 +1757,71 @@ export async function getPublicDashboard(): Promise<PublicDashboardData | null> 
     monthly: toMonthly(raw.monthly),
   };
 }
+/** v280 - one reviewed connection between two findings, named from one side. */
+export interface ReviewedConnection {
+  kind: 'duplicate_of' | 'reported_again_as' | 'recurred_as' | 'raised_from' | 'related';
+  occurredAt: string | null;
+  note: string | null;
+  finding: { id: string; reference: string; title: string };
+  other: { id: string; reference: string; title: string };
+}
+
+/**
+ * Every reviewed link the reader can see, both ends resolved (v280, S4).
+ *
+ * The view already answers which links are visible, from both ends, under the
+ * reader's own policies. This resolves the references in one request rather
+ * than one per row, and drops any pair whose far end did not resolve - which
+ * the view should already have excluded, so a drop here means the two rules
+ * disagree and the page shows the stricter one.
+ */
+export async function listReviewedConnections(limit = 200): Promise<ReviewedConnection[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('esh_finding_connections')
+    .select('finding_id, other_finding_id, kind, occurred_at, note')
+    .order('occurred_at', { ascending: false, nullsFirst: false })
+    .limit(limit);
+  if (error) {
+    console.error(`[esh_finding_connections] ${error.code ?? 'unknown'}: ${error.message}`);
+    return [];
+  }
+
+  const rows = (data ?? []) as Array<{
+    finding_id: string;
+    other_finding_id: string;
+    kind: string;
+    occurred_at: string | null;
+    note: string | null;
+  }>;
+  if (rows.length === 0) return [];
+
+  const ids = Array.from(
+    new Set(rows.flatMap((row) => [String(row.finding_id), String(row.other_finding_id)])),
+  );
+  const { data: findingRows } = await supabase
+    .from('esh_findings')
+    .select('id, reference, title')
+    .in('id', ids);
+  const byId = new Map(
+    ((findingRows ?? []) as Array<{ id: string; reference: string; title: string }>).map((row) => [
+      String(row.id),
+      { id: String(row.id), reference: String(row.reference), title: String(row.title) },
+    ]),
+  );
+
+  return rows.flatMap((row) => {
+    const finding = byId.get(String(row.finding_id));
+    const other = byId.get(String(row.other_finding_id));
+    if (!finding || !other) return [];
+    return [
+      {
+        kind: row.kind as ReviewedConnection['kind'],
+        occurredAt: row.occurred_at ? String(row.occurred_at) : null,
+        note: row.note ?? null,
+        finding,
+        other,
+      },
+    ];
+  });
+}
