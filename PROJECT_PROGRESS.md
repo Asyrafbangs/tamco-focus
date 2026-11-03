@@ -520,18 +520,47 @@ how it runs locally.
 
 ## Blocker
 
-Stage 2. It needs decisions nobody has made: whether anonymous reporting is
-permitted and under what notice, who receives an immediate-hazard alert in and
-out of hours and by what route, what happens to photograph originals and their
-EXIF, and whether a private upload scanner is hosted or the pilot goes
-text-only. These are the user's calls and the tracker lists them. Public QR
-rollout and every Production change remain gated on explicit approval.
+Nothing blocks the private staff workflow. What is blocked is activation and
+classification, and both are decisions rather than engineering:
+
+- **Public QR intake** needs four calls nobody has made: whether anonymous
+  reporting is permitted and under what notice, who receives an immediate-hazard
+  alert in and out of hours and by what route, what happens to photograph
+  originals and their EXIF, and whether a private upload scanner is hosted or
+  the pilot goes text-only. The public half stays closed behind
+  `check (enabled = false)`, so it cannot be switched on by configuration.
+- **S3b classification** needs the hazard categories confirmed by ESH and plant
+  representatives. Stage 0 forbids inferring historical categories, so there is
+  nothing to build until the list exists.
+
+Every Production change remains gated on explicit approval.
 
 ## Exact next action
 
-Stage 2 is on `codex/finding-v41-stage2` / PR #52, merged up to `main`, with
-the scope-operator defect and the unlinked queue both closed. Next, the final
-local and dispatched gates. Its migrations stay local until the stage is committed and fully
-verified. Do not publish public QR intake, public uploads or emergency
-delivery before their separate QR, privacy and safety-routing decisions; those
-activation decisions do not block the private staff workflow.
+Stage 3a is pushed: `7c9d8a8` on `codex/finding-v41-stage3a`, PR #53 against
+`main`, with a full local gate of 17/17 behind it and dispatched run
+41546376559 running the browser job.
+
+Stage 4a is built on the same branch and not yet committed. `v280` adds
+`esh_finding_connections`, a `security_invoker` view over the three reviewed
+links, and the Patterns page reports them instead of promising them. The
+insights reconciliation case passes, so Stage 4's "counts reconcile with
+scoped source rows" is evidenced rather than asserted. 19 pgTAP assertions and
+2 browser cases, each guard proven by breaking it. Stage 5a is on the same branch: the outbox drain took the oldest rows of each
+state, so an infected-evidence or escalation-exhausted notice queued after a
+bulk release waited for the next drain, in the worst case the daily cron. Urgent
+types now have their own queries and rank ahead of ordinary post, proven by
+removing each half of the fix separately. No migration.
+
+Stage 4a's first gate failed on two counts: a Night-mode contrast failure in the
+new Patterns links, now fixed and re-verified by the crawl, and one unreproduced
+`esh-evidence-v199` failure whose trace was lost. The full gate on S4a plus S5a
+is next, then one pull request covering both.
+
+Neither `v279` nor `v280` has been pushed to the hosted database, and neither
+should be until the stage is committed and green.
+
+Open decisions, unchanged: the hazard taxonomy (blocks S3b and any grouping of
+patterns by category), and the four public-QR calls. `codex/finding-v41-stage3`
+remains a stale pointer checked out in another worktree, which is why this work
+is on `stage3-links`.
