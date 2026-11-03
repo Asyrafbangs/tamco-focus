@@ -1,7 +1,7 @@
 import { crc32, deflateSync } from 'node:zlib';
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { config } from 'dotenv';
 
 config({ path: '.env.local', quiet: true });
@@ -21,6 +21,7 @@ config({ path: '.env.local', quiet: true });
  */
 
 const ORGANIZATION = 'e5e50000-0000-4000-8000-000000000001';
+const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
 
 function service(): SupabaseClient {
   return createClient(
@@ -110,6 +111,16 @@ async function close(db: SupabaseClient, code: string) {
     .update({ enabled: false })
     .eq('organization_id', ORGANIZATION);
   await db.from('esh_qr_locations').delete().eq('public_code', code);
+}
+
+async function signIn(page: Page, email: string) {
+  await page.context().clearCookies();
+  await page.goto('/sign-in');
+  await page.getByLabel('Email address').fill(email);
+  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page).toHaveURL(/\/(today|work|goals|more)/, { timeout: 30_000 });
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 }
 
 test('v288 somebody with no account reports what they saw, with a photograph', async ({
@@ -238,4 +249,38 @@ test('v288 a closed channel says so, and submits nothing', async ({ browser }, t
     await close(db, code);
     await stranger.close();
   }
+});
+
+test('v288 the switch is on the administrator screen, and reads closed', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'An administrator screen, not a phone one.');
+  test.setTimeout(120_000);
+
+  /*
+   * The switch is the one control that decides whether any of this is
+   * reachable, so it has to be visible to the person who signs for it - beside
+   * the rollout switch, which is the same kind of decision. A card that renders
+   * only when a policy lets the row be read is a card that can silently fail to
+   * appear, which is why this asserts it rather than assuming it.
+   */
+  await signIn(page, 'admin@tamco.local');
+  await page.goto('/more/admin/users');
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+
+  const card = page.locator('.esh-public-switch');
+  await expect(card).toHaveCount(1);
+  await expect(card.getByRole('heading', { name: 'Public QR reporting' })).toBeVisible();
+  await expect(card.locator('.esh-rollout-chip')).toHaveText('Closed');
+  await expect(card.getByText(/No report can be submitted/)).toBeVisible();
+
+  // And it refuses to move without a reason somebody will read in a year.
+  const open = card.getByRole('button', { name: 'Open public reporting' });
+  await expect(open).toBeDisabled();
+  await card.getByLabel(/Why it is being opened/).fill('too short');
+  await expect(open).toBeDisabled();
+
+  // The rollout card is still exactly one element: this card used to carry
+  // `.esh-rollout` too, which made v224's locator match two and fail.
+  await expect(page.locator('.esh-rollout')).toHaveCount(1);
 });
