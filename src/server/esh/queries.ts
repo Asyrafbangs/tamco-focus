@@ -160,6 +160,8 @@ export interface RegisterListRow {
   lastUpdateAt: string;
   lastUpdateType: string;
   closedAt: string | null;
+  /** v287 - the hazard category's label, or null while nobody has classified it. */
+  hazardLabel: string | null;
 }
 
 /**
@@ -179,6 +181,8 @@ export async function listRegister(options: {
   search: string;
   departmentId: string | null;
   departmentUnassigned?: boolean;
+  /** v287 - a category code, or 'none' for the findings nobody has classified. */
+  hazard?: string | null;
   closedSince: string;
   closedUntil: string | null;
   page: number;
@@ -255,6 +259,18 @@ export async function listRegister(options: {
     query = query.eq('accountable_department_id', options.departmentId);
   }
 
+  /*
+   * v287 - 'none' is a filter and not an absence of one. "Which open findings
+   * has nobody classified yet" is the question that makes the gap fixable, so
+   * it has to be askable from the register rather than only visible as a
+   * number on Patterns.
+   */
+  if (options.hazard === 'none') {
+    query = query.is('hazard_category', null);
+  } else if (options.hazard) {
+    query = query.eq('hazard_category', options.hazard);
+  }
+
   const term = searchTerm(options.search);
   if (term) {
     query = query.or(
@@ -309,6 +325,7 @@ export async function listRegister(options: {
       lastUpdateAt: String(row.last_update_at),
       lastUpdateType: String(row.last_update_type),
       closedAt: row.closed_at ?? null,
+      hazardLabel: row.hazard_label ? String(row.hazard_label) : null,
     })),
   };
 }
@@ -545,6 +562,15 @@ export interface FindingDetail {
   duplicateOfReference: string | null;
   /** v279 - the duplicated finding by id, so its reference can be a link. */
   duplicateOfId: string | null;
+  /**
+   * v287 - what kind of hazard this is, as ESH classified it during review.
+   *
+   * Null is not missing data: it means nobody has classified it yet, which is
+   * a fact about the review rather than about the hazard, and the register and
+   * the distribution both count it as such.
+   */
+  hazardCategory: string | null;
+  hazardSecondary: string | null;
   /** v279 - what this finding connects to, in both directions. */
   links: {
     duplicatedBy: Array<{ id: string; reference: string; title: string }>;
@@ -1034,6 +1060,8 @@ export async function getFindingDetail(
     statusReason: finding.status_reason ? String(finding.status_reason) : null,
     duplicateOfReference: duplicateOf?.reference ? String(duplicateOf.reference) : null,
     duplicateOfId: finding.duplicate_of_finding_id ? String(finding.duplicate_of_finding_id) : null,
+    hazardCategory: finding.hazard_category ? String(finding.hazard_category) : null,
+    hazardSecondary: finding.hazard_secondary ? String(finding.hazard_secondary) : null,
     links: {
       duplicatedBy: (
         (duplicatedByResult.data ?? []) as Array<{ id: string; reference: string; title: string }>
@@ -1841,4 +1869,95 @@ export async function listReviewedConnections(limit = 200): Promise<ReviewedConn
       },
     ];
   });
+}
+
+/**
+ * v287 - the hazard categories a Coordinator may choose from.
+ *
+ * Read from the database rather than written into the client, because the list
+ * is ESH's to retire from and the labels are wording: a category turned off
+ * stops being offered on the next page load, while every finding already
+ * classified keeps its meaning.
+ */
+export interface HazardCategory {
+  code: string;
+  label: string;
+  description: string;
+}
+
+export async function listHazardCategories(): Promise<HazardCategory[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('esh_hazard_categories')
+    .select('code, label, description')
+    .eq('active', true)
+    .order('sort_order');
+  if (error) {
+    console.error(`[listHazardCategories] ${error.code ?? 'unknown'}: ${error.message}`);
+    return [];
+  }
+  return (data ?? []).map((row) => ({
+    code: String(row.code),
+    label: String(row.label),
+    description: String(row.description),
+  }));
+}
+
+/**
+ * v287 - how the findings this reader can see are distributed across the
+ * categories, with what is not classified said out loud.
+ *
+ * The view returns every active category, so an empty one reads as zero
+ * rather than vanishing from the table - the shape of the list is itself
+ * information, and a category nobody has used is worth seeing.
+ */
+export interface HazardDistributionRow {
+  code: string;
+  label: string;
+  findings: number;
+  openFindings: number;
+  significantFindings: number;
+  recurringFindings: number;
+}
+
+export async function getHazardDistribution(): Promise<{
+  rows: HazardDistributionRow[];
+  uncategorised: number;
+  failed: boolean;
+}> {
+  const supabase = await createSupabaseServerClient();
+  const [distribution, uncategorised] = await Promise.all([
+    supabase
+      .from('esh_hazard_distribution')
+      .select('code, label, findings, open_findings, significant_findings, recurring_findings')
+      .order('sort_order'),
+    supabase
+      .from('esh_findings')
+      .select('id', { count: 'exact', head: true })
+      .is('hazard_category', null)
+      .in('status', ['new', 'open']),
+  ]);
+  if (distribution.error) {
+    console.error(
+      `[getHazardDistribution] ${distribution.error.code ?? 'unknown'}: ${distribution.error.message}`,
+    );
+    return { rows: [], uncategorised: 0, failed: true };
+  }
+  return {
+    rows: (distribution.data ?? []).map((row) => ({
+      code: String(row.code),
+      label: String(row.label),
+      findings: Number(row.findings ?? 0),
+      openFindings: Number(row.open_findings ?? 0),
+      significantFindings: Number(row.significant_findings ?? 0),
+      recurringFindings: Number(row.recurring_findings ?? 0),
+    })),
+    /*
+     * Open findings only. A closed finding nobody classified is history and
+     * cannot be put right; an open one is a gap in this week's review, which
+     * is the number worth a line on the screen.
+     */
+    uncategorised: uncategorised.count ?? 0,
+    failed: false,
+  };
 }

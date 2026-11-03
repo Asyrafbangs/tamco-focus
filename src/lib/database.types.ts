@@ -3812,6 +3812,10 @@ export type Database = {
           created_by: string
           description: string | null
           duplicate_of_finding_id: string | null
+          hazard_category: string | null
+          hazard_secondary: string | null
+          hazard_set_at: string | null
+          hazard_set_by: string | null
           id: string
           immediate_containment: string | null
           import_batch_id: string | null
@@ -3853,6 +3857,10 @@ export type Database = {
           created_by: string
           description?: string | null
           duplicate_of_finding_id?: string | null
+          hazard_category?: string | null
+          hazard_secondary?: string | null
+          hazard_set_at?: string | null
+          hazard_set_by?: string | null
           id?: string
           immediate_containment?: string | null
           import_batch_id?: string | null
@@ -3894,6 +3902,10 @@ export type Database = {
           created_by?: string
           description?: string | null
           duplicate_of_finding_id?: string | null
+          hazard_category?: string | null
+          hazard_secondary?: string | null
+          hazard_set_at?: string | null
+          hazard_set_by?: string | null
           id?: string
           immediate_containment?: string | null
           import_batch_id?: string | null
@@ -4000,6 +4012,69 @@ export type Database = {
           {
             foreignKeyName: "esh_findings_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_category_fkey"
+            columns: ["hazard_category"]
+            isOneToOne: false
+            referencedRelation: "esh_hazard_categories"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_category_fkey"
+            columns: ["hazard_category"]
+            isOneToOne: false
+            referencedRelation: "esh_hazard_distribution"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_secondary_fkey"
+            columns: ["hazard_secondary"]
+            isOneToOne: false
+            referencedRelation: "esh_hazard_categories"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_secondary_fkey"
+            columns: ["hazard_secondary"]
+            isOneToOne: false
+            referencedRelation: "esh_hazard_distribution"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_set_by_fkey"
+            columns: ["hazard_set_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_set_by_fkey"
+            columns: ["hazard_set_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_set_by_fkey"
+            columns: ["hazard_set_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_set_by_fkey"
+            columns: ["hazard_set_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_set_by_fkey"
+            columns: ["hazard_set_by"]
             isOneToOne: false
             referencedRelation: "user_profiles"
             referencedColumns: ["id"]
@@ -4584,6 +4659,33 @@ export type Database = {
             referencedColumns: ["organization_id", "id"]
           },
         ]
+      }
+      esh_hazard_categories: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          description: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          description: string
+          label: string
+          sort_order: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          description?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: []
       }
       esh_import_batches: {
         Row: {
@@ -13866,6 +13968,9 @@ export type Database = {
           due_at: string | null
           due_is_date_only: boolean | null
           finding_id: string | null
+          hazard_category: string | null
+          hazard_label: string | null
+          hazard_secondary: string | null
           is_overdue: boolean | null
           is_restricted: boolean | null
           last_update_at: string | null
@@ -13889,6 +13994,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_category_fkey"
+            columns: ["hazard_category"]
+            isOneToOne: false
+            referencedRelation: "esh_hazard_categories"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_category_fkey"
+            columns: ["hazard_category"]
+            isOneToOne: false
+            referencedRelation: "esh_hazard_distribution"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_secondary_fkey"
+            columns: ["hazard_secondary"]
+            isOneToOne: false
+            referencedRelation: "esh_hazard_categories"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_secondary_fkey"
+            columns: ["hazard_secondary"]
+            isOneToOne: false
+            referencedRelation: "esh_hazard_distribution"
+            referencedColumns: ["code"]
           },
           {
             foreignKeyName: "esh_findings_organization_id_fkey"
@@ -13922,6 +14055,19 @@ export type Database = {
           occurred_at: string | null
           organization_id: string | null
           other_finding_id: string | null
+        }
+        Relationships: []
+      }
+      esh_hazard_distribution: {
+        Row: {
+          code: string | null
+          findings: number | null
+          label: string | null
+          latest_at: string | null
+          open_findings: number | null
+          recurring_findings: number | null
+          significant_findings: number | null
+          sort_order: number | null
         }
         Relationships: []
       }
@@ -13969,6 +14115,9 @@ export type Database = {
           due_is_date_only: boolean | null
           escalation_level: number | null
           finding_id: string | null
+          hazard_category: string | null
+          hazard_label: string | null
+          hazard_secondary: string | null
           is_overdue: boolean | null
           is_restricted: boolean | null
           last_update_at: string | null
@@ -13992,6 +14141,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "departments"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_category_fkey"
+            columns: ["hazard_category"]
+            isOneToOne: false
+            referencedRelation: "esh_hazard_categories"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_category_fkey"
+            columns: ["hazard_category"]
+            isOneToOne: false
+            referencedRelation: "esh_hazard_distribution"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_secondary_fkey"
+            columns: ["hazard_secondary"]
+            isOneToOne: false
+            referencedRelation: "esh_hazard_categories"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "esh_findings_hazard_secondary_fkey"
+            columns: ["hazard_secondary"]
+            isOneToOne: false
+            referencedRelation: "esh_hazard_distribution"
+            referencedColumns: ["code"]
           },
           {
             foreignKeyName: "esh_findings_organization_id_fkey"
@@ -16456,6 +16633,10 @@ export type Database = {
       }
       esh_set_evidence_kind: {
         Args: { p_action_id: string; p_kind: string }
+        Returns: Json
+      }
+      esh_set_finding_hazard: {
+        Args: { p_finding_id: string; p_primary: string; p_secondary?: string }
         Returns: Json
       }
       esh_set_followup_policy: {

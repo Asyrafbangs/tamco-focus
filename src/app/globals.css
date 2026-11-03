@@ -16878,3 +16878,31 @@ span.deadline span.deadline-glyph,
     width: 100%;
   }
 }
+
+/*
+ * v287 — the hazard classification on a finding's own page.
+ *
+ * Two selects and a button, laid out like the rest of the module's small
+ * forms. `.card` carries no padding of its own here, so this block states its
+ * own spacing rather than inheriting any.
+ */
+.esh-hazard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 12px 0 20px;
+}
+.esh-hazard .esh-field {
+  width: 100%;
+  max-width: 380px;
+}
+.esh-hazard-read {
+  margin: 8px 0 20px;
+  color: var(--text);
+}
+/* The second category reads as an aside to the first, never as an equal. */
+.esh-hazard-second::before {
+  content: ' · also ';
+  color: var(--muted);
+}

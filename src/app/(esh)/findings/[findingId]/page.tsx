@@ -17,6 +17,7 @@ import { FindingActionsMenu, type FindingMenuItem } from '@/components/esh/Findi
 import { OriginalEvidence } from '@/components/esh/OriginalEvidence';
 import { FindingOutcome } from '@/components/esh/FindingOutcome';
 import { HistoryDrawer } from '@/components/esh/HistoryDrawer';
+import { HazardClassification } from '@/components/esh/HazardClassification';
 import { RelatedFindings } from '@/components/esh/RelatedFindings';
 import { ReopenFinding } from '@/components/esh/ReopenFinding';
 import { VerifyPanel } from '@/components/esh/VerifyPanel';
@@ -42,6 +43,8 @@ import { requireEshAccess } from '@/server/esh/access';
 import {
   getDepartmentsInScope,
   getFindingDetail,
+  listHazardCategories,
+  type HazardCategory,
   getVerifiers,
   type FindingDetail,
 } from '@/server/esh/queries';
@@ -118,7 +121,15 @@ export default async function FindingPage({
   const query = await searchParams;
   if (!UUID.test(findingId)) notFound();
   const actionId = query.action && UUID.test(query.action) ? query.action : null;
-  const finding = await getFindingDetail(findingId, actionId);
+  /*
+   * v287 - the category list is read beside the finding rather than after it.
+   * One more serial round trip on the module's most-opened screen is the kind
+   * of thing that turns into eight of them.
+   */
+  const [finding, hazardCategories] = await Promise.all([
+    getFindingDetail(findingId, actionId),
+    listHazardCategories(),
+  ]);
   if (!finding) notFound();
   if (actionId && !finding.action) notFound();
 
@@ -398,6 +409,7 @@ export default async function FindingPage({
       <FindingSummary
         finding={finding}
         timeZone={timeZone}
+        hazardCategories={hazardCategories}
         canCoordinate={access.canCoordinate}
         canVerify={access.canVerify}
         viewerEmail={profile.email}
@@ -622,6 +634,7 @@ function OwnerBlocked({
 function FindingSummary({
   finding,
   timeZone,
+  hazardCategories,
   canCoordinate,
   canVerify,
   viewerEmail,
@@ -631,6 +644,7 @@ function FindingSummary({
 }: {
   finding: FindingDetail;
   timeZone: string;
+  hazardCategories: HazardCategory[];
   canCoordinate: boolean;
   canVerify: boolean;
   viewerEmail: string;
@@ -792,6 +806,31 @@ function FindingSummary({
             files={finding.originalEvidence}
             canChange={canCoordinate && ['draft', 'new', 'open'].includes(finding.status)}
           />
+
+          {/*
+           * v287 - deliberately not inside the folded full record below. A
+           * classification nobody can see is a classification nobody makes,
+           * and this is the one screen where it is assigned.
+           */}
+          <h2 id="esh-detail-hazard" className="esh-subheading">
+            What kind of hazard
+          </h2>
+          <HazardClassification
+            findingId={finding.id}
+            categories={hazardCategories}
+            primary={finding.hazardCategory}
+            secondary={finding.hazardSecondary}
+            canCoordinate={canCoordinate}
+          />
+          {full && (
+            <HazardClassification
+              findingId={finding.id}
+              categories={hazardCategories}
+              primary={finding.hazardCategory}
+              secondary={finding.hazardSecondary}
+              canCoordinate={canCoordinate}
+            />
+          )}
 
           {finding.resolvedOutcome && (
             <p className="notice neutral">
