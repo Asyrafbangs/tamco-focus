@@ -1445,9 +1445,17 @@ export async function countAwaitingVerification(): Promise<number> {
     .select('id', { count: 'exact', head: true })
     .eq('state', 'pending');
   if (error) {
-    console.error(`[countAwaitingVerification] ${error.message}`);
-    return 0;
+    console.error(`[countAwaitingVerification] ${error.code ?? 'unknown'}: ${error.message}`);
   }
+  /*
+   * Zero is an answer, and it was the wrong one to give for a read that never
+   * happened: a count beside a menu item saying nothing is awaiting
+   * verification, when it does not know, is the same lie v282 and v283 closed
+   * on the access read and the finding detail. Nothing calls this yet - which
+   * is why the lie has never reached a reader - so this is a trap removed
+   * before somebody wires it up rather than a defect fixed.
+   */
+  requireAnswer(error ? { code: error.code, message: error.message } : null, 'The review queue');
   return count ?? 0;
 }
 

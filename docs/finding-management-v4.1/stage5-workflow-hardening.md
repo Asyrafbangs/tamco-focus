@@ -79,6 +79,28 @@ then drains with `limit: 2`, which is the production condition at a size a test
 can state exactly, and the urgent notice must have been sent and left in
 `provider_accepted`.
 
+## The swallowed-read sweep, finished
+
+v282 and v283 both came out of one pattern: a read error turned into a benign
+default. Section 18 says to check the nearby scope for the same class, so every
+site in `src/server` that logs an error and returns a default was read. The
+conclusion is mostly "leave it alone", and the reasons are recorded because the
+next reader will otherwise re-run this audit.
+
+| Site                                                                         | Verdict                                                                                                                                                                                                                                                                                                                           |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getEshAccess`                                                               | **Fixed (v282).** A failed read became `NO_ESH_ACCESS`, and every route turns that into `notFound()`.                                                                                                                                                                                                                             |
+| `getFindingDetail`                                                           | **Fixed (v283).** A failed read became an absent finding, and the page turns that into `notFound()`.                                                                                                                                                                                                                              |
+| `countAwaitingVerification`                                                  | **Fixed here.** Returned `0` — a count claiming nothing awaits verification when it does not know. Nothing calls it, so this is a trap removed before anybody wires it up rather than a defect that reached a reader.                                                                                                             |
+| `getFollowupSettings`                                                        | No change. The settings page renders `notice error` when it is null rather than a form full of defaults, so an administrator cannot save defaults over a live policy. This was the hypothesis with the highest severity and it was wrong.                                                                                         |
+| `getRolloutStatus`                                                           | No change. Null hides the rollout card rather than claiming a mode, and callers already pass null deliberately for a reader who may not see it. One branch does treat unknown as "not live", which over-populates a suggestion list; making it throw would blank the whole administrator page on a transient 502, which is worse. |
+| `getOperationalHealth`, `getDashboard`, `readObject`, and the ~15 list reads | No change. These thin a page's contents rather than asserting something false about existence or authority. That is the codebase's convention, and changing it wholesale would be churn.                                                                                                                                          |
+
+The rule the three fixes share, and the one worth carrying forward: **a benign
+default is only a defect when something downstream turns it into a statement** —
+a 404, an authorization decision, or a number somebody acts on. An empty list is
+not that.
+
 ## Two defects in the gate run that preceded this
 
 **A contrast failure I introduced.** The Patterns page puts a link inside
