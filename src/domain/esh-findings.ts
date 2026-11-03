@@ -333,3 +333,21 @@ export function accessFromAnswer(
     authorizationVersion: raw.authorization_version ?? null,
   };
 }
+
+/**
+ * Refuse to carry on when a read failed.
+ *
+ * A read that answers "nothing" and a read that did not answer are different
+ * facts, and conflating them is how a database outage comes to claim that a
+ * finding, or a whole page, does not exist. Both still deny the reader what
+ * they asked for; this only changes what they are told, and keeps the cause in
+ * the message rather than only in a server log.
+ */
+export function requireAnswer(
+  failure: { code?: string; message: string } | null,
+  what: string,
+): void {
+  if (failure) {
+    throw new Error(`${what} could not be read: ${failure.code ?? 'unknown'} ${failure.message}`);
+  }
+}

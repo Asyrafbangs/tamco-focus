@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { requireAnswer } from '@/domain/esh-findings';
+
 import type {
   ActionPriority,
   ActionState,
@@ -645,9 +647,16 @@ export async function getFindingDetail(
     .eq('id', findingId)
     .maybeSingle();
   if (error) {
-    console.error(`[getFindingDetail] ${error.message}`);
-    return null;
+    console.error(`[getFindingDetail] ${error.code ?? 'unknown'}: ${error.message}`);
   }
+  /*
+   * A failed read is not an absent finding. The page turns null into
+   * `notFound()`, so returning null here told the reader this finding does not
+   * exist whenever the database could not be reached - on the one screen where
+   * that statement does the most damage. A genuinely absent finding still
+   * returns null and still 404s.
+   */
+  requireAnswer(error ? { code: error.code, message: error.message } : null, 'The finding');
   if (!finding) return null;
 
   let actionQuery = supabase

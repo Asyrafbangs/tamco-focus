@@ -124,6 +124,45 @@ the throw to `return NO_ESH_ACCESS` fails exactly the three that require it,
 and leaves the two fail-closed assertions passing, so the security property is
 demonstrably unchanged.
 
+**The same class, on the detail page (v283).** `getFindingDetail` returned
+`null` when the read _failed_ as well as when the finding was genuinely absent,
+and `findings/[findingId]/page.tsx:122` turns `null` into `notFound()`. A
+gateway 502 therefore said "this finding does not exist" about one that does,
+on the module's most important screen. A shared `requireAnswer` helper now
+throws on a failed read; a genuinely absent finding still returns `null` and
+still 404s.
+
+The sweep that found it also found what to leave alone. Of the twenty-odd places
+that swallow a read error into a benign default, most return an **empty list**,
+which degrades a page's contents rather than asserting something false about
+existence or authority. That is the codebase's convention and is not touched
+here. Only two drove a decision: this one, and `countAwaitingVerification`,
+which returns `0` on failure — a safety register saying nothing is awaiting
+verification when it does not know. That one has **no callers anywhere** despite
+its comment claiming a menu count, so the lie never reaches a reader; it is
+flagged rather than deleted in case a nav count is still intended for it.
+
+**The wiring is not yet proven by a test, and my stated reason for that was
+wrong.** I claimed `queries.ts` and `access.ts` were unimportable from vitest
+because they begin `import 'server-only'`. They are not:
+`vi.mock('server-only', () => ({}))` works per file and
+`tests/unit/current-profile-v195.test.ts` has done exactly that since v195,
+importing `getCurrentProfile` from a `server-only` module. The pattern was
+discoverable and I did not find it, so a limit I reported as the tooling's was
+mine.
+
+What is true is the consequence: `accessFromAnswer` and `requireAnswer` are
+proven directly, and reverting either fails exactly the assertions that require
+it, but nothing in this change proves the call sites still call them. That
+coverage is being added separately, along with a `resolve.alias` for
+`server-only` in both vitest projects so the mock cannot be forgotten per file.
+The helpers stay in the domain layer regardless: a pure function belongs there,
+and it is where they are now tested from.
+
+The access path does have end-to-end evidence independent of any of this: the
+green gate logged seven gateway 502s and recovered from all seven, where the run
+before it failed a browser case on exactly that cause.
+
 **One failure I could not reproduce, and am not claiming to have fixed.**
 `esh-evidence-v199` failed once, 24 minutes into the gate, with
 `#guest-composer-problem` not found after submitting with no file. It passes
