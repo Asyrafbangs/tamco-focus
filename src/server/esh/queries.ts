@@ -505,7 +505,16 @@ export interface DepartmentOption {
   name: string;
 }
 
-/** Active departments the person may file findings against or filter by. */
+/**
+ * Active departments the person may file findings against or filter by.
+ *
+ * A failed read is not an organisation with no departments. This list is the
+ * options of a `<select>` on six screens: empty, New finding offers a
+ * coordinator nothing to be accountable for and refuses the form with
+ * `department_required`, while the Register and Patterns quietly narrow their
+ * department filter, so a reader who leaves it on "All departments in your
+ * scope" is shown fewer rows than exist and has no way to know it.
+ */
 export async function getDepartmentsInScope(access: EshAccess): Promise<DepartmentOption[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
@@ -514,9 +523,9 @@ export async function getDepartmentsInScope(access: EshAccess): Promise<Departme
     .eq('status', 'active')
     .order('name');
   if (error) {
-    console.error(`[getDepartmentsInScope] ${error.message}`);
-    return [];
+    console.error(`[getDepartmentsInScope] ${error.code ?? 'unknown'}: ${error.message}`);
   }
+  requireAnswer(error ? { code: error.code, message: error.message } : null, 'The departments');
   const allowed = new Set(access.departmentIds);
   return (data ?? [])
     .filter((department) => access.scopeAll || allowed.has(String(department.id)))
@@ -529,13 +538,21 @@ export interface VerifierOption {
   email: string;
 }
 
+/**
+ * The people who may review a correction.
+ *
+ * A failed read is not an organisation with no verifiers. Empty, the reviewer
+ * `<select>` offers nobody, and `reviewer_not_verifier` is a real problem code
+ * — so a coordinator is told the reviewer must be an enabled ESH Verifier, as
+ * though the one they wanted had been disabled.
+ */
 export async function getVerifiers(): Promise<VerifierOption[]> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc('esh_list_verifiers');
   if (error) {
-    console.error(`[getVerifiers] ${error.message}`);
-    return [];
+    console.error(`[getVerifiers] ${error.code ?? 'unknown'}: ${error.message}`);
   }
+  requireAnswer(error ? { code: error.code, message: error.message } : null, 'The verifiers');
   const rows = (data ?? []) as Array<{ user_id: string; full_name: string; email: string }>;
   return rows.map((row) => ({
     userId: String(row.user_id),
@@ -1359,11 +1376,41 @@ export interface ContactAccessItem {
  */
 export async function listEmailContacts(search: string): Promise<EmailContact[]> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc('esh_admin_contacts', { p_search: search });
-  if (error) {
-    console.error(`[listEmailContacts] ${error.message}`);
-    return [];
+  /*
+   * One retry, as `getEshAccess` has: the failure this guards against is a
+   * gateway 502, which often does not survive being asked again. Five of them
+   * were absorbed this way in a single local gate run.
+   */
+  let attempt = await supabase.rpc('esh_admin_contacts', { p_search: search });
+  if (attempt.error) {
+    console.error(
+      `[listEmailContacts] ${attempt.error.code ?? 'unknown'}: ${attempt.error.message} (retrying once)`,
+    );
+    attempt = await supabase.rpc('esh_admin_contacts', { p_search: search });
   }
+  const { data, error } = attempt;
+  if (error) {
+    console.error(`[listEmailContacts] ${error.code ?? 'unknown'}: ${error.message}`);
+  }
+  /*
+   * A failed read is not an empty directory, and this is the read that proved
+   * it. Local Supabase answered `esh_admin_contacts` with a gateway 502 under
+   * suite load; this returned `[]`; the administration screen then had no
+   * contact to select, so the access form was not rendered at all and the page
+   * fell back to "Select a person". A browser case looking for a control
+   * inside that form failed, and the failure read as a product bug.
+   *
+   * Worse than the vanished form is what the empty list asserts: the screen
+   * decides who is "waiting to be cleared" by filtering these rows, so a
+   * failed read tells an administrator there is nobody held up when there may
+   * be anybody. `getDirectoryData` on the same page already throws
+   * `DIRECTORY_UNAVAILABLE` for its own failed read, so this only brings the
+   * two halves of one screen into agreement.
+   */
+  requireAnswer(
+    error ? { code: error.code, message: error.message } : null,
+    'The contact directory',
+  );
   const rows = (data ?? []) as Database['public']['Functions']['esh_admin_contacts']['Returns'];
   return rows.map((row) => ({
     id: String(row.id),
@@ -1567,10 +1614,26 @@ export async function listDepartmentEscalationDefaults(): Promise<DepartmentEsca
       .order('level'),
     supabase.from('departments').select('id, name').order('name'),
   ]);
-  if (rows.error || departments.error) {
-    console.error(`[listDepartmentEscalationDefaults] ${rows.error?.message ?? ''}`);
-    return [];
+  /*
+   * A failed read is not a department with no escalation route. It would offer
+   * none for a department that has one, so ESH either retypes a route from
+   * memory or assigns the action with nothing beyond Level 1 — and on the
+   * settings screen the same empty list claims no department has a default at
+   * all.
+   *
+   * The log used to name only `rows.error`, so a failure of the departments
+   * read printed the prefix and an empty string.
+   */
+  const failed = rows.error ?? departments.error;
+  if (failed) {
+    console.error(
+      `[listDepartmentEscalationDefaults] ${failed.code ?? 'unknown'}: ${failed.message}`,
+    );
   }
+  requireAnswer(
+    failed ? { code: failed.code, message: failed.message } : null,
+    'The department escalation routes',
+  );
   const grouped = new Map<string, Array<{ level: number; email: string }>>();
   for (const row of rows.data ?? []) {
     const list = grouped.get(row.department_id) ?? [];
@@ -1630,10 +1693,25 @@ export async function getFollowupSettings(): Promise<FollowupSettings | null> {
   ]);
   const error =
     policy.error ?? calendar.error ?? exceptions.error ?? organization.error ?? rules.error;
-  if (error || !policy.data || !calendar.data) {
-    if (error) console.error(`[getFollowupSettings] ${error.message}`);
-    return null;
+  if (error) {
+    console.error(`[getFollowupSettings] ${error.code ?? 'unknown'}: ${error.message}`);
   }
+  /*
+   * A failed read and an unconfigured policy both returned null, and the two
+   * are not the same fact. The settings screen says "could not be read" for
+   * either, which is at least not misleading; New finding is where it hurt,
+   * because it takes `followup?.levelDays ?? []` and renders a form that
+   * simply stops saying when each escalation level is told — configured
+   * follow-up, presented as though there were none.
+   *
+   * A genuinely unconfigured install still returns null, and the screen still
+   * explains that nothing can be changed until the policy and calendar exist.
+   */
+  requireAnswer(
+    error ? { code: error.code, message: error.message } : null,
+    'The follow-up settings',
+  );
+  if (!policy.data || !calendar.data) return null;
   return {
     version: Number(policy.data.version),
     preDueDays: Number(policy.data.pre_due_days),
@@ -1712,13 +1790,34 @@ export async function getOperationalHealth(): Promise<HealthReading> {
  *
  * Counts and the mode, nothing about any finding: looking after who may be
  * written to is not a view of the work itself (§43.1).
+ *
+ * Reported, not thrown, because `null` is load-bearing here and in the safe
+ * direction: the import review reads `rollout?.mode === 'live' ? 'live' :
+ * 'held'`, so an unreadable rollout holds owner mail rather than sending it,
+ * and Today and the Register simply withhold the release control. That
+ * caution is worth keeping. What is not worth keeping is `null` on the one
+ * screen that administers the rollout, where it hid the mode, the counts and
+ * the control together — and where `rollout?.mode !== 'live'` then switched on
+ * a list of contacts "waiting to be cleared" that is only correct while the
+ * rollout is restricted.
  */
-export async function getRolloutStatus(): Promise<RolloutStatus | null> {
+export type RolloutStatusAnswer = { data: RolloutStatus | null; failed: boolean };
+
+/**
+ * What a screen uses in place of asking, for a reader who may not be told.
+ *
+ * Several screens read the rollout only for a coordinator. That is a decision
+ * not to ask, which is a third thing again from asking and failing, so it does
+ * not set `failed` and no screen reports it as a problem.
+ */
+export const ROLLOUT_NOT_ASKED: RolloutStatusAnswer = { data: null, failed: false };
+
+export async function getRolloutStatus(): Promise<RolloutStatusAnswer> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc('esh_rollout_status');
   if (error) {
     console.error(`[getRolloutStatus] ${error.code ?? 'unknown'}: ${error.message}`);
-    return null;
+    return { data: null, failed: true };
   }
   const row = (data ?? {}) as {
     ok?: boolean;
@@ -1733,18 +1832,21 @@ export async function getRolloutStatus(): Promise<RolloutStatus | null> {
     held?: number;
     held_releasable?: number;
   };
-  if (!row.ok) return null;
+  if (!row.ok) return { data: null, failed: false };
   return {
-    mode: row.mode === 'live' ? 'live' : 'restricted',
-    modeChangedAt: row.mode_changed_at ?? null,
-    modeChangedBy: row.mode_changed_by ?? null,
-    modeReason: row.mode_reason ?? null,
-    authorizationVersion: Number(row.authorization_version ?? 1),
-    contactsTotal: Number(row.contacts_total ?? 0),
-    contactsEnabled: Number(row.contacts_enabled ?? 0),
-    contactsRevoked: Number(row.contacts_revoked ?? 0),
-    held: Number(row.held ?? 0),
-    heldReleasable: Number(row.held_releasable ?? 0),
+    failed: false,
+    data: {
+      mode: row.mode === 'live' ? 'live' : 'restricted',
+      modeChangedAt: row.mode_changed_at ?? null,
+      modeChangedBy: row.mode_changed_by ?? null,
+      modeReason: row.mode_reason ?? null,
+      authorizationVersion: Number(row.authorization_version ?? 1),
+      contactsTotal: Number(row.contacts_total ?? 0),
+      contactsEnabled: Number(row.contacts_enabled ?? 0),
+      contactsRevoked: Number(row.contacts_revoked ?? 0),
+      held: Number(row.held ?? 0),
+      heldReleasable: Number(row.held_releasable ?? 0),
+    },
   };
 }
 
@@ -1810,16 +1912,42 @@ function toMonthly(raw: unknown): MonthPoint[] {
 /**
  * The ESH dashboard (v230, §33), in the caller's own Finding scope.
  */
-export async function getDashboard(months = 6): Promise<DashboardData | null> {
+/**
+ * The figures Today and Patterns are built from.
+ *
+ * Reported rather than thrown, and reported rather than swallowed. These are
+ * tiles and panels on screens that have to keep working without them: Today's
+ * attention queue and intake counter are the actionable half, and they come
+ * from other reads. But a failed read used to become `null`, and the callers
+ * read `dashboard?.protection.unprotected ?? 0` — so Today announced nought
+ * significant risks without verified protection and nought overdue actions,
+ * a false all-clear on the one screen whose job is to raise the alarm, while
+ * `listRegister` said "could not be read" directly beneath it.
+ *
+ * `failed` distinguishes the three answers that were all `null`: the read
+ * failed, the function declined (`ok: false`), or there is genuinely nothing.
+ * The retry is here for the same reason it is on `getEshAccess` — Today is the
+ * most-visited screen in the module, so it meets the most load.
+ */
+export async function getDashboard(
+  months = 6,
+): Promise<{ data: DashboardData | null; failed: boolean }> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc('esh_dashboard', { p_months: months });
+  let attempt = await supabase.rpc('esh_dashboard', { p_months: months });
+  if (attempt.error) {
+    console.error(
+      `[getDashboard] ${attempt.error.code ?? 'unknown'}: ${attempt.error.message} (retrying once)`,
+    );
+    attempt = await supabase.rpc('esh_dashboard', { p_months: months });
+  }
+  const { data, error } = attempt;
   if (error) {
     console.error(`[getDashboard] ${error.code ?? 'unknown'}: ${error.message}`);
-    return null;
+    return { data: null, failed: true };
   }
   const raw = (data ?? {}) as Record<string, unknown>;
-  if (!raw.ok) return null;
-  return {
+  if (!raw.ok) return { data: null, failed: false };
+  const dashboard: DashboardData = {
     asOf: String(raw.as_of ?? new Date().toISOString()),
     openFindings: Number(raw.open_findings ?? 0),
     overdueActions: Number(raw.overdue_actions ?? 0),
@@ -1838,6 +1966,7 @@ export async function getDashboard(months = 6): Promise<DashboardData | null> {
       unprotected: Number((row as Record<string, number>).unprotected ?? 0),
     })),
   };
+  return { data: dashboard, failed: false };
 }
 
 /**
@@ -1846,6 +1975,14 @@ export async function getDashboard(months = 6): Promise<DashboardData | null> {
  * Runs with no session, so the database function decides everything: it
  * returns counts over the whole organisation and nothing that could identify a
  * finding, a department or a person, and leaves restricted findings out.
+ *
+ * The one read in this file deliberately left as it was. `null` here is
+ * already reported honestly and in the page's own words — "These figures are
+ * not available at the moment. Nothing is shown rather than numbers that may
+ * be wrong." — which is the whole of what the rest of this change was for.
+ * Neither alternative is an improvement: throwing would put a framework error
+ * page on a public address, and this page is revalidated every five minutes,
+ * so a throw would also fail the regeneration rather than any one visit.
  */
 export async function getPublicDashboard(): Promise<PublicDashboardData | null> {
   const supabase = await createSupabaseServerClient();

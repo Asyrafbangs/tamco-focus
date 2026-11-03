@@ -11,6 +11,7 @@ import { requireProfile } from '@/lib/supabase/server';
 import { requireEshAccess } from '@/server/esh/access';
 import {
   REGISTER_PAGE_SIZE,
+  ROLLOUT_NOT_ASKED,
   getDepartmentsInScope,
   getRolloutStatus,
   listHazardCategories,
@@ -80,7 +81,7 @@ export default async function FindingRegisterPage({
     }),
     getDepartmentsInScope(access),
     // v227 - held email is said once, for the whole register.
-    access.canCoordinate ? getRolloutStatus() : Promise.resolve(null),
+    access.canCoordinate ? getRolloutStatus() : Promise.resolve(ROLLOUT_NOT_ASKED),
     listHazardCategories(),
   ]);
 
@@ -133,7 +134,7 @@ export default async function FindingRegisterPage({
        * v227 - held email is said once, for the whole system, where it can
        * be released — not as "Owner not told yet" on every row it affects.
        */}
-      <HeldEmailNotice status={held} />
+      <HeldEmailNotice status={held.data} failed={held.failed} />
 
       <nav className="esh-filter-tabs" aria-label="Register views">
         {REGISTER_VIEWS.map((option) => (
