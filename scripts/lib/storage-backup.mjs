@@ -44,8 +44,24 @@ export function objectFile(runDirectory, bucket, key) {
 
 async function privateBucket(client, bucket) {
   const { data, error } = await client.storage.getBucket(bucket);
-  if (error || !data || data.public !== false) {
-    throw new Error(`Private storage bucket ${bucket} is unavailable or public.`);
+  /*
+   * Three different failures used to share one sentence, and the sentence
+   * named the worst of them. A key issued for another project cannot read any
+   * bucket, so "unavailable or public" was reported about a bucket that is
+   * neither - and read as a security finding. Each case now says which it is.
+   */
+  if (error) {
+    throw new Error(
+      `Storage bucket ${bucket} could not be read: ${error.message}. ` +
+        'A key issued for another project reports this, so check the key and the URL ' +
+        'identify the same project before reading anything into it.',
+    );
+  }
+  if (!data) {
+    throw new Error(`Storage bucket ${bucket} does not exist on this project.`);
+  }
+  if (data.public !== false) {
+    throw new Error(`Storage bucket ${bucket} is PUBLIC and must not be.`);
   }
   return client.storage.from(bucket);
 }

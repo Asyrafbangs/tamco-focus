@@ -42,7 +42,7 @@ import { randomBytes } from 'node:crypto';
 
 import { createClient } from '@supabase/supabase-js';
 
-import { resolveEnvironment } from './lib/environment.mjs';
+import { resolveEnvironment, assertKeyMatchesTarget } from './lib/environment.mjs';
 import { assertOutsideRepository, backupStorage } from './lib/storage-backup.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -123,6 +123,10 @@ function dump(args, outputFile) {
 function storageClient(target) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY is required to back up private storage.');
+  // Before any request: a key issued for another project fails on
+  // authorisation, and the failure then surfaces as whatever the first request
+  // was - which read as "the production bucket is public" once already.
+  assertKeyMatchesTarget(target.url, key);
   // The same positively identified URL drives the environment check and Storage API.
   return createClient(target.url, key, { auth: { persistSession: false } });
 }

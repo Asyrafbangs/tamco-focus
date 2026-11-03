@@ -216,7 +216,11 @@ test('a failed listing or public bucket cannot produce a complete backup', () =>
     await assert.rejects(backupStorage(source, dir), /listing failed/);
     source.state.failList = false;
     source.state.publicBucket = true;
-    await assert.rejects(backupStorage(source, dir), /unavailable or public/);
+    // Says which failure it is. The three cases - the bucket could not be
+    // read, it does not exist, it is public - used to share one sentence, and
+    // the sentence named the worst of them: a key issued for another project
+    // reported a private production bucket as "unavailable or public".
+    await assert.rejects(backupStorage(source, dir), /is PUBLIC and must not be/);
     await assert.rejects(readFile(join(dir, 'storage-manifest.json')), /ENOENT/);
   }));
 

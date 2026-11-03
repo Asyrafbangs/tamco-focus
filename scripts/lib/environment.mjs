@@ -110,3 +110,69 @@ export function assertNotProduction(action) {
   }
   return resolved;
 }
+
+/**
+ * The Supabase project a hosted URL names, or null when it names none.
+ *
+ * Only `*.supabase.co` and `*.supabase.in` carry the ref in the hostname. A
+ * loopback URL or a custom domain returns null, which means "no claim to
+ * check" rather than "no project".
+ */
+export function projectRefOf(url) {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    const match = /^([a-z0-9-]+)\.supabase\.(co|in)$/.exec(host);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** A JWT's own claims, unverified. This is "which key is this", not auth. */
+function keyClaims(key) {
+  const middle = (key ?? '').split('.')[1];
+  if (!middle) return null;
+  try {
+    return JSON.parse(
+      Buffer.from(middle.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8'),
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Refuse a key that was issued for a different project than the target.
+ *
+ * `--env-file` never overrides a variable already in the shell, so setting
+ * `NEXT_PUBLIC_SUPABASE_URL` to Production while leaving
+ * `SUPABASE_SERVICE_ROLE_KEY` to come from `.env.local` sends the **local**
+ * demo key to Production. Every request then fails on authorisation, and the
+ * failure surfaces wherever the first request happened to be — on 3 November
+ * 2026 that was the storage bucket check, which reported the production bucket
+ * as "unavailable or public" and read like a security finding.
+ *
+ * The two claims are enough to tell: a hosted key carries its `ref`, and the
+ * local stack's demo keys are issued by `supabase-demo`.
+ */
+export function assertKeyMatchesTarget(url, key) {
+  const ref = projectRefOf(url);
+  if (!ref) return;
+  const claims = keyClaims(key);
+  // Not a JWT - a new-style `sb_secret_...` key carries no readable claim.
+  if (!claims) return;
+  if (claims.iss === 'supabase-demo' || (!claims.ref && claims.iss !== 'supabase')) {
+    throw new EnvironmentError(
+      `The key in use is the local stack's own key, and the target is ${ref}.\n` +
+        'Set SUPABASE_SERVICE_ROLE_KEY in the shell as well as the URL: a value in\n' +
+        '.env.local cannot override one already set, and `--env-file` never overrides\n' +
+        'the shell. Refusing to continue.',
+    );
+  }
+  if (claims.ref && claims.ref !== ref) {
+    throw new EnvironmentError(
+      `The key was issued for project ${claims.ref} and the target is ${ref}. ` +
+        'Refusing to continue.',
+    );
+  }
+}
