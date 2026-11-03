@@ -100,6 +100,32 @@ interface ClaimResult {
 
 const DIGEST_TYPES = new Set(['owner_digest', 'escalation_digest', 'import_assignment']);
 
+/*
+ * Notices that must not wait behind a backlog.
+ *
+ * `evidence_infected` tells ESH that a file on a finding is infected and
+ * quarantined, so somebody must stop trying to open it and decide whether to
+ * ask the owner again. `escalation_exhausted` says the automatic route has run
+ * out of people to ask and nothing further will happen without a human. Both
+ * are the system reporting that it cannot carry on by itself, which is the one
+ * kind of message a day's delay makes useless.
+ *
+ * Everything else - assignments, replies, reminders, digests - is ordinary post
+ * and keeps strict oldest-first order.
+ */
+const URGENT_EVENTS = ['evidence_infected', 'escalation_exhausted'];
+
+function urgencyRank(eventType: string): number {
+  return URGENT_EVENTS.includes(eventType) ? 0 : 1;
+}
+
+interface EshOutboxCandidate {
+  id: string;
+  link_intents: unknown;
+  created_at: string;
+  event_type: string;
+}
+
 async function dispatchOne(
   client: Client,
   outboxId: string,
@@ -344,50 +370,75 @@ export async function runEshOutboxWorker(
   const limit = Math.max(1, Math.min(options.limit ?? 50, 200));
   const staleBefore = new Date(now.getTime() - 15 * 60_000).toISOString();
 
-  const [queued, retryable, abandoned, reportQueued, reportRetryable, reportAbandoned] =
-    await Promise.all([
-      client
-        .from('esh_notification_outbox')
-        .select('id, link_intents, created_at, event_type')
-        .eq('state', 'queued')
-        .order('created_at', { ascending: true })
-        .limit(limit),
-      client
-        .from('esh_notification_outbox')
-        .select('id, link_intents, created_at, event_type')
-        .eq('state', 'failed')
-        .lte('next_attempt_at', now.toISOString())
-        .order('created_at', { ascending: true })
-        .limit(limit),
-      client
-        .from('esh_notification_outbox')
-        .select('id, link_intents, created_at, event_type')
-        .eq('state', 'processing')
-        .lt('updated_at', staleBefore)
-        .order('created_at', { ascending: true })
-        .limit(limit),
-      client
-        .from('esh_report_outbox')
-        .select('id,created_at')
-        .eq('state', 'queued')
-        .order('created_at', { ascending: true })
-        .limit(limit),
-      client
-        .from('esh_report_outbox')
-        .select('id,created_at')
-        .eq('state', 'failed')
-        .lte('next_attempt_at', now.toISOString())
-        .order('created_at', { ascending: true })
-        .limit(limit),
-      client
-        .from('esh_report_outbox')
-        .select('id,created_at')
-        .eq('state', 'processing')
-        .lt('updated_at', staleBefore)
-        .order('created_at', { ascending: true })
-        .limit(limit),
-    ]);
+  const [
+    urgentQueued,
+    urgentRetryable,
+    queued,
+    retryable,
+    abandoned,
+    reportQueued,
+    reportRetryable,
+    reportAbandoned,
+  ] = await Promise.all([
+    client
+      .from('esh_notification_outbox')
+      .select('id, link_intents, created_at, event_type')
+      .eq('state', 'queued')
+      .in('event_type', URGENT_EVENTS)
+      .order('created_at', { ascending: true })
+      .limit(limit),
+    client
+      .from('esh_notification_outbox')
+      .select('id, link_intents, created_at, event_type')
+      .eq('state', 'failed')
+      .in('event_type', URGENT_EVENTS)
+      .lte('next_attempt_at', now.toISOString())
+      .order('created_at', { ascending: true })
+      .limit(limit),
+    client
+      .from('esh_notification_outbox')
+      .select('id, link_intents, created_at, event_type')
+      .eq('state', 'queued')
+      .order('created_at', { ascending: true })
+      .limit(limit),
+    client
+      .from('esh_notification_outbox')
+      .select('id, link_intents, created_at, event_type')
+      .eq('state', 'failed')
+      .lte('next_attempt_at', now.toISOString())
+      .order('created_at', { ascending: true })
+      .limit(limit),
+    client
+      .from('esh_notification_outbox')
+      .select('id, link_intents, created_at, event_type')
+      .eq('state', 'processing')
+      .lt('updated_at', staleBefore)
+      .order('created_at', { ascending: true })
+      .limit(limit),
+    client
+      .from('esh_report_outbox')
+      .select('id,created_at')
+      .eq('state', 'queued')
+      .order('created_at', { ascending: true })
+      .limit(limit),
+    client
+      .from('esh_report_outbox')
+      .select('id,created_at')
+      .eq('state', 'failed')
+      .lte('next_attempt_at', now.toISOString())
+      .order('created_at', { ascending: true })
+      .limit(limit),
+    client
+      .from('esh_report_outbox')
+      .select('id,created_at')
+      .eq('state', 'processing')
+      .lt('updated_at', staleBefore)
+      .order('created_at', { ascending: true })
+      .limit(limit),
+  ]);
   const queryError =
+    urgentQueued.error ??
+    urgentRetryable.error ??
     queued.error ??
     retryable.error ??
     abandoned.error ??
@@ -396,8 +447,38 @@ export async function runEshOutboxWorker(
     reportAbandoned.error;
   if (queryError) throw queryError;
 
-  const candidates = [...(queued.data ?? []), ...(retryable.data ?? []), ...(abandoned.data ?? [])]
-    .sort((left, right) => left.created_at.localeCompare(right.created_at))
+  /*
+   * Urgent first, then oldest first.
+   *
+   * The three queries above each take the OLDEST `limit` rows of their state,
+   * so a notice queued after a backlog is not merely sorted last - it is never
+   * fetched. v224's bulk release and v205's import both queue many at once, and
+   * the post-action drain runs with a limit of 20, so an infected-evidence
+   * notice raised a moment later waited for whichever drain came next: another
+   * user's server action, or the daily cron. Telling somebody a file is
+   * infected, or that escalation has run out of people to ask, is not work that
+   * can wait a day behind an import.
+   *
+   * The urgent queries are separate rather than a different sort, because no
+   * ordering can rank a row that was not selected. Urgent rows also appear in
+   * the unfiltered queries, so the merge is de-duplicated by id.
+   */
+  const byId = new Map<string, EshOutboxCandidate>();
+  for (const row of [
+    ...(urgentQueued.data ?? []),
+    ...(urgentRetryable.data ?? []),
+    ...(queued.data ?? []),
+    ...(retryable.data ?? []),
+    ...(abandoned.data ?? []),
+  ]) {
+    if (!byId.has(row.id)) byId.set(row.id, row);
+  }
+  const candidates = [...byId.values()]
+    .sort(
+      (left, right) =>
+        urgencyRank(left.event_type) - urgencyRank(right.event_type) ||
+        left.created_at.localeCompare(right.created_at),
+    )
     .slice(0, limit);
 
   const result: EshDispatchResult = {

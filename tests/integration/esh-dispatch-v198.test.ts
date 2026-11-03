@@ -75,6 +75,75 @@ async function enableAndRelease(owner: string, actionId: string) {
 }
 
 describe('v198 Finding Management email', () => {
+  /*
+   * v281 - an urgent notice is not left behind a backlog.
+   *
+   * The drain fetches the oldest `limit` rows of each state and then sorts
+   * oldest-first, so a notice queued after a bulk release or an import was
+   * never even selected. The post-action drain runs with a limit of 20 and
+   * v224's bulk release releases up to its own limit in one call, so an
+   * infected-evidence notice raised a moment later waited for the next drain -
+   * in the worst case the daily cron, a day later.
+   *
+   * A limit of 2 with two older notices is the same condition at a size a test
+   * can state exactly.
+   */
+  it('sends an urgent notice ahead of an older backlog', async () => {
+    const id = crypto.randomUUID().slice(0, 8);
+    const service = serviceClient();
+
+    // Two ordinary notices, queued first and therefore older.
+    const first = await assignTo(`owner.backlog.a.${id}@example.com`, `v281 backlog a ${id}`);
+    await enableAndRelease(`owner.backlog.a.${id}@example.com`, first.action_id);
+    const second = await assignTo(`owner.backlog.b.${id}@example.com`, `v281 backlog b ${id}`);
+    await enableAndRelease(`owner.backlog.b.${id}@example.com`, second.action_id);
+
+    // Then the urgent one, addressed to ESH as v270 addresses it: a staff
+    // recipient, never the owner, and exactly one of the two recipient columns.
+    const izzul = await signInAs('izzul');
+    const { data: me } = await izzul.auth.getUser();
+    const { data: finding } = await service
+      .from('esh_findings')
+      .select('organization_id')
+      .eq('id', second.finding_id)
+      .single();
+    const { error: insertError } = await service.from('esh_notification_outbox').insert({
+      organization_id: finding!.organization_id,
+      event_type: 'evidence_infected',
+      recipient_user_id: me.user!.id,
+      finding_id: second.finding_id,
+      action_id: second.action_id,
+      state: 'queued',
+      link_intents: [],
+      idempotency_key: `v281:${id}`,
+    });
+    expect(insertError).toBeNull();
+
+    const sent: Sent[] = [];
+    const result = await runEshOutboxWorker(service, {
+      appBaseUrl: 'https://tamco-focus.example',
+      transport: 'smtp',
+      limit: 2,
+      send: async (message) => {
+        sent.push(message);
+      },
+    });
+    expect(result.failed).toBe(0);
+
+    // The urgent notice went in this drain, not the next one.
+    const quarantined = sent.filter((message) =>
+      message.subject.startsWith('Evidence quarantined'),
+    );
+    expect(quarantined).toHaveLength(1);
+
+    const { data: urgent } = await service
+      .from('esh_notification_outbox')
+      .select('state')
+      .eq('idempotency_key', `v281:${id}`)
+      .single();
+    expect(urgent!.state).toBe('provider_accepted');
+  });
+
   it('sends one email with two independent links, and stores only their hashes', async () => {
     const id = crypto.randomUUID().slice(0, 8);
     const owner = `owner.${id}@example.com`;

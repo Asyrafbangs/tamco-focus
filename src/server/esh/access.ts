@@ -3,7 +3,7 @@ import 'server-only';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 
-import { NO_ESH_ACCESS, type EshAccess, type EshPreset } from '@/domain/esh-findings';
+import { accessFromAnswer, type EshAccess, type EshAccessAnswer } from '@/domain/esh-findings';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 /**
@@ -14,36 +14,32 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
  * database applies the same rule again to every read and write, so hiding
  * something here is presentation, never the protection (§43.3).
  *
- * A failed read is treated as no access: the module fails closed.
+ * A read that SAYS no access is no access, and the module fails closed. A read
+ * that FAILS is a different thing and is no longer treated as the same: see
+ * `accessFromAnswer` below.
  */
+
 export const getEshAccess = cache(async (): Promise<EshAccess> => {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc('esh_current_access');
-  if (error) {
-    console.error(`[getEshAccess] ${error.code ?? 'unknown'}: ${error.message}`);
-    return NO_ESH_ACCESS;
+  /*
+   * One retry, because the failure this guards against is a gateway 502 that
+   * does not survive being asked again. A second failure is reported rather
+   * than swallowed.
+   */
+  let attempt = await supabase.rpc('esh_current_access');
+  if (attempt.error) {
+    console.error(
+      `[getEshAccess] ${attempt.error.code ?? 'unknown'}: ${attempt.error.message} (retrying once)`,
+    );
+    attempt = await supabase.rpc('esh_current_access');
   }
-  const raw = (data ?? {}) as {
-    enabled?: boolean;
-    preset?: EshPreset;
-    scope_all?: boolean;
-    department_ids?: string[];
-    can_coordinate?: boolean;
-    can_verify?: boolean;
-    can_manage_reports?: boolean;
-    authorization_version?: number;
-  };
-  if (!raw.enabled || !raw.preset) return NO_ESH_ACCESS;
-  return {
-    enabled: true,
-    preset: raw.preset,
-    scopeAll: Boolean(raw.scope_all),
-    departmentIds: raw.department_ids ?? [],
-    canCoordinate: Boolean(raw.can_coordinate),
-    canVerify: Boolean(raw.can_verify),
-    canManageReports: Boolean(raw.can_manage_reports),
-    authorizationVersion: raw.authorization_version ?? null,
-  };
+  if (attempt.error) {
+    console.error(`[getEshAccess] ${attempt.error.code ?? 'unknown'}: ${attempt.error.message}`);
+  }
+  return accessFromAnswer(
+    (attempt.data ?? null) as EshAccessAnswer | null,
+    attempt.error ? { code: attempt.error.code, message: attempt.error.message } : null,
+  );
 });
 
 /**

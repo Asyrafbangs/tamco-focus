@@ -537,18 +537,30 @@ Every Production change remains gated on explicit approval.
 
 ## Exact next action
 
-Stage 2 is merged. PR #52 landed on `main` as `36d6a95`, dispatched run
-41486208163 passed all three jobs including the browser job, and a full local
-gate on the same tree passed all 17 checks.
+Stage 3a is pushed: `7c9d8a8` on `codex/finding-v41-stage3a`, PR #53 against
+`main`, with a full local gate of 17/17 behind it and dispatched run
+41546376559 running the browser job.
 
-Stage 3a is built on `stage3-links`, off `36d6a95`: `v279` adds
-`esh_finding_links` for the symmetric "related" case, and the duplicate and
-recurrence links that already existed are now navigable and readable in both
-directions. Targeted validation is green — 19 pgTAP assertions and two browser
-cases, each proven by breaking what it guards — and the full gate is the next
-step, then a pull request.
+Stage 4a is built on the same branch and not yet committed. `v280` adds
+`esh_finding_connections`, a `security_invoker` view over the three reviewed
+links, and the Patterns page reports them instead of promising them. The
+insights reconciliation case passes, so Stage 4's "counts reconcile with
+scoped source rows" is evidenced rather than asserted. 19 pgTAP assertions and
+2 browser cases, each guard proven by breaking it. Stage 5a is on the same branch: the outbox drain took the oldest rows of each
+state, so an infected-evidence or escalation-exhausted notice queued after a
+bulk release waited for the next drain, in the worst case the daily cron. Urgent
+types now have their own queries and rank ahead of ordinary post, proven by
+removing each half of the fix separately. No migration.
 
-`v279` has not been pushed to the hosted database and must not be until the
-stage is committed and green. Note that `codex/finding-v41-stage3` already
-exists as a stale pointer at an old Stage 2 commit and is checked out in
-another worktree, which is why this work is on `stage3-links`.
+Stage 4a's first gate failed on two counts: a Night-mode contrast failure in the
+new Patterns links, now fixed and re-verified by the crawl, and one unreproduced
+`esh-evidence-v199` failure whose trace was lost. The full gate on S4a plus S5a
+is next, then one pull request covering both.
+
+Neither `v279` nor `v280` has been pushed to the hosted database, and neither
+should be until the stage is committed and green.
+
+Open decisions, unchanged: the hazard taxonomy (blocks S3b and any grouping of
+patterns by category), and the four public-QR calls. `codex/finding-v41-stage3`
+remains a stale pointer checked out in another worktree, which is why this work
+is on `stage3-links`.

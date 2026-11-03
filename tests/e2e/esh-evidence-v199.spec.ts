@@ -126,6 +126,14 @@ async function openAsOwner(page: Page, principalId: string, actionId: string) {
   await expect(open).toBeEnabled();
   await open.click();
   await expect(page).toHaveURL(new RegExp(`/respond/actions/${actionId}$`));
+  /*
+   * And wait for THIS page to hydrate, not just the access page above. The
+   * composer's file-required rule is client-side, so a click that lands before
+   * hydration submits the form natively, renders no `#guest-composer-problem`,
+   * and reads exactly like the rule having been dropped. It failed that way
+   * once in a full gate run, 24 minutes in, and passes alone every time.
+   */
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 }
 
 async function attach(page: Page, name: string, buffer: Buffer, mimeType: string) {

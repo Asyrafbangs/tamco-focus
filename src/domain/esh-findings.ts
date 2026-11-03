@@ -283,3 +283,53 @@ export function daysOverdue(dueAt: string, now: Date, timeZone: string): number 
   const today = new Date(`${day(now)}T00:00:00Z`).getTime();
   return Math.max(0, Math.round((today - due) / 86_400_000));
 }
+
+export interface EshAccessAnswer {
+  enabled?: boolean;
+  preset?: EshPreset;
+  scope_all?: boolean;
+  department_ids?: string[];
+  can_coordinate?: boolean;
+  can_verify?: boolean;
+  can_manage_reports?: boolean;
+  authorization_version?: number;
+}
+
+/**
+ * The access an answer describes — or an exception, when there was no answer.
+ *
+ * Both outcomes deny access, so this still fails closed. What changed is what
+ * the reader is told. Treating a failed read as `NO_ESH_ACCESS` sent it to
+ * `notFound()`, so a coordinator with every permission met "This page could not
+ * be found" whenever the database could not be reached — a statement that is
+ * simply false, indistinguishable from being disabled, and invisible to anybody
+ * not reading server logs. It happened four times in one local gate run, as
+ * `An invalid response was received from the upstream server`, and failed an
+ * unrelated browser case with a 404 that looked like a product bug.
+ *
+ * Throwing instead surfaces it as an error, which is what it is. Nothing is
+ * disclosed to a disabled person by this: they get a clean answer saying
+ * `enabled: false`, and that still returns `NO_ESH_ACCESS` and still 404s.
+ */
+export function accessFromAnswer(
+  answer: EshAccessAnswer | null,
+  failure: { code?: string; message: string } | null,
+): EshAccess {
+  if (failure) {
+    throw new Error(
+      `Finding Management access could not be read: ${failure.code ?? 'unknown'} ${failure.message}`,
+    );
+  }
+  const raw = answer ?? {};
+  if (!raw.enabled || !raw.preset) return NO_ESH_ACCESS;
+  return {
+    enabled: true,
+    preset: raw.preset,
+    scopeAll: Boolean(raw.scope_all),
+    departmentIds: raw.department_ids ?? [],
+    canCoordinate: Boolean(raw.can_coordinate),
+    canVerify: Boolean(raw.can_verify),
+    canManageReports: Boolean(raw.can_manage_reports),
+    authorizationVersion: raw.authorization_version ?? null,
+  };
+}
