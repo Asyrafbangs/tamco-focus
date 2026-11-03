@@ -57,6 +57,69 @@ before:
 | `esh_public_report_submit` granted to `service_role` only                                                                          | PASS                                       |
 | Nothing granted to `anon`: not the submit function, not the photos table                                                           | PASS                                       |
 
+## PASS — Step 4: the rotated key is live
+
+Verified in the Vercel dashboard and then against the running site:
+
+|                             |                                                                                                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SUPABASE_SERVICE_ROLE_KEY` | updated in Production, and the Production deployment was **redeployed after** the update                                                                                             |
+| Proof it is the live one    | `/findings/files/<asset>` signed a URL and served the real 960x1280 photograph. That route builds a service-role client and calls `createSignedUrl`; with a stale key it returns 404 |
+
+The variable alone proves nothing — Vercel injects at build and boot — so the
+ordering is what matters: key updated, then redeployed, then the signed
+download works.
+
+## Production configuration, read from Vercel
+
+Present for Production: `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `TAMCO_ENV`, `APP_BASE_URL`, `CRON_SECRET`,
+`EMAIL_FROM`, `EMAIL_TRANSPORT`, `EMAIL_SMTP_HOST`, `EMAIL_SMTP_USER`,
+`EMAIL_SMTP_PASSWORD`, `EMAIL_SMTP_PORT`, `ORG_TIMEZONE`,
+`WEEKLY_SUMMARY_DAY`, `WEEKLY_SUMMARY_HOUR`, `ATTACHMENT_MAX_BYTES`,
+`ATTACHMENT_SIGNED_URL_TTL_SECONDS`, `ATTACHMENT_VIRUS_SCAN_ENABLED`.
+
+Absent, each deliberately or still to do:
+
+- **`PUBLIC_REPORT_SALT` — missing.** The only configuration item still
+  outstanding. Rate-limit buckets fall back to a constant salt until it is set.
+- `ESH_SCANNER_URL` / `ESH_SCANNER_TOKEN` — no scanner is hosted, which is why
+  every file reads "Not scanned".
+- `ATTACHMENT_ALLOWED_MIME` — unset, so the built-in list applies.
+
+`EMAIL_TRANSPORT`'s **value** was not read: the dashboard hides it and
+revealing a stored value is not something to do casually. Sending one real
+email proves it better than reading it, and that is the check still open.
+
+## PASS — Step 6: the read-only half, against the live site
+
+Done in the owner's own browser, signed in as them. Nothing was written, sent
+or deleted.
+
+| Check                                                                                  | Result                                                           |
+| -------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Public dashboard renders real figures (`/safety-performance`)                          | PASS — 6 findings recorded, 1 open, 1 closed                     |
+| Register renders with the Hazard filter and all nine categories plus "Not categorised" | PASS — the view v287 replaced still serves all 6 findings        |
+| A finding's page shows **"What kind of hazard"** outside the folded full record        | PASS — chooser and Save present on F-005                         |
+| Evidence label                                                                         | PASS — "JPEG · 271 KB · **Not scanned**", never "Clean"          |
+| Evidence download through the signed route                                             | PASS — the photograph served                                     |
+| Patterns distribution                                                                  | PASS — renders, and says "1 open finding is not categorised yet" |
+| `/report/<code>` without signing in                                                    | PASS — "this link does not report anything", no form             |
+| Administrator screen                                                                   | PASS — **Public QR reporting: Closed**                           |
+
+## PENDING — what still needs a person
+
+Four of these write or send, which is why they were not done for you:
+
+1. **`PUBLIC_REPORT_SALT`** in Vercel, then redeploy. A secret has to be typed
+   by its owner.
+2. **Classify one finding** and save, to prove the write path end to end.
+3. **Upload one photograph** to a finding's action.
+4. **Receive one email** — the only honest proof that `EMAIL_TRANSPORT` is
+   `smtp` rather than `log`.
+5. **`/api/cron` returns 200** with the current secret. It sends real mail, so
+   it is a decision rather than a check.
+
 ## PENDING — Steps 3 to 7
 
 None of these can be closed from a session that cannot reach Production.
