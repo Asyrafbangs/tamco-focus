@@ -30,8 +30,14 @@ export function PublicReportingForm({
   const [pending, start] = useTransition();
   const opening = !enabled;
 
+  /*
+   * Its own hook class, not `esh-rollout`. The rollout spec locates its card
+   * with `.esh-rollout`, and a second card carrying that class makes the
+   * locator match two elements — which fails in strict mode and reads like the
+   * rollout card having disappeared.
+   */
   return (
-    <section className="esh-form-card esh-rollout" aria-labelledby="esh-public-qr-title">
+    <section className="esh-form-card esh-public-switch" aria-labelledby="esh-public-qr-title">
       <h2 id="esh-public-qr-title" className="esh-form-card-title">
         Public QR reporting
       </h2>

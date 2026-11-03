@@ -164,10 +164,17 @@ test('v280 Patterns reports the links a coordinator reviewed, and nothing else',
   });
   expect(await relatedRows.count()).toBe(1);
 
-  // And the page is explicit that it is not grouping by a category nobody has
-  // agreed, rather than silently omitting it.
+  /*
+   * And the page is still explicit about what it does not do. v287 settled the
+   * categories, so the sentence this used to assert - "Hazard categories are
+   * not yet agreed" - is no longer true and the page no longer says it. What
+   * has to stay said is the part that is still a deliberate absence:
+   * historical findings are not classified after the fact, and there is no
+   * predictive score.
+   */
   await expect(page.getByRole('heading', { name: 'What is not here' })).toBeVisible();
-  await expect(page.getByText(/Hazard categories are not yet agreed/)).toBeVisible();
+  await expect(page.getByText(/not classified after the fact/)).toBeVisible();
+  await expect(page.getByText(/no predictive score/)).toBeVisible();
 });
 
 /** The total the register reports for the view it is showing. */

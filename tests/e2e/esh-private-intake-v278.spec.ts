@@ -31,18 +31,30 @@ test('v272 public reporting remains explicitly closed', async ({ page }, testInf
     'The policy message is shared; private workflow covers both widths.',
   );
 
-  // The application proxy requires an account before any route renders. Once
-  // signed in, the route still makes its safe no-submission/no-notification
-  // state explicit rather than exposing an anonymous form.
-  await signIn(page);
+  /*
+   * v288 built the submission path and moved the gate into the database, so
+   * `/report` is now public and no longer the closed page: it tells a visitor
+   * without a code where the code is. The claim this case exists to hold is
+   * unchanged, and now lives one address along - a sticker's own page, while
+   * the channel is closed, must say it submits nothing and must offer no form.
+   *
+   * No sign-in: the route is reachable without an account by design, which is
+   * the whole point of a QR code on a wall.
+   */
   await page.goto('/report');
+  await expect(page.getByRole('heading', { name: 'Scan the sticker to report' })).toBeVisible();
+  await expect(page.getByRole('textbox')).toHaveCount(0);
+
+  // A code nobody issued, and a channel nobody has opened, reach the same
+  // page - deliberately, because telling a stranger which of the two it is
+  // would tell them about the plant's own arrangements.
+  await page.goto('/report/BR2-NOT-A-REAL-CODE');
   await expect(
     page.getByRole('heading', { name: 'Safety reporting is not available from this link' }),
   ).toBeVisible();
-  await expect(
-    page.getByText('This link does not submit a report or notify anyone.'),
-  ).toBeVisible();
+  await expect(page.getByText(/does not submit a report or notify anyone/)).toBeVisible();
   await expect(page.getByRole('textbox')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Send report' })).toHaveCount(0);
 });
 
 test('v278 a claimed private report becomes one explicitly assigned Finding', async ({
