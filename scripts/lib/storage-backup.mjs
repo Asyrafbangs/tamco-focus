@@ -409,6 +409,23 @@ export async function readVerifiedManifest(runDirectory) {
   return manifest;
 }
 
+/**
+ * What the stack said, with the object key taken out of it.
+ *
+ * These two failures used to discard the error entirely, which left "restore
+ * not proven" and nothing to act on — and the local stack's own
+ * `database error, code: 42P10` on bulk uploads is exactly the failure a
+ * reader needs named, because the remedy is a clean restart of the stack
+ * rather than anything about the backup.
+ *
+ * The key is removed rather than the message: object keys carry original
+ * filenames, which is why nothing in this module prints one.
+ */
+function said(error, objectKey) {
+  const text = String(error?.message ?? error ?? 'no detail');
+  return text.split(objectKey).join('<object>').slice(0, 300);
+}
+
 /** Upload to a positively identified local stack, then read it back independently. */
 export async function restoreStorage(client, runDirectory, manifest) {
   validateManifest(manifest);
@@ -423,9 +440,17 @@ export async function restoreStorage(client, runDirectory, manifest) {
       upsert: true,
       contentType: object.content_type ?? 'application/octet-stream',
     });
-    if (uploadError) throw new Error('Storage restore upload failed; restore not proven.');
+    if (uploadError) {
+      throw new Error(
+        `Storage restore upload failed; restore not proven. The stack said: ${said(uploadError, object.object_key)}`,
+      );
+    }
     const { data, error } = await store.download(object.object_key);
-    if (error || !data) throw new Error('Restored storage object missing; restore not proven.');
+    if (error || !data) {
+      throw new Error(
+        `Restored storage object missing; restore not proven. The stack said: ${said(error, object.object_key)}`,
+      );
+    }
     const restored = Buffer.from(await data.arrayBuffer());
     if (restored.length !== object.size || sha256(restored) !== object.sha256) {
       throw new Error('Restored storage hash mismatch; restore not proven.');
