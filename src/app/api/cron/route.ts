@@ -198,6 +198,21 @@ export async function GET(request: Request) {
     results.push({ worker: 'esh_scan', ok: false, detail });
   }
 
+  /*
+   * v286 - the uploads that never finished. Agreed, half-arrived, never
+   * recorded: a row stuck in `uploading` and a private object nothing points
+   * at. Two hours is long enough that nothing in flight is touched and short
+   * enough that the bucket does not accumulate.
+   */
+  try {
+    const { runEshOrphanWorker } = await import('@/server/esh/orphans');
+    const swept = await runEshOrphanWorker(client);
+    results.push({ worker: 'esh_orphans', ok: true, detail: JSON.stringify(swept) });
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    results.push({ worker: 'esh_orphans', ok: false, detail });
+  }
+
   try {
     const { data, error } = await client.rpc('esh_run_effectiveness_due');
     if (error) throw new Error(error.message);

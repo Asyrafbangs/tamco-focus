@@ -16041,6 +16041,10 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_evidence_claim_orphans: {
+        Args: { p_limit?: number; p_older_than_minutes?: number }
+        Returns: Json
+      }
       esh_finish_upload: {
         Args: {
           p_asset_id: string

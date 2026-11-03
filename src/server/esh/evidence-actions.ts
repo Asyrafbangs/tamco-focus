@@ -60,6 +60,10 @@ const REFUSED: Record<string, string> = {
   missing: 'The upload did not arrive. Try again.',
   too_large: `Files can be up to ${EVIDENCE_MAX_LABEL} each.`,
   type_mismatch: 'This file is not what its name says, so it was refused.',
+  // v285 - said in pixels rather than megabytes, because the file that trips
+  // this is usually small and the person would otherwise read the size limit
+  // and be baffled by it.
+  image_too_large: 'This image is too large to open on a phone, so it was refused.',
 };
 
 function startProblem(code: string | undefined) {

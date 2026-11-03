@@ -102,6 +102,19 @@ export async function runEshScanWorker(
   return summary;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Enough of an unusable answer to diagnose it, and never the whole body. */
+function describe(value: unknown): string {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'an array';
+  if (typeof value !== 'object') return typeof value;
+  const keys = Object.keys(value as Record<string, unknown>);
+  return keys.length ? `keys ${keys.slice(0, 5).join(', ')}` : 'an empty object';
+}
+
 /** Localhost, by any of its spellings, and nothing that merely looks like it. */
 function isLoopback(url: string): boolean {
   try {
@@ -140,9 +153,38 @@ async function scanOne(
     });
     if (!response.ok) throw new Error(`scanner returned ${response.status}`);
 
-    const answer = (await response.json()) as { infected?: boolean; detail?: string };
-    verdict = answer.infected ? 'infected' : 'clean';
-    detail = answer.detail ?? null;
+    /*
+     * v285 - a 200 is not a verdict, and neither is valid JSON without one.
+     *
+     * This used to read `answer.infected ? 'infected' : 'clean'`, which made
+     * every answer that was not a verdict a clean bill of health: `{}`,
+     * `{"error":"engine offline"}`, `{"status":"queued"}`, a null `infected`,
+     * an array - all of them have a falsy `infected` and all of them were
+     * recorded as scanned. A scanner reporting its own failure in valid JSON is
+     * exactly the case where this matters, and `clean` is a claim the column
+     * exists to never make without grounds. Only a real boolean is a verdict;
+     * anything else is `unavailable`, which is true, visible and retried.
+     */
+    /*
+     * v285 - a 200 is not a verdict, and neither is valid JSON without one.
+     *
+     * This used to read `answer.infected ? 'infected' : 'clean'`, which made
+     * every answer that was not a verdict a clean bill of health: `{}`,
+     * `{"error":"engine offline"}`, `{"status":"queued"}`, a null `infected`,
+     * an array - all of them have a falsy `infected` and all of them were
+     * recorded as scanned. A scanner reporting its own failure in valid JSON is
+     * exactly the case where this matters, and `clean` is a claim the column
+     * exists to never make without grounds. Only a real boolean is a verdict;
+     * anything else is `unavailable`, which is true, visible and retried.
+     */
+    const answer: unknown = await response.json();
+    const reported = isRecord(answer) ? answer.infected : undefined;
+    if (typeof reported !== 'boolean') {
+      throw new Error(`scanner answered without a verdict: ${describe(answer)}`);
+    }
+    verdict = reported ? 'infected' : 'clean';
+    const reportedDetail = isRecord(answer) ? answer.detail : null;
+    detail = typeof reportedDetail === 'string' ? reportedDetail : null;
   } catch (cause) {
     /*
      * `unavailable`, never `clean`. The whole point of the column is that

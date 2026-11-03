@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import {
   EVIDENCE_MAX_BYTES,
   INLINE_TYPES,
+  pixelProblem,
   sniffEvidenceType,
   type EvidenceType,
 } from '@/domain/esh-evidence';
@@ -43,7 +44,7 @@ export async function signedUploadFor(
 
 export type Inspection =
   | { ok: true; type: EvidenceType; size: number; sha256: string }
-  | { ok: false; reason: 'missing' | 'too_large' | 'type_mismatch' };
+  | { ok: false; reason: 'missing' | 'too_large' | 'type_mismatch' | 'image_too_large' };
 
 /**
  * What was actually uploaded. The bytes decide the type, checked against the
@@ -66,6 +67,25 @@ export async function inspectUpload(objectKey: string, name: string): Promise<In
   if (!type) {
     await removeObject(objectKey);
     return { ok: false, reason: 'type_mismatch' };
+  }
+  /*
+   * v285 - and how many pixels it claims, which the byte limit does not cover.
+   * A flat-coloured PNG of 30000 square is a few hundred kilobytes and asks
+   * every browser that opens the finding for 3.6 billion pixels. 64 KB of
+   * header rather than the 8 the sniff needs: a phone's JPEG carries several
+   * kilobytes of metadata, and the frame header sits behind all of it.
+   */
+  /*
+   * v285 - and how many pixels it claims, which the byte limit does not cover.
+   * A flat-coloured PNG of 30000 square is a few hundred kilobytes and asks
+   * every browser that opens the finding for 3.6 billion pixels. 64 KB of
+   * header rather than the 8 the sniff needs: a phone's JPEG carries several
+   * kilobytes of metadata, and the frame header sits behind all of it.
+   */
+  const tooMany = pixelProblem(bytes.subarray(0, 65536), type);
+  if (tooMany) {
+    await removeObject(objectKey);
+    return { ok: false, reason: tooMany };
   }
   const sha256 = createHash('sha256').update(bytes).digest('hex');
   return { ok: true, type, size: bytes.byteLength, sha256 };
