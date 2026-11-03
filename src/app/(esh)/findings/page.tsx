@@ -13,6 +13,7 @@ import {
   listRegister,
   listReportIntake,
   listVerificationQueue,
+  ROLLOUT_NOT_ASKED,
   type RegisterListRow,
   type ReportIntakeRow,
   type VerificationQueueRow,
@@ -63,7 +64,7 @@ async function today(access: EshAccess, timeZone: string) {
     }),
     listVerificationQueue(),
     getOperationalHealth(),
-    access.canCoordinate ? getRolloutStatus() : Promise.resolve(null),
+    access.canCoordinate ? getRolloutStatus() : Promise.resolve(ROLLOUT_NOT_ASKED),
     /*
      * Only a coordinator may triage, and `/findings/intake` refuses anyone
      * else, so a reader without that authority is not given a counter and a
@@ -72,9 +73,21 @@ async function today(access: EshAccess, timeZone: string) {
     access.canCoordinate ? listReportIntake() : Promise.resolve(null),
   ]);
 
-  const protection = dashboard?.protection.unprotected ?? 0;
-  const overdue = dashboard?.overdueActions ?? 0;
-  const awaiting = dashboard?.awaitingVerification ?? verification.length;
+  /*
+   * `null` where the dashboard could not be read, not nought.
+   *
+   * These two figures used to fall back to `?? 0`, so a failed read had Today
+   * announce no unprotected significant risks and no overdue actions — the
+   * most reassuring thing this screen can say, said on no evidence, directly
+   * above a queue panel that does admit when it could not be read.
+   *
+   * The third is different and keeps its fallback: the verification queue is
+   * its own read, and it now throws rather than coming back empty, so its
+   * length is a figure somebody counted either way.
+   */
+  const protection = dashboard.failed ? null : (dashboard.data?.protection.unprotected ?? 0);
+  const overdue = dashboard.failed ? null : (dashboard.data?.overdueActions ?? 0);
+  const awaiting = dashboard.data?.awaitingVerification ?? verification.length;
   const incoming = intake?.rows ?? [];
 
   return (
@@ -111,7 +124,7 @@ async function today(access: EshAccess, timeZone: string) {
         ) : (
           <Signal
             label="New reports"
-            value={0}
+            value={null}
             detail={
               intake ? 'The intake queue could not be read' : 'Triage needs coordinator access'
             }
@@ -121,16 +134,24 @@ async function today(access: EshAccess, timeZone: string) {
         <Signal
           label="Significant risks without verified protection"
           value={protection}
-          detail="Open, high or critical, nothing verified in place"
-          href="/findings/register?filter=unprotected"
-          exception={protection > 0}
+          detail={
+            protection === null
+              ? 'The figures could not be read'
+              : 'Open, high or critical, nothing verified in place'
+          }
+          href={protection === null ? undefined : '/findings/register?filter=unprotected'}
+          exception={protection !== null && protection > 0}
+          disabled={protection === null}
         />
         <Signal
           label="Overdue owner actions"
           value={overdue}
-          detail="Owner action past its due date"
-          href="/findings/register?filter=overdue"
-          exception={overdue > 0}
+          detail={
+            overdue === null ? 'The figures could not be read' : 'Owner action past its due date'
+          }
+          href={overdue === null ? undefined : '/findings/register?filter=overdue'}
+          exception={overdue !== null && overdue > 0}
+          disabled={overdue === null}
         />
         <Signal
           label="Waiting for ESH verification"
@@ -141,8 +162,8 @@ async function today(access: EshAccess, timeZone: string) {
         />
       </section>
 
-      <OperationalHealth health={health} />
-      {rollout && <HeldNoticesRelease releasable={rollout.heldReleasable} />}
+      <OperationalHealth health={health.data} failed={health.failed} />
+      {rollout.data && <HeldNoticesRelease releasable={rollout.data.heldReleasable} />}
 
       <section className="esh-today-queue" aria-labelledby="today-queue-title">
         <div className="esh-section-head">
@@ -369,7 +390,7 @@ function Signal({
   disabled = false,
 }: {
   label: string;
-  value: number;
+  value: number | null;
   detail: string;
   href?: string;
   exception?: boolean;
@@ -378,7 +399,11 @@ function Signal({
   const content = (
     <>
       <span>{label}</span>
-      <strong>{value}</strong>
+      {/*
+       * A figure nobody could count is shown as a dash, not as nought. The
+       * detail line beneath says why; a zero would read as the answer.
+       */}
+      <strong>{value === null ? '—' : value}</strong>
       <small>{detail}</small>
     </>
   );

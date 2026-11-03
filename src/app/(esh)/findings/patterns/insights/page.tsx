@@ -23,6 +23,7 @@ import {
   getDashboard,
   getOperationalHealth,
   getRolloutStatus,
+  ROLLOUT_NOT_ASKED,
 } from '@/server/esh/queries';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -64,7 +65,7 @@ export default async function HistoricalInsightsPage({
     getOperationalHealth(),
     // v224 — how much held mail could actually go out. Returns nothing for
     // somebody who may only read, so the release is never offered to them.
-    access.canCoordinate ? getRolloutStatus() : Promise.resolve(null),
+    access.canCoordinate ? getRolloutStatus() : Promise.resolve(ROLLOUT_NOT_ASKED),
     // v230 — the trend, the ageing and the closure record.
     getDashboard(),
   ]);
@@ -105,8 +106,8 @@ export default async function HistoricalInsightsPage({
           <p className="eyebrow">Finding Management / Patterns</p>
           <h1>Historical insights</h1>
           <p>
-            {dashboard
-              ? headline(dashboard)
+            {dashboard.data
+              ? headline(dashboard.data)
               : 'What remains unresolved, where follow-up is needed, and what closed recently.'}
           </p>
         </div>
@@ -195,8 +196,8 @@ export default async function HistoricalInsightsPage({
             />
           </section>
 
-          <OperationalHealth health={health} />
-          {rollout && <HeldNoticesRelease releasable={rollout.heldReleasable} />}
+          <OperationalHealth health={health.data} failed={health.failed} />
+          {rollout.data && <HeldNoticesRelease releasable={rollout.data.heldReleasable} />}
 
           {/*
             v230 — the counters above say how many; these say how it is going.
@@ -204,7 +205,22 @@ export default async function HistoricalInsightsPage({
             that is growing are not the same situation, and the four numbers
             alone could not tell them apart.
           */}
-          {dashboard && (
+          {/*
+            A failed read says so. Six panels that simply were not rendered
+            left the page looking like one with nothing to show, which on a
+            historical view is indistinguishable from a programme with no
+            history.
+          */}
+          {dashboard.failed && (
+            <div className="notice error" role="alert">
+              <strong>The trend, ageing and closure figures could not be read</strong>
+              <p>
+                No panels are shown rather than figures that may be wrong. The counters above come
+                from a different read and stand on their own.
+              </p>
+            </div>
+          )}
+          {dashboard.data && (
             <div className="esh-dash-grid">
               {/*
                 v263 — protection first. A shrinking backlog beside four
@@ -212,12 +228,12 @@ export default async function HistoricalInsightsPage({
                 programme going well, and that figure should not be below
                 the ones that flatter it.
               */}
-              <ProtectionPanel protection={dashboard.protection} />
-              <TrendPanel monthly={dashboard.monthly} />
-              <ClosurePanel closure={dashboard.closure} />
-              <ResponsivenessPanel facts={dashboard.responsiveness} />
-              <RiskPanel openByRisk={dashboard.openByRisk} />
-              <AgePanel openByAge={dashboard.openByAge} />
+              <ProtectionPanel protection={dashboard.data.protection} />
+              <TrendPanel monthly={dashboard.data.monthly} />
+              <ClosurePanel closure={dashboard.data.closure} />
+              <ResponsivenessPanel facts={dashboard.data.responsiveness} />
+              <RiskPanel openByRisk={dashboard.data.openByRisk} />
+              <AgePanel openByAge={dashboard.data.openByAge} />
             </div>
           )}
 

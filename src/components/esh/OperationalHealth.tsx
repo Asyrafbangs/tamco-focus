@@ -8,8 +8,29 @@ import { healthNotes, type OperationalHealth as Health } from '@/domain/esh-heal
  * One compact line, shown only when there is something to say, and each part
  * links to where it is dealt with. What counts as worth saying is decided in
  * the domain, so it can be argued with in a test rather than in a browser.
+ *
+ * `failed` exists because silence was this panel's way of saying "all well",
+ * and a read that could not reach the database produced exactly that silence.
+ * The one thing on the screen whose job is to report trouble was quietest
+ * when it had least idea. Not knowing is now something it says.
  */
-export function OperationalHealth({ health }: { health: Health | null }) {
+export function OperationalHealth({
+  health,
+  failed = false,
+}: {
+  health: Health | null;
+  failed?: boolean;
+}) {
+  if (failed) {
+    return (
+      <section className="notice error" role="alert" aria-labelledby="esh-health-title">
+        <strong id="esh-health-title">Worth knowing could not be read</strong>
+        <p>
+          Whether reminders and escalations have been going out is unknown, rather than confirmed.
+        </p>
+      </section>
+    );
+  }
   if (!health) return null;
   const notes = healthNotes(health);
   if (notes.length === 0) return null;

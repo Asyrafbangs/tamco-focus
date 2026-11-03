@@ -78,7 +78,11 @@ export default async function UsersPage({
         // contact is reachable already, and anyone switched off was switched
         // off on purpose. Listing them here would be asking an administrator
         // to undo their own decision.
-        rollout?.mode !== 'live' &&
+        //
+        // The mode has to be KNOWN to be restricted. `rollout?.mode !== 'live'`
+        // read a failed read as restricted and put the list up on a guess; the
+        // notice beside it now says the rollout could not be read instead.
+        rollout.data?.mode === 'restricted' &&
         !contact.accessEnabled &&
         contact.status === 'active' &&
         (contact.openActions > 0 || contact.heldNotifications > 0),
@@ -400,8 +404,18 @@ export default async function UsersPage({
             </>
           ) : (
             <>
-              {rollout && (
-                <RolloutModeForm status={rollout} canRelease={myEshAccess.canCoordinate} />
+              {rollout.data ? (
+                <RolloutModeForm status={rollout.data} canRelease={myEshAccess.canCoordinate} />
+              ) : (
+                rollout.failed && (
+                  <div className="notice error" role="alert">
+                    <strong>The rollout could not be read</strong>
+                    <p>
+                      The mode, the contact counts and the control to change them are unavailable.
+                      Nothing has changed; try again.
+                    </p>
+                  </div>
+                )
               )}
               {/*
                * v288 - beside the rollout, because it is the same kind of

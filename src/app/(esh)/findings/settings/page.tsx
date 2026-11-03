@@ -108,9 +108,9 @@ export default async function FindingSettingsPage({
           <h2 id="esh-owner-access" className="esh-form-card-title">
             Owner access
           </h2>
-          {rollout ? (
+          {rollout.data ? (
             <>
-              <p>{rolloutWords(rollout)}</p>
+              <p>{rolloutWords(rollout.data)}</p>
               {/*
                 Read here, changed elsewhere. The rollout is the widest access
                 decision in the module and §43.2 keeps it with the administrator
@@ -118,11 +118,13 @@ export default async function FindingSettingsPage({
                 claiming to be the one that decides.
               */}
               <p className="form-hint">
-                {rollout.mode === 'live' ? 'The rollout is open.' : 'The rollout is restricted.'} An
-                administrator changes this, and clears individual contacts, under Identity and
+                {rollout.data.mode === 'live'
+                  ? 'The rollout is open.'
+                  : 'The rollout is restricted.'}{' '}
+                An administrator changes this, and clears individual contacts, under Identity and
                 access.
               </p>
-              <HeldNoticesRelease releasable={rollout.heldReleasable} />
+              <HeldNoticesRelease releasable={rollout.data.heldReleasable} />
               <div className="esh-form-actions">
                 <Link className="btn" href="/more/admin/users">
                   Open Identity and access
