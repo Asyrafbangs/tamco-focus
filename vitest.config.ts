@@ -6,6 +6,30 @@ const srcRoot = fileURLToPath(new URL('./src', import.meta.url));
 const testsRoot = fileURLToPath(new URL('./tests', import.meta.url));
 
 /**
+ * `server-only` resolves to a no-op here, and only here.
+ *
+ * The real package exists to fail: its default entry point throws on import,
+ * and Next.js only avoids it by resolving the `react-server` export condition
+ * on the server. Vitest resolves the throwing entry, so every module beginning
+ * `import 'server-only'` — `src/server/esh/access.ts` and
+ * `src/server/esh/queries.ts` among them — was unimportable from a test, and
+ * their behaviour could only be tested at one remove, through the pure helpers
+ * they call. That is how the v282/v283 hardening came to have no test proving
+ * the call sites still call it.
+ *
+ * Aliasing it costs nothing in production: this config is vitest's alone, the
+ * Next.js build still resolves the real package, and the guarantee it enforces
+ * — that these modules cannot be bundled for a browser — is not a guarantee
+ * about a test runner. Each project repeats the alias because a project's
+ * `resolve` replaces the root one rather than merging with it.
+ */
+const alias = {
+  '@': srcRoot,
+  '@tests': testsRoot,
+  'server-only': fileURLToPath(new URL('./tests/support/server-only.ts', import.meta.url)),
+};
+
+/**
  * One order, every run.
  *
  * Vitest sorts files by how long they took last time, slowest first. That is
@@ -24,7 +48,7 @@ class PathSequencer extends BaseSequencer {
 
 export default defineConfig({
   resolve: {
-    alias: { '@': srcRoot, '@tests': testsRoot },
+    alias,
   },
   test: {
     // Integration specs contend on the same seeded rows, so failures stay
@@ -36,7 +60,7 @@ export default defineConfig({
     projects: [
       {
         // Pure domain logic. No database, no network, fully deterministic.
-        resolve: { alias: { '@': srcRoot, '@tests': testsRoot } },
+        resolve: { alias },
         test: {
           name: 'unit',
           include: ['tests/unit/**/*.test.ts'],
@@ -45,7 +69,7 @@ export default defineConfig({
       },
       {
         // Exercises the running local Supabase stack. Requires `supabase start`.
-        resolve: { alias: { '@': srcRoot, '@tests': testsRoot } },
+        resolve: { alias },
         test: {
           name: 'integration',
           include: ['tests/integration/**/*.test.ts'],
