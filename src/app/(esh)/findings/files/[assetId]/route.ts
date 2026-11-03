@@ -31,12 +31,28 @@ function notFound() {
   });
 }
 
+/**
+ * A read that did not happen, which is not a file that is not there.
+ *
+ * Both failures used to leave by `notFound()`. A 404 on an evidence file is a
+ * statement that the finding has no such file, and somebody who has just been
+ * told that does not try again — so a database or Storage blink became, to the
+ * reader, a photograph that had gone missing from a finding. 503 says the
+ * opposite of a 404: it exists, ask again.
+ */
+function unavailable() {
+  return new NextResponse('The file could not be fetched. Try again.', {
+    status: 503,
+    headers: { 'Cache-Control': 'private, no-store' },
+  });
+}
+
 export async function GET(request: Request, context: { params: Promise<{ assetId: string }> }) {
   const { assetId } = await context.params;
   if (!UUID.test(assetId)) return notFound();
   const wantsSource = new URL(request.url).searchParams.get('source') === '1';
   const supabase = await createSupabaseServerClient();
-  const { data: file } = await supabase
+  const { data: file, error: assetError } = await supabase
     .from('esh_evidence_assets')
     .select(
       'object_key, original_name, content_type, state, source_object_key, source_file_name, source_state',
@@ -44,6 +60,15 @@ export async function GET(request: Request, context: { params: Promise<{ assetId
     .eq('id', assetId)
     .eq('state', 'ready')
     .maybeSingle();
+  /*
+   * This read's error was discarded, so a failed asset read fell through to
+   * the 404 below with no way to tell it apart from an asset that is not
+   * there, or is outside this person's scope — which is what the 404 is for.
+   */
+  if (assetError) {
+    console.error(`[esh-file] ${assetError.code ?? 'unknown'}: ${assetError.message}`);
+    return unavailable();
+  }
   if (!file?.content_type) return notFound();
   if (wantsSource && (file.source_state !== 'kept' || !file.source_object_key)) return notFound();
   /*
@@ -51,15 +76,16 @@ export async function GET(request: Request, context: { params: Promise<{ assetId
    * eight-megabyte one, and it is wanted as a file to keep, not as something
    * to glance at. `application/octet-stream` is what forces that.
    */
-  const url = wantsSource
+  const signed = wantsSource
     ? await signedDownloadFor(
         file.source_object_key as string,
         file.source_file_name ?? file.original_name,
         'application/octet-stream',
       )
     : await signedDownloadFor(file.object_key, file.original_name, file.content_type);
-  if (!url) return notFound();
-  return NextResponse.redirect(url, {
+  if (signed.failed) return unavailable();
+  if (!signed.url) return notFound();
+  return NextResponse.redirect(signed.url, {
     status: 303,
     headers: { 'Cache-Control': 'private, no-store' },
   });

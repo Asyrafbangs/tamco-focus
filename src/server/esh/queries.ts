@@ -2050,8 +2050,18 @@ export async function listReviewedConnections(limit = 200): Promise<ReviewedConn
     .limit(limit);
   if (error) {
     console.error(`[esh_finding_connections] ${error.code ?? 'unknown'}: ${error.message}`);
-    return [];
   }
+  /*
+   * A failed read is not a register with nothing connected in it. Patterns
+   * splits this list into recurred, reported again and related, and shows its
+   * "nothing yet" card when all three are empty — so an unreadable view told
+   * ESH that no finding has come back, nothing was reported twice and nothing
+   * is related to anything, on the page whose entire subject is those links.
+   */
+  requireAnswer(
+    error ? { code: error.code, message: error.message } : null,
+    'The reviewed connections',
+  );
 
   const rows = (data ?? []) as Array<{
     finding_id: string;
@@ -2065,10 +2075,27 @@ export async function listReviewedConnections(limit = 200): Promise<ReviewedConn
   const ids = Array.from(
     new Set(rows.flatMap((row) => [String(row.finding_id), String(row.other_finding_id)])),
   );
-  const { data: findingRows } = await supabase
+  const { data: findingRows, error: findingsError } = await supabase
     .from('esh_findings')
     .select('id, reference, title')
     .in('id', ids);
+  if (findingsError) {
+    console.error(
+      `[esh_finding_connections] ${findingsError.code ?? 'unknown'}: ${findingsError.message}`,
+    );
+  }
+  /*
+   * This read's error was discarded, and the drop below made that invisible.
+   * Dropping a pair whose far end did not resolve is deliberate — the view
+   * should already have excluded it, so a drop means the two rules disagree
+   * and the stricter one wins. That reasoning holds only for a read that
+   * ANSWERED. When it fails, nothing resolves, every pair drops, and the
+   * result is indistinguishable from a register with no connections in it.
+   */
+  requireAnswer(
+    findingsError ? { code: findingsError.code, message: findingsError.message } : null,
+    'The connected findings',
+  );
   const byId = new Map(
     ((findingRows ?? []) as Array<{ id: string; reference: string; title: string }>).map((row) => [
       String(row.id),

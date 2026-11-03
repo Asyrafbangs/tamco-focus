@@ -116,6 +116,7 @@ import {
   getVerifiers,
   listDepartmentEscalationDefaults,
   listEmailContacts,
+  listReviewedConnections,
   listVerificationQueue,
 } from '@/server/esh/queries';
 
@@ -529,5 +530,101 @@ describe('v285 listVerificationQueue', () => {
     answerTable('esh_action_register_rows', EMPTY);
 
     await expect(listVerificationQueue(A_DEPARTMENT)).resolves.toEqual([]);
+  });
+});
+
+/*
+ * The read the original list of twelve missed, found by sweeping for a
+ * `console.error` followed by a `return [] / null / 0` rather than by trusting
+ * the list. It is the same defect in the same file.
+ */
+describe('v285 listReviewedConnections', () => {
+  const A_FINDING = 'f0c05200-0000-4000-a000-000000000001';
+  const ANOTHER_FINDING = 'f0c05200-0000-4000-a000-000000000002';
+  const A_LINK = {
+    finding_id: A_FINDING,
+    other_finding_id: ANOTHER_FINDING,
+    kind: 'recurred_as',
+    occurred_at: '2026-10-02T01:00:00Z',
+    note: null,
+  };
+  const BOTH_FINDINGS = {
+    data: [
+      { id: A_FINDING, reference: 'ESH-2026-0001', title: 'A guard was missing from the press' },
+      { id: ANOTHER_FINDING, reference: 'ESH-2026-0009', title: 'The same guard, missing again' },
+    ],
+    error: null,
+  };
+
+  /*
+   * Patterns splits this list into recurred, reported again and related, and
+   * shows its "nothing yet" card when all three are empty. So `[]` told ESH
+   * that no finding has come back, nothing was reported twice and nothing is
+   * related to anything — on the page whose entire subject is those links.
+   */
+  it('throws rather than reporting a register with nothing connected in it', async () => {
+    answerTable('esh_finding_connections', UPSTREAM_502);
+
+    await expect(listReviewedConnections()).rejects.toThrow(/could not be read/);
+  });
+
+  it('does not resolve to an empty list', async () => {
+    answerTable('esh_finding_connections', UPSTREAM_502);
+
+    const outcome = await listReviewedConnections().then(
+      (connections) => ({ resolved: connections }),
+      () => null,
+    );
+
+    expect(outcome, 'a failed read resolved instead of throwing').toBeNull();
+  });
+
+  /*
+   * The second read's error was discarded, and the function's own drop rule
+   * hid it: a pair whose far end does not resolve is dropped on purpose,
+   * because the view should already have excluded it. That reasoning holds
+   * only for a read that ANSWERED — when it fails nothing resolves, every
+   * pair drops, and the result is an empty list again.
+   */
+  it('throws when the findings behind the links cannot be read', async () => {
+    answerTable('esh_finding_connections', { data: [A_LINK], error: null });
+    answerTable('esh_findings', UPSTREAM_502);
+
+    await expect(listReviewedConnections()).rejects.toThrow(/PGRST000/);
+  });
+
+  it('resolves both ends when both reads answer', async () => {
+    answerTable('esh_finding_connections', { data: [A_LINK], error: null });
+    answerTable('esh_findings', BOTH_FINDINGS);
+
+    const connections = await listReviewedConnections();
+
+    expect(connections).toHaveLength(1);
+    expect(connections[0]?.kind).toBe('recurred_as');
+    expect(connections[0]?.finding.reference).toBe('ESH-2026-0001');
+    expect(connections[0]?.other.reference).toBe('ESH-2026-0009');
+  });
+
+  it('returns an empty list when nothing genuinely has been connected', async () => {
+    answerTable('esh_finding_connections', EMPTY);
+
+    await expect(listReviewedConnections()).resolves.toEqual([]);
+  });
+
+  /*
+   * And the deliberate drop is preserved, which is the half that must not be
+   * lost: a pair whose far end the reader may not see is still dropped, and
+   * the stricter of the two rules still wins.
+   */
+  it('still drops a pair whose far end the reader cannot see', async () => {
+    answerTable('esh_finding_connections', { data: [A_LINK], error: null });
+    answerTable('esh_findings', {
+      data: [
+        { id: A_FINDING, reference: 'ESH-2026-0001', title: 'A guard was missing from the press' },
+      ],
+      error: null,
+    });
+
+    await expect(listReviewedConnections()).resolves.toEqual([]);
   });
 });
