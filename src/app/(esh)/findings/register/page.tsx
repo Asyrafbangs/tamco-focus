@@ -13,6 +13,7 @@ import {
   REGISTER_PAGE_SIZE,
   getDepartmentsInScope,
   getRolloutStatus,
+  listHazardCategories,
   listRegister,
   type RegisterListRow,
 } from '@/server/esh/queries';
@@ -40,6 +41,8 @@ export default async function FindingRegisterPage({
     period_to?: string;
     page?: string;
     saved?: string;
+    /** v287 - a hazard category code, or 'none' for the ones nobody classified. */
+    hazard?: string;
   }>;
 }) {
   const access = await requireEshAccess();
@@ -50,6 +53,9 @@ export default async function FindingRegisterPage({
   const departmentId = params.department && UUID.test(params.department) ? params.department : null;
   const pageNumber = Math.max(1, Math.floor(Number(params.page ?? '1')) || 1);
   const search = (params.q ?? '').slice(0, 80);
+  // 'none' is a filter in its own right: the open findings nobody has
+  // classified are the ones this week's review has to reach.
+  const hazard = /^(none|[a-z][a-z_]{2,31})$/.test(params.hazard ?? '') ? params.hazard! : null;
   const timeZone = profile.timezone ?? 'Asia/Kuala_Lumpur';
   const now = new Date();
   const closurePeriod = resolvePeriod(
@@ -61,12 +67,13 @@ export default async function FindingRegisterPage({
     timeZone,
   );
 
-  const [register, departments, held] = await Promise.all([
+  const [register, departments, held, hazardCategories] = await Promise.all([
     listRegister({
       filter,
       search,
       departmentId,
       departmentUnassigned,
+      hazard,
       closedSince: closurePeriod.since,
       closedUntil: closurePeriod.until,
       page: pageNumber - 1,
@@ -74,6 +81,7 @@ export default async function FindingRegisterPage({
     getDepartmentsInScope(access),
     // v227 - held email is said once, for the whole register.
     access.canCoordinate ? getRolloutStatus() : Promise.resolve(null),
+    listHazardCategories(),
   ]);
 
   const pages = Math.max(1, Math.ceil(register.total / REGISTER_PAGE_SIZE));
@@ -84,6 +92,7 @@ export default async function FindingRegisterPage({
       filter,
       q: search || undefined,
       department: departmentUnassigned ? 'unassigned' : (departmentId ?? undefined),
+      hazard: hazard ?? undefined,
       ...overrides,
     };
     for (const [key, value] of Object.entries(merged)) {
@@ -165,6 +174,18 @@ export default async function FindingRegisterPage({
               </option>
             ))}
             <option value="unassigned">Unassigned</option>
+          </select>
+        </label>
+        <label>
+          <span>Hazard</span>
+          <select name="hazard" defaultValue={hazard ?? ''}>
+            <option value="">Any category</option>
+            {hazardCategories.map((category) => (
+              <option key={category.code} value={category.code}>
+                {category.label}
+              </option>
+            ))}
+            <option value="none">Not categorised</option>
           </select>
         </label>
         {/*
@@ -316,7 +337,9 @@ function RegisterRowItem({
             <small>Action: {row.actionTitle}</small>
           )}
           <small>
-            {[row.departmentName, `${RISK_LABELS[row.riskLevel]} risk`].filter(Boolean).join(' · ')}
+            {[row.departmentName, `${RISK_LABELS[row.riskLevel]} risk`, row.hazardLabel]
+              .filter(Boolean)
+              .join(' · ')}
           </small>
         </span>
         <span className="esh-register-owner">
