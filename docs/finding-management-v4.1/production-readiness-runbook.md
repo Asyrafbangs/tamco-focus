@@ -27,22 +27,38 @@ run `41645233359` was green on all three jobs including the browser suite.
 
 ```powershell
 $env:TAMCO_ENV = 'production'
+$env:NEXT_PUBLIC_SUPABASE_URL = 'https://<ref>.supabase.co'
+$env:SUPABASE_SERVICE_ROLE_KEY = Read-Host 'service role key'
 npm run backup:database
 ```
 
-`TAMCO_ENV` must be set **in the shell**, not in a file: Node's `--env-file`
-never overrides an existing variable, and without it the script backs up the
-**local** stack and tells you it succeeded. The run directory lands beside the
-repository, never inside it.
+**All three in the shell, not just the first two.** `--env-file` never
+overrides a variable already in the shell, which cuts both ways: setting the
+URL without the key sends `.env.local`'s **local** key to Production, every
+request fails on authorisation, and the failure surfaces as whatever the first
+request was. On 3 November 2026 that was the storage bucket check, reporting a
+private production bucket as "unavailable or public" — a sentence that sent us
+looking for a security problem that did not exist. The script now refuses that
+combination before making any request, and names the variable to set.
+
+`Read-Host` rather than a literal keeps the key out of your shell history.
+
+`TAMCO_ENV` matters for the same reason in reverse: without it the script backs
+up the **local** stack and tells you it succeeded. The run directory lands
+beside the repository, never inside it.
 
 **Expect:** `complete run: …tamco-focus-production-<timestamp>-<hash>`, a
 non-zero `private storage objects copied`, and the reminder that nothing is
 proven until a restore.
 
-**Then verify it — into local, never into Production:**
+**Then verify it — into local, never into Production.** Do this in a **new
+PowerShell window**: the restore writes, and a window still holding the
+production URL and key is a window that must not be allowed near a restore.
+The guards do refuse it — `restore:verify` and `db:reset` both stop with
+"the target is PRODUCTION" — but relying on a guard you could simply not test
+is the wrong way round.
 
 ```powershell
-Remove-Item Env:\TAMCO_ENV
 npm run restore:verify -- <path to the production run directory>
 npm run db:reset
 ```
@@ -108,7 +124,7 @@ one **closed** public-reporting settings row per organisation.
 ```powershell
 $env:TAMCO_ENV = 'production'
 $env:NEXT_PUBLIC_SUPABASE_URL = 'https://<ref>.supabase.co'
-$env:SUPABASE_SERVICE_ROLE_KEY = '<the current key>'
+$env:SUPABASE_SERVICE_ROLE_KEY = Read-Host 'service role key'
 npm run check:deployment
 ```
 
