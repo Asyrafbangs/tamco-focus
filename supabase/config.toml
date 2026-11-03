@@ -30,7 +30,7 @@ enabled = true
 port = 54323
 api_url = "http://127.0.0.1"
 
-[inbucket]
+[local_smtp]
 # Local mail catcher. Weekly summaries and transactional notification emails
 # write to their delivery logs and, when EMAIL_TRANSPORT=inbucket, also deliver
 # here for visual inspection.
