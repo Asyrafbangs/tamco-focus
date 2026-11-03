@@ -225,11 +225,11 @@ screen and failed `esh-identity-access-v203` as though the feature were broken (
 
 Three outcomes, chosen per read rather than by one rule:
 
-| Outcome                                                                           | When                                                                                                          | Reads                                                                                                                                                                                                                             |
-| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Throw**, via `requireAnswer` from `@/domain/esh-findings`                       | The missing data is the screen's subject, or it is the options of a control the reader cannot proceed without | `getEshAccess` (as `accessFromAnswer`), `getFindingDetail`, `listEmailContacts`, `getDepartmentsInScope`, `getVerifiers`, `getFollowupSettings`, `listDepartmentEscalationDefaults`, `listVerificationQueue`, `listImportBatches` |
-| **Report**, as `{ data, failed }` — the §33.2 pattern `listRegister` already used | One tile or panel on a screen that must keep working without it                                               | `getDashboard`, `getOperationalHealth`, `getRolloutStatus`                                                                                                                                                                        |
-| **Leave**                                                                         | The caller already says it honestly, and neither alternative improves it                                      | `getPublicDashboard`                                                                                                                                                                                                              |
+| Outcome                                                                           | When                                                                                                          | Reads                                                                                                                                                                                                                                                        |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Throw**, via `requireAnswer` from `@/domain/esh-findings`                       | The missing data is the screen's subject, or it is the options of a control the reader cannot proceed without | `getEshAccess` (as `accessFromAnswer`), `getFindingDetail`, `listEmailContacts`, `getDepartmentsInScope`, `getVerifiers`, `getFollowupSettings`, `listDepartmentEscalationDefaults`, `listVerificationQueue`, `listImportBatches`, `listReviewedConnections` |
+| **Report**, as `{ data, failed }` — the §33.2 pattern `listRegister` already used | One tile or panel on a screen that must keep working without it, or a route that has to answer something      | `getDashboard`, `getOperationalHealth`, `getRolloutStatus`, `readObject`, `signedDownloadFor`                                                                                                                                                                |
+| **Leave**                                                                         | The caller already says it honestly, and neither alternative improves it                                      | `getPublicDashboard`                                                                                                                                                                                                                                         |
 
 `failed` matters because `null` was carrying three answers at once: the read failed, the database
 function declined (`ok: false`), and there is genuinely nothing. Only the first is worth telling
@@ -249,6 +249,31 @@ Two consequences worth knowing:
   the counts and the control together, and no longer decides who is "waiting to be cleared" from
   `rollout?.mode !== 'live'`, which read a failed read as restricted.
 
+The evidence reads are the awkward pair, and they are why the table's second row mentions routes.
+`readObject` and `signedDownloadFor` read Storage, which reports an absent object as an error like
+any other — so "the object is not there" and "Storage did not answer" arrive in the same shape and
+can only be told apart by status: a 404 is genuinely absent, while a 5xx, or a
+`StorageUnknownError` carrying no status at all because the request never arrived, is a read that
+did not happen. Both now report `failed`, and the two routes serving an evidence file answer
+**503** where they both used to answer 404. A 404 on an evidence file says the finding has no such
+file, and somebody told that does not try again — so a Storage blink became, to the reader, a
+photograph that had gone missing from a finding, on the file ESH verifies and that an argument
+about a photograph would turn on. Each of those routes had a second discarded error too: the staff
+route ignored its `esh_evidence_assets` read, and the owner route read a procedure that did not
+answer as a procedure that said no.
+
+The owner route's 404 has a second job and it is unchanged: it must stay uninformative, because an
+Action Owner must not learn from it whether a file exists, only that they cannot have this one.
+That rule is about what the answer discloses. A 503 discloses nothing about any asset, and it is
+the only way an owner can tell "try again" from "not yours" — a refusal and an outage both
+answering 404 meant an owner meeting an outage gave up on a file that was there and that they were
+entitled to.
+
+In `import-actions`, `cellsOf` told a coordinator "That file is no longer in the store. Upload it
+again." for a Storage outage as readily as for a deleted object: false twice over, since the file
+is where they left it and re-uploading fixes nothing, which is exactly what they had just been
+told to do.
+
 `countAwaitingVerification` is the one read two changes reached independently. This work judged it
 dead and deleted it — nothing called it, and Today already has two sources for that number, so a
 third would only be something to drift. Stage 5 on `main` judged it a trap worth disarming before
@@ -259,6 +284,7 @@ function costs nothing, while deleting it would have made that stage's own recor
 
 Tests: unit `esh-access-answer-v282`, `esh-failed-read-v283` (the helpers), `esh-access-call-site-v284`,
 `esh-finding-detail-call-site-v284`, `esh-swallowed-reads-v285`, `esh-import-history-v285`,
-`esh-reported-reads-v285` (the call sites). The call-site tests are possible because
+`esh-reported-reads-v285`, `esh-evidence-reads-v285` and `esh-file-routes-v285` (the call
+sites). The call-site tests are possible because
 `vitest.config.ts` aliases `server-only` to a no-op for tests only; the Next.js build still
 resolves the real package, so these modules still cannot reach a client bundle.
