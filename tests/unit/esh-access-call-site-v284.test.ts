@@ -16,6 +16,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * `vitest.config.ts` now resolves `server-only` to a no-op for tests only, and
  * this file closes that gap for the access read: a database that answers with an
  * error, and `getEshAccess` asked what it does about it.
+ *
+ * `esh-finding-detail-call-site-v284` does the same for the finding read.
 
  */
 
