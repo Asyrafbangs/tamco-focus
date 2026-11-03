@@ -568,26 +568,32 @@ existing object.
 
 ## Exact next action
 
-The four lean-package stages are built and pushed: PR #56 (Stage A), #57
-(Stage B), #58 (Stage C) and #59 (Stage D), each stacked on the one before and
-each dispatched for a run that includes the browser job, since the e2e job does
-not run on pull requests.
+All four lean-package stages are merged and `main` is green at `840b965`
+(run 41645233359, all three jobs including the browser suite).
 
-Nothing in the package is now blocked on engineering. What remains is the
-owner's:
+Production readiness is part done, and `deployment-2026-11-04.md` is the
+record. **Steps 1 and 2 are PASS**: a production backup of 413 storage objects
+and 71 tables, restored into local and verified byte for byte, and all five
+migrations (v279, v280, v286, v287, v288) confirmed present in Production by
+grepping the fresh schema dump - with `security_invoker` intact on every
+replaced view and public QR reporting closed.
 
-1. merge the four stages once their dispatched runs are green;
-2. `npx supabase db push --linked` from a clean `main` for v279, v280, v286,
-   v287 and v288;
-3. `npm run check:deployment` against Production, to see those versions under
-   Remote and to read `EMAIL_TRANSPORT`, `CRON_SECRET`,
-   `ATTACHMENT_ALLOWED_MIME` and the scanner pair;
-4. rotate the exposed service-role key, following the runbook in
-   `stageD-readiness-and-rollout.md`, and redeploy so Vercel picks it up;
-5. set `PUBLIC_REPORT_SALT`;
-6. real photographs - Android and iPhone, one HEIC and one screenshot - so the
-   compression table can be measured rather than quoted.
+Steps 3 to 6 need the account owner, because this session cannot reach
+Production and three attempts were refused by the permission classifier:
 
-Public QR reporting is **closed** and stays closed until an administrator opens
-it with a reason. The administrator role split remains deferred by the
-package's own instruction.
+1. `npm run check:deployment -- --smoke` against Production, with TAMCO_ENV,
+   NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY all set in the
+   shell. The read-only half of the smoke test is now in that command.
+2. The service-role key: rotate in Supabase, update in Vercel, **redeploy**,
+   then re-run the check and confirm the `issued:` date. Evidence uploads,
+   owner email links, outgoing mail, the cron workers and settings writes all
+   use that key; the browser's own session does not, so the site can look fine
+   while those five are broken.
+3. `PUBLIC_REPORT_SALT` in Vercel, then redeploy.
+4. Five by hand: open a finding, classify it, upload a photograph, confirm a
+   reader without access gets a 404, and receive one email.
+
+Public QR reporting is closed in Production and stays closed until an
+administrator opens it with a reason. The administrator role split remains
+deferred by the package's own instruction. Still unmeasured: compression
+against real photographs, and the 30-60 second form target.

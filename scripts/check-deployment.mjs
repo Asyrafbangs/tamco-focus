@@ -105,6 +105,131 @@ function migrationList() {
   }
 }
 
+/** One read through PostgREST, as the service role. Never writes. */
+async function read(url, key, path) {
+  const response = await fetch(`${url.replace(/\/$/, '')}/rest/v1/${path}`, {
+    headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: 'application/json' },
+  });
+  if (!response.ok) {
+    throw new Error(`${path.split('?')[0]} answered ${response.status}`);
+  }
+  return response.json();
+}
+
+/**
+ * The part of the smoke test a machine can do: read-only assertions about what
+ * the deployment actually holds.
+ *
+ * Everything here is a `select`. Nothing is created, changed or sent — the
+ * cron is reported from the rows it already wrote rather than run, because
+ * running it sends real email, and that is the operator's decision rather than
+ * a side effect of a status check.
+ *
+ * What it cannot do is the half that needs a person: opening a finding,
+ * classifying it, uploading a photograph, confirming a reader without access
+ * gets a 404, and receiving the mail. Those stay in the runbook.
+ */
+async function smoke(url, key) {
+  console.log('');
+  console.log('Read-only production checks');
+  let failed = false;
+  const miss = (text) => {
+    failed = true;
+    say('miss', text);
+  };
+
+  try {
+    const settings = await read(url, key, 'esh_qr_intake_settings?select=enabled');
+    if (settings.length !== 1)
+      miss(`public reporting settings: ${settings.length} rows, expected 1`);
+    else if (settings[0].enabled !== false) miss('PUBLIC QR REPORTING IS OPEN — expected closed');
+    else say('ok', 'public QR reporting is closed');
+  } catch (cause) {
+    miss(`public reporting settings unreadable: ${cause.message}`);
+  }
+
+  try {
+    const categories = await read(url, key, 'esh_hazard_categories?select=code&active=eq.true');
+    if (categories.length === 9) say('ok', 'nine hazard categories, active');
+    else miss(`hazard categories: ${categories.length}, expected 9`);
+  } catch (cause) {
+    miss(`hazard categories unreadable (v287 applied?): ${cause.message}`);
+  }
+
+  try {
+    const distribution = await read(url, key, 'esh_hazard_distribution?select=code,findings');
+    say('ok', `the hazard distribution view answers (${distribution.length} categories)`);
+  } catch (cause) {
+    miss(`the hazard distribution view is unreadable: ${cause.message}`);
+  }
+
+  // The view v287 replaced. If `create or replace` had gone wrong, this is
+  // where the register stops serving rows.
+  try {
+    const rows = await read(url, key, 'esh_register_rows?select=finding_id,hazard_label&limit=5');
+    const classified = rows.filter((row) => row.hazard_label).length;
+    say('ok', `the register view serves rows (${rows.length} read, ${classified} classified)`);
+  } catch (cause) {
+    miss(`the register view is unreadable: ${cause.message}`);
+  }
+
+  try {
+    await read(url, key, 'esh_report_intake_photos?select=id&limit=1');
+    say('ok', 'the public report photo table exists (v288 applied)');
+  } catch (cause) {
+    miss(`v288 objects missing: ${cause.message}`);
+  }
+
+  /*
+   * Nothing may read as scanned while no scanner is configured. The states are
+   * counted rather than listed: a file name is somebody's evidence.
+   */
+  try {
+    const assets = await read(url, key, 'esh_evidence_assets?select=scan_state&limit=1000');
+    const states = new Map();
+    for (const asset of assets) {
+      states.set(asset.scan_state, (states.get(asset.scan_state) ?? 0) + 1);
+    }
+    const printed = [...states].map(([state, count]) => `${state}: ${count}`).join(', ');
+    if (!process.env.ESH_SCANNER_URL && states.has('clean')) {
+      miss(`evidence reads "clean" with no scanner configured (${printed})`);
+    } else {
+      say('ok', `evidence scan states — ${printed || 'no evidence yet'}`);
+    }
+  } catch (cause) {
+    miss(`evidence assets unreadable: ${cause.message}`);
+  }
+
+  /*
+   * When the scheduler last ran, from the rows it writes itself. This is the
+   * honest version of "are the cron jobs working" that does not send anything:
+   * a worker that has not run today is the symptom a missing CRON_SECRET
+   * produces.
+   */
+  try {
+    const runs = await read(
+      url,
+      key,
+      'esh_worker_runs?select=worker,ran_at,ok&order=ran_at.desc&limit=5',
+    );
+    if (runs.length === 0) miss('no worker run has ever been recorded');
+    else {
+      const newest = runs[0];
+      const age = (Date.now() - new Date(newest.ran_at).getTime()) / 3_600_000;
+      const line = `last worker run: ${newest.worker} ${newest.ran_at} (${age.toFixed(1)}h ago)`;
+      if (age > 36) miss(`${line} — the scheduler has not run since`);
+      else say('ok', line);
+    }
+  } catch (cause) {
+    miss(`worker runs unreadable: ${cause.message}`);
+  }
+
+  if (failed) process.exitCode = 1;
+  console.log('');
+  console.log('  Still needs a person: open a finding, classify it, upload a photograph,');
+  console.log('  confirm a reader with no access gets a 404, and receive one email.');
+}
+
 async function main() {
   const resolved = resolveEnvironment();
   console.log(`\nTarget: ${resolved.environment.toUpperCase()} (${resolved.host})\n`);
@@ -195,6 +320,13 @@ async function main() {
     'PUBLIC_REPORT_SALT' +
       (process.env.PUBLIC_REPORT_SALT ? '' : ' — rate-limit buckets fall back to a constant salt'),
   );
+
+  if (process.argv.includes('--smoke')) {
+    await smoke(resolved.url, key);
+  } else {
+    console.log('');
+    console.log('  Add --smoke for the read-only production checks.');
+  }
 
   console.log(
     '\nNothing was written. Public QR reporting is opened from the application, by an administrator, with a reason.\n',
