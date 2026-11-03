@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 /**
  * Positive environment identification, for anything that can change data.
  *
@@ -94,10 +96,44 @@ export function assertLocal(action) {
   if (resolved.environment !== 'local') {
     throw new EnvironmentError(
       `Refusing to ${action}: the target is ${resolved.environment.toUpperCase()} (${resolved.host}).\n` +
-        'Development fixtures, resets and destructive scripts run against the local stack only.',
+        'Development fixtures, resets and destructive scripts run against the local stack only.' +
+        shellOverrideHint(),
     );
   }
   return resolved;
+}
+
+/**
+ * Where that URL came from, when the answer is "this shell".
+ *
+ * The refusal above is correct and has fired three times in one session for
+ * the same reason: `TAMCO_ENV` and `NEXT_PUBLIC_SUPABASE_URL` were still set
+ * from a production command, and `--env-file` cannot override a variable
+ * already in the environment. Saying only "the target is PRODUCTION" sends the
+ * reader looking at `.env.local`, which is innocent — so when the shell is what
+ * disagrees with the file, the refusal now says so and gives the line that
+ * clears it.
+ *
+ * Only ever reached on the refusal path, and a file it cannot read simply
+ * yields no hint.
+ */
+function shellOverrideHint() {
+  const shellUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!shellUrl) return '';
+  let fileUrl = null;
+  try {
+    const file = readFileSync(new URL('../../.env.local', import.meta.url), 'utf8');
+    fileUrl = /^\s*NEXT_PUBLIC_SUPABASE_URL\s*=\s*"?([^"\r\n]+)"?/m.exec(file)?.[1]?.trim() ?? null;
+  } catch {
+    return '';
+  }
+  if (!fileUrl || fileUrl === shellUrl) return '';
+  return (
+    `\n\nThis shell sets NEXT_PUBLIC_SUPABASE_URL, which overrides the ${fileUrl} in\n` +
+    '.env.local. Clear the production variables in this window first:\n\n' +
+    '  Remove-Item Env:\\TAMCO_ENV, Env:\\NEXT_PUBLIC_SUPABASE_URL, ' +
+    'Env:\\SUPABASE_SERVICE_ROLE_KEY, Env:\\SUPABASE_DB_URL -ErrorAction SilentlyContinue'
+  );
 }
 
 /** Refuses only against Production, for work Staging is allowed to do. */
