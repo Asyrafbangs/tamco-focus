@@ -568,30 +568,33 @@ existing object.
 
 ## Exact next action
 
-All four lean-package stages are merged; `main` is green at `490bbc6`
-(run 41680582312, all three jobs including the browser suite).
+All four lean-package stages are merged; `main` is green at `490bbc6` and
+carries three later fixes. Production readiness is **PASS on six of seven
+steps**, recorded in `deployment-2026-11-04.md`:
 
-Production readiness is largely done and `deployment-2026-11-04.md` is the
-record. **PASS**: the backup (413 storage objects, 71 tables, restored and
-verified byte for byte); all five migrations applied and verified from the
-schema dump with `security_invoker` intact; the rotated service-role key
-proven live by a signed evidence download from the running site; and eight
-read-only checks against production - register, hazard chooser, Patterns
-distribution, the closed public page and the administrator switch reading
-Closed.
+- a production backup of 413 storage objects and 71 tables, restored into
+  local and verified byte for byte;
+- all five migrations applied, verified from the schema dump, with
+  `security_invoker` intact on every replaced view;
+- the rotated service-role key proven live by a signed evidence download from
+  the running site, not by the variable;
+- `ESH_REPORT_SALT` set and redeployed - renamed from `PUBLIC_REPORT_SALT`,
+  which Vercel refuses to store as a secret because `PUBLIC_` is a public
+  framework prefix;
+- the Stage B loop proven end to end in Production: F-005 classified as
+  Machinery and equipment, the register row and the `hazard=machinery` filter
+  both following it;
+- a photograph uploaded reading "Not scanned", and a reply to an owner
+  recorded as "Accepted by the mail server", which is the only honest proof
+  that `EMAIL_TRANSPORT` is smtp;
+- public QR reporting confirmed **closed** on four screens.
 
-Five things remain, and each writes or sends, which is why they are the
-owner's:
+**The one open check: `/api/cron` has not been run in Production.** The secret
+is set, but a set variable and a working endpoint are different facts. Until
+it runs, nothing proves the digests, follow-up reminders, scan worker, orphan
+sweep and mail retry are executing.
 
-1. `ESH_REPORT_SALT` in Vercel, then redeploy.
-2. Classify one finding and save it.
-3. Upload one photograph to a finding's action.
-4. Receive one email - the only honest proof that `EMAIL_TRANSPORT` is `smtp`
-   rather than `log`, whose value the dashboard hides.
-5. `/api/cron` returning 200 with the current secret.
-
-Public QR reporting is closed in Production, confirmed on all three screens,
-and stays closed until an administrator opens it with a reason. The
-administrator role split remains deferred by the package's own instruction.
-Still unmeasured: compression against real photographs, and the 30-60 second
-form target.
+After that, the one-area pilot needs operational decisions rather than
+engineering: who watches the queue, which area, which date, and whether a
+scanner is hosted before photographs arrive from the floor. Still unmeasured:
+compression against real photographs, and the 30-60 second form target.

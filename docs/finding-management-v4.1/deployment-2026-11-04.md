@@ -107,48 +107,53 @@ or deleted.
 | `/report/<code>` without signing in                                                    | PASS — "this link does not report anything", no form             |
 | Administrator screen                                                                   | PASS — **Public QR reporting: Closed**                           |
 
-## PENDING — what still needs a person
+## PASS — Step 5: the salt, and the name that had to change
 
-Four of these write or send, which is why they were not done for you:
+`PUBLIC_REPORT_SALT` could not be stored as a secret at all: `PUBLIC_` is a
+public framework prefix on Vercel, and the platform refuses — rightly, since
+the name announces as public a value that is read on the server. Renamed to
+`ESH_REPORT_SALT` (`57ae8b2`), set in Production, and a redeploy of the
+current commit made it live. Nothing had the old name set in any environment,
+so there was nothing to migrate.
 
-1. **`ESH_REPORT_SALT`** in Vercel, then redeploy. A secret has to be typed
-   by its owner.
-2. **Classify one finding** and save, to prove the write path end to end.
-3. **Upload one photograph** to a finding's action.
-4. **Receive one email** — the only honest proof that `EMAIL_TRANSPORT` is
-   `smtp` rather than `log`.
-5. **`/api/cron` returns 200** with the current secret. It sends real mail, so
-   it is a decision rather than a check.
+## PASS — Step 6: the write half, done by the owner
 
-## PENDING — Steps 3 to 7
+| Check                                  | Evidence                                                                                                                               |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Classify a finding                     | F-005 saved as **Machinery and equipment**; "hazard classified" in its activity at 06:40                                               |
+| The register follows                   | The row reads "Fabrication · High risk · Machinery and equipment", and `?hazard=machinery` returns exactly that finding                |
+| Upload a photograph                    | `1761304409926.jpg` attached to a message, "JPG · 6 KB · **Not scanned**"                                                              |
+| Email actually leaves                  | A reply to the owner recorded as **"Accepted by the mail server"** — which `EMAIL_TRANSPORT=log` cannot produce. The transport is smtp |
+| Public reporting closed, fourth screen | The module's own Today page: "Public QR reporting is not enabled"                                                                      |
 
-None of these can be closed from a session that cannot reach Production.
+## The one check still open
 
-| Step                  | What it needs                                                      |
-| --------------------- | ------------------------------------------------------------------ |
-| 3 — configuration     | `npm run check:deployment` against Production, and its output read |
-| 4 — key rotation      | The Supabase dashboard, the Vercel variable, **and a redeploy**    |
-| 5 — `ESH_REPORT_SALT` | Generated locally, set in Vercel, redeployed                       |
-| 6 — smoke test        | Nine checks, signed in to the deployed site                        |
-| 7 — report            | Assembled from 3 to 6                                              |
+**`/api/cron` returning 200.** It sends real notification email, so it is a
+decision rather than a status check, and it was left for the owner:
 
-### The one thing that is time-sensitive
+```powershell
+curl.exe -s -o - -w "`n%{http_code}`n" -H "Authorization: Bearer $env:CRON_SECRET" https://tamco-focus.vercel.app/api/cron
+```
 
-The service-role key powers **evidence uploads and downloads, the ESH owner
-email-link sessions, outgoing notification email, the cron workers and the
-settings writes**. The browser's own session uses the anon key instead, so
-signing in and reading pages survives a service-role change; the five things
-above do not.
+`CRON_SECRET` is set in Production, so a 503 would mean the variable is not
+reaching the running deployment. Until it is run, nothing proves the scheduled
+work — digests, follow-up reminders, the scan worker, the orphan sweep, the
+mail retry — is executing in Production.
 
-So if the key has been rotated in Supabase and Vercel has not been updated
-**and redeployed**, those five are broken in Production right now, silently —
-a cron run returns 500, an owner's email link stops working, an evidence
-upload fails. If the project's JWT secret was reset rather than the single
-key, the anon key changes too and the whole site is down until Vercel is
-updated.
+## The report
 
-That is why step 4 ends with proving which key is live: `check:deployment`
-prints the key's issued date, and a Vercel secret cannot be read back.
+| Step                                 | Result                                                                            |
+| ------------------------------------ | --------------------------------------------------------------------------------- |
+| 1 — backup taken, restored, verified | **PASS** — 413 objects, 71 tables, byte for byte                                  |
+| 2 — five migrations applied          | **PASS** — verified from the schema dump                                          |
+| 3 — configuration                    | **PASS** — read from Vercel; `ESH_REPORT_SALT` was the only gap and is now closed |
+| 4 — key rotated and live             | **PASS** — proven by a signed evidence download, not by the variable              |
+| 5 — `ESH_REPORT_SALT`                | **PASS** — set, renamed to a name the platform will protect, redeployed           |
+| 6 — smoke                            | **PASS on 8 of 9**; `/api/cron` not run                                           |
+| 7 — this report                      | written                                                                           |
+
+Public QR reporting: **CLOSED**, confirmed on four screens — the sticker page,
+the administrator switch, the Patterns page and the module's own Today page.
 
 ## Outstanding risks
 
@@ -169,9 +174,18 @@ Unchanged from `stageD-readiness-and-rollout.md`, with one addition:
 7. The administrator role still carries business-manager authority, deferred
    by the package's own instruction.
 
-## Not production-ready yet
+## Where this leaves the pilot
 
-Steps 1 and 2 are done and evidenced. Until 3 to 6 are, this deployment is
-unverified in the places that have misled before: the mail transport, the cron
-secret, and which key the running application is actually using. Public QR
-reporting is closed and stays closed.
+Everything the deployment can be asked for has been asked and answered, with
+one exception: **nothing has yet proved the scheduler runs in Production**. The
+secret is set, but a set variable and a working endpoint are different facts —
+which is the lesson this whole document keeps repeating.
+
+Run the cron once, and this is a PASS across the board for a restricted,
+staff-only deployment. The one-area pilot then needs the operational decisions
+rather than any further engineering: who watches the queue, which area, which
+date, and whether a scanner is hosted before photographs start arriving from
+the floor.
+
+Public QR reporting stays closed until an administrator opens it with a
+reason, and nothing in this deployment moved it.
