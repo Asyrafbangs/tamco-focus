@@ -164,22 +164,34 @@ verification when it does not know. That one has **no callers anywhere** despite
 its comment claiming a menu count, so the lie never reaches a reader; it is
 flagged rather than deleted in case a nav count is still intended for it.
 
-**The wiring is not yet proven by a test, and my stated reason for that was
-wrong.** I claimed `queries.ts` and `access.ts` were unimportable from vitest
-because they begin `import 'server-only'`. They are not:
+**The wiring is proven now, and my stated reason for its absence was wrong.**
+I claimed `queries.ts` and `access.ts` were unimportable from vitest because
+they begin `import 'server-only'`. They are not:
 `vi.mock('server-only', () => ({}))` works per file and
 `tests/unit/current-profile-v195.test.ts` has done exactly that since v195,
 importing `getCurrentProfile` from a `server-only` module. The pattern was
 discoverable and I did not find it, so a limit I reported as the tooling's was
 mine.
 
-What is true is the consequence: `accessFromAnswer` and `requireAnswer` are
-proven directly, and reverting either fails exactly the assertions that require
-it, but nothing in this change proves the call sites still call them. That
-coverage is being added separately, along with a `resolve.alias` for
-`server-only` in both vitest projects so the mock cannot be forgotten per file.
+v284 closes it properly. `vitest.config.ts` resolves `server-only` to a no-op
+in both projects rather than relying on a per-file mock that can be forgotten,
+and `esh-access-call-site-v284` and `esh-finding-detail-call-site-v284` ask the
+readers themselves what they do with a failed read. The Next.js build still
+resolves the real package, so the guarantee it enforces — these modules cannot
+be pulled into a client bundle — is unchanged; a test importing them is not a
+client bundle.
+
+Each guard was broken on its own to show the tests hold it:
+
+| Break                                                    | Result                                                                                                                                            |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| the `requireAnswer` call dropped from `getFindingDetail` | exactly the three failed-read cases fail; "a finding that genuinely is not there returns null" keeps passing                                      |
+| `accessFromAnswer` reverted to `return NO_ESH_ACCESS`    | exactly the four failed-read cases fail; both fail-closed cases keep passing                                                                      |
+| the `server-only` alias removed                          | collection fails outright — _This module cannot be imported from a Client Component module_ — so the alias is load-bearing rather than decoration |
+
 The helpers stay in the domain layer regardless: a pure function belongs there,
-and it is where they are now tested from.
+and `esh-access-answer-v282` and `esh-failed-read-v283` still prove the rule
+itself one level down from the readers.
 
 The access path does have end-to-end evidence independent of any of this: the
 green gate logged seven gateway 502s and recovered from all seven, where the run

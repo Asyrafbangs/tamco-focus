@@ -541,6 +541,21 @@ Stages 3a, 4a, 5a and the Stage 6 readiness assessment are merged. PR #53
 landed on `main` as `55f593a`, with a full local gate of 17/17 and dispatched
 run 41564776028 green on the head commit including the browser job.
 
+Two follow-ups have since landed. PR #55 (`301227f`) finished the
+swallowed-read sweep: `countAwaitingVerification` no longer returns `0` for a
+read that failed, and `stage5-workflow-hardening.md` records the verdict for
+every other site in `src/server` that turns a read error into a default, so the
+audit is not re-run. Dispatched run 41583759610 was green on all three jobs
+including End-to-end.
+
+PR #54 added the v284 call-site coverage — a `server-only` no-op resolved by
+`vitest.config.ts` in both projects, and tests that prove `getEshAccess` and
+`getFindingDetail` still call the helpers v282 and v283 introduced. It was
+opened against `codex/finding-v41-stage3a` rather than `main`, so merging it
+landed the tests on a branch `main` had already absorbed; the four files were
+merged across to `main` separately. Each guard was broken individually first,
+and the full unit project is 56 files / 571.
+
 Nothing in Finding Management v4.1 is now blocked on engineering. What remains
 is blocked on decisions, and the three the user chose to settle first are the
 hazard taxonomy, the administrator role split, and whether a private upload
@@ -550,8 +565,3 @@ exact commands that settle them.
 
 Neither `v279` nor `v280` has been applied to the hosted database, and neither
 should be until explicitly asked for.
-
-A separate session is adding the coverage that proves `getEshAccess` and
-`getFindingDetail` still call their domain helpers, on branch
-`claude/esh-server-only-tests`, together with a `resolve.alias` for
-`server-only` in both vitest projects.
