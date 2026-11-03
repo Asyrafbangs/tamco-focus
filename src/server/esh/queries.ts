@@ -338,6 +338,41 @@ export interface ReportIntakeRow {
   reportedLocation: string | null;
   departmentId: string | null;
   receivedAt: string;
+  /**
+   * v288 - how to reach the reporter, when they chose to be reachable.
+   *
+   * Null is the normal case and means anonymous. The queue says so out loud
+   * rather than leaving a blank line: "nobody to ask" changes how a
+   * coordinator triages, and a gap that looks like missing data invites
+   * somebody to go looking for the person.
+   */
+  reporterContact: string | null;
+  /** v288 - the photographs that came with it, already stripped and stored. */
+  photos: Array<{ id: string; name: string; sizeBytes: number; scanState: string }>;
+}
+
+interface IntakePhotoRow {
+  id: unknown;
+  original_name: unknown;
+  size_bytes: unknown;
+  scan_state: unknown;
+  state: unknown;
+}
+
+function intakePhotos(rows: unknown): ReportIntakeRow['photos'] {
+  if (!Array.isArray(rows)) return [];
+  return (
+    (rows as IntakePhotoRow[])
+      // Only the ones that arrived: a refused or half-finished upload is not a
+      // photograph of anything, and v286's sweep clears the rows behind it.
+      .filter((row) => row.state === 'ready')
+      .map((row) => ({
+        id: String(row.id),
+        name: String(row.original_name ?? 'photo'),
+        sizeBytes: Number(row.size_bytes ?? 0),
+        scanState: String(row.scan_state ?? 'not_scanned'),
+      }))
+  );
 }
 
 /**
@@ -350,7 +385,9 @@ export async function getReportIntakeForFinding(
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from('esh_report_intake')
-    .select('id, source, status, report_text, reported_location, department_id, received_at')
+    .select(
+      'id, source, status, report_text, reported_location, department_id, received_at, reporter_contact, esh_report_intake_photos(id, original_name, size_bytes, scan_state, state)',
+    )
     .eq('id', intakeId)
     .eq('status', 'triaging')
     .maybeSingle();
@@ -369,6 +406,8 @@ export async function getReportIntakeForFinding(
       reportedLocation: data.reported_location ?? null,
       departmentId: data.department_id ?? null,
       receivedAt: String(data.received_at),
+      reporterContact: data.reporter_contact ?? null,
+      photos: intakePhotos(data.esh_report_intake_photos),
     },
   };
 }
@@ -382,7 +421,9 @@ export async function listReportIntake(): Promise<{ rows: ReportIntakeRow[]; fai
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from('esh_report_intake')
-    .select('id, source, status, report_text, reported_location, department_id, received_at')
+    .select(
+      'id, source, status, report_text, reported_location, department_id, received_at, reporter_contact, esh_report_intake_photos(id, original_name, size_bytes, scan_state, state)',
+    )
     .in('status', ['new', 'triaging'])
     .order('received_at')
     .limit(200);
@@ -400,6 +441,8 @@ export async function listReportIntake(): Promise<{ rows: ReportIntakeRow[]; fai
       reportedLocation: row.reported_location ?? null,
       departmentId: row.department_id ?? null,
       receivedAt: String(row.received_at),
+      reporterContact: row.reporter_contact ?? null,
+      photos: intakePhotos(row.esh_report_intake_photos),
     })),
   };
 }
@@ -1959,5 +2002,37 @@ export async function getHazardDistribution(): Promise<{
      */
     uncategorised: uncategorised.count ?? 0,
     failed: false,
+  };
+}
+
+/**
+ * v288 - the public reporting switch, for the administrator who moves it.
+ *
+ * Readable only by an administrator, by policy rather than by this query: for
+ * anybody else the row is simply not there, and the switch does not appear.
+ * Null therefore means "not yours to see or not configured", and the page says
+ * nothing rather than guessing which.
+ */
+export interface QrIntakeStatus {
+  enabled: boolean;
+  updatedAt: string | null;
+  changeReason: string | null;
+}
+
+export async function getQrIntakeStatus(): Promise<QrIntakeStatus | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('esh_qr_intake_settings')
+    .select('enabled, updated_at, change_reason')
+    .maybeSingle();
+  if (error) {
+    console.error(`[getQrIntakeStatus] ${error.code ?? 'unknown'}: ${error.message}`);
+    return null;
+  }
+  if (!data) return null;
+  return {
+    enabled: Boolean(data.enabled),
+    updatedAt: data.updated_at ? String(data.updated_at) : null,
+    changeReason: data.change_reason ? String(data.change_reason) : null,
   };
 }
