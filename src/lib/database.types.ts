@@ -5495,21 +5495,45 @@ export type Database = {
           },
         ]
       }
+      esh_public_submit_throttle: {
+        Row: {
+          bucket: string
+          hits: number
+          window_started_at: string
+        }
+        Insert: {
+          bucket: string
+          hits?: number
+          window_started_at?: string
+        }
+        Update: {
+          bucket?: string
+          hits?: number
+          window_started_at?: string
+        }
+        Relationships: []
+      }
       esh_qr_intake_settings: {
         Row: {
+          change_reason: string | null
           enabled: boolean
           organization_id: string
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
+          change_reason?: string | null
           enabled?: boolean
           organization_id: string
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
+          change_reason?: string | null
           enabled?: boolean
           organization_id?: string
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -5517,6 +5541,41 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: true
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_qr_intake_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "focus_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_qr_intake_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "person_display"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_qr_intake_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_qr_intake_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_load_summary"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "esh_qr_intake_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -5773,11 +5832,14 @@ export type Database = {
           duplicate_of_finding_id: string | null
           id: string
           organization_id: string
+          photo_token_expires_at: string | null
+          photo_token_hash: string | null
           public_reference: string
           qr_location_id: string | null
           received_at: string
           report_text: string
           reported_location: string | null
+          reporter_contact: string | null
           source: string
           status: string
           triaged_at: string | null
@@ -5791,11 +5853,14 @@ export type Database = {
           duplicate_of_finding_id?: string | null
           id?: string
           organization_id: string
+          photo_token_expires_at?: string | null
+          photo_token_hash?: string | null
           public_reference?: string
           qr_location_id?: string | null
           received_at?: string
           report_text: string
           reported_location?: string | null
+          reporter_contact?: string | null
           source: string
           status?: string
           triaged_at?: string | null
@@ -5809,11 +5874,14 @@ export type Database = {
           duplicate_of_finding_id?: string | null
           id?: string
           organization_id?: string
+          photo_token_expires_at?: string | null
+          photo_token_hash?: string | null
           public_reference?: string
           qr_location_id?: string | null
           received_at?: string
           report_text?: string
           reported_location?: string | null
+          reporter_contact?: string | null
           source?: string
           status?: string
           triaged_at?: string | null
@@ -5929,6 +5997,81 @@ export type Database = {
             columns: ["qr_location_id"]
             isOneToOne: false
             referencedRelation: "esh_qr_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      esh_report_intake_photos: {
+        Row: {
+          content_sha256: string | null
+          content_type: string | null
+          created_at: string
+          declared_size: number
+          id: string
+          intake_id: string
+          object_key: string
+          organization_id: string
+          original_name: string
+          ready_at: string | null
+          rejected_reason: string | null
+          scan_attempts: number
+          scan_detail: string | null
+          scan_state: string
+          scanned_at: string | null
+          size_bytes: number | null
+          state: string
+        }
+        Insert: {
+          content_sha256?: string | null
+          content_type?: string | null
+          created_at?: string
+          declared_size: number
+          id?: string
+          intake_id: string
+          object_key: string
+          organization_id: string
+          original_name: string
+          ready_at?: string | null
+          rejected_reason?: string | null
+          scan_attempts?: number
+          scan_detail?: string | null
+          scan_state?: string
+          scanned_at?: string | null
+          size_bytes?: number | null
+          state?: string
+        }
+        Update: {
+          content_sha256?: string | null
+          content_type?: string | null
+          created_at?: string
+          declared_size?: number
+          id?: string
+          intake_id?: string
+          object_key?: string
+          organization_id?: string
+          original_name?: string
+          ready_at?: string | null
+          rejected_reason?: string | null
+          scan_attempts?: number
+          scan_detail?: string | null
+          scan_state?: string
+          scanned_at?: string | null
+          size_bytes?: number | null
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "esh_report_intake_photos_intake_id_fkey"
+            columns: ["intake_id"]
+            isOneToOne: false
+            referencedRelation: "esh_report_intake"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "esh_report_intake_photos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -16505,6 +16648,42 @@ export type Database = {
       }
       esh_preview_report: { Args: { p_definition_id: string }; Returns: Json }
       esh_public_dashboard: { Args: never; Returns: Json }
+      esh_public_intake_sweep: { Args: never; Returns: Json }
+      esh_public_photo_finish: {
+        Args: {
+          p_ok: boolean
+          p_photo_id: string
+          p_reason: string
+          p_sha256: string
+          p_size: number
+          p_type: string
+        }
+        Returns: Json
+      }
+      esh_public_photo_start: {
+        Args: {
+          p_max_photos?: number
+          p_name: string
+          p_reference: string
+          p_size: number
+          p_token_hash: string
+        }
+        Returns: Json
+      }
+      esh_public_report_submit: {
+        Args: {
+          p_bucket: string
+          p_contact: string
+          p_photo_token_hash: string
+          p_public_code: string
+          p_reported_location: string
+          p_text: string
+          p_window_limit?: number
+          p_window_seconds?: number
+        }
+        Returns: Json
+      }
+      esh_qr_location_for: { Args: { p_public_code: string }; Returns: Json }
       esh_reassign_action: {
         Args: { p_action_id: string; p_owner_email: string; p_reason: string }
         Returns: Json
@@ -16672,6 +16851,10 @@ export type Database = {
       }
       esh_set_priority: {
         Args: { p_action_id: string; p_priority: string; p_reason: string }
+        Returns: Json
+      }
+      esh_set_qr_intake: {
+        Args: { p_enabled: boolean; p_reason: string }
         Returns: Json
       }
       esh_set_risk: {

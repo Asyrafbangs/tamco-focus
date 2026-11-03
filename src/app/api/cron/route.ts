@@ -204,6 +204,20 @@ export async function GET(request: Request) {
    * at. Two hours is long enough that nothing in flight is touched and short
    * enough that the bucket does not accumulate.
    */
+  /*
+   * v288 - the public channel's own housekeeping: yesterday's rate-limit
+   * counters and any photo window that has expired. Both are authorisation or
+   * counters rather than records, and neither should outlive its purpose.
+   */
+  try {
+    const { data, error } = await client.rpc('esh_public_intake_sweep');
+    if (error) throw new Error(error.message);
+    results.push({ worker: 'esh_public_intake', ok: true, detail: JSON.stringify(data ?? {}) });
+  } catch (cause) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    results.push({ worker: 'esh_public_intake', ok: false, detail });
+  }
+
   try {
     const { runEshOrphanWorker } = await import('@/server/esh/orphans');
     const swept = await runEshOrphanWorker(client);

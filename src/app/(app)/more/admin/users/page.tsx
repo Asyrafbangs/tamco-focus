@@ -11,6 +11,7 @@ import {
   getRolloutStatus,
   getStaffEshAccessForAdmin,
   listEmailContacts,
+  getQrIntakeStatus,
 } from '@/server/esh/queries';
 
 import { UserCreateForm, UserEditForm, UserStatusForm, VisibilityForm } from '../../SettingsForms';
@@ -19,6 +20,7 @@ import { BulkContactAccess } from './BulkContactAccess';
 import { ContactAdministration } from './ContactAdministration';
 import { ModuleAccessForm } from './ModuleAccessForm';
 import { ReportingHistory } from './ReportingHistory';
+import { PublicReportingForm } from './PublicReportingForm';
 import { RolloutModeForm } from './RolloutModeForm';
 
 export default async function UsersPage({
@@ -39,7 +41,7 @@ export default async function UsersPage({
   if (profile.role !== 'administrator') notFound();
   const params = await searchParams;
   const search = (params.q ?? '').trim().slice(0, 120);
-  const [directory, contacts, rollout, myEshAccess] = await Promise.all([
+  const [directory, contacts, rollout, myEshAccess, qrIntake] = await Promise.all([
     getDirectoryData(),
     listEmailContacts(search),
     getRolloutStatus(),
@@ -47,6 +49,7 @@ export default async function UsersPage({
     // not an administrator's, so the control appears only for somebody holding
     // both (§43.2).
     getEshAccess(),
+    getQrIntakeStatus(),
   ]);
   const needle = params.q?.trim().toLowerCase() ?? '';
   const kind = ['users', 'contacts'].includes(params.type ?? '') ? params.type : 'all';
@@ -399,6 +402,19 @@ export default async function UsersPage({
             <>
               {rollout && (
                 <RolloutModeForm status={rollout} canRelease={myEshAccess.canCoordinate} />
+              )}
+              {/*
+               * v288 - beside the rollout, because it is the same kind of
+               * decision: one sentence changes who can reach the module. It
+               * appears only for somebody the policy lets read the row, which
+               * is an administrator.
+               */}
+              {qrIntake && (
+                <PublicReportingForm
+                  enabled={qrIntake.enabled}
+                  changedAt={qrIntake.updatedAt}
+                  changeReason={qrIntake.changeReason}
+                />
               )}
               <BulkContactAccess contacts={waitingToBeCleared} />
               <div className="empty-state">

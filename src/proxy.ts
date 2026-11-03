@@ -14,8 +14,23 @@ import { forwardedRequestHeaders } from '@/lib/supabase/session-header';
  * department, reference, title, owner, location or per-finding date, and
  * excludes restricted findings. Anything richer must not be added to that page
  * without moving it off this list.
+ *
+ * `/report` is v288's public QR reporting, and it is on this list for a
+ * different reason: it exists to be reached by somebody who has no account and
+ * is standing in front of a hazard. It reads nothing - the page resolves one
+ * sticker code to one label - and writes only through a Server Action that
+ * applies the rate limit and rebuilds every photograph. The channel itself is
+ * closed until an administrator opens it with a reason, and while it is closed
+ * every code on this path resolves to the same "this link does not report
+ * anything" page.
  */
-const PUBLIC_PATHS = ['/sign-in', '/auth/callback', '/forgot-password', '/safety-performance'];
+const PUBLIC_PATHS = [
+  '/sign-in',
+  '/auth/callback',
+  '/forgot-password',
+  '/safety-performance',
+  '/report',
+];
 
 /**
  * Endpoints that carry their own authentication and must not be redirected.

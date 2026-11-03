@@ -16906,3 +16906,155 @@ span.deadline span.deadline-glyph,
   content: ' · also ';
   color: var(--muted);
 }
+
+/*
+ * v288 — the public reporting page.
+ *
+ * Mobile first and mobile mostly: it is reached by scanning a sticker, with a
+ * phone, often one-handed and sometimes in gloves. Hence the single column at
+ * every width, the 48px targets, the 17px type that does not trigger iOS's
+ * zoom-on-focus, and a send button that stays where the thumb is.
+ */
+.public-report-shell {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+.public-report-shell h1 {
+  margin: 0 0 8px;
+  font-size: 24px;
+  line-height: 1.2;
+}
+.public-report-emergency {
+  margin: 16px 0 24px;
+}
+.public-report-where {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2, var(--surface));
+}
+.public-report-where span {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.public-report-where strong {
+  font-size: 17px;
+}
+.public-report .esh-field {
+  margin-bottom: 20px;
+}
+/* 17px: iOS zooms the whole page in on a field under 16px, which on this
+   form means the Send button leaves the screen as somebody starts typing. */
+.public-report textarea,
+.public-report input[type='text'],
+.public-report input:not([type]) {
+  width: 100%;
+  min-height: 48px;
+  font-size: 17px;
+}
+.public-report textarea {
+  min-height: 120px;
+}
+.public-report input[type='file'] {
+  width: 100%;
+  min-height: 48px;
+}
+.public-report-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+.public-report-photos li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 136px;
+}
+.public-report-photos img {
+  width: 136px;
+  height: 136px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+.public-report-photos span {
+  display: flex;
+  flex-direction: column;
+  color: var(--muted);
+  font-size: 12px;
+}
+.public-report-send {
+  width: 100%;
+  min-height: 52px;
+  font-size: 17px;
+}
+.public-report-privacy {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.public-report-privacy h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+.public-report-privacy ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.public-report-privacy li + li {
+  margin-top: 6px;
+}
+.public-report-done {
+  padding: 24px 0;
+}
+.public-report-done h2 {
+  margin: 0 0 12px;
+  font-size: 20px;
+}
+/* The reference is read aloud down a radio and typed into a message, so it is
+   the largest thing on the screen and spaced for reading one character at a
+   time. */
+.public-report-reference {
+  margin: 0 0 16px;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 28px;
+  letter-spacing: 0.12em;
+}
+
+/* v288 — the photographs on a public report, in the triage queue. */
+.esh-intake-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.esh-intake-photos a {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-decoration: none;
+}
+.esh-intake-photos img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.esh-intake-photos small {
+  color: var(--muted);
+  font-size: 11px;
+}

@@ -1,4 +1,5 @@
 import { IntakeTriageActions } from '@/components/esh/IntakeTriageActions';
+import { SCAN_LABELS } from '@/domain/esh-evidence';
 import { ManualIntakeForm } from '@/components/esh/ManualIntakeForm';
 import { requireProfile } from '@/lib/supabase/server';
 import { requireEshAccess } from '@/server/esh/access';
@@ -77,6 +78,38 @@ export default async function IntakeQueuePage() {
                       .join(' · ')}
                   </small>
                   <strong>{summarise(report.reportText)}</strong>
+                  {/*
+                   * v288 - who to ask, said out loud either way. "Anonymous"
+                   * changes how a coordinator triages, and a blank line where
+                   * a name might be invites somebody to go looking for the
+                   * person who reported it.
+                   */}
+                  <small>
+                    {report.reporterContact
+                      ? `Reported by ${report.reporterContact}`
+                      : 'Reported anonymously'}
+                  </small>
+                  {report.photos.length > 0 && (
+                    <span className="esh-intake-photos">
+                      {report.photos.map((photo, index) => (
+                        <a
+                          key={photo.id}
+                          href={`/findings/intake/photos/${photo.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element --
+                              a private object behind a signed redirect; the
+                              optimiser cannot fetch it. */}
+                          <img
+                            src={`/findings/intake/photos/${photo.id}`}
+                            alt={`Photograph ${index + 1} from this report`}
+                          />
+                          <small>{SCAN_LABELS[photo.scanState] ?? 'Not scanned'}</small>
+                        </a>
+                      ))}
+                    </span>
+                  )}
                 </span>
                 <span className="esh-register-owner">
                   <small>Received</small>
