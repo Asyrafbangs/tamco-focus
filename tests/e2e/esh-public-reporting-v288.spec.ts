@@ -175,7 +175,14 @@ test('v288 somebody with no account reports what they saw, with a photograph', a
      * then fails on its own history.
      */
     await page.getByLabel('Where exactly (optional)').fill(`Goods-in door ${code}`);
-    await page.getByLabel('Photos (optional)').setInputFiles({
+    /*
+     * v290 - two buttons now, because `capture="environment"` on a single
+     * input means "the camera and nothing else" on a phone: somebody who had
+     * already photographed the hazard could not send it. Both are asserted,
+     * and the gallery one is the path a file fixture can take.
+     */
+    await expect(page.getByRole('button', { name: 'Take photo' })).toBeVisible();
+    await page.getByLabel('Choose a photo').setInputFiles({
       name: 'grinder.png',
       mimeType: 'image/png',
       buffer: PHOTO,
@@ -183,6 +190,8 @@ test('v288 somebody with no account reports what they saw, with a photograph', a
     // The thumbnail is the only confirmation that the photograph was taken up
     // by the form at all.
     await expect(page.locator('.public-report-photos img')).toHaveCount(1);
+    // And the form will not send while a photograph is still being prepared.
+    await expect(page.getByRole('button', { name: 'Send report' })).toBeEnabled();
 
     await page.getByRole('button', { name: 'Send report' }).click();
 

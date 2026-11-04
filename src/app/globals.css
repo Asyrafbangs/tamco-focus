@@ -17139,3 +17139,15 @@ span.deadline span.deadline-glyph,
 .esh-attach-failed .esh-form-actions {
   margin-top: 12px;
 }
+
+/* v290 — take or choose, side by side, both reachable with a thumb. */
+.public-report-choose {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.public-report-choose .btn {
+  flex: 1;
+  min-height: 48px;
+  font-size: 16px;
+}

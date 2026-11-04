@@ -57,6 +57,31 @@ export function QrLocations({
     });
   }
 
+  /**
+   * v290 - "Copied" only after the clipboard has actually taken it.
+   *
+   * This used to fire and forget, so a browser without clipboard access, or
+   * one that refused the permission, still said Copied - and the address a
+   * sticker is printed from was not on the clipboard at all. Where the write
+   * is not possible, the address is selected instead, which is the thing a
+   * person can then copy by hand.
+   */
+  async function copyAddress(id: string, url: string) {
+    setSaid(null);
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('no clipboard');
+      await navigator.clipboard.writeText(url);
+      setCopied(id);
+      return;
+    } catch {
+      setCopied(null);
+      setSaid({
+        ok: false,
+        message: 'This browser would not let the page copy. Select the address and copy it.',
+      });
+    }
+  }
+
   function retire(id: string, name: string) {
     setSaid(null);
     start(async () => {
@@ -109,10 +134,7 @@ export function QrLocations({
                 <button
                   type="button"
                   className="btn small"
-                  onClick={() => {
-                    void navigator.clipboard?.writeText(one.url);
-                    setCopied(one.id);
-                  }}
+                  onClick={() => void copyAddress(one.id, one.url)}
                 >
                   {copied === one.id ? 'Copied' : 'Copy'}
                 </button>
