@@ -8,21 +8,21 @@ channel, touches production data or changes a secret.
 
 ## What each audit item turned out to be
 
-| | Item | Verdict |
-| --- | --- | --- |
-| A | QR status visible and accurate; intake errors not shown as empty | **Partly already there, partly confirmed.** The Today page already renders an error notice and a disabled counter when the intake read fails. The reporting status was wrong — see J |
-| B | New-finding photo uploads skipped silently | **Confirmed. Fixed** |
-| C | Compression inconsistent across the four evidence paths | **Confirmed for the new-finding path. Fixed** |
-| D | Camera capture on mobile | **Confirmed for the public form. Fixed.** Already correct for staff since v199 |
-| E | A failed monitoring query makes the app look healthy | **Confirmed. Fixed** |
-| F | Scheduled jobs and notification delivery | **Needs production evidence.** See *Limitations* |
-| G | Misleading empty states | **Already fixed** by v282, v283 and the Today page's own branches; one verification added |
-| H | Malware scanning | **Already honest.** Risk restated, no scanner invented |
-| I | Security regressions | **Already covered**, re-run |
-| J | Hard-coded "public QR reporting is not enabled" | **Confirmed. Fixed** |
-| K | Screen-by-screen UI audit | **Re-run against the real interface**, no new defects |
-| L | Copy says "Copied" before the clipboard took it | **Confirmed. Fixed** |
-| M | Interface complexity | **No change made.** Nothing was added that could be removed, and removing a working screen is not remediation |
+|     | Item                                                             | Verdict                                                                                                                                                                              |
+| --- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A   | QR status visible and accurate; intake errors not shown as empty | **Partly already there, partly confirmed.** The Today page already renders an error notice and a disabled counter when the intake read fails. The reporting status was wrong — see J |
+| B   | New-finding photo uploads skipped silently                       | **Confirmed. Fixed**                                                                                                                                                                 |
+| C   | Compression inconsistent across the four evidence paths          | **Confirmed for the new-finding path. Fixed**                                                                                                                                        |
+| D   | Camera capture on mobile                                         | **Confirmed for the public form. Fixed.** Already correct for staff since v199                                                                                                       |
+| E   | A failed monitoring query makes the app look healthy             | **Confirmed. Fixed**                                                                                                                                                                 |
+| F   | Scheduled jobs and notification delivery                         | **Needs production evidence.** See _Limitations_                                                                                                                                     |
+| G   | Misleading empty states                                          | **Already fixed** by v282, v283 and the Today page's own branches; one verification added                                                                                            |
+| H   | Malware scanning                                                 | **Already honest.** Risk restated, no scanner invented                                                                                                                               |
+| I   | Security regressions                                             | **Already covered**, re-run                                                                                                                                                          |
+| J   | Hard-coded "public QR reporting is not enabled"                  | **Confirmed. Fixed**                                                                                                                                                                 |
+| K   | Screen-by-screen UI audit                                        | **Two defects found and fixed.** The module switcher ran off a 320px screen; the department combobox could be shut for good by one early click                                       |
+| L   | Copy says "Copied" before the clipboard took it                  | **Confirmed. Fixed**                                                                                                                                                                 |
+| M   | Interface complexity                                             | **No change made.** Nothing was added that could be removed, and removing a working screen is not remediation                                                                        |
 
 ## The fixes
 
@@ -38,7 +38,7 @@ wrong. It is also not hypothetical: on 4 November I reported a production
 scheduler as working on the strength of that panel being absent, and had to
 withdraw the claim.
 
-The read now returns a *reading* — available or not — and an unavailable
+The read now returns a _reading_ — available or not — and an unavailable
 monitor gets its own line saying that nothing on the page speaks for the
 scheduled run, the mail queue or the escalations. Healthy, failed, late,
 never-reported and unreadable are five distinct outcomes, each with its own
@@ -55,7 +55,7 @@ The page could not have done better. v288 gave `esh_qr_intake_settings` a
 single select policy, for administrators, so the row is invisible to the
 coordinators who triage what comes through it — a screen cannot report a state
 it may not read. **v290** adds a policy for anybody with Finding Management
-access, and the page now says open, closed, or *could not be read*.
+access, and the page now says open, closed, or _could not be read_.
 
 ### B and C — evidence discarded in silence, and twelve megabytes a picture
 
@@ -83,7 +83,7 @@ The public form had one input with `capture="environment"`. On a phone that
 does not mean "offer the camera"; it means the camera and nothing else, so
 somebody who had already photographed the hazard could not send it. Two
 buttons now — **Take photo** and **Choose photo** — the shape the staff
-uploader has had since v199, with one handler behind them, and a *preparing*
+uploader has had since v199, with one handler behind them, and a _preparing_
 state that refuses to send until the last re-encode finishes.
 
 HEIC is unchanged and deliberate: it is refused with the setting to change
@@ -92,6 +92,35 @@ can decode it, so it could be neither stripped of its co-ordinates nor rebuilt
 — and storing it as it arrived would quietly break the anonymity the form
 promises. Converting it in the browser is not reliable enough to bet a privacy
 guarantee on.
+
+### K — what the widths nobody had opened were hiding
+
+The configured browser projects are 1440, 1280, 1024, 768 and 390. An iPhone SE
+is 375 and the oldest handsets on a plant floor are 320, so two of the widths
+the audit asked about had never been opened. Both now are, in Day and in Night,
+across every Finding Management screen and the public form — and each found
+something.
+
+**The module switcher ran off the screen at 320.** Its menu is 290px wide and
+anchored `left: 0` to a summary that starts 54px in, so it ended at 344 on a
+320px screen: the last quarter of "Finding Management" and of every description
+sat outside the window, with no sideways scroll to reach it. The width cap added
+at 720px could not help, because the anchor was what was wrong. Below 480px the
+menu now belongs to the bar rather than to the summary and fits by
+construction. (The rule it needed had been written for `.topbar`; Finding
+Management's header is `.esh-topbar`, so it had never applied there at all.)
+
+**The department combobox could be shut for good.** It opened on `focus` and
+nothing else. A click that lands while the form is still hydrating focuses the
+field natively, with no handler attached to notice — and every later click, on
+a field that is already focused, fires no `focus` event at all. The list then
+never opens again, and the only way out is to click somewhere else and come
+back, which nobody discovers. It opens on click as well now.
+
+That second one was found the hard way: a browser test reported that
+"Operations does not exist" and the department list was empty, which looks
+exactly like a permissions or data defect. It was neither. Reading
+`aria-expanded` rather than the symptom is what separated them.
 
 ### L — "Copied" before the clipboard had it
 
@@ -106,7 +135,7 @@ to select the address instead.
   could not be read", and the counter is disabled rather than showing zero.
   v282 and v283 did the same for the access and finding reads.
 - **H.** Nothing has ever been called clean. With no scanner configured every
-  file reads *Not scanned*, and the bucket is protected by the signature
+  file reads _Not scanned_, and the bucket is protected by the signature
   check, the pixel limits, the server-side rebuild of public photographs,
   private storage and five-minute signed links. The residual risk is
   unchanged: a staff member downloading an unscanned PDF or Office file opens
@@ -123,14 +152,14 @@ to select the address instead.
 
 Run on this branch, against the local stack:
 
-| Command | Result |
-| --- | --- |
-| `npx tsc --noEmit` | clean |
-| `npx eslint . --max-warnings=0` | clean |
-| `npx prettier --check .` | clean (CRLF noise aside — `autocrlf=true` here) |
-| `npx vitest run --project unit` | **673 passed** |
-| `npx supabase test db --local` | **902 assertions, PASS** |
-| `npm run test:e2e -- esh-` | **98 passed** across desktop, tablet and mobile |
+| Command                              | Result                                                                         |
+| ------------------------------------ | ------------------------------------------------------------------------------ |
+| `npx tsc --noEmit`                   | clean                                                                          |
+| `npx eslint . --max-warnings=0`      | clean                                                                          |
+| `npx prettier --check .`             | clean (CRLF noise aside — `autocrlf=true` here)                                |
+| `npx vitest run --project unit`      | **673 passed**                                                                 |
+| `npx supabase test db --local`       | **902 assertions, PASS**                                                       |
+| `npm run test:e2e -- esh-`           | **98 passed** across desktop, tablet and mobile                                |
 | `npm run test:e2e -- esh-crawl-v218` | 2 passed — the role × viewport × Night-mode crawl with axe and overflow checks |
 
 New regression tests:
@@ -144,6 +173,13 @@ New regression tests:
   outcomes and the three reporting states, including that the unreadable
   wording never reads as open or closed.
 - `esh-public-reporting-v288.spec.ts` gained the two-button assertion.
+- `esh-narrow-widths-v290.spec.ts` opens every Finding Management screen and
+  the public form at 320 and 375, in both themes, and names the element that is
+  too wide rather than only reporting that the page scrolls. Restoring
+  `left: 0` on the switcher fails it.
+- `esh-foundations-v197` gained a case holding that the department list opens
+  on a click and not only on gaining focus. Removing the click handler fails
+  it.
 - One existing assertion was corrected rather than loosened:
   `esh_qr_locations_v289` counted audit events across the whole database, so
   browser fixtures left behind by earlier runs made it fail for a reason that
@@ -153,7 +189,7 @@ New regression tests:
 
 - **F — scheduled jobs and delivery cannot be proven from here.** Runtime logs
   on this plan cover 30 minutes, the migrations table is not exposed to
-  PostgREST, and this session cannot read production. What *can* be read is
+  PostgREST, and this session cannot read production. What _can_ be read is
   `esh_worker_runs` through `npm run check:deployment -- --smoke`, which
   reports the last run and its outcome honestly. That command is the evidence;
   a successful deployment is not.
@@ -162,6 +198,16 @@ New regression tests:
   provable; the hardware path needs a phone.
 - **Compression against real photographs** is still unmeasured. Every figure
   is from synthetic fixtures.
+- **Every field on the public form is controlled by React**, so anything typed
+  before the page finishes hydrating is wiped when it does. In a production
+  build that window is a fraction of a second, and somebody scanning a sticker
+  spends longer than that reading the warning above the box; in development it
+  is seconds, which is how four browser tests came to fail in a way that looked
+  like the form dropping what it was given. It is not fixed here - making those
+  fields keep what the browser already holds is a change to every form in the
+  module, not to Finding Management - but it is why several specs now wait for
+  the page before typing into it, and it is worth knowing before anybody
+  reports that the first word of their report went missing.
 - **CI's end-to-end job** runs only on `main` or a dispatch, and was dispatched
   for this branch. Branch protection was not changed: the minimum effective
   configuration is to require the two always-on jobs and dispatch the browser
@@ -169,7 +215,7 @@ New regression tests:
 
 ## Human decisions, not invented
 
-Public QR reporting is **open** in production for an *Office 1st Floor* pilot.
+Public QR reporting is **open** in production for an _Office 1st Floor_ pilot.
 These are deployment acceptance requirements and remain unanswered:
 
 1. The **named primary reviewer** of the intake queue.

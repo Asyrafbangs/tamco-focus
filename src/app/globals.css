@@ -13494,6 +13494,26 @@ span.deadline span.deadline-glyph,
   .topbar .esh-switcher-bar {
     gap: 6px;
   }
+  /*
+   * v290 - the menu hangs off a summary that starts 54px into a 320px screen,
+   * so `left: 0` put a 290px menu 24px past the right edge: the last quarter
+   * of every label unreadable and unreachable, with no sideways scroll to
+   * reach it. Capping the width does not help, because the anchor is what is
+   * wrong. Below 480px the menu belongs to the bar rather than to the summary
+   * - it spans the bar, so it fits by construction at any width. Unprefixed on
+   * purpose: the Finding Management header is `.esh-topbar`, not `.topbar`.
+   */
+  .esh-switcher-bar {
+    position: relative;
+  }
+  .esh-switcher {
+    position: static;
+  }
+  .esh-switcher ul {
+    left: 0;
+    right: 0;
+    min-width: 0;
+  }
 }
 
 .esh-access-form fieldset {

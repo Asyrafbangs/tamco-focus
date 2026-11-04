@@ -150,6 +150,13 @@ test('v288 somebody with no account reports what they saw, with a photograph', a
     );
 
     await expect(page.getByRole('heading', { name: 'Report a safety concern' })).toBeVisible();
+    /*
+     * v290 - before a word is typed. Every field on this form is controlled by
+     * React, so anything filled while the island is still coming up is wiped
+     * the moment it hydrates: the words stay on screen for a second and then
+     * the Send button will not enable, because the state behind it is empty.
+     */
+    await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
     // Where they are, read off the sticker rather than typed.
     await expect(page.getByText('BR2 Press line 2')).toBeVisible();
     /*
@@ -182,11 +189,31 @@ test('v288 somebody with no account reports what they saw, with a photograph', a
      * and the gallery one is the path a file fixture can take.
      */
     await expect(page.getByRole('button', { name: 'Take photo' })).toBeVisible();
-    await page.getByLabel('Choose a photo').setInputFiles({
-      name: 'grinder.png',
-      mimeType: 'image/png',
-      buffer: PHOTO,
-    });
+    /*
+     * Through the button, not through the hidden input.
+     *
+     * Setting files on the input directly fires a `change` that React only
+     * hears once this island has hydrated, and nothing retries it - so the
+     * photograph landed on the element and was never seen, which reads as the
+     * form dropping it. Going through the file chooser proves the button a
+     * person actually taps is wired up, and cannot run early: the dialog does
+     * not open until the handler behind the button does.
+     */
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        const [chooser] = await Promise.all([
+          page.waitForEvent('filechooser', { timeout: 5_000 }),
+          page.getByRole('button', { name: 'Choose photo' }).click(),
+        ]);
+        await chooser.setFiles({ name: 'grinder.png', mimeType: 'image/png', buffer: PHOTO });
+        break;
+      } catch (cause) {
+        // The marker is a floor, not a promise: it can land while this island
+        // is still coming up. A tap that arrives first does nothing at all,
+        // which is also what a person gets, and what they do is tap again.
+        if (attempt === 3) throw new Error('"Choose photo" never opened a chooser', { cause });
+      }
+    }
     // The thumbnail is the only confirmation that the photograph was taken up
     // by the form at all.
     await expect(page.locator('.public-report-photos img')).toHaveCount(1);

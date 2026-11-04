@@ -248,6 +248,12 @@ test('v199 ESH reads the fixed submission and adds original evidence the owner c
   // ESH sees it, fixed, with its file; and adds the original photo.
   await signIn(page, 'izzul@tamco.local');
   await page.goto(`/findings/${arranged.findingId}`);
+  /*
+   * Before a file is handed to it: the uploader is a client component, and a
+   * file set on its input before React is listening is simply never noticed -
+   * the page then looks as though it dropped the attachment.
+   */
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   const submission = page.getByRole('region', { name: /Submitted for review · version 1/ });
   await expect(submission).toContainText('Refitted.');
   await expect(submission.locator('.esh-file')).toContainText('After.jpg');
