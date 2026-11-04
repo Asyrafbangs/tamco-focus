@@ -17119,3 +17119,23 @@ span.deadline span.deadline-glyph,
   width: 100%;
   max-width: 420px;
 }
+
+/* v290 — a staged photograph's own state, and the failure that keeps the
+   form on screen rather than moving on without the evidence. */
+.esh-staged-list .esh-file[data-status='preparing'],
+.esh-staged-list .esh-file[data-status='uploading'] {
+  opacity: 0.7;
+}
+.esh-staged-list .esh-file[data-status='failed'] {
+  border-left: 3px solid var(--danger, #c0392b);
+  padding-left: 9px;
+}
+.esh-file-problem {
+  color: var(--danger, #c0392b);
+}
+.esh-attach-failed {
+  margin-top: 16px;
+}
+.esh-attach-failed .esh-form-actions {
+  margin-top: 12px;
+}
