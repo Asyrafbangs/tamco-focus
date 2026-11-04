@@ -8,21 +8,38 @@ channel, touches production data or changes a secret.
 
 ## What each audit item turned out to be
 
-|     | Item                                                             | Verdict                                                                                                                                                                              |
-| --- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| A   | QR status visible and accurate; intake errors not shown as empty | **Partly already there, partly confirmed.** The Today page already renders an error notice and a disabled counter when the intake read fails. The reporting status was wrong — see J |
-| B   | New-finding photo uploads skipped silently                       | **Confirmed. Fixed**                                                                                                                                                                 |
-| C   | Compression inconsistent across the four evidence paths          | **Confirmed for the new-finding path. Fixed**                                                                                                                                        |
-| D   | Camera capture on mobile                                         | **Confirmed for the public form. Fixed.** Already correct for staff since v199                                                                                                       |
-| E   | A failed monitoring query makes the app look healthy             | **Confirmed. Fixed**                                                                                                                                                                 |
-| F   | Scheduled jobs and notification delivery                         | **Needs production evidence.** See _Limitations_                                                                                                                                     |
-| G   | Misleading empty states                                          | **One confirmed and fixed.** The review queue reported a failed read as "Nothing is waiting for verification"; the Today page and register were already honest                       |
-| H   | Malware scanning                                                 | **Already honest.** Risk restated, no scanner invented                                                                                                                               |
-| I   | Security regressions                                             | **Already covered**, re-run                                                                                                                                                          |
-| J   | Hard-coded "public QR reporting is not enabled"                  | **Confirmed. Fixed**                                                                                                                                                                 |
-| K   | Screen-by-screen UI audit                                        | **Two defects found and fixed.** The module switcher ran off a 320px screen; the department combobox could be shut for good by one early click                                       |
-| L   | Copy says "Copied" before the clipboard took it                  | **Confirmed. Fixed**                                                                                                                                                                 |
-| M   | Interface complexity                                             | **No change made.** Nothing was added that could be removed, and removing a working screen is not remediation                                                                        |
+Status means one of four things, and nothing in between:
+
+- **Fixed & tested** — changed, with a test that fails against the old code.
+- **Fixed, untested** — changed and verified by inspection, with the reason no
+  test covers it stated.
+- **Externally blocked** — cannot be settled from here; what is needed is named.
+- **Risk accepted** — understood, deliberately not changed.
+
+|     | Item                                                    | Status                                | What was done, and what proves it                                                                                                                                     |
+| --- | ------------------------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A   | QR status visible; intake errors not shown as empty     | **Fixed & tested**                    | The intake error notice was already there. The status was not — see J. `esh-health-reading-v290` (7 cases)                                                            |
+| B   | New-finding photo uploads skipped silently              | **Fixed & tested**                    | `esh-finding-evidence-retry-v290`, `esh-evidence-recovery-v291` (3 cases); each fails against the old code                                                            |
+| C   | Compression inconsistent across the four evidence paths | **Fixed & tested**                    | v290's spec holds the stored photograph under half what was chosen, with the camera original kept                                                                     |
+| D   | Camera capture on mobile                                | **Fixed & tested** in emulation       | Two buttons, asserted in `esh-public-reporting-v288`. Real handsets: see _Still outstanding_                                                                          |
+| E   | A failed monitoring query makes the app look healthy    | **Fixed & tested**                    | `esh-health-reading-v290`: five health outcomes, three reporting states                                                                                               |
+| F   | Scheduled jobs and notification delivery                | **Externally blocked**                | Needs production credentials and a log window this plan does not keep. `check:deployment --smoke` is the evidence; see _Still outstanding_                            |
+| G   | Misleading empty states                                 | **Fixed & tested**, one part untested | The review queue reported a failed read as "Nothing is waiting for verification" — `esh-review-queue-call-site-v290`. The Today counters are the untested part, below |
+| H   | Malware scanning                                        | **Risk accepted**                     | Nothing has ever been called clean; every file reads _Not scanned_. Hosting a scanner is an infrastructure decision. Residual risk named in _Still outstanding_       |
+| I   | Security regressions                                    | **Already correct, re-run**           | 902 pgTAP assertions across 39 files, including the guest, evidence, verification, scope, intake and public-reporting boundaries                                      |
+| J   | Hard-coded "public QR reporting is not enabled"         | **Fixed & tested**                    | A v290 policy lets ESH read the switch; `esh-health-reading-v290` holds that the unreadable wording never reads as open or closed                                     |
+| K   | Screen-by-screen UI audit                               | **Fixed & tested**                    | Two defects at 320 and 375: the switcher ran off-screen, and the department list could be shut for good. `esh-narrow-widths-v290`, `esh-foundations-v197`             |
+| L   | Copy says "Copied" before the clipboard took it         | **Fixed & tested**                    | `esh-qr-locations-v289` now takes the clipboard away and holds that the page says so instead of claiming success                                                      |
+| M   | Interface complexity                                    | **Risk accepted**                     | Nothing was added that could be removed; the only new control is a retry that appears when a photograph failed. Removing a working screen is not remediation          |
+
+### Found by review of the fixes themselves (v291)
+
+| Item                                                              | Status              | What proves it                                                                                           |
+| ----------------------------------------------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------- |
+| Removing the last failed photograph stranded the form             | **Fixed & tested**  | `esh-evidence-recovery-v291`                                                                             |
+| A replacement photograph chosen after a failure was ignored       | **Fixed & tested**  | `esh-evidence-recovery-v291`                                                                             |
+| Save draft could create a second finding after the save           | **Fixed & tested**  | `esh-evidence-recovery-v291`                                                                             |
+| Today's protection and overdue counters showed 0 on a failed read | **Fixed, untested** | Inspection and the type change. The read happens on the server and the page has no fault-injection point |
 
 ## The fixes
 
@@ -148,6 +165,65 @@ each needs its own judgement about whether to fail the page or mark the
 section; they are listed here so the next person does not have to find them
 again.
 
+### v291 — three ways to be stuck on the form v290 kept you on
+
+Keeping the form on screen when an upload failed was right, and it left three
+ways to be stranded there. An independent review of the v290 change found all
+three.
+
+**Removing the last failed file took the way out with it.** The notice was
+drawn only while something was failing, so doing exactly what it said — remove
+the file and open the finding without it — made the Open button disappear,
+while Assign finding stays disabled for good once the finding exists. The
+notice now stands for as long as the form is finishing a finding, and says
+which of three states it is in: photographs failed, photographs not sent yet,
+or nothing left but to open it.
+
+**A replacement photograph was ignored.** One chosen after a failure is
+`ready`, never `failed`, and the retry looked only for failures — so it was
+dropped as silently as the first one used to be, and the form then navigated
+away. The retry now sends everything the finding does not have, and will not
+run while a picture is still being re-encoded.
+
+**Save draft could create a second finding.** It submits with no id, so every
+press makes another record. After the save it would have left a duplicate
+draft carrying none of the evidence, with the original still missing its
+photographs. It is disabled once the finding exists.
+
+### The Today page's two headline numbers
+
+A failed dashboard read rendered "significant risks without verified
+protection" and "overdue owner actions" as **0** — the safest-looking screen in
+the module, produced by knowing nothing at all. Both now show an em dash and
+say the figure could not be read, and neither links anywhere while it is
+unknown.
+
+This one is verified by inspection and the type change rather than by a test:
+the dashboard is read on the server, and the page offers nowhere to inject a
+failure from a browser test.
+
+### The other error-to-empty readers, reviewed
+
+Every reader in `src/server/esh/queries.ts` that answers a failed read with an
+empty list or a null was looked at against one question: can it make ESH
+believe there is no pending work, or no risk?
+
+- **Already honest**, each with its own failed-read branch: the register, the
+  intake queue, the overview and insights, the public safety dashboard, the
+  finding detail, the access read, operational health, and the review queue as
+  of this branch.
+- **Not a claim about work or risk**, and left alone: the departments in scope,
+  the verifier list, the email contacts, the escalation defaults, the hazard
+  categories, the rollout status and mode, and the follow-up settings. These
+  feed form inputs and configuration panels; an empty one is a screen that
+  cannot be filled in, not a screen asserting that nothing is wrong.
+- **Worth a later look**, named here so nobody has to find them again:
+  `listDepartmentEscalationDefaults`, because an empty route reads as "nobody
+  is told when this goes overdue", and `listReviewedConnections` with the
+  related-findings links, because an empty list reads as "this has not happened
+  before". Neither is on the path to a count of outstanding work, which is why
+  they were not changed in a branch already this size.
+
 ### L — "Copied" before the clipboard had it
 
 Fire-and-forget: a browser that refuses clipboard access still reported
@@ -195,6 +271,12 @@ New regression tests:
   stays, the failure is legible, the retry attaches, exactly one finding
   exists, and the stored photograph is under half what was chosen with the
   original kept. Restoring the old "navigate anyway" behaviour fails it.
+- `esh-evidence-recovery-v291.spec.ts` — the three ways out of a failed
+  attachment: remove the last failed file and still get off the form, replace
+  it and have the replacement arrive, retry a failed one alongside one chosen
+  since. All three fail against the code as it stood before v291.
+- `esh-qr-locations-v289.spec.ts` gained a case that takes the clipboard away
+  and holds that the page says so rather than claiming success.
 - `esh-health-reading-v290.test.ts` — seven cases over the five health
   outcomes and the three reporting states, including that the unreadable
   wording never reads as open or closed.
@@ -214,6 +296,34 @@ New regression tests:
   `esh_qr_locations_v289` counted audit events across the whole database, so
   browser fixtures left behind by earlier runs made it fail for a reason that
   had nothing to do with the code. It now counts its own.
+
+## Still outstanding
+
+Four things this branch does not settle, kept here rather than quietly closed.
+
+1. **Production worker verification.** Whether the scheduled run, the mail
+   queue and the escalations are actually working in production cannot be
+   established from here: this session cannot read production, the runtime
+   logs on this plan cover thirty minutes, and the migrations table is not
+   exposed to PostgREST. The evidence is `npm run check:deployment -- --smoke`,
+   run by somebody with the production credentials. A successful deployment is
+   not evidence.
+2. **Malware scanning.** No scanner is configured, so every file reads _Not
+   scanned_ and nothing has ever been called clean. The bucket is protected by
+   the signature check, the pixel limits, the server-side rebuild of public
+   photographs, private storage and five-minute signed links. The residual risk
+   is unchanged and accepted: a staff member downloading an unscanned PDF or
+   Office file opens it on their own machine. Hosting a scanner is an
+   infrastructure decision with a running cost.
+3. **Real phone testing.** The camera fix is proven in emulation only. Android
+   Chrome and iPhone Safari behaviour — including whether "Take photo" opens
+   the camera and "Choose photo" the gallery, and what HEIC does on a current
+   iPhone — needs a handset.
+4. **Who watches the QR queue.** Public reporting is open in production for the
+   Office 1st Floor pilot and nothing automatic watches what arrives. The named
+   primary reviewer, the backup, the review frequency and the emergency
+   escalation arrangement the form points at without naming are all unanswered.
+   Until they are, the pilot is open without an owner.
 
 ## Limitations
 
@@ -263,19 +373,6 @@ New regression tests:
   for this branch. Branch protection was not changed: the minimum effective
   configuration is to require the two always-on jobs and dispatch the browser
   job before merging, which is what has been done throughout.
-
-## Human decisions, not invented
-
-Public QR reporting is **open** in production for an _Office 1st Floor_ pilot.
-These are deployment acceptance requirements and remain unanswered:
-
-1. The **named primary reviewer** of the intake queue.
-2. The **backup reviewer**.
-3. The **review frequency** — the queue is not watched by anything automatic.
-4. The **emergency escalation arrangement** the form points at without naming,
-   and confirmation that it is stated beside the sticker.
-
-Until those are answered by a person, the pilot is open without an owner.
 
 ## Production readiness
 
