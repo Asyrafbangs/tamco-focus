@@ -182,6 +182,15 @@ export function FindingForm({
     .find((problem) => problem);
   const preparing = staged.some((item) => item.state === 'preparing');
   const failedAttachments = staged.filter((item) => item.state === 'failed');
+  /*
+   * v291 - everything the finding does not have yet, not only what failed.
+   *
+   * A replacement photograph chosen after a failure is `ready`, never
+   * `failed`, so a retry that looked only for failures ignored it and then
+   * navigated away: the second photograph was dropped as silently as the
+   * first one used to be.
+   */
+  const outstandingAttachments = staged.filter((item) => item.state !== 'uploaded');
   const summaryId = useId();
   // A field that fails validation cannot be left folded away, so the
   // disclosure opens itself when the answer it holds is the one to correct.
@@ -362,7 +371,10 @@ export function FindingForm({
   function retryAttachments() {
     const findingId = savedFindingId;
     if (!findingId) return;
-    const outstanding = staged.filter((item) => item.state === 'failed');
+    // Anything not already on the finding: the ones that failed, and any
+    // chosen since. A picture still being re-encoded is not sent half-made.
+    if (preparing) return;
+    const outstanding = staged.filter((item) => item.state !== 'uploaded');
     if (outstanding.length === 0) return;
     startTransition(async () => {
       const allSent = await attachStaged(findingId, outstanding);
@@ -883,7 +895,19 @@ export function FindingForm({
             Back
           </button>
         )}
-        <button className="btn" type="submit" name="intent" value="draft" disabled={pending}>
+        {/*
+         * v291 - not once the finding exists. This submits with no id, so
+         * every press creates another finding; after the save it would have
+         * made a duplicate draft carrying none of the evidence, and left the
+         * original behind with its photographs still unattached.
+         */}
+        <button
+          className="btn"
+          type="submit"
+          name="intent"
+          value="draft"
+          disabled={pending || savedFindingId !== null}
+        >
           Save draft
         </button>
         {/*
@@ -930,29 +954,60 @@ export function FindingForm({
        * v290 — the finding is saved and a photograph is not. Saying so, and
        * offering the one action that fixes it, rather than moving on to a
        * page that would look complete.
+       *
+       * v291 - and shown for as long as the form is finishing a finding, not
+       * only while something is failing.
+       *
+       * It used to appear only when a photograph had failed, so removing the
+       * last failed file took the way out with it: Assign finding stays
+       * disabled once the finding exists, and the only button that opened it
+       * had just vanished. Somebody who did what the message told them to do
+       * was stranded on a form that could do nothing.
        */}
-      {savedFindingId && failedAttachments.length > 0 && (
-        <div className="notice error esh-attach-failed" role="alert">
+      {savedFindingId && (
+        <div
+          className={
+            failedAttachments.length > 0
+              ? 'notice error esh-attach-failed'
+              : 'notice esh-attach-failed'
+          }
+          role="alert"
+        >
           <strong>
-            The finding was saved, but{' '}
-            {failedAttachments.length === 1
-              ? 'one photograph did not attach'
-              : `${failedAttachments.length} photographs did not attach`}
-            .
+            {failedAttachments.length > 0
+              ? `The finding was saved, but ${
+                  failedAttachments.length === 1
+                    ? 'one photograph did not attach'
+                    : `${failedAttachments.length} photographs did not attach`
+                }.`
+              : outstandingAttachments.length > 0
+                ? `The finding was saved. ${
+                    outstandingAttachments.length === 1
+                      ? 'One photograph is'
+                      : `${outstandingAttachments.length} photographs are`
+                  } not attached to it yet.`
+                : 'The finding was saved.'}
           </strong>
           <p>
-            Nothing has been lost from this screen. Try again, or remove the file and open the
-            finding without it.
+            {outstandingAttachments.length > 0
+              ? 'Nothing has been lost from this screen. Try again, or open the finding without them.'
+              : 'Open it to carry on. Nothing else on this form can be saved again.'}
           </p>
           <div className="esh-form-actions">
-            <button
-              type="button"
-              className="btn primary small"
-              disabled={pending}
-              onClick={retryAttachments}
-            >
-              {pending ? 'Attaching…' : 'Try the attachments again'}
-            </button>
+            {outstandingAttachments.length > 0 && (
+              <button
+                type="button"
+                className="btn primary small"
+                disabled={pending || preparing}
+                onClick={retryAttachments}
+              >
+                {pending
+                  ? 'Attaching…'
+                  : preparing
+                    ? 'Preparing photos…'
+                    : 'Try the attachments again'}
+              </button>
+            )}
             {redirectTo && (
               <button
                 type="button"
@@ -960,7 +1015,9 @@ export function FindingForm({
                 disabled={pending}
                 onClick={() => router.push(redirectTo)}
               >
-                Open the finding without them
+                {outstandingAttachments.length > 0
+                  ? 'Open the finding without them'
+                  : 'Open the finding'}
               </button>
             )}
           </div>
