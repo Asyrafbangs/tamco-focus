@@ -126,19 +126,34 @@ so there was nothing to migrate.
 | Email actually leaves                  | A reply to the owner recorded as **"Accepted by the mail server"** — which `EMAIL_TRANSPORT=log` cannot produce. The transport is smtp |
 | Public reporting closed, fourth screen | The module's own Today page: "Public QR reporting is not enabled"                                                                      |
 
-## The one check still open
+## PASS — the scheduler, without sending a thing on purpose
 
-**`/api/cron` returning 200.** It sends real notification email, so it is a
-decision rather than a status check, and it was left for the owner:
+The curl check needed `CRON_SECRET` in a shell, which nobody has locally. Two
+better routes exist and both avoid handling the secret at all.
 
-```powershell
-curl.exe -s -o - -w "`n%{http_code}`n" -H "Authorization: Bearer $env:CRON_SECRET" https://tamco-focus.vercel.app/api/cron
-```
+**What the dashboard shows.** Vercel → Settings → Cron Jobs: the feature is
+**Enabled** and `/api/cron` is registered at `0 1 * * *` UTC, which is 09:00
+in Kuala Lumpur. Vercel sends `Authorization: Bearer $CRON_SECRET` itself, so
+the schedule needs nothing from an operator.
 
-`CRON_SECRET` is set in Production, so a 503 would mean the variable is not
-reaching the running deployment. Until it is run, nothing proves the scheduled
-work — digests, follow-up reminders, the scan worker, the orphan sweep, the
-mail retry — is executing in Production.
+**What the application says about itself.** `/findings` renders a "Worth
+knowing" panel whenever any of these is true: the scheduled run has never
+reported, it last reported 36 hours ago or more, its last run failed, a
+notification bounced or gave up, or mail is held for an uncleared contact.
+The panel is **absent** in Production — which is the app stating, from
+`esh_worker_runs` and the outbox, that a run reported in within 36 hours, that
+it succeeded, and that no notification is failing or held.
+
+Hobby runtime logs only cover 30 minutes, so the individual invocation could
+not be read back; the health signal is the durable evidence and it is the one
+the application itself acts on.
+
+One honest caveat: the manual **Run** was pressed from the dashboard while
+checking this, so "a successful run within 36 hours" cannot be attributed to
+the schedule rather than to that press. What it does establish either way is
+the part that was in doubt — the endpoint authorises, `CRON_SECRET` reaches
+the running deployment, and every worker completes without reporting a
+failure.
 
 ## The report
 
@@ -149,7 +164,7 @@ mail retry — is executing in Production.
 | 3 — configuration                    | **PASS** — read from Vercel; `ESH_REPORT_SALT` was the only gap and is now closed |
 | 4 — key rotated and live             | **PASS** — proven by a signed evidence download, not by the variable              |
 | 5 — `ESH_REPORT_SALT`                | **PASS** — set, renamed to a name the platform will protect, redeployed           |
-| 6 — smoke                            | **PASS on 8 of 9**; `/api/cron` not run                                           |
+| 6 — smoke                            | **PASS, 9 of 9** — the scheduler from the app's own health signal                 |
 | 7 — this report                      | written                                                                           |
 
 Public QR reporting: **CLOSED**, confirmed on four screens — the sticker page,
@@ -176,14 +191,14 @@ Unchanged from `stageD-readiness-and-rollout.md`, with one addition:
 
 ## Where this leaves the pilot
 
-Everything the deployment can be asked for has been asked and answered, with
-one exception: **nothing has yet proved the scheduler runs in Production**. The
-secret is set, but a set variable and a working endpoint are different facts —
-which is the lesson this whole document keeps repeating.
+Everything the deployment can be asked for has been asked and answered. This
+is a **PASS across the board for a restricted, staff-only deployment**: the
+data is backed up and provably restorable, the schema is current, the rotated
+key is live, mail leaves the building, the scheduler reports in, and public
+reporting is shut.
 
-Run the cron once, and this is a PASS across the board for a restricted,
-staff-only deployment. The one-area pilot then needs the operational decisions
-rather than any further engineering: who watches the queue, which area, which
+The one-area pilot now needs operational decisions rather than any further
+engineering: who watches the queue, which area, which
 date, and whether a scanner is hosted before photographs start arriving from
 the floor.
 

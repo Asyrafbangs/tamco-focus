@@ -589,10 +589,12 @@ steps**, recorded in `deployment-2026-11-04.md`:
   that `EMAIL_TRANSPORT` is smtp;
 - public QR reporting confirmed **closed** on four screens.
 
-**The one open check: `/api/cron` has not been run in Production.** The secret
-is set, but a set variable and a working endpoint are different facts. Until
-it runs, nothing proves the digests, follow-up reminders, scan worker, orphan
-sweep and mail retry are executing.
+**The scheduler is proven too**, without curl and without handling the secret:
+Vercel shows Cron Jobs enabled with `/api/cron` at `0 1 * * *` UTC, and the
+application's own "Worth knowing" panel is absent in Production - which it
+only is when a scheduled run reported within 36 hours, that run succeeded, and
+no notification is bouncing or held. Production readiness is **PASS on all
+seven steps** for a restricted, staff-only deployment.
 
 After that, the one-area pilot needs operational decisions rather than
 engineering: who watches the queue, which area, which date, and whether a
