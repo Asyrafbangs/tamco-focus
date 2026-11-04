@@ -359,16 +359,24 @@ Four things this branch does not settle, kept here rather than quietly closed.
   reports that the first word of their report went missing.
 - **This machine's development server loses races the production build does
   not.** Thirteen existing browser specs — the Action Owner's screens, the
-  handover, the access directory — fail here by interacting before the island
-  behind them has hydrated, and pass in CI against a production build. It is
-  not fixture drift: they fail identically on a freshly reset database, a
-  cleared build cache and a restarted server, and in isolation. Two helpers
-  that open the owner's screen now wait for the page they land on rather than
-  the one they left, which fixed four of them and costs nothing; the rest were
-  left alone rather than papered over with sleeps, because the suite that
-  decides whether this merges is the one that already passes. The underlying
-  shape is worth knowing: on these pages a click or a file that arrives early
-  is not queued or retried, it is simply never seen.
+  handover, the access directory — failed here by interacting before the island
+  behind them had hydrated, and all of them pass in CI against a production
+  build. It is not fixture drift: they failed identically on a freshly reset
+  database, a cleared build cache and a restarted server, and in isolation. Two
+  helpers that open the owner's screen now wait for the page they land on
+  rather than the one they left, which fixed five of them and costs nothing;
+  the local count is now **8 failing, 97 passing**.
+
+  The remaining eight were left alone rather than padded with sleeps, and the
+  reason is specific: on this development server the owner's screen, reached
+  through the access form's POST, does not finish hydrating at all. React never
+  attaches its fibre to the composer — a probe polling for it gives up after
+  thirty seconds — and a reload fixes it immediately. So there is nothing to
+  wait for, and a wait that cannot succeed is worse than no wait. CI passes the
+  same specs, which places this in Turbopack's development server rather than
+  in the page. Worth knowing either way: on these screens a click or a file
+  that arrives early is not queued or retried, it is simply never seen.
+
 - **CI's end-to-end job** runs only on `main` or a dispatch, and was dispatched
   for this branch. Branch protection was not changed: the minimum effective
   configuration is to require the two always-on jobs and dispatch the browser
