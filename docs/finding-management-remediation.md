@@ -16,7 +16,7 @@ channel, touches production data or changes a secret.
 | D   | Camera capture on mobile                                         | **Confirmed for the public form. Fixed.** Already correct for staff since v199                                                                                                       |
 | E   | A failed monitoring query makes the app look healthy             | **Confirmed. Fixed**                                                                                                                                                                 |
 | F   | Scheduled jobs and notification delivery                         | **Needs production evidence.** See _Limitations_                                                                                                                                     |
-| G   | Misleading empty states                                          | **Already fixed** by v282, v283 and the Today page's own branches; one verification added                                                                                            |
+| G   | Misleading empty states                                          | **One confirmed and fixed.** The review queue reported a failed read as "Nothing is waiting for verification"; the Today page and register were already honest                       |
 | H   | Malware scanning                                                 | **Already honest.** Risk restated, no scanner invented                                                                                                                               |
 | I   | Security regressions                                             | **Already covered**, re-run                                                                                                                                                          |
 | J   | Hard-coded "public QR reporting is not enabled"                  | **Confirmed. Fixed**                                                                                                                                                                 |
@@ -121,6 +121,32 @@ That second one was found the hard way: a browser test reported that
 "Operations does not exist" and the department list was empty, which looks
 exactly like a permissions or data defect. It was neither. Reading
 `aria-expanded` rather than the symptom is what separated them.
+
+### G — the review queue was telling the same lie its own counter refuses to
+
+`countAwaitingVerification` — the number beside the menu item — already refuses
+to answer a failed read with zero. The comment above it says why, in as many
+words: a count that says nothing is awaiting verification when it does not know
+is "the same lie v282 and v283 closed".
+
+The list underneath it did exactly that. `listVerificationQueue` returned an
+empty array when its read failed, and the page renders an empty array as
+**"Nothing is waiting for verification."** Its second read — the one that turns
+submissions into register rows — did not look at `error` at all, so a failure
+there produced an empty queue with nothing in the log either. Corrections
+submitted by Action Owners would sit unreviewed while the screen said there was
+nothing to review.
+
+Both reads now go through `requireAnswer`, which is what the counter beside them
+already does, so the page fails visibly instead of quietly.
+
+The same `return []`-on-error shape remains in readers this assignment did not
+touch: the departments in scope, the verifier list, the email contacts, the
+escalation defaults, the hazard categories, the dashboards and the rollout
+status. None of them states an absence as flatly as the review queue did, and
+each needs its own judgement about whether to fail the page or mark the
+section; they are listed here so the next person does not have to find them
+again.
 
 ### L — "Copied" before the clipboard had it
 

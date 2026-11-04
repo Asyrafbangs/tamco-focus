@@ -1469,10 +1469,16 @@ export async function listVerificationQueue(
     .eq('state', 'pending')
     .order('submitted_at')
     .limit(200);
-  if (error) {
-    console.error(`[listVerificationQueue] ${error.message}`);
-    return [];
-  }
+  /*
+   * v290 - the same rule as the count beside it, which has refused to answer a
+   * failed read with zero since it was written. This returned an empty array,
+   * and the page renders an empty array as "Nothing is waiting for
+   * verification": corrections submitted by Action Owners sitting unreviewed
+   * while the screen says there is nothing to review. It is the lie v282 and
+   * v283 closed on the access read and the finding detail, left on the queue
+   * that decides whether work gets checked.
+   */
+  requireAnswer(error ? { code: error.code, message: error.message } : null, 'The review queue');
   const actionIds = (submissions ?? []).map((row) => String(row.action_id));
   if (actionIds.length === 0) return [];
   let actionQuery = supabase
@@ -1484,7 +1490,16 @@ export async function listVerificationQueue(
   } else if (departmentId) {
     actionQuery = actionQuery.eq('accountable_department_id', departmentId);
   }
-  const { data: rows } = await actionQuery;
+  const { data: rows, error: rowsError } = await actionQuery;
+  /*
+   * And this one, which did not look at `error` at all. A failure here left
+   * every submission without a row to match, so they were all dropped and the
+   * queue came out empty - with nothing in the log to say why.
+   */
+  requireAnswer(
+    rowsError ? { code: rowsError.code, message: rowsError.message } : null,
+    'The review queue',
+  );
   const findingOf = new Map((rows ?? []).map((row) => [String(row.action_id), row]));
   return (submissions ?? [])
     .map((submission) => {

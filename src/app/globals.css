@@ -17146,12 +17146,15 @@ span.deadline span.deadline-glyph,
 .esh-staged-list .esh-file[data-status='uploading'] {
   opacity: 0.7;
 }
+/* `--red`, which this stylesheet defines and redefines for Night mode.
+   `--danger` is not a token here, so the fallback beside it was a fixed hex
+   that stayed the same colour in the dark. */
 .esh-staged-list .esh-file[data-status='failed'] {
-  border-left: 3px solid var(--danger, #c0392b);
+  border-left: 3px solid var(--red);
   padding-left: 9px;
 }
 .esh-file-problem {
-  color: var(--danger, #c0392b);
+  color: var(--red);
 }
 .esh-attach-failed {
   margin-top: 16px;

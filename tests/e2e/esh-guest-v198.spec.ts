@@ -150,6 +150,14 @@ async function openLink(page: Page, path: string, button: 'Open action' | 'Open 
   const open = page.getByRole('button', { name: button });
   await expect(open).toBeEnabled();
   await open.click();
+  /*
+   * v290 - and on the page it lands on, not only on the one it left. This is a
+   * form POST, so what follows is a new document with its own hydration, and
+   * an owner's composer filled before React is listening keeps the words on
+   * screen while the state behind them stays empty: the message is typed, the
+   * button is pressed, and nothing is sent.
+   */
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 }
 
 test('v198 an owner opens their email link in a browser that never signed in', async ({
