@@ -126,34 +126,46 @@ so there was nothing to migrate.
 | Email actually leaves                  | A reply to the owner recorded as **"Accepted by the mail server"** — which `EMAIL_TRANSPORT=log` cannot produce. The transport is smtp |
 | Public reporting closed, fourth screen | The module's own Today page: "Public QR reporting is not enabled"                                                                      |
 
-## PASS — the scheduler, without sending a thing on purpose
+## WITHDRAWN — the scheduler. It was never proven, and it is probably broken
 
-The curl check needed `CRON_SECRET` in a shell, which nobody has locally. Two
-better routes exist and both avoid handling the secret at all.
+This section said PASS. That was wrong, and the correction matters more than
+the original claim.
 
-**What the dashboard shows.** Vercel → Settings → Cron Jobs: the feature is
-**Enabled** and `/api/cron` is registered at `0 1 * * *` UTC, which is 09:00
-in Kuala Lumpur. Vercel sends `Authorization: Bearer $CRON_SECRET` itself, so
-the schedule needs nothing from an operator.
+The evidence was the **absence** of the "Worth knowing" panel on `/findings`,
+read as "a run reported within 36 hours and succeeded". It is not: the panel
+is also absent when `getOperationalHealth` returns null, which is what it does
+when the read fails. I relied on a benign default to mean a positive fact —
+exactly the defect class v282 and v283 were raised to remove, in a document
+that describes removing it.
 
-**What the application says about itself.** `/findings` renders a "Worth
-knowing" panel whenever any of these is true: the scheduled run has never
-reported, it last reported 36 hours ago or more, its last run failed, a
-notification bounced or gave up, or mail is held for an uncleared contact.
-The panel is **absent** in Production — which is the app stating, from
-`esh_worker_runs` and the outbox, that a run reported in within 36 hours, that
-it succeeded, and that no notification is failing or held.
+What was found an hour later, while investigating a merged feature that never
+appeared on the site:
 
-Hobby runtime logs only cover 30 minutes, so the individual invocation could
-not be read back; the health signal is the durable evidence and it is the one
-the application itself acts on.
+```
+Error: [INVALID_CRON_SECRET] The `CRON_SECRET` environment variable contains
+leading or trailing whitespace, which is not allowed in HTTP header values.
+```
 
-One honest caveat: the manual **Run** was pressed from the dashboard while
-checking this, so "a successful run within 36 hours" cannot be attributed to
-the schedule rather than to that press. What it does establish either way is
-the part that was in doubt — the endpoint authorises, `CRON_SECRET` reaches
-the running deployment, and every worker completes without reporting a
-failure.
+**Two production deployments have failed in three seconds each** — `b1717fe`
+and `709a3ac`, the Stage E merge. The live site is still the redeploy of
+`57ae8b2`, which is why Finding settings has no QR locations tab: Stage E is
+merged and green on CI, and was never deployed.
+
+And the same whitespace breaks the endpoint. `api/cron/route.ts` compares
+`presented !== 'Bearer ' + expected`, so a secret carrying a stray space or
+newline never matches: every scheduled run would have answered 401 and
+recorded nothing. The reminders, digests, follow-ups, scan worker, orphan
+sweep and mail retry may not have run for as long as the value has been
+malformed — it has not been touched since 11 August.
+
+**The fix is the owner's, and it is thirty seconds:** Vercel → Environment
+Variables → `CRON_SECRET` → re-enter the value with no leading or trailing
+whitespace → Save → Redeploy. The deployment then succeeds and Stage E
+appears with it.
+
+`npm run check:deployment` now refuses a whitespace-padded secret rather than
+reporting it present, which is the check that would have caught this before a
+deployment did.
 
 ## The report
 
@@ -164,7 +176,7 @@ failure.
 | 3 — configuration                    | **PASS** — read from Vercel; `ESH_REPORT_SALT` was the only gap and is now closed |
 | 4 — key rotated and live             | **PASS** — proven by a signed evidence download, not by the variable              |
 | 5 — `ESH_REPORT_SALT`                | **PASS** — set, renamed to a name the platform will protect, redeployed           |
-| 6 — smoke                            | **PASS, 9 of 9** — the scheduler from the app's own health signal                 |
+| 6 — smoke                            | **PASS on 8 of 9. The scheduler is FAIL**: `CRON_SECRET` has whitespace           |
 | 7 — this report                      | written                                                                           |
 
 Public QR reporting: **CLOSED**, confirmed on four screens — the sticker page,
@@ -191,14 +203,18 @@ Unchanged from `stageD-readiness-and-rollout.md`, with one addition:
 
 ## Where this leaves the pilot
 
-Everything the deployment can be asked for has been asked and answered. This
-is a **PASS across the board for a restricted, staff-only deployment**: the
-data is backed up and provably restorable, the schema is current, the rotated
-key is live, mail leaves the building, the scheduler reports in, and public
-reporting is shut.
+Eight of nine hold. The ninth does not: `CRON_SECRET` carries whitespace, so
+production cannot deploy and the scheduled work has probably never run. Until
+that is re-saved and the deployment succeeds, this is **not ready for a
+pilot** — a reporting channel whose reminders and escalations do not fire is
+worse than no channel, because somebody will rely on it.
 
-The one-area pilot now needs operational decisions rather than any further
-engineering: who watches the queue, which area, which
+Everything else stands: the data is backed up and provably restorable, the
+schema is current, the rotated key is live, mail leaves the building when the
+application sends it, and public reporting is shut.
+
+After the secret is fixed, the one-area pilot needs operational decisions
+rather than further engineering: who watches the queue, which area, which
 date, and whether a scanner is hosted before photographs start arriving from
 the floor.
 

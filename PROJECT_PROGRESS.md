@@ -589,12 +589,18 @@ steps**, recorded in `deployment-2026-11-04.md`:
   that `EMAIL_TRANSPORT` is smtp;
 - public QR reporting confirmed **closed** on four screens.
 
-**The scheduler is proven too**, without curl and without handling the secret:
-Vercel shows Cron Jobs enabled with `/api/cron` at `0 1 * * *` UTC, and the
-application's own "Worth knowing" panel is absent in Production - which it
-only is when a scheduled run reported within 36 hours, that run succeeded, and
-no notification is bouncing or held. Production readiness is **PASS on all
-seven steps** for a restricted, staff-only deployment.
+**The scheduler is NOT proven, and production cannot deploy.** `CRON_SECRET`
+in Vercel carries leading or trailing whitespace, so Vercel refuses the build
+outright: two production deployments have failed in three seconds, including
+the Stage E merge, and the live site is still the redeploy of `57ae8b2`. The
+same whitespace breaks the endpoint, which compares the bearer exactly - so
+the scheduled work has probably never run. An earlier PASS on this was
+withdrawn: it rested on the absence of the "Worth knowing" panel, which is
+also absent when the health read fails.
+
+The owner's fix is thirty seconds: re-save `CRON_SECRET` without whitespace
+and redeploy. `npm run check:deployment` now refuses a padded value rather
+than reporting it present.
 
 After that, the one-area pilot needs operational decisions rather than
 engineering: who watches the queue, which area, which date, and whether a

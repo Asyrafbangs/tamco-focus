@@ -292,10 +292,30 @@ async function main() {
       transport && transport !== 'smtp' ? ' — mail is not being sent' : ''
     }`,
   );
-  say(
-    process.env.CRON_SECRET ? 'ok' : 'miss',
-    'CRON_SECRET' + (process.env.CRON_SECRET ? '' : ' — the cron endpoint answers 503'),
-  );
+  /*
+   * Present is not enough. A `CRON_SECRET` with a leading or trailing space —
+   * the shape a value pasted from a password manager or an editor takes —
+   * cannot go into an HTTP header, so Vercel refuses the build outright and
+   * every production deployment fails in three seconds. It did, twice, on
+   * 4 November 2026, and the symptom was a merged feature that never appeared
+   * on the site rather than anything mentioning cron.
+   *
+   * It also breaks the endpoint itself: the route compares the bearer exactly,
+   * so a secret with a stray newline never matches and the scheduled work
+   * simply never runs.
+   */
+  const cronSecret = process.env.CRON_SECRET ?? '';
+  if (!cronSecret) {
+    say('miss', 'CRON_SECRET — the cron endpoint answers 503 and nothing scheduled runs');
+  } else if (cronSecret !== cronSecret.trim()) {
+    say(
+      'miss',
+      'CRON_SECRET has leading or trailing whitespace — Vercel refuses the build, and the ' +
+        'endpoint would never match the bearer. Re-save it with no spaces or newlines.',
+    );
+  } else {
+    say('ok', 'CRON_SECRET');
+  }
   const mime = process.env.ATTACHMENT_ALLOWED_MIME ?? '';
   say(
     mime ? 'ok' : 'warn',
