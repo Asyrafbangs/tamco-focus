@@ -217,6 +217,15 @@ New regression tests:
 
 ## Limitations
 
+- **`check:deployment --smoke` was about to start failing for a correct
+  deployment.** It asserted that public QR reporting is closed, which was true
+  when it was written and false from the moment the channel was opened for the
+  pilot on 4 November. A check that goes red for the state the owner chose is a
+  check nobody reads — and this one is the only evidence anybody has that the
+  scheduled run is working, which is item F's whole answer. It now reports the
+  switch's state: closed is an `ok`, open is a `warn` saying reports can arrive
+  and somebody must be watching. Not run from here: it needs production
+  credentials this session does not have.
 - **F — scheduled jobs and delivery cannot be proven from here.** Runtime logs
   on this plan cover 30 minutes, the migrations table is not exposed to
   PostgREST, and this session cannot read production. What _can_ be read is

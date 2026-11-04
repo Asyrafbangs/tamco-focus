@@ -140,9 +140,24 @@ async function smoke(url, key) {
 
   try {
     const settings = await read(url, key, 'esh_qr_intake_settings?select=enabled');
+    /*
+     * v290 - the state, said plainly, rather than an expectation that has since
+     * been overtaken.
+     *
+     * This failed whenever the switch was on, because when it was written the
+     * channel had never been opened. It was opened deliberately on 4 November
+     * 2026 for a one-area pilot, so the check now reports a miss for the state
+     * the owner chose - and a check that is red for a correct deployment stops
+     * being read, which matters here because this command is the only evidence
+     * anybody has that the scheduled run is working.
+     *
+     * Open is still worth saying loudly: anonymous reports can arrive and
+     * somebody has to be watching the queue. It is a warning, not a failure.
+     */
     if (settings.length !== 1)
       miss(`public reporting settings: ${settings.length} rows, expected 1`);
-    else if (settings[0].enabled !== false) miss('PUBLIC QR REPORTING IS OPEN — expected closed');
+    else if (settings[0].enabled !== false)
+      say('warn', 'public QR reporting is OPEN — reports can arrive; somebody must be watching');
     else say('ok', 'public QR reporting is closed');
   } catch (cause) {
     miss(`public reporting settings unreadable: ${cause.message}`);
