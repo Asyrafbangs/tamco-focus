@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { QrLocations } from '@/components/esh/QrLocations';
 import { DepartmentEscalationForm } from '@/components/esh/DepartmentEscalationForm';
 import { DepartmentList } from '@/components/esh/DepartmentList';
 import { FollowupRulesForm } from '@/components/esh/FollowupRulesForm';
@@ -14,6 +15,7 @@ import {
   getFollowupSettings,
   getReportSettings,
   getRolloutStatus,
+  listQrLocations,
   listDepartmentEscalationDefaults,
 } from '@/server/esh/queries';
 
@@ -29,6 +31,11 @@ const TABS = [
   { key: 'departments', label: 'Departments' },
   { key: 'follow-up', label: 'Follow-up defaults' },
   { key: 'owner-access', label: 'Owner access' },
+  // v289 - the places a sticker can point at. Beside the other ESH
+  // configuration rather than with the administrator's switch: deciding where
+  // a sticker goes is ESH's knowledge of the plant, while opening the channel
+  // at all is the administrator's signature.
+  { key: 'qr-locations', label: 'QR locations' },
   { key: 'reports', label: 'Reports' },
 ] as const;
 
@@ -48,13 +55,14 @@ export default async function FindingSettingsPage({
   const asked = TABS.find((tab) => tab.key === params.tab)?.key;
   const tab: TabKey = asked ?? (access.canVerify ? 'departments' : 'reports');
 
-  const [settings, reports, routes, departments, rollout] = await Promise.all([
+  const [settings, reports, routes, departments, rollout, qrLocations] = await Promise.all([
     access.canVerify ? getFollowupSettings() : Promise.resolve(null),
     access.canManageReports ? getReportSettings() : Promise.resolve(null),
     access.canVerify ? listDepartmentEscalationDefaults() : Promise.resolve([]),
     access.canVerify ? getDepartmentsInScope(access) : Promise.resolve([]),
     // Counts and the mode only; changing it stays an administrator's act.
     getRolloutStatus(),
+    access.canVerify ? listQrLocations() : Promise.resolve([]),
   ]);
 
   const shown = TABS.filter((one) =>
@@ -133,6 +141,14 @@ export default async function FindingSettingsPage({
             <p className="form-hint">The rollout configuration could not be read.</p>
           )}
         </section>
+      )}
+
+      {tab === 'qr-locations' && access.canVerify && (
+        <QrLocations
+          locations={qrLocations}
+          departments={departments.map((one) => ({ id: one.id, name: one.name }))}
+          canCoordinate={access.canCoordinate}
+        />
       )}
 
       {tab === 'reports' &&

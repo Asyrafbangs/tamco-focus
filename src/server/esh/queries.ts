@@ -2036,3 +2036,52 @@ export async function getQrIntakeStatus(): Promise<QrIntakeStatus | null> {
     changeReason: data.change_reason ? String(data.change_reason) : null,
   };
 }
+
+/**
+ * v289 - the QR locations this reader covers, retired ones included.
+ *
+ * A retired location stays in the list on purpose: it is the row that
+ * explains where an old report came from, and seeing it is what stops
+ * somebody wondering whether a sticker they can still see on a wall is live.
+ *
+ * The address is built here rather than in the component, because the sticker
+ * is printed from it and a relative path cannot be printed.
+ */
+export interface QrLocationRow {
+  id: string;
+  code: string;
+  label: string;
+  departmentName: string | null;
+  active: boolean;
+  createdAt: string;
+  retiredAt: string | null;
+  url: string;
+}
+
+export function publicReportBase(): string {
+  return (process.env.APP_BASE_URL ?? '').replace(/\/$/, '');
+}
+
+export async function listQrLocations(): Promise<QrLocationRow[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('esh_qr_locations')
+    .select('id, public_code, display_label, active, created_at, retired_at, departments(name)')
+    .order('active', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error(`[listQrLocations] ${error.code ?? 'unknown'}: ${error.message}`);
+    return [];
+  }
+  const base = publicReportBase();
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    code: String(row.public_code),
+    label: String(row.display_label),
+    departmentName: (row.departments as { name?: string } | null)?.name ?? null,
+    active: Boolean(row.active),
+    createdAt: String(row.created_at),
+    retiredAt: row.retired_at ? String(row.retired_at) : null,
+    url: `${base}/report/${String(row.public_code)}`,
+  }));
+}

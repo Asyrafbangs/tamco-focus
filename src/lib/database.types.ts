@@ -16242,6 +16242,10 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_add_qr_location: {
+        Args: { p_department_id?: string; p_label: string }
+        Returns: Json
+      }
       esh_admin_contact_access_items: {
         Args: { p_principal_id: string }
         Returns: {
@@ -16761,6 +16765,7 @@ export type Database = {
         }
         Returns: Json
       }
+      esh_retire_qr_location: { Args: { p_location_id: string }; Returns: Json }
       esh_rollout_status: { Args: never; Returns: Json }
       esh_run_effectiveness_due: { Args: never; Returns: Json }
       esh_run_followups: { Args: { p_now?: string }; Returns: Json }
