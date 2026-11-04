@@ -17058,3 +17058,64 @@ span.deadline span.deadline-glyph,
   color: var(--muted);
   font-size: 11px;
 }
+
+/* v289 — the QR locations list, one row per printed sticker. */
+.esh-qr-list {
+  margin: 16px 0;
+  padding: 0;
+  list-style: none;
+}
+.esh-qr-list > li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.esh-qr-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.esh-qr-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.esh-qr-label small {
+  color: var(--muted);
+}
+/* The address is printed onto a sticker, so it has to be readable and whole:
+   it wraps rather than truncating, at any width. */
+.esh-qr-address {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.esh-qr-address code {
+  flex: 1;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  color: var(--muted);
+}
+.esh-qr-retired {
+  margin: 8px 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.esh-qr-retired ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+.esh-qr-add {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.esh-qr-add .esh-field {
+  width: 100%;
+  max-width: 420px;
+}
