@@ -182,6 +182,36 @@ deployment did.
 Public QR reporting: **CLOSED**, confirmed on four screens — the sticker page,
 the administrator switch, the Patterns page and the module's own Today page.
 
+## Public QR reporting was opened, 4 November 2026
+
+At the owner's explicit request, once the `CRON_SECRET` fix let the Stage E
+deployment through.
+
+|          |                                                                                                                                                                      |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Switch   | **Open** — reason recorded: "Pilot on Office 1st Floor, opened at the owner's request on 4 November 2026."                                                           |
+| Location | Office 1st Floor, Administration                                                                                                                                     |
+| Address  | In Finding settings → QR locations, with a Copy button. Deliberately not written here: the code **is** the authorisation, and a repository is the wrong place for it |
+| Verified | The form renders for a visitor with no account and reads "YOU ARE AT Office 1st Floor"                                                                               |
+
+**Why the link looked broken first.** Two reasons, both by design. The channel
+was closed, and a closed channel resolves every code to the same "this link
+does not report anything" page as an unissued one — deliberately, so a
+stranger cannot learn which codes exist. The first location, _Office Floor
+1st_, had also been **retired**, and a retired code never resolves again and
+can never be reissued; the live sticker is the newer _Office 1st Floor_.
+
+**Stopping it** is the same card on Identity and access. It now reads **Open**,
+with a box for why it is being closed and a _Close public reporting_ button.
+Closing stops new reports and keeps the ones already received. One sticker can
+be taken out of use on its own with **Retire** in Finding settings → QR
+locations.
+
+**Still true, and now live-facing:** nobody has confirmed who watches the
+intake queue daily, and the form points at the site's emergency procedure
+without naming it. Neither is an engineering question, and the channel is open
+regardless.
+
 ## Outstanding risks
 
 Unchanged from `stageD-readiness-and-rollout.md`, with one addition:
