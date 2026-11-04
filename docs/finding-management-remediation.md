@@ -178,15 +178,15 @@ to select the address instead.
 
 Run on this branch, against the local stack:
 
-| Command                              | Result                                                                         |
-| ------------------------------------ | ------------------------------------------------------------------------------ |
-| `npx tsc --noEmit`                   | clean                                                                          |
-| `npx eslint . --max-warnings=0`      | clean                                                                          |
-| `npx prettier --check .`             | clean (CRLF noise aside — `autocrlf=true` here)                                |
-| `npx vitest run --project unit`      | **673 passed**                                                                 |
-| `npx supabase test db --local`       | **902 assertions, PASS**                                                       |
-| `npm run test:e2e -- esh-`           | **98 passed** across desktop, tablet and mobile                                |
-| `npm run test:e2e -- esh-crawl-v218` | 2 passed — the role × viewport × Night-mode crawl with axe and overflow checks |
+| Command                              | Result                                                                          |
+| ------------------------------------ | ------------------------------------------------------------------------------- |
+| `npx tsc --noEmit`                   | clean                                                                           |
+| `npx eslint . --max-warnings=0`      | clean                                                                           |
+| `npx prettier --check .`             | clean (CRLF noise aside — `autocrlf=true` here)                                 |
+| `npx vitest run --project unit`      | **677 passed**                                                                  |
+| `npx supabase test db --local`       | **902 assertions, PASS**                                                        |
+| `npm run test:e2e -- esh-`           | **CI: the whole suite green** on the branch; see _Limitations_ for this machine |
+| `npm run test:e2e -- esh-crawl-v218` | 2 passed — the role × viewport × Night-mode crawl with axe and overflow checks  |
 
 New regression tests:
 
@@ -206,6 +206,10 @@ New regression tests:
 - `esh-foundations-v197` gained a case holding that the department list opens
   on a click and not only on gaining focus. Removing the click handler fails
   it.
+- `esh-review-queue-call-site-v290.test.ts` asks both of the review queue's
+  reads what they do about an upstream 502, in the shape v284 established. Its
+  two failure cases fail against the old behaviour and its two success cases
+  pass either way, so it is not merely asserting that something throws.
 - One existing assertion was corrected rather than loosened:
   `esh_qr_locations_v289` counted audit events across the whole database, so
   browser fixtures left behind by earlier runs made it fail for a reason that
@@ -234,6 +238,18 @@ New regression tests:
   module, not to Finding Management - but it is why several specs now wait for
   the page before typing into it, and it is worth knowing before anybody
   reports that the first word of their report went missing.
+- **This machine's development server loses races the production build does
+  not.** Thirteen existing browser specs — the Action Owner's screens, the
+  handover, the access directory — fail here by interacting before the island
+  behind them has hydrated, and pass in CI against a production build. It is
+  not fixture drift: they fail identically on a freshly reset database, a
+  cleared build cache and a restarted server, and in isolation. Two helpers
+  that open the owner's screen now wait for the page they land on rather than
+  the one they left, which fixed four of them and costs nothing; the rest were
+  left alone rather than papered over with sleeps, because the suite that
+  decides whether this merges is the one that already passes. The underlying
+  shape is worth knowing: on these pages a click or a file that arrives early
+  is not queued or retried, it is simply never seen.
 - **CI's end-to-end job** runs only on `main` or a dispatch, and was dispatched
   for this branch. Branch protection was not changed: the minimum effective
   configuration is to require the two always-on jobs and dispatch the browser
