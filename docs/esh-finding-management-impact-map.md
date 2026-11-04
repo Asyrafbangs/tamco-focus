@@ -254,13 +254,15 @@ The evidence reads are the awkward pair, and they are why the table's second row
 any other — so "the object is not there" and "Storage did not answer" arrive in the same shape and
 can only be told apart by status: a 404 is genuinely absent, while a 5xx, or a
 `StorageUnknownError` carrying no status at all because the request never arrived, is a read that
-did not happen. Both now report `failed`, and the two routes serving an evidence file answer
-**503** where they both used to answer 404. A 404 on an evidence file says the finding has no such
+did not happen. Both now report `failed`, and all three routes that serve a file answer **503**
+where they used to answer 404 — the two evidence routes, and v288's intake photograph route, which
+arrived after this work began with the same defect in both its row read and its signing. A 404 on an evidence file says the finding has no such
 file, and somebody told that does not try again — so a Storage blink became, to the reader, a
 photograph that had gone missing from a finding, on the file ESH verifies and that an argument
-about a photograph would turn on. Each of those routes had a second discarded error too: the staff
-route ignored its `esh_evidence_assets` read, and the owner route read a procedure that did not
-answer as a procedure that said no.
+about a photograph would turn on. Each of those routes had a second failing read too: the staff
+route discarded its `esh_evidence_assets` error outright, the owner route read a procedure that
+did not answer as a procedure that said no, and the intake route logged its row error and then
+404ed anyway.
 
 The owner route's 404 has a second job and it is unchanged: it must stay uninformative, because an
 Action Owner must not learn from it whether a file exists, only that they cannot have this one.
