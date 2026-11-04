@@ -15,6 +15,12 @@ import { signedDownloadFor } from '@/server/esh/evidence';
  * A photograph that is not `ready` is a 404 rather than a broken image. An
  * upload that never finished is not a picture of anything, and v286's sweep is
  * what clears it.
+ *
+ * A read that did NOT ANSWER is a third thing again, and it is not a 404: the
+ * row read and the signing both used to leave by `notFound()`, which told ESH
+ * that a report has no such photograph whenever the database or Storage
+ * blinked. The two evidence routes were corrected the same way and for the
+ * same reason — this one is new since, and inherits it.
  */
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +29,14 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function notFound() {
   return new NextResponse('Not found', {
     status: 404,
+    headers: { 'Cache-Control': 'private, no-store' },
+  });
+}
+
+/** A read that did not happen, which is not a photograph that is not there. */
+function unavailable() {
+  return new NextResponse('The photograph could not be fetched. Try again.', {
+    status: 503,
     headers: { 'Cache-Control': 'private, no-store' },
   });
 }
@@ -40,17 +54,18 @@ export async function GET(_request: Request, context: { params: Promise<{ photoI
     .maybeSingle();
   if (error) {
     console.error(`[intake-photo] ${error.code ?? 'unknown'}: ${error.message}`);
-    return notFound();
+    return unavailable();
   }
   if (!photo?.content_type) return notFound();
 
-  const url = await signedDownloadFor(
+  const signed = await signedDownloadFor(
     String(photo.object_key),
     String(photo.original_name),
     String(photo.content_type),
   );
-  if (!url) return notFound();
-  return NextResponse.redirect(url, {
+  if (signed.failed) return unavailable();
+  if (!signed.url) return notFound();
+  return NextResponse.redirect(signed.url, {
     status: 303,
     headers: { 'Cache-Control': 'private, no-store' },
   });

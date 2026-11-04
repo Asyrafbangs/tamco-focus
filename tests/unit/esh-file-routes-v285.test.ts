@@ -26,6 +26,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
   assetRead: vi.fn(),
+  photoRead: vi.fn(),
   guestFile: vi.fn(),
   guestSecret: vi.fn(),
   signed: vi.fn(),
@@ -33,11 +34,12 @@ const state = vi.hoisted(() => ({
 
 vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: async () => ({
-    from: () => {
+    from: (table: string) => {
+      const answer = table === 'esh_report_intake_photos' ? state.photoRead : state.assetRead;
       const builder = {
         select: () => builder,
         eq: () => builder,
-        maybeSingle: async () => state.assetRead(),
+        maybeSingle: async () => answer(),
       };
       return builder;
     },
@@ -52,6 +54,7 @@ vi.mock('@/server/esh/guest', () => ({
 }));
 
 import { GET as staffFile } from '@/app/(esh)/findings/files/[assetId]/route';
+import { GET as intakePhoto } from '@/app/(esh)/findings/intake/photos/[photoId]/route';
 import { GET as ownerFile } from '@/app/respond/files/[assetId]/route';
 
 const AN_ASSET = 'f0c05600-0000-4000-a000-000000000001';
@@ -85,6 +88,7 @@ const params = { params: Promise.resolve({ assetId: AN_ASSET }) };
 
 beforeEach(() => {
   state.assetRead.mockReset();
+  state.photoRead.mockReset();
   state.guestFile.mockReset();
   state.guestSecret.mockReset();
   state.signed.mockReset();
@@ -231,5 +235,76 @@ describe("v285 the owner's evidence route", () => {
 
     expect(response.status).toBe(404);
     expect(state.guestFile, 'a sessionless request reached the procedure').not.toHaveBeenCalled();
+  });
+});
+
+/*
+ * The v288 intake photograph route, which did not exist when the other two
+ * were corrected and arrived with the same defect: both its row read and its
+ * signing left by `notFound()`, so a database or Storage blink told ESH that
+ * a public report has no such photograph. Changing `signedDownloadFor` made
+ * this caller ours; leaving it on 404 would have re-introduced the lie on a
+ * third route while the other two were fixed.
+ */
+describe('v285 the intake photograph route', () => {
+  const A_READY_PHOTO = {
+    data: {
+      object_key: 'intake/f0c05800-0000-4000-a000-000000000001/photo.jpg',
+      original_name: 'photo.jpg',
+      content_type: 'image/jpeg',
+    },
+    error: null,
+  };
+  const photoParams = { params: Promise.resolve({ photoId: AN_ASSET }) };
+  const request = () => new Request('http://127.0.0.1/x');
+
+  it('does not report a 404 when the photograph row cannot be read', async () => {
+    state.photoRead.mockResolvedValue(UPSTREAM_502);
+
+    const response = await intakePhoto(request(), photoParams);
+
+    expect(response.status, 'a failed row read was reported as a missing photograph').toBe(503);
+    expect(state.signed, 'a failed row read went on to ask Storage').not.toHaveBeenCalled();
+  });
+
+  it('does not report a 404 when signing fails', async () => {
+    state.photoRead.mockResolvedValue(A_READY_PHOTO);
+    state.signed.mockResolvedValue(SIGNING_FAILED);
+
+    const response = await intakePhoto(request(), photoParams);
+
+    expect(response.status).toBe(503);
+  });
+
+  /*
+   * Without these the cases above would pass on a route that answered 503 to
+   * everything, including to every photograph on every public report.
+   */
+  it('redirects to the signed link', async () => {
+    state.photoRead.mockResolvedValue(A_READY_PHOTO);
+    state.signed.mockResolvedValue(A_LINK);
+
+    const response = await intakePhoto(request(), photoParams);
+
+    expect(response.status).toBe(303);
+    expect(response.headers.get('location')).toBe(A_LINK.url);
+  });
+
+  // A photograph that never finished uploading is not a picture of anything.
+  it('still answers 404 for a photograph that is genuinely not there', async () => {
+    state.photoRead.mockResolvedValue({ data: null, error: null });
+
+    const response = await intakePhoto(request(), photoParams);
+
+    expect(response.status).toBe(404);
+  });
+
+  it('still answers 404 when the object itself is gone', async () => {
+    state.photoRead.mockResolvedValue(A_READY_PHOTO);
+    state.signed.mockResolvedValue(OBJECT_ABSENT);
+
+    const response = await intakePhoto(request(), photoParams);
+
+    expect(response.status).toBe(404);
   });
 });
