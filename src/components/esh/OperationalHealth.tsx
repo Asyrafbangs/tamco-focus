@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-import { healthNotes, type OperationalHealth as Health } from '@/domain/esh-health';
+import { readingNotes, type HealthReading } from '@/domain/esh-health';
 
 /**
  * Whether the machinery behind all this actually ran (§27, §33.2).
@@ -9,9 +9,13 @@ import { healthNotes, type OperationalHealth as Health } from '@/domain/esh-heal
  * links to where it is dealt with. What counts as worth saying is decided in
  * the domain, so it can be argued with in a test rather than in a browser.
  */
-export function OperationalHealth({ health }: { health: Health | null }) {
-  if (!health) return null;
-  const notes = healthNotes(health);
+export function OperationalHealth({ reading }: { reading: HealthReading }) {
+  /*
+   * v290 - an unreadable monitor says so. Rendering nothing for it made a
+   * failed query look like a quiet module, which is the one thing this panel
+   * exists to prevent.
+   */
+  const notes = readingNotes(reading);
   if (notes.length === 0) return null;
 
   return (

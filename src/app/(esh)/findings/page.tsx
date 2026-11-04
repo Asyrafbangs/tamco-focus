@@ -3,12 +3,14 @@ import Link from 'next/link';
 import { HeldNoticesRelease } from '@/components/esh/HeldNoticesRelease';
 import { OperationalHealth } from '@/components/esh/OperationalHealth';
 import { PRIORITY_LABELS, type EshAccess } from '@/domain/esh-findings';
+import { reportingWords } from '@/domain/esh-intake';
 import { requireProfile } from '@/lib/supabase/server';
 import { requireEshAccess } from '@/server/esh/access';
 import {
   getDashboard,
   getDepartmentsInScope,
   getOperationalHealth,
+  getQrIntakeStatus,
   getRolloutStatus,
   listRegister,
   listReportIntake,
@@ -51,26 +53,29 @@ export default async function FindingsTodayPage({
 
 async function today(access: EshAccess, timeZone: string) {
   const now = new Date();
-  const [dashboard, attention, verification, health, rollout, intake] = await Promise.all([
-    getDashboard(),
-    listRegister({
-      filter: 'attention',
-      search: '',
-      departmentId: null,
-      closedSince: now.toISOString(),
-      closedUntil: null,
-      page: 0,
-    }),
-    listVerificationQueue(),
-    getOperationalHealth(),
-    access.canCoordinate ? getRolloutStatus() : Promise.resolve(null),
-    /*
-     * Only a coordinator may triage, and `/findings/intake` refuses anyone
-     * else, so a reader without that authority is not given a counter and a
-     * card leading somewhere they cannot go.
-     */
-    access.canCoordinate ? listReportIntake() : Promise.resolve(null),
-  ]);
+  const [dashboard, attention, verification, health, rollout, intake, qrIntake] = await Promise.all(
+    [
+      getDashboard(),
+      listRegister({
+        filter: 'attention',
+        search: '',
+        departmentId: null,
+        closedSince: now.toISOString(),
+        closedUntil: null,
+        page: 0,
+      }),
+      listVerificationQueue(),
+      getOperationalHealth(),
+      access.canCoordinate ? getRolloutStatus() : Promise.resolve(null),
+      /*
+       * Only a coordinator may triage, and `/findings/intake` refuses anyone
+       * else, so a reader without that authority is not given a counter and a
+       * card leading somewhere they cannot go.
+       */
+      access.canCoordinate ? listReportIntake() : Promise.resolve(null),
+      getQrIntakeStatus(),
+    ],
+  );
 
   const protection = dashboard?.protection.unprotected ?? 0;
   const overdue = dashboard?.overdueActions ?? 0;
@@ -141,7 +146,7 @@ async function today(access: EshAccess, timeZone: string) {
         />
       </section>
 
-      <OperationalHealth health={health} />
+      <OperationalHealth reading={health} />
       {rollout && <HeldNoticesRelease releasable={rollout.heldReleasable} />}
 
       <section className="esh-today-queue" aria-labelledby="today-queue-title">
@@ -211,7 +216,14 @@ async function today(access: EshAccess, timeZone: string) {
           <div className="esh-section-head">
             <div>
               <h2 id="today-incoming-title">Incoming reports</h2>
-              <p>Reports recorded by ESH. Public QR reporting is not enabled.</p>
+              {/*
+               * v290 - the real state, not a sentence written when it was
+               * true. This said "Public QR reporting is not enabled" in
+               * hard-coded text, and went on saying it after an administrator
+               * opened the channel - so the team watching this queue was told
+               * nothing could arrive while the form was live.
+               */}
+              <p>{reportingWords(qrIntake)}</p>
             </div>
             {intake && !intake.failed && <Link href="/findings/intake">Open queue</Link>}
           </div>

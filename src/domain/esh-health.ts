@@ -18,6 +18,17 @@ export interface OperationalHealth {
   reviewOverdue: number;
 }
 
+/**
+ * What the monitoring read produced.
+ *
+ * `unavailable` is a third state, not a missing first one. Returning null for
+ * both "nothing to report" and "the read failed" is what made a broken
+ * monitoring query render as a healthy module on 4 November 2026 - the same
+ * defect class v282 and v283 removed from the access and finding reads, left
+ * in the one place whose whole job is to say when something is wrong.
+ */
+export type HealthReading = { available: true; health: OperationalHealth } | { available: false };
+
 export interface HealthNote {
   text: string;
   href?: string;
@@ -40,6 +51,27 @@ function hoursInWords(value: number | null): string {
   if (value < 24) return `${value} hours ago`;
   const days = Math.round(value / 24);
   return days === 1 ? 'a day ago' : `${days} days ago`;
+}
+
+/**
+ * What to say about a reading, including when there is no reading.
+ *
+ * An unavailable monitor is itself worth one line: the reader is looking at a
+ * page that would otherwise be silent, and silence here means "all is well".
+ */
+export function readingNotes(reading: HealthReading): HealthNote[] {
+  if (!reading.available) {
+    return [
+      {
+        text:
+          'Operational monitoring could not be read, so nothing on this page says whether ' +
+          'the scheduled run, the mail queue or the escalations are working. Reload; if it ' +
+          'persists, the database is unreachable from the application.',
+        exception: true,
+      },
+    ];
+  }
+  return healthNotes(reading.health);
 }
 
 export function healthNotes(health: OperationalHealth): HealthNote[] {

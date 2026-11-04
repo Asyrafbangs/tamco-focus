@@ -16,7 +16,7 @@ import type { ConversationEntry, EvidenceFile, SubmissionMark } from '@/domain/e
 import type { EshOverviewRow } from '@/domain/esh-overview';
 import type { ReportDefinitionSummary } from '@/domain/esh-reports';
 import type { Database } from '@/lib/database.types';
-import type { OperationalHealth } from '@/domain/esh-health';
+import type { HealthReading, OperationalHealth } from '@/domain/esh-health';
 import type { RolloutStatus } from '@/domain/esh-rollout';
 import type { DashboardData, MonthPoint, PublicDashboardData } from '@/domain/esh-dashboard';
 import { cache } from 'react';
@@ -1655,14 +1655,19 @@ export async function getFollowupSettings(): Promise<FollowupSettings | null> {
  * Read on the Overview so that a daily job which quietly stops becomes
  * visible inside the application, rather than only in a log nobody opens.
  */
-export type { OperationalHealth };
+export type { HealthReading, OperationalHealth };
 
-export async function getOperationalHealth(): Promise<OperationalHealth | null> {
+export async function getOperationalHealth(): Promise<HealthReading> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc('esh_operational_health');
+  /*
+   * v290 - a failed read is not a quiet module. This used to return null for
+   * both, and the panel renders nothing for null, so a monitoring query that
+   * could not run made Finding Management look like it had nothing to report.
+   */
   if (error) {
     console.error(`[getOperationalHealth] ${error.code ?? 'unknown'}: ${error.message}`);
-    return null;
+    return { available: false };
   }
   const health = (data ?? {}) as {
     ok?: boolean;
@@ -1674,8 +1679,8 @@ export async function getOperationalHealth(): Promise<OperationalHealth | null> 
     held?: number;
     review_overdue?: number;
   };
-  if (!health.ok) return null;
-  return {
+  if (!health.ok) return { available: false };
+  const reading = {
     lastRunAt: health.last_run_at ?? null,
     lastRunOk: health.last_run_ok ?? null,
     hoursSinceRun: health.hours_since_run ?? null,
@@ -1684,6 +1689,7 @@ export async function getOperationalHealth(): Promise<OperationalHealth | null> 
     held: Number(health.held ?? 0),
     reviewOverdue: Number(health.review_overdue ?? 0),
   };
+  return { available: true, health: reading };
 }
 
 /**
