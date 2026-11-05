@@ -121,6 +121,24 @@ export function DepartmentChooser({
           setOpen(true);
           setActive(0);
         }}
+        /*
+         * v290 - and on a click, not only on gaining focus.
+         *
+         * The list used to open on `focus` alone. A click that lands while
+         * this island is still hydrating focuses the field natively, with no
+         * handler attached to notice; every later click then lands on an
+         * already-focused input, which fires no `focus` event at all, so the
+         * box stays shut for good. The way out was to click somewhere else and
+         * come back - which nobody discovers. Opening on click as well costs
+         * nothing: a click on an unfocused field fires both, and `open` is
+         * already true by the time the second one runs.
+         */
+        onClick={() => {
+          if (open || adding) return;
+          setQuery('');
+          setOpen(true);
+          setActive(0);
+        }}
         onBlur={(event) => {
           // Not while the caret is somewhere inside this control: the add panel
           // and the options are both in here, and closing on the way to them

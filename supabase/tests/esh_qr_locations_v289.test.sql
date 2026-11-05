@@ -185,11 +185,18 @@ select is(
   'a viewer cannot retire one either');
 select pg_temp.reset_role();
 
+/*
+ * This test's own locations, not every location the database has ever held.
+ * A browser run leaves its fixtures behind, so a global count of these events
+ * grows between runs and the assertion fails for a reason that has nothing to
+ * do with the code - which is exactly what it did.
+ */
 select is(
   (select count(*)::integer from public.esh_audit_events
-    where event_type in ('qr_location_added', 'qr_location_retired')),
+    where event_type in ('qr_location_added', 'qr_location_retired')
+      and detail->>'label' in ('BR2 Press line 2', 'BR1 Main gate')),
   3,
-  'every creation and retirement is in the audit trail');
+  'every creation and retirement of these locations is in the audit trail');
 
 select ok(
   not has_function_privilege('anon', 'public.esh_add_qr_location(text, uuid)', 'execute')

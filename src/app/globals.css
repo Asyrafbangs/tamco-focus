@@ -13494,6 +13494,26 @@ span.deadline span.deadline-glyph,
   .topbar .esh-switcher-bar {
     gap: 6px;
   }
+  /*
+   * v290 - the menu hangs off a summary that starts 54px into a 320px screen,
+   * so `left: 0` put a 290px menu 24px past the right edge: the last quarter
+   * of every label unreadable and unreachable, with no sideways scroll to
+   * reach it. Capping the width does not help, because the anchor is what is
+   * wrong. Below 480px the menu belongs to the bar rather than to the summary
+   * - it spans the bar, so it fits by construction at any width. Unprefixed on
+   * purpose: the Finding Management header is `.esh-topbar`, not `.topbar`.
+   */
+  .esh-switcher-bar {
+    position: relative;
+  }
+  .esh-switcher {
+    position: static;
+  }
+  .esh-switcher ul {
+    left: 0;
+    right: 0;
+    min-width: 0;
+  }
 }
 
 .esh-access-form fieldset {
@@ -17118,4 +17138,39 @@ span.deadline span.deadline-glyph,
 .esh-qr-add .esh-field {
   width: 100%;
   max-width: 420px;
+}
+
+/* v290 — a staged photograph's own state, and the failure that keeps the
+   form on screen rather than moving on without the evidence. */
+.esh-staged-list .esh-file[data-status='preparing'],
+.esh-staged-list .esh-file[data-status='uploading'] {
+  opacity: 0.7;
+}
+/* `--red`, which this stylesheet defines and redefines for Night mode.
+   `--danger` is not a token here, so the fallback beside it was a fixed hex
+   that stayed the same colour in the dark. */
+.esh-staged-list .esh-file[data-status='failed'] {
+  border-left: 3px solid var(--red);
+  padding-left: 9px;
+}
+.esh-file-problem {
+  color: var(--red);
+}
+.esh-attach-failed {
+  margin-top: 16px;
+}
+.esh-attach-failed .esh-form-actions {
+  margin-top: 12px;
+}
+
+/* v290 — take or choose, side by side, both reachable with a thumb. */
+.public-report-choose {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.public-report-choose .btn {
+  flex: 1;
+  min-height: 48px;
+  font-size: 16px;
 }

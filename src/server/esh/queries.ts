@@ -16,7 +16,7 @@ import type { ConversationEntry, EvidenceFile, SubmissionMark } from '@/domain/e
 import type { EshOverviewRow } from '@/domain/esh-overview';
 import type { ReportDefinitionSummary } from '@/domain/esh-reports';
 import type { Database } from '@/lib/database.types';
-import type { OperationalHealth } from '@/domain/esh-health';
+import type { HealthReading, OperationalHealth } from '@/domain/esh-health';
 import type { RolloutStatus } from '@/domain/esh-rollout';
 import type { DashboardData, MonthPoint, PublicDashboardData } from '@/domain/esh-dashboard';
 import { cache } from 'react';
@@ -1469,10 +1469,16 @@ export async function listVerificationQueue(
     .eq('state', 'pending')
     .order('submitted_at')
     .limit(200);
-  if (error) {
-    console.error(`[listVerificationQueue] ${error.message}`);
-    return [];
-  }
+  /*
+   * v290 - the same rule as the count beside it, which has refused to answer a
+   * failed read with zero since it was written. This returned an empty array,
+   * and the page renders an empty array as "Nothing is waiting for
+   * verification": corrections submitted by Action Owners sitting unreviewed
+   * while the screen says there is nothing to review. It is the lie v282 and
+   * v283 closed on the access read and the finding detail, left on the queue
+   * that decides whether work gets checked.
+   */
+  requireAnswer(error ? { code: error.code, message: error.message } : null, 'The review queue');
   const actionIds = (submissions ?? []).map((row) => String(row.action_id));
   if (actionIds.length === 0) return [];
   let actionQuery = supabase
@@ -1484,7 +1490,16 @@ export async function listVerificationQueue(
   } else if (departmentId) {
     actionQuery = actionQuery.eq('accountable_department_id', departmentId);
   }
-  const { data: rows } = await actionQuery;
+  const { data: rows, error: rowsError } = await actionQuery;
+  /*
+   * And this one, which did not look at `error` at all. A failure here left
+   * every submission without a row to match, so they were all dropped and the
+   * queue came out empty - with nothing in the log to say why.
+   */
+  requireAnswer(
+    rowsError ? { code: rowsError.code, message: rowsError.message } : null,
+    'The review queue',
+  );
   const findingOf = new Map((rows ?? []).map((row) => [String(row.action_id), row]));
   return (submissions ?? [])
     .map((submission) => {
@@ -1655,14 +1670,19 @@ export async function getFollowupSettings(): Promise<FollowupSettings | null> {
  * Read on the Overview so that a daily job which quietly stops becomes
  * visible inside the application, rather than only in a log nobody opens.
  */
-export type { OperationalHealth };
+export type { HealthReading, OperationalHealth };
 
-export async function getOperationalHealth(): Promise<OperationalHealth | null> {
+export async function getOperationalHealth(): Promise<HealthReading> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc('esh_operational_health');
+  /*
+   * v290 - a failed read is not a quiet module. This used to return null for
+   * both, and the panel renders nothing for null, so a monitoring query that
+   * could not run made Finding Management look like it had nothing to report.
+   */
   if (error) {
     console.error(`[getOperationalHealth] ${error.code ?? 'unknown'}: ${error.message}`);
-    return null;
+    return { available: false };
   }
   const health = (data ?? {}) as {
     ok?: boolean;
@@ -1674,8 +1694,8 @@ export async function getOperationalHealth(): Promise<OperationalHealth | null> 
     held?: number;
     review_overdue?: number;
   };
-  if (!health.ok) return null;
-  return {
+  if (!health.ok) return { available: false };
+  const reading = {
     lastRunAt: health.last_run_at ?? null,
     lastRunOk: health.last_run_ok ?? null,
     hoursSinceRun: health.hours_since_run ?? null,
@@ -1684,6 +1704,7 @@ export async function getOperationalHealth(): Promise<OperationalHealth | null> 
     held: Number(health.held ?? 0),
     reviewOverdue: Number(health.review_overdue ?? 0),
   };
+  return { available: true, health: reading };
 }
 
 /**

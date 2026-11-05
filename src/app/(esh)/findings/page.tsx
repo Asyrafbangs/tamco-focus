@@ -3,12 +3,14 @@ import Link from 'next/link';
 import { HeldNoticesRelease } from '@/components/esh/HeldNoticesRelease';
 import { OperationalHealth } from '@/components/esh/OperationalHealth';
 import { PRIORITY_LABELS, type EshAccess } from '@/domain/esh-findings';
+import { reportingWords } from '@/domain/esh-intake';
 import { requireProfile } from '@/lib/supabase/server';
 import { requireEshAccess } from '@/server/esh/access';
 import {
   getDashboard,
   getDepartmentsInScope,
   getOperationalHealth,
+  getQrIntakeStatus,
   getRolloutStatus,
   listRegister,
   listReportIntake,
@@ -51,29 +53,45 @@ export default async function FindingsTodayPage({
 
 async function today(access: EshAccess, timeZone: string) {
   const now = new Date();
-  const [dashboard, attention, verification, health, rollout, intake] = await Promise.all([
-    getDashboard(),
-    listRegister({
-      filter: 'attention',
-      search: '',
-      departmentId: null,
-      closedSince: now.toISOString(),
-      closedUntil: null,
-      page: 0,
-    }),
-    listVerificationQueue(),
-    getOperationalHealth(),
-    access.canCoordinate ? getRolloutStatus() : Promise.resolve(null),
-    /*
-     * Only a coordinator may triage, and `/findings/intake` refuses anyone
-     * else, so a reader without that authority is not given a counter and a
-     * card leading somewhere they cannot go.
-     */
-    access.canCoordinate ? listReportIntake() : Promise.resolve(null),
-  ]);
+  const [dashboard, attention, verification, health, rollout, intake, qrIntake] = await Promise.all(
+    [
+      getDashboard(),
+      listRegister({
+        filter: 'attention',
+        search: '',
+        departmentId: null,
+        closedSince: now.toISOString(),
+        closedUntil: null,
+        page: 0,
+      }),
+      listVerificationQueue(),
+      getOperationalHealth(),
+      access.canCoordinate ? getRolloutStatus() : Promise.resolve(null),
+      /*
+       * Only a coordinator may triage, and `/findings/intake` refuses anyone
+       * else, so a reader without that authority is not given a counter and a
+       * card leading somewhere they cannot go.
+       */
+      access.canCoordinate ? listReportIntake() : Promise.resolve(null),
+      getQrIntakeStatus(),
+    ],
+  );
 
-  const protection = dashboard?.protection.unprotected ?? 0;
-  const overdue = dashboard?.overdueActions ?? 0;
+  /*
+   * v291 - null, not nought, when the figures could not be read.
+   *
+   * These two are the module's front page: significant risks with nothing
+   * verified protecting people, and owner actions past their date. A failed
+   * dashboard read used to render both as 0 - the safest-looking screen in the
+   * module, produced by knowing nothing at all. It is the shape v282, v283 and
+   * v290 closed on the access read, the finding detail and the review queue,
+   * left on the two numbers somebody glances at to decide the day is quiet.
+   *
+   * `awaiting` keeps its fallback, because that one is a real read: the
+   * verification queue refuses a failed read rather than answering empty.
+   */
+  const protection = dashboard ? dashboard.protection.unprotected : null;
+  const overdue = dashboard ? dashboard.overdueActions : null;
   const awaiting = dashboard?.awaitingVerification ?? verification.length;
   const incoming = intake?.rows ?? [];
 
@@ -111,7 +129,7 @@ async function today(access: EshAccess, timeZone: string) {
         ) : (
           <Signal
             label="New reports"
-            value={0}
+            value={intake ? null : 0}
             detail={
               intake ? 'The intake queue could not be read' : 'Triage needs coordinator access'
             }
@@ -121,16 +139,26 @@ async function today(access: EshAccess, timeZone: string) {
         <Signal
           label="Significant risks without verified protection"
           value={protection}
-          detail="Open, high or critical, nothing verified in place"
-          href="/findings/register?filter=unprotected"
-          exception={protection > 0}
+          detail={
+            protection === null
+              ? 'This figure could not be read — it is not a count of none'
+              : 'Open, high or critical, nothing verified in place'
+          }
+          href={protection === null ? undefined : '/findings/register?filter=unprotected'}
+          exception={protection !== null && protection > 0}
+          disabled={protection === null}
         />
         <Signal
           label="Overdue owner actions"
           value={overdue}
-          detail="Owner action past its due date"
-          href="/findings/register?filter=overdue"
-          exception={overdue > 0}
+          detail={
+            overdue === null
+              ? 'This figure could not be read — it is not a count of none'
+              : 'Owner action past its due date'
+          }
+          href={overdue === null ? undefined : '/findings/register?filter=overdue'}
+          exception={overdue !== null && overdue > 0}
+          disabled={overdue === null}
         />
         <Signal
           label="Waiting for ESH verification"
@@ -141,7 +169,7 @@ async function today(access: EshAccess, timeZone: string) {
         />
       </section>
 
-      <OperationalHealth health={health} />
+      <OperationalHealth reading={health} />
       {rollout && <HeldNoticesRelease releasable={rollout.heldReleasable} />}
 
       <section className="esh-today-queue" aria-labelledby="today-queue-title">
@@ -211,7 +239,14 @@ async function today(access: EshAccess, timeZone: string) {
           <div className="esh-section-head">
             <div>
               <h2 id="today-incoming-title">Incoming reports</h2>
-              <p>Reports recorded by ESH. Public QR reporting is not enabled.</p>
+              {/*
+               * v290 - the real state, not a sentence written when it was
+               * true. This said "Public QR reporting is not enabled" in
+               * hard-coded text, and went on saying it after an administrator
+               * opened the channel - so the team watching this queue was told
+               * nothing could arrive while the form was live.
+               */}
+              <p>{reportingWords(qrIntake)}</p>
             </div>
             {intake && !intake.failed && <Link href="/findings/intake">Open queue</Link>}
           </div>
@@ -369,7 +404,8 @@ function Signal({
   disabled = false,
 }: {
   label: string;
-  value: number;
+  /** `null` where the figure is not known, which is not the same as none. */
+  value: number | null;
   detail: string;
   href?: string;
   exception?: boolean;
@@ -378,7 +414,7 @@ function Signal({
   const content = (
     <>
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong aria-label={value === null ? 'not known' : undefined}>{value ?? '—'}</strong>
       <small>{detail}</small>
     </>
   );

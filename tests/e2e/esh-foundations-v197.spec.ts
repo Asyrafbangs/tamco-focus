@@ -8,9 +8,36 @@ import { expect, test, type Page } from '@playwright/test';
  * It replaced a select so that a long list can be narrowed and a missing
  * department added without abandoning the form.
  */
-async function chooseDepartment(page: Page, name: string) {
+/*
+ * v290 - clicked until the list actually opens, and it has to be able to.
+ *
+ * The list used to open on `focus` alone, so a click that landed while the
+ * island was hydrating focused the field with no handler attached to notice -
+ * and every later click, on a field that was already focused, fired no `focus`
+ * event at all. The box stayed shut for good, and the test waited out its
+ * whole timeout and reported "Operations does not exist": a product defect
+ * that was real, found by reading `aria-expanded` rather than the symptom.
+ * `DepartmentChooser` now opens on click as well; this loop is what proves a
+ * second click is enough, and it fails against the version that only listens
+ * for focus. `data-app-hydrated` cannot stand in for it, because it is already
+ * true when the form arrives through a client navigation from the register.
+ */
+async function openDepartmentList(page: Page) {
   const field = page.getByLabel('Accountable department', { exact: true });
-  await field.click();
+  const list = page.locator('[role="listbox"]');
+  for (let attempt = 0; ; attempt += 1) {
+    await field.click();
+    try {
+      await list.waitFor({ state: 'visible', timeout: 3_000 });
+      return field;
+    } catch (cause) {
+      if (attempt === 3) throw new Error('the department list never opened', { cause });
+    }
+  }
+}
+
+async function chooseDepartment(page: Page, name: string) {
+  const field = await openDepartmentList(page);
   await field.fill(name);
   await page.getByRole('option', { name, exact: true }).click();
 }
@@ -191,8 +218,16 @@ test('v197 a draft keeps what was entered and can be finished later', async ({
   await expect(page.getByText('Nothing has been sent.')).toBeVisible();
 
   // Reopened from the register, the draft is the same form, filled in.
-  await page.goto('/findings/register');
+  /*
+   * Searched for, not scrolled to. The register shows fifty rows and the local
+   * database is shared with every earlier run, so a draft saved a moment ago is
+   * not reliably on the first page - and a row that is on page two fails as
+   * "element(s) not found", which reads like the draft was never saved.
+   */
+  await page.goto(`/findings/register?filter=all&q=${encodeURIComponent(title)}`);
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   await page.locator('.esh-register-row').filter({ hasText: title }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   await page.getByLabel('What was found').fill('Found during the weekly walk.');
   await chooseDepartment(page, 'Operations');
   await page.getByRole('button', { name: 'Next' }).click();
@@ -232,11 +267,45 @@ test('v197 an administrator enables one person, with a department scope', async 
     await signIn(page, 'lim@tamco.local');
     await expect(page.locator('.esh-switcher summary')).toHaveText('TAMCO Focus');
     await page.goto('/findings/new');
+    await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
     // The combobox offers his scope and nothing else: no placeholder row, and
     // no department he may not record against.
-    await page.getByLabel('Accountable department', { exact: true }).click();
+    await openDepartmentList(page);
     await expect(page.getByRole('option')).toHaveText(['Environment, Health & Safety']);
   } finally {
     await service().from('esh_staff_access').update({ enabled: false }).eq('user_id', LIM);
   }
+});
+
+test('v290 the department list opens on a click, not only on gaining focus', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'One behaviour; no layout in it.');
+
+  await signIn(page, 'izzul@tamco.local');
+  await page.goto('/findings/new');
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+
+  const field = page.getByLabel('Accountable department', { exact: true });
+  const list = page.locator('[role="listbox"]');
+
+  /*
+   * A shut list on a field that already holds the caret. Escape is the quick
+   * way to arrive there; a click that lands mid-hydration is the way it
+   * happened in practice, focusing the field natively with no handler attached
+   * to notice. Either way every later click is a click on an already-focused
+   * input, which fires no `focus` event - so a disclosure that opens on focus
+   * alone can never be opened again, and the way out is to click somewhere
+   * else and come back, which nobody guesses.
+   */
+  await field.click();
+  await expect(list).toBeVisible();
+  await field.press('Escape');
+  await expect(list).toHaveCount(0);
+  await expect(field).toBeFocused();
+
+  await field.click();
+  await expect(list).toBeVisible();
+  await expect(field).toHaveAttribute('aria-expanded', 'true');
+  expect(await page.getByRole('option').count()).toBeGreaterThan(0);
 });

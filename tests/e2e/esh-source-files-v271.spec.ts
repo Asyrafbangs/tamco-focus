@@ -197,6 +197,13 @@ async function openAsOwner(page: Page, principalId: string, actionId: string) {
   await expect(open).toBeEnabled();
   await open.click();
   await expect(page).toHaveURL(new RegExp(`/respond/actions/${actionId}$`));
+  /*
+   * v290 - and on the page it lands on, not only on the one it left. This is a
+   * form POST, so the owner's screen is a new document with its own hydration:
+   * a file set on an input React has not yet bound is never noticed at all,
+   * and the page then looks as though it dropped the attachment.
+   */
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 }
 
 /** The one asset on this action, whichever row the browser ended up making. */

@@ -46,14 +46,30 @@ export function PublicReportForm({ code, label }: { code: string; label: string 
   const [staged, setStaged] = useState<Staged[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
   const [sent, setSent] = useState<{ reference: string; refused: number } | null>(null);
+  const [preparing, setPreparing] = useState(0);
   const [pending, start] = useTransition();
   const chooser = useRef<HTMLInputElement>(null);
+  const camera = useRef<HTMLInputElement>(null);
 
   async function choose(files: FileList | null) {
     if (!files?.length) return;
     setProblem(null);
+    /*
+     * v290 - a count, not a flag. Two pictures chosen together are two
+     * re-encodes, and the send button has to stay disabled until the last of
+     * them finishes rather than the first.
+     */
+    /*
+     * Counted from a copy, not from the FileList. A FileList is live: the
+     * input is cleared at the end of this function, and reading `.length`
+     * afterwards gives 0 - so the count never came back down and the Send
+     * button stayed disabled for ever. The staff form carries a comment about
+     * the same trap for the same reason.
+     */
+    const chosen = Array.from(files);
+    setPreparing((count) => count + chosen.length);
     const next: Staged[] = [];
-    for (const file of Array.from(files)) {
+    for (const file of chosen) {
       const full = photoAdditionProblem(staged.length + next.length);
       if (full) {
         setProblem(full);
@@ -79,7 +95,10 @@ export function PublicReportForm({ code, label }: { code: string; label: string 
       });
     }
     if (next.length) setStaged((current) => [...current, ...next]);
+    setPreparing((count) => Math.max(0, count - chosen.length));
+    // Cleared so the same photograph can be chosen again after removing it.
     if (chooser.current) chooser.current.value = '';
+    if (camera.current) camera.current.value = '';
   }
 
   function remove(id: string) {
@@ -177,15 +196,54 @@ export function PublicReportForm({ code, label }: { code: string; label: string 
         <label htmlFor="public-report-photos">
           <span>{PUBLIC_REPORT_COPY.photos}</span>
         </label>
+        {/*
+         * v290 - two buttons, not one input with `capture`.
+         *
+         * `capture="environment"` does not mean "offer the camera": on a phone
+         * it means "the camera, and nothing else". The gallery was unreachable,
+         * so somebody who had already photographed the hazard, or who had to
+         * step away and come back, could not send it at all. The staff
+         * uploader has had the two-button shape since v199; this is the same
+         * shape, with the same single handler behind it.
+         */}
+        <span className="public-report-choose">
+          <button
+            type="button"
+            className="btn"
+            disabled={pending || staged.length >= PUBLIC_PHOTO_MAX || preparing > 0}
+            onClick={() => camera.current?.click()}
+          >
+            Take photo
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={pending || staged.length >= PUBLIC_PHOTO_MAX || preparing > 0}
+            onClick={() => chooser.current?.click()}
+          >
+            Choose photo
+          </button>
+        </span>
         <input
-          ref={chooser}
+          ref={camera}
           id="public-report-photos"
           type="file"
           accept={PUBLIC_PHOTO_ACCEPT}
-          multiple
-          // `environment` opens the back camera on a phone rather than the
-          // gallery: the hazard is in front of the person, now.
           capture="environment"
+          className="visually-hidden"
+          tabIndex={-1}
+          aria-label="Take a photo"
+          disabled={pending || staged.length >= PUBLIC_PHOTO_MAX}
+          onChange={(event) => void choose(event.target.files)}
+        />
+        <input
+          ref={chooser}
+          type="file"
+          accept={PUBLIC_PHOTO_ACCEPT}
+          multiple
+          className="visually-hidden"
+          tabIndex={-1}
+          aria-label="Choose a photo"
           disabled={pending || staged.length >= PUBLIC_PHOTO_MAX}
           onChange={(event) => void choose(event.target.files)}
         />
@@ -230,10 +288,14 @@ export function PublicReportForm({ code, label }: { code: string; label: string 
       <button
         type="button"
         className="btn primary public-report-send"
-        disabled={pending || text.trim() === ''}
+        disabled={pending || preparing > 0 || text.trim() === ''}
         onClick={send}
       >
-        {pending ? PUBLIC_REPORT_COPY.sending : PUBLIC_REPORT_COPY.submit}
+        {pending
+          ? PUBLIC_REPORT_COPY.sending
+          : preparing > 0
+            ? 'Preparing photos…'
+            : PUBLIC_REPORT_COPY.submit}
       </button>
 
       {problem && (

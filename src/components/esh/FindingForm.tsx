@@ -6,11 +6,18 @@ import { useId, useState, useTransition, type FormEvent } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 import { DepartmentChooser } from '@/components/esh/DepartmentChooser';
+import { compressImage } from '@/components/esh/compress-image';
 import { AttachButtons } from '@/components/esh/EvidenceUploader';
 import { EVIDENCE_KIND_LABELS } from '@/domain/esh-evidence';
 import { evidenceLabel, evidenceProblem, uploadContentType } from '@/domain/esh-evidence';
 import { publicEnv } from '@/lib/env';
-import { finishStaffUpload, startStaffUpload } from '@/server/esh/evidence-actions';
+import {
+  finishStaffSource,
+  finishStaffUpload,
+  removeStaffUpload,
+  startStaffSource,
+  startStaffUpload,
+} from '@/server/esh/evidence-actions';
 
 import { EmailChips } from '@/components/esh/EmailChips';
 import {
@@ -70,6 +77,24 @@ function overdueWords(days: number | undefined): string {
   if (days === undefined) return 'timing follows your policy';
   if (days <= 0) return 'as soon as it is overdue';
   return `after ${days} day${days === 1 ? '' : 's'} overdue`;
+}
+
+/**
+ * One photograph chosen at the scene, and what has happened to it (v290).
+ *
+ * The form used to hold plain `File`s and swallow every upload failure, so a
+ * photograph that was refused or interrupted simply never arrived and the
+ * screen moved on. Each one now carries its own state and its own reason.
+ */
+interface StagedEvidence {
+  id: string;
+  /** What will be sent: the shrunk copy, once it has been prepared. */
+  file: File;
+  /** The camera's own file, when shrinking changed it (v271). */
+  source: File | null;
+  chosenBytes: number;
+  state: 'preparing' | 'ready' | 'uploading' | 'uploaded' | 'failed';
+  message: string | null;
 }
 
 export function FindingForm({
@@ -142,11 +167,30 @@ export function FindingForm({
    * the finding does not exist until this form is saved. They wait in the
    * browser and go up the moment it does, before the screen moves on.
    */
-  const [staged, setStaged] = useState<File[]>([]);
+  const [staged, setStaged] = useState<StagedEvidence[]>([]);
   const [attaching, setAttaching] = useState<string | null>(null);
+  /*
+   * v290 — the finding, once saved, so a retry attaches to it rather than
+   * saving a second one. This is the whole reason retry is safe: the form
+   * stops being a form that creates a finding and becomes a form that is
+   * finishing one.
+   */
+  const [savedFindingId, setSavedFindingId] = useState<string | null>(null);
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
   const stagedProblem = staged
-    .map((file) => evidenceProblem(file.name, file.size))
+    .map((item) => evidenceProblem(item.file.name, item.file.size))
     .find((problem) => problem);
+  const preparing = staged.some((item) => item.state === 'preparing');
+  const failedAttachments = staged.filter((item) => item.state === 'failed');
+  /*
+   * v291 - everything the finding does not have yet, not only what failed.
+   *
+   * A replacement photograph chosen after a failure is `ready`, never
+   * `failed`, so a retry that looked only for failures ignored it and then
+   * navigated away: the second photograph was dropped as silently as the
+   * first one used to be.
+   */
+  const outstandingAttachments = staged.filter((item) => item.state !== 'uploaded');
   const summaryId = useId();
   // A field that fails validation cannot be left folded away, so the
   // disclosure opens itself when the answer it holds is the one to correct.
@@ -218,28 +262,124 @@ export function FindingForm({
   }
 
   /** Attach what was chosen at the scene, now that there is a finding. */
-  async function attachStaged(findingId: string) {
-    const storage = createClient(
+  function storageClient() {
+    return createClient(
       publicEnv.NEXT_PUBLIC_SUPABASE_URL,
       publicEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       { auth: { persistSession: false, autoRefreshToken: false } },
     ).storage.from('finding-evidence');
-    for (const [index, file] of staged.entries()) {
-      setAttaching(`Attaching ${index + 1} of ${staged.length}…`);
+  }
+
+  function markStaged(id: string, change: Partial<StagedEvidence>) {
+    setStaged((current) => current.map((item) => (item.id === id ? { ...item, ...change } : item)));
+  }
+
+  /**
+   * The camera's own file, kept beside the copy that was sent (v271).
+   *
+   * Best effort by design: the photograph itself is already attached, so a
+   * failed original is recorded as never having arrived rather than failing
+   * the evidence somebody can see.
+   */
+  async function keepSource(assetId: string, findingId: string, source: File) {
+    try {
+      const started = await startStaffSource({
+        assetId,
+        name: source.name,
+        size: source.size,
+      });
+      if (!started.ok) return;
+      const sent = await storageClient().uploadToSignedUrl(started.path, started.token, source, {
+        contentType: uploadContentType(source.name),
+      });
+      await finishStaffSource({ assetId, findingId, arrived: !sent.error });
+    } catch {
+      // The row stays `pending` and v286's sweep writes it off.
+    }
+  }
+
+  /**
+   * One photograph, from the browser to an evidence record.
+   *
+   * v290 — this used to `continue` past a refused upload and past a failed
+   * one, and the form then navigated away as though everything had been
+   * attached. Evidence chosen at the scene was discarded without a word. Every
+   * outcome now lands on the item, and the form refuses to move on while any
+   * of them failed.
+   */
+  async function sendOne(item: StagedEvidence, findingId: string): Promise<boolean> {
+    markStaged(item.id, { state: 'uploading', message: null });
+    const problem = evidenceProblem(item.file.name, item.file.size);
+    if (problem) {
+      markStaged(item.id, { state: 'failed', message: problem });
+      return false;
+    }
+    try {
       const started = await startStaffUpload({
         findingId,
         actionId: null,
         purpose: 'original',
-        name: file.name,
-        size: file.size,
+        name: item.file.name,
+        size: item.file.size,
       });
-      if (!started.ok) continue;
-      const sent = await storage.uploadToSignedUrl(started.path, started.token, file, {
-        contentType: uploadContentType(file.name),
+      if (!started.ok) {
+        markStaged(item.id, { state: 'failed', message: started.message });
+        return false;
+      }
+      const sent = await storageClient().uploadToSignedUrl(started.path, started.token, item.file, {
+        contentType: uploadContentType(item.file.name),
       });
-      if (sent.error) continue;
-      await finishStaffUpload({ assetId: started.assetId, findingId });
+      if (sent.error) {
+        // Nothing arrived, so let the agreed record go: a retry starts afresh
+        // rather than counting against the files this finding may carry.
+        void removeStaffUpload({ assetId: started.assetId, findingId });
+        markStaged(item.id, {
+          state: 'failed',
+          message: 'The upload did not finish. Check the connection and try again.',
+        });
+        return false;
+      }
+      const finished = await finishStaffUpload({ assetId: started.assetId, findingId });
+      if (!finished.ok) {
+        markStaged(item.id, { state: 'failed', message: finished.message });
+        return false;
+      }
+      if (item.source) void keepSource(started.assetId, findingId, item.source);
+      markStaged(item.id, { state: 'uploaded', message: null });
+      return true;
+    } catch {
+      markStaged(item.id, {
+        state: 'failed',
+        message: 'The upload did not finish. Try again.',
+      });
+      return false;
     }
+  }
+
+  /** Everything not already attached. Used by the save and by Retry alike. */
+  async function attachStaged(findingId: string, items: StagedEvidence[]): Promise<boolean> {
+    let allSent = true;
+    for (const [index, item] of items.entries()) {
+      setAttaching(`Attaching ${index + 1} of ${items.length}…`);
+      const sent = await sendOne(item, findingId);
+      if (!sent) allSent = false;
+    }
+    setAttaching(null);
+    return allSent;
+  }
+
+  function retryAttachments() {
+    const findingId = savedFindingId;
+    if (!findingId) return;
+    // Anything not already on the finding: the ones that failed, and any
+    // chosen since. A picture still being re-encoded is not sent half-made.
+    if (preparing) return;
+    const outstanding = staged.filter((item) => item.state !== 'uploaded');
+    if (outstanding.length === 0) return;
+    startTransition(async () => {
+      const allSent = await attachStaged(findingId, outstanding);
+      if (allSent && redirectTo) router.push(redirectTo);
+    });
   }
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -250,9 +390,19 @@ export function FindingForm({
       const result = await saveFinding(null, data);
       setState(result);
       if (result.ok && result.findingId && result.redirectTo) {
-        // The finding exists now, so its evidence can belong to something.
-        if (staged.length > 0) await attachStaged(result.findingId);
-        setAttaching(null);
+        // The finding exists now, so its evidence can belong to something —
+        // and so a retry has something to attach to rather than saving again.
+        setSavedFindingId(result.findingId);
+        setRedirectTo(result.redirectTo);
+        const outstanding = staged.filter((item) => item.state !== 'uploaded');
+        const allSent =
+          outstanding.length === 0 ? true : await attachStaged(result.findingId, outstanding);
+        /*
+         * v290 — staying put when a photograph did not go up. Moving on would
+         * show the finding without the evidence somebody took at the scene,
+         * and nothing on that page would say a file had been lost.
+         */
+        if (!allSent) return;
         router.push(result.redirectTo);
         return;
       }
@@ -382,25 +532,70 @@ export function FindingForm({
                * React process this update a moment later.
                */
               const chosen = Array.from(files);
-              setStaged((current) => [...current, ...chosen]);
+              /*
+               * v290 — shrunk here, like every other evidence path. This form
+               * used to send whatever came off the camera: twelve megabytes
+               * per photograph from a plant floor, where the other three paths
+               * send a few hundred kilobytes and keep the original beside it.
+               *
+               * Each one is listed immediately as `preparing`, because a
+               * canvas re-encode of a large picture takes long enough to look
+               * like nothing happened, and the form will not save while any
+               * are still being prepared.
+               */
+              const prepared = chosen.map((file) => ({
+                id: crypto.randomUUID(),
+                file,
+                source: null as File | null,
+                chosenBytes: file.size,
+                state: 'preparing' as const,
+                message: null as string | null,
+              }));
+              setStaged((current) => [...current, ...prepared]);
+              for (const item of prepared) {
+                void compressImage(item.file).then((shrunk) => {
+                  markStaged(item.id, {
+                    file: shrunk.copy,
+                    source: shrunk.source,
+                    state: 'ready',
+                  });
+                });
+              }
             }}
             disabled={pending}
           />
           {staged.length > 0 && (
             <ul className="esh-file-list esh-staged-list" aria-label="Evidence to attach">
-              {staged.map((file, index) => (
-                <li key={`${file.name}-${index}`} className="esh-file">
+              {staged.map((item) => (
+                <li key={item.id} className="esh-file" data-status={item.state}>
                   <span>
-                    <strong>{file.name}</strong>
-                    <small>{evidenceLabel(file.name, file.size, 'not_scanned')}</small>
+                    <strong>{item.file.name}</strong>
+                    <small>
+                      {item.state === 'preparing'
+                        ? 'Preparing…'
+                        : item.state === 'uploading'
+                          ? 'Uploading…'
+                          : item.state === 'uploaded'
+                            ? `Attached · ${evidenceLabel(item.file.name, item.file.size, 'not_scanned')}`
+                            : evidenceLabel(item.file.name, item.file.size, 'not_scanned')}
+                    </small>
+                    {item.message && (
+                      <small className="esh-file-problem" role="alert">
+                        {item.message}
+                      </small>
+                    )}
                   </span>
-                  <button
-                    type="button"
-                    className="btn ghost small"
-                    onClick={() => setStaged((current) => current.filter((_, at) => at !== index))}
-                  >
-                    Remove
-                  </button>
+                  {item.state !== 'uploaded' && item.state !== 'uploading' && (
+                    <button
+                      type="button"
+                      className="btn ghost small"
+                      onClick={() =>
+                        setStaged((current) => current.filter((one) => one.id !== item.id))
+                      }
+                    >
+                      Remove
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -700,7 +895,19 @@ export function FindingForm({
             Back
           </button>
         )}
-        <button className="btn" type="submit" name="intent" value="draft" disabled={pending}>
+        {/*
+         * v291 - not once the finding exists. This submits with no id, so
+         * every press creates another finding; after the save it would have
+         * made a duplicate draft carrying none of the evidence, and left the
+         * original behind with its photographs still unattached.
+         */}
+        <button
+          className="btn"
+          type="submit"
+          name="intent"
+          value="draft"
+          disabled={pending || savedFindingId !== null}
+        >
           Save draft
         </button>
         {/*
@@ -729,13 +936,93 @@ export function FindingForm({
             type="submit"
             name="intent"
             value="assign"
-            disabled={pending}
+            /*
+             * v290 — not while a photograph is still being prepared. The
+             * re-encode takes a moment on a large picture, and saving through
+             * it would send the original or nothing at all.
+             */
+            disabled={pending || preparing || savedFindingId !== null}
             aria-busy={pending}
           >
-            {attaching ?? (pending ? 'Saving…' : 'Assign finding')}
+            {attaching ??
+              (preparing ? 'Preparing photos…' : pending ? 'Saving…' : 'Assign finding')}
           </button>
         )}
       </div>
+
+      {/*
+       * v290 — the finding is saved and a photograph is not. Saying so, and
+       * offering the one action that fixes it, rather than moving on to a
+       * page that would look complete.
+       *
+       * v291 - and shown for as long as the form is finishing a finding, not
+       * only while something is failing.
+       *
+       * It used to appear only when a photograph had failed, so removing the
+       * last failed file took the way out with it: Assign finding stays
+       * disabled once the finding exists, and the only button that opened it
+       * had just vanished. Somebody who did what the message told them to do
+       * was stranded on a form that could do nothing.
+       */}
+      {savedFindingId && (
+        <div
+          className={
+            failedAttachments.length > 0
+              ? 'notice error esh-attach-failed'
+              : 'notice esh-attach-failed'
+          }
+          role="alert"
+        >
+          <strong>
+            {failedAttachments.length > 0
+              ? `The finding was saved, but ${
+                  failedAttachments.length === 1
+                    ? 'one photograph did not attach'
+                    : `${failedAttachments.length} photographs did not attach`
+                }.`
+              : outstandingAttachments.length > 0
+                ? `The finding was saved. ${
+                    outstandingAttachments.length === 1
+                      ? 'One photograph is'
+                      : `${outstandingAttachments.length} photographs are`
+                  } not attached to it yet.`
+                : 'The finding was saved.'}
+          </strong>
+          <p>
+            {outstandingAttachments.length > 0
+              ? 'Nothing has been lost from this screen. Try again, or open the finding without them.'
+              : 'Open it to carry on. Nothing else on this form can be saved again.'}
+          </p>
+          <div className="esh-form-actions">
+            {outstandingAttachments.length > 0 && (
+              <button
+                type="button"
+                className="btn primary small"
+                disabled={pending || preparing}
+                onClick={retryAttachments}
+              >
+                {pending
+                  ? 'Attaching…'
+                  : preparing
+                    ? 'Preparing photos…'
+                    : 'Try the attachments again'}
+              </button>
+            )}
+            {redirectTo && (
+              <button
+                type="button"
+                className="btn small"
+                disabled={pending}
+                onClick={() => router.push(redirectTo)}
+              >
+                {outstandingAttachments.length > 0
+                  ? 'Open the finding without them'
+                  : 'Open the finding'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </form>
   );
 }

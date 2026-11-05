@@ -195,7 +195,7 @@ export default async function HistoricalInsightsPage({
             />
           </section>
 
-          <OperationalHealth health={health} />
+          <OperationalHealth reading={health} />
           {rollout && <HeldNoticesRelease releasable={rollout.heldReleasable} />}
 
           {/*
