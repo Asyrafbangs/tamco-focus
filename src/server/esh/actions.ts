@@ -103,13 +103,27 @@ export async function saveFinding(
   };
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = intakeId.success
-    ? await supabase.rpc('esh_accept_report_intake', {
-        p_intake_id: intakeId.data,
-        p_payload: payload,
-        p_assign: assign,
-        p_idempotency_key: key || undefined,
-      })
+  /*
+   * v293 - pressing Assign is a coordinator taking the report.
+   *
+   * `esh_accept_report_intake` refuses a report this coordinator has not
+   * claimed, which in the old two-page flow was a separate button on a
+   * separate screen. In the workspace it would be an error message telling
+   * somebody to press a button they can see no reason for, so a refusal of
+   * exactly that kind claims the report and tries once more. Nothing is
+   * loosened: the claim runs the same permission and scope checks, and
+   * refuses outright if another coordinator is holding it - which then
+   * surfaces as the message it should.
+   */
+  const acceptIntake = async () =>
+    supabase.rpc('esh_accept_report_intake', {
+      p_intake_id: intakeId.data as string,
+      p_payload: payload,
+      p_assign: assign,
+      p_idempotency_key: key || undefined,
+    });
+  let { data, error } = intakeId.success
+    ? await acceptIntake()
     : await supabase.rpc('esh_save_finding', {
         // Sent as an explicit null for a new finding: an absent key matches no
         // function signature at all.
@@ -128,6 +142,13 @@ export async function saveFinding(
       ],
       warnings: [],
     };
+  }
+
+  if (intakeId.success && !error && (data as { code?: string } | null)?.code === 'not_claimed') {
+    const claimed = await supabase.rpc('esh_claim_report_intake', { p_intake_id: intakeId.data });
+    if (!claimed.error && (claimed.data as { ok?: boolean } | null)?.ok) {
+      ({ data, error } = await acceptIntake());
+    }
   }
 
   const result = (data ?? {}) as {
@@ -150,7 +171,7 @@ export async function saveFinding(
                 result.code === 'not_permitted'
                   ? 'You do not have permission to create findings.'
                   : result.code === 'not_claimed'
-                    ? 'Claim this private report before creating its Finding.'
+                    ? 'Another coordinator is working on this report. Reload the queue.'
                     : result.code === 'not_a_draft'
                       ? 'This finding has already been assigned.'
                       : 'This finding could not be saved.',

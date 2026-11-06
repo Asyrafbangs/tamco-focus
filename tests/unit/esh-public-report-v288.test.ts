@@ -87,11 +87,32 @@ describe('v288 the promises on the page', () => {
     expect(PUBLIC_REPORT_COPY.emergency).not.toMatch(/\d{3,}/);
   });
 
-  it('says what anonymous means, in terms of what is not kept', () => {
+  /*
+   * v293 — the same subject, held to what the code can actually do.
+   *
+   * This used to require the page to say "no account, no device, no location
+   * data". The first two are true; the third is not, because the sticker
+   * records which location the report came from, and neither covers the
+   * description naming its writer or a photograph showing a face. A promise
+   * the implementation cannot keep is worse than no promise, because somebody
+   * writes something they believe is untraceable. So the absolute claims are
+   * now refused, and what replaced them is required.
+   */
+  it('does not promise an anonymity the implementation cannot keep', () => {
     const privacy = PUBLIC_REPORT_COPY.privacy.join(' ');
-    expect(privacy).toMatch(/no account, no device, no location data/i);
-    expect(privacy).toMatch(/where it was taken — is removed/i);
+    expect(privacy).not.toMatch(/no account, no device, no location data/i);
+    expect(privacy).not.toMatch(/nobody else sees it/i);
+    expect(privacy).not.toMatch(/nothing in the report identifies you/i);
+  });
+
+  it('says what is true: what is removed, what is kept, and what to leave out', () => {
+    const privacy = PUBLIC_REPORT_COPY.privacy.join(' ');
+    expect(privacy).toMatch(/where it was taken, is removed/i);
     expect(privacy).toMatch(/never published/i);
+    // The one thing the reader controls.
+    expect(privacy).toMatch(/avoid putting names, faces or badges/i);
+    // And the one thing the sticker settles for them.
+    expect(privacy).toMatch(/which location the report came from/i);
   });
 
   it('tells the reporter they do not have to classify anything', () => {
@@ -99,9 +120,22 @@ describe('v288 the promises on the page', () => {
   });
 
   // The contact field is optional and has to read as optional, or people who
-  // would rather stay anonymous will fill it in anyway.
+  // would rather not be named will fill it in anyway.
   it('offers the contact line as optional, both in the label and the hint', () => {
     expect(PUBLIC_REPORT_COPY.contact).toMatch(/optional/i);
-    expect(PUBLIC_REPORT_COPY.contactHint).toMatch(/anonymously/i);
+    expect(PUBLIC_REPORT_COPY.contactHint).toMatch(/leave blank/i);
+    /*
+     * v293 — and the hint no longer says leaving it blank reports
+     * "anonymously", which was the same promise in a shorter sentence. It
+     * says what the reader decides: whether to give contact details.
+     */
+    expect(PUBLIC_REPORT_COPY.contactHint).not.toMatch(/anonymous/i);
+  });
+
+  // v293 — an extension is a way to be reached. The placeholder has to say so,
+  // because a field that looks like an email field is one people skip.
+  it('names the kinds of contact it will take', () => {
+    expect(PUBLIC_REPORT_COPY.contactPlaceholder).toMatch(/email/i);
+    expect(PUBLIC_REPORT_COPY.contactPlaceholder).toMatch(/extension/i);
   });
 });

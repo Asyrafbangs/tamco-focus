@@ -26,6 +26,56 @@ interface Staged {
   preview: string;
 }
 
+/*
+ * v293 - two small marks, drawn rather than named.
+ *
+ * "Take photo" and "Choose photo" are two words apart and one is the wrong
+ * one to press when you are holding a phone in a noisy building. A camera and
+ * a stack of pictures are told apart at a glance in a way that two labels are
+ * not. Inline and `currentColor`, so they follow the theme and add nothing to
+ * load.
+ */
+function CameraMark() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+      <path
+        d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="13.5" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function GalleryMark() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+      <rect
+        x="3"
+        y="6"
+        width="18"
+        height="13"
+        rx="1.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        d="m5 16 4-4 3 3 3-3 4 4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="9" cy="10" r="1.2" fill="currentColor" />
+    </svg>
+  );
+}
+
 /**
  * The public form (v288, §2).
  *
@@ -39,8 +89,14 @@ interface Staged {
  * with the GPS co-ordinates in it; the server rebuilds the file again, so the
  * promise does not depend on the browser having done its part.
  */
-export function PublicReportForm({ code, label }: { code: string; label: string }) {
+export function PublicReportForm({ code }: { code: string }) {
   const [text, setText] = useState('');
+  /*
+   * v293 - the required field says so once somebody has been in it and left
+   * it empty, rather than at the moment the page opens. Send stays disabled
+   * either way; this is the sentence that explains why.
+   */
+  const [observationTouched, setObservationTouched] = useState(false);
   const [where, setWhere] = useState('');
   const [contact, setContact] = useState('');
   const [staged, setStaged] = useState<Staged[]>([]);
@@ -153,30 +209,63 @@ export function PublicReportForm({ code, label }: { code: string; label: string 
     );
   }
 
+  const observationMissing = observationTouched && text.trim() === '';
+
   return (
     <div className="public-report">
-      <p className="public-report-where">
-        <span>You are at</span>
-        <strong>{label}</strong>
-      </p>
-
       <div className="esh-field">
         <label htmlFor="public-report-text">
-          <span>{PUBLIC_REPORT_COPY.observation}</span>
+          <span>
+            {PUBLIC_REPORT_COPY.observation} <span aria-hidden="true">*</span>
+          </span>
         </label>
         <textarea
           id="public-report-text"
           value={text}
-          rows={5}
+          rows={3}
           maxLength={PUBLIC_REPORT_MAX_TEXT}
+          required
           autoFocus
+          aria-invalid={observationMissing || undefined}
+          aria-describedby={observationMissing ? 'public-report-text-problem' : undefined}
           placeholder="The guard is off the bench grinder and it is still being used."
+          onBlur={() => setObservationTouched(true)}
           onChange={(event) => {
             setText(event.target.value);
             setProblem(null);
+            if (event.target.value.trim() !== '') setObservationTouched(false);
+            /*
+             * Grows with what is typed, within a limit. Three rows is the
+             * right size for an empty box and the wrong one for a paragraph,
+             * and a box that scrolls internally on a phone hides the first
+             * line of what somebody has just written.
+             */
+            const field = event.target;
+            field.style.height = 'auto';
+            field.style.height = `${Math.min(field.scrollHeight, 320)}px`;
           }}
         />
-        <p className="form-hint">{PUBLIC_REPORT_COPY.observationHint}</p>
+        {/*
+         * v293 — always here, shown or not, so the page does not move.
+         *
+         * The box above is focused when the page opens, so the first tap
+         * anywhere else blurs an empty required field and this sentence
+         * appears. Rendered conditionally it added a line and pushed
+         * everything below it down by 23px between finger-down and
+         * finger-up — measured — which means the control somebody was
+         * reaching for is no longer under their finger when they let go.
+         * On a phone that is a tap that silently does nothing; the first
+         * thing it cost was a browser test that could not open a disclosure
+         * it was pointing straight at.
+         */}
+        <p
+          id="public-report-text-problem"
+          className="esh-field-error public-report-problem-slot"
+          data-shown={observationMissing || undefined}
+          role="alert"
+        >
+          {observationMissing ? PUBLIC_REPORT_COPY.observationMissing : ''}
+        </p>
       </div>
 
       <div className="esh-field">
@@ -187,7 +276,7 @@ export function PublicReportForm({ code, label }: { code: string; label: string 
           id="public-report-where"
           value={where}
           maxLength={160}
-          placeholder="By the goods-in door"
+          placeholder={PUBLIC_REPORT_COPY.locationPlaceholder}
           onChange={(event) => setWhere(event.target.value)}
         />
       </div>
@@ -213,6 +302,7 @@ export function PublicReportForm({ code, label }: { code: string; label: string 
             disabled={pending || staged.length >= PUBLIC_PHOTO_MAX || preparing > 0}
             onClick={() => camera.current?.click()}
           >
+            <CameraMark />
             Take photo
           </button>
           <button
@@ -221,6 +311,7 @@ export function PublicReportForm({ code, label }: { code: string; label: string 
             disabled={pending || staged.length >= PUBLIC_PHOTO_MAX || preparing > 0}
             onClick={() => chooser.current?.click()}
           >
+            <GalleryMark />
             Choose photo
           </button>
         </span>
@@ -250,8 +341,22 @@ export function PublicReportForm({ code, label }: { code: string; label: string 
         <p className="form-hint">{PUBLIC_REPORT_COPY.photosHint}</p>
       </div>
 
-      {staged.length > 0 && (
+      {(staged.length > 0 || preparing > 0) && (
         <ul className="public-report-photos">
+          {/*
+           * v293 - a place for each photograph while it is being made ready.
+           *
+           * A re-encode of a full-size phone frame takes a second or two, and
+           * until it finished nothing at all appeared: the screen looked as
+           * though the picture had been refused. Send is already held back
+           * while this runs; this is the part somebody can see.
+           */}
+          {Array.from({ length: preparing }, (_, index) => (
+            <li key={`preparing-${index}`} className="public-report-preparing">
+              <span className="public-report-thumb-pending" aria-hidden="true" />
+              <span role="status">Preparing…</span>
+            </li>
+          ))}
           {staged.map((item) => (
             <li key={item.id}>
               {/* eslint-disable-next-line @next/next/no-img-element -- a blob
@@ -279,7 +384,14 @@ export function PublicReportForm({ code, label }: { code: string; label: string 
           value={contact}
           maxLength={PUBLIC_REPORT_MAX_CONTACT}
           autoComplete="off"
-          placeholder="Leave blank to stay anonymous"
+          /*
+           * v293 - a plain text field, not `type="email"`.
+           *
+           * An extension number is a perfectly good way to be reached in a
+           * plant, and a browser that refuses to submit "4412" because it is
+           * not an email address turns an optional field into a dead end.
+           */
+          placeholder={PUBLIC_REPORT_COPY.contactPlaceholder}
           onChange={(event) => setContact(event.target.value)}
         />
         <p className="form-hint">{PUBLIC_REPORT_COPY.contactHint}</p>
@@ -304,13 +416,23 @@ export function PublicReportForm({ code, label }: { code: string; label: string 
         </p>
       )}
 
+      {/*
+       * v293 - the heading and one sentence are on the page; the rest is a
+       * disclosure. Four paragraphs under a Send button are four paragraphs
+       * nobody reads, and the part that changes somebody's behaviour - that
+       * contact details are optional - is the part that has to be visible.
+       */}
       <section className="public-report-privacy" aria-labelledby="public-report-privacy-title">
         <h2 id="public-report-privacy-title">{PUBLIC_REPORT_COPY.privacyHeading}</h2>
-        <ul>
-          {PUBLIC_REPORT_COPY.privacy.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
+        <p>{PUBLIC_REPORT_COPY.privacySummary}</p>
+        <details>
+          <summary>What happens to this report</summary>
+          <ul>
+            {PUBLIC_REPORT_COPY.privacy.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </details>
       </section>
     </div>
   );
