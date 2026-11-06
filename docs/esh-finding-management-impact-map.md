@@ -225,11 +225,11 @@ screen and failed `esh-identity-access-v203` as though the feature were broken (
 
 Three outcomes, chosen per read rather than by one rule:
 
-| Outcome                                                                           | When                                                                                                          | Reads                                                                                                                                                                                                                                                        |
-| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Throw**, via `requireAnswer` from `@/domain/esh-findings`                       | The missing data is the screen's subject, or it is the options of a control the reader cannot proceed without | `getEshAccess` (as `accessFromAnswer`), `getFindingDetail`, `listEmailContacts`, `getDepartmentsInScope`, `getVerifiers`, `getFollowupSettings`, `listDepartmentEscalationDefaults`, `listVerificationQueue`, `listImportBatches`, `listReviewedConnections` |
-| **Report**, as `{ data, failed }` — the §33.2 pattern `listRegister` already used | One tile or panel on a screen that must keep working without it, or a route that has to answer something      | `getDashboard`, `getOperationalHealth`, `getRolloutStatus`, `readObject`, `signedDownloadFor`                                                                                                                                                                |
-| **Leave**                                                                         | The caller already says it honestly, and neither alternative improves it                                      | `getPublicDashboard`                                                                                                                                                                                                                                         |
+| Outcome                                                                           | When                                                                                                          | Reads                                                                                                                                                                                                                               |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Throw**, via `requireAnswer` from `@/domain/esh-findings`                       | The missing data is the screen's subject, or it is the options of a control the reader cannot proceed without | `getEshAccess` (as `accessFromAnswer`), `getFindingDetail`, `listEmailContacts`, `getDepartmentsInScope`, `getVerifiers`, `getFollowupSettings`, `listDepartmentEscalationDefaults`, `listImportBatches`, `listReviewedConnections` |
+| **Report**, as `{ data, failed }` — the §33.2 pattern `listRegister` already used | One tile or panel on a screen that must keep working without it, or a route that has to answer something      | `getDashboard`, `getRolloutStatus`, `readObject`, `signedDownloadFor`                                                                                                                                                               |
+| **Leave**                                                                         | The caller already says it honestly, and neither alternative improves it                                      | `getPublicDashboard`                                                                                                                                                                                                                |
 
 `failed` matters because `null` was carrying three answers at once: the read failed, the database
 function declined (`ok: false`), and there is genuinely nothing. Only the first is worth telling
@@ -276,8 +276,32 @@ again." for a Storage outage as readily as for a deleted object: false twice ove
 is where they left it and re-uploading fixes nothing, which is exactly what they had just been
 told to do.
 
-`countAwaitingVerification` is the one read two changes reached independently. This work judged it
-dead and deleted it — nothing called it, and Today already has two sources for that number, so a
+### Two of these were reached independently, and v290 got there first
+
+`listVerificationQueue` and `getOperationalHealth` are not in the tables above, because v290 and
+v291 on `main` applied this same rule to them while this work was in progress — and in the health
+panel's case, better. v290 made the answer a `HealthReading` discriminated union and put the
+"unreadable monitor" note in `@/domain/esh-health`, where it can be argued with in a test rather
+than in a browser; this work's competing `{ data, failed }` version was dropped in its favour on
+the rebase. v290's `listVerificationQueue` is case-for-case what this work had, including the
+second read whose error both passes found discarded, so its version stands and the duplicate test
+here was removed.
+
+What v290 did not leave behind is a test at the **call site** for the health read:
+`esh-health-reading-v290` tests `readingNotes`, a pure function, and mentions
+`getOperationalHealth` only in a comment — so an edit returning `null` again, which is exactly
+what v290 fixed, would fail nothing. `esh-reported-reads-v285` closes that gap against v290's own
+contract. That is the v284 lesson, and it applies to whoever's fix it is.
+
+Today's two figures are the same story: v291 reached `protection` and `overdue` independently, with
+better presentation than this work had — an `aria-label` of "not known" and a detail line reading
+"This figure could not be read — it is not a count of none". That presentation is kept. What it
+could not do is tell a failed dashboard read from the function declining, because v291 left
+`getDashboard` answering `null` for both; it is wired to this work's `{ data, failed }` now, which
+separates them.
+
+`countAwaitingVerification` is the one read two changes reached independently. This work judged it dead
+and deleted it — nothing called it, and Today already has two sources for that number, so a
 third would only be something to drift. Stage 5 on `main` judged it a trap worth disarming before
 anybody wires it up, and hardened it in place with `requireAnswer`, recorded in
 `docs/finding-management-v4.1/stage5-workflow-hardening.md`. Stage 5 landed first, so its version

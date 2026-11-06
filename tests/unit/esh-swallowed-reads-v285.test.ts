@@ -117,7 +117,6 @@ import {
   listDepartmentEscalationDefaults,
   listEmailContacts,
   listReviewedConnections,
-  listVerificationQueue,
 } from '@/server/esh/queries';
 
 /** Answers queued for one RPC, taken in order, the last one repeating. */
@@ -454,90 +453,17 @@ describe('v285 listDepartmentEscalationDefaults', () => {
   });
 });
 
-describe('v285 listVerificationQueue', () => {
-  const A_SUBMISSION = {
-    id: 'f0c05400-0000-4000-a000-000000000001',
-    action_id: 'f0c05500-0000-4000-a000-000000000001',
-    version: 1,
-    submitted_at: '2026-11-01T02:00:00Z',
-    owner_email: 'owner@tamco.com.my',
-    evidence_asset_ids: ['f0c05600-0000-4000-a000-000000000001'],
-  };
-  const ITS_ACTION = {
-    finding_id: 'f0c05200-0000-4000-a000-000000000001',
-    action_id: A_SUBMISSION.action_id,
-    reference: 'ESH-2026-0001',
-    title: 'A guard was missing from the press',
-    location: 'Press shop',
-    department_name: 'Maintenance',
-    priority: 'high',
-  };
-
-  it('throws rather than reporting an empty verification queue', async () => {
-    answerTable('esh_action_submissions', UPSTREAM_502);
-
-    await expect(listVerificationQueue()).rejects.toThrow(/could not be read/);
-  });
-
-  it('does not resolve to an empty list', async () => {
-    answerTable('esh_action_submissions', UPSTREAM_502);
-
-    const outcome = await listVerificationQueue().then(
-      (rows) => ({ resolved: rows }),
-      () => null,
-    );
-
-    expect(outcome, 'a failed read resolved instead of throwing').toBeNull();
-  });
-
-  /*
-   * The second read's error was discarded outright — not logged, not returned.
-   * Every submission is matched to this result by action and a submission that
-   * does not match is dropped, so a failure here emptied the queue with the
-   * submissions already in hand to prove it was not empty.
-   */
-  it('throws when the second read fails, with submissions already in hand', async () => {
-    answerTable('esh_action_submissions', { data: [A_SUBMISSION], error: null });
-    answerTable('esh_action_register_rows', UPSTREAM_502);
-
-    await expect(listVerificationQueue()).rejects.toThrow(/could not be read/);
-  });
-
-  it('returns the queue when both reads answer', async () => {
-    answerTable('esh_action_submissions', { data: [A_SUBMISSION], error: null });
-    answerTable('esh_action_register_rows', { data: [ITS_ACTION], error: null });
-
-    const rows = await listVerificationQueue();
-
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.reference).toBe('ESH-2026-0001');
-    expect(rows[0]?.files).toBe(1);
-  });
-
-  it('returns an empty queue when nothing is genuinely waiting', async () => {
-    answerTable('esh_action_submissions', EMPTY);
-
-    await expect(listVerificationQueue()).resolves.toEqual([]);
-  });
-
-  /*
-   * A submission whose action is outside the department asked for is filtered,
-   * not failed: the second read answered, and the answer was that this row is
-   * not in that department.
-   */
-  it('returns an empty queue when the department filter genuinely excludes everything', async () => {
-    answerTable('esh_action_submissions', { data: [A_SUBMISSION], error: null });
-    answerTable('esh_action_register_rows', EMPTY);
-
-    await expect(listVerificationQueue(A_DEPARTMENT)).resolves.toEqual([]);
-  });
-});
-
 /*
- * The read the original list of twelve missed, found by sweeping for a
- * `console.error` followed by a `return [] / null / 0` rather than by trusting
- * the list. It is the same defect in the same file.
+ * `listVerificationQueue` was covered here and is not any more.
+ *
+ * v290 reached the same read independently, hardened both of its
+ * reads — including the second one, whose error it also found
+ * discarded — and left `esh-review-queue-call-site-v290` behind,
+ * which asserts the same four things these cases did. Two suites
+ * asserting one contract is a maintenance cost with no extra proof,
+ * so this one defers to the test that landed first.
  */
+
 describe('v285 listReviewedConnections', () => {
   const A_FINDING = 'f0c05200-0000-4000-a000-000000000001';
   const ANOTHER_FINDING = 'f0c05200-0000-4000-a000-000000000002';

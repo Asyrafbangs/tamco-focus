@@ -161,7 +161,7 @@ describe('v285 getDashboard', () => {
   });
 });
 
-describe('v285 getOperationalHealth', () => {
+describe('v285 getOperationalHealth, on v290 contract', () => {
   const HEALTHY = {
     ok: true,
     last_run_at: '2026-11-03T01:00:00Z',
@@ -174,29 +174,49 @@ describe('v285 getOperationalHealth', () => {
   };
 
   /*
-   * The sharpest case of the three. This panel reports trouble and renders
-   * nothing when there is none, so a failed read looked exactly like a system
-   * with nothing to report.
+   * v290 reached this read independently and solved it better: the answer is a
+   * `HealthReading` discriminated union, and `readingNotes` in the domain turns
+   * an unavailable one into a note the panel shows. This work's competing
+   * `{ data, failed }` version was dropped in its favour on the rebase.
+   *
+   * What v290 did not leave behind is a test at the CALL SITE.
+   * `esh-health-reading-v290` tests `readingNotes`, a pure function, and only
+   * mentions `getOperationalHealth` in a comment — so an edit returning `null`
+   * again, which is exactly what v290 fixed, would fail nothing. That is the
+   * gap v284 was written to close, and this closes it for this read.
    */
-  it('reports the failure rather than going silent', async () => {
+  it('reports the monitor as unavailable rather than going silent', async () => {
     answerRpc('esh_operational_health', UPSTREAM_502);
 
-    await expect(getOperationalHealth()).resolves.toEqual({ data: null, failed: true });
+    await expect(getOperationalHealth()).resolves.toEqual({ available: false });
   });
 
-  it('reports no failure when the read answers', async () => {
+  it('does not answer a failed read with a reading somebody could act on', async () => {
+    answerRpc('esh_operational_health', UPSTREAM_502);
+
+    const reading = await getOperationalHealth();
+
+    expect(reading.available, 'a failed read was reported as a usable reading').toBe(false);
+  });
+
+  /*
+   * Without this, the two above would pass on a function that reported
+   * everything unavailable — which would put "could not be read" on a healthy
+   * Today, every visit.
+   */
+  it('carries the reading through when the read answers', async () => {
     answerRpc('esh_operational_health', { data: HEALTHY, error: null });
 
-    const health = await getOperationalHealth();
+    const reading = await getOperationalHealth();
 
-    expect(health.failed).toBe(false);
-    expect(health.data?.lastRunOk).toBe(true);
+    expect(reading.available).toBe(true);
+    expect(reading.available && reading.health.lastRunOk).toBe(true);
   });
 
-  it('reports no failure when the function declines with ok: false', async () => {
+  it('reports unavailable when the function itself declines', async () => {
     answerRpc('esh_operational_health', { data: { ok: false }, error: null });
 
-    await expect(getOperationalHealth()).resolves.toEqual({ data: null, failed: false });
+    await expect(getOperationalHealth()).resolves.toEqual({ available: false });
   });
 });
 
