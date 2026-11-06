@@ -17,12 +17,12 @@ model never gets a connection of its own.
 
 ## Which SDK, and why
 
-| Option | Verdict |
-| --- | --- |
-| **Anthropic TypeScript SDK** | **Chosen.** One provider, one model, direct access to `usage`, thinking and effort. |
-| Claude Agent SDK | Wrong product — it is Claude Code as a library: filesystem, bash, grep. This agent's whole world is authorised rows. |
-| Managed Agents | Wrong shape — Anthropic hosts the loop and a sandbox, which puts the tools away from the caller's session. |
-| Vercel AI SDK | An abstraction over providers we do not have, at the cost of the token accounting we do need. |
+| Option                       | Verdict                                                                                                              |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Anthropic TypeScript SDK** | **Chosen.** One provider, one model, direct access to `usage`, thinking and effort.                                  |
+| Claude Agent SDK             | Wrong product — it is Claude Code as a library: filesystem, bash, grep. This agent's whole world is authorised rows. |
+| Managed Agents               | Wrong shape — Anthropic hosts the loop and a sandbox, which puts the tools away from the caller's session.           |
+| Vercel AI SDK                | An abstraction over providers we do not have, at the cost of the token accounting we do need.                        |
 
 The loop is written by hand rather than with the SDK's tool runner, for one
 reason: **a Vercel function on the Hobby plan is killed at sixty seconds**. The
@@ -38,14 +38,14 @@ $0.05–0.20 for a typical investigation.
 
 Eight tools, each a thin wrapper over an existing reader:
 
-| Tool | Wraps |
-| --- | --- |
-| `list_my_tasks` | `getMyTasks` |
-| `get_task_detail` | `getTaskDetail` |
-| `list_steps_i_owe` | `getStepsIOwe` |
-| `list_team_workload` | `getTeamAvailableWork` |
-| `search_findings` | `listRegister` |
-| `get_finding_detail` | `getFindingDetail` |
+| Tool                      | Wraps                   |
+| ------------------------- | ----------------------- |
+| `list_my_tasks`           | `getMyTasks`            |
+| `get_task_detail`         | `getTaskDetail`         |
+| `list_steps_i_owe`        | `getStepsIOwe`          |
+| `list_team_workload`      | `getTeamAvailableWork`  |
+| `search_findings`         | `listRegister`          |
+| `get_finding_detail`      | `getFindingDetail`      |
 | `list_verification_queue` | `listVerificationQueue` |
 | `get_hazard_distribution` | `getHazardDistribution` |
 
@@ -111,12 +111,12 @@ AI_DAILY_LIMIT_USD=5
 
 ## Tests
 
-| | |
-| --- | --- |
-| `ai-domain-v295` | pricing, refusals, loop bounds, evidence wrapping, citations (19 cases) |
-| `ai-agent-loop-v295` | the loop driven without a network: answers, step limit, clock limit, tool failure, unknown tool (7 cases) |
-| `ai-tool-boundary-v295` | reads the source: no service-role client, no SQL, no writing tool, every result wrapped (5 cases) |
-| `ai_conversations_v295` | pgTAP: cross-user isolation, writing into another thread, administrator exclusion, per-caller spend (12 assertions) |
+|                           |                                                                                                                                          |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `ai-domain-v295`          | pricing, refusals, loop bounds, evidence wrapping, citations (19 cases)                                                                  |
+| `ai-agent-loop-v295`      | the loop driven without a network: answers, step limit, clock limit, tool failure, unknown tool (7 cases)                                |
+| `ai-tool-boundary-v295`   | reads the source: no service-role client, no SQL, no writing tool, every result wrapped (5 cases)                                        |
+| `ai_conversations_v295`   | pgTAP: cross-user isolation, writing into another thread, administrator exclusion, per-caller spend (12 assertions)                      |
 | `evals/ai/scenarios.json` | 15 investigations with known answers: blame, recurrence, unreadable reads, injection, contradiction, invented statistics, systemic cause |
 
 The eval suite needs an API key and has **not been run**: without one it refuses
