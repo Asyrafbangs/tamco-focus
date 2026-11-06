@@ -330,6 +330,71 @@ describe('v295 a rate-limited provider', () => {
   });
 });
 
+describe('v295 an answer with nothing read behind it', () => {
+  it('is discarded, and the model is asked to read first', async () => {
+    /*
+     * Measured across two full eval runs against the real model: on a
+     * question it could not settle, gpt-oss-120b sometimes answers from the
+     * question alone. The words were careful and the substance was
+     * ungrounded, which is the one thing this feature cannot ship with - so
+     * the loop enforces what the prompt asks rather than hoping.
+     */
+    const { events, result } = await collect(
+      run({
+        question: 'Prove that this hazard keeps recurring in the warehouse.',
+        provider: scripted([
+          answers('Hazards of this kind commonly recur in warehouses.'),
+          callsTool(),
+          answers('Two of the three share a housekeeping category.'),
+        ]),
+      }),
+    );
+    // The ungrounded draft never reaches the person.
+    expect(result.text).not.toContain('commonly recur');
+    expect(result.text).toContain('housekeeping category');
+    expect(state.toolRuns).toHaveLength(1);
+    expect(
+      events.some((one) => one.type === 'notice' && /against your records/.test(one.message)),
+    ).toBe(true);
+  });
+
+  it('nudges only once, so a question that needs no records still gets answered', async () => {
+    const { result } = await collect(
+      run({
+        question: 'What can you actually do for me in this workspace?',
+        provider: scripted([
+          answers('I can read your tasks and findings.'),
+          answers('I can read your tasks and findings.'),
+        ]),
+      }),
+    );
+    expect(result.text).toContain('I can read your tasks and findings.');
+    expect(result.stop).toBe('answered');
+  });
+
+  it('does not spend two requests on a pleasantry', async () => {
+    let sent = 0;
+    const { result } = await collect(
+      run({
+        question: 'thanks',
+        provider: scripted([answers('Any time.')], { onSend: () => (sent += 1) }),
+      }),
+    );
+    expect(sent).toBe(1);
+    expect(result.text).toBe('Any time.');
+  });
+
+  it('does not nudge an answer that followed a tool call', async () => {
+    const { events } = await collect(
+      run({
+        question: 'Why are my corrective actions delayed this month?',
+        provider: scripted([callsTool(), answers('Because of the verification queue.')]),
+      }),
+    );
+    expect(events.some((one) => one.type === 'notice')).toBe(false);
+  });
+});
+
 describe('v295 the same question is not asked twice', () => {
   it('tells the model it already has a result rather than fetching it again', async () => {
     /*

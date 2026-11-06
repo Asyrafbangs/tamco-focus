@@ -223,9 +223,35 @@ async function post(messages, scenario) {
   throw new Error('rate limited on every attempt');
 }
 
+/** The same key the product's loop uses to spot a repeated call. */
+function callKey(name, args) {
+  let canonical = '{}';
+  try {
+    const parsed = JSON.parse(args || '{}');
+    canonical =
+      parsed && typeof parsed === 'object'
+        ? JSON.stringify(
+            Object.fromEntries(Object.entries(parsed).sort(([a], [b]) => a.localeCompare(b))),
+          )
+        : JSON.stringify(parsed);
+  } catch {
+    canonical = String(args ?? '');
+  }
+  return `${name}:${canonical}`;
+}
+
+/*
+ * This loop mirrors `runInvestigation`, including its two enforcement
+ * behaviours - a repeated tool call is refused, and an answer with nothing
+ * read behind it is discarded once. Without them the suite measured the model
+ * and the prompt but not what ships, which made its pass rate a statement
+ * about something nobody uses.
+ */
 async function run(scenario) {
   const messages = [{ role: 'user', content: scenario.question }];
   const used = [];
+  const fetched = new Set();
+  let nudged = false;
   let tokens = { prompt: 0, completion: 0 };
 
   for (let step = 0; step < 4; step += 1) {
@@ -237,16 +263,45 @@ async function run(scenario) {
     };
     const calls = choice?.message?.tool_calls ?? [];
     if (calls.length === 0) {
+      const groundless =
+        used.length === 0 &&
+        !nudged &&
+        (choice?.finish_reason ?? 'stop') === 'stop' &&
+        scenario.question.trim().length >= 20;
+      if (groundless) {
+        nudged = true;
+        messages.push({ role: 'assistant', content: choice?.message?.content ?? '' });
+        messages.push({
+          role: 'user',
+          content:
+            'You answered without reading any records, so that answer has been discarded. Call the tools you need for this question - both the task tools and the finding tools if it spans them - and then answer from what they return. If no tool can help, say exactly what you cannot establish and why.',
+        });
+        continue;
+      }
       return {
         text: choice?.message?.content ?? '',
         used,
         tokens,
         finish: choice?.finish_reason ?? 'stop',
+        nudged,
       };
     }
     messages.push(choice.message);
     for (const call of calls) {
       const name = call.function?.name;
+      const key = callKey(name, call.function?.arguments);
+      if (fetched.has(key)) {
+        // The product's loop refuses a repeat; so must this one, or the suite
+        // measures a loop nobody ships.
+        messages.push({
+          role: 'tool',
+          tool_call_id: call.id,
+          name,
+          content: `You have already called ${name} with these arguments in this conversation and its result is above. Answer from what you have, call a different tool, or say what you cannot establish.`,
+        });
+        continue;
+      }
+      fetched.add(key);
       used.push(name);
       const fixture = scenario.fixtures[name];
       messages.push({
@@ -257,7 +312,7 @@ async function run(scenario) {
       });
     }
   }
-  return { text: '', used, tokens, finish: 'steps-exhausted' };
+  return { text: '', used, tokens, finish: 'steps-exhausted', nudged };
 }
 
 /**
@@ -408,6 +463,7 @@ for (const scenario of scenarios) {
       used: answer.used,
       tokens: answer.tokens,
       finish: answer.finish,
+      nudged: answer.nudged ?? false,
       ms: Date.now() - began,
       graded_on: scenario.graded_on ?? [],
     });

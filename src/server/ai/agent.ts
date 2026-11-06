@@ -175,6 +175,8 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
   let failure: AgentResult['failure'] = null;
   let minuteTokens = input.tokensUsedThisMinute;
   let rateLimitWaited = false;
+  let toolsUsed = 0;
+  let nudged = false;
   /*
    * What has already been fetched this turn.
    *
@@ -275,6 +277,40 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
     turns.push(reply.usage);
     minuteTokens += totalTokens(reply.usage);
 
+    /*
+     * An answer with nothing read behind it gets exactly one nudge.
+     *
+     * Measured across two full eval runs: on a question it could not settle,
+     * the model sometimes answers from the question alone - no tool call at
+     * all. Both times the words were careful and the substance was ungrounded,
+     * which is the one failure this feature cannot ship with, and the prompt
+     * rule telling it to read first did not always hold.
+     *
+     * So the loop enforces what the prompt asks: the draft is discarded
+     * unseen, the model is told plainly what it did, and it gets one more
+     * step. If it answers without tools again, that answer stands - some
+     * questions genuinely need no records - but it has been asked once.
+     *
+     * A very short message is exempt: "thanks" should not cost two requests.
+     */
+    const groundless =
+      reply.stop === 'answered' &&
+      reply.toolCalls.length === 0 &&
+      toolsUsed === 0 &&
+      !nudged &&
+      input.question.trim().length >= 20;
+    if (groundless) {
+      nudged = true;
+      conversation.push({ role: 'assistant', content: reply.text });
+      conversation.push({
+        role: 'user',
+        content:
+          'You answered without reading any records, so that answer has been discarded. Call the tools you need for this question - both the task tools and the finding tools if it spans them - and then answer from what they return. If no tool can help, say exactly what you cannot establish and why.',
+      });
+      yield { type: 'notice', message: 'Checking that against your records before answering.' };
+      continue;
+    }
+
     if (reply.text) {
       answer += (answer ? '\n\n' : '') + reply.text;
       yield { type: 'text', delta: reply.text };
@@ -355,6 +391,7 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
           );
         }
         const outcome = await tool.run(parsedArguments, input.caller);
+        toolsUsed += 1;
         const result: AiMessage = {
           role: 'tool',
           toolCallId: call.id,
