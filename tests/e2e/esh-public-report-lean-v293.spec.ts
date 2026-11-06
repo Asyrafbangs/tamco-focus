@@ -119,6 +119,51 @@ test('v293 the sticker answers where, the form asks what — and says when it ne
   }
 });
 
+test('v293 the page does not move under a finger when the first tap lands', async ({
+  browser,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'A thumb on a phone; that is the whole case.');
+  test.setTimeout(120_000);
+
+  /*
+   * The observation box is focused when the page opens, so the first tap
+   * anywhere else blurs an empty required field. While its message was
+   * rendered conditionally, appearing cost a line: everything below moved
+   * down 23px between finger-down and finger-up, the release landed on
+   * whatever had slid into that place, and the tap did nothing. It is the
+   * kind of fault that reads as "the button is broken sometimes".
+   */
+  const code = `BR2-SHIFT-${Date.now().toString(36).toUpperCase()}`;
+  const db = service();
+  await open(db, code, 'Office 1st Floor');
+  const stranger = await browser.newContext();
+  const page = await stranger.newPage();
+
+  try {
+    await ready(page, code);
+    const send = page.getByRole('button', { name: 'Send report' });
+    const before = await send.boundingBox();
+
+    // The first tap: anywhere that is not the box that holds the caret.
+    await page.getByLabel('Where exactly? (Optional)').click();
+    await expect(page.getByText('Say what you saw before sending.')).toBeVisible();
+
+    const after = await send.boundingBox();
+    expect(
+      Math.round(after!.y - before!.y),
+      'the page must not move when the required field says it is empty',
+    ).toBe(0);
+
+    // And the disclosure below it still opens on one tap, which is the
+    // symptom that found this.
+    await page.locator('.public-report-privacy summary').click();
+    await expect(page.locator('.public-report-privacy ul')).toBeVisible();
+  } finally {
+    await stranger.close();
+    await close(db, code);
+  }
+});
+
 test('v293 the page does not promise an anonymity it cannot keep', async ({
   browser,
 }, testInfo) => {

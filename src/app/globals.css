@@ -17051,13 +17051,21 @@ span.deadline span.deadline-glyph,
   font-size: 14px;
   line-height: 1.5;
 }
+/*
+ * v293 - `display` left alone, deliberately.
+ *
+ * A `summary` set to `display: flex` stops toggling its own `details` on a
+ * click in Chromium: the disclosure is drawn, reads as a disclosure, and
+ * cannot be opened by the people it is for. Measured, not assumed - the same
+ * element opens the moment the display is `list-item`. Anything that needs a
+ * layout goes on a child of the summary, never on the summary.
+ */
 .public-report-privacy summary {
   color: var(--blue);
   font-size: 14px;
   cursor: pointer;
-  min-height: 32px;
-  display: flex;
-  align-items: center;
+  min-height: 44px;
+  padding: 10px 0;
 }
 .public-report-privacy details[open] summary {
   margin-bottom: 8px;
@@ -17199,6 +17207,17 @@ span.deadline span.deadline-glyph,
 }
 
 /* v290 — take or choose, side by side, both reachable with a thumb. */
+/* The required field's message keeps its line whether or not it is showing.
+   Reserving it is what stops the page moving under a finger mid-tap (v293). */
+.public-report-problem-slot {
+  min-height: 20px;
+  margin-top: 4px;
+  visibility: hidden;
+}
+.public-report-problem-slot[data-shown] {
+  visibility: visible;
+}
+
 /* v293 — a photograph's place on the page while it is being re-encoded, so
    choosing one does something visible before it is ready to send. */
 .public-report-preparing {
@@ -17386,18 +17405,19 @@ span.deadline span.deadline-glyph,
   padding: 8px 0;
   border-bottom: 1px solid var(--line-soft);
 }
+/* The display stays `list-item` here too - see the note on the public form's
+   privacy disclosure. The stacking goes on the children. */
 .esh-intake-other summary {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
   min-height: 44px;
-  justify-content: center;
+  padding: 10px 0;
   cursor: pointer;
 }
 .esh-intake-other summary strong {
+  display: block;
   font-size: 14px;
 }
 .esh-intake-other summary small {
+  display: block;
   color: var(--muted);
   font-size: 12px;
 }

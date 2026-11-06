@@ -122,6 +122,22 @@ test('v293 a day of reports is one workspace: the queue, the report and the deci
     // No stepper in here: it is one column of decisions.
     await expect(page.getByRole('button', { name: /^Step 1 of 2/ })).toHaveCount(0);
 
+    /*
+     * Every disclosure on this screen opens when it is clicked.
+     *
+     * Not as obvious as it sounds: a `summary` styled `display: flex` is
+     * drawn as a disclosure, reads as one, and does not toggle in Chromium.
+     * Two of these were written that way and neither could be opened, which
+     * is a control that is present and inert - the same shape as a switch
+     * with no row behind it.
+     */
+    for (const name of ['Report details', 'Advanced settings', 'Existing finding']) {
+      const summary = page.locator('summary', { hasText: name }).first();
+      await summary.click();
+      await expect(summary.locator('xpath=..')).toHaveAttribute('open', '');
+      await summary.click();
+    }
+
     await decide(page, `owner.${tag}@example.com`);
     await page.getByRole('button', { name: 'Assign & next' }).click();
 
@@ -192,9 +208,13 @@ test('v293 the same report assigned twice makes one finding, not two', async ({
     await assign.click();
     await assign.click({ force: true, timeout: 2_000 }).catch(() => {});
 
-    await expect(page).toHaveURL(new RegExp(`/findings/intake\\?report=${ids[1]}`), {
-      timeout: 60_000,
-    });
+    /*
+     * Some other report, not this one. Which one depends on what else is in
+     * the queue, and the queue is shared with every other spec, so this holds
+     * that the workspace moved on; the count below holds what matters.
+     */
+    await expect(page).toHaveURL(/\/findings\/intake/, { timeout: 60_000 });
+    expect(page.url()).not.toContain(ids[0]!);
 
     const { count } = await db
       .from('esh_findings')

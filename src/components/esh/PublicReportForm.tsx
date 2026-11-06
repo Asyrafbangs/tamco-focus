@@ -245,11 +245,27 @@ export function PublicReportForm({ code }: { code: string }) {
             field.style.height = `${Math.min(field.scrollHeight, 320)}px`;
           }}
         />
-        {observationMissing && (
-          <p id="public-report-text-problem" className="esh-field-error" role="alert">
-            {PUBLIC_REPORT_COPY.observationMissing}
-          </p>
-        )}
+        {/*
+         * v293 — always here, shown or not, so the page does not move.
+         *
+         * The box above is focused when the page opens, so the first tap
+         * anywhere else blurs an empty required field and this sentence
+         * appears. Rendered conditionally it added a line and pushed
+         * everything below it down by 23px between finger-down and
+         * finger-up — measured — which means the control somebody was
+         * reaching for is no longer under their finger when they let go.
+         * On a phone that is a tap that silently does nothing; the first
+         * thing it cost was a browser test that could not open a disclosure
+         * it was pointing straight at.
+         */}
+        <p
+          id="public-report-text-problem"
+          className="esh-field-error public-report-problem-slot"
+          data-shown={observationMissing || undefined}
+          role="alert"
+        >
+          {observationMissing ? PUBLIC_REPORT_COPY.observationMissing : ''}
+        </p>
       </div>
 
       <div className="esh-field">
