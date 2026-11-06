@@ -352,6 +352,51 @@ describe('v295 how a failure is classified', () => {
     );
   });
 
+  it('knows a rejected tool call from an ordinary bad request', () => {
+    /*
+     * Observed against the real API: gpt-oss emitted a call to `commentary` -
+     * part of the format it reasons in, not a tool anybody defined - and Groq
+     * answered 400 `tool_use_failed`, ending an investigation that was going
+     * well. The request was sound; the call it wrote was not.
+     */
+    const body = JSON.stringify({
+      error: {
+        message:
+          "Tool call validation failed: attempted to call tool 'commentary' which was not in request.tools",
+        type: 'invalid_request_error',
+        code: 'tool_use_failed',
+      },
+    });
+    expect(classify(400, headers({}), body)).toBe('malformed_generation');
+    expect(new ProviderError('malformed_generation', 'x').retryable).toBe(true);
+  });
+
+  it('retries once when the model names a tool nobody offered', async () => {
+    let attempts = 0;
+    const provider = providerWith(async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        return errorResponse(400, {
+          error: {
+            message: "attempted to call tool 'commentary' which was not in request.tools",
+            code: 'tool_use_failed',
+          },
+        });
+      }
+      return okResponse(ANSWER);
+    });
+
+    const reply = await provider.send({
+      system: 'x',
+      messages: [{ role: 'user', content: 'y' }],
+      tools: [TOOL],
+      maxOutputTokens: 1_000,
+      effort: 'medium',
+    });
+    expect(attempts).toBe(2);
+    expect(reply.text).toContain('Two actions are overdue.');
+  });
+
   it('knows an invalid key from a bad request from a server fault', () => {
     expect(classify(401, headers({}), '')).toBe('auth');
     expect(classify(403, headers({}), '')).toBe('auth');

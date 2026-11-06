@@ -147,9 +147,24 @@ export function classify(status: number, headers: Headers, body: string): Provid
   }
   if (status === 413) return 'context_too_long';
   if (status === 400) {
-    return /context[_ ]length|too many tokens|maximum context|reduce the length/i.test(body)
-      ? 'context_too_long'
-      : 'bad_request';
+    if (/context[_ ]length|too many tokens|maximum context|reduce the length/i.test(body)) {
+      return 'context_too_long';
+    }
+    /*
+     * The model's own output, refused. `tool_use_failed` is a call to
+     * something nobody offered - gpt-oss reaches for `commentary`, which
+     * belongs to the format it reasons in. `output_parse_failed` is prose
+     * where structure was expected. Both are sampling slips on a sound
+     * request.
+     */
+    if (
+      /tool_use_failed|not in request\.tools|tool call validation failed|output_parse_failed|parsing failed|could not be parsed/i.test(
+        body,
+      )
+    ) {
+      return 'malformed_generation';
+    }
+    return 'bad_request';
   }
   if (status === 408 || status === 504) return 'timeout';
   if (status >= 500) return 'server';
@@ -292,6 +307,28 @@ export function createGroqProvider(options: GroqOptions): AiProvider {
       if (!response.ok && response.status === 400 && looksLikeUnknownParameter(text)) {
         try {
           response = await post(base, request.signal);
+          text = await response.text();
+        } catch (cause) {
+          throw new ProviderError('network', `Could not reach the model: ${String(cause)}`);
+        }
+      }
+
+      /*
+       * Up to two more samples when the model's own output was refused. The
+       * request is sound and the next sample usually is too; without this, a
+       * format artefact ends an investigation that was going well, which is
+       * what it did to one eval scenario twice in a row with two different
+       * error codes.
+       */
+      for (
+        let attempt = 0;
+        attempt < 2 &&
+        !response.ok &&
+        classify(response.status, response.headers, text) === 'malformed_generation';
+        attempt += 1
+      ) {
+        try {
+          response = await post({ ...base, ...optional }, request.signal);
           text = await response.text();
         } catch (cause) {
           throw new ProviderError('network', `Could not reach the model: ${String(cause)}`);

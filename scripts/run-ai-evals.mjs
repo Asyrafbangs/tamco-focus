@@ -230,7 +230,7 @@ async function post(messages, { withTools = true } = {}) {
    */
   await waitForBudget(estimate(serialised) + BUDGETED_OUT);
 
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
     const response = await fetch(ENDPOINT, {
       method: 'POST',
       headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
@@ -241,6 +241,23 @@ async function post(messages, { withTools = true } = {}) {
       const after = Number(response.headers.get('retry-after') ?? '20');
       process.stdout.write(`\n    (429; waiting ${after}s) `);
       await sleep((Number.isFinite(after) ? after : 20) * 1_000);
+      continue;
+    }
+    /*
+     * The model's own output refused: `tool_use_failed` (it called
+     * `commentary`, part of the format it reasons in) or
+     * `output_parse_failed` (prose where structure was expected). The
+     * provider retries these, so this does too - otherwise the suite
+     * measures a product that gives up where the real one tries again.
+     */
+    if (
+      response.status === 400 &&
+      /tool_use_failed|output_parse_failed|parsing failed|could not be parsed|not in request\.tools/i.test(
+        text,
+      ) &&
+      attempt < 3
+    ) {
+      process.stdout.write('\n    (model output refused; resampling) ');
       continue;
     }
     if (!response.ok) {

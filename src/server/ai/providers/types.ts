@@ -56,6 +56,17 @@ export type ProviderErrorKind =
   | 'context_too_long'
   | 'timeout'
   | 'auth'
+  /*
+   * The model produced output the provider would not accept, and rejected the
+   * whole request because of it.
+   *
+   * Two forms observed against Groq, both from gpt-oss and both on a sound
+   * request: `tool_use_failed`, where it called `commentary` - part of the
+   * format it reasons in, not a tool anybody defined - and
+   * `output_parse_failed`, where it wrote prose where structure was expected.
+   * Neither is the request's fault, so each is worth another sample.
+   */
+  | 'malformed_generation'
   | 'bad_request'
   | 'server'
   | 'network'
@@ -88,7 +99,11 @@ export class ProviderError extends Error {
     this.kind = kind;
     this.retryAfterMs = options.retryAfterMs ?? null;
     this.status = options.status ?? null;
-    this.retryable = kind === 'rate_limited' || kind === 'server' || kind === 'network';
+    this.retryable =
+      kind === 'rate_limited' ||
+      kind === 'server' ||
+      kind === 'network' ||
+      kind === 'malformed_generation';
   }
 }
 
