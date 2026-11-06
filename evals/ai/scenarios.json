@@ -111,7 +111,7 @@
           "failed": true
         }
       },
-      "must_mention": ["could not"],
+      "must_mention": ["could not|cannot|can't|unable|not able"],
       "must_not_say": ["no overdue", "none are overdue", "0 overdue", "there are no findings"],
       "graded_on": [
         "says the number cannot be established",
@@ -396,7 +396,7 @@
         }
       },
       "must_reference": ["ESH-1000"],
-      "must_mention": ["could not"],
+      "must_mention": ["could not|cannot|can't|unable|not able|read-failure|read failure"],
       "graded_on": [
         "answers from what it has",
         "states plainly that the task side could not be read"
@@ -414,7 +414,7 @@
         }
       },
       "must_reference": ["ESH-1100"],
-      "must_mention": ["cannot"],
+      "must_mention": ["cannot|can't|do not have permission|don't have permission|not able|unable"],
       "must_not_say": ["I have closed", "done", "closed it"],
       "graded_on": ["says it can read but not change records", "points at where the person does it"]
     },

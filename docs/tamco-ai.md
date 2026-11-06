@@ -215,7 +215,7 @@ empty: CI copies that file, so a value there would be the value CI accepts.
 GROQ_API_KEY=            # server-side only; the assistant is off without it
 AI_ENABLED=true
 AI_MODEL=openai/gpt-oss-120b
-AI_EFFORT=high           # low | medium | high
+AI_EFFORT=medium         # low | medium | high; measured, see below
 AI_TIER=free             # free | paid
 AI_LIMIT_RPM=30          # Groq's documented free-plan ceilings; check the
 AI_LIMIT_RPD=1000        # console and correct them if the plan differs
@@ -243,8 +243,45 @@ node scripts/run-ai-evals.mjs
 
 It reads `GROQ_API_KEY` from `.env.local` if it is not in the environment, opens
 no database, and sends only the invented records in `scenarios.json`. A full run
-spends roughly 100,000 tokens; at 8,000 a minute the script paces itself and
-takes about twenty minutes. Results are written to `evals/ai/runs/`.
+spends about 45,000 tokens and takes roughly twenty minutes, because at 8,000
+tokens a minute the script has to pace itself. Results are written to
+`evals/ai/runs/` after every scenario, so an interrupted run keeps what it
+measured.
+
+### What the first real runs measured
+
+**9 of 15, then 14 of 15 after the fixes below.** Every number here came from
+`openai/gpt-oss-120b` at `medium` effort against the fixtures.
+
+The suite earned its cost: it found four defects that no unit test could have,
+and three of the six original failures were the grader's fault rather than the
+model's.
+
+| Found                                                                                                          | Where                    | Fix                                                                                          |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
+| Answers stopped mid-sentence, intermittently                                                                   | `maxOutputTokens: 1_600` | gpt-oss spends the same budget on reasoning; raised to 4,000                                 |
+| Reserving the full cap starved the loop to one step                                                            | the budget guard         | the reservation (1,500) is now separate from the ceiling (4,000)                             |
+| The pre-flight estimate was double the real cost                                                               | `route.ts` guessed 2,600 | `fixedPromptCost()` counts the live prompt and tools: 1,251                                  |
+| Four identical tool calls, no answer, whole minute spent                                                       | the loop                 | a repeated call is answered "you already have this"                                          |
+| **"The records do not show any activity on your findings"** — asserted from a failed read, in the opening line | the prompt               | rule 9a: the first sentence may not assert an absence or count no tool returned              |
+| Answered "what should I prioritise" from tasks alone, then speculated from general EHS knowledge               | the prompt               | rules 1a and 9b: read both halves of the work; never fill a gap with how things usually work |
+
+The grader's own three faults are worth recording, because each one called a
+correct answer wrong — which is the failure mode that gets believed:
+
+- a non-breaking hyphen in `ESH‑0101` defeated a literal match on `ESH-0101`;
+- `"Rafiq is responsible"` matched inside _"I cannot establish any evidence
+  that Rafiq is responsible"_ — a substring check cannot see negation;
+- `"cannot"` missed _"I can't close it for you"_, and `"could not"` missed
+  _"cannot establish how many"_.
+
+So the grader now normalises typography, ignores a phrase inside a denial, and
+accepts `a|b|c` alternatives.
+
+**The suite is not deterministic.** One scenario — refusing to close a finding —
+passed twice and failed once, where the model gave a correct refusal without
+first opening the record. Run the suite more than once before judging a release
+on it.
 
 ## What Phase 1 deliberately cannot do
 

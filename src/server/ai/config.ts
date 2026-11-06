@@ -47,7 +47,15 @@ export function aiConfig(): AiConfig {
     requested in MODEL_RATES && MODEL_RATES[requested]!.provider === 'groq'
       ? requested
       : 'openai/gpt-oss-120b';
-  const effort = process.env.AI_EFFORT?.trim() || 'high';
+  /*
+   * `medium`, from measurement rather than taste. On the same eval scenario
+   * `high` spent 5,526 tokens against `medium`'s 2,744 - because higher
+   * effort also means more tool calls, and every call resends the
+   * conversation - and both answers were correct. At 8,000 tokens a minute
+   * that is the difference between one question a minute and three. `high`
+   * remains available for an account with room for it.
+   */
+  const effort = process.env.AI_EFFORT?.trim() || 'medium';
   const tier = process.env.AI_TIER?.trim() === 'paid' ? 'paid' : 'free';
 
   return {
@@ -61,7 +69,7 @@ export function aiConfig(): AiConfig {
     provider: 'groq',
     apiKey,
     model,
-    effort: (EFFORTS.has(effort) ? effort : 'high') as AiConfig['effort'],
+    effort: (EFFORTS.has(effort) ? effort : 'medium') as AiConfig['effort'],
     tier,
     /*
      * Groq's documented free-plan ceilings for gpt-oss-120b, overridable

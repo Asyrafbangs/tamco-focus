@@ -425,8 +425,30 @@ export const AGENT_LIMITS = {
   maxRowsPerTool: 25,
   /** Earlier exchanges replayed into a new turn. Tool results are not. */
   maxHistoryTurns: 6,
-  /** What one reply may be, in tokens. Keeps a step inside the minute. */
-  maxOutputTokens: 1_600,
+  /*
+   * What one reply may be, in tokens.
+   *
+   * Measured, not chosen. gpt-oss spends this same budget on its reasoning
+   * before it writes anything, so the first value here - 1,600 - produced
+   * answers that stopped mid-sentence at `finish_reason: length`. One eval
+   * scenario finished inside it and the next did not, which is the worst
+   * possible failure mode: intermittent truncation that reads as a model
+   * being vague. 4,000 held across the suite.
+   */
+  maxOutputTokens: 4_000,
+  /*
+   * What the budget RESERVES for a reply, as against what the reply is
+   * allowed to reach.
+   *
+   * These have to be two numbers. The cap has to be generous or answers stop
+   * mid-sentence; the reservation has to be realistic or the loop starves
+   * itself - reserving 4,000 a step against a 7,200-token ceiling buys one
+   * step and a bit, so an investigation would stop for budget before it had
+   * read anything twice. Measured completions at medium effort ran 895-1,500
+   * tokens including reasoning, so 1,500 is the reservation and 4,000 is the
+   * ceiling nothing is expected to touch.
+   */
+  budgetedOutputTokens: 1_500,
 } as const;
 
 export type StopReason =

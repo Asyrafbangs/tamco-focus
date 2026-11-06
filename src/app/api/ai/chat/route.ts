@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { AGENT_LIMITS, REFUSAL_WORDS, estimateTokens, sendRefusal } from '@/domain/ai';
 import { getCurrentProfile } from '@/lib/supabase/server';
-import { runInvestigation } from '@/server/ai/agent';
+import { fixedPromptCost, runInvestigation } from '@/server/ai/agent';
 import { aiConfig } from '@/server/ai/config';
 import {
   appendTurn,
@@ -65,11 +65,14 @@ export async function POST(request: Request) {
     spentTodayUsd: used.chargedTodayUsd,
     tokensThisMinute: used.tokensThisMinute,
     /*
-     * A floor on what the first step will cost: the question, the system
-     * prompt and the tool list, plus room for a reply. Enough to refuse
-     * before spending anything when the minute's allowance is already gone.
+     * What the first step will cost: the question, the system prompt and the
+     * tool list as they actually are, plus the reply allowance. Measured
+     * rather than assumed - the figure here was guessed at 2,600 against a
+     * real 1,251, and an over-tight guard refuses questions the tier could
+     * have answered.
      */
-    estimatedTokens: estimateTokens(question) + 2_600 + AGENT_LIMITS.maxOutputTokens,
+    estimatedTokens:
+      estimateTokens(question) + fixedPromptCost() + AGENT_LIMITS.budgetedOutputTokens,
     limits: config.limits,
     dailySpendLimitUsd: config.dailySpendLimitUsd,
   });

@@ -57,7 +57,12 @@ vi.mock('@/server/ai/tools', () => {
   };
 });
 
-import { runInvestigation, type AgentEvent, type AgentResult } from '@/server/ai/agent';
+import {
+  fixedPromptCost,
+  runInvestigation,
+  type AgentEvent,
+  type AgentResult,
+} from '@/server/ai/agent';
 import type { AiProvider, ProviderReply } from '@/server/ai/providers/types';
 
 const USAGE = { ...NO_USAGE, inputTokens: 300, outputTokens: 40 };
@@ -132,6 +137,22 @@ beforeEach(() => {
   state.toolRuns = [];
   state.toolBehaviour = 'ok';
   vi.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+describe('v295 what every request carries before a word of conversation', () => {
+  it('is counted, not guessed, and leaves room for two steps a minute', () => {
+    /*
+     * The system prompt and the tool list are resent on every step, so this
+     * number decides how many records one investigation can afford. The route
+     * guessed it at 2,600 against a real 1,251 and refused questions the free
+     * tier could have answered; it is now computed from the live prompt and
+     * the live tools, and this is the test that notices when either grows.
+     */
+    const fixed = fixedPromptCost();
+    expect(fixed).toBeGreaterThan(200);
+    const perStep = fixed + 300 + AGENT_LIMITS.budgetedOutputTokens;
+    expect(perStep * 2).toBeLessThanOrEqual(GROQ_FREE_LIMITS.tokensPerMinute * 0.9);
+  });
 });
 
 describe('v295 an investigation that answers', () => {
@@ -306,6 +327,61 @@ describe('v295 a rate-limited provider', () => {
     expect(result.text).toMatch(/could not complete this investigation/i);
     // Nothing fabricated, and nothing implied about what the records contain.
     expect(result.sources).toEqual([]);
+  });
+});
+
+describe('v295 the same question is not asked twice', () => {
+  it('tells the model it already has a result rather than fetching it again', async () => {
+    /*
+     * Measured against the real model: asked something the records could not
+     * answer, gpt-oss-120b called the same tool with the same arguments four
+     * times and never wrote a word. The step limit stopped it, which was
+     * honest and useless - the whole minute's token allowance spent on one
+     * repeated read. Breaking the cycle at the second call is what turns that
+     * into an answer.
+     */
+    const { result } = await collect(
+      run({
+        provider: scripted([
+          callsTool('list_my_tasks', '{}'),
+          callsTool('list_my_tasks', '{}'),
+          answers('Nothing in your tasks explains it.'),
+        ]),
+      }),
+    );
+    expect(state.toolRuns).toHaveLength(1);
+    expect(result.toolCalls[1]).toMatchObject({ name: 'list_my_tasks', ok: false });
+    expect(result.toolCalls[1]?.error).toMatch(/already called/);
+    expect(result.text).toContain('Nothing in your tasks explains it.');
+  });
+
+  it('treats differently-ordered arguments as the same call', async () => {
+    const { result } = await collect(
+      run({
+        provider: scripted([
+          callsTool('list_my_tasks', '{"a":1,"b":2}'),
+          callsTool('list_my_tasks', '{"b":2,"a":1}'),
+          answers('Done.'),
+        ]),
+      }),
+    );
+    // Argument order is not a decision the model is making.
+    expect(state.toolRuns).toHaveLength(1);
+    expect(result.toolCalls[1]?.error).toMatch(/already called/);
+  });
+
+  it('still allows the same tool with different arguments', async () => {
+    const { result } = await collect(
+      run({
+        provider: scripted([
+          callsTool('list_my_tasks', '{"horizon_days":7}'),
+          callsTool('list_my_tasks', '{"horizon_days":30}'),
+          answers('Both horizons checked.'),
+        ]),
+      }),
+    );
+    expect(state.toolRuns).toHaveLength(2);
+    expect(result.toolCalls.every((call) => call.ok)).toBe(true);
   });
 });
 

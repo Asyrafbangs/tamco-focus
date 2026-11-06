@@ -299,6 +299,32 @@ describe('v295 the loop stops itself, and says why', () => {
     expect(AGENT_LIMITS.hardDeadlineMs).toBeLessThan(60_000);
   });
 
+  it('reserves less for a reply than it allows, and can afford two steps', () => {
+    /*
+     * Two numbers that have to stay in this relationship, because getting it
+     * wrong fails in opposite directions and both were observed:
+     *
+     *   a cap too low  - replies stop mid-sentence at `finish_reason: length`,
+     *                    intermittently, which reads as a vague model;
+     *   a reservation equal to the cap - the budget guard reserves 4,000 a
+     *                    step against a 7,200-token minute, so an
+     *                    investigation stops for budget after one step and
+     *                    never reads anything twice.
+     */
+    expect(AGENT_LIMITS.budgetedOutputTokens).toBeLessThan(AGENT_LIMITS.maxOutputTokens);
+
+    /*
+     * And two steps have to fit the minute, because one tool call plus an
+     * answer is the shortest real investigation there is. Counted from the
+     * live system prompt rather than a guess: when the route estimated that
+     * cost at double its real size, the guard refused questions the tier
+     * could comfortably have answered.
+     */
+    const ceiling = GROQ_FREE_LIMITS.tokensPerMinute * 0.9;
+    const perStep = estimateTokens(SYSTEM_PROMPT) + 900 + AGENT_LIMITS.budgetedOutputTokens;
+    expect(perStep * 2).toBeLessThanOrEqual(ceiling);
+  });
+
   it('has words for every way of stopping short', () => {
     /*
      * An investigation that ran out of allowance and one that finished look

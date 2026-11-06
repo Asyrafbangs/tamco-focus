@@ -70,3 +70,4 @@ skills-lock.json
 # and site photographs, and a 3MB archive at the repo root is one careless
 # `git add -A` away from GitHub. No .zip has ever been tracked here.
 *.zip
+evals/ai/runs/

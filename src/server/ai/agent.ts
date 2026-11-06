@@ -94,6 +94,43 @@ export interface RunInput {
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+/**
+ * A stable key for "this tool, with these arguments".
+ *
+ * Keys are sorted so `{a:1,b:2}` and `{b:2,a:1}` are the same call, because
+ * the model writes its JSON freshly each time and argument order is not a
+ * decision it is making.
+ */
+function callKey(name: string, args: unknown): string {
+  const canonical =
+    args && typeof args === 'object'
+      ? JSON.stringify(
+          Object.fromEntries(
+            Object.entries(args as Record<string, unknown>).sort(([left], [right]) =>
+              left.localeCompare(right),
+            ),
+          ),
+        )
+      : JSON.stringify(args ?? {});
+  return `${name}:${canonical}`;
+}
+
+/**
+ * What every request carries before a word of conversation: the system
+ * prompt and the tool list.
+ *
+ * Exported because the route needs the same number to decide whether a
+ * question can be afforded at all, and the hard-coded guess it used before
+ * (2,600) was double the real figure - which made the guard refuse questions
+ * the tier could comfortably have answered.
+ */
+export function fixedPromptCost(): number {
+  return (
+    estimateTokens(SYSTEM_PROMPT) +
+    toolSpecs().reduce((sum, tool) => sum + estimateTokens(JSON.stringify(tool)), 0)
+  );
+}
+
 /** The tool list, in a fixed order so a cached prefix stays identical. */
 function toolSpecs() {
   return AGENT_TOOLS.map((tool) => ({
@@ -138,10 +175,19 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
   let failure: AgentResult['failure'] = null;
   let minuteTokens = input.tokensUsedThisMinute;
   let rateLimitWaited = false;
+  /*
+   * What has already been fetched this turn.
+   *
+   * Measured against the real model: asked a question the records could not
+   * answer, it called the same tool with the same arguments four times in a
+   * row and never wrote a word. The loop stopped it at the step limit, which
+   * was honest and useless - it had spent the whole minute's allowance and
+   * produced nothing. A repeat is now answered with "you already have this",
+   * which breaks the cycle at the point it starts.
+   */
+  const alreadyFetched = new Set<string>();
 
-  const fixedCost =
-    estimateTokens(system) +
-    toolSpecs().reduce((sum, tool) => sum + estimateTokens(JSON.stringify(tool)), 0);
+  const fixedCost = fixedPromptCost();
 
   for (let step = 0; ; step += 1) {
     if (step >= AGENT_LIMITS.maxSteps) {
@@ -161,7 +207,7 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
     const estimated =
       fixedCost +
       conversation.reduce((sum, message) => sum + estimateTokens(message.content), 0) +
-      AGENT_LIMITS.maxOutputTokens;
+      AGENT_LIMITS.budgetedOutputTokens;
     if (
       !canAffordStep({
         estimatedTokens: estimated,
@@ -282,6 +328,7 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
 
       let parsedArguments: unknown = {};
       let argumentsBroken = false;
+      let repeated = false;
       try {
         parsedArguments = call.arguments.trim() ? JSON.parse(call.arguments) : {};
       } catch {
@@ -290,10 +337,21 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
         argumentsBroken = true;
       }
 
+      if (!argumentsBroken) {
+        const key = callKey(call.name, parsedArguments);
+        repeated = alreadyFetched.has(key);
+        alreadyFetched.add(key);
+      }
+
       try {
         if (argumentsBroken) {
           throw new ToolInputError(
             `${call.name} was called with arguments that are not valid JSON. Call it again with a well-formed object.`,
+          );
+        }
+        if (repeated) {
+          throw new ToolInputError(
+            `You have already called ${call.name} with these arguments in this conversation and its result is above. Answer from what you have, call a different tool, or say what you cannot establish.`,
           );
         }
         const outcome = await tool.run(parsedArguments, input.caller);
