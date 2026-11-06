@@ -1,25 +1,26 @@
 import { NextResponse } from 'next/server';
 
-import { AGENT_LIMITS, REFUSAL_WORDS, sendRefusal } from '@/domain/ai';
+import { AGENT_LIMITS, REFUSAL_WORDS, estimateTokens, sendRefusal } from '@/domain/ai';
 import { getCurrentProfile } from '@/lib/supabase/server';
 import { runInvestigation } from '@/server/ai/agent';
 import { aiConfig } from '@/server/ai/config';
 import {
   appendTurn,
-  asApiMessages,
+  historyFor,
   loadThread,
-  spentLastDay,
   startConversation,
+  usageWindow,
 } from '@/server/ai/conversations';
+import { providerFor } from '@/server/ai/providers';
 import { getEshAccess } from '@/server/esh/access';
 
 /**
  * One question, streamed.
  *
  * Server-sent events rather than a plain response, because an investigation
- * that reads six records takes long enough that a spinner alone would look
- * broken. The events say which step it is on and which records it has read,
- * and the answer arrives as it is written.
+ * that reads several records takes long enough that a spinner alone would
+ * look broken. The events say which step it is on and which records it has
+ * read, and the answer arrives as it is written.
  *
  * `maxDuration` is the plan's ceiling, and the loop's own deadline is set
  * below it in `AGENT_LIMITS` so a turn stops itself with something to show
@@ -51,16 +52,34 @@ export async function POST(request: Request) {
   }
 
   const config = aiConfig();
+  const provider = providerFor(config);
+  const used = await usageWindow();
   const refusal = sendRefusal({
     enabled: config.enabled,
-    spentLastDay: await spentLastDay(),
-    dailyLimit: config.dailyLimitUsd,
+    hasKey: Boolean(provider),
     questionLength: question.length,
     maxQuestionLength: AGENT_LIMITS.maxQuestionLength,
     inFlight: false,
+    requestsToday: used.requestsToday,
+    tokensToday: used.tokensToday,
+    spentTodayUsd: used.chargedTodayUsd,
+    tokensThisMinute: used.tokensThisMinute,
+    /*
+     * A floor on what the first step will cost: the question, the system
+     * prompt and the tool list, plus room for a reply. Enough to refuse
+     * before spending anything when the minute's allowance is already gone.
+     */
+    estimatedTokens: estimateTokens(question) + 2_600 + AGENT_LIMITS.maxOutputTokens,
+    limits: config.limits,
+    dailySpendLimitUsd: config.dailySpendLimitUsd,
   });
-  if (refusal) {
-    return NextResponse.json({ error: REFUSAL_WORDS[refusal], reason: refusal }, { status: 429 });
+  if (refusal || !provider) {
+    return NextResponse.json(
+      { error: REFUSAL_WORDS[refusal ?? 'no_key'], reason: refusal ?? 'no_key' },
+      // 429 for an allowance, 503 for a switched-off or unconfigured one:
+      // one is "wait", the other is "an administrator has to act".
+      { status: refusal === 'disabled' || refusal === 'no_key' || !provider ? 503 : 429 },
+    );
   }
 
   const thread = conversationId ? await loadThread(conversationId) : [];
@@ -86,7 +105,8 @@ export async function POST(request: Request) {
       send({ type: 'conversation', id });
       try {
         const run = runInvestigation({
-          history: asApiMessages(thread),
+          provider,
+          history: historyFor(thread),
           question,
           caller: {
             userId: profile.id,
@@ -94,8 +114,12 @@ export async function POST(request: Request) {
             timezone: profile.timezone ?? 'Asia/Kuala_Lumpur',
           },
           eshAccess: access.enabled
-            ? `${access.canCoordinate ? 'coordinator' : 'reader'}${access.scopeAll ? ', all departments' : ', limited departments'}`
+            ? `${access.canCoordinate ? 'coordinator' : 'reader'}${
+                access.scopeAll ? ', all departments' : ', limited departments'
+              }`
             : 'none',
+          limits: config.limits,
+          tokensUsedThisMinute: used.tokensThisMinute,
         });
         let result = await run.next();
         while (!result.done) {
@@ -106,19 +130,22 @@ export async function POST(request: Request) {
         await appendTurn({
           conversationId: id,
           userId: profile.id,
-          question,
-          answer: finished.content,
+          messages: finished.messages,
           sources: finished.sources,
           usage: finished.usage,
-          costUsd: finished.costUsd,
-          model: config.model,
+          requests: finished.toolCalls.length > 0 ? finished.toolCalls.length + 1 : 1,
+          chargedUsd: finished.chargedUsd,
+          listPriceUsd: finished.listPriceUsd,
+          provider: provider.id,
+          model: provider.model,
           toolCalls: finished.toolCalls,
         });
       } catch (cause) {
         /*
          * The log keeps the cause; the reader gets a sentence. An upstream
          * error message can carry request content, and this one is somebody's
-         * private conversation.
+         * private conversation. What the reader never gets is a fabricated
+         * answer: the turn says it failed and changed nothing.
          */
         console.error(`[ai:chat] ${String(cause)}`);
         send({

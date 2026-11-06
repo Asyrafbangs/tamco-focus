@@ -1,8 +1,7 @@
 import { AiWorkspace, type Exchange } from '@/components/AiWorkspace';
-import type { SourceLink } from '@/domain/ai';
 import { requireProfile } from '@/lib/supabase/server';
 import { aiConfig } from '@/server/ai/config';
-import { listConversations, loadThread } from '@/server/ai/conversations';
+import { listConversations, loadThread, type StoredMessage } from '@/server/ai/conversations';
 
 /**
  * TAMCO AI.
@@ -14,27 +13,25 @@ import { listConversations, loadThread } from '@/server/ai/conversations';
  */
 export const dynamic = 'force-dynamic';
 
-/** The stored blocks, flattened into what the screen shows. */
-function exchangesFrom(stored: Awaited<ReturnType<typeof loadThread>>): Exchange[] {
+/**
+ * The stored turns, paired into question-and-answer.
+ *
+ * Tool turns are skipped: they are kept for auditing what was read, not for
+ * reading back. What a person sees is what they asked and what came of it,
+ * with the citations the tools produced.
+ */
+function exchangesFrom(stored: readonly StoredMessage[]): Exchange[] {
   const exchanges: Exchange[] = [];
   for (const message of stored) {
-    const blocks = Array.isArray(message.content) ? message.content : [];
-    const text = blocks
-      .filter((block) => (block as { type?: string }).type === 'text')
-      .map((block) => String((block as { text?: string }).text ?? ''))
-      .join('\n\n');
     if (message.role === 'user') {
-      exchanges.push({ id: `m${message.seq}`, question: text, answer: '', sources: [] });
+      exchanges.push({ id: `m${message.seq}`, question: message.content, answer: '', sources: [] });
       continue;
     }
-    const sources = blocks
-      .filter((block) => (block as { type?: string }).type === 'tamco_sources')
-      .flatMap((block) => (block as { sources?: SourceLink[] }).sources ?? []);
+    if (message.role !== 'assistant' || !message.content.trim()) continue;
     const last = exchanges[exchanges.length - 1];
-    if (last) {
-      last.answer = text;
-      last.sources = sources;
-    }
+    if (!last) continue;
+    last.answer = last.answer ? `${last.answer}\n\n${message.content}` : message.content;
+    if (message.sources?.length) last.sources = message.sources;
   }
   return exchanges;
 }
@@ -68,7 +65,7 @@ export default async function AiPage({ searchParams }: { searchParams: Promise<{
         disabledReason={
           config.enabled
             ? ''
-            : 'The assistant is not switched on for this installation. An administrator sets ANTHROPIC_API_KEY to enable it.'
+            : 'The assistant is not switched on for this installation. An administrator sets GROQ_API_KEY to enable it.'
         }
       />
     </>

@@ -1,8 +1,12 @@
 import 'server-only';
 
-import type Anthropic from '@anthropic-ai/sdk';
-
-import { titleFrom, type SourceLink, type TokenUsage } from '@/domain/ai';
+import {
+  AGENT_LIMITS,
+  titleFrom,
+  type AiMessage,
+  type SourceLink,
+  type TokenUsage,
+} from '@/domain/ai';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 import type { ToolCallRecord } from '@/server/ai/agent';
 
@@ -22,10 +26,10 @@ export interface ConversationSummary {
   updatedAt: string;
 }
 
-export interface StoredMessage {
-  role: 'user' | 'assistant';
-  content: Anthropic.MessageParam['content'];
+export interface StoredMessage extends AiMessage {
   seq: number;
+  /** Citations belong to the turn that produced them, not to the model. */
+  sources?: SourceLink[];
 }
 
 export async function listConversations(limit = 30): Promise<ConversationSummary[]> {
@@ -64,11 +68,35 @@ export async function loadThread(conversationId: string): Promise<StoredMessage[
     console.error(`[ai:loadThread] ${error.code ?? 'unknown'}: ${error.message}`);
     return [];
   }
-  return (data ?? []).map((row) => ({
-    role: row.role as 'user' | 'assistant',
-    content: row.content as Anthropic.MessageParam['content'],
-    seq: Number(row.seq),
-  }));
+  return (data ?? []).map((row) => {
+    const stored = (row.content ?? {}) as Partial<AiMessage> & { sources?: SourceLink[] };
+    return {
+      role: (row.role as AiMessage['role']) ?? 'user',
+      content: String(stored.content ?? ''),
+      toolCalls: stored.toolCalls,
+      toolCallId: stored.toolCallId,
+      name: stored.name,
+      sources: stored.sources,
+      seq: Number(row.seq),
+    };
+  });
+}
+
+/**
+ * The thread as the next request should carry it.
+ *
+ * Tool results are dropped and only the recent exchanges are kept. This is a
+ * token decision with a correctness consequence, so it is worth being plain
+ * about: replaying every tool result from a long thread would spend the whole
+ * minute's allowance before the new question was asked. What survives is each
+ * side's words, including the assistant's own account of what it found, and
+ * the model reads the records again whenever a question depends on them.
+ */
+export function historyFor(stored: readonly StoredMessage[]): AiMessage[] {
+  const spoken = stored
+    .filter((message) => message.role !== 'tool' && message.content.trim().length > 0)
+    .map<AiMessage>((message) => ({ role: message.role, content: message.content }));
+  return spoken.slice(-AGENT_LIMITS.maxHistoryTurns);
 }
 
 export async function startConversation(input: {
@@ -78,10 +106,7 @@ export async function startConversation(input: {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from('ai_conversations')
-    .insert({
-      user_id: input.userId,
-      title: titleFrom(input.question),
-    })
+    .insert({ user_id: input.userId, title: titleFrom(input.question) })
     .select('id')
     .single();
   if (error) {
@@ -102,11 +127,13 @@ export async function startConversation(input: {
 export async function appendTurn(input: {
   conversationId: string;
   userId: string;
-  question: string;
-  answer: Anthropic.MessageParam['content'];
+  messages: readonly AiMessage[];
   sources: SourceLink[];
   usage: TokenUsage;
-  costUsd: number;
+  requests: number;
+  chargedUsd: number;
+  listPriceUsd: number;
+  provider: string;
   model: string;
   toolCalls: ToolCallRecord[];
 }): Promise<void> {
@@ -118,32 +145,27 @@ export async function appendTurn(input: {
     .order('seq', { ascending: false })
     .limit(1)
     .maybeSingle();
-  const next = (last?.seq ?? -1) + 1;
+  let next = (last?.seq ?? -1) + 1;
 
-  const { error: messageError } = await supabase.from('ai_messages').insert([
-    {
-      conversation_id: input.conversationId,
-      user_id: input.userId,
-      role: 'user',
-      content: [{ type: 'text', text: input.question }],
-      seq: next,
-    },
-    {
-      conversation_id: input.conversationId,
-      user_id: input.userId,
-      role: 'assistant',
+  const rows = input.messages.map((message, index) => ({
+    conversation_id: input.conversationId,
+    user_id: input.userId,
+    role: message.role === 'tool' ? 'assistant' : message.role,
+    content: {
+      ...message,
       /*
-       * The answer's blocks, plus the sources as a block of our own. The
-       * citations are built from rows a tool returned, never written by the
-       * model, so they belong with the turn that produced them.
+       * The citations ride with the last assistant turn. They were built from
+       * rows the tools returned, so they belong to the exchange that read
+       * them rather than to anything the model wrote.
        */
-      content: [
-        ...(Array.isArray(input.answer) ? input.answer : [{ type: 'text', text: input.answer }]),
-        { type: 'tamco_sources', sources: input.sources },
-      ],
-      seq: next + 1,
-    },
-  ]);
+      ...(index === input.messages.length - 1 && message.role === 'assistant'
+        ? { sources: input.sources }
+        : {}),
+    } as unknown as never,
+    seq: next++,
+  }));
+
+  const { error: messageError } = await supabase.from('ai_messages').insert(rows);
   if (messageError) {
     console.error(`[ai:appendTurn] ${messageError.code ?? 'unknown'}: ${messageError.message}`);
     return;
@@ -157,12 +179,14 @@ export async function appendTurn(input: {
   await supabase.from('ai_usage').insert({
     conversation_id: input.conversationId,
     user_id: input.userId,
+    provider: input.provider,
     model: input.model,
+    requests: input.requests,
     input_tokens: input.usage.inputTokens,
     output_tokens: input.usage.outputTokens,
-    cache_read_tokens: input.usage.cacheReadTokens,
-    cache_write_tokens: input.usage.cacheWriteTokens,
-    cost_usd: input.costUsd,
+    cached_input_tokens: input.usage.cachedInputTokens,
+    charged_usd: input.chargedUsd,
+    list_price_usd: input.listPriceUsd,
   });
 
   if (input.toolCalls.length > 0) {
@@ -181,33 +205,41 @@ export async function appendTurn(input: {
   }
 }
 
-/** What this person has spent in the last 24 hours, in dollars. */
-export async function spentLastDay(): Promise<number> {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc('ai_spend_last_day');
-  if (error) {
-    /*
-     * Unknown spend is not zero spend. A failed read here opens the gate on a
-     * limit that exists to stop a surprise, so it is treated as "at the
-     * limit" until it can be read.
-     */
-    console.error(`[ai:spentLastDay] ${error.code ?? 'unknown'}: ${error.message}`);
-    return Number.POSITIVE_INFINITY;
-  }
-  return Number(data ?? 0);
+export interface UsageWindow {
+  requestsToday: number;
+  tokensToday: number;
+  chargedTodayUsd: number;
+  tokensThisMinute: number;
 }
 
 /**
- * The stored thread, as the API wants it back.
+ * What this person has used, over the day and the last minute.
  *
- * Our own `tamco_sources` blocks are stripped: they are ours, not the API's,
- * and sending one back would be an unknown block type on the next request.
+ * A failed read is treated as "at the limit" on every count. Unknown usage is
+ * not zero usage, and a budget that opens its gate when it cannot see is a
+ * budget that exists only on paper.
  */
-export function asApiMessages(stored: readonly StoredMessage[]): Anthropic.MessageParam[] {
-  return stored.map((message) => ({
-    role: message.role,
-    content: (Array.isArray(message.content)
-      ? message.content.filter((block) => (block as { type?: string }).type !== 'tamco_sources')
-      : message.content) as Anthropic.MessageParam['content'],
-  }));
+export async function usageWindow(): Promise<UsageWindow> {
+  const supabase = await createSupabaseServerClient();
+  /*
+   * The function returns a single row as a set, so the generated type is an
+   * array; `maybeSingle` would narrow it to `{}` here and lose the columns.
+   */
+  const { data, error } = await supabase.rpc('ai_usage_window');
+  const row = Array.isArray(data) ? data[0] : null;
+  if (error || !row) {
+    if (error) console.error(`[ai:usageWindow] ${error.code ?? 'unknown'}: ${error.message}`);
+    return {
+      requestsToday: Number.POSITIVE_INFINITY,
+      tokensToday: Number.POSITIVE_INFINITY,
+      chargedTodayUsd: Number.POSITIVE_INFINITY,
+      tokensThisMinute: Number.POSITIVE_INFINITY,
+    };
+  }
+  return {
+    requestsToday: Number(row.requests_today ?? 0),
+    tokensToday: Number(row.tokens_today ?? 0),
+    chargedTodayUsd: Number(row.charged_today ?? 0),
+    tokensThisMinute: Number(row.tokens_this_minute ?? 0),
+  };
 }

@@ -271,39 +271,45 @@ export type Database = {
       }
       ai_usage: {
         Row: {
-          cache_read_tokens: number
-          cache_write_tokens: number
+          cached_input_tokens: number
+          charged_usd: number
           conversation_id: string | null
-          cost_usd: number
           created_at: string
           id: string
           input_tokens: number
+          list_price_usd: number
           model: string
           output_tokens: number
+          provider: string
+          requests: number
           user_id: string
         }
         Insert: {
-          cache_read_tokens?: number
-          cache_write_tokens?: number
+          cached_input_tokens?: number
+          charged_usd?: number
           conversation_id?: string | null
-          cost_usd?: number
           created_at?: string
           id?: string
           input_tokens?: number
+          list_price_usd?: number
           model: string
           output_tokens?: number
+          provider: string
+          requests?: number
           user_id: string
         }
         Update: {
-          cache_read_tokens?: number
-          cache_write_tokens?: number
+          cached_input_tokens?: number
+          charged_usd?: number
           conversation_id?: string | null
-          cost_usd?: number
           created_at?: string
           id?: string
           input_tokens?: number
+          list_price_usd?: number
           model?: string
           output_tokens?: number
+          provider?: string
+          requests?: number
           user_id?: string
         }
         Relationships: [
@@ -16278,7 +16284,15 @@ export type Database = {
         Args: { p_commitment_id: string; p_note?: string }
         Returns: Json
       }
-      ai_spend_last_day: { Args: never; Returns: number }
+      ai_usage_window: {
+        Args: never
+        Returns: {
+          charged_today: number
+          requests_today: number
+          tokens_this_minute: number
+          tokens_today: number
+        }[]
+      }
       apply_organisation_import: {
         Args: {
           p_effective_date?: string

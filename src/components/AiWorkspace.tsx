@@ -23,6 +23,8 @@ export interface Exchange {
   /** Live progress, kept only while the answer is being written. */
   steps?: string[];
   reads?: { name: string; rows: number; ok: boolean }[];
+  /** A rate-limit wait or similar: said out loud rather than hidden. */
+  notice?: string | null;
   failed?: string | null;
 }
 
@@ -134,6 +136,9 @@ export function AiWorkspace({
               answer: one.answer + (one.answer ? '\n\n' : '') + String(payload.delta),
             }));
           }
+          if (payload.type === 'notice') {
+            update((one) => ({ ...one, notice: String(payload.message) }));
+          }
           if (payload.type === 'sources') {
             update((one) => ({ ...one, sources: payload.sources as SourceLink[] }));
           }
@@ -220,6 +225,12 @@ export function AiWorkspace({
                     {exchange.reads!.map((read) => READ_LABELS[read.name] ?? read.name).join(', ')}
                   </span>
                 )}
+              </p>
+            )}
+
+            {exchange.notice && !exchange.answer && (
+              <p className="ai-progress" role="status">
+                {exchange.notice}
               </p>
             )}
 

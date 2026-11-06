@@ -15,7 +15,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(15);
 
 create or replace function pg_temp.act_as(p_user_id uuid)
 returns void language plpgsql as $$
@@ -47,8 +47,10 @@ values ('a1950000-0000-4000-a000-000000000001', pg_temp.izzul(), 'Why are my act
 insert into public.ai_messages (conversation_id, user_id, role, content, seq)
 values ('a1950000-0000-4000-a000-000000000001', pg_temp.izzul(), 'user',
         '[{"type":"text","text":"am I the reason this slipped"}]'::jsonb, 0);
-insert into public.ai_usage (conversation_id, user_id, model, input_tokens, output_tokens, cost_usd)
-values ('a1950000-0000-4000-a000-000000000001', pg_temp.izzul(), 'claude-opus-5-5', 1000, 100, 0.006);
+insert into public.ai_usage (conversation_id, user_id, provider, model, requests,
+                             input_tokens, output_tokens, charged_usd, list_price_usd)
+values ('a1950000-0000-4000-a000-000000000001', pg_temp.izzul(), 'groq',
+        'openai/gpt-oss-120b', 3, 1200, 90, 0, 0.000234);
 
 select is(
   (select count(*)::integer from public.ai_conversations),
@@ -108,17 +110,38 @@ select throws_ok(
   'a conversation cannot be created in somebody else''s name');
 
 select is(
-  (select public.ai_spend_last_day())::numeric(10,6),
-  0::numeric(10,6),
-  'the spend function counts the caller''s own spending, not everybody''s');
+  (select tokens_today from public.ai_usage_window())::bigint,
+  0::bigint,
+  'the usage window counts the caller''s own usage, not everybody''s');
 
 select pg_temp.reset_role();
 select pg_temp.act_as(pg_temp.izzul());
 
 select is(
-  (select public.ai_spend_last_day())::numeric(10,6),
-  0.006::numeric(10,6),
-  'and reports it for the person who actually spent it');
+  (select tokens_today from public.ai_usage_window())::bigint,
+  1290::bigint,
+  'and reports the tokens for the person who actually used them');
+
+select is(
+  (select requests_today from public.ai_usage_window())::integer,
+  3,
+  'counting requests as well, because a free tier is rationed by request');
+
+/*
+ * The distinction the whole accounting rests on: a free-tier turn spent
+ * tokens and was charged nothing. Recording it as a small charge would make
+ * every later cost report fiction, and recording no tokens would hide the
+ * usage that the daily allowance is actually measured in.
+ */
+select is(
+  (select charged_today from public.ai_usage_window())::numeric(10,6),
+  0::numeric(10,6),
+  'a free-tier turn is charged nothing at all, not almost nothing');
+
+select is(
+  (select sum(list_price_usd) from public.ai_usage)::numeric(10,6),
+  0.000234::numeric(10,6),
+  'while what it would have cost at list price is still answerable');
 
 select pg_temp.reset_role();
 select pg_temp.act_as(pg_temp.admin());

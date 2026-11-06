@@ -30,13 +30,14 @@ function withoutComments(text: string): string {
   return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 }
 
-function aiSources(): { file: string; text: string }[] {
-  return readdirSync(AI_DIR)
-    .filter((name) => name.endsWith('.ts'))
-    .map((name) => ({
-      file: name,
-      text: withoutComments(readFileSync(path.join(AI_DIR, name), 'utf8')),
-    }));
+/** Every TypeScript file under the agent, providers included. */
+function aiSources(dir = AI_DIR, prefix = ''): { file: string; text: string }[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return aiSources(full, `${prefix}${entry.name}/`);
+    if (!entry.name.endsWith('.ts')) return [];
+    return [{ file: `${prefix}${entry.name}`, text: withoutComments(readFileSync(full, 'utf8')) }];
+  });
 }
 
 /** The lines that actually pull something in, rather than mention it. */
@@ -48,6 +49,16 @@ function importsOf(text: string): string {
 }
 
 describe('v295 the agent cannot leave the caller’s permissions', () => {
+  it('covers every file under the agent, including the providers', () => {
+    // A directory the walk misses is a directory the rules below do not
+    // apply to, so the walk itself is asserted first.
+    const files = aiSources().map((one) => one.file);
+    expect(files).toContain('tools.ts');
+    expect(files).toContain('agent.ts');
+    expect(files).toContain('providers/groq.ts');
+    expect(files.length).toBeGreaterThanOrEqual(7);
+  });
+
   it('never reaches for the service-role client', () => {
     for (const { file, text } of aiSources()) {
       expect(text, `${file} must not import the service-role client`).not.toContain(
@@ -73,15 +84,25 @@ describe('v295 the agent cannot leave the caller’s permissions', () => {
     }
   });
 
-  it('keeps the API key server-side', () => {
+  it('keeps the API key server-side, and in one header', () => {
     for (const { file, text } of aiSources()) {
-      expect(text, `${file} must not expose the key to a bundle`).not.toContain(
-        'NEXT_PUBLIC_ANTHROPIC',
+      expect(text, `${file} must not expose a key to a browser bundle`).not.toMatch(
+        /NEXT_PUBLIC_[A-Z_]*(GROQ|ANTHROPIC|OPENAI|API_KEY)/,
       );
     }
     const config = readFileSync(path.join(AI_DIR, 'config.ts'), 'utf8');
     expect(config).toContain("import 'server-only'");
-    expect(config).toContain('ANTHROPIC_API_KEY');
+    expect(config).toContain('GROQ_API_KEY');
+
+    /*
+     * The key reaches exactly one place: an Authorization header on the
+     * server. Not a query string, which is where it would end up in
+     * somebody's access log, and not a message body.
+     */
+    const groq = withoutComments(readFileSync(path.join(AI_DIR, 'providers', 'groq.ts'), 'utf8'));
+    expect(groq).toContain('authorization: `Bearer ${options.apiKey}`');
+    expect(groq.match(/options\.apiKey/g) ?? []).toHaveLength(1);
+    expect(groq).not.toMatch(/apiKey[^\n]*(searchParams|\?key=|&key=)/);
   });
 
   it('exposes no tool that writes', () => {
@@ -123,6 +144,20 @@ describe('v295 the agent cannot leave the caller’s permissions', () => {
     expect(returns.length).toBeGreaterThan(0);
     for (const value of returns) {
       expect(value, 'a tool returned evidence that was not wrapped').toMatch(/^asEvidence\(/);
+    }
+  });
+
+  it('keeps provider shapes inside the provider directory', () => {
+    /*
+     * The seam only buys anything if it holds. If the loop knew about
+     * `choices[0].message`, swapping providers would mean editing the loop,
+     * and the interface would be decoration.
+     */
+    for (const { file, text } of aiSources()) {
+      if (file.startsWith('providers/')) continue;
+      expect(text, `${file} must not know about a provider's wire shape`).not.toMatch(
+        /choices\[0\]|prompt_tokens|completion_tokens|tool_call_id|chat\/completions/,
+      );
     }
   });
 });

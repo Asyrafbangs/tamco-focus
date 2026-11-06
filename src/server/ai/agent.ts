@@ -1,33 +1,43 @@
 import 'server-only';
 
-import Anthropic from '@anthropic-ai/sdk';
-
 import {
   AGENT_LIMITS,
+  STOP_WORDS,
   ToolInputError,
-  costOf,
-  stepsExhausted,
+  canAffordStep,
+  chargeOf,
+  estimateTokens,
+  listPriceOf,
   sumUsage,
+  totalTokens,
+  type AiMessage,
   type SourceLink,
+  type StopReason,
+  type TierLimits,
   type TokenUsage,
 } from '@/domain/ai';
-import { aiConfig } from '@/server/ai/config';
 import { SYSTEM_PROMPT, callerContext } from '@/server/ai/prompt';
+import { ProviderError, stopReasonFor, type AiProvider } from '@/server/ai/providers/types';
 import { AGENT_TOOLS, toolByName, type ToolCaller } from '@/server/ai/tools';
 
 /**
  * The investigation loop.
  *
- * Written by hand rather than with the SDK's tool runner, for one reason: a
- * Vercel function on this plan is killed at sixty seconds, so the loop has to
- * be able to stop between steps, keep what it has, and still produce an
- * answer. A runner that owns the loop cannot be interrupted at a point of our
- * choosing. Everything else — streaming, usage, tool dispatch — is the SDK's.
+ * Send the conversation, read what comes back, run whatever tools were asked
+ * for, append the results, go again. It stops when the model answers, and
+ * otherwise for a reason it says out loud: no steps left, no clock left, no
+ * token allowance left for this minute, or a provider that is rate limited.
  *
- * What the loop does each step: send the conversation, read what comes back,
- * run whatever tools were asked for, append the results, go again. It stops
- * when the model answers, when it runs out of steps, or when the clock says
- * there is only enough time left to write the answer.
+ * Three ceilings rather than one, because on a free tier they bind in
+ * different orders. The clock is the platform's sixty seconds. The step count
+ * is four, because every step resends the whole conversation and the cost of a
+ * loop grows with the square of its length. The token budget is the real
+ * constraint: 8,000 tokens a minute is perhaps two full steps of a grounded
+ * investigation, so the loop checks what it can afford before each step rather
+ * than discovering it halfway through with nothing to show.
+ *
+ * What it will not do under any of those conditions is invent an answer. A
+ * turn that ran out of allowance says so and lists what it read.
  */
 
 export type AgentEvent =
@@ -35,8 +45,14 @@ export type AgentEvent =
   | { type: 'tool'; name: string; rows: number; ok: boolean }
   | { type: 'text'; delta: string }
   | { type: 'sources'; sources: SourceLink[] }
-  | { type: 'done'; usage: TokenUsage; costUsd: number; stopped: 'answered' | 'steps' | 'clock' }
-  | { type: 'error'; message: string };
+  | { type: 'notice'; message: string }
+  | {
+      type: 'done';
+      usage: TokenUsage;
+      chargedUsd: number;
+      listPriceUsd: number;
+      stop: StopReason;
+    };
 
 export interface ToolCallRecord {
   name: string;
@@ -48,48 +64,43 @@ export interface ToolCallRecord {
 }
 
 export interface AgentResult {
-  /** The reply, as content blocks, ready to be replayed into the next turn. */
-  content: Anthropic.MessageParam['content'];
+  /** The exchange, in our neutral shape, ready to be stored and replayed. */
+  messages: AiMessage[];
   text: string;
   sources: SourceLink[];
   usage: TokenUsage;
-  costUsd: number;
+  chargedUsd: number;
+  listPriceUsd: number;
   toolCalls: ToolCallRecord[];
-  stopped: 'answered' | 'steps' | 'clock';
-}
-
-function usageOf(message: Anthropic.Message): TokenUsage {
-  return {
-    inputTokens: message.usage.input_tokens ?? 0,
-    outputTokens: message.usage.output_tokens ?? 0,
-    cacheReadTokens: message.usage.cache_read_input_tokens ?? 0,
-    cacheWriteTokens: message.usage.cache_creation_input_tokens ?? 0,
-  };
-}
-
-/** The tool list, in a fixed order so the cached prefix stays identical. */
-function toolDefinitions(): Anthropic.Tool[] {
-  return AGENT_TOOLS.map((tool) => ({
-    name: tool.name,
-    description: tool.description,
-    input_schema: tool.inputSchema as Anthropic.Tool['input_schema'],
-  }));
+  stop: StopReason;
+  /** Set when the turn ended on a provider failure rather than an answer. */
+  failure: { kind: string; message: string; retryAfterMs: number | null } | null;
 }
 
 export interface RunInput {
-  history: Anthropic.MessageParam[];
+  provider: AiProvider;
+  /** Earlier exchanges, already trimmed by the caller. */
+  history: readonly AiMessage[];
   question: string;
   caller: ToolCaller;
   eshAccess: string;
-  /**
-   * Lets a test drive the loop without a network.
-   *
-   * Narrower than the SDK's own type on purpose: the loop needs one thing
-   * from a client - send this, give me back a message - and a stub that
-   * satisfies that is a legitimate client as far as this code is concerned.
-   */
-  client?: { create(body: Anthropic.MessageCreateParamsNonStreaming): Promise<Anthropic.Message> };
+  limits: TierLimits;
+  /** Tokens this account has already spent in the last minute. */
+  tokensUsedThisMinute: number;
   now?: () => number;
+  /** Swapped in tests so a rate-limit wait does not take a real minute. */
+  wait?: (ms: number) => Promise<void>;
+}
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** The tool list, in a fixed order so a cached prefix stays identical. */
+function toolSpecs() {
+  return AGENT_TOOLS.map((tool) => ({
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.inputSchema,
+  }));
 }
 
 /**
@@ -99,102 +110,167 @@ export interface RunInput {
  * test can collect it without either of them owning the loop.
  */
 export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEvent, AgentResult> {
-  const config = aiConfig();
   const now = input.now ?? Date.now;
+  const waitFor = input.wait ?? sleep;
   const startedAt = now();
-  const client =
-    input.client ??
-    new Anthropic({ apiKey: config.apiKey ?? undefined, maxRetries: 2, timeout: 30_000 }).messages;
 
-  const messages: Anthropic.MessageParam[] = [
-    ...input.history,
-    {
-      role: 'user',
-      content: [
-        {
-          type: 'text',
-          text: `${callerContext({
-            fullName: input.caller.fullName,
-            timezone: input.caller.timezone,
-            nowIso: new Date(startedAt).toISOString(),
-            eshAccess: input.eshAccess,
-          })}\n\n${input.question}`,
-        },
-      ],
-    },
-  ];
+  const system = SYSTEM_PROMPT;
+  const opening: AiMessage = {
+    role: 'user',
+    content: `${callerContext({
+      fullName: input.caller.fullName,
+      timezone: input.caller.timezone,
+      nowIso: new Date(startedAt).toISOString(),
+      eshAccess: input.eshAccess,
+    })}\n\n${input.question}`,
+  };
+
+  /** What goes to the provider. */
+  const conversation: AiMessage[] = [...input.history, opening];
+  /** What gets stored: this turn only, without the replayed history. */
+  const produced: AiMessage[] = [opening];
 
   const turns: TokenUsage[] = [];
   const sources: SourceLink[] = [];
   const toolCalls: ToolCallRecord[] = [];
   let answer = '';
-  let last: Anthropic.Message | null = null;
-  let stopped: AgentResult['stopped'] = 'answered';
+  let stop: StopReason = 'answered';
+  let failure: AgentResult['failure'] = null;
+  let minuteTokens = input.tokensUsedThisMinute;
+  let rateLimitWaited = false;
+
+  const fixedCost =
+    estimateTokens(system) +
+    toolSpecs().reduce((sum, tool) => sum + estimateTokens(JSON.stringify(tool)), 0);
 
   for (let step = 0; ; step += 1) {
-    if (stepsExhausted(step, startedAt, now())) {
-      stopped = step >= AGENT_LIMITS.maxSteps ? 'steps' : 'clock';
+    if (step >= AGENT_LIMITS.maxSteps) {
+      stop = 'steps';
       break;
     }
+    if (now() - startedAt >= AGENT_LIMITS.softDeadlineMs) {
+      stop = 'clock';
+      break;
+    }
+
+    /*
+     * What the next step would cost, before it is attempted. The conversation
+     * is resent in full every time, so this grows with each tool result -
+     * which is exactly why it has to be checked rather than assumed.
+     */
+    const estimated =
+      fixedCost +
+      conversation.reduce((sum, message) => sum + estimateTokens(message.content), 0) +
+      AGENT_LIMITS.maxOutputTokens;
+    if (
+      !canAffordStep({
+        estimatedTokens: estimated,
+        tokensUsedThisMinute: minuteTokens,
+        limits: input.limits,
+      })
+    ) {
+      stop = step === 0 ? 'budget' : 'budget';
+      break;
+    }
+
     yield {
       type: 'step',
       step: step + 1,
       label: step === 0 ? 'Reading your records' : 'Following up',
     };
 
-    const message = await client.create({
-      model: config.model,
-      max_tokens: 8_000,
+    let reply;
+    try {
+      reply = await input.provider.send({
+        system,
+        messages: conversation,
+        tools: toolSpecs(),
+        maxOutputTokens: AGENT_LIMITS.maxOutputTokens,
+        effort: 'high',
+      });
+    } catch (cause) {
+      if (!(cause instanceof ProviderError)) {
+        console.error(`[ai-agent] ${String(cause)}`);
+        stop = 'failed';
+        failure = {
+          kind: 'unknown',
+          message: 'The model could not be reached.',
+          retryAfterMs: null,
+        };
+        break;
+      }
       /*
-       * Adaptive thinking, with the depth set by configuration. The raw
-       * reasoning is never requested and never stored - the person sees the
-       * investigation's findings, not the model's inner monologue.
+       * One wait, and only for a per-minute limit that fits inside the time
+       * this turn has left. A second wait would spend the remaining clock
+       * queueing instead of answering, and an exhausted daily quota is not
+       * something waiting fixes.
        */
-      thinking: { type: 'adaptive' },
-      output_config: { effort: config.effort },
-      system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-      tools: toolDefinitions(),
-      messages,
-    });
-    last = message;
-    turns.push(usageOf(message));
-
-    const text = message.content
-      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-      .map((block) => block.text)
-      .join('');
-    if (text) {
-      answer += (answer ? '\n\n' : '') + text;
-      yield { type: 'text', delta: text };
+      const canWait =
+        cause.kind === 'rate_limited' &&
+        !rateLimitWaited &&
+        cause.retryAfterMs !== null &&
+        now() - startedAt + cause.retryAfterMs < AGENT_LIMITS.softDeadlineMs;
+      if (canWait) {
+        rateLimitWaited = true;
+        yield {
+          type: 'notice',
+          message: `Rate limited; waiting ${Math.ceil(cause.retryAfterMs! / 1000)}s before carrying on.`,
+        };
+        await waitFor(cause.retryAfterMs!);
+        step -= 1;
+        continue;
+      }
+      console.error(`[ai-agent] provider ${cause.kind}: ${cause.message}`);
+      stop = stopReasonFor(cause.kind);
+      failure = { kind: cause.kind, message: cause.message, retryAfterMs: cause.retryAfterMs };
+      break;
     }
 
-    const calls = message.content.filter(
-      (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use',
-    );
-    if (calls.length === 0 || message.stop_reason !== 'tool_use') break;
+    turns.push(reply.usage);
+    minuteTokens += totalTokens(reply.usage);
 
-    messages.push({ role: 'assistant', content: message.content });
+    if (reply.text) {
+      answer += (answer ? '\n\n' : '') + reply.text;
+      yield { type: 'text', delta: reply.text };
+    }
 
-    /*
-     * Every result goes back in ONE user message, including the failures.
-     * Splitting them teaches the model to stop asking for several at once,
-     * and dropping a failed one leaves it waiting for an answer that never
-     * comes.
-     */
-    const results: Anthropic.ToolResultBlockParam[] = [];
-    for (const call of calls) {
+    if (reply.stop === 'truncated') {
+      produced.push({ role: 'assistant', content: reply.text });
+      stop = 'truncated';
+      break;
+    }
+
+    if (reply.stop === 'answered' || reply.toolCalls.length === 0) {
+      produced.push({ role: 'assistant', content: reply.text });
+      stop = 'answered';
+      break;
+    }
+
+    const asking: AiMessage = {
+      role: 'assistant',
+      content: reply.text,
+      toolCalls: reply.toolCalls,
+    };
+    conversation.push(asking);
+    produced.push(asking);
+
+    for (const call of reply.toolCalls) {
       const tool = toolByName(call.name);
       const began = now();
+
       if (!tool) {
-        results.push({
-          type: 'tool_result',
-          tool_use_id: call.id,
-          is_error: true,
-          content: `There is no tool called ${call.name}.`,
-        });
+        const refusal = `There is no tool called ${call.name}.`;
+        const result: AiMessage = {
+          role: 'tool',
+          toolCallId: call.id,
+          name: call.name,
+          content: refusal,
+        };
+        conversation.push(result);
+        produced.push(result);
         toolCalls.push({
           name: call.name,
-          input: call.input,
+          input: call.arguments,
           ok: false,
           error: 'unknown tool',
           rows: null,
@@ -203,9 +279,32 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
         yield { type: 'tool', name: call.name, rows: 0, ok: false };
         continue;
       }
+
+      let parsedArguments: unknown = {};
+      let argumentsBroken = false;
       try {
-        const outcome = await tool.run(call.input, input.caller);
-        results.push({ type: 'tool_result', tool_use_id: call.id, content: outcome.evidence });
+        parsedArguments = call.arguments.trim() ? JSON.parse(call.arguments) : {};
+      } catch {
+        // A model that wrote invalid JSON is told so rather than having its
+        // intent guessed at.
+        argumentsBroken = true;
+      }
+
+      try {
+        if (argumentsBroken) {
+          throw new ToolInputError(
+            `${call.name} was called with arguments that are not valid JSON. Call it again with a well-formed object.`,
+          );
+        }
+        const outcome = await tool.run(parsedArguments, input.caller);
+        const result: AiMessage = {
+          role: 'tool',
+          toolCallId: call.id,
+          name: call.name,
+          content: outcome.evidence,
+        };
+        conversation.push(result);
+        produced.push(result);
         for (const source of outcome.sources) {
           if (!sources.some((held) => held.kind === source.kind && held.id === source.id)) {
             sources.push(source);
@@ -213,7 +312,7 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
         }
         toolCalls.push({
           name: call.name,
-          input: call.input,
+          input: parsedArguments,
           ok: true,
           error: null,
           rows: outcome.rows,
@@ -224,55 +323,69 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
         /*
          * A tool that failed is told to the model as a result, not thrown. It
          * can then say what it could not establish - which is the honest
-         * answer - instead of the whole turn dying on one bad argument.
+         * answer - instead of the whole turn dying on one bad argument. What
+         * it must never become is an empty result: "no rows" and "could not
+         * read" are different facts and the payload says which.
          */
-        const message_ =
+        const stated =
           cause instanceof ToolInputError
             ? cause.message
-            : 'That record could not be read. Treat it as unknown rather than absent.';
+            : 'That record could not be read. Treat it as unknown rather than absent, and say so.';
         if (!(cause instanceof ToolInputError)) {
           console.error(`[ai-tool:${call.name}] ${String(cause)}`);
         }
-        results.push({
-          type: 'tool_result',
-          tool_use_id: call.id,
-          is_error: true,
-          content: message_,
-        });
+        const result: AiMessage = {
+          role: 'tool',
+          toolCallId: call.id,
+          name: call.name,
+          content: stated,
+        };
+        conversation.push(result);
+        produced.push(result);
         toolCalls.push({
           name: call.name,
-          input: call.input,
+          input: parsedArguments,
           ok: false,
-          error: message_,
+          error: stated,
           rows: null,
           durationMs: now() - began,
         });
         yield { type: 'tool', name: call.name, rows: 0, ok: false };
       }
     }
-    messages.push({ role: 'user', content: results });
   }
 
-  if (stopped !== 'answered' && !answer) {
-    answer =
-      stopped === 'clock'
-        ? 'I ran out of time before I could finish this one. What I read is listed below — ask me again and I will carry on from there.'
-        : 'I reached the limit on how many records I can read in one go. What I read is listed below; narrow the question and I can go deeper.';
-    yield { type: 'text', delta: answer };
+  /*
+   * Whatever happened, it is said. An investigation that stopped early with
+   * no words of its own would otherwise look like one that had nothing to
+   * report, and the gap between those two is the whole value of the feature.
+   */
+  if (stop !== 'answered') {
+    const words = STOP_WORDS[stop];
+    answer = answer ? `${answer}\n\n${words}` : words;
+    yield { type: 'text', delta: words };
+    if (produced.at(-1)?.role !== 'assistant' || produced.at(-1)?.toolCalls) {
+      produced.push({ role: 'assistant', content: words });
+    } else {
+      produced[produced.length - 1] = { role: 'assistant', content: answer };
+    }
   }
 
   const usage = sumUsage(turns);
-  const costUsd = costOf(config.model, usage);
+  const listPriceUsd = listPriceOf(input.provider.model, usage);
+  const chargedUsd = chargeOf(input.provider.model, usage, input.provider.tier);
   if (sources.length > 0) yield { type: 'sources', sources };
-  yield { type: 'done', usage, costUsd, stopped };
+  yield { type: 'done', usage, chargedUsd, listPriceUsd, stop };
 
   return {
-    content: last?.content ?? [{ type: 'text', text: answer }],
+    messages: produced,
     text: answer,
     sources,
     usage,
-    costUsd,
+    chargedUsd,
+    listPriceUsd,
     toolCalls,
-    stopped,
+    stop,
+    failure,
   };
 }

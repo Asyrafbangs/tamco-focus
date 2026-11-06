@@ -1,16 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  AGENT_LIMITS,
+  GROQ_FREE_LIMITS,
+  NO_USAGE,
+  ToolInputError,
+  type AiToolCall,
+} from '@/domain/ai';
+import { ProviderError } from '@/server/ai/providers/types';
+
 /**
  * v295 — the loop, driven without a network.
  *
- * A stubbed `messages.create` lets every branch be forced: a model that keeps
- * asking for tools forever, a tool that throws, a tool that does not exist, a
- * turn that runs out of clock. These are the paths that decide whether an
- * investigation ends with an answer, an honest limit, or a hung request.
+ * A stub provider lets every branch be forced: a model that keeps asking for
+ * tools forever, a tool that throws, a tool that does not exist, arguments
+ * that are not JSON, a reply cut off at its length limit, a per-minute rate
+ * limit, an exhausted daily quota, and a minute whose token allowance is
+ * already gone. On a free tier those are not edge cases — they are Tuesday.
+ *
+ * The invariant every one of them shares: the turn never invents an answer,
+ * and never reports a failure as an absence.
  */
 
 const state = vi.hoisted(() => ({
-  replies: [] as unknown[],
   toolRuns: [] as { name: string; input: unknown }[],
   toolBehaviour: 'ok' as 'ok' | 'throws' | 'bad-input',
 }));
@@ -29,7 +41,7 @@ vi.mock('@/server/ai/tools', () => {
     async run(input: unknown) {
       state.toolRuns.push({ name: 'list_my_tasks', input });
       if (state.toolBehaviour === 'throws') throw new Error('upstream 502');
-      if (state.toolBehaviour === 'bad-input') throw new ToolInputError('task_id required');
+      if (state.toolBehaviour === 'bad-input') throw new ToolInputError('task_id is required');
       return {
         evidence: '<record-set source="list_my_tasks">[]</record-set>',
         sources: [
@@ -46,34 +58,45 @@ vi.mock('@/server/ai/tools', () => {
 });
 
 import { runInvestigation, type AgentEvent, type AgentResult } from '@/server/ai/agent';
-import { AGENT_LIMITS, ToolInputError } from '@/domain/ai';
+import type { AiProvider, ProviderReply } from '@/server/ai/providers/types';
 
-const USAGE = { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 0 };
+const USAGE = { ...NO_USAGE, inputTokens: 300, outputTokens: 40 };
 
-function says(text: string) {
+function answers(text: string): ProviderReply {
+  return { text, toolCalls: [], usage: USAGE, stop: 'answered', model: 'openai/gpt-oss-120b' };
+}
+
+function callsTool(name = 'list_my_tasks', args = '{}'): ProviderReply {
+  const call: AiToolCall = {
+    id: `call_${Math.random().toString(36).slice(2)}`,
+    name,
+    arguments: args,
+  };
   return {
-    content: [{ type: 'text', text }],
-    stop_reason: 'end_turn',
+    text: '',
+    toolCalls: [call],
     usage: USAGE,
+    stop: 'tool_calls',
+    model: 'openai/gpt-oss-120b',
   };
 }
 
-function callsTool(name = 'list_my_tasks', input: unknown = {}) {
-  return {
-    content: [{ type: 'tool_use', id: `c${Math.random()}`, name, input }],
-    stop_reason: 'tool_use',
-    usage: USAGE,
-  };
-}
-
-/** A client that answers from a script, then repeats its last reply. */
-function scripted(replies: unknown[]) {
+/** A provider that answers from a script, then repeats its last reply. */
+function scripted(
+  replies: (ProviderReply | ProviderError)[],
+  options: { onSend?: () => void } = {},
+): AiProvider {
   let at = 0;
   return {
-    create: async () => {
-      const reply = replies[Math.min(at, replies.length - 1)];
+    id: 'groq',
+    model: 'openai/gpt-oss-120b',
+    tier: 'free',
+    async send() {
+      const next = replies[Math.min(at, replies.length - 1)]!;
       at += 1;
-      return reply as never;
+      options.onSend?.();
+      if (next instanceof ProviderError) throw next;
+      return next;
     },
   };
 }
@@ -89,6 +112,21 @@ async function collect(run: AsyncGenerator<AgentEvent, AgentResult>) {
 }
 
 const caller = { userId: 'u1', fullName: 'Izzul', timezone: 'Asia/Kuala_Lumpur' };
+const roomy = { ...GROQ_FREE_LIMITS, tokensPerMinute: 1_000_000 };
+
+function run(overrides: Partial<Parameters<typeof runInvestigation>[0]>) {
+  return runInvestigation({
+    provider: scripted([answers('ok')]),
+    history: [],
+    question: 'What should I do today?',
+    caller,
+    eshAccess: 'none',
+    limits: roomy,
+    tokensUsedThisMinute: 0,
+    wait: async () => {},
+    ...overrides,
+  });
+}
 
 beforeEach(() => {
   state.toolRuns = [];
@@ -99,18 +137,12 @@ beforeEach(() => {
 describe('v295 an investigation that answers', () => {
   it('reads a tool, then answers, and cites what it read', async () => {
     const { events, result } = await collect(
-      runInvestigation({
-        history: [],
-        question: 'What should I do today?',
-        caller,
-        eshAccess: 'none',
-        client: scripted([callsTool(), says('Start with the guard.')]),
-      }),
+      run({ provider: scripted([callsTool(), answers('Start with the guard.')]) }),
     );
 
     expect(state.toolRuns).toHaveLength(1);
     expect(result.text).toContain('Start with the guard.');
-    expect(result.stopped).toBe('answered');
+    expect(result.stop).toBe('answered');
     /*
      * The citation comes from the row the tool returned, not from anything
      * the model wrote. That is the whole guarantee: a link under an answer
@@ -122,58 +154,158 @@ describe('v295 an investigation that answers', () => {
     expect(events.some((one) => one.type === 'sources')).toBe(true);
   });
 
-  it('counts every step of the turn, not just the last', async () => {
+  it('stores the exchange in a replayable shape, tool results included', async () => {
     const { result } = await collect(
-      runInvestigation({
-        history: [],
-        question: 'Why is this late?',
-        caller,
-        eshAccess: 'none',
-        client: scripted([callsTool(), callsTool(), says('Because of the queue.')]),
-      }),
+      run({ provider: scripted([callsTool(), answers('Start with the guard.')]) }),
     );
-    // Three requests at 100 in / 10 out each.
-    expect(result.usage.inputTokens).toBe(300);
-    expect(result.usage.outputTokens).toBe(30);
-    expect(result.costUsd).toBeGreaterThan(0);
+    expect(result.messages.map((message) => message.role)).toEqual([
+      'user',
+      'assistant',
+      'tool',
+      'assistant',
+    ]);
+    // The assistant turn that asked for tools carries the calls, or the tool
+    // results that follow it answer nothing.
+    expect(result.messages[1]!.toolCalls?.[0]?.name).toBe('list_my_tasks');
+    expect(result.messages[2]!.toolCallId).toBe(result.messages[1]!.toolCalls![0]!.id);
+  });
+
+  it('counts every step of the turn, and charges nothing on a free tier', async () => {
+    const { result } = await collect(
+      run({ provider: scripted([callsTool(), callsTool(), answers('Because of the queue.')]) }),
+    );
+    expect(result.usage.inputTokens).toBe(900);
+    expect(result.usage.outputTokens).toBe(120);
+    // Free tier: tokens recorded, nothing charged, list price still known.
+    expect(result.chargedUsd).toBe(0);
+    expect(result.listPriceUsd).toBeGreaterThan(0);
   });
 });
 
-describe('v295 an investigation that cannot finish', () => {
-  it('stops at the step limit and says so rather than looping', async () => {
-    const { result } = await collect(
-      runInvestigation({
-        history: [],
-        question: 'Investigate everything.',
-        caller,
-        eshAccess: 'none',
-        // A model that never stops asking for tools.
-        client: scripted([callsTool()]),
-      }),
-    );
-    expect(result.stopped).toBe('steps');
+describe('v295 an investigation that cannot finish says so', () => {
+  it('stops at the step limit rather than looping', async () => {
+    const { result } = await collect(run({ provider: scripted([callsTool()]) }));
+    expect(result.stop).toBe('steps');
     expect(state.toolRuns.length).toBeLessThanOrEqual(AGENT_LIMITS.maxSteps);
     expect(result.text).toMatch(/limit on how many records/);
   });
 
-  it('stops on the clock, with something to show', async () => {
+  it('stops on the clock, with what it read', async () => {
     let clock = 0;
     const { result } = await collect(
-      runInvestigation({
-        history: [],
-        question: 'Investigate everything.',
-        caller,
-        eshAccess: 'none',
-        client: scripted([callsTool()]),
-        // Each step takes twenty seconds; the soft deadline arrives first.
-        now: () => {
-          clock += 20_000;
-          return clock;
+      run({
+        // Twenty seconds a step: the soft deadline arrives before the step
+        // limit does.
+        provider: scripted([callsTool()], { onSend: () => (clock += 20_000) }),
+        now: () => clock,
+      }),
+    );
+    expect(result.stop).toBe('clock');
+    expect(result.text).toMatch(/ran out of time/);
+  });
+
+  it('stops before spending anything when the minute has no allowance left', async () => {
+    /*
+     * The free tier's real constraint. Nothing is sent: a 429 halfway through
+     * a loop costs the tokens already spent and returns nothing, so the guard
+     * is in front of the request rather than behind it.
+     */
+    let sent = 0;
+    const { result } = await collect(
+      run({
+        provider: scripted([answers('never reached')], { onSend: () => (sent += 1) }),
+        limits: GROQ_FREE_LIMITS,
+        tokensUsedThisMinute: 7_900,
+      }),
+    );
+    expect(sent).toBe(0);
+    expect(result.stop).toBe('budget');
+    expect(result.text).toMatch(/token allowance for this minute/);
+    expect(result.usage.inputTokens).toBe(0);
+  });
+
+  it('never presents a truncated reply as a finished one', async () => {
+    const cut: ProviderReply = {
+      text: 'The three overdue actions are ESH-0101, ESH-0102 and',
+      toolCalls: [],
+      usage: USAGE,
+      stop: 'truncated',
+      model: 'openai/gpt-oss-120b',
+    };
+    const { result } = await collect(run({ provider: scripted([cut]) }));
+    expect(result.stop).toBe('truncated');
+    expect(result.text).toMatch(/cut off/);
+  });
+});
+
+describe('v295 a rate-limited provider', () => {
+  it('waits once when the wait fits, then carries on', async () => {
+    const waited: number[] = [];
+    const { events, result } = await collect(
+      run({
+        provider: scripted([
+          new ProviderError('rate_limited', 'slow down', { retryAfterMs: 1_200, status: 429 }),
+          answers('Here is what I found.'),
+        ]),
+        wait: async (ms) => {
+          waited.push(ms);
         },
       }),
     );
-    expect(result.stopped).toBe('clock');
-    expect(result.text).toMatch(/ran out of time/);
+    expect(waited).toEqual([1_200]);
+    expect(result.stop).toBe('answered');
+    expect(result.text).toContain('Here is what I found.');
+    // And the wait is said out loud rather than looking like a hang.
+    expect(events.some((one) => one.type === 'notice' && /waiting 2s/.test(one.message))).toBe(
+      true,
+    );
+  });
+
+  it('does not wait out a daily quota, because waiting would not help', async () => {
+    const waited: number[] = [];
+    const { result } = await collect(
+      run({
+        provider: scripted([
+          new ProviderError('quota_exhausted', 'daily limit reached', {
+            retryAfterMs: 3_600_000,
+            status: 429,
+          }),
+        ]),
+        wait: async (ms) => {
+          waited.push(ms);
+        },
+      }),
+    );
+    expect(waited).toEqual([]);
+    expect(result.stop).toBe('rate_limited');
+    expect(result.failure?.kind).toBe('quota_exhausted');
+    expect(result.text).toMatch(/rate limited/i);
+  });
+
+  it('does not wait longer than the turn has left', async () => {
+    const waited: number[] = [];
+    const { result } = await collect(
+      run({
+        provider: scripted([
+          new ProviderError('rate_limited', 'slow down', { retryAfterMs: 90_000, status: 429 }),
+        ]),
+        wait: async (ms) => {
+          waited.push(ms);
+        },
+      }),
+    );
+    expect(waited).toEqual([]);
+    expect(result.stop).toBe('rate_limited');
+  });
+
+  it('reports an unreachable provider as a failure, not as an empty answer', async () => {
+    const { result } = await collect(
+      run({ provider: scripted([new ProviderError('network', 'connect ECONNREFUSED')]) }),
+    );
+    expect(result.stop).toBe('failed');
+    expect(result.text).toMatch(/could not complete this investigation/i);
+    // Nothing fabricated, and nothing implied about what the records contain.
+    expect(result.sources).toEqual([]);
   });
 });
 
@@ -181,42 +313,44 @@ describe('v295 a tool that fails is answered, not thrown', () => {
   it('hands the model an error result and keeps the turn alive', async () => {
     state.toolBehaviour = 'throws';
     const { events, result } = await collect(
-      runInvestigation({
-        history: [],
-        question: 'What should I do today?',
-        caller,
-        eshAccess: 'none',
-        client: scripted([callsTool(), says('I could not read your tasks.')]),
-      }),
+      run({ provider: scripted([callsTool(), answers('I could not read your tasks.')]) }),
     );
     expect(result.text).toContain('could not read');
     expect(result.toolCalls[0]).toMatchObject({ ok: false });
     expect(events.some((one) => one.type === 'tool' && one.ok === false)).toBe(true);
+    /*
+     * And the model is told to treat it as unknown rather than absent. "No
+     * rows" and "could not read" are different facts, and this is the point
+     * where they get confused if nobody insists.
+     */
+    const toolMessage = result.messages.find((message) => message.role === 'tool');
+    expect(toolMessage?.content).toMatch(/unknown rather than absent/);
   });
 
   it('tells the model exactly what was wrong with its arguments', async () => {
     state.toolBehaviour = 'bad-input';
     const { result } = await collect(
-      runInvestigation({
-        history: [],
-        question: 'Open that task.',
-        caller,
-        eshAccess: 'none',
-        client: scripted([callsTool(), says('I need the task id.')]),
+      run({ provider: scripted([callsTool(), answers('I need the task id.')]) }),
+    );
+    expect(result.toolCalls[0]?.error).toContain('task_id is required');
+  });
+
+  it('refuses arguments that are not JSON instead of guessing', async () => {
+    const { result } = await collect(
+      run({
+        provider: scripted([
+          callsTool('list_my_tasks', '{"task_id": '),
+          answers('I need that again.'),
+        ]),
       }),
     );
-    expect(result.toolCalls[0]?.error).toContain('task_id required');
+    expect(state.toolRuns).toHaveLength(0);
+    expect(result.toolCalls[0]?.error).toMatch(/not valid JSON/);
   });
 
   it('refuses a tool that does not exist', async () => {
     const { result } = await collect(
-      runInvestigation({
-        history: [],
-        question: 'Delete the finding.',
-        caller,
-        eshAccess: 'none',
-        client: scripted([callsTool('delete_finding'), says('I cannot do that.')]),
-      }),
+      run({ provider: scripted([callsTool('delete_finding'), answers('I cannot do that.')]) }),
     );
     expect(state.toolRuns).toHaveLength(0);
     expect(result.toolCalls[0]).toMatchObject({ name: 'delete_finding', ok: false });

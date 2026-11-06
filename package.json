@@ -48,15 +48,14 @@
     "stop:dev": "node scripts/stop-dev.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "1.6.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.58.0",
-    "next": "^16.3.0",
+    "next": "^16.4.5",
     "pdfjs-dist": "^4.10.38",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "server-only": "^0.0.1",
-    "zod": "^4.1.11"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",

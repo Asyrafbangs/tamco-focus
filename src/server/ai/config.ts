@@ -1,9 +1,9 @@
 import 'server-only';
 
-import { MODEL_RATES } from '@/domain/ai';
+import { GROQ_FREE_LIMITS, MODEL_RATES, type TierLimits } from '@/domain/ai';
 
 /**
- * What the assistant is allowed to do, and what it costs.
+ * What the assistant is allowed to do, which model runs it, and what it costs.
  *
  * Read once, from the server environment only. The API key never leaves this
  * process: it is not prefixed `NEXT_PUBLIC_`, this module is `server-only`,
@@ -20,31 +20,60 @@ function number(name: string, fallback: number): number {
 export interface AiConfig {
   /** Whether the feature answers at all. A switch, not a deploy. */
   enabled: boolean;
+  provider: 'groq';
   apiKey: string | null;
   model: string;
-  /** `low` through `max`: how hard the model works before answering. */
-  effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
-  /** US dollars, per person, over a rolling 24 hours. */
-  dailyLimitUsd: number;
+  /** How hard the model works before answering. */
+  effort: 'low' | 'medium' | 'high';
+  /** Whether requests are actually billed. Decides what is recorded as spend. */
+  tier: 'free' | 'paid';
+  /** The plan's own ceilings, which the budget is held against. */
+  limits: TierLimits;
+  /** A dollar ceiling as well, for when the tier is a paid one. */
+  dailySpendLimitUsd: number;
 }
 
-const EFFORTS = new Set(['low', 'medium', 'high', 'xhigh', 'max']);
+const EFFORTS = new Set(['low', 'medium', 'high']);
 
 export function aiConfig(): AiConfig {
-  const apiKey = process.env.ANTHROPIC_API_KEY?.trim() || null;
-  const model = process.env.AI_MODEL?.trim() || 'claude-opus-5-5';
+  const apiKey = process.env.GROQ_API_KEY?.trim() || null;
+  const requested = process.env.AI_MODEL?.trim() || 'openai/gpt-oss-120b';
+  /*
+   * An unknown model name is refused rather than passed through. The rate
+   * card and the context window come from that name, and a model we cannot
+   * price is one whose usage we would be reporting as a guess.
+   */
+  const model =
+    requested in MODEL_RATES && MODEL_RATES[requested]!.provider === 'groq'
+      ? requested
+      : 'openai/gpt-oss-120b';
   const effort = process.env.AI_EFFORT?.trim() || 'high';
+  const tier = process.env.AI_TIER?.trim() === 'paid' ? 'paid' : 'free';
+
   return {
     /*
      * Off unless there is a key AND nobody has switched it off. Two
      * conditions, because "we removed the key" and "we turned it off for a
-     * week" are different decisions and an operator should be able to make
+     * week" are different decisions, and an operator should be able to make
      * the second one without touching a secret.
      */
     enabled: Boolean(apiKey) && process.env.AI_ENABLED?.trim().toLowerCase() !== 'false',
+    provider: 'groq',
     apiKey,
-    model: model in MODEL_RATES ? model : 'claude-opus-5-5',
+    model,
     effort: (EFFORTS.has(effort) ? effort : 'high') as AiConfig['effort'],
-    dailyLimitUsd: number('AI_DAILY_LIMIT_USD', 5),
+    tier,
+    /*
+     * Groq's documented free-plan ceilings for gpt-oss-120b, overridable
+     * because a plan change moves them and the Groq console is the authority.
+     * The minute limit on tokens is the one that shapes the loop.
+     */
+    limits: {
+      requestsPerMinute: number('AI_LIMIT_RPM', GROQ_FREE_LIMITS.requestsPerMinute),
+      requestsPerDay: number('AI_LIMIT_RPD', GROQ_FREE_LIMITS.requestsPerDay),
+      tokensPerMinute: number('AI_LIMIT_TPM', GROQ_FREE_LIMITS.tokensPerMinute),
+      tokensPerDay: number('AI_LIMIT_TPD', GROQ_FREE_LIMITS.tokensPerDay),
+    },
+    dailySpendLimitUsd: number('AI_DAILY_LIMIT_USD', 1),
   };
 }

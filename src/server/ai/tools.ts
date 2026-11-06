@@ -3,8 +3,10 @@ import 'server-only';
 import { z } from 'zod';
 
 import {
+  AGENT_LIMITS,
   ToolInputError,
   asEvidence,
+  capRows,
   findingSource,
   taskSource,
   type SourceLink,
@@ -103,10 +105,11 @@ const myWork: AgentTool = {
       workClass: task.workClass,
       focusBucket: task.focusBucket ?? null,
     }));
+    const capped = capRows(rows, AGENT_LIMITS.maxRowsPerTool);
     return {
-      evidence: asEvidence('list_my_tasks', rows),
-      sources: rows.map((row) => taskSource(row.id, row.title)),
-      rows: rows.length,
+      evidence: asEvidence('list_my_tasks', capped),
+      sources: capped.rows.map((row) => taskSource(row.id, row.title)),
+      rows: capped.shown,
     };
   },
 };
@@ -166,10 +169,11 @@ const owedSteps: AgentTool = {
   async run(input, caller) {
     const { horizon_days: horizon } = parse(owedSchema, input, 'list_steps_i_owe');
     const steps = await getStepsIOwe(caller.userId, horizon);
+    const capped = capRows(steps, AGENT_LIMITS.maxRowsPerTool);
     return {
-      evidence: asEvidence('list_steps_i_owe', steps),
-      sources: steps.map((step) => taskSource(step.taskId, step.title)),
-      rows: steps.length,
+      evidence: asEvidence('list_steps_i_owe', capped),
+      sources: capped.rows.map((step) => taskSource(step.taskId, step.title)),
+      rows: capped.shown,
     };
   },
 };
@@ -186,10 +190,11 @@ const teamWorkload: AgentTool = {
     parse(teamSchema, input, 'list_team_workload');
     const work = await getTeamAvailableWork(caller.userId);
     const rows = Array.isArray(work) ? work : [];
+    const capped = capRows(rows, AGENT_LIMITS.maxRowsPerTool);
     return {
-      evidence: asEvidence('list_team_workload', rows),
+      evidence: asEvidence('list_team_workload', capped),
       sources: [],
-      rows: rows.length,
+      rows: capped.shown,
     };
   },
 };
@@ -268,10 +273,19 @@ const searchFindings: AgentTool = {
         rows: 0,
       };
     }
+    const capped = capRows(register.rows, AGENT_LIMITS.maxRowsPerTool);
     return {
-      evidence: asEvidence('search_findings', { total: register.total, rows: register.rows }),
-      sources: register.rows.map((row) => findingSource(row.findingId, row.reference, row.title)),
-      rows: register.rows.length,
+      evidence: asEvidence('search_findings', {
+        // `total` is the register's own count and `shown` is what fits in the
+        // payload. Both are given, so a count in the answer can be the real
+        // one rather than however many rows happened to be sent.
+        total: register.total,
+        shown: capped.shown,
+        truncated: capped.truncated,
+        rows: capped.rows,
+      }),
+      sources: capped.rows.map((row) => findingSource(row.findingId, row.reference, row.title)),
+      rows: capped.shown,
     };
   },
 };
@@ -321,10 +335,11 @@ const verificationQueue: AgentTool = {
   async run(input) {
     parse(verificationSchema, input, 'list_verification_queue');
     const rows = await listVerificationQueue();
+    const capped = capRows(rows, AGENT_LIMITS.maxRowsPerTool);
     return {
-      evidence: asEvidence('list_verification_queue', rows),
-      sources: rows.map((row) => findingSource(row.findingId, row.reference, row.title)),
-      rows: rows.length,
+      evidence: asEvidence('list_verification_queue', capped),
+      sources: capped.rows.map((row) => findingSource(row.findingId, row.reference, row.title)),
+      rows: capped.shown,
     };
   },
 };

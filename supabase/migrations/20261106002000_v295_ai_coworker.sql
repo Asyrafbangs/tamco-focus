@@ -51,11 +51,13 @@ create table public.ai_messages (
   user_id uuid not null references public.user_profiles (id) on delete cascade,
   role text not null check (role in ('user', 'assistant')),
   /*
-   * The content blocks as the API returns them, not a flattened string: a
-   * reply carries text and tool calls together, and the thread has to be
-   * replayable into the next request exactly as it was.
+   * The turn in our own neutral shape - text, plus the tool calls an
+   * assistant turn asked for and the id each result answers. Neutral rather
+   * than a provider's own format because a stored conversation outlives the
+   * decision about who runs the model, and a thread written in one provider's
+   * blocks would have to be migrated to read it with another.
    */
-  content jsonb not null default '[]'::jsonb,
+  content jsonb not null default '{}'::jsonb,
   -- Ordering within a thread, independent of clock skew.
   seq integer not null,
   created_at timestamptz not null default now(),
@@ -88,17 +90,29 @@ create table public.ai_usage (
   id uuid primary key default gen_random_uuid(),
   conversation_id uuid references public.ai_conversations (id) on delete set null,
   user_id uuid not null references public.user_profiles (id) on delete cascade,
+  provider text not null,
   model text not null,
+  /** How many requests this turn made of the provider. A step is a request. */
+  requests integer not null default 1,
   input_tokens integer not null default 0,
   output_tokens integer not null default 0,
-  cache_read_tokens integer not null default 0,
-  cache_write_tokens integer not null default 0,
+  cached_input_tokens integer not null default 0,
   /*
-   * Priced where it is counted. The rate card changes, and a cost recomputed
-   * next year from today's tokens would be a different number than the one
-   * that was actually spent.
+   * Two numbers, because they are two different facts.
+   *
+   * `charged_usd` is what this turn actually cost. On a free plan that is
+   * zero - not "about zero", zero - and recording a free request as a small
+   * charge would make every later cost report fiction.
+   *
+   * `list_price_usd` is what the same tokens would have cost at the
+   * provider's published rate. It is what answers "what would this cost if we
+   * paid for it", which is the question somebody asks before they do.
+   *
+   * Both are priced where they are counted. A cost recomputed next year from
+   * today's tokens would be a different number from the one that was spent.
    */
-  cost_usd numeric(10, 6) not null default 0,
+  charged_usd numeric(10, 6) not null default 0,
+  list_price_usd numeric(10, 6) not null default 0,
   created_at timestamptz not null default now()
 );
 
@@ -184,25 +198,40 @@ create policy ai_usage_own_insert on public.ai_usage
   with check ((select focus.is_active_account()) and user_id = (select focus.current_user_id()));
 
 /*
- * What one person has spent today, in their own timezone-free terms: the
- * rolling 24 hours. Used before a request is sent, so a runaway loop or a
- * curious afternoon cannot quietly run up a bill.
+ * What one person has used, over the two windows that actually constrain a
+ * free tier: the rolling day and the last minute.
+ *
+ * Requests and tokens rather than only dollars, because on a free plan the
+ * dollars are zero and the limits are counted in requests and tokens. The
+ * minute matters as much as the day: a provider that allows a few thousand
+ * tokens a minute will refuse a multi-step investigation halfway through, and
+ * a loop that knows its minute budget can stop with findings instead.
  */
-create or replace function public.ai_spend_last_day()
-returns numeric
+create or replace function public.ai_usage_window()
+returns table (
+  requests_today integer,
+  tokens_today bigint,
+  charged_today numeric,
+  tokens_this_minute bigint
+)
 language sql
 stable
 security invoker
 set search_path = public, pg_temp
 as $$
-  select coalesce(sum(cost_usd), 0)
+  select
+    coalesce(sum(requests) filter (where created_at > now() - interval '24 hours'), 0)::integer,
+    coalesce(sum(input_tokens + output_tokens + cached_input_tokens)
+             filter (where created_at > now() - interval '24 hours'), 0)::bigint,
+    coalesce(sum(charged_usd) filter (where created_at > now() - interval '24 hours'), 0)::numeric,
+    coalesce(sum(input_tokens + output_tokens + cached_input_tokens)
+             filter (where created_at > now() - interval '60 seconds'), 0)::bigint
     from public.ai_usage
-   where user_id = focus.current_user_id()
-     and created_at > now() - interval '24 hours';
+   where user_id = focus.current_user_id();
 $$;
 
-revoke all on function public.ai_spend_last_day() from public, anon;
-grant execute on function public.ai_spend_last_day() to authenticated;
+revoke all on function public.ai_usage_window() from public, anon;
+grant execute on function public.ai_usage_window() to authenticated;
 
 comment on table public.ai_conversations is
   'v295 — one person''s private thread with the assistant. Readable by its '
@@ -211,4 +240,6 @@ comment on table public.ai_tool_calls is
   'v295 — which authorised records the assistant actually read, so an answer '
   'can be checked rather than believed.';
 comment on table public.ai_usage is
-  'v295 — tokens and cost per turn, priced when counted.';
+  'v295 — tokens per turn, with what was charged and what the same tokens '
+  'would cost at list price kept apart: a free-tier request is no charge, '
+  'not a small one.';
