@@ -431,7 +431,7 @@ function normalise(text) {
  * `graded_on` notes a person reads.
  */
 const DENIALS =
-  /(cannot|can't|could not|couldn't|do not|don't|does not|doesn't|no|not|never|rather than|instead of|unlikely|nothing (?:to )?suggests?|little evidence|insufficient)[^.]{0,80}$/;
+  /\b(cannot|can't|could not|couldn't|do not|don't|does not|doesn't|no|not|never|rather than|instead of|unlikely|nothing (?:to )?suggests?|little evidence|insufficient)\b[^.]{0,80}$/;
 
 function assertsPhrase(text, phrase) {
   let from = 0;

@@ -147,6 +147,41 @@ describe('v295 the agent cannot leave the caller’s permissions', () => {
     }
   });
 
+  it('carries no control characters, which is how a regex silently dies', () => {
+    /*
+     * A real one, and it cost an eval run to find.
+     *
+     * The suite's negation guard - the thing that stops a correct refusal
+     * being marked as blame - was written with a word-boundary escape that
+     * reached the file as a literal backspace byte. The regex still compiled,
+     * still ran, and never matched anything, so a correct answer was reported
+     * as the model blaming an employee. Nothing failed loudly; the measurement
+     * was simply wrong.
+     *
+     * A byte that cannot be seen in a diff needs a test that can.
+     */
+    const suspects = [
+      ...aiSources().map((one) => path.join(AI_DIR, one.file)),
+      path.join(process.cwd(), 'src', 'domain', 'ai.ts'),
+      path.join(process.cwd(), 'scripts', 'run-ai-evals.mjs'),
+      path.join(process.cwd(), 'evals', 'ai', 'scenarios.json'),
+    ];
+    for (const file of suspects) {
+      const text = readFileSync(file, 'utf8');
+      const offenders = [...text].reduce<string[]>((found, character, index) => {
+        const code = character.codePointAt(0)!;
+        // Tab, newline and carriage return are the only ones that belong.
+        if (code < 32 && code !== 9 && code !== 10 && code !== 13) {
+          found.push(
+            `U+${code.toString(16).padStart(4, '0')} near ${JSON.stringify(text.slice(Math.max(0, index - 20), index + 10))}`,
+          );
+        }
+        return found;
+      }, []);
+      expect(offenders, `${path.basename(file)} contains control characters`).toEqual([]);
+    }
+  });
+
   it('keeps provider shapes inside the provider directory', () => {
     /*
      * The seam only buys anything if it holds. If the loop knew about
