@@ -415,7 +415,14 @@ ${message.content}`
  * buys.
  */
 export const AGENT_LIMITS = {
-  maxSteps: 4,
+  /*
+   * Reads, not requests-including-the-answer. Four was too few once the
+   * prompt told the model to check both halves of the work: it called tasks,
+   * team, findings and the verification queue - exactly as asked - and had no
+   * step left to answer in. The token budget is the honest ceiling here and
+   * it binds first on a free tier; this is only a stop against a runaway.
+   */
+  maxSteps: 6,
   /** Stop starting new work after this, measured from the first request. */
   softDeadlineMs: 40_000,
   /** The point at which the route gives up and says so. */
@@ -462,6 +469,17 @@ export type StopReason =
  * unless the difference is stated, and a confident-looking partial answer is
  * the worst thing this feature could produce.
  */
+/**
+ * The instruction that turns a dead stop into an answer.
+ *
+ * When the loop is out of steps or out of minute, an investigation that has
+ * read records but written nothing is the worst outcome available: the
+ * evidence was gathered and paid for and then thrown away. One more request
+ * with no tools attached forces the conclusion.
+ */
+export const FINAL_ANSWER_INSTRUCTION =
+  'You are out of steps for this question. Answer now from the records already above: lead with the answer, cite what you read, and say plainly what you could not establish. Do not ask for more tools.';
+
 export const STOP_WORDS: Record<Exclude<StopReason, 'answered'>, string> = {
   steps:
     'I reached the limit on how many records I can read in one go. What I read is listed below; narrow the question and I can go deeper.',

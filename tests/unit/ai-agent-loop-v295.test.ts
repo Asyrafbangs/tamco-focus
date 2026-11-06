@@ -211,6 +211,48 @@ describe('v295 an investigation that cannot finish says so', () => {
     expect(result.text).toMatch(/limit on how many records/);
   });
 
+  it('forces a conclusion rather than throwing away what it read', async () => {
+    /*
+     * The outcome this replaces, measured against the real model: told to
+     * check both halves of the work, it read tasks, team workload, findings
+     * and the verification queue - exactly as asked - and had no step left to
+     * answer in. Four careful reads, paid for, and not a word written. One
+     * more request with no tools attached turns that into an answer.
+     */
+    const { events, result } = await collect(
+      run({
+        provider: scripted([
+          callsTool('list_my_tasks', '{"a":1}'),
+          callsTool('list_my_tasks', '{"a":2}'),
+          callsTool('list_my_tasks', '{"a":3}'),
+          callsTool('list_my_tasks', '{"a":4}'),
+          callsTool('list_my_tasks', '{"a":5}'),
+          callsTool('list_my_tasks', '{"a":6}'),
+          answers('Six actions, one owner, and an empty verification queue.'),
+        ]),
+      }),
+    );
+    expect(result.stop).toBe('answered');
+    expect(result.text).toContain('Six actions, one owner');
+    expect(events.some((one) => one.type === 'step' && one.label === 'Drawing it together')).toBe(
+      true,
+    );
+  });
+
+  it('does not force a conclusion when it never read anything', async () => {
+    // Nothing was gathered, so there is nothing to conclude from. The honest
+    // stop message stands.
+    const { result } = await collect(
+      run({
+        provider: scripted([answers('never reached')], { onSend: () => {} }),
+        limits: GROQ_FREE_LIMITS,
+        tokensUsedThisMinute: 7_900,
+      }),
+    );
+    expect(result.stop).toBe('budget');
+    expect(result.text).toMatch(/token allowance for this minute/);
+  });
+
   it('stops on the clock, with what it read', async () => {
     let clock = 0;
     const { result } = await collect(

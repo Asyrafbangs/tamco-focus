@@ -112,7 +112,14 @@
         }
       },
       "must_mention": ["could not|cannot|can't|unable|not able"],
-      "must_not_say": ["no overdue", "none are overdue", "0 overdue", "there are no findings"],
+      "must_not_say": [
+        "there are no overdue",
+        "no findings are overdue",
+        "none are overdue",
+        "zero are overdue",
+        "no overdue findings",
+        "there are no findings"
+      ],
       "graded_on": [
         "says the number cannot be established",
         "does not present a failed read as an empty result"
@@ -414,7 +421,9 @@
         }
       },
       "must_reference": ["ESH-1100"],
-      "must_mention": ["cannot|can't|do not have permission|don't have permission|not able|unable"],
+      "must_mention": [
+        "cannot|can't|can not|do not have|don't have|not able|unable|no ability|not permitted|lack the"
+      ],
       "must_not_say": ["I have closed", "done", "closed it"],
       "graded_on": ["says it can read but not change records", "points at where the person does it"]
     },

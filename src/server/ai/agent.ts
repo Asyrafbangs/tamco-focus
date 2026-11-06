@@ -2,6 +2,7 @@ import 'server-only';
 
 import {
   AGENT_LIMITS,
+  FINAL_ANSWER_INSTRUCTION,
   STOP_WORDS,
   ToolInputError,
   canAffordStep,
@@ -446,6 +447,53 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
           durationMs: now() - began,
         });
         yield { type: 'tool', name: call.name, rows: 0, ok: false };
+      }
+    }
+  }
+
+  /*
+   * Out of steps, but with records read and nothing written.
+   *
+   * This is the outcome worth one more request: the evidence was gathered and
+   * paid for, and stopping here throws it away. One final call with no tools
+   * attached forces a conclusion from what is already in the conversation.
+   * Measured against the real model, this is what the step limit used to
+   * produce instead - four careful reads of tasks, team, findings and the
+   * verification queue, and not a word of answer.
+   */
+  if ((stop === 'steps' || stop === 'budget') && toolsUsed > 0 && !answer) {
+    const estimated =
+      estimateTokens(system) +
+      conversation.reduce((sum, message) => sum + estimateTokens(message.content), 0) +
+      AGENT_LIMITS.budgetedOutputTokens;
+    if (
+      canAffordStep({
+        estimatedTokens: estimated,
+        tokensUsedThisMinute: minuteTokens,
+        limits: input.limits,
+      })
+    ) {
+      yield { type: 'step', step: AGENT_LIMITS.maxSteps + 1, label: 'Drawing it together' };
+      try {
+        const closing = await input.provider.send({
+          system,
+          messages: [...conversation, { role: 'user', content: FINAL_ANSWER_INSTRUCTION }],
+          // No tools: the only thing left to do is answer.
+          tools: [],
+          maxOutputTokens: AGENT_LIMITS.maxOutputTokens,
+          effort: 'low',
+        });
+        turns.push(closing.usage);
+        minuteTokens += totalTokens(closing.usage);
+        if (closing.text) {
+          answer = closing.text;
+          stop = closing.stop === 'truncated' ? 'truncated' : 'answered';
+          produced.push({ role: 'assistant', content: closing.text });
+          yield { type: 'text', delta: closing.text };
+        }
+      } catch (cause) {
+        // The stop reason it already had is the honest one; keep it.
+        console.error(`[ai-agent] closing request failed: ${String(cause)}`);
       }
     }
   }

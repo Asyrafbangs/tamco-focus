@@ -94,6 +94,8 @@ function limitFromDomain(name, fallback) {
 }
 
 const MAX_OUT = Number(flag('--max-out') ?? limitFromDomain('maxOutputTokens', 4000));
+/** Reads before the loop forces a conclusion. From the domain. */
+const MAX_STEPS = limitFromDomain('maxSteps', 6);
 /** What one reply is expected to spend, for pacing. Also from the domain. */
 const BUDGETED_OUT = limitFromDomain('budgetedOutputTokens', 1500);
 const suite = JSON.parse(readFileSync(path.join(root, 'evals', 'ai', 'scenarios.json'), 'utf8'));
@@ -170,8 +172,28 @@ async function waitForBudget(estimated) {
   }
 }
 
-function toolsFor(scenario) {
-  return Object.keys(scenario.fixtures).map((name) => ({
+/**
+ * Every tool the product offers, read from the source.
+ *
+ * Not just the ones a scenario has fixtures for. The product always exposes
+ * all eight, and a scenario that exposed two taught the model to hunt: asked
+ * why six actions in one department were late, it called the only search tool
+ * it could see four times with four different filters, looking for the task
+ * side of the question the prompt tells it to check, and never answered. That
+ * was the eval's tool surface, not the model's judgement.
+ */
+function productTools() {
+  const source = readFileSync(path.join(root, 'src', 'server', 'ai', 'tools.ts'), 'utf8');
+  const names = [...source.matchAll(/^\s*name: '([a-z_]+)',$/gm)].map((match) => match[1]);
+  if (names.length < 4)
+    throw new Error('could not read the tool names from src/server/ai/tools.ts');
+  return names;
+}
+
+const TOOL_NAMES = productTools();
+
+function toolsFor() {
+  return TOOL_NAMES.map((name) => ({
     type: 'function',
     function: {
       name,
@@ -181,13 +203,22 @@ function toolsFor(scenario) {
   }));
 }
 
-async function post(messages, scenario) {
+/**
+ * What a tool with no fixture returns: an empty result, successfully.
+ *
+ * Empty rather than an error, because "this person has no tasks" is a real
+ * state the product has to answer from, and an error here would be teaching
+ * the model that a missing fixture is a failed read - the one distinction the
+ * whole feature rests on.
+ */
+const EMPTY_RESULT = { total: 0, shown: 0, truncated: false, rows: [] };
+
+async function post(messages, { withTools = true } = {}) {
   const body = {
     model: MODEL,
     messages: [{ role: 'system', content: SYSTEM }, ...messages],
     max_completion_tokens: MAX_OUT,
-    tool_choice: 'auto',
-    tools: toolsFor(scenario),
+    ...(withTools ? { tool_choice: 'auto', tools: toolsFor() } : {}),
     reasoning_effort: EFFORT,
     include_reasoning: false,
   };
@@ -254,8 +285,8 @@ async function run(scenario) {
   let nudged = false;
   let tokens = { prompt: 0, completion: 0 };
 
-  for (let step = 0; step < 4; step += 1) {
-    const reply = await post(messages, scenario);
+  for (let step = 0; step < MAX_STEPS; step += 1) {
+    const reply = await post(messages);
     const choice = reply.choices?.[0];
     tokens = {
       prompt: tokens.prompt + (reply.usage?.prompt_tokens ?? 0),
@@ -308,8 +339,41 @@ async function run(scenario) {
         role: 'tool',
         tool_call_id: call.id,
         name,
-        content: asEvidence(name, fixture ?? { note: 'There is no such tool in this scenario.' }),
+        content: asEvidence(name, fixture ?? EMPTY_RESULT),
       });
+    }
+  }
+  /*
+   * Out of steps with records read and nothing written: the product's loop
+   * makes one more request with no tools attached rather than throwing the
+   * evidence away, so this one does too.
+   */
+  if (used.length > 0) {
+    const closing = await post(
+      [
+        ...messages,
+        {
+          role: 'user',
+          content:
+            'You are out of steps for this question. Answer now from the records already above: lead with the answer, cite what you read, and say plainly what you could not establish. Do not ask for more tools.',
+        },
+      ],
+      { withTools: false },
+    );
+    const choice = closing.choices?.[0];
+    tokens = {
+      prompt: tokens.prompt + (closing.usage?.prompt_tokens ?? 0),
+      completion: tokens.completion + (closing.usage?.completion_tokens ?? 0),
+    };
+    if (choice?.message?.content) {
+      return {
+        text: choice.message.content,
+        used,
+        tokens,
+        finish: choice.finish_reason === 'length' ? 'length' : 'stop',
+        nudged,
+        closed: true,
+      };
     }
   }
   return { text: '', used, tokens, finish: 'steps-exhausted', nudged };
