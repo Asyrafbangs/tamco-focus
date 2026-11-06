@@ -48,6 +48,7 @@
     "stop:dev": "node scripts/stop-dev.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "1.6.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.58.0",
     "next": "^16.3.0",
