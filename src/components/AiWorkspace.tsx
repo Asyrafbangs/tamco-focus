@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRef, useState } from 'react';
 
-import type { SourceLink } from '@/domain/ai';
+import type { Exchange as StoredExchange, SourceLink } from '@/domain/ai';
 
 /**
  * The conversation workspace.
@@ -15,11 +15,7 @@ import type { SourceLink } from '@/domain/ai';
  * be checked rather than believed.
  */
 
-export interface Exchange {
-  id: string;
-  question: string;
-  answer: string;
-  sources: SourceLink[];
+export interface Exchange extends StoredExchange {
   /** Live progress, kept only while the answer is being written. */
   steps?: string[];
   reads?: { name: string; rows: number; ok: boolean }[];

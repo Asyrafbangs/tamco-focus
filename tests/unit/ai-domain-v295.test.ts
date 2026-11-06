@@ -13,6 +13,7 @@ import {
   estimateTokens,
   findingSource,
   listPriceOf,
+  pairExchanges,
   sendRefusal,
   stepsExhausted,
   sumUsage,
@@ -206,6 +207,51 @@ describe('v295 a capped payload does not become a fabricated count', () => {
     expect(SYSTEM_PROMPT).toContain('"total" is the real count');
     expect(SYSTEM_PROMPT).toMatch(/at least N/);
     expect(SYSTEM_PROMPT).toMatch(/Never state a number you did not count/);
+  });
+});
+
+describe('v295 a stored thread read back', () => {
+  const sources = [
+    { kind: 'finding' as const, id: 'f-1', label: 'ESH-0142', href: '/findings/f-1' },
+  ];
+
+  it('pairs each question with the answer that followed it', () => {
+    const exchanges = pairExchanges([
+      { role: 'user', content: 'Why is ESH-0142 late?', seq: 0 },
+      { role: 'assistant', content: 'It sat in verification for 19 days.', sources, seq: 1 },
+    ]);
+    expect(exchanges).toHaveLength(1);
+    expect(exchanges[0]!.question).toBe('Why is ESH-0142 late?');
+    expect(exchanges[0]!.answer).toBe('It sat in verification for 19 days.');
+    expect(exchanges[0]!.sources).toEqual(sources);
+  });
+
+  it('never renders a tool result as an answer', () => {
+    /*
+     * The defect this exists to stop: tool rows are kept so somebody can
+     * audit what the assistant read, and for a while they were stored as
+     * 'assistant' because the API only has two speakers that matter. Read
+     * back, that put a raw record-set on the screen as though the assistant
+     * had said it - and fed the same evidence into the next request as the
+     * assistant's own words.
+     */
+    const exchanges = pairExchanges([
+      { role: 'user', content: 'Why is ESH-0142 late?', seq: 0 },
+      { role: 'assistant', content: '', seq: 1 },
+      {
+        role: 'tool',
+        content: '<record-set source="get_finding_detail">{...}</record-set>',
+        seq: 2,
+      },
+      { role: 'assistant', content: 'It sat in verification for 19 days.', sources, seq: 3 },
+    ]);
+    expect(exchanges).toHaveLength(1);
+    expect(exchanges[0]!.answer).toBe('It sat in verification for 19 days.');
+    expect(exchanges[0]!.answer).not.toContain('record-set');
+  });
+
+  it('ignores an answer with no question before it', () => {
+    expect(pairExchanges([{ role: 'assistant', content: 'orphan', seq: 0 }])).toEqual([]);
   });
 });
 

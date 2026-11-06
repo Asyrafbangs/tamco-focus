@@ -150,7 +150,7 @@ export async function appendTurn(input: {
   const rows = input.messages.map((message, index) => ({
     conversation_id: input.conversationId,
     user_id: input.userId,
-    role: message.role === 'tool' ? 'assistant' : message.role,
+    role: message.role,
     content: {
       ...message,
       /*

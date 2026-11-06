@@ -1,7 +1,8 @@
-import { AiWorkspace, type Exchange } from '@/components/AiWorkspace';
+import { AiWorkspace } from '@/components/AiWorkspace';
+import { pairExchanges } from '@/domain/ai';
 import { requireProfile } from '@/lib/supabase/server';
 import { aiConfig } from '@/server/ai/config';
-import { listConversations, loadThread, type StoredMessage } from '@/server/ai/conversations';
+import { listConversations, loadThread } from '@/server/ai/conversations';
 
 /**
  * TAMCO AI.
@@ -10,31 +11,12 @@ import { listConversations, loadThread, type StoredMessage } from '@/server/ai/c
  * else happens through the streaming route, which runs every tool as this
  * person. A conversation id in the address that is not theirs simply loads
  * nothing — the policy filters it out before this code sees it.
+ *
+ * Pairing the stored turns into question-and-answer lives in the domain, with
+ * a test, because the rule it encodes is easy to get wrong: a tool result is
+ * kept so somebody can audit what was read, and it is not an answer.
  */
 export const dynamic = 'force-dynamic';
-
-/**
- * The stored turns, paired into question-and-answer.
- *
- * Tool turns are skipped: they are kept for auditing what was read, not for
- * reading back. What a person sees is what they asked and what came of it,
- * with the citations the tools produced.
- */
-function exchangesFrom(stored: readonly StoredMessage[]): Exchange[] {
-  const exchanges: Exchange[] = [];
-  for (const message of stored) {
-    if (message.role === 'user') {
-      exchanges.push({ id: `m${message.seq}`, question: message.content, answer: '', sources: [] });
-      continue;
-    }
-    if (message.role !== 'assistant' || !message.content.trim()) continue;
-    const last = exchanges[exchanges.length - 1];
-    if (!last) continue;
-    last.answer = last.answer ? `${last.answer}\n\n${message.content}` : message.content;
-    if (message.sources?.length) last.sources = message.sources;
-  }
-  return exchanges;
-}
 
 export default async function AiPage({ searchParams }: { searchParams: Promise<{ c?: string }> }) {
   await requireProfile();
@@ -59,7 +41,7 @@ export default async function AiPage({ searchParams }: { searchParams: Promise<{
       </div>
       <AiWorkspace
         conversations={conversations}
-        initial={conversationId ? exchangesFrom(thread) : []}
+        initial={conversationId ? pairExchanges(thread) : []}
         conversationId={conversationId}
         enabled={config.enabled}
         disabledReason={

@@ -363,6 +363,45 @@ export function asEvidence(toolName: string, payload: unknown): string {
   ].join('\n');
 }
 
+/**
+ * One question and what came of it, as the screen shows a thread.
+ *
+ * In the domain rather than in the page, because the rule it encodes is worth
+ * a test: a tool result is not an answer. Tool rows are kept in the database
+ * so somebody can audit what was read, and rendering one as though the
+ * assistant had said it would put a raw record-set on the screen - which is
+ * exactly what happened when the stored role was collapsed to 'assistant'.
+ */
+export interface Exchange {
+  id: string;
+  question: string;
+  answer: string;
+  sources: SourceLink[];
+}
+
+export function pairExchanges(
+  stored: readonly { role: AiRole; content: string; sources?: SourceLink[]; seq: number }[],
+): Exchange[] {
+  const exchanges: Exchange[] = [];
+  for (const message of stored) {
+    if (message.role === 'tool') continue;
+    if (message.role === 'user') {
+      exchanges.push({ id: `m${message.seq}`, question: message.content, answer: '', sources: [] });
+      continue;
+    }
+    if (!message.content.trim()) continue;
+    const last = exchanges[exchanges.length - 1];
+    if (!last) continue;
+    last.answer = last.answer
+      ? `${last.answer}
+
+${message.content}`
+      : message.content;
+    if (message.sources?.length) last.sources = message.sources;
+  }
+  return exchanges;
+}
+
 /* ---------------------------------------------------------------- loop -- */
 
 /**

@@ -49,7 +49,14 @@ create table public.ai_messages (
   id uuid primary key default gen_random_uuid(),
   conversation_id uuid not null references public.ai_conversations (id) on delete cascade,
   user_id uuid not null references public.user_profiles (id) on delete cascade,
-  role text not null check (role in ('user', 'assistant')),
+  /*
+   * Including 'tool', because a tool result is neither the person speaking
+   * nor the assistant answering. Collapsing it into 'assistant' was briefly
+   * tempting - the API only has two speakers that matter - and it would have
+   * meant a replayed thread fed the evidence back as though the assistant had
+   * said it, and the screen rendered a record-set as an answer.
+   */
+  role text not null check (role in ('user', 'assistant', 'tool')),
   /*
    * The turn in our own neutral shape - text, plus the tool calls an
    * assistant turn asked for and the id each result answers. Neutral rather
