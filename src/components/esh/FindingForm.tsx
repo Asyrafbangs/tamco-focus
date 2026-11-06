@@ -104,6 +104,9 @@ export function FindingForm({
   verifiers,
   levelDays = [],
   departmentRoutes = {},
+  variant = 'full',
+  nextHref = null,
+  onAssigned,
 }: {
   initial: FindingFormInitial;
   departments: Array<{ id: string; name: string }>;
@@ -114,11 +117,42 @@ export function FindingForm({
   levelDays?: number[];
   /** v223 - the route each department normally uses, offered on choosing it. */
   departmentRoutes?: Record<string, Record<number, string[]>>;
+  /**
+   * v293 — `triage` is the same form inside the intake workspace.
+   *
+   * One continuous column instead of two steps, because the report is already
+   * on screen beside it and a coordinator working through twenty of them
+   * should not be paging through a wizard for each. The five decisions ESH
+   * actually makes come first; what the report already answered — the title,
+   * the description, where it happened — moves into Advanced settings, still
+   * editable, because it is a correction rather than a decision.
+   *
+   * Every field, rule, default and server call is the same. Nothing is
+   * removed in this variant, and nothing new is validated.
+   */
+  variant?: 'full' | 'triage';
+  /** Where "Assign & next" goes once the save is confirmed. */
+  nextHref?: string | null;
+  /** Told after a confirmed save, so the workspace can move on. */
+  onAssigned?: (findingId: string) => void;
 }) {
+  const triage = variant === 'triage';
   const [state, setState] = useState<SaveFindingState | null>(null);
   const [pending, startTransition] = useTransition();
   const [idempotencyKey] = useState(() => crypto.randomUUID());
   const [ownerEmail, setOwnerEmail] = useState(initial.ownerEmail);
+  /*
+   * v293 - risk and urgency are read together, so both are held here.
+   *
+   * They are different facts: how badly somebody could be hurt, and how soon
+   * the work is wanted. A critical risk with a normal priority is a legitimate
+   * combination and also the shape of a mis-click, so the form says so and
+   * leaves the decision where it belongs.
+   */
+  const [riskLevel, setRiskLevel] = useState(initial.riskLevel);
+  const [priority, setPriority] = useState(initial.priority || 'normal');
+  const severeRisk = riskLevel === 'high' || riskLevel === 'critical';
+  const urgencyMismatch = severeRisk && priority === 'normal';
   const [noFurtherEscalation, setNoFurtherEscalation] = useState(
     Boolean(initial.noFurtherEscalationReason),
   );
@@ -226,6 +260,10 @@ export function FindingForm({
   ];
   const advancedProblem = (state?.problems ?? []).some((problem) =>
     ADVANCED.includes(problem.field),
+  );
+  /** v293 — the collapsed report block opens itself when it holds the fault. */
+  const reportProblem = (state?.problems ?? []).some((problem) =>
+    ['title', 'description', 'location'].includes(problem.field),
   );
   /**
    * The earliest step holding something to correct.
@@ -393,7 +431,15 @@ export function FindingForm({
         // The finding exists now, so its evidence can belong to something —
         // and so a retry has something to attach to rather than saving again.
         setSavedFindingId(result.findingId);
-        setRedirectTo(result.redirectTo);
+        /*
+         * v293 — in the workspace, "next" is the next report, not the finding
+         * just created. The finding is one click away from the confirmation;
+         * the queue is where somebody with twenty of these is working. Only
+         * after the server has confirmed the save, and only if the evidence
+         * went with it.
+         */
+        setRedirectTo(triage && nextHref ? nextHref : result.redirectTo);
+        onAssigned?.(result.findingId);
         const outstanding = staged.filter((item) => item.state !== 'uploaded');
         const allSent =
           outstanding.length === 0 ? true : await attachStaged(result.findingId, outstanding);
@@ -403,7 +449,7 @@ export function FindingForm({
          * and nothing on that page would say a file had been lost.
          */
         if (!allSent) return;
-        router.push(result.redirectTo);
+        router.push(triage && nextHref ? nextHref : result.redirectTo);
         return;
       }
       if (!result.ok) {
@@ -444,38 +490,61 @@ export function FindingForm({
         </div>
       )}
 
-      <ol className="esh-steps" aria-label="Recording a finding">
-        {STEPS.map((name, index) => {
-          const number = index + 1;
-          return (
-            <li
-              key={name}
-              className="esh-step"
-              data-state={number === shown ? 'current' : number < shown ? 'done' : 'ahead'}
-              aria-current={number === shown ? 'step' : undefined}
-            >
-              <button
-                type="button"
-                onClick={() => setStep(number)}
-                // Steps are a route through the form, not a lock on it: an
-                // ESH coordinator who knows what they are recording can go
-                // straight to the part they want to change.
-                aria-label={`Step ${number} of ${STEPS.length}: ${name}`}
+      {/*
+       * v293 — no stepper in the workspace. The report is beside the form,
+       * the decisions are one column, and a two-item wizard across twenty
+       * reports a day is twenty pages nobody needed.
+       */}
+      {/*
+       * Not rendered at all, rather than `hidden`: `.esh-steps` is a flex
+       * container, and a `display` rule beats the hidden attribute.
+       */}
+      {!triage && (
+        <ol className="esh-steps" aria-label="Recording a finding">
+          {STEPS.map((name, index) => {
+            const number = index + 1;
+            return (
+              <li
+                key={name}
+                className="esh-step"
+                data-state={number === shown ? 'current' : number < shown ? 'done' : 'ahead'}
+                aria-current={number === shown ? 'step' : undefined}
               >
-                <span className="esh-step-mark" aria-hidden="true">
-                  {number < shown ? '✓' : number}
-                </span>
-                <span className="esh-step-name">{name}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
+                <button
+                  type="button"
+                  onClick={() => setStep(number)}
+                  // Steps are a route through the form, not a lock on it: an
+                  // ESH coordinator who knows what they are recording can go
+                  // straight to the part they want to change.
+                  aria-label={`Step ${number} of ${STEPS.length}: ${name}`}
+                >
+                  <span className="esh-step-mark" aria-hidden="true">
+                    {number < shown ? '✓' : number}
+                  </span>
+                  <span className="esh-step-name">{name}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      )}
 
-      <section className="esh-form-card" aria-labelledby="esh-form-finding" hidden={shown !== 1}>
-        <h2 id="esh-form-finding" className="esh-form-card-title">
-          The finding
-        </h2>
+      {/*
+       * v293 — in the workspace this is a disclosure, not a card.
+       *
+       * Every one of these was answered by the employee's report and is shown
+       * beside the form already. A coordinator opens it to correct something,
+       * which is an exception; leaving it open makes them read past four
+       * answered questions to reach the five they have to make. It opens
+       * itself when one of its own fields fails validation.
+       */}
+      <FormBlock
+        collapsed={triage}
+        id="esh-form-finding"
+        title={triage ? 'Report details' : 'The finding'}
+        hidden={!triage && shown !== 1}
+        open={reportProblem}
+      >
         <Field label="Finding title" problems={problemsFor('title')}>
           {(props) => (
             <input name="title" required maxLength={200} defaultValue={initial.title} {...props} />
@@ -504,17 +573,22 @@ export function FindingForm({
               />
             )}
           </Field>
-          <Field label="Accountable department" problems={problemsFor('accountable_department_id')}>
-            {(props) => (
-              <DepartmentChooser
-                departments={departments}
-                value={departmentId}
-                onChange={setDepartmentId}
-                canAdd={canAddDepartment}
-                inputProps={props}
-              />
-            )}
-          </Field>
+          {!triage && (
+            <Field
+              label="Accountable department"
+              problems={problemsFor('accountable_department_id')}
+            >
+              {(props) => (
+                <DepartmentChooser
+                  departments={departments}
+                  value={departmentId}
+                  onChange={setDepartmentId}
+                  canAdd={canAddDepartment}
+                  inputProps={props}
+                />
+              )}
+            </Field>
+          )}
         </div>
         <div className="esh-field">
           <span className="esh-field-label">Evidence</span>
@@ -606,12 +680,37 @@ export function FindingForm({
             </p>
           )}
         </div>
-      </section>
+      </FormBlock>
 
-      <section className="esh-form-card" aria-labelledby="esh-form-action" hidden={shown !== 2}>
+      <section
+        className="esh-form-card"
+        aria-labelledby="esh-form-action"
+        hidden={!triage && shown !== 2}
+      >
         <h2 id="esh-form-action" className="esh-form-card-title">
-          Who puts it right, by when
+          {triage ? 'ESH decision' : 'Who puts it right, by when'}
         </h2>
+        {/*
+         * v293 — the department sits with the decisions it belongs to.
+         *
+         * Where the sticker is and who is accountable for putting it right
+         * are not the same question, and this is the one a coordinator has to
+         * answer deliberately. In the workspace it is one of the five; in the
+         * full form it stays where it always was, beside the location.
+         */}
+        {triage && (
+          <Field label="Accountable department" problems={problemsFor('accountable_department_id')}>
+            {(props) => (
+              <DepartmentChooser
+                departments={departments}
+                value={departmentId}
+                onChange={setDepartmentId}
+                canAdd={canAddDepartment}
+                inputProps={props}
+              />
+            )}
+          </Field>
+        )}
         <Field label="Required outcome" problems={problemsFor('required_outcome')}>
           {(props) => (
             <textarea
@@ -649,7 +748,12 @@ export function FindingForm({
             hint="Assessed with TAMCO's method. It decides how follow-up behaves."
           >
             {(props) => (
-              <select name="risk_level" defaultValue={initial.riskLevel} {...props}>
+              <select
+                name="risk_level"
+                value={riskLevel}
+                onChange={(event) => setRiskLevel(event.target.value as RiskLevel)}
+                {...props}
+              >
                 {(Object.keys(RISK_LABELS) as RiskLevel[]).map((risk) => (
                   <option key={risk} value={risk}>
                     {RISK_LABELS[risk]}
@@ -661,7 +765,7 @@ export function FindingForm({
           <Field
             label="Due date"
             problems={problemsFor('due_date')}
-            hint="Due at 17:00 Kuala Lumpur time unless More settings says otherwise."
+            hint="Due at 17:00 Kuala Lumpur time unless Advanced settings says otherwise."
           >
             {(props) => (
               <input name="due_date" type="date" defaultValue={initial.dueDate} {...props} />
@@ -674,9 +778,42 @@ export function FindingForm({
             The assignment will go to <strong>{ownerEmail.trim()}</strong>
           </p>
         )}
+
+        {/*
+         * v293 — a high or critical risk, said here rather than discovered on
+         * the finding afterwards.
+         *
+         * This does not change the risk, set a control, or add a step. It
+         * states the rule the finding already enforces: until an immediate
+         * control is recorded, the finding says nothing is protecting people
+         * while it stays open. A coordinator assigning twenty of these should
+         * meet that sentence at the moment they choose the risk, not later.
+         */}
+        {severeRisk && (
+          <p className="notice warn esh-risk-warning" role="status">
+            <strong>{RISK_LABELS[riskLevel]} risk.</strong> Until an immediate control is recorded
+            on this finding, it will show that nothing is protecting people while it stays open.
+            Record one as soon as the finding exists.
+          </p>
+        )}
+        {urgencyMismatch && (
+          <p className="notice warn esh-risk-warning" role="status">
+            <strong>
+              {RISK_LABELS[riskLevel as RiskLevel]} risk with{' '}
+              {PRIORITY_LABELS[priority as ActionPriority] ?? priority} priority.
+            </strong>{' '}
+            That can be right — how badly somebody could be hurt and how soon the work is wanted are
+            different questions — but check it is what you meant. Priority is under Advanced
+            settings.
+          </p>
+        )}
       </section>
 
-      <section className="esh-form-card" aria-labelledby="esh-form-escalation" hidden={shown !== 2}>
+      <section
+        className="esh-form-card"
+        aria-labelledby="esh-form-escalation"
+        hidden={!triage && shown !== 2}
+      >
         <h2 id="esh-form-escalation" className="esh-form-card-title">
           Follow-up if overdue
           {routeFolded && departmentName ? ` (${departmentName} default)` : ''}
@@ -762,12 +899,12 @@ export function FindingForm({
       </section>
 
       <details
-        hidden={shown !== 2}
+        hidden={!triage && shown !== 2}
         className="esh-form-more"
         open={advancedProblem || moreOpen}
         onToggle={(event) => setMoreOpen(event.currentTarget.open)}
       >
-        <summary>More settings</summary>
+        <summary>Advanced settings</summary>
         <p className="form-hint esh-form-card-hint">
           Each of these already has an answer. Change them when this finding is an exception.
         </p>
@@ -870,7 +1007,12 @@ export function FindingForm({
             hint="What the owner should do first. Risk is the assessment; this is the queue."
           >
             {(props) => (
-              <select name="priority" defaultValue={initial.priority || 'normal'} {...props}>
+              <select
+                name="priority"
+                value={priority}
+                onChange={(event) => setPriority(event.target.value as ActionPriority)}
+                {...props}
+              >
                 {(Object.keys(PRIORITY_LABELS) as ActionPriority[]).map((priority) => (
                   <option key={priority} value={priority}>
                     {PRIORITY_LABELS[priority]}
@@ -890,7 +1032,7 @@ export function FindingForm({
       </details>
 
       <div className="esh-form-actions">
-        {shown > 1 && (
+        {!triage && shown > 1 && (
           <button className="btn ghost" type="button" onClick={() => setStep(shown - 1)}>
             Back
           </button>
@@ -908,7 +1050,7 @@ export function FindingForm({
           value="draft"
           disabled={pending || savedFindingId !== null}
         >
-          Save draft
+          {triage ? 'Save for later' : 'Save draft'}
         </button>
         {/*
          * Distinct keys, and a prevented default, on purpose. Rendered as one
@@ -917,7 +1059,7 @@ export function FindingForm({
          * the browser then honours for the click already in flight, saving the
          * finding the moment somebody pressed Next.
          */}
-        {shown < STEPS.length ? (
+        {!triage && shown < STEPS.length ? (
           <button
             key="step-next"
             className="btn primary"
@@ -945,7 +1087,13 @@ export function FindingForm({
             aria-busy={pending}
           >
             {attaching ??
-              (preparing ? 'Preparing photos…' : pending ? 'Saving…' : 'Assign finding')}
+              (preparing
+                ? 'Preparing photos…'
+                : pending
+                  ? 'Saving…'
+                  : triage && nextHref
+                    ? 'Assign & next'
+                    : 'Assign finding')}
           </button>
         )}
       </div>
@@ -1024,6 +1172,48 @@ export function FindingForm({
         </div>
       )}
     </form>
+  );
+}
+
+/**
+ * A card, or the same contents behind a disclosure (v293).
+ *
+ * The workspace needs some of this form folded away and the standalone page
+ * does not, and the difference is a wrapper rather than a different set of
+ * fields. Written as one component so there is exactly one copy of what is
+ * inside it: a second copy is how two screens start disagreeing about what a
+ * finding needs.
+ */
+function FormBlock({
+  collapsed,
+  id,
+  title,
+  hidden,
+  open,
+  children,
+}: {
+  collapsed: boolean;
+  id: string;
+  title: string;
+  hidden?: boolean;
+  open?: boolean;
+  children: React.ReactNode;
+}) {
+  if (collapsed) {
+    return (
+      <details className="esh-form-more" open={open}>
+        <summary>{title}</summary>
+        {children}
+      </details>
+    );
+  }
+  return (
+    <section className="esh-form-card" aria-labelledby={id} hidden={hidden}>
+      <h2 id={id} className="esh-form-card-title">
+        {title}
+      </h2>
+      {children}
+    </section>
   );
 }
 

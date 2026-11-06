@@ -108,7 +108,13 @@ export function reportTextProblem(text: string): string | null {
  */
 export const PUBLIC_REPORT_COPY = {
   heading: 'Report a safety concern',
-  lead: 'Tell ESH what you have seen. You do not need an account, and you do not have to give your name.',
+  lead: 'Tell ESH what you saw. No account or name required.',
+  /*
+   * v293 - the sticker answers "where", so the page says so rather than
+   * asking. An employee who has just scanned a code should not have to
+   * recognise their own location in a list of departments.
+   */
+  locationHint: 'Location identified from QR code',
   /*
    * §6: this is not an emergency channel, and saying so once, plainly, at the
    * top is worth more than a paragraph nobody reads. The site's own procedure
@@ -118,18 +124,33 @@ export const PUBLIC_REPORT_COPY = {
   emergency:
     'If somebody is in immediate danger, stop and follow your site’s emergency procedure. This form does not raise an alarm and nobody is watching it at the moment you send it.',
   observation: 'What did you see?',
-  observationHint:
-    'What it is, and where exactly, if the sticker’s location is not precise enough.',
-  locationLabel: 'Where exactly (optional)',
-  photos: 'Photos (optional)',
+  observationMissing: 'Say what you saw before sending.',
+  locationLabel: 'Where exactly? (Optional)',
+  locationPlaceholder: 'Near the staircase or machine',
+  photos: 'Add photos (Optional)',
   photosHint: `Up to ${PUBLIC_PHOTO_MAX}. Taken on this phone is fine — they are made smaller before they are sent.`,
-  contact: 'Your name or extension (optional)',
-  contactHint: 'Only if you are happy to be asked for more. Leave it blank to report anonymously.',
-  privacyHeading: 'What happens to this report',
+  contact: 'Contact for follow-up (Optional)',
+  contactPlaceholder: 'Email, phone or extension',
+  contactHint: 'Leave blank if you prefer not to provide contact details.',
+  privacyHeading: 'Privacy & what happens next',
+  /*
+   * v293 - what the system can actually keep.
+   *
+   * The previous wording promised more than the implementation can deliver:
+   * "Nobody else sees it", "nothing in the report identifies you", "no device
+   * or location data". A description can name the writer, a photograph can
+   * show a face or a badge, and the sticker itself records where the report
+   * came from. Saying otherwise invites somebody to write something they
+   * believe is untraceable, which is the one mistake this page must not help
+   * anybody make. What is said here is what the code enforces.
+   */
+  privacySummary:
+    'ESH reviews your report and decides what action is required. Contact details are optional.',
   privacy: [
-    'It goes to the ESH team for this area. Nobody else sees it.',
-    'If you leave the contact line blank, nothing in the report identifies you: no account, no device, no location data.',
-    'Photos are stored privately and are never published. The information a camera adds to a photo — including where it was taken — is removed before the photo is stored.',
+    'It goes to the ESH team responsible for this area, and stays in the Finding Management system for as long as the record is kept.',
+    'If you would rather not be identified, leave the contact line blank and avoid putting names, faces or badges in the description or the photos — the report itself cannot tell what is in them.',
+    'Photos are stored privately and are never published. What the camera records inside the file, including where it was taken, is removed before the photo is stored.',
+    'The sticker you scanned tells ESH which location the report came from.',
     'ESH decides what kind of hazard it is and who fixes it. You do not have to.',
   ],
   submit: 'Send report',

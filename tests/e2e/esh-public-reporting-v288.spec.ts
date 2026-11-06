@@ -181,7 +181,7 @@ test('v288 somebody with no account reports what they saw, with a photograph', a
      * behind - a query on a fixed sentence matches all of them, and the test
      * then fails on its own history.
      */
-    await page.getByLabel('Where exactly (optional)').fill(`Goods-in door ${code}`);
+    await page.getByLabel('Where exactly? (Optional)').fill(`Goods-in door ${code}`);
     /*
      * v290 - two buttons now, because `capture="environment"` on a single
      * input means "the camera and nothing else" on a phone: somebody who had

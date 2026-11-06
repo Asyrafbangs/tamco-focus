@@ -37,14 +37,38 @@ export default async function PublicReportPage({ params }: { params: Promise<{ c
   return (
     <main className="public-report-shell" id="public-report">
       <h1>{PUBLIC_REPORT_COPY.heading}</h1>
-      <p>{PUBLIC_REPORT_COPY.lead}</p>
+      <p className="public-report-lead">{PUBLIC_REPORT_COPY.lead}</p>
       {/*
-       * §6, and the first thing on the page rather than the last: this is not
-       * an emergency channel, and somebody scanning a code while looking at
-       * something dangerous needs to be told that before they start typing.
+       * v293 - where, before what. The sticker has already answered the
+       * question an employee would otherwise be asked to answer, and showing
+       * it here is what stops the form asking for a department or a location
+       * further down.
+       */}
+      <p className="public-report-where">
+        <span className="public-report-pin" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" focusable="false">
+            <path
+              d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinejoin="round"
+            />
+            <circle cx="12" cy="10" r="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
+          </svg>
+        </span>
+        <span>
+          <strong>{location.label}</strong>
+          <small>{PUBLIC_REPORT_COPY.locationHint}</small>
+        </span>
+      </p>
+      {/*
+       * §6, near the top rather than the bottom: this is not an emergency
+       * channel, and somebody scanning a code while looking at something
+       * dangerous needs to be told that before they start typing.
        */}
       <p className="notice warn public-report-emergency">{PUBLIC_REPORT_COPY.emergency}</p>
-      <PublicReportForm code={location.code} label={location.label} />
+      <PublicReportForm code={location.code} />
     </main>
   );
 }
