@@ -183,6 +183,24 @@ judgements the module exists to record.
 coordinator's real working time, and the figures above are interaction counts
 on local fixtures. It is a pilot target to measure, not a result.
 
+## Visual evidence
+
+Captured from the running application on this machine, against local
+fixtures — not drawings.
+
+|                                                    |                                                                                               |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| Employee, phone                                    | [01-employee-mobile.png](lean-ui-v293/01-employee-mobile.png)                                 |
+| Employee, a photograph being prepared              | [02-employee-photo-preparing.png](lean-ui-v293/02-employee-photo-preparing.png)               |
+| Employee, photograph attached                      | [03-employee-photo-attached.png](lean-ui-v293/03-employee-photo-attached.png)                 |
+| Employee, sent, with the reference                 | [04-employee-sent.png](lean-ui-v293/04-employee-sent.png)                                     |
+| Employee, desktop                                  | [05-employee-desktop.png](lean-ui-v293/05-employee-desktop.png)                               |
+| ESH, the queue beside a report                     | [06-ehs-queue-desktop.png](lean-ui-v293/06-ehs-queue-desktop.png)                             |
+| ESH, a critical risk being assigned                | [07-ehs-assign-critical-desktop.png](lean-ui-v293/07-ehs-assign-critical-desktop.png)         |
+| ESH, assigned and standing on the next report      | [08-ehs-assigned-next-report.png](lean-ui-v293/08-ehs-assigned-next-report.png)               |
+| ESH, the same workspace on a phone                 | [09-ehs-assign-mobile.png](lean-ui-v293/09-ehs-assign-mobile.png)                             |
+| Evidence that did not go up, and the way out of it | [10-evidence-failed-and-recoverable.png](lean-ui-v293/10-evidence-failed-and-recoverable.png) |
+
 ## Tests
 
 | Command                                                             | Result                                   |
@@ -194,7 +212,9 @@ on local fixtures. It is a pilot target to measure, not a result.
 | `esh-triage-workspace-v293`                                         | 4 passed                                 |
 | `esh-public-report-lean-v293`                                       | 2 passed                                 |
 | `esh-narrow-widths-v290` (320, 375, 430, 768, 1024 × Day and Night) | 2 passed                                 |
-| `npm run verify`                                                    | see the final report                     |
+| `npx vitest run --project unit`                                     | **679 passed**, 66 files                 |
+| `esh-crawl-v218` (role × viewport × Night, axe and overflow)        | 2 passed                                 |
+| `npm run verify` / the whole `esh-` browser suite                   | **not completed here** — see below       |
 
 New:
 
@@ -212,6 +232,19 @@ New:
 - **`esh_qr_intake_settings_v294`** — every organisation has a switch, it is
   closed, one created later gets one too, and it is still only movable through
   its own procedure.
+
+### Why the whole browser suite is not reported from this machine
+
+Docker Desktop's engine crashed partway through the final gate run and would
+not start again. Its own host log names the cause: a stale socket it cannot
+remove — `remove …/Docker/run/dockerInference: The file cannot be accessed by
+the system` — a known fault here, with a known remedy the owner has applied
+themselves before. Without the engine there is no local database, so the
+browser suite cannot run on this machine. The dispatched CI job on this
+branch's head is the authoritative run; it builds its own stack.
+
+Everything in the table above was run to completion **before** that crash,
+against a healthy local stack.
 
 ## Still outstanding
 
@@ -233,3 +266,26 @@ And two from this change:
 6. **Notification delivery** is unchanged and still only as good as the mail
    transport: accepted by SMTP is not delivered, and the module says so rather
    than claiming otherwise.
+
+### Sorted the way the package asks
+
+**Engineering defects, not fixed here.** The finding does not show the
+report's photographs — accepting an intake links the record and leaves the
+images on it, so an Action Owner opening the finding does not see what the
+employee photographed. `listReportIntake` still reads at most 200 rows; it now
+reports the true total and says when it is showing only the oldest 200, but
+there is no paging control. Two readers carried over from the v290 audit still
+answer a failed read with an empty list.
+
+**Business-policy decisions, for a person.** Who watches the QR queue, the
+backup, the review frequency and the site's emergency instruction (1 and 4
+above). Whether the public form's primary button should be navy rather than
+the design system's blue — it uses the design system, so that Send matches
+every other primary action in the product. Whether a coordinator should be
+able to request clarification: no channel from this application reaches a
+reporter, so no button pretends one exists.
+
+**Needs the live system.** Production worker verification (2), real handsets
+(3), a production deployment of v294 — which is a no-op there, because
+production already has its settings row — and the processing time per report,
+which needs a coordinator and a real day's queue.
