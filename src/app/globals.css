@@ -12965,9 +12965,18 @@ span.deadline span.deadline-glyph,
   font-weight: 700;
   text-decoration: underline;
 }
+/*
+ * v293 — as many columns as fit, not always three.
+ *
+ * Three equal columns at any width above 720px put each card at 148px on a
+ * 768px screen, which is narrower than its own heading and padding. The cards
+ * clip their contents (`overflow: hidden` below), so nothing scrolled and
+ * nothing looked broken — the words were simply cut off, and only a check
+ * that measures each element found it.
+ */
 .esh-today-columns {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 20px;
   margin-top: 20px;
 }
