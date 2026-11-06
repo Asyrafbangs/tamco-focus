@@ -106,12 +106,17 @@ describe('v295 what the provider sends', () => {
     expect(messages[0]).toEqual({ role: 'system', content: 'You are TAMCO AI.' });
     expect(messages[1]).toEqual({ role: 'user', content: 'What is overdue?' });
 
-    const tools = body.tools as { type: string; function: { name: string; strict: boolean } }[];
+    const tools = body.tools as { type: string; function: Record<string, unknown> }[];
     expect(tools[0]!.type).toBe('function');
     expect(tools[0]!.function.name).toBe('list_my_tasks');
-    // Schema-valid arguments, so a tool is not refused for a malformed call
-    // the model could have got right.
-    expect(tools[0]!.function.strict).toBe(true);
+    /*
+     * Deliberately not strict. Strict function calling requires every
+     * property to be in `required`, and two tools take an optional argument
+     * with a default; sending strict would 400 on those rather than catch
+     * anything, and the Zod guard in each tool is what actually refuses a
+     * malformed call.
+     */
+    expect(tools[0]!.function).not.toHaveProperty('strict');
     expect(body.tool_choice).toBe('auto');
     expect(body.max_completion_tokens).toBe(1_600);
   });

@@ -247,15 +247,23 @@ export function createGroqProvider(options: GroqOptions): AiProvider {
          * turns that into a guess dressed up as a lookup.
          */
         tool_choice: 'auto',
+        /*
+         * No `strict: true`. Strict function calling requires every property
+         * to appear in `required`, and two of our tools take a genuinely
+         * optional argument with a default - a horizon in days, a register
+         * filter. Declaring those required to satisfy strict mode would make
+         * the model supply a value it has no opinion about, and omitting
+         * strict costs nothing here: every tool validates its own arguments
+         * with Zod and answers an invalid call with a message the model can
+         * act on, which is a better guard than a schema flag because it is
+         * the one the tests exercise.
+         */
         tools: request.tools.map((tool) => ({
           type: 'function',
           function: {
             name: tool.name,
             description: tool.description,
             parameters: tool.parameters,
-            // Schema-valid arguments, so a tool is not refused for a
-            // malformed call the model could have got right.
-            strict: true,
           },
         })),
       };

@@ -188,6 +188,27 @@ changed since.
 Records are sent to Groq to be reasoned over. The chain of thought is not
 requested (`include_reasoning: false`) and is never stored.
 
+## Getting a key, and where to put it
+
+1. Sign in at `console.groq.com`, go to **API Keys**, create one. It begins
+   `gsk_`. Groq shows it once.
+2. **Locally**: add it to `.env.local` (git-ignored, and the only place it
+   belongs on a development machine):
+   ```
+   GROQ_API_KEY=gsk_...
+   ```
+   Restart `npm run dev`; the environment is read at module load.
+3. **On Vercel**: Project → Settings → Environment Variables →
+   `GROQ_API_KEY`, for Production and Preview. It is a secret, so Vercel will
+   not show it back to you afterwards — keep your own copy.
+4. Check the account's real ceilings at `console.groq.com/settings/limits` and
+   correct `AI_LIMIT_TPM` and friends if the plan differs from the documented
+   free one. The tokens-a-minute figure is the one that decides how many
+   records an investigation can read.
+
+The key is never needed in CI, and `.env.example` deliberately carries it
+empty: CI copies that file, so a value there would be the value CI accepts.
+
 ## Configuration
 
 ```
