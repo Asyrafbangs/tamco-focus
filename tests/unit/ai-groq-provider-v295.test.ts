@@ -380,7 +380,13 @@ describe('v295 how a failure is classified', () => {
     );
     let failure: ProviderError | null = null;
     try {
-      await provider.send({ system: 'x', messages: [], tools: [], maxOutputTokens: 10, effort: 'high' });
+      await provider.send({
+        system: 'x',
+        messages: [],
+        tools: [],
+        maxOutputTokens: 10,
+        effort: 'high',
+      });
     } catch (cause) {
       failure = cause as ProviderError;
     }
