@@ -230,7 +230,16 @@ describe('v295 what the provider reads back', () => {
     });
     expect(reply.stop).toBe('answered');
     expect(reply.text).toBe('Two actions are overdue.');
-    expect(reply.usage).toEqual({ inputTokens: 1_200, outputTokens: 80, cachedInputTokens: 0 });
+    expect(reply.usage).toEqual({
+      inputTokens: 1_200,
+      outputTokens: 80,
+      cachedInputTokens: 0,
+      /*
+       * v298 — zero because this dialect does not break reasoning out, not
+       * because gpt-oss does not reason. Its thinking is inside the 80.
+       */
+      reasoningTokens: 0,
+    });
   });
 
   it('separates cached input tokens out of the prompt count', async () => {
@@ -256,7 +265,12 @@ describe('v295 what the provider reads back', () => {
       maxOutputTokens: 1_000,
       effort: 'high',
     });
-    expect(reply.usage).toEqual({ inputTokens: 600, outputTokens: 50, cachedInputTokens: 400 });
+    expect(reply.usage).toEqual({
+      inputTokens: 600,
+      outputTokens: 50,
+      cachedInputTokens: 400,
+      reasoningTokens: 0,
+    });
   });
 
   it('reads a tool call, leaving its arguments as the model wrote them', async () => {

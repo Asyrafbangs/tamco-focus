@@ -8,6 +8,7 @@ import {
   toolCallsFrom,
   usageFrom,
 } from '@/server/ai/providers/openai';
+import { totalTokens } from '@/domain/ai';
 import { ProviderError, stopReasonFor } from '@/server/ai/providers/types';
 
 /**
@@ -243,7 +244,27 @@ describe('v297 reading the reply', () => {
      * The 31 reasoning tokens stay inside the 80: they were billed at the
      * output rate, and netting them off would under-report what was spent.
      */
-    expect(usage).toEqual({ inputTokens: 600, outputTokens: 80, cachedInputTokens: 400 });
+    expect(usage).toEqual({
+      inputTokens: 600,
+      outputTokens: 80,
+      cachedInputTokens: 400,
+      reasoningTokens: 31,
+    });
+    /*
+     * Reported, and reported as a SUBSET. Both halves matter: without the
+     * first, a reasoning model's output spend is unattributable; without the
+     * second, the rate-limit estimate counts 31 tokens that were never spent
+     * twice and the loop stops early for budget it still has.
+     */
+    expect(usage.reasoningTokens).toBeLessThanOrEqual(usage.outputTokens);
+    expect(totalTokens(usage)).toBe(600 + 80 + 400);
+  });
+
+  it('reports no reasoning rather than guessing when the provider omits the detail', () => {
+    const usage = usageFrom({
+      usage: { input_tokens: 10, output_tokens: 5 },
+    });
+    expect(usage.reasoningTokens).toBe(0);
   });
 
   it('reports tool calls, a finished answer and a truncated one distinctly', async () => {

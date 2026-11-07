@@ -1,6 +1,12 @@
 import 'server-only';
 
-import { GROQ_FREE_LIMITS, MODEL_RATES, OPENAI_TIER_LIMITS, type TierLimits } from '@/domain/ai';
+import {
+  AGENT_LIMITS,
+  GROQ_FREE_LIMITS,
+  MODEL_RATES,
+  OPENAI_TIER_LIMITS,
+  type TierLimits,
+} from '@/domain/ai';
 
 /**
  * What the assistant is allowed to do, which model runs it, and what it costs.
@@ -32,6 +38,15 @@ export interface AiConfig {
   tier: 'free' | 'paid';
   /** The plan's own ceilings, which the budget is held against. */
   limits: TierLimits;
+  /*
+   * The ceiling on one reply, in tokens, including the reasoning the model
+   * does before writing.
+   *
+   * Per provider, because it is a property of the model and the plan rather
+   * than of the loop: what is generous on a paid reasoning model is more
+   * than a free tier's minute allowance can even satisfy.
+   */
+  maxOutputTokens: number;
   /** A dollar ceiling as well, for when the tier is a paid one. */
   dailySpendLimitUsd: number;
   /*
@@ -64,6 +79,8 @@ interface ProviderDefaults {
   limits: TierLimits;
   /** Whether requests are billed unless the operator says otherwise. */
   defaultTier: 'free' | 'paid';
+  /** The ceiling on one reply. See `maxOutputTokens` on `AiConfig`. */
+  maxOutputTokens: number;
 }
 
 const PROVIDERS: Record<AiProviderId, ProviderDefaults> = {
@@ -72,6 +89,7 @@ const PROVIDERS: Record<AiProviderId, ProviderDefaults> = {
     defaultModel: 'openai/gpt-oss-120b',
     limits: GROQ_FREE_LIMITS,
     defaultTier: 'free',
+    maxOutputTokens: AGENT_LIMITS.maxOutputTokens,
   },
   /*
    * `paid` by default, because OpenAI has no free tier for this model: every
@@ -83,6 +101,26 @@ const PROVIDERS: Record<AiProviderId, ProviderDefaults> = {
     defaultModel: 'gpt-5.4-mini',
     limits: OPENAI_TIER_LIMITS,
     defaultTier: 'paid',
+    /*
+     * Three times Groq's, because the number that works on Groq's free tier
+     * truncates this model's answers outright.
+     *
+     * `AGENT_LIMITS.maxOutputTokens` is 4,000, and it was measured for
+     * gpt-oss on a tier whose real constraint is 8,000 tokens a minute. On
+     * gpt-5.4-mini the same 4,000 produced nothing usable on the first
+     * cross-module question asked of it: eight tool calls, forty-three rows
+     * read, 4,426 output tokens spent and an answer that was the route's
+     * "cut off at its length limit" notice rather than a word of analysis.
+     * Reasoning is billed as output and spends from this same ceiling, so a
+     * synthesis step that thinks before it writes needs room for both.
+     *
+     * 12,000 is a ceiling, not a target: measured replies on this suite run
+     * well under it, and the model's own documented maximum is 128,000. The
+     * reservation the loop holds against the rate limit is a separate,
+     * deliberately smaller number (`AGENT_LIMITS.budgetedOutputTokens`), so
+     * raising this does not make the loop stop early for budget.
+     */
+    maxOutputTokens: 12_000,
   },
 };
 
@@ -157,6 +195,7 @@ export function aiConfig(): AiConfig {
       tokensPerMinute: number('AI_LIMIT_TPM', defaults.limits.tokensPerMinute),
       tokensPerDay: number('AI_LIMIT_TPD', defaults.limits.tokensPerDay),
     },
+    maxOutputTokens: number('AI_MAX_OUTPUT_TOKENS', defaults.maxOutputTokens),
     dailySpendLimitUsd: number('AI_DAILY_LIMIT_USD', 1),
     /*
      * Half the day each, by default.

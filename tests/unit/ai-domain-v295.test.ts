@@ -79,7 +79,13 @@ describe('v295 what a turn cost, and what it was charged', () => {
       { ...NO_USAGE, inputTokens: 10, outputTokens: 1 },
       { ...NO_USAGE, inputTokens: 20, outputTokens: 2, cachedInputTokens: 5 },
     ]);
-    expect(total).toEqual({ inputTokens: 30, outputTokens: 3, cachedInputTokens: 5 });
+    expect(total).toEqual({
+      inputTokens: 30,
+      outputTokens: 3,
+      cachedInputTokens: 5,
+      // v298 — summed like the rest, and still a subset of the output it is inside.
+      reasoningTokens: 0,
+    });
     expect(totalTokens(total)).toBe(38);
   });
 });

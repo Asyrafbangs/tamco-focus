@@ -128,6 +128,7 @@ export async function POST(request: Request) {
           tokensUsedToday: used.tokensToday,
           // From configuration, which is the whole point of having it.
           effort: config.effort,
+          maxOutputTokens: config.maxOutputTokens,
         });
         let result = await run.next();
         while (!result.done) {

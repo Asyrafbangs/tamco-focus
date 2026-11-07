@@ -38,3 +38,13 @@ supabase/tests/
 # prototypes above: reformatting them would make a future diff show our
 # whitespace rather than their changes.
 .claude/skills/
+
+# Generated evaluation artefacts. These quote an AI assistant's answers
+# verbatim, and the brief they were produced under required that those answers
+# be preserved exactly - "do not rewrite or polish". Prettier reflows Markdown
+# prose, so formatting these would edit the evidence they exist to record.
+# They are written by scripts/build-jarvis-eval-report.mjs; change the
+# generator, not the output.
+jarvis-complex-evaluation-report.md
+jarvis-complex-evaluation-results.json
+jarvis-evaluation-summary.md

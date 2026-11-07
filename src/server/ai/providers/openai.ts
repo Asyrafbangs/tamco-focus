@@ -148,6 +148,7 @@ export function usageFrom(reply: ResponsesReply): TokenUsage {
     inputTokens: Math.max(0, (usage.input_tokens ?? 0) - cached),
     outputTokens: usage.output_tokens ?? 0,
     cachedInputTokens: cached,
+    reasoningTokens: usage.output_tokens_details?.reasoning_tokens ?? 0,
   };
 }
 

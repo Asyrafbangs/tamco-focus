@@ -138,6 +138,13 @@ export function usageFrom(response: ChatResponse): TokenUsage {
     inputTokens: Math.max(0, prompt - cached),
     outputTokens: usage.completion_tokens ?? usage.output_tokens ?? 0,
     cachedInputTokens: cached,
+    /*
+     * Zero because this dialect does not break it out, not because gpt-oss
+     * does not reason. It does, visibly, and that thinking is inside
+     * `completion_tokens` exactly as it is on the Responses API - there is
+     * simply no field here that says how much of it was thinking.
+     */
+    reasoningTokens: 0,
   };
 }
 

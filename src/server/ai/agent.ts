@@ -113,6 +113,17 @@ export interface RunInput {
    * what the product actually sent.
    */
   effort: 'low' | 'medium' | 'high';
+  /*
+   * The ceiling on one reply, from configuration rather than from
+   * `AGENT_LIMITS`.
+   *
+   * It is a per-provider number: `AGENT_LIMITS.maxOutputTokens` is 4,000,
+   * measured against a free tier whose real constraint is tokens a minute,
+   * and on gpt-5.4-mini that same 4,000 truncated the synthesis step outright
+   * - eight reads paid for and the length-limit notice in place of an answer.
+   * Defaults to the shared value so a caller that does not care is unchanged.
+   */
+  maxOutputTokens?: number;
   now?: () => number;
   /** Swapped in tests so a rate-limit wait does not take a real minute. */
   wait?: (ms: number) => Promise<void>;
@@ -267,7 +278,7 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
         system,
         messages: conversation,
         tools: toolSpecs(),
-        maxOutputTokens: AGENT_LIMITS.maxOutputTokens,
+        maxOutputTokens: input.maxOutputTokens ?? AGENT_LIMITS.maxOutputTokens,
         effort: input.effort,
       });
       providerRequests += reply.requests;
@@ -531,7 +542,7 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
           messages: [...conversation, { role: 'user', content: FINAL_ANSWER_INSTRUCTION }],
           // No tools: the only thing left to do is answer.
           tools: [],
-          maxOutputTokens: AGENT_LIMITS.maxOutputTokens,
+          maxOutputTokens: input.maxOutputTokens ?? AGENT_LIMITS.maxOutputTokens,
           /*
            * The configured effort, not the `'low'` this used to send.
            *

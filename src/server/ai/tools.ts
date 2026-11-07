@@ -220,7 +220,9 @@ const registerSchema = z.object({
 const searchFindings: AgentTool = {
   name: 'search_findings',
   description:
-    'ESH findings this person is authorised to see, by filter and free text. Filters: attention, open, unprotected (significant risk with nothing verified protecting people), overdue, verification, unassessed, closed, all.',
+    'ESH findings this person is authorised to see, by filter and free text. Filters: attention, open, unprotected (significant risk with nothing verified protecting people), overdue, verification, unassessed, closed, all. ' +
+    'The free text is a literal substring match on the reference, title, description and location — not a search engine. A phrase like "electrical testing" or "200t press Assembly 2" matches only if those exact characters appear in one field, so multi-word phrases usually match nothing even when the records exist. ' +
+    'Risk level and status are NOT text: searching "critical" does not find critical findings. To count or survey by risk, severity or theme, call this with a filter and NO search text, then read the rows and count them yourself.',
   schema: registerSchema,
   inputSchema: {
     type: 'object',
@@ -273,6 +275,35 @@ const searchFindings: AgentTool = {
         rows: 0,
       };
     }
+    /*
+     * A text search that matched nothing is not an empty register, and until
+     * v298 the model had no way to tell the difference.
+     *
+     * The match is a literal `ilike '*term*'`. Asked how many critical
+     * findings were open, the model searched the word "critical", matched
+     * none of the sixteen - risk level is a column, not prose - and told a
+     * manager there were none. There were four, two of them overdue. The
+     * same mechanism produced "no evidence of a recurring electrical
+     * problem" over three Test Bay 3 earthing findings, and "I cannot count
+     * the hazards at the 200t press" over two linked reports of one.
+     *
+     * So when text matched nothing, the same filter is counted again without
+     * it. One number - "0 of 16 open findings matched this text" - is the
+     * difference between a false all-clear and a search to try differently.
+     * It costs a second count only in the case that was already wrong.
+     */
+    let unmatchedTotal: number | null = null;
+    if (search.trim() !== '' && register.total === 0) {
+      const withoutText = await listRegister({
+        filter: filter === 'all' || filter === 'closed' ? (filter as never) : filter,
+        search: '',
+        departmentId: null,
+        closedSince: new Date(Date.now() - 180 * 86_400_000).toISOString(),
+        closedUntil: null,
+        page: 0,
+      });
+      if (!withoutText.failed) unmatchedTotal = withoutText.total;
+    }
     const capped = capRows(register.rows, AGENT_LIMITS.maxRowsPerTool);
     return {
       evidence: asEvidence('search_findings', {
@@ -282,6 +313,20 @@ const searchFindings: AgentTool = {
         total: register.total,
         shown: capped.shown,
         truncated: capped.truncated,
+        ...(unmatchedTotal === null
+          ? {}
+          : {
+              searchMatchedNothing: {
+                searched: search,
+                matched: 0,
+                recordsUnderThisFilter: unmatchedTotal,
+                note:
+                  `The text "${search}" matched none of the ${unmatchedTotal} finding(s) under ` +
+                  'this filter. That is a failed text match, NOT an empty register. Do not ' +
+                  'report this as "there are none" or "I found no evidence". Call this tool ' +
+                  'again with the same filter and no search text, then read the rows.',
+              },
+            }),
         rows: capped.rows,
       }),
       sources: capped.rows.map((row) => findingSource(row.findingId, row.reference, row.title)),

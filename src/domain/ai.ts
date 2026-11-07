@@ -149,9 +149,27 @@ export interface TokenUsage {
   inputTokens: number;
   outputTokens: number;
   cachedInputTokens: number;
+  /*
+   * How much of `outputTokens` the model spent thinking before it wrote.
+   *
+   * A SUBSET of `outputTokens`, never an addition to it: the provider counts
+   * reasoning inside the output total and bills it at the output rate, so
+   * adding it anywhere would double-count real money. It is reported
+   * separately because without it the output spend is unattributable - on a
+   * reasoning model most of it is thinking, and "most of our output tokens
+   * went on an answer nobody can see" is the first question anybody asks of
+   * the bill. Providers that do not break it out report zero, which means
+   * "not reported", not "none".
+   */
+  reasoningTokens: number;
 }
 
-export const NO_USAGE: TokenUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
+export const NO_USAGE: TokenUsage = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cachedInputTokens: 0,
+  reasoningTokens: 0,
+};
 
 /**
  * What a turn would cost at list price, in dollars.
@@ -194,12 +212,16 @@ export function sumUsage(turns: readonly TokenUsage[]): TokenUsage {
       inputTokens: total.inputTokens + turn.inputTokens,
       outputTokens: total.outputTokens + turn.outputTokens,
       cachedInputTokens: total.cachedInputTokens + turn.cachedInputTokens,
+      reasoningTokens: total.reasoningTokens + turn.reasoningTokens,
     }),
     { ...NO_USAGE },
   );
 }
 
 export function totalTokens(usage: TokenUsage): number {
+  // `reasoningTokens` is deliberately absent: it is already inside
+  // `outputTokens`, and a rate-limit estimate that counted it twice would
+  // stop the loop for budget it has not spent.
   return usage.inputTokens + usage.outputTokens + usage.cachedInputTokens;
 }
 

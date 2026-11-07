@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { aiConfig } from '@/server/ai/config';
 import { providerFor } from '@/server/ai/providers';
-import { GROQ_FREE_LIMITS, MODEL_RATES, OPENAI_TIER_LIMITS } from '@/domain/ai';
+import { AGENT_LIMITS, GROQ_FREE_LIMITS, MODEL_RATES, OPENAI_TIER_LIMITS } from '@/domain/ai';
 
 /**
  * v297 — which provider runs, and on whose terms.
@@ -160,5 +160,45 @@ describe('v297 the rate card knows what the new model costs', () => {
       ...MODEL_RATES['gpt-5.4-mini']!,
       id: 'gpt-5.4-mini-2026-03-17',
     });
+  });
+});
+
+describe('v298 the reply ceiling is per provider, because 4,000 truncates this model', () => {
+  /*
+   * The defect this guards. `AGENT_LIMITS.maxOutputTokens` is 4,000, measured
+   * for gpt-oss on a free tier whose binding constraint is tokens a minute.
+   * Asked the first cross-module question of the complex suite - "the five
+   * most important things today" - gpt-5.4-mini called eight tools, read
+   * forty-three rows, spent 4,426 output tokens and returned the route's
+   * length-limit notice instead of an answer. The reads were paid for and
+   * thrown away.
+   */
+  it('gives OpenAI room for a synthesis that thinks first, and leaves Groq alone', () => {
+    process.env.AI_PROVIDER = 'openai';
+    process.env.OPENAI_API_KEY = 'sk-test';
+    const openai = aiConfig().maxOutputTokens;
+    expect(openai).toBe(12_000);
+    expect(openai).toBeGreaterThan(AGENT_LIMITS.maxOutputTokens);
+    // Well inside what the model itself permits, so the ceiling is ours.
+    expect(openai).toBeLessThanOrEqual(MODEL_RATES['gpt-5.4-mini']!.maxOutputTokens);
+
+    process.env.AI_PROVIDER = 'groq';
+    process.env.GROQ_API_KEY = 'gsk_test';
+    delete process.env.OPENAI_API_KEY;
+    /*
+     * Unchanged on the free tier on purpose: a ceiling larger than the
+     * minute's whole allowance is a request that tier cannot satisfy.
+     */
+    expect(aiConfig().maxOutputTokens).toBe(AGENT_LIMITS.maxOutputTokens);
+  });
+
+  it('lets an operator move it without a deploy, and ignores nonsense', () => {
+    process.env.AI_PROVIDER = 'openai';
+    process.env.OPENAI_API_KEY = 'sk-test';
+    process.env.AI_MAX_OUTPUT_TOKENS = '20000';
+    expect(aiConfig().maxOutputTokens).toBe(20_000);
+    process.env.AI_MAX_OUTPUT_TOKENS = 'generous';
+    expect(aiConfig().maxOutputTokens).toBe(12_000);
+    delete process.env.AI_MAX_OUTPUT_TOKENS;
   });
 });
