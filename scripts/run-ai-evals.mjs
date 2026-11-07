@@ -45,11 +45,12 @@ const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
  * Reading the file means nobody has to export a secret into a shell to run
  * this, and `.env.local` is git-ignored. The value is never printed.
  */
-function keyFromEnvFile() {
+function keyFromEnvFile(variable) {
   const file = path.join(root, '.env.local');
   if (!existsSync(file)) return null;
+  const pattern = new RegExp(`^\\s*${variable}\\s*=\\s*(.*)\\s*$`);
   for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
-    const match = /^\s*GROQ_API_KEY\s*=\s*(.*)\s*$/.exec(line);
+    const match = pattern.exec(line);
     if (match) {
       const value = match[1].replace(/^['"]|['"]$/g, '').trim();
       if (value) return value;
@@ -61,8 +62,50 @@ function keyFromEnvFile() {
 const argv = process.argv.slice(2);
 const flag = (name) => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : null);
 
-const apiKey = process.env.GROQ_API_KEY?.trim() || keyFromEnvFile();
-const MODEL = flag('--model') ?? process.env.AI_MODEL?.trim() ?? 'openai/gpt-oss-120b';
+/*
+ * v297 — the same fifteen investigations, against either provider.
+ *
+ * One flag rather than a second script: the scenarios, the fixtures, the tool
+ * list, the system prompt and every deterministic check have to be identical,
+ * or the comparison is between two harnesses rather than two models. What
+ * differs per provider is the endpoint, the key, the pacing and one optional
+ * parameter — and that is all this knows about them.
+ *
+ *   node scripts/run-ai-evals.mjs --provider groq
+ *   node scripts/run-ai-evals.mjs --provider openai
+ */
+const PROVIDERS = {
+  groq: {
+    endpoint: 'https://api.groq.com/openai/v1/chat/completions',
+    keyVariable: 'GROQ_API_KEY',
+    defaultModel: 'openai/gpt-oss-120b',
+    /* The documented free-plan ceiling. The pacer exists because of it. */
+    tokensPerMinute: 8_000,
+    /* Groq's own extension: leave the chain of thought out of the reply. */
+    extra: { include_reasoning: false },
+  },
+  openai: {
+    endpoint: 'https://api.openai.com/v1/chat/completions',
+    keyVariable: 'OPENAI_API_KEY',
+    defaultModel: 'gpt-5.4-mini',
+    /*
+     * 2,000,000 a minute on the entry paid tier, from OpenAI's model page, so
+     * the pacer is effectively off here. That asymmetry is a finding rather
+     * than a thumb on the scale: it is what the two plans actually allow, and
+     * it is most of why one run takes twenty minutes and the other does not.
+     */
+    tokensPerMinute: 2_000_000,
+    extra: {},
+  },
+};
+const PROVIDER = (flag('--provider') ?? process.env.AI_PROVIDER?.trim() ?? 'groq').toLowerCase();
+if (!Object.hasOwn(PROVIDERS, PROVIDER)) {
+  console.error(`Unknown provider "${PROVIDER}". Use one of: ${Object.keys(PROVIDERS).join(', ')}`);
+  process.exit(2);
+}
+const SERVICE = PROVIDERS[PROVIDER];
+const apiKey = process.env[SERVICE.keyVariable]?.trim() || keyFromEnvFile(SERVICE.keyVariable);
+const MODEL = flag('--model') ?? process.env.AI_MODEL?.trim() ?? SERVICE.defaultModel;
 /*
  * `medium`, because that is what the product now defaults to - measured at
  * half the tokens of `high` for the same answer. An eval that runs a
@@ -103,14 +146,19 @@ const only = flag('--only');
 const scenarios = only ? suite.scenarios.filter((one) => one.id === only) : suite.scenarios;
 
 if (!apiKey) {
-  console.error('No GROQ_API_KEY, so nothing can be measured.');
+  const example = PROVIDER === 'openai' ? 'sk-...' : 'gsk_...';
+  console.error(`No ${SERVICE.keyVariable}, so nothing can be measured.`);
   console.error('');
   console.error('Put it in .env.local (git-ignored) and this script will find it:');
-  console.error('  GROQ_API_KEY=gsk_...');
+  console.error(`  ${SERVICE.keyVariable}=${example}`);
   console.error('');
   console.error('Or pass it for one run:');
-  console.error('  PowerShell:  $env:GROQ_API_KEY="gsk_..."; node scripts/run-ai-evals.mjs');
-  console.error('  bash:        GROQ_API_KEY=gsk_... node scripts/run-ai-evals.mjs');
+  console.error(
+    `  PowerShell:  $env:${SERVICE.keyVariable}="${example}"; node scripts/run-ai-evals.mjs --provider ${PROVIDER}`,
+  );
+  console.error(
+    `  bash:        ${SERVICE.keyVariable}=${example} node scripts/run-ai-evals.mjs --provider ${PROVIDER}`,
+  );
   console.error('');
   console.error(`The suite holds ${suite.scenarios.length} scenarios and is ready to run.`);
   process.exit(2);
@@ -147,7 +195,7 @@ function asEvidence(toolName, payload) {
 }
 
 const SYSTEM = systemPrompt();
-const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
+const ENDPOINT = SERVICE.endpoint;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const estimate = (text) => Math.ceil(text.length / 4);
 
@@ -156,7 +204,7 @@ const estimate = (text) => Math.ceil(text.length / 4);
  * paced by 429s. The limits are the documented free-plan ones; override them
  * if the account's console says otherwise.
  */
-const TPM = Number(process.env.AI_LIMIT_TPM ?? 8_000);
+const TPM = Number(process.env.AI_LIMIT_TPM ?? SERVICE.tokensPerMinute);
 const spent = [];
 
 async function waitForBudget(estimated) {
@@ -220,7 +268,7 @@ async function post(messages, { withTools = true } = {}) {
     max_completion_tokens: MAX_OUT,
     ...(withTools ? { tool_choice: 'auto', tools: toolsFor() } : {}),
     reasoning_effort: EFFORT,
-    include_reasoning: false,
+    ...SERVICE.extra,
   };
   const serialised = JSON.stringify(body);
   /*
@@ -525,13 +573,15 @@ function grade(scenario, answer) {
   return failures;
 }
 
-console.log(`model: ${MODEL}  effort: ${EFFORT}  max_completion_tokens: ${MAX_OUT}`);
+console.log(
+  `provider: ${PROVIDER}  model: ${MODEL}  effort: ${EFFORT}  max_completion_tokens: ${MAX_OUT}`,
+);
 console.log(`scenarios: ${scenarios.length}`);
 console.log('');
 
 mkdirSync(path.join(root, 'evals', 'ai', 'runs'), { recursive: true });
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-const out = path.join(root, 'evals', 'ai', 'runs', `${stamp}.json`);
+const out = path.join(root, 'evals', 'ai', 'runs', `${PROVIDER}-${stamp}.json`);
 
 const results = [];
 /*
@@ -544,6 +594,7 @@ function save(complete) {
     out,
     JSON.stringify(
       {
+        provider: PROVIDER,
         model: MODEL,
         effort: EFFORT,
         maxOutputTokens: MAX_OUT,

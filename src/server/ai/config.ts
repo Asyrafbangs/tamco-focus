@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { GROQ_FREE_LIMITS, MODEL_RATES, type TierLimits } from '@/domain/ai';
+import { GROQ_FREE_LIMITS, MODEL_RATES, OPENAI_TIER_LIMITS, type TierLimits } from '@/domain/ai';
 
 /**
  * What the assistant is allowed to do, which model runs it, and what it costs.
@@ -20,8 +20,11 @@ function number(name: string, fallback: number): number {
 export interface AiConfig {
   /** Whether the feature answers at all. A switch, not a deploy. */
   enabled: boolean;
-  provider: 'groq';
+  provider: AiProviderId;
   apiKey: string | null;
+  /** Optional OpenAI scoping headers, when the account uses them. */
+  organization: string | null;
+  project: string | null;
   model: string;
   /** How hard the model works before answering. */
   effort: 'low' | 'medium' | 'high';
@@ -45,18 +48,61 @@ export interface AiConfig {
 
 const EFFORTS = new Set(['low', 'medium', 'high']);
 
-export function aiConfig(): AiConfig {
-  const apiKey = process.env.GROQ_API_KEY?.trim() || null;
-  const requested = process.env.AI_MODEL?.trim() || 'openai/gpt-oss-120b';
+/**
+ * Who runs the model (v297).
+ *
+ * Groq remains the default, deliberately: adding OpenAI beside it is a
+ * measurement, and a measurement that changes what production uses before
+ * anybody has read the results is not a measurement. Switching is one
+ * environment variable once the comparison has been read.
+ */
+export type AiProviderId = 'groq' | 'openai';
+
+interface ProviderDefaults {
+  keyVariable: string;
+  defaultModel: string;
+  limits: TierLimits;
+  /** Whether requests are billed unless the operator says otherwise. */
+  defaultTier: 'free' | 'paid';
+}
+
+const PROVIDERS: Record<AiProviderId, ProviderDefaults> = {
+  groq: {
+    keyVariable: 'GROQ_API_KEY',
+    defaultModel: 'openai/gpt-oss-120b',
+    limits: GROQ_FREE_LIMITS,
+    defaultTier: 'free',
+  },
   /*
-   * An unknown model name is refused rather than passed through. The rate
-   * card and the context window come from that name, and a model we cannot
-   * price is one whose usage we would be reporting as a guess.
+   * `paid` by default, because OpenAI has no free tier for this model: every
+   * request is billed. Defaulting it to `free` would record real spending as
+   * nothing, which is the one thing a cost report must never do.
+   */
+  openai: {
+    keyVariable: 'OPENAI_API_KEY',
+    defaultModel: 'gpt-5.4-mini',
+    limits: OPENAI_TIER_LIMITS,
+    defaultTier: 'paid',
+  },
+};
+
+export function aiConfig(): AiConfig {
+  const requestedProvider = process.env.AI_PROVIDER?.trim().toLowerCase();
+  const provider: AiProviderId = requestedProvider === 'openai' ? 'openai' : 'groq';
+  const defaults = PROVIDERS[provider];
+  const apiKey = process.env[defaults.keyVariable]?.trim() || null;
+  const requested = process.env.AI_MODEL?.trim() || defaults.defaultModel;
+  /*
+   * An unknown model name is refused rather than passed through, and so is a
+   * model belonging to the other provider. The rate card and the context
+   * window come from that name, and a model we cannot price is one whose
+   * usage we would be reporting as a guess; a Groq model name sent to OpenAI
+   * is a 404 per request, every request.
    */
   const model =
-    requested in MODEL_RATES && MODEL_RATES[requested]!.provider === 'groq'
+    requested in MODEL_RATES && MODEL_RATES[requested]!.provider === provider
       ? requested
-      : 'openai/gpt-oss-120b';
+      : defaults.defaultModel;
   /*
    * `medium` by default, and the honest position is that this is not yet
    * settled by evidence.
@@ -81,7 +127,9 @@ export function aiConfig(): AiConfig {
    * measurement still owed rather than one already made.
    */
   const effort = process.env.AI_EFFORT?.trim() || 'medium';
-  const tier = process.env.AI_TIER?.trim() === 'paid' ? 'paid' : 'free';
+  const declaredTier = process.env.AI_TIER?.trim();
+  const tier: 'free' | 'paid' =
+    declaredTier === 'paid' ? 'paid' : declaredTier === 'free' ? 'free' : defaults.defaultTier;
 
   return {
     /*
@@ -91,8 +139,10 @@ export function aiConfig(): AiConfig {
      * the second one without touching a secret.
      */
     enabled: Boolean(apiKey) && process.env.AI_ENABLED?.trim().toLowerCase() !== 'false',
-    provider: 'groq',
+    provider,
     apiKey,
+    organization: process.env.OPENAI_ORG_ID?.trim() || null,
+    project: process.env.OPENAI_PROJECT_ID?.trim() || null,
     model,
     effort: (EFFORTS.has(effort) ? effort : 'medium') as AiConfig['effort'],
     tier,
@@ -102,10 +152,10 @@ export function aiConfig(): AiConfig {
      * The minute limit on tokens is the one that shapes the loop.
      */
     limits: {
-      requestsPerMinute: number('AI_LIMIT_RPM', GROQ_FREE_LIMITS.requestsPerMinute),
-      requestsPerDay: number('AI_LIMIT_RPD', GROQ_FREE_LIMITS.requestsPerDay),
-      tokensPerMinute: number('AI_LIMIT_TPM', GROQ_FREE_LIMITS.tokensPerMinute),
-      tokensPerDay: number('AI_LIMIT_TPD', GROQ_FREE_LIMITS.tokensPerDay),
+      requestsPerMinute: number('AI_LIMIT_RPM', defaults.limits.requestsPerMinute),
+      requestsPerDay: number('AI_LIMIT_RPD', defaults.limits.requestsPerDay),
+      tokensPerMinute: number('AI_LIMIT_TPM', defaults.limits.tokensPerMinute),
+      tokensPerDay: number('AI_LIMIT_TPD', defaults.limits.tokensPerDay),
     },
     dailySpendLimitUsd: number('AI_DAILY_LIMIT_USD', 1),
     /*

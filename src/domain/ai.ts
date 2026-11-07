@@ -89,6 +89,47 @@ export const MODEL_RATES: Record<string, ModelRate> = {
     maxOutputTokens: 65_536,
   },
   /*
+   * OpenAI's own, read from developers.openai.com on 7 November 2026.
+   *
+   *   input $0.75   cached input $0.075   output $4.50   per million
+   *   400,000 context, of which at most 272,000 may be input
+   *   128,000 maximum output tokens
+   *
+   * `contextWindow` is the 400,000 figure because that is what the budget
+   * arithmetic is about — everything the turn holds. The 272,000 input
+   * ceiling matters separately and is a long way beyond anything this
+   * assistant sends, which reads a handful of records and summarises them.
+   *
+   * The published price is for short context, which OpenAI defines as 272,000
+   * input tokens or fewer. There is a higher long-context rate for the larger
+   * models in this family; no long-context row is published for this one. We
+   * cannot reach that threshold anyway: the loop's own budget stops a turn
+   * long before a quarter of a million input tokens.
+   */
+  'gpt-5.4-mini': {
+    provider: 'openai',
+    id: 'gpt-5.4-mini',
+    inputPerMillion: 0.75,
+    cachedInputPerMillion: 0.075,
+    outputPerMillion: 4.5,
+    contextWindow: 400_000,
+    maxOutputTokens: 128_000,
+  },
+  /*
+   * The dated snapshot, priced identically. Worth naming because pinning a
+   * snapshot is how a deployment stops a model changing underneath it, and a
+   * model this file cannot price is one it refuses to run.
+   */
+  'gpt-5.4-mini-2026-03-17': {
+    provider: 'openai',
+    id: 'gpt-5.4-mini-2026-03-17',
+    inputPerMillion: 0.75,
+    cachedInputPerMillion: 0.075,
+    outputPerMillion: 4.5,
+    contextWindow: 400_000,
+    maxOutputTokens: 128_000,
+  },
+  /*
    * Kept so the seam is real rather than claimed: an Anthropic provider
    * against the same interface has a rate card waiting for it. Nothing
    * imports the Anthropic SDK today.
@@ -199,6 +240,30 @@ export const GROQ_FREE_LIMITS: TierLimits = {
   requestsPerDay: 1_000,
   tokensPerMinute: 8_000,
   tokensPerDay: 200_000,
+};
+
+/**
+ * OpenAI's published defaults for gpt-5.4-mini on the entry paid tier.
+ *
+ * 5,000 requests and 2,000,000 tokens a minute, from the model page's own
+ * table. Two things follow from those numbers rather than from anything we
+ * decided:
+ *
+ *   - there is no free tier here. Every request is billed, so the dollar
+ *     ceiling is the limit that bites, not the token one;
+ *   - the per-minute token allowance is 250 times Groq's free plan, which is
+ *     why the eval suite does not have to pace itself against it.
+ *
+ * There is no documented daily ceiling, so the day's numbers are the minute's
+ * extrapolated and are deliberately generous: on this provider the spend
+ * limit is the real guard, and a made-up daily token figure that bites first
+ * would stop work for a reason that does not exist.
+ */
+export const OPENAI_TIER_LIMITS: TierLimits = {
+  requestsPerMinute: 5_000,
+  requestsPerDay: 100_000,
+  tokensPerMinute: 2_000_000,
+  tokensPerDay: 20_000_000,
 };
 
 /**

@@ -1,6 +1,16 @@
 import 'server-only';
 
-import { NO_USAGE, type AiMessage, type AiToolCall, type TokenUsage } from '@/domain/ai';
+import {
+  looksLikeUnknownParameter,
+  messageFrom,
+  parseResetDuration,
+  stopFrom,
+  toolCallsFrom,
+  usageFrom,
+  wireMessage,
+  wireTools,
+  type ChatResponse,
+} from '@/server/ai/providers/chat-wire';
 import {
   ProviderError,
   type AiProvider,
@@ -8,6 +18,15 @@ import {
   type ProviderReply,
   type ProviderRequest,
 } from '@/server/ai/providers/types';
+
+/*
+ * v297 — the chat dialect itself moved to `chat-wire.ts` when OpenAI's own
+ * provider arrived beside this one. Both speak it; one copy of it is the
+ * point. `parseResetDuration` is re-exported because it is Groq's header
+ * format that was reverse-engineered to write it, and the test that proves
+ * it belongs with this provider.
+ */
+export { parseResetDuration } from '@/server/ai/providers/chat-wire';
 
 /**
  * Groq, speaking the OpenAI chat-completions shape.
@@ -42,86 +61,6 @@ import {
  */
 
 const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
-
-/* The OpenAI chat shapes, only as far as we use them. */
-
-interface ChatToolCall {
-  id?: string;
-  type?: string;
-  function?: { name?: string; arguments?: string };
-}
-
-interface ChatChoice {
-  message?: { role?: string; content?: string | null; tool_calls?: ChatToolCall[] };
-  finish_reason?: string;
-}
-
-interface ChatResponse {
-  model?: string;
-  choices?: ChatChoice[];
-  usage?: {
-    prompt_tokens?: number;
-    completion_tokens?: number;
-    total_tokens?: number;
-    prompt_tokens_details?: { cached_tokens?: number };
-  };
-  error?: { message?: string; type?: string; code?: string };
-}
-
-/** Our neutral message, as the OpenAI chat shape wants it. */
-function wireMessage(message: AiMessage): Record<string, unknown> {
-  if (message.role === 'tool') {
-    return {
-      role: 'tool',
-      tool_call_id: message.toolCallId,
-      name: message.name,
-      content: message.content,
-    };
-  }
-  if (message.role === 'assistant' && message.toolCalls?.length) {
-    return {
-      role: 'assistant',
-      // An assistant turn that asked for tools must carry the calls back, or
-      // the tool results that follow answer nothing.
-      content: message.content || null,
-      tool_calls: message.toolCalls.map((call) => ({
-        id: call.id,
-        type: 'function',
-        function: { name: call.name, arguments: call.arguments },
-      })),
-    };
-  }
-  return { role: message.role, content: message.content };
-}
-
-/**
- * `2m59.56s`, `7.66s`, `120` — Groq's reset headers, in milliseconds.
- *
- * Returns null rather than zero for anything unparseable: zero would read as
- * "retry immediately", which against a rate limit is how a single 429 becomes
- * a dozen.
- */
-export function parseResetDuration(value: string | null): number | null {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (/^\d+(\.\d+)?$/.test(trimmed)) return Math.round(Number(trimmed) * 1_000);
-  const pattern = /(\d+(?:\.\d+)?)(ms|s|m|h)/g;
-  let total = 0;
-  let matched = false;
-  for (const [, amount, unit] of trimmed.matchAll(pattern)) {
-    matched = true;
-    const size = Number(amount);
-    total +=
-      unit === 'ms'
-        ? size
-        : unit === 's'
-          ? size * 1_000
-          : unit === 'm'
-            ? size * 60_000
-            : size * 3_600_000;
-  }
-  return matched ? Math.round(total) : null;
-}
 
 /**
  * Which kind of failure a response represents.
@@ -190,48 +129,6 @@ export function classify(status: number, headers: Headers, body: string): Provid
   if (status === 408 || status === 504) return 'timeout';
   if (status >= 500) return 'server';
   return 'bad_request';
-}
-
-function messageFrom(body: string): string {
-  try {
-    const parsed = JSON.parse(body) as ChatResponse;
-    return parsed.error?.message ?? body.slice(0, 300);
-  } catch {
-    return body.slice(0, 300);
-  }
-}
-
-/** Whether a 400 is about a parameter this deployment does not know. */
-function looksLikeUnknownParameter(body: string): boolean {
-  return /unrecognized|unknown|unsupported|not supported|invalid.*(parameter|field|argument)|additional propert/i.test(
-    body,
-  );
-}
-
-function usageFrom(response: ChatResponse): TokenUsage {
-  const usage = response.usage;
-  if (!usage) return { ...NO_USAGE };
-  const cached = usage.prompt_tokens_details?.cached_tokens ?? 0;
-  return {
-    // Groq reports prompt tokens inclusive of anything served from cache, so
-    // the cached part is subtracted out to avoid counting it at both rates.
-    inputTokens: Math.max(0, (usage.prompt_tokens ?? 0) - cached),
-    outputTokens: usage.completion_tokens ?? 0,
-    cachedInputTokens: cached,
-  };
-}
-
-function toolCallsFrom(choice: ChatChoice): AiToolCall[] {
-  return (choice.message?.tool_calls ?? [])
-    .filter((call) => call.function?.name)
-    .map((call, index) => ({
-      id: call.id ?? `call_${index}`,
-      name: call.function!.name!,
-      // Left as the string the model wrote. The tool parses it and refuses it
-      // if it is not what the schema asked for; trusting it here would move
-      // that decision somewhere it cannot be tested.
-      arguments: call.function?.arguments ?? '{}',
-    }));
 }
 
 export interface GroqOptions {
@@ -305,14 +202,7 @@ export function createGroqProvider(options: GroqOptions): AiProvider {
          * act on, which is a better guard than a schema flag because it is
          * the one the tests exercise.
          */
-        tools: request.tools.map((tool) => ({
-          type: 'function',
-          function: {
-            name: tool.name,
-            description: tool.description,
-            parameters: tool.parameters,
-          },
-        })),
+        tools: wireTools(request.tools),
       };
       /* Optional, and dropped together if this deployment rejects them. */
       const optional: Record<string, unknown> = {
@@ -398,20 +288,12 @@ export function createGroqProvider(options: GroqOptions): AiProvider {
       }
 
       const toolCalls = toolCallsFrom(choice);
-      const finish = choice.finish_reason ?? 'stop';
-      /*
-       * `length` means the reply stopped mid-sentence. It is reported as
-       * truncated rather than answered, because the alternative is showing
-       * somebody half a conclusion as though it were the whole one.
-       */
-      const stop: ProviderReply['stop'] =
-        toolCalls.length > 0 ? 'tool_calls' : finish === 'length' ? 'truncated' : 'answered';
 
       return {
         text: choice.message?.content ?? '',
         toolCalls,
         usage: usageFrom(parsed),
-        stop,
+        stop: stopFrom(toolCalls, choice.finish_reason),
         model: parsed.model ?? options.model,
         requests,
       };
