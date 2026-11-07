@@ -40,9 +40,30 @@ export function resolveEnvironment(input = {}) {
   const declared = (input.declared ?? process.env.TAMCO_ENV ?? '').trim().toLowerCase() || null;
 
   if (!url) {
+    /*
+     * v292 - and how to set it, because the documented form is bash's.
+     *
+     * `TAMCO_ENV=production NEXT_PUBLIC_SUPABASE_URL=... node script.mjs` is a
+     * parse error in PowerShell, which is the shell this is run from on
+     * Windows, so the refusal arrived with no way past it. These variables are
+     * deliberately not read from a file - the whole point of this module is
+     * that the target is declared rather than inferred - so naming the shell
+     * form is the only help that can be given.
+     */
     throw new EnvironmentError(
-      'NEXT_PUBLIC_SUPABASE_URL is not set, so the target database cannot be identified. ' +
+      [
+        'NEXT_PUBLIC_SUPABASE_URL is not set, so the target database cannot be identified.',
         'Refusing to continue.',
+        '',
+        'Set the target in the shell before the command.',
+        'PowerShell:',
+        '  $env:TAMCO_ENV="production"',
+        '  $env:NEXT_PUBLIC_SUPABASE_URL="https://<ref>.supabase.co"',
+        '  $env:SUPABASE_SERVICE_ROLE_KEY="<key>"',
+        'bash:',
+        '  TAMCO_ENV=production NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co \\',
+        '    SUPABASE_SERVICE_ROLE_KEY=<key> <command>',
+      ].join('\n'),
     );
   }
   if (declared && !ENVIRONMENTS.includes(declared)) {

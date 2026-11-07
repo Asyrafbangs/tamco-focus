@@ -26,12 +26,23 @@
  * changes nothing — there is no flag that makes it write.
  *
  * Usage, with the target's variables in the shell (Node's `--env-file` never
- * overrides an existing variable, so exporting them is the reliable way):
+ * overrides an existing variable, so setting them is the reliable way).
+ *
+ * PowerShell, which is what this is run from on Windows. The bash form below
+ * is a parse error there, and a refusal carrying only the bash form left
+ * somebody stuck on 5 November 2026:
+ *
+ *   $env:TAMCO_ENV="production"
+ *   $env:NEXT_PUBLIC_SUPABASE_URL="https://<ref>.supabase.co"
+ *   $env:SUPABASE_SERVICE_ROLE_KEY="<key>"
+ *   node scripts/check-deployment.mjs --smoke
+ *
+ * bash:
  *
  *   TAMCO_ENV=production \
  *   NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co \
  *   SUPABASE_SERVICE_ROLE_KEY=<key> \
- *   node scripts/check-deployment.mjs
+ *   node scripts/check-deployment.mjs --smoke
  */
 
 import { execFileSync } from 'node:child_process';
