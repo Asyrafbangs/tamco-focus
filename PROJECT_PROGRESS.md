@@ -562,14 +562,20 @@ scanned or clean - and asks for four stages.
   what is applied and what is configured instead of asking a document, plus the
   rotation runbook and rollout plan in `stageD-readiness-and-rollout.md`.
 
-Five migrations are now waiting for `npx supabase db push --linked` from a
-clean `main`: v279, v280, v286, v287 and v288. None drops or rewrites an
-existing object.
+All five of those migrations - v279, v280, v286, v287 and v288 - **are now
+applied in Production**, together with v289, v290 and v294. Verified 7 November
+2026 against the project's own migration ledger, not against a document: the
+latest applied version is `20261107001000 v296_ai_shared_quota`. Nothing is
+waiting for `npx supabase db push --linked`.
 
 ## TAMCO AI, merged and dormant (v295-v299)
 
-Merged to `main` as `fe2f41d` on 7 November 2026 and deployed to Production
-(`tamco-focus-drg9yhx6e`, built from that commit). Migrations `v295_ai_coworker`
+Merged to `main` as `fe2f41d` (v295-v298) and `36f9d10` (v299, PR #68) on
+7 November 2026, and deployed to Production - `tamco-focus-gborm9vtu`, built
+from `36f9d10` and aliased to `tamco-focus.vercel.app`. The merge commit's tree
+is byte-identical to `b1671b9`, which is the commit the dispatched CI run
+verified with the browser job included, so the deployed artefact is the
+verified one and not merely its descendant. Migrations `v295_ai_coworker`
 and `v296_ai_shared_quota` are applied in Production, confirmed both by the
 migration ledger and by probing the live API: the four `ai_*` tables answer
 `42501` to anon, so they exist and are closed.
@@ -635,18 +641,21 @@ steps**, recorded in `deployment-2026-11-04.md`:
   that `EMAIL_TRANSPORT` is smtp;
 - public QR reporting confirmed **closed** on four screens.
 
-**The scheduler is NOT proven, and production cannot deploy.** `CRON_SECRET`
-in Vercel carries leading or trailing whitespace, so Vercel refuses the build
-outright: two production deployments have failed in three seconds, including
-the Stage E merge, and the live site is still the redeploy of `57ae8b2`. The
-same whitespace breaks the endpoint, which compares the bearer exactly - so
-the scheduled work has probably never run. An earlier PASS on this was
-withdrawn: it rested on the absence of the "Worth knowing" panel, which is
-also absent when the health read fails.
+**Production deploys again; the scheduler is still not proven.** The build
+blockage is gone - `CRON_SECRET` was re-saved, and two production deployments
+have since built and gone live, `tamco-focus-drg9yhx6e` from `fe2f41d` and
+`tamco-focus-gborm9vtu` from `36f9d10`, both Ready and aliased. Since the
+reported failure mode was Vercel refusing a padded secret outright, a build
+that completes is direct evidence the padding has gone. The earlier claim that
+the live site is still the redeploy of `57ae8b2` is obsolete.
 
-The owner's fix is thirty seconds: re-save `CRON_SECRET` without whitespace
-and redeploy. `npm run check:deployment` now refuses a padded value rather
-than reporting it present.
+What that does **not** prove is the scheduled work itself. The endpoint
+compares the bearer exactly, and a deploy succeeding says nothing about whether
+a cron invocation is accepted. An earlier PASS on this was withdrawn once
+already, because it rested on the absence of the "Worth knowing" panel, which
+is also absent when the health read fails - so do not accept an absence as the
+proof this time either. `npm run check:deployment` refuses a padded value
+rather than reporting it present, which makes it the cheapest first check.
 
 After that, the one-area pilot needs operational decisions rather than
 engineering: who watches the queue, which area, which date, and whether a
