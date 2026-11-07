@@ -286,6 +286,29 @@ async function post(messages, { withTools = true } = {}) {
     });
     const text = await response.text();
     if (response.status === 429) {
+      /*
+       * v297 — a bill is not a wait, and this script used to treat it as one.
+       *
+       * The first real OpenAI run met `credit_balance_exhausted` and slept
+       * twenty seconds five times against a refusal that could never
+       * succeed, then reported "rate limited on every attempt" — which sent
+       * the reader looking for a throttle rather than at the billing page.
+       * The provider has drawn this distinction since v295; the harness had
+       * not, because on Groq's free plan there is no bill to tell apart.
+       */
+      if (
+        /credit_balance_exhausted|insufficient_quota|spend_limit_exceeded|usage_limit_exceeded|exceeded your current quota|no credits remaining/i.test(
+          text,
+        )
+      ) {
+        let detail = text.slice(0, 300);
+        try {
+          detail = JSON.parse(text).error?.message ?? detail;
+        } catch {
+          /* keep the raw body */
+        }
+        throw new Error(`quota exhausted, which waiting cannot clear: ${detail}`);
+      }
       const after = Number(response.headers.get('retry-after') ?? '20');
       process.stdout.write(`\n    (429; waiting ${after}s) `);
       await sleep((Number.isFinite(after) ? after : 20) * 1_000);
