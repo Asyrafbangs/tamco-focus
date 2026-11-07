@@ -486,6 +486,29 @@ function grade(scenario, answer) {
       failures.push(`never references ${reference}`);
     }
   }
+  /*
+   * Rule 14, checked everywhere rather than per scenario. A tool name in the
+   * prose is not a citation the person can use - the interface adds the links
+   * - and in a recommendation it is worse: "run a list_team_workload search
+   * again" names a control the product does not have. Two answers in the first
+   * full run did this, and every deterministic check passed them.
+   */
+  for (const name of TOOL_NAMES) {
+    if (new RegExp(`\\b${name}\\b`).test(answer.text ?? '')) {
+      failures.push(`names the tool ${name}`);
+    }
+  }
+  /*
+   * Rule 9c. An empty read is a limit on what this person may see, not a
+   * transient fault, and there is no index, cache or sync here to blame.
+   */
+  if (
+    /\b(not yet indexed|still indexing|cach(e|ing) delay|sync(ing)? delay|try again later)\b/i.test(
+      answer.text ?? '',
+    )
+  ) {
+    failures.push('explains an empty read as a delay this system does not have');
+  }
   if (answer.finish === 'length') failures.push('answer was cut off at the length limit');
   if (answer.finish === 'steps-exhausted')
     failures.push('never produced an answer within four steps');
