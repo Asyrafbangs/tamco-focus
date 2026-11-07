@@ -31,6 +31,10 @@ const DESTINATIONS: Destination[] = [
   // places that both list the same tasks. v53 section 22 retired the old
   // `/team` page itself; the route now redirects here so existing links and
   // bookmarks still land on the screen that answers them.
+  // v295 — the assistant sits with the work it reads, not in a settings
+  // corner. It is a destination because somebody asks it a question in the
+  // middle of doing something, not at the end of a configuration journey.
+  { href: '/ai', label: 'TAMCO AI', icon: '✦' },
   { href: '/more', label: 'More', icon: '•••' },
 ];
 

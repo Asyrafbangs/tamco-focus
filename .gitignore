@@ -74,3 +74,7 @@ skills-lock.json
 
 # Local design screenshots for review (not part of the build).
 .shots/
+
+# Eval run output: real model answers over synthetic fixtures, kept out of
+# the repository because each run is a few hundred kilobytes of prose.
+evals/ai/runs/
