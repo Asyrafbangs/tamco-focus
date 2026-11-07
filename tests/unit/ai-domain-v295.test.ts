@@ -531,3 +531,46 @@ describe('v295 a thread is named after what was asked', () => {
     expect(titleFrom('   ')).toBe('New conversation');
   });
 });
+
+describe('v300 what an empty read does not license', () => {
+  /*
+   * The full run of 7 November 2026 produced two answers that were unsafe to
+   * act on, and both made the same mistake: a tool returned no rows, and the
+   * model reported that absence as a finding. It told a coordinator nothing
+   * was blocking a high-risk guard-rail finding from being closed - reading an
+   * empty verification queue as a clearance - and elsewhere read an absence of
+   * findings as evidence of good compliance.
+   *
+   * Rules 9, 9a, 9b and 9c were all in the prompt when that happened. So this
+   * is less a missing rule than the one thing those four never quite said:
+   * what an empty read does NOT license. It names the three inferences
+   * actually observed, because this model follows literal prohibitions and
+   * drifts on general ones.
+   */
+  it('names the three inferences the run actually produced', () => {
+    expect(SYSTEM_PROMPT).toContain('An empty read does not show');
+    for (const inference of ['a queue is clear', 'a hazard absent', 'an action safe']) {
+      expect(SYSTEM_PROMPT, `the prompt should rule out "${inference}"`).toContain(inference);
+    }
+  });
+
+  it('was paid for, and still fits the minute it has to fit', () => {
+    /*
+     * The characters came from rule 14's tool-name clause, which is gone: the
+     * instruction was broken in nine of fifteen answers, and `scrubToolNames`
+     * removes the names from the answer afterwards regardless. The hopeful
+     * guarantee was replaced by a deterministic one, so the clause's absence
+     * is asserted next to the thing now doing its job - otherwise a later
+     * edit restores the instruction, the prompt stops fitting two steps, and
+     * the only symptom is a question the tier refuses to answer.
+     */
+    expect(SYSTEM_PROMPT).not.toContain('never write a tool name');
+    expect(scrubToolNames('Nothing is overdue (list_my_tasks).')).toBe('Nothing is overdue.');
+
+    const perStep = estimateTokens(SYSTEM_PROMPT) + 900 + AGENT_LIMITS.budgetedOutputTokens;
+    const spare = (GROQ_FREE_LIMITS.tokensPerMinute * 0.9) / 2 - perStep;
+    expect(spare, 'the prompt no longer fits two steps inside the minute').toBeGreaterThanOrEqual(
+      0,
+    );
+  });
+});

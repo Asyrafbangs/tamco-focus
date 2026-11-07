@@ -170,11 +170,17 @@ export function grade(scenario, answer) {
    * TAMCO Focus sees one.
    *
    * Which leaves this a reading rather than a verdict. Failing a run for a
-   * symptom the reader cannot experience would block a release for nothing;
-   * ignoring it would lose the one measurement of how closely this model
-   * follows an explicit instruction, and that matters for the rules where
-   * there is no deterministic net - the ones about not inventing a finding.
-   * So it is counted and reported, and `namesTools` below is what carries it.
+   * symptom the reader cannot experience would block a release for nothing.
+   *
+   * And since v300 the instruction is not in the prompt at all: its 78
+   * characters bought the empty-read sentence in rule 9c, which is the one
+   * the run showed was missing, and an instruction broken nine times in
+   * fifteen was the cheapest thing in the prompt to give up. So this no
+   * longer measures instruction-following. It measures unprompted leakage,
+   * which is still worth watching - a model that volunteers its own
+   * machinery is one to re-read closely on the rules that have no
+   * deterministic net, the ones about not inventing a finding. So it is
+   * counted and reported, and `namesTools` below is what carries it.
    */
   /*
    * Rule 9c. An empty read is a limit on what this person may see, not a
