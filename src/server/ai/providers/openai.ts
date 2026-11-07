@@ -1,16 +1,7 @@
 import 'server-only';
 
-import {
-  looksLikeUnknownParameter,
-  messageFrom,
-  parseResetDuration,
-  stopFrom,
-  toolCallsFrom,
-  usageFrom,
-  wireMessage,
-  wireTools,
-  type ChatResponse,
-} from '@/server/ai/providers/chat-wire';
+import { NO_USAGE, type AiMessage, type AiToolCall, type TokenUsage } from '@/domain/ai';
+import { messageFrom, parseResetDuration } from '@/server/ai/providers/chat-wire';
 import {
   ProviderError,
   type AiProvider,
@@ -20,85 +11,167 @@ import {
 } from '@/server/ai/providers/types';
 
 /**
- * OpenAI, on the chat-completions endpoint.
+ * OpenAI, on the Responses endpoint.
  *
- * Sibling to `groq.ts` rather than a replacement for it. Groq implements this
- * same API, so the message shape, the tool shape and the usage block are
- * shared in `chat-wire.ts`; what lives here is what OpenAI does differently,
- * which is almost entirely about failure.
+ * It was written against chat-completions first, because Groq speaks that
+ * dialect and the translation was already here. The real API refused it:
  *
- * **Chat Completions, not Responses.** OpenAI's model page lists both as
- * supported for `gpt-5.4-mini`. Chat Completions is the one this codebase
- * already speaks, so choosing it makes the second provider a hundred lines
- * instead of a second dialect. The Responses API offers hosted tools we do
- * not want — this assistant reads the company's own records through eight
- * tools of ours and nothing else.
+ *   Function tools with reasoning_effort are not supported for gpt-5.4-mini
+ *   in /v1/chat/completions. To use function tools, use /v1/responses or set
+ *   reasoning_effort to 'none'.
  *
- * **Not streamed,** for the same reason as Groq: usage drives the budget, and
- * the route already streams our own step events to the person watching.
+ * Tools or reasoning, not both — and this assistant is eight tools and a
+ * reasoning budget. `reasoning_effort: 'none'` would have kept the request
+ * legal and quietly taken the thinking out of an investigator, which is the
+ * one trade this product must not make silently. So it speaks Responses.
  *
- * **What the documentation does not settle.** OpenAI's model page confirms the
- * id, both endpoints, the effort values and the prices. It does not state, on
- * any page that could be read without an account, the Chat Completions
- * parameter names (`reasoning_effort`, `max_completion_tokens`), whether
- * `temperature` is accepted, or where cached tokens appear in a chat usage
- * block. Rather than guess:
+ * Nothing above this file changed: the loop still calls `send` and gets text,
+ * tool calls and a token count. The dialect is wider than chat-completions —
+ * input is a list of typed items rather than messages, a tool call is an item
+ * rather than a field, and reasoning is an item we neither ask for nor keep.
  *
- *   - the optional parameters are sent, and dropped together on a 400 that
- *     names an unknown parameter — the same fallback `groq.ts` has;
- *   - `max_completion_tokens` is sent, and retried once as `max_tokens` if
- *     that is what this deployment wants;
- *   - `temperature` is never sent, because the loop does not need it and a
- *     reasoning model that rejects it would fail every request;
- *   - both cached-token paths are read.
+ * Every shape below was confirmed against the live API before it was written,
+ * including the parts the public documentation does not state: that a
+ * conversation replayed **without** the model's reasoning items is accepted
+ * (this codebase never stores them), and that `store: false` is honoured, so
+ * a company's records are not retained by the service after the answer.
  *
- * Each of those is a measured behaviour the first real run will confirm or
- * correct, and each is a test in `ai-openai-provider-v297`.
+ * **Not streamed,** for the reason the Groq provider gives: usage drives the
+ * budget, and the route already streams our own step events.
  */
 
-const ENDPOINT = 'https://api.openai.com/v1/chat/completions';
+const ENDPOINT = 'https://api.openai.com/v1/responses';
+
+/* The Responses shapes, only as far as we use them. */
+
+interface ResponseItem {
+  type?: string;
+  /* function_call */
+  call_id?: string;
+  name?: string;
+  arguments?: string;
+  /* message */
+  role?: string;
+  content?: Array<{ type?: string; text?: string }>;
+}
+
+interface ResponsesReply {
+  model?: string;
+  status?: string;
+  incomplete_details?: { reason?: string } | null;
+  output?: ResponseItem[];
+  usage?: {
+    input_tokens?: number;
+    output_tokens?: number;
+    total_tokens?: number;
+    input_tokens_details?: { cached_tokens?: number };
+    output_tokens_details?: { reasoning_tokens?: number };
+  };
+  error?: { message?: string; type?: string; code?: string } | null;
+}
+
+/**
+ * Our neutral conversation, as a list of Responses input items.
+ *
+ * Three kinds go up. A plain turn is a role and its text. An assistant turn
+ * that asked for tools becomes one `function_call` item per call — the whole
+ * turn, not a field on it — and each tool result is a `function_call_output`
+ * carrying the same `call_id`. Lose that id and the results answer nothing.
+ *
+ * The model's own `reasoning` items are not replayed, because they are never
+ * stored. Confirmed against the live API: a conversation without them is
+ * accepted and answered.
+ */
+export function inputItemsFrom(messages: readonly AiMessage[]): Array<Record<string, unknown>> {
+  const items: Array<Record<string, unknown>> = [];
+  for (const message of messages) {
+    if (message.role === 'tool') {
+      items.push({
+        type: 'function_call_output',
+        call_id: message.toolCallId,
+        output: message.content,
+      });
+      continue;
+    }
+    if (message.role === 'assistant' && message.toolCalls?.length) {
+      if (message.content) items.push({ role: 'assistant', content: message.content });
+      for (const call of message.toolCalls) {
+        items.push({
+          type: 'function_call',
+          call_id: call.id,
+          name: call.name,
+          arguments: call.arguments,
+        });
+      }
+      continue;
+    }
+    items.push({ role: message.role, content: message.content });
+  }
+  return items;
+}
+
+/** The answer's text: every `output_text` the message items carry. */
+export function textFrom(output: readonly ResponseItem[]): string {
+  return output
+    .filter((item) => item.type === 'message')
+    .flatMap((item) => item.content ?? [])
+    .filter((part) => part.type === 'output_text')
+    .map((part) => part.text ?? '')
+    .join('');
+}
+
+export function toolCallsFrom(output: readonly ResponseItem[]): AiToolCall[] {
+  return output
+    .filter((item) => item.type === 'function_call' && item.name)
+    .map((item, index) => ({
+      id: item.call_id ?? `call_${index}`,
+      name: item.name!,
+      // Left as the string the model wrote. The tool parses it and refuses it
+      // if it is not what the schema asked for.
+      arguments: item.arguments ?? '{}',
+    }));
+}
+
+/**
+ * What the turn cost.
+ *
+ * `output_tokens` includes the reasoning the model did before writing, and
+ * reasoning is billed at the output rate. That is the single biggest
+ * difference from gpt-oss on Groq for the purposes of a cost comparison, and
+ * it is not a surcharge to be netted off: thinking is what was paid for.
+ */
+export function usageFrom(reply: ResponsesReply): TokenUsage {
+  const usage = reply.usage;
+  if (!usage) return { ...NO_USAGE };
+  const cached = usage.input_tokens_details?.cached_tokens ?? 0;
+  return {
+    inputTokens: Math.max(0, (usage.input_tokens ?? 0) - cached),
+    outputTokens: usage.output_tokens ?? 0,
+    cachedInputTokens: cached,
+  };
+}
 
 /**
  * Which kind of failure a response represents.
  *
- * The distinction that matters is the same one as on Groq, and OpenAI draws
- * it more plainly: a 429 is either traffic — too many requests or tokens this
- * minute, which waiting fixes — or money, which it does not. OpenAI's error
- * reference names the money cases explicitly: `credit_balance_exhausted`,
- * `organization_spend_limit_exceeded`, `project_spend_limit_exceeded`,
- * `organization_usage_limit_exceeded`, and the broader `insufficient_quota`
- * type. Its rate-limit guide says outright that billing errors "require user
- * action" and must not be retried.
- *
- * Getting this wrong is not cosmetic. On Groq it sent people back every
- * minute for a whole afternoon against a quota that would not return until
- * the next day.
+ * The distinction that matters is between a wait and a bill. OpenAI draws it
+ * plainly: a 429 is either traffic this minute, which waiting fixes, or
+ * money, which it does not. The billing codes are named here because the
+ * first real contact with this API was one of them —
+ * `credit_balance_exhausted` — and a harness that read it as a throttle slept
+ * five times against a refusal that could never succeed.
  */
 export function classify(status: number, headers: Headers, body: string): ProviderErrorKind {
   if (status === 401 || status === 403) return 'auth';
   if (status === 429) {
-    /*
-     * Billing first, and by name. These are the codes OpenAI documents for a
-     * 429 that waiting cannot clear.
-     */
     if (
-      /credit_balance_exhausted|insufficient_quota|spend_limit_exceeded|usage_limit_exceeded|billing_hard_limit_reached|exceeded your current quota/i.test(
+      /credit_balance_exhausted|insufficient_quota|spend_limit_exceeded|usage_limit_exceeded|billing_hard_limit_reached|exceeded your current quota|no credits remaining/i.test(
         body,
       )
     ) {
       return 'quota_exhausted';
     }
-    /*
-     * `slow_down` is documented as the rate rising too quickly, and the plain
-     * "Rate limit reached for requests" 429 is the per-minute bucket. Both
-     * are waits.
-     */
     if (/slow_down|rate limit reached|rate_limit/i.test(body)) return 'rate_limited';
-    /*
-     * Failing that, the headers. A 429 with no requests left for the window
-     * is a rate limit; a reset measured in hours is not something to sit and
-     * wait for.
-     */
     const reset =
       parseResetDuration(headers.get('x-ratelimit-reset-tokens')) ??
       parseResetDuration(headers.get('x-ratelimit-reset-requests'));
@@ -116,12 +189,6 @@ export function classify(status: number, headers: Headers, body: string): Provid
     ) {
       return 'context_too_long';
     }
-    /*
-     * The model's own output, refused. Rarer here than on Groq's gpt-oss -
-     * the two forms seen there were artefacts of that model's reasoning
-     * format - but a refused generation is a sound request either way, and
-     * worth another sample rather than a dead investigation.
-     */
     if (
       /tool_use_failed|not in request\.tools|tool call validation failed|output_parse_failed|parsing failed|could not be parsed/i.test(
         body,
@@ -133,18 +200,8 @@ export function classify(status: number, headers: Headers, body: string): Provid
   }
   if (status === 404) return 'bad_request';
   if (status === 408 || status === 504) return 'timeout';
-  /*
-   * 503 `server_is_overloaded` is OpenAI's documented "try again", and 529 is
-   * used by some gateways for the same thing. Both are retryable server-side
-   * conditions rather than anything wrong with the request.
-   */
   if (status >= 500) return 'server';
   return 'bad_request';
-}
-
-/** Whether a 400 is specifically about the output-limit parameter's name. */
-export function looksLikeOutputLimitName(body: string): boolean {
-  return /max_completion_tokens|max_tokens|max_output_tokens/i.test(body);
 }
 
 export interface OpenAiOptions {
@@ -164,10 +221,10 @@ export interface OpenAiOptions {
 export function createOpenAiProvider(options: OpenAiOptions): AiProvider {
   const doFetch = options.fetchImpl ?? fetch;
   /*
-   * Longer than Groq's 25 seconds. Groq is fast by design; a reasoning model
-   * asked to work at `high` on a conversation carrying several tool results
-   * can take considerably longer, and a timeout shorter than the model's
-   * honest thinking time turns good answers into failures.
+   * Longer than Groq's 25 seconds. A reasoning model asked to work at `high`
+   * on a conversation carrying several tool results takes longer than a fast
+   * non-reasoning one, and a timeout shorter than the model's honest thinking
+   * time turns good answers into failures.
    */
   const timeoutMs = options.timeoutMs ?? 90_000;
 
@@ -196,23 +253,16 @@ export function createOpenAiProvider(options: OpenAiOptions): AiProvider {
     tier: options.tier,
 
     async send(request: ProviderRequest): Promise<ProviderReply> {
-      /*
-       * Counted here, per call, because the loop sums what each step cost. A
-       * counter living on the provider would accumulate across the steps of
-       * one turn and be added again each time.
-       */
       let requests = 0;
       const sendOne = async (body: Record<string, unknown>, signal?: AbortSignal) => {
         requests += 1;
         return post(body, signal);
       };
 
-      const common: Record<string, unknown> = {
+      const body: Record<string, unknown> = {
         model: options.model,
-        messages: [
-          { role: 'system', content: request.system },
-          ...request.messages.map(wireMessage),
-        ],
+        instructions: request.system,
+        input: inputItemsFrom(request.messages),
         /*
          * `auto` rather than `required`. A question the records cannot answer
          * should get "I could not establish that", and forcing a tool call
@@ -220,26 +270,31 @@ export function createOpenAiProvider(options: OpenAiOptions): AiProvider {
          */
         tool_choice: 'auto',
         /*
-         * No `strict: true`, for the reason `groq.ts` gives: two tools take a
-         * genuinely optional argument with a default, strict mode requires
-         * every property to be `required`, and every tool validates its own
-         * arguments with Zod anyway — a guard the tests actually exercise.
+         * Flattened, which is how this API wants a function tool: no nested
+         * `function` object. No `strict` either, for the reason `groq.ts`
+         * gives — two tools take a genuinely optional argument with a
+         * default, and every tool validates its own arguments with Zod.
          */
-        tools: wireTools(request.tools),
+        tools: request.tools.map((tool) => ({
+          type: 'function',
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters,
+        })),
+        reasoning: { effort: request.effort },
+        max_output_tokens: request.maxOutputTokens,
+        /*
+         * The company's own records are in these requests. `store: false`
+         * asks OpenAI not to retain the response, and is the reason this
+         * provider can be pointed at real findings at all. Confirmed
+         * accepted and echoed back as `false` by the live API.
+         */
+        store: false,
       };
-
-      /** The output ceiling, under the name this deployment accepts. */
-      let limitKey = 'max_completion_tokens';
-      const withLimit = (base: Record<string, unknown>) => ({
-        ...base,
-        [limitKey]: request.maxOutputTokens,
-      });
-      /* Optional, and dropped together if this deployment rejects them. */
-      const optional: Record<string, unknown> = { reasoning_effort: request.effort };
 
       let response: Response;
       let text: string;
-      const attempt = async (body: Record<string, unknown>) => {
+      const attempt = async () => {
         try {
           response = await sendOne(body, request.signal);
           text = await response.text();
@@ -256,28 +311,13 @@ export function createOpenAiProvider(options: OpenAiOptions): AiProvider {
         }
       };
 
-      await attempt(withLimit({ ...common, ...optional }));
+      await attempt();
 
       /*
-       * The output-limit parameter, under its other name. `max_tokens` was
-       * the name for years and `max_completion_tokens` replaced it; which one
-       * a given deployment insists on is not something the public
-       * documentation settles, and a feature that dies on that is a feature
-       * that dies for a word.
-       */
-      if (!response!.ok && response!.status === 400 && looksLikeOutputLimitName(text!)) {
-        limitKey = limitKey === 'max_completion_tokens' ? 'max_tokens' : 'max_completion_tokens';
-        await attempt(withLimit({ ...common, ...optional }));
-      }
-
-      /* An optional parameter this deployment does not recognise. */
-      if (!response!.ok && response!.status === 400 && looksLikeUnknownParameter(text!)) {
-        await attempt(withLimit(common));
-      }
-
-      /*
-       * Up to two more samples when the model's own output was refused. The
-       * request is sound and the next sample usually is too.
+       * Up to two more samples when the model's own output was refused. No
+       * fallback that drops `reasoning` and tries again: on this model that
+       * would be a request for an investigator that does not think, answered
+       * successfully, and nobody would be told.
        */
       for (
         let tries = 0;
@@ -286,7 +326,7 @@ export function createOpenAiProvider(options: OpenAiOptions): AiProvider {
         classify(response!.status, response!.headers, text!) === 'malformed_generation';
         tries += 1
       ) {
-        await attempt(withLimit({ ...common, ...optional }));
+        await attempt();
       }
 
       if (!response!.ok) {
@@ -300,26 +340,36 @@ export function createOpenAiProvider(options: OpenAiOptions): AiProvider {
         });
       }
 
-      let parsed: ChatResponse;
+      let parsed: ResponsesReply;
       try {
-        parsed = JSON.parse(text!) as ChatResponse;
+        parsed = JSON.parse(text!) as ResponsesReply;
       } catch {
         throw new ProviderError('malformed', 'The model returned something that was not JSON.', {
           requests,
         });
       }
 
-      const choice = parsed.choices?.[0];
-      if (!choice) {
+      const output = parsed.output ?? [];
+      if (output.length === 0) {
         throw new ProviderError('malformed', 'The model returned no reply at all.', { requests });
       }
 
-      const toolCalls = toolCallsFrom(choice);
+      const toolCalls = toolCallsFrom(output);
+      /*
+       * `incomplete` with `max_output_tokens` means the reply stopped
+       * mid-thought — and on a reasoning model it can stop having spent the
+       * whole budget thinking, with no text at all. Either way it is reported
+       * as truncated rather than answered, because the alternative is showing
+       * somebody half a conclusion as though it were the whole one.
+       */
+      const truncated =
+        parsed.status === 'incomplete' && parsed.incomplete_details?.reason === 'max_output_tokens';
+
       return {
-        text: choice.message?.content ?? '',
+        text: textFrom(output),
         toolCalls,
         usage: usageFrom(parsed),
-        stop: stopFrom(toolCalls, choice.finish_reason),
+        stop: toolCalls.length > 0 ? 'tool_calls' : truncated ? 'truncated' : 'answered',
         model: parsed.model ?? options.model,
         requests,
       };

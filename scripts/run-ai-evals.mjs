@@ -85,7 +85,13 @@ const PROVIDERS = {
     extra: { include_reasoning: false },
   },
   openai: {
-    endpoint: 'https://api.openai.com/v1/chat/completions',
+    /*
+     * Responses, not chat-completions. OpenAI refuses function tools together
+     * with `reasoning_effort` for gpt-5.4-mini on chat-completions and says
+     * to use this endpoint; the product's provider does the same, and an eval
+     * that sent something else would measure a configuration nobody ships.
+     */
+    endpoint: 'https://api.openai.com/v1/responses',
     keyVariable: 'OPENAI_API_KEY',
     defaultModel: 'gpt-5.4-mini',
     /*
@@ -261,15 +267,77 @@ function toolsFor() {
  */
 const EMPTY_RESULT = { total: 0, shown: 0, truncated: false, rows: [] };
 
+/**
+ * Our chat-shaped conversation, as the Responses API wants it (v297).
+ *
+ * Same mapping as `src/server/ai/providers/openai.ts`, for the same reason it
+ * exists there: a tool call is an item rather than a field, and a tool result
+ * is another item carrying the same `call_id`. The model's reasoning items
+ * are not replayed, because the product never stores them.
+ */
+function responsesInput(messages) {
+  const items = [];
+  for (const message of messages) {
+    if (message.role === 'tool') {
+      items.push({
+        type: 'function_call_output',
+        call_id: message.tool_call_id,
+        output: message.content,
+      });
+      continue;
+    }
+    if (message.role === 'assistant' && message.tool_calls?.length) {
+      if (message.content) items.push({ role: 'assistant', content: message.content });
+      for (const call of message.tool_calls) {
+        items.push({
+          type: 'function_call',
+          call_id: call.id,
+          name: call.function?.name,
+          arguments: call.function?.arguments ?? '{}',
+        });
+      }
+      continue;
+    }
+    items.push({ role: message.role, content: message.content ?? '' });
+  }
+  return items;
+}
+
+/**
+ * One request, in whichever dialect this provider speaks, normalised back.
+ *
+ * OpenAI refuses function tools together with `reasoning_effort` on
+ * chat-completions for gpt-5.4-mini and says to use `/v1/responses`, so the
+ * eval sends what the product sends: Responses for OpenAI, chat-completions
+ * for Groq. Everything above this function sees one shape either way, which
+ * is what keeps the comparison between two models rather than two harnesses.
+ */
 async function post(messages, { withTools = true } = {}) {
-  const body = {
-    model: MODEL,
-    messages: [{ role: 'system', content: SYSTEM }, ...messages],
-    max_completion_tokens: MAX_OUT,
-    ...(withTools ? { tool_choice: 'auto', tools: toolsFor() } : {}),
-    reasoning_effort: EFFORT,
-    ...SERVICE.extra,
-  };
+  const body =
+    PROVIDER === 'openai'
+      ? {
+          model: MODEL,
+          instructions: SYSTEM,
+          input: responsesInput(messages),
+          ...(withTools
+            ? {
+                tool_choice: 'auto',
+                tools: toolsFor().map((tool) => ({ type: 'function', ...tool.function })),
+              }
+            : {}),
+          reasoning: { effort: EFFORT },
+          max_output_tokens: MAX_OUT,
+          // The company's records are not retained by the service.
+          store: false,
+        }
+      : {
+          model: MODEL,
+          messages: [{ role: 'system', content: SYSTEM }, ...messages],
+          max_completion_tokens: MAX_OUT,
+          ...(withTools ? { tool_choice: 'auto', tools: toolsFor() } : {}),
+          reasoning_effort: EFFORT,
+          ...SERVICE.extra,
+        };
   const serialised = JSON.stringify(body);
   /*
    * Paced against what a reply costs, not what it is allowed to reach: the
@@ -299,7 +367,10 @@ async function post(messages, { withTools = true } = {}) {
       if (
         /credit_balance_exhausted|insufficient_quota|spend_limit_exceeded|usage_limit_exceeded|exceeded your current quota|no credits remaining/i.test(
           text,
-        )
+        ) ||
+        // Groq's own daily bucket, which it names in the message body. The
+        // provider has matched this since v295; the harness had not.
+        /\b(?:tokens|requests) per day\b|\b[TR]PD\b/i.test(text)
       ) {
         let detail = text.slice(0, 300);
         try {
@@ -337,7 +408,58 @@ async function post(messages, { withTools = true } = {}) {
     const parsed = JSON.parse(text);
     const usage = parsed.usage ?? {};
     spent.push({ at: Date.now(), tokens: usage.total_tokens ?? estimate(serialised) });
-    return parsed;
+
+    /*
+     * Normalised, so the loop below is written once. `finish` keeps the
+     * chat-completions vocabulary because the grader already speaks it:
+     * `length` means the reply stopped at its ceiling, which on a reasoning
+     * model can mean it spent the whole budget thinking and wrote nothing.
+     */
+    if (PROVIDER === 'openai') {
+      const output = parsed.output ?? [];
+      const truncated =
+        parsed.status === 'incomplete' && parsed.incomplete_details?.reason === 'max_output_tokens';
+      return {
+        text: output
+          .filter((item) => item.type === 'message')
+          .flatMap((item) => item.content ?? [])
+          .filter((part) => part.type === 'output_text')
+          .map((part) => part.text ?? '')
+          .join(''),
+        toolCalls: output
+          .filter((item) => item.type === 'function_call' && item.name)
+          .map((item, index) => ({
+            id: item.call_id ?? `call_${index}`,
+            name: item.name,
+            arguments: item.arguments ?? '{}',
+          })),
+        finish: truncated ? 'length' : 'stop',
+        usage: {
+          prompt: usage.input_tokens ?? 0,
+          completion: usage.output_tokens ?? 0,
+          reasoning: usage.output_tokens_details?.reasoning_tokens ?? 0,
+          cached: usage.input_tokens_details?.cached_tokens ?? 0,
+        },
+      };
+    }
+    const choice = parsed.choices?.[0];
+    return {
+      text: choice?.message?.content ?? '',
+      toolCalls: (choice?.message?.tool_calls ?? [])
+        .filter((call) => call.function?.name)
+        .map((call, index) => ({
+          id: call.id ?? `call_${index}`,
+          name: call.function.name,
+          arguments: call.function.arguments ?? '{}',
+        })),
+      finish: choice?.finish_reason ?? 'stop',
+      usage: {
+        prompt: usage.prompt_tokens ?? 0,
+        completion: usage.completion_tokens ?? 0,
+        reasoning: 0,
+        cached: usage.prompt_tokens_details?.cached_tokens ?? 0,
+      },
+    };
   }
   throw new Error('rate limited on every attempt');
 }
@@ -371,25 +493,26 @@ async function run(scenario) {
   const used = [];
   const fetched = new Set();
   let nudged = false;
-  let tokens = { prompt: 0, completion: 0 };
+  let tokens = { prompt: 0, completion: 0, reasoning: 0, cached: 0 };
 
   for (let step = 0; step < MAX_STEPS; step += 1) {
     const reply = await post(messages);
-    const choice = reply.choices?.[0];
     tokens = {
-      prompt: tokens.prompt + (reply.usage?.prompt_tokens ?? 0),
-      completion: tokens.completion + (reply.usage?.completion_tokens ?? 0),
+      prompt: tokens.prompt + reply.usage.prompt,
+      completion: tokens.completion + reply.usage.completion,
+      reasoning: (tokens.reasoning ?? 0) + reply.usage.reasoning,
+      cached: (tokens.cached ?? 0) + reply.usage.cached,
     };
-    const calls = choice?.message?.tool_calls ?? [];
+    const calls = reply.toolCalls;
     if (calls.length === 0) {
       const groundless =
         used.length === 0 &&
         !nudged &&
-        (choice?.finish_reason ?? 'stop') === 'stop' &&
+        reply.finish === 'stop' &&
         scenario.question.trim().length >= 20;
       if (groundless) {
         nudged = true;
-        messages.push({ role: 'assistant', content: choice?.message?.content ?? '' });
+        messages.push({ role: 'assistant', content: reply.text });
         messages.push({
           role: 'user',
           content:
@@ -397,18 +520,20 @@ async function run(scenario) {
         });
         continue;
       }
-      return {
-        text: choice?.message?.content ?? '',
-        used,
-        tokens,
-        finish: choice?.finish_reason ?? 'stop',
-        nudged,
-      };
+      return { text: reply.text, used, tokens, finish: reply.finish, nudged };
     }
-    messages.push(choice.message);
+    messages.push({
+      role: 'assistant',
+      content: reply.text,
+      tool_calls: calls.map((call) => ({
+        id: call.id,
+        type: 'function',
+        function: { name: call.name, arguments: call.arguments },
+      })),
+    });
     for (const call of calls) {
-      const name = call.function?.name;
-      const key = callKey(name, call.function?.arguments);
+      const name = call.name;
+      const key = callKey(name, call.arguments);
       if (fetched.has(key)) {
         // The product's loop refuses a repeat; so must this one, or the suite
         // measures a loop nobody ships.
@@ -448,17 +573,18 @@ async function run(scenario) {
       ],
       { withTools: false },
     );
-    const choice = closing.choices?.[0];
     tokens = {
-      prompt: tokens.prompt + (closing.usage?.prompt_tokens ?? 0),
-      completion: tokens.completion + (closing.usage?.completion_tokens ?? 0),
+      prompt: tokens.prompt + closing.usage.prompt,
+      completion: tokens.completion + closing.usage.completion,
+      reasoning: (tokens.reasoning ?? 0) + closing.usage.reasoning,
+      cached: (tokens.cached ?? 0) + closing.usage.cached,
     };
-    if (choice?.message?.content) {
+    if (closing.text) {
       return {
-        text: choice.message.content,
+        text: closing.text,
         used,
         tokens,
-        finish: choice.finish_reason === 'length' ? 'length' : 'stop',
+        finish: closing.finish === 'length' ? 'length' : 'stop',
         nudged,
         closed: true,
       };
