@@ -15,6 +15,7 @@ import {
   listRegister,
   listReportIntake,
   listVerificationQueue,
+  ROLLOUT_NOT_ASKED,
   type RegisterListRow,
   type ReportIntakeRow,
   type VerificationQueueRow,
@@ -66,7 +67,7 @@ async function today(access: EshAccess, timeZone: string) {
       }),
       listVerificationQueue(),
       getOperationalHealth(),
-      access.canCoordinate ? getRolloutStatus() : Promise.resolve(null),
+      access.canCoordinate ? getRolloutStatus() : Promise.resolve(ROLLOUT_NOT_ASKED),
       /*
        * Only a coordinator may triage, and `/findings/intake` refuses anyone
        * else, so a reader without that authority is not given a counter and a
@@ -90,9 +91,9 @@ async function today(access: EshAccess, timeZone: string) {
    * `awaiting` keeps its fallback, because that one is a real read: the
    * verification queue refuses a failed read rather than answering empty.
    */
-  const protection = dashboard ? dashboard.protection.unprotected : null;
-  const overdue = dashboard ? dashboard.overdueActions : null;
-  const awaiting = dashboard?.awaitingVerification ?? verification.length;
+  const protection = dashboard.failed ? null : (dashboard.data?.protection.unprotected ?? 0);
+  const overdue = dashboard.failed ? null : (dashboard.data?.overdueActions ?? 0);
+  const awaiting = dashboard.data?.awaitingVerification ?? verification.length;
   const incoming = intake?.rows ?? [];
 
   return (
@@ -170,7 +171,7 @@ async function today(access: EshAccess, timeZone: string) {
       </section>
 
       <OperationalHealth reading={health} />
-      {rollout && <HeldNoticesRelease releasable={rollout.heldReleasable} />}
+      {rollout.data && <HeldNoticesRelease releasable={rollout.data.heldReleasable} />}
 
       <section className="esh-today-queue" aria-labelledby="today-queue-title">
         <div className="esh-section-head">

@@ -208,3 +208,109 @@ Settings, or kept in the audit/backend.
 Desktop and mobile: every change applies at both widths; the owner and ESH pages stack in reading
 order below 900px. Tests: pgTAP `esh_one_screen_v227` (13), unit `esh-quiet-workflow-v227` and the
 next-actor rules, and the existing ESH journeys updated to the screens they now describe.
+
+## 8. v282-v285 — a failed read is not an empty answer
+
+The rule, which applies to every read in `src/server/esh/`: a read that FAILED and a read that
+returned NOTHING are different facts, and reporting the first as the second lets a database outage
+make a false statement about the data. Both still deny the reader what they asked for; the
+difference is only what they are told, and that difference has already cost a day.
+
+What it cost. `getEshAccess` returned `NO_ESH_ACCESS` on a failed read, and every ESH route turns
+that into `notFound()`, so a coordinator holding every permission met "This page could not be
+found" whenever the database was unreachable (v282). `getFindingDetail` returned `null`, which the
+detail page also turns into `notFound()` (v283). `listEmailContacts` returned `[]`, so a gateway
+502 under load emptied the contact directory, took the ESH access form off the administration
+screen and failed `esh-identity-access-v203` as though the feature were broken (v285).
+
+Three outcomes, chosen per read rather than by one rule:
+
+| Outcome                                                                           | When                                                                                                          | Reads                                                                                                                                                                                                                               |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Throw**, via `requireAnswer` from `@/domain/esh-findings`                       | The missing data is the screen's subject, or it is the options of a control the reader cannot proceed without | `getEshAccess` (as `accessFromAnswer`), `getFindingDetail`, `listEmailContacts`, `getDepartmentsInScope`, `getVerifiers`, `getFollowupSettings`, `listDepartmentEscalationDefaults`, `listImportBatches`, `listReviewedConnections` |
+| **Report**, as `{ data, failed }` — the §33.2 pattern `listRegister` already used | One tile or panel on a screen that must keep working without it, or a route that has to answer something      | `getDashboard`, `getRolloutStatus`, `readObject`, `signedDownloadFor`                                                                                                                                                               |
+| **Leave**                                                                         | The caller already says it honestly, and neither alternative improves it                                      | `getPublicDashboard`                                                                                                                                                                                                                |
+
+`failed` matters because `null` was carrying three answers at once: the read failed, the database
+function declined (`ok: false`), and there is genuinely nothing. Only the first is worth telling
+the reader about, and only the first used to be invisible. A figure nobody could count is now a
+dash on Today, not a nought — `dashboard?.protection.unprotected ?? 0` had the screen announce no
+unprotected significant risks and no overdue actions on no evidence, beside a queue panel that did
+admit it could not read.
+
+Two consequences worth knowing:
+
+- `src/app/(esh)/error.tsx` exists because of this. The module had no error boundary, so every
+  throw added by v282-v285 landed on the framework's default page with the shell gone. `(app)/error.tsx`
+  was added for exactly that reason when eleven reads in `src/server/queries.ts` began throwing.
+- `getRolloutStatus` keeps its fail-safe nulls deliberately: the import review reads
+  `rollout.data?.mode === 'live' ? 'live' : 'held'`, so an unreadable rollout holds owner mail
+  rather than sending it. What changed is that the administration screen no longer hides the mode,
+  the counts and the control together, and no longer decides who is "waiting to be cleared" from
+  `rollout?.mode !== 'live'`, which read a failed read as restricted.
+
+The evidence reads are the awkward pair, and they are why the table's second row mentions routes.
+`readObject` and `signedDownloadFor` read Storage, which reports an absent object as an error like
+any other — so "the object is not there" and "Storage did not answer" arrive in the same shape and
+can only be told apart by status: a 404 is genuinely absent, while a 5xx, or a
+`StorageUnknownError` carrying no status at all because the request never arrived, is a read that
+did not happen. Both now report `failed`, and all three routes that serve a file answer **503**
+where they used to answer 404 — the two evidence routes, and v288's intake photograph route, which
+arrived after this work began with the same defect in both its row read and its signing. A 404 on an evidence file says the finding has no such
+file, and somebody told that does not try again — so a Storage blink became, to the reader, a
+photograph that had gone missing from a finding, on the file ESH verifies and that an argument
+about a photograph would turn on. Each of those routes had a second failing read too: the staff
+route discarded its `esh_evidence_assets` error outright, the owner route read a procedure that
+did not answer as a procedure that said no, and the intake route logged its row error and then
+404ed anyway.
+
+The owner route's 404 has a second job and it is unchanged: it must stay uninformative, because an
+Action Owner must not learn from it whether a file exists, only that they cannot have this one.
+That rule is about what the answer discloses. A 503 discloses nothing about any asset, and it is
+the only way an owner can tell "try again" from "not yours" — a refusal and an outage both
+answering 404 meant an owner meeting an outage gave up on a file that was there and that they were
+entitled to.
+
+In `import-actions`, `cellsOf` told a coordinator "That file is no longer in the store. Upload it
+again." for a Storage outage as readily as for a deleted object: false twice over, since the file
+is where they left it and re-uploading fixes nothing, which is exactly what they had just been
+told to do.
+
+### Two of these were reached independently, and v290 got there first
+
+`listVerificationQueue` and `getOperationalHealth` are not in the tables above, because v290 and
+v291 on `main` applied this same rule to them while this work was in progress — and in the health
+panel's case, better. v290 made the answer a `HealthReading` discriminated union and put the
+"unreadable monitor" note in `@/domain/esh-health`, where it can be argued with in a test rather
+than in a browser; this work's competing `{ data, failed }` version was dropped in its favour on
+the rebase. v290's `listVerificationQueue` is case-for-case what this work had, including the
+second read whose error both passes found discarded, so its version stands and the duplicate test
+here was removed.
+
+What v290 did not leave behind is a test at the **call site** for the health read:
+`esh-health-reading-v290` tests `readingNotes`, a pure function, and mentions
+`getOperationalHealth` only in a comment — so an edit returning `null` again, which is exactly
+what v290 fixed, would fail nothing. `esh-reported-reads-v285` closes that gap against v290's own
+contract. That is the v284 lesson, and it applies to whoever's fix it is.
+
+Today's two figures are the same story: v291 reached `protection` and `overdue` independently, with
+better presentation than this work had — an `aria-label` of "not known" and a detail line reading
+"This figure could not be read — it is not a count of none". That presentation is kept. What it
+could not do is tell a failed dashboard read from the function declining, because v291 left
+`getDashboard` answering `null` for both; it is wired to this work's `{ data, failed }` now, which
+separates them.
+
+`countAwaitingVerification` is the one read two changes reached independently. This work judged it dead
+and deleted it — nothing called it, and Today already has two sources for that number, so a
+third would only be something to drift. Stage 5 on `main` judged it a trap worth disarming before
+anybody wires it up, and hardened it in place with `requireAnswer`, recorded in
+`docs/finding-management-v4.1/stage5-workflow-hardening.md`. Stage 5 landed first, so its version
+stands: the two agree on the fact that matters — nothing calls it — and keeping a correct dead
+function costs nothing, while deleting it would have made that stage's own record wrong.
+
+Tests: unit `esh-access-answer-v282`, `esh-failed-read-v283` (the helpers), `esh-access-call-site-v284`,
+`esh-finding-detail-call-site-v284`, `esh-swallowed-reads-v285`, `esh-import-history-v285`,
+`esh-reported-reads-v285`, `esh-evidence-reads-v285` and `esh-file-routes-v285` (the call
+sites). The call-site tests are possible because
+`vitest.config.ts` aliases `server-only` to a no-op for tests only; the Next.js build still
+resolves the real package, so these modules still cannot reach a client bundle.

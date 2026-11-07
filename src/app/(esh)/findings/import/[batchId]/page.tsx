@@ -48,7 +48,16 @@ export default async function ImportBatchPage({
 
       <ImportSteps current={batch.rows.some((row) => row.outcome === 'released') ? 3 : 2} />
 
-      <ImportReview batch={batch} ownerEmailMode={rollout?.mode === 'live' ? 'live' : 'held'} />
+      {/*
+       * Still fail-safe: anything but a read that says the rollout is live
+       * holds owner email rather than sending it. A failed read is one of
+       * those, and holding mail that could have gone out is the mistake worth
+       * making here.
+       */}
+      <ImportReview
+        batch={batch}
+        ownerEmailMode={rollout.data?.mode === 'live' ? 'live' : 'held'}
+      />
     </>
   );
 }

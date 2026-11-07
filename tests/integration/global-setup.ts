@@ -41,20 +41,33 @@ export async function setup() {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !anonKey) throw new Error('Local Supabase environment values are missing.');
 
-  // A reset returns while containers are still restarting. The opt-in reuse
-  // path needs the same readiness probe because it is used by constrained
-  // local verification environments that deliberately preserve developer data.
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+  /*
+   * A reset returns while containers are still restarting, and this probe has
+   * to watch the one that does.
+   *
+   * It used to ask `/rest/v1/`, which is the service that stays up: `rest`
+   * keeps its container across a `db reset` while `auth` is recreated. So the
+   * probe answered 200 immediately and returned, every time, including when
+   * GoTrue was not accepting sign-ins yet — it could not detect the single
+   * condition it exists to detect. Every test here signs in, so auth
+   * readiness is the readiness that matters, and `scripts/run-e2e.mjs` has
+   * always probed it this way for the same reason.
+   *
+   * The opt-in reuse path needs the same probe, because it is used by
+   * constrained local verification environments that deliberately preserve
+   * developer data.
+   */
+  for (let attempt = 0; attempt < 120; attempt += 1) {
     try {
-      const response = await fetch(`${supabaseUrl}/rest/v1/`, {
+      const response = await fetch(`${supabaseUrl}/auth/v1/settings`, {
         headers: { apikey: anonKey },
       });
-      if (response.status < 500) return;
+      if (response.ok) return;
     } catch {
-      // The service is still restarting.
+      // The auth service is still restarting.
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
-  throw new Error('Supabase did not become ready within 20 seconds after the database reset.');
+  throw new Error('Supabase Auth did not become ready within 60 seconds after the database reset.');
 }

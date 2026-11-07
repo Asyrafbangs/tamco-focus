@@ -92,9 +92,9 @@ export async function readImportWorkbook(input: {
   if (input.name.toLowerCase().endsWith('.csv')) {
     return { ok: true, hash: inspected.sha256, sheets: [{ name: input.name, path: 'csv' }] };
   }
-  const bytes = await readObject(input.path);
-  if (!bytes) return { ok: false, message: 'That file could not be read.' };
-  const listed = listSheets(bytes);
+  const stored = await readObject(input.path);
+  if (!stored.bytes) return { ok: false, message: 'That file could not be read.' };
+  const listed = listSheets(stored.bytes);
   if (!listed.ok) return { ok: false, message: listed.message };
   return { ok: true, hash: inspected.sha256, sheets: listed.sheets };
 }
@@ -112,8 +112,18 @@ async function cellsOf(
   sheetPath: string,
   name: string,
 ): Promise<{ rows: TypedRow[] } | { message: string }> {
-  const bytes = await readObject(path);
-  if (!bytes) return { message: 'That file is no longer in the store. Upload it again.' };
+  const stored = await readObject(path);
+  /*
+   * "No longer in the store" is a claim, and it was made for a Storage outage
+   * as readily as for a deleted object. It is false twice over for an outage:
+   * the file is where the coordinator left it, and uploading it again fixes
+   * nothing — while they have just been told that re-uploading is the remedy.
+   */
+  if (stored.failed) {
+    return { message: 'That file could not be read just now. Try again.' };
+  }
+  if (!stored.bytes) return { message: 'That file is no longer in the store. Upload it again.' };
+  const bytes = stored.bytes;
   if (sheetPath === 'csv' || name.toLowerCase().endsWith('.csv')) {
     return {
       rows: parseCsv(bytes.toString('utf8')).map((record) => ({

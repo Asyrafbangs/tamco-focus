@@ -91,14 +91,38 @@ export async function inspectUpload(objectKey: string, name: string): Promise<In
   return { ok: true, type, size: bytes.byteLength, sha256 };
 }
 
-/** The bytes themselves, for a file the server has to read rather than serve. */
-export async function readObject(objectKey: string): Promise<Buffer | null> {
+/**
+ * Whether Storage said the object is not there, or did not say anything useful.
+ *
+ * Storage reports an absent object as an error like any other, so the only way
+ * to tell the two apart is its status. A 404 is the object genuinely not being
+ * there. Anything else — a 5xx, or a `StorageUnknownError` carrying no status
+ * at all because the request never arrived — is a read that did not happen,
+ * and must not be passed off as a missing file.
+ */
+function objectIsAbsent(error: { status?: number; statusCode?: string } | null): boolean {
+  if (!error) return true;
+  return error.status === 404 || error.statusCode === '404';
+}
+
+/**
+ * The bytes themselves, for a file the server has to read rather than serve.
+ *
+ * `failed` separates a read that did not happen from an object that is not
+ * there, because the caller says something different for each. `cellsOf` in
+ * `import-actions` told a coordinator "That file is no longer in the store.
+ * Upload it again." for both, which for a Storage outage is false twice over:
+ * the file is where they left it, and uploading it again fixes nothing.
+ */
+export async function readObject(
+  objectKey: string,
+): Promise<{ bytes: Buffer | null; failed: boolean }> {
   const { data, error } = await storage().download(objectKey);
   if (error || !data) {
     console.error(`[esh-evidence] could not read an object: ${error?.message ?? 'no data'}`);
-    return null;
+    return { bytes: null, failed: !objectIsAbsent(error) };
   }
-  return Buffer.from(await data.arrayBuffer());
+  return { bytes: Buffer.from(await data.arrayBuffer()), failed: false };
 }
 
 export async function removeObject(objectKey: string): Promise<void> {
@@ -109,18 +133,25 @@ export async function removeObject(objectKey: string): Promise<void> {
 /**
  * A short-lived link to one file. Photos and PDFs open in the browser; every
  * other type downloads, so nothing active is rendered from our origin (§23).
+ *
+ * `failed` for the same reason as `readObject`, and with more at stake. Both
+ * routes that serve an evidence file turned `null` into a 404, having already
+ * read the asset row and found `state = 'ready'` — so they knew the file
+ * existed and then told the reader it did not, because Storage had not
+ * answered. On the file somebody is fetching to settle an argument about a
+ * photograph, that is the worst available answer.
  */
 export async function signedDownloadFor(
   objectKey: string,
   name: string,
   type: string,
-): Promise<string | null> {
+): Promise<{ url: string | null; failed: boolean }> {
   const { data, error } = await storage().createSignedUrl(objectKey, DOWNLOAD_SECONDS, {
     download: INLINE_TYPES.has(type) ? false : name,
   });
   if (error || !data?.signedUrl) {
     console.error(`[esh-evidence] could not sign a download: ${error?.message ?? 'no data'}`);
-    return null;
+    return { url: null, failed: !objectIsAbsent(error) };
   }
-  return data.signedUrl;
+  return { url: data.signedUrl, failed: false };
 }

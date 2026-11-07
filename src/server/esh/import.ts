@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { requireAnswer } from '@/domain/esh-findings';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 /**
@@ -85,8 +86,15 @@ export async function listImportBatches(): Promise<ImportBatchSummary[]> {
     .limit(25);
   if (error) {
     console.error(`[listImportBatches] ${error.code ?? 'unknown'}: ${error.message}`);
-    return [];
   }
+  /*
+   * A failed read is not an empty import history. The screen renders an empty
+   * list as "No backlog has been imported yet.", and a coordinator who
+   * believes that does the obvious thing: imports the register again. Of
+   * everything a swallowed read can cause here, a duplicated backlog is the
+   * one that cannot be undone by reloading the page.
+   */
+  requireAnswer(error ? { code: error.code, message: error.message } : null, 'The import history');
   const batches = data ?? [];
   if (batches.length === 0) return [];
 
