@@ -58,12 +58,27 @@ export function aiConfig(): AiConfig {
       ? requested
       : 'openai/gpt-oss-120b';
   /*
-   * `medium`, from measurement rather than taste. On the same eval scenario
-   * `high` spent 5,526 tokens against `medium`'s 2,744 - because higher
-   * effort also means more tool calls, and every call resends the
-   * conversation - and both answers were correct. At 8,000 tokens a minute
-   * that is the difference between one question a minute and three. `high`
-   * remains available for an account with room for it.
+   * `medium` by default, and the honest position is that this is not yet
+   * settled by evidence.
+   *
+   * An earlier note here claimed `high` cost about twice `medium`, from one
+   * pair of samples - 5,526 against 2,744 on the same scenario. Measured
+   * across every scenario run at both efforts, that does not generalise:
+   *
+   *   blame-the-owner      medium 7,626  high 3,294   (high read 1, medium 3)
+   *   unreadable-register  medium 1,874  high 2,332
+   *   recurring-or-not     medium 2,808  high 5,106
+   *
+   * What dominates the cost is how many tools the model calls, because every
+   * call resends the whole conversation, and that varies more between two
+   * runs at the same effort - 1,874, 2,300 and 3,034 on one scenario at
+   * `medium` - than it does between the two efforts. Until there are several
+   * samples per scenario per effort, a default chosen on these numbers would
+   * be chosen on noise.
+   *
+   * So `medium` stands as the conservative default on a shared free tier,
+   * `high` is one environment variable away, and the comparison is a
+   * measurement still owed rather than one already made.
    */
   const effort = process.env.AI_EFFORT?.trim() || 'medium';
   const tier = process.env.AI_TIER?.trim() === 'paid' ? 'paid' : 'free';
