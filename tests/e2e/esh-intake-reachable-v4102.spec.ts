@@ -123,19 +123,26 @@ test('v4.1 Today reaches the private intake queue and counts it exactly', async 
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   await expect(page.getByRole('heading', { level: 1, name: 'Incoming reports' })).toBeVisible();
 
-  // Every waiting report is here, including the one Today left out.
-  const rows = page.locator('.esh-register-row');
+  /*
+   * Every waiting report is here, including the one Today left out.
+   *
+   * v293 turned this screen into a workspace - the queue on the left, the
+   * report and the decision on the right - so the rows are `.esh-intake-item`
+   * and the count is in the queue's own header. What is being held has not
+   * changed: all of them, each once, and the number said out loud.
+   */
+  const rows = page.locator('.esh-intake-item');
   await expect(rows).toHaveCount(waiting);
   for (const report of made) {
     const beginning = report.slice(0, 40);
     await expect(rows.filter({ hasText: beginning })).toHaveCount(1);
   }
-  await expect(page.getByText(`${waiting} reports waiting`, { exact: false })).toBeVisible();
+  await expect(page.locator('.esh-intake-queue-head')).toContainText(`${waiting} waiting`);
 
   // The row shows the beginning of the report, not all four thousand characters.
   const summary = await rows
     .filter({ hasText: made[0]!.slice(0, 40) })
-    .locator('.esh-register-finding strong')
+    .locator('strong')
     .innerText();
   expect(summary.length).toBeLessThan(made[0]!.length);
   expect(summary.endsWith('…')).toBe(true);

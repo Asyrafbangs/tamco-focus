@@ -91,21 +91,34 @@ test('v278 a claimed private report becomes one explicitly assigned Finding', as
     .single();
   expect(intakeError).toBeNull();
 
+  /*
+   * v293 — the review happens where the report is, not on a second page.
+   *
+   * The queue and the decision are one screen now, so this drives the
+   * workspace: pick the report, keep it for triage, correct what needs
+   * correcting under Report details, and assign. Every assertion about what
+   * the database ends up holding is unchanged, because none of that changed.
+   */
   await signIn(page);
-  await page.goto('/findings/intake');
+  await page.goto(`/findings/intake?report=${intake!.id}`);
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
-  const row = page.locator('.esh-register-row').filter({ hasText: reportText });
-  await expect(row).toBeVisible();
-  await row.getByRole('button', { name: 'Claim for triage' }).click();
-  await expect(row.locator('.esh-register-status .flag')).toHaveText('Being triaged');
-  await row.getByRole('link', { name: 'Review as Finding' }).click();
+  await expect(page.locator('.esh-intake-item').filter({ hasText: reportText })).toBeVisible();
+  await expect(page.locator('.esh-intake-original')).toContainText(reportText);
+  await expect(page.locator('.esh-intake-original')).toContainText('BR2 Workshop');
 
-  await expect(page).toHaveURL(new RegExp(`/findings/new\\?intake=${intake!.id}`));
+  // Claimed explicitly, and the queue says so.
+  await page.locator('summary').filter({ hasText: 'Not enough to act on' }).click();
+  await page.getByRole('button', { name: 'Keep for triage' }).click();
+  await expect(
+    page.locator('.esh-intake-item').filter({ hasText: reportText }).locator('.flag'),
+  ).toHaveText('Being triaged', { timeout: 30_000 });
+
   const form = page.locator('form.esh-finding-form');
+  // What the report said, carried into the finding and still editable.
+  await form.locator('summary').filter({ hasText: 'Report details' }).click();
   await expect(form.getByLabel('What was found', { exact: true })).toHaveValue(reportText);
   await expect(form.getByLabel('Location', { exact: true })).toHaveValue('BR2 Workshop');
   await form.getByLabel('Finding title', { exact: true }).fill(title);
-  await form.getByRole('button', { name: 'Next' }).click();
   await form
     .getByLabel('Required outcome', { exact: true })
     .fill('Restore the guard before the press is used.');
@@ -115,10 +128,16 @@ test('v278 a claimed private report becomes one explicitly assigned Finding', as
   await form
     .getByLabel('Reason', { exact: true })
     .fill('The normal escalation route is not set for this fixture.');
-  await form.getByRole('button', { name: 'Assign finding' }).click();
+  await form.getByRole('button', { name: /^Assign( & next)?$|^Assign finding$/ }).click();
 
-  await expect(page).toHaveURL(/\/findings\/[0-9a-f-]{36}\?saved=assigned/, { timeout: 30_000 });
-  await expect(page.getByRole('heading', { name: title })).toBeVisible();
+  /*
+   * v293 — back to the queue, not onto the finding. Somebody working through
+   * a day's reports wants the next one; the finding is one click from the
+   * confirmation. Everything below checks what was actually written, which is
+   * the part that has to be true either way.
+   */
+  await expect(page).toHaveURL(/\/findings\/intake/, { timeout: 30_000 });
+  await expect(page.locator('.esh-intake-item').filter({ hasText: reportText })).toHaveCount(0);
 
   const sourceReference = `private-intake:${intake!.id}`;
   const { data: finding, error: findingError } = await db
@@ -162,12 +181,14 @@ test('v278 a claimed private report becomes one explicitly assigned Finding', as
     .single();
   expect(duplicateIntakeError).toBeNull();
 
-  await page.goto('/findings/intake');
+  await page.goto(`/findings/intake?report=${duplicateIntake!.id}`);
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
-  const duplicateRow = page.locator('.esh-register-row').filter({ hasText: duplicateText });
+  const duplicateRow = page.locator('.esh-intake-item').filter({ hasText: duplicateText });
   await expect(duplicateRow).toBeVisible();
-  await duplicateRow.getByText('Mark as duplicate', { exact: true }).click();
-  const duplicateForm = duplicateRow.locator('form').first();
+  // v293 — one of the three decisions that are not "assign this".
+  const other = page.locator('.esh-intake-other');
+  await other.locator('summary').filter({ hasText: 'Existing finding' }).click();
+  const duplicateForm = other.locator('form').first();
   await duplicateForm.getByLabel('Existing Finding reference').fill(finding!.reference);
   await duplicateForm.getByLabel('Reason').fill('It describes the same press guard.');
   await duplicateForm.getByRole('button', { name: 'Link duplicate without action' }).click();

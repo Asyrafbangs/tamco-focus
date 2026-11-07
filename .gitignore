@@ -70,4 +70,11 @@ skills-lock.json
 # and site photographs, and a 3MB archive at the repo root is one careless
 # `git add -A` away from GitHub. No .zip has ever been tracked here.
 *.zip
+.shots/
+
+# Local design screenshots for review (not part of the build).
+.shots/
+
+# Eval run output: real model answers over synthetic fixtures, kept out of
+# the repository because each run is a few hundred kilobytes of prose.
 evals/ai/runs/

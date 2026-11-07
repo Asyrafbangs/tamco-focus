@@ -417,23 +417,43 @@ export async function getReportIntakeForFinding(
  * readers without coordinator authority or department scope; this query does
  * not recreate those permission rules in the application.
  */
-export async function listReportIntake(): Promise<{ rows: ReportIntakeRow[]; failed: boolean }> {
+export async function listReportIntake(): Promise<{
+  rows: ReportIntakeRow[];
+  failed: boolean;
+  /** Everything waiting, which is not always what the rows show. */
+  total: number;
+  /** Whether the queue is longer than the page in hand (v293). */
+  truncated: boolean;
+}> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  /*
+   * v293 - the count as well as the page.
+   *
+   * This reads at most two hundred rows, and the screen used to report the
+   * number it had rather than the number there are. On a queue that has
+   * grown past that, "200 reports waiting" is a number that stops moving no
+   * matter how many are triaged, which is exactly when somebody needs to
+   * know it is still growing.
+   */
+  const { data, error, count } = await supabase
     .from('esh_report_intake')
     .select(
       'id, source, status, report_text, reported_location, department_id, received_at, reporter_contact, esh_report_intake_photos(id, original_name, size_bytes, scan_state, state)',
+      { count: 'exact' },
     )
     .in('status', ['new', 'triaging'])
     .order('received_at')
     .limit(200);
   if (error) {
     console.error(`[listReportIntake] ${error.code ?? 'unknown'}: ${error.message}`);
-    return { rows: [], failed: true };
+    return { rows: [], failed: true, total: 0, truncated: false };
   }
+  const rows = data ?? [];
   return {
     failed: false,
-    rows: (data ?? []).map((row) => ({
+    total: count ?? rows.length,
+    truncated: (count ?? rows.length) > rows.length,
+    rows: rows.map((row) => ({
       id: String(row.id),
       source: row.source === 'esh_manual' ? 'esh_manual' : 'qr',
       status: row.status as ReportIntakeRow['status'],

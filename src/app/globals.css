@@ -12965,9 +12965,18 @@ span.deadline span.deadline-glyph,
   font-weight: 700;
   text-decoration: underline;
 }
+/*
+ * v293 — as many columns as fit, not always three.
+ *
+ * Three equal columns at any width above 720px put each card at 148px on a
+ * 768px screen, which is narrower than its own heading and padding. The cards
+ * clip their contents (`overflow: hidden` below), so nothing scrolled and
+ * nothing looked broken — the words were simply cut off, and only a check
+ * that measures each element found it.
+ */
 .esh-today-columns {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 20px;
   margin-top: 20px;
 }
@@ -16948,24 +16957,39 @@ span.deadline span.deadline-glyph,
 .public-report-emergency {
   margin: 16px 0 24px;
 }
+.public-report-lead {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 15px;
+}
+/* v293 — the sticker's own answer, with a pin beside it: where this report is
+   being made, said once, so the form never asks for it. */
 .public-report-where {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0 0 20px;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
   padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--surface-2, var(--surface));
 }
-.public-report-where span {
-  color: var(--muted);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.public-report-pin {
+  display: inline-flex;
+  color: var(--blue);
+}
+.public-report-where > span:last-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 .public-report-where strong {
   font-size: 17px;
+  line-height: 1.3;
+}
+.public-report-where small {
+  color: var(--muted);
+  font-size: 12px;
 }
 .public-report .esh-field {
   margin-bottom: 20px;
@@ -16979,8 +17003,11 @@ span.deadline span.deadline-glyph,
   min-height: 48px;
   font-size: 17px;
 }
+/* Three rows to begin with — the box grows as it is typed into (v293). A
+   taller empty box reads as "we expect an essay", and on a phone it pushes
+   Send off the screen before a word has been written. */
 .public-report textarea {
-  min-height: 120px;
+  min-height: 92px;
 }
 .public-report input[type='file'] {
   width: 100%;
@@ -17026,6 +17053,31 @@ span.deadline span.deadline-glyph,
 .public-report-privacy h2 {
   margin: 0 0 8px;
   font-size: 15px;
+}
+.public-report-privacy > p {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+/*
+ * v293 - `display` left alone, deliberately.
+ *
+ * A `summary` set to `display: flex` stops toggling its own `details` on a
+ * click in Chromium: the disclosure is drawn, reads as a disclosure, and
+ * cannot be opened by the people it is for. Measured, not assumed - the same
+ * element opens the moment the display is `list-item`. Anything that needs a
+ * layout goes on a child of the summary, never on the summary.
+ */
+.public-report-privacy summary {
+  color: var(--blue);
+  font-size: 14px;
+  cursor: pointer;
+  min-height: 44px;
+  padding: 10px 0;
+}
+.public-report-privacy details[open] summary {
+  margin-bottom: 8px;
 }
 .public-report-privacy ul {
   margin: 0;
@@ -17164,6 +17216,32 @@ span.deadline span.deadline-glyph,
 }
 
 /* v290 — take or choose, side by side, both reachable with a thumb. */
+/* The required field's message keeps its line whether or not it is showing.
+   Reserving it is what stops the page moving under a finger mid-tap (v293). */
+.public-report-problem-slot {
+  min-height: 20px;
+  margin-top: 4px;
+  visibility: hidden;
+}
+.public-report-problem-slot[data-shown] {
+  visibility: visible;
+}
+
+/* v293 — a photograph's place on the page while it is being re-encoded, so
+   choosing one does something visible before it is ready to send. */
+.public-report-preparing {
+  color: var(--muted);
+  font-size: 12px;
+}
+.public-report-thumb-pending {
+  display: block;
+  width: 136px;
+  height: 136px;
+  border-radius: 10px;
+  border: 1px dashed var(--line);
+  background: var(--surface-2, var(--surface));
+}
+
 .public-report-choose {
   display: flex;
   gap: 10px;
@@ -17171,8 +17249,191 @@ span.deadline span.deadline-glyph,
 }
 .public-report-choose .btn {
   flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: 48px;
   font-size: 16px;
+}
+.public-report-choose .btn svg {
+  flex: none;
+}
+
+/* ------------------------------------------------------------------------ */
+/* v293 — the triage workspace: the queue beside the report and the decision. */
+/* ------------------------------------------------------------------------ */
+
+/*
+ * 35/65, within a width somebody can read across. The queue is a list of
+ * sentences and does not improve past about 420px; the decision beside it is
+ * where the work happens. Below 1100px the two stack, because a 300px queue
+ * and a 300px form are two columns of nothing.
+ */
+.esh-intake-workspace {
+  display: grid;
+  grid-template-columns: minmax(280px, 35%) minmax(0, 65%);
+  gap: 20px;
+  align-items: start;
+  max-width: 1280px;
+}
+@media (max-width: 1100px) {
+  .esh-intake-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.esh-intake-queue {
+  position: sticky;
+  top: 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(100vh - 120px);
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+@media (max-width: 1100px) {
+  .esh-intake-queue {
+    position: static;
+    max-height: 420px;
+  }
+}
+.esh-intake-queue-head h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.esh-intake-queue-head p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.esh-intake-list {
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.esh-intake-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: inherit;
+  text-decoration: none;
+}
+.esh-intake-item:hover {
+  background: var(--surface-2);
+}
+.esh-intake-item[data-selected] {
+  border-color: var(--blue);
+  background: var(--blue-bg);
+}
+.esh-intake-item strong {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.esh-intake-item small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.esh-intake-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.esh-intake-item-evidence {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.esh-intake-review > h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+/* The employee's own words, marked as theirs and not editable here. */
+.esh-intake-original {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--blue);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.esh-intake-original-eyebrow {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.esh-intake-original-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.esh-intake-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 16px;
+  margin: 12px 0 0;
+}
+.esh-intake-facts dt {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.esh-intake-facts dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+}
+
+.esh-intake-other {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.esh-intake-other h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.esh-intake-other details {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+/* The display stays `list-item` here too - see the note on the public form's
+   privacy disclosure. The stacking goes on the children. */
+.esh-intake-other summary {
+  min-height: 44px;
+  padding: 10px 0;
+  cursor: pointer;
+}
+.esh-intake-other summary strong {
+  display: block;
+  font-size: 14px;
+}
+.esh-intake-other summary small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* A high or critical risk, said beside the choice rather than afterwards. */
+.esh-risk-warning {
+  margin-top: 12px;
 }
 
 /* ------------------------------------------------------------------------ */

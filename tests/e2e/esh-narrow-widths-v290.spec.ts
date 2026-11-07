@@ -119,7 +119,21 @@ async function signIn(page: Page) {
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 }
 
-const WIDTHS = [320, 375];
+/*
+ * v293 — 430 as well, and the workspace with it.
+ *
+ * 320 and 375 are the narrow end; 430 is a current large phone, and it is
+ * where a two-column workspace is closest to deciding whether it is one
+ * column or two. The remaining widths the package asks for — 390, 768, 1024
+ * and 1440 — are the configured browser projects, so every spec already runs
+ * at them.
+ */
+/*
+ * v293 - 768 and 1024 as well, where the triage workspace stops being two
+ * columns and becomes one. 390 and 1440 are the configured projects, so
+ * between them the set is 320, 375, 390, 430, 768, 1024 and 1440.
+ */
+const WIDTHS = [320, 375, 430, 768, 1024];
 
 const PATHS = [
   '/findings',
@@ -135,7 +149,7 @@ const PATHS = [
   '/findings/settings',
 ];
 
-test('v290 every Finding screen fits a 320 and a 375 phone, in Day and Night', async ({
+test('v290 every Finding screen fits a narrow phone, in Day and Night', async ({
   page,
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'mobile', 'One narrow pass; the crawl covers 390 upward.');
