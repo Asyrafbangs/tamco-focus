@@ -10,7 +10,9 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { ModuleSwitcher } from '@/components/esh/ModuleSwitcher';
 import { PendingDrawer } from '@/components/ui/PendingDrawer';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { canUseAssistant } from '@/domain/ai';
 import { getCurrentProfile } from '@/lib/supabase/server';
+import { aiConfig } from '@/server/ai/config';
 import { getActionRequiredCount, getNotifications } from '@/server/queries';
 import { getEshAccess } from '@/server/esh/access';
 import type { AppRole } from '@/domain/types';
@@ -32,6 +34,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!profile) redirect('/sign-in');
 
   const role = profile.role as AppRole;
+  /*
+   * v301 — asked once, on the server, from the same function the page and the
+   * route call. The rail used to decide this itself from the role; it cannot
+   * any more, because the rule may name individual accounts and that list is
+   * server configuration. This is presentation only: both of the places that
+   * actually authorise anything check for themselves.
+   */
+  const assistantOffered = canUseAssistant(role, profile.email, aiConfig().allowedEmails);
   const [actionRequiredCount, notifications, eshAccess] = await Promise.all([
     getActionRequiredCount(profile.id),
     getNotifications(profile.id),
@@ -74,7 +84,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <PendingDrawer />
       </Suspense>
 
-      <NavigationRail role={role} actionRequiredCount={actionRequiredCount} initials={initials} />
+      <NavigationRail
+        role={role}
+        actionRequiredCount={actionRequiredCount}
+        initials={initials}
+        canUseAssistant={assistantOffered}
+      />
 
       <div className="shell">
         <header className="topbar">
@@ -125,7 +140,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </main>
       </div>
 
-      <MobileNavigation role={role} actionRequiredCount={actionRequiredCount} />
+      <MobileNavigation
+        role={role}
+        actionRequiredCount={actionRequiredCount}
+        canUseAssistant={assistantOffered}
+      />
     </div>
   );
 }

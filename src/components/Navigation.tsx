@@ -19,6 +19,15 @@ interface Destination {
   label: string;
   icon: string;
   managerOnly?: boolean;
+  /**
+   * Shown only when the server says this person may use the assistant.
+   *
+   * v301 — a role is no longer enough to decide this, because the rule can
+   * now name individual accounts, and the named list is server configuration
+   * that has no business being shipped to a browser so a `filter` can read
+   * it. The layout asks `canUseAssistant` once and passes the answer.
+   */
+  assistant?: boolean;
 }
 
 const DESTINATIONS: Destination[] = [
@@ -39,14 +48,17 @@ const DESTINATIONS: Destination[] = [
   // decision. This flag only hides the link; the authorisation is
   // `canUseAssistant` in `@/domain/ai`, which the page and the route each
   // call for themselves. The two must agree, and an e2e case holds them to it.
-  { href: '/ai', label: 'TAMCO AI', icon: '✦', managerOnly: true },
+  // v301 — the same rule, asked once on the server, because it can now name
+  // accounts as well as roles.
+  { href: '/ai', label: 'TAMCO AI', icon: '✦', assistant: true },
   { href: '/more', label: 'More', icon: '•••' },
 ];
 
-function visibleTo(role: AppRole): Destination[] {
-  return DESTINATIONS.filter(
-    (destination) => !destination.managerOnly || role === 'manager' || role === 'administrator',
-  );
+function visibleTo(role: AppRole, assistant: boolean): Destination[] {
+  return DESTINATIONS.filter((destination) => {
+    if (destination.assistant) return assistant;
+    return !destination.managerOnly || role === 'manager' || role === 'administrator';
+  });
 }
 
 function useIsActive() {
@@ -62,9 +74,25 @@ interface NavigationProps {
    * a red indicator only in that case, and every one carries written text.
    */
   actionRequiredCount?: number;
+  /**
+   * Whether to offer the assistant. Decided on the server by
+   * `canUseAssistant`, never re-derived here.
+   *
+   * Defaults to `false`, which is the safe direction for a presentation
+   * concern: a caller that forgets it hides a link somebody is entitled to,
+   * which is a visible annoyance, rather than offering one they are not,
+   * which is the defect v299 existed to fix. Hiding the link authorises
+   * nothing either way — the page and the route check for themselves.
+   */
+  canUseAssistant?: boolean;
 }
 
-export function NavigationRail({ role, actionRequiredCount = 0, initials }: NavigationProps) {
+export function NavigationRail({
+  role,
+  actionRequiredCount = 0,
+  initials,
+  canUseAssistant = false,
+}: NavigationProps) {
   const isActive = useIsActive();
 
   return (
@@ -77,7 +105,7 @@ export function NavigationRail({ role, actionRequiredCount = 0, initials }: Navi
       </div>
 
       <div className="railnav">
-        {visibleTo(role).map((destination) => {
+        {visibleTo(role, canUseAssistant).map((destination) => {
           const active = isActive(destination.href);
           const showBadge = destination.href === '/today' && actionRequiredCount > 0;
 
@@ -126,9 +154,13 @@ export function NavigationRail({ role, actionRequiredCount = 0, initials }: Navi
   );
 }
 
-export function MobileNavigation({ role, actionRequiredCount = 0 }: NavigationProps) {
+export function MobileNavigation({
+  role,
+  actionRequiredCount = 0,
+  canUseAssistant = false,
+}: NavigationProps) {
   const isActive = useIsActive();
-  const destinations = visibleTo(role);
+  const destinations = visibleTo(role, canUseAssistant);
 
   return (
     <nav

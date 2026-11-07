@@ -52,9 +52,21 @@ export async function POST(request: Request) {
    * because the caller is a script, not a reader, and a wrong status would
    * only make a real failure harder to diagnose.
    */
-  if (!canUseAssistant(profile.role)) {
+  const config = aiConfig();
+  if (!canUseAssistant(profile.role, profile.email, config.allowedEmails)) {
+    /*
+     * v301 — the refusal says which rule refused, and never who is on the
+     * list. "Managers and administrators" would be a lie on an installation
+     * limited to named accounts, and naming the accounts would turn a
+     * refusal into a directory.
+     */
     return NextResponse.json(
-      { error: 'The assistant is available to managers and administrators.' },
+      {
+        error:
+          config.allowedEmails.length > 0
+            ? 'The assistant is limited to named accounts on this installation.'
+            : 'The assistant is available to managers and administrators.',
+      },
       { status: 403 },
     );
   }
@@ -71,7 +83,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Ask a question.' }, { status: 400 });
   }
 
-  const config = aiConfig();
   const provider = providerFor(config);
   const used = await usageWindow();
   const refusal = sendRefusal({

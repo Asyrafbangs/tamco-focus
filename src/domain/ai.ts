@@ -830,7 +830,48 @@ export class ToolInputError extends Error {}
  * permission rule written three times is a permission rule with three
  * different bugs. Hiding a nav entry is presentation, not authorisation: the
  * page and the route each call this themselves.
+ *
+ * v301 adds a named list above the role rule, for the stage before a rollout
+ * rather than instead of one. The owner's words were "for now I don't want my
+ * team to use this - let my account only use it", and a role cannot express
+ * that: `administrator` is a job, and anybody else holding it would be let in
+ * by a rule meant to admit one person.
+ *
+ * When the list is set it is the **whole** rule, and the role is not consulted
+ * at all. That is deliberate in both directions. It cannot lock the owner out
+ * for holding the wrong role — a named manager is admitted — and it cannot let
+ * a second administrator in through the back, which is the entire point of
+ * naming people. An empty list means nobody was named, so the role rule stands
+ * and nothing about v299 changes.
  */
-export function canUseAssistant(role: AppRole): boolean {
+export function canUseAssistant(
+  role: AppRole,
+  email?: string | null,
+  allowedEmails: readonly string[] = [],
+): boolean {
+  if (allowedEmails.length > 0) {
+    return typeof email === 'string' && allowedEmails.includes(email.trim().toLowerCase());
+  }
   return role === 'manager' || role === 'administrator';
+}
+
+/**
+ * The named list, as written in configuration.
+ *
+ * Comma-separated, trimmed and lowercased, because the value is typed by a
+ * person into a hosting dashboard and will arrive with a stray space sooner
+ * or later. `CRON_SECRET` with whitespace around it has already cost this
+ * project two failed production deployments and an unproven scheduler, so a
+ * value that is compared rather than merely present gets trimmed here.
+ *
+ * Addresses are lowercased on both sides: an email address's domain is
+ * case-insensitive by definition, nobody types their own address the same way
+ * twice, and an owner locked out of their own assistant by a capital letter
+ * would reasonably call that a bug.
+ */
+export function parseAllowedEmails(raw?: string | null): string[] {
+  return (raw ?? '')
+    .split(',')
+    .map((one) => one.trim().toLowerCase())
+    .filter(Boolean);
 }
