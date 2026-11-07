@@ -566,6 +566,52 @@ Five migrations are now waiting for `npx supabase db push --linked` from a
 clean `main`: v279, v280, v286, v287 and v288. None drops or rewrites an
 existing object.
 
+## TAMCO AI, merged and dormant (v295-v299)
+
+Merged to `main` as `fe2f41d` on 7 November 2026 and deployed to Production
+(`tamco-focus-drg9yhx6e`, built from that commit). Migrations `v295_ai_coworker`
+and `v296_ai_shared_quota` are applied in Production, confirmed both by the
+migration ledger and by probing the live API: the four `ai_*` tables answer
+`42501` to anon, so they exist and are closed.
+
+**It is switched off, and switching it on is not one variable.** The feature
+needs `Boolean(apiKey) && AI_ENABLED !== 'false'`, and `apiKey` is read from
+whichever variable the _provider_ names. `AI_PROVIDER` defaults to `groq`, so:
+
+- setting only `OPENAI_API_KEY` in Vercel leaves the assistant **off** - the
+  config reads `GROQ_API_KEY`, finds nothing, and reports itself disabled;
+- `AI_PROVIDER=openai` must be set explicitly;
+- `AI_MODEL` must then be an OpenAI model. `.env.example` still carries
+  `AI_MODEL=openai/gpt-oss-120b`, which is a Groq model name, and the config
+  deliberately refuses a model belonging to the other provider rather than
+  passing it through to a 404 per request;
+- `AI_DAILY_LIMIT_USD` defaults to **1**. The v298 evaluation spent $0.62 on
+  31 questions, so nine people asking ten questions a day is about $1.40 - the
+  ceiling would stop the assistant mid-afternoon on day one.
+
+The v299 disabled notice names whichever variable the running configuration
+actually reads, so a half-finished setup now says what is missing instead of
+naming Groq's key on an OpenAI installation.
+
+**Who may use it: manager and administrator** (`canUseAssistant` in
+`@/domain/ai`). v295 shipped `/ai` with no role gate anywhere, so the v298
+merge widened the audience to every signed-in person as a side effect of a
+deploy. Nothing leaked - every tool runs as the asker, against the same RLS
+they already have - but the decision had not been made. v299 enforces it in
+three places: the rail hides the entry, the page answers 404, the route
+answers 403. Hiding the link authorises nothing, which is why all three exist.
+
+**Evaluation (v298):** 86/100 across 31 scenarios, 26 PASS / 4 PARTIAL /
+1 FAIL, no security or permission failures, **CONDITIONAL GO**. Full record in
+`jarvis-complex-evaluation-report.md` with every question, answer and grade
+preserved verbatim. The remaining FAIL is two linked records describing one
+hazard counted as two hazards: the recorded relation exists in the database but
+is not in the register rows the model reads. Before wider rollout the summary
+asks for that relation surfaced, `reported_on` exposed (no effort or duration
+data exists anywhere, so the assistant correctly refuses completion dates),
+the spend ceiling set deliberately, `high` effort measured, and the suite
+re-run against production-shaped data.
+
 ## Exact next action
 
 All four lean-package stages are merged; `main` is green at `490bbc6` and

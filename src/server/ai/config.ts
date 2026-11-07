@@ -28,6 +28,15 @@ export interface AiConfig {
   enabled: boolean;
   provider: AiProviderId;
   apiKey: string | null;
+  /*
+   * The environment variable this provider's key is read from.
+   *
+   * Carried on the config so the screen can name the right one. v299: the
+   * disabled notice said "an administrator sets GROQ_API_KEY" for two
+   * versions after the provider became OpenAI, which sent anyone following it
+   * to set a variable the running code no longer reads.
+   */
+  keyVariable: string;
   /** Optional OpenAI scoping headers, when the account uses them. */
   organization: string | null;
   project: string | null;
@@ -179,6 +188,7 @@ export function aiConfig(): AiConfig {
     enabled: Boolean(apiKey) && process.env.AI_ENABLED?.trim().toLowerCase() !== 'false',
     provider,
     apiKey,
+    keyVariable: defaults.keyVariable,
     organization: process.env.OPENAI_ORG_ID?.trim() || null,
     project: process.env.OPENAI_PROJECT_ID?.trim() || null,
     model,

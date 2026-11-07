@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 
-import { AGENT_LIMITS, REFUSAL_WORDS, estimateTokens, sendRefusal } from '@/domain/ai';
+import {
+  AGENT_LIMITS,
+  REFUSAL_WORDS,
+  canUseAssistant,
+  estimateTokens,
+  sendRefusal,
+} from '@/domain/ai';
 import { getCurrentProfile } from '@/lib/supabase/server';
 import { fixedPromptCost, runInvestigation } from '@/server/ai/agent';
 import { aiConfig } from '@/server/ai/config';
@@ -37,6 +43,20 @@ export async function POST(request: Request) {
   const profile = await getCurrentProfile();
   if (!profile) {
     return NextResponse.json({ error: 'Not signed in.' }, { status: 401 });
+  }
+  /*
+   * v299 — the same rule as the page, from the same function. This is the
+   * check that counts: the page gate stops somebody browsing to `/ai`, but
+   * the route is a plain POST endpoint and would otherwise answer anybody
+   * signed in, whatever the rail showed them. 403 rather than 404 here
+   * because the caller is a script, not a reader, and a wrong status would
+   * only make a real failure harder to diagnose.
+   */
+  if (!canUseAssistant(profile.role)) {
+    return NextResponse.json(
+      { error: 'The assistant is available to managers and administrators.' },
+      { status: 403 },
+    );
   }
 
   let body: { question?: unknown; conversationId?: unknown };
