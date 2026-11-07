@@ -164,6 +164,9 @@ describe('v295 the agent cannot leave the caller’s permissions', () => {
       ...aiSources().map((one) => path.join(AI_DIR, one.file)),
       path.join(process.cwd(), 'src', 'domain', 'ai.ts'),
       path.join(process.cwd(), 'scripts', 'run-ai-evals.mjs'),
+      // The grader moved out of the runner in v300, and it is now where the
+      // regexes live - which is precisely what this test exists to guard.
+      path.join(process.cwd(), 'scripts', 'lib', 'ai-answer-grader.mjs'),
       path.join(process.cwd(), 'evals', 'ai', 'scenarios.json'),
     ];
     for (const file of suspects) {
