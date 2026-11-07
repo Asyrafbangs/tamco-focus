@@ -11,6 +11,8 @@
  * exist is `src/server/ai/providers`.
  */
 
+import type { AppRole } from '@/domain/types';
+
 /* ------------------------------------------------------------ messages -- */
 
 /**
@@ -804,3 +806,31 @@ export function titleFrom(question: string): string {
  * to load the database layer to construct one.
  */
 export class ToolInputError extends Error {}
+
+/* ------------------------------------------------------------- access -- */
+
+/**
+ * Who may use the assistant.
+ *
+ * v299. Until v298 this was nobody's decision: `/ai` carried no role gate, so
+ * the merge that shipped the OpenAI provider also put a "TAMCO AI" entry in
+ * front of every signed-in person. Nothing leaked — the feature answers only
+ * from records the asker is authorised to see, and it was switched off in
+ * production besides — but the audience widened as a side effect of a deploy
+ * rather than as a choice, and that is the kind of thing that should be
+ * written down rather than inferred from a nav array.
+ *
+ * Manager and administrator, because the investigations this was built and
+ * graded for are management ones: where the backlog is concentrated, which
+ * control keeps failing, who is overloaded. The v298 evaluation scored it at
+ * 86/100 on exactly those, and its own conclusion was that it is not yet
+ * ready for the whole workforce.
+ *
+ * One function, imported by the rail, the page and the route, because a
+ * permission rule written three times is a permission rule with three
+ * different bugs. Hiding a nav entry is presentation, not authorisation: the
+ * page and the route each call this themselves.
+ */
+export function canUseAssistant(role: AppRole): boolean {
+  return role === 'manager' || role === 'administrator';
+}

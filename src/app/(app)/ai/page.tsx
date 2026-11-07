@@ -1,5 +1,7 @@
+import { notFound } from 'next/navigation';
+
 import { AiWorkspace } from '@/components/AiWorkspace';
-import { pairExchanges } from '@/domain/ai';
+import { canUseAssistant, pairExchanges } from '@/domain/ai';
 import { requireProfile } from '@/lib/supabase/server';
 import { aiConfig } from '@/server/ai/config';
 import { listConversations, loadThread } from '@/server/ai/conversations';
@@ -19,7 +21,16 @@ import { listConversations, loadThread } from '@/server/ai/conversations';
 export const dynamic = 'force-dynamic';
 
 export default async function AiPage({ searchParams }: { searchParams: Promise<{ c?: string }> }) {
-  await requireProfile();
+  const profile = await requireProfile();
+  /*
+   * v299 — before the reads, not after. `notFound` for the same reason the
+   * admin screens use it: a 404 tells somebody without the role that there is
+   * nothing here for them, where a 403 would confirm there is something worth
+   * asking about. Checked here and not only in the rail, because a hidden
+   * link is still a reachable address.
+   */
+  if (!canUseAssistant(profile.role)) notFound();
+
   const params = await searchParams;
   const conversationId = /^[0-9a-f-]{36}$/i.test(params.c ?? '') ? params.c! : null;
   const [conversations, thread] = await Promise.all([
@@ -47,7 +58,7 @@ export default async function AiPage({ searchParams }: { searchParams: Promise<{
         disabledReason={
           config.enabled
             ? ''
-            : 'The assistant is not switched on for this installation. An administrator sets GROQ_API_KEY to enable it.'
+            : `The assistant is not switched on for this installation. An administrator sets ${config.keyVariable} to enable it.`
         }
       />
     </>

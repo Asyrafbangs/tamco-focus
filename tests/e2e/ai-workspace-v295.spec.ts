@@ -85,7 +85,7 @@ test.describe('v295 TAMCO AI workspace', () => {
      * does nothing.
      */
     if (await box.isDisabled()) {
-      await expect(box).toHaveAttribute('placeholder', /not switched on|GROQ_API_KEY/);
+      await expect(box).toHaveAttribute('placeholder', /not switched on|(GROQ|OPENAI)_API_KEY/);
       await expect(page.getByRole('button', { name: 'Ask', exact: true })).toBeDisabled();
     } else {
       await box.fill('Why are my corrective actions delayed?');

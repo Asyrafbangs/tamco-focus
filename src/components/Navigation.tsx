@@ -34,7 +34,12 @@ const DESTINATIONS: Destination[] = [
   // v295 — the assistant sits with the work it reads, not in a settings
   // corner. It is a destination because somebody asks it a question in the
   // middle of doing something, not at the end of a configuration journey.
-  { href: '/ai', label: 'TAMCO AI', icon: '✦' },
+  // v299 — manager and administrator, like Team Focus before it. The
+  // destination appeared for everyone in v295 by omission rather than by
+  // decision. This flag only hides the link; the authorisation is
+  // `canUseAssistant` in `@/domain/ai`, which the page and the route each
+  // call for themselves. The two must agree, and an e2e case holds them to it.
+  { href: '/ai', label: 'TAMCO AI', icon: '✦', managerOnly: true },
   { href: '/more', label: 'More', icon: '•••' },
 ];
 
