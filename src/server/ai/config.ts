@@ -31,6 +31,16 @@ export interface AiConfig {
   limits: TierLimits;
   /** A dollar ceiling as well, for when the tier is a paid one. */
   dailySpendLimitUsd: number;
+  /*
+   * The slice of the shared daily allowance one person may have.
+   *
+   * The provider's quota belongs to the API key, so everybody here draws on
+   * one pool. Without a share, the first colleague to have a busy morning
+   * spends the whole day's tokens and the other eight meet a 429 in the
+   * middle of a question. A fraction rather than a count because the pool
+   * moves with the plan. 1 switches it off.
+   */
+  personDailyShare: number;
 }
 
 const EFFORTS = new Set(['low', 'medium', 'high']);
@@ -83,5 +93,15 @@ export function aiConfig(): AiConfig {
       tokensPerDay: number('AI_LIMIT_TPD', GROQ_FREE_LIMITS.tokensPerDay),
     },
     dailySpendLimitUsd: number('AI_DAILY_LIMIT_USD', 1),
+    /*
+     * Half the day each, by default.
+     *
+     * Not 1/headcount: the assistant is not used evenly, and a share that
+     * small would refuse the one person actually investigating something
+     * while eight unused shares sat idle. Half is loose enough to be
+     * invisible on a normal day and tight enough that one runaway afternoon
+     * leaves the rest of the office something to work with.
+     */
+    personDailyShare: Math.min(1, Math.max(0, number('AI_PERSON_DAILY_SHARE', 0.5))),
   };
 }

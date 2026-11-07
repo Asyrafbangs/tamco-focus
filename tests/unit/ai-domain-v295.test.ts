@@ -5,7 +5,7 @@ import {
   GROQ_FREE_LIMITS,
   NO_USAGE,
   REFUSAL_WORDS,
-  STOP_WORDS,
+  TOOL_LABELS,
   asEvidence,
   canAffordStep,
   capRows,
@@ -15,10 +15,13 @@ import {
   listPriceOf,
   pairExchanges,
   sendRefusal,
+  scrubToolNames,
   stepsExhausted,
+  stopWords,
   sumUsage,
   titleFrom,
   totalTokens,
+  waitWords,
 } from '@/domain/ai';
 import { SYSTEM_PROMPT } from '@/server/ai/prompt';
 
@@ -132,6 +135,9 @@ describe('v295 what is refused before anything is sent', () => {
     tokensToday: 0,
     spentTodayUsd: 0,
     tokensThisMinute: 0,
+    myTokensToday: 0,
+    // Off by default here, so the existing cases test what they say they do.
+    personDailyShare: 1,
     estimatedTokens: 3_000,
     limits,
     dailySpendLimitUsd: 1,
@@ -143,6 +149,59 @@ describe('v295 what is refused before anything is sent', () => {
 
   it('refuses when the installation has it switched off', () => {
     expect(sendRefusal({ ...base, enabled: false })).toBe('disabled');
+  });
+
+  /*
+   * v296. The ceilings belong to the API key: one Groq account, one
+   * organisation, 200,000 tokens a day between everybody. Counting one
+   * person's usage against an organisation's limit told nine employees they
+   * each had the whole day, and the guard that was meant to refuse a question
+   * before it cost anything permitted nine times what the provider serves.
+   */
+  it('holds the installation to one shared allowance, not one each', () => {
+    // Eight colleagues have spent the day between them; this person none.
+    const pooled = { ...base, tokensToday: 199_500, myTokensToday: 0 };
+    expect(sendRefusal(pooled)).toBe('daily_tokens');
+    expect(REFUSAL_WORDS.daily_tokens).toMatch(/shared/i);
+
+    const pooledRequests = { ...base, requestsToday: 1_000, myTokensToday: 0 };
+    expect(sendRefusal(pooledRequests)).toBe('daily_requests');
+    expect(REFUSAL_WORDS.daily_requests).toMatch(/shared/i);
+  });
+
+  it('refuses a question that would cross the shared day partway through', () => {
+    /*
+     * The day used to be compared only as "already over the line". A
+     * question costing 3,000 tokens with 199,000 gone is inside the ceiling
+     * on that test and over it by the time it finishes.
+     */
+    const nearly = { ...base, tokensToday: 199_000, estimatedTokens: 3_000, myTokensToday: 0 };
+    expect(sendRefusal(nearly)).toBe('daily_tokens');
+  });
+
+  it('keeps one person from spending everybody elses day', () => {
+    const hog = { ...base, personDailyShare: 0.5, myTokensToday: 120_000, tokensToday: 120_000 };
+    expect(sendRefusal(hog)).toBe('person_share');
+    expect(REFUSAL_WORDS.person_share).toMatch(/colleagues/i);
+
+    // Inside the share, it says nothing.
+    const busy = { ...base, personDailyShare: 0.5, myTokensToday: 80_000, tokensToday: 80_000 };
+    expect(sendRefusal(busy)).toBeNull();
+  });
+
+  it('says the pool is gone rather than blaming the person, when both are true', () => {
+    /*
+     * Order matters. Somebody who is over their share on a day that is also
+     * exhausted should be told the truth about the day: "you have had
+     * enough" would be misleading when nobody can ask anything.
+     */
+    const both = {
+      ...base,
+      personDailyShare: 0.5,
+      myTokensToday: 150_000,
+      tokensToday: 200_000,
+    };
+    expect(sendRefusal(both)).toBe('daily_tokens');
   });
 
   it('refuses when there is no key, and says an administrator must act', () => {
@@ -336,13 +395,115 @@ describe('v295 the loop stops itself, and says why', () => {
       'clock',
       'budget',
       'rate_limited',
+      'quota',
       'truncated',
       'failed',
     ] as const) {
-      expect(STOP_WORDS[reason].length).toBeGreaterThan(30);
+      expect(stopWords({ stop: reason, readCount: 2 }).length).toBeGreaterThan(30);
     }
-    expect(STOP_WORDS.rate_limited).toMatch(/rate limited/i);
-    expect(STOP_WORDS.truncated).toMatch(/cut off/i);
+    expect(stopWords({ stop: 'rate_limited', readCount: 1 })).toMatch(/rate limited/i);
+    expect(stopWords({ stop: 'truncated', readCount: 1 })).toMatch(/cut off/i);
+  });
+
+  /*
+   * v296. Every stop used to end "What I read is listed below", including the
+   * ones that had read nothing - a turn refused for budget before its first
+   * request, or one whose only read failed. The sentence pointed at an empty
+   * space and claimed evidence the answer did not have.
+   */
+  it('does not promise a list of records when nothing was read', () => {
+    for (const reason of [
+      'steps',
+      'clock',
+      'budget',
+      'rate_limited',
+      'quota',
+      'truncated',
+      'failed',
+    ] as const) {
+      const nothing = stopWords({ stop: reason, readCount: 0 });
+      expect(nothing).not.toMatch(/listed below/i);
+      expect(nothing).toMatch(/had not read anything/i);
+
+      const something = stopWords({ stop: reason, readCount: 3 });
+      expect(something).toMatch(/listed below/i);
+      expect(something).not.toMatch(/had not read anything/i);
+    }
+  });
+
+  /*
+   * v296. A spent daily quota and a per-minute rate limit are both 429s and
+   * used to produce the same sentence, which told somebody to ask again in a
+   * minute for the rest of the afternoon.
+   */
+  it('tells a daily quota apart from a minute of rate limiting', () => {
+    const daily = stopWords({ stop: 'quota', readCount: 1, retryAfterMs: 45 * 60_000 });
+    expect(daily).toMatch(/shared/i);
+    expect(daily).toMatch(/45 minutes/);
+    expect(daily).not.toMatch(/ask again in a minute/i);
+
+    const minute = stopWords({ stop: 'rate_limited', readCount: 1, retryAfterMs: 20_000 });
+    expect(minute).toMatch(/under a minute/i);
+  });
+
+  it('says a wait in words, rounded up and hedged', () => {
+    expect(waitWords(5_000)).toBe('in under a minute');
+    expect(waitWords(61_000)).toBe('in about 2 minutes');
+    expect(waitWords(60_000)).toBe('in about 1 minute');
+    expect(waitWords(3 * 3_600_000)).toBe('in about 3 hours');
+  });
+});
+
+/*
+ * v296. The names of our own tools are meaningless to the person reading an
+ * answer: there is no query for them to run, and the records are already
+ * linked underneath. A prompt rule asking the model not to write them was
+ * measured and did not hold, so the reader is protected deterministically.
+ */
+describe('v296 an answer never shows an internal tool name', () => {
+  const NAMES = Object.keys(TOOL_LABELS);
+
+  it('takes every tool name out of the shapes the real model produced', () => {
+    const observed = [
+      'The list_team_workload query returned no data for your team.',
+      'Everything is on track (list_my_tasks)',
+      'See the detail 【get_finding_detail】 for the full picture.',
+      'Run a list_team_workload search again with the correct team identifier.',
+      'I checked search_findings and get_finding_detail for ESH-0042.',
+      'A get_task_detail call shows the step is blocked.',
+      '(list_my_tasks returns zero rows) so nothing is due today.',
+    ];
+    for (const answer of observed) {
+      const clean = scrubToolNames(answer);
+      for (const name of NAMES) expect(clean).not.toContain(name);
+      expect(clean.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('leaves an answer that names nothing exactly as it was', () => {
+    const plain = 'Two actions are overdue: ESH-0042 and ESH-0043. Neither has an owner.';
+    expect(scrubToolNames(plain)).toBe(plain);
+  });
+
+  it('drops a citation that held nothing but a tool name', () => {
+    expect(scrubToolNames('Nothing is overdue (list_my_tasks).')).toBe('Nothing is overdue.');
+  });
+
+  it('does not leave a doubled article behind', () => {
+    expect(scrubToolNames('The list_team_workload query is empty.')).toBe(
+      'The team’s work query is empty.',
+    );
+    expect(scrubToolNames('Run a list_team_workload search.')).toBe('Run the team’s work search.');
+  });
+
+  /*
+   * The scrubber must not be mistaken for a fix to the model's behaviour: the
+   * eval suite grades the model's own words, so a rule it keeps breaking has
+   * to keep showing up there. This test guards the seam, not the prompt.
+   */
+  it('is a display guard and does not touch the tool call itself', () => {
+    expect(TOOL_LABELS.list_team_workload).toBeDefined();
+    expect(NAMES).toHaveLength(8);
   });
 });
 

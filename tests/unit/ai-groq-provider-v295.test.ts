@@ -352,6 +352,66 @@ describe('v295 how a failure is classified', () => {
     );
   });
 
+  /*
+   * v296, and the single most consequential thing in this file.
+   *
+   * Groq's headers carry requests remaining for the DAY and tokens remaining
+   * for the MINUTE. There is no header for tokens remaining for the day - and
+   * tokens per day is the limit that actually binds a free account running an
+   * agent loop. So a daily token refusal arrives as a 429 with hundreds of
+   * requests to spare and a short request reset, and every signal the
+   * classifier used said "busy minute".
+   *
+   * A usage export over one afternoon: 407 requests, 91 refused on tokens per
+   * day, 1 on tokens per minute. All 92 were reported to the person as a
+   * minute of rate limiting. The body is the only place the bucket is named,
+   * so the body is read first.
+   */
+  it('reads the bucket out of the message, because no header carries it', () => {
+    const tpd = JSON.stringify({
+      error: {
+        message:
+          'Rate limit reached for model `openai/gpt-oss-120b` in organization `org_x` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199418, Requested 1736. Please try again in 8m32.1s.',
+        type: 'tokens',
+        code: 'rate_limit_exceeded',
+      },
+    });
+    /* Requests to spare and a short request reset: every old signal said minute. */
+    expect(
+      classify(
+        429,
+        headers({ 'x-ratelimit-remaining-requests': '593', 'x-ratelimit-reset-requests': '2.1s' }),
+        tpd,
+      ),
+    ).toBe('quota_exhausted');
+
+    const tpm = JSON.stringify({
+      error: {
+        message:
+          'Rate limit reached for model `openai/gpt-oss-120b` in organization `org_x` on tokens per minute (TPM): Limit 8000, Used 7840, Requested 900. Please try again in 5.2s.',
+        code: 'rate_limit_exceeded',
+      },
+    });
+    expect(classify(429, headers({ 'x-ratelimit-remaining-requests': '593' }), tpm)).toBe(
+      'rate_limited',
+    );
+
+    // Requests per day is a day's allowance too.
+    expect(classify(429, headers({}), 'on requests per day (RPD): Limit 1000')).toBe(
+      'quota_exhausted',
+    );
+  });
+
+  it('treats a long retry-after as a day, when the message says nothing', () => {
+    /*
+     * The fallback for a message we cannot read. 507, 657 and 761 seconds
+     * were the waits observed on those daily refusals, while the request
+     * reset header stayed in single-digit seconds.
+     */
+    expect(classify(429, headers({ 'retry-after': '657' }), '')).toBe('quota_exhausted');
+    expect(classify(429, headers({ 'retry-after': '12' }), '')).toBe('rate_limited');
+  });
+
   it('knows a rejected tool call from an ordinary bad request', () => {
     /*
      * Observed against the real API: gpt-oss emitted a call to `commentary` -
@@ -395,6 +455,78 @@ describe('v295 how a failure is classified', () => {
     });
     expect(attempts).toBe(2);
     expect(reply.text).toContain('Two actions are overdue.');
+    /*
+     * v296. Both requests happened and both counted against the provider's
+     * daily allowance, so the reply says two. The route used to record
+     * `toolCalls.length + 1` - database reads, which never touch the network
+     * - and a resampled generation was recorded as a single request.
+     */
+    expect(reply.requests).toBe(2);
+  });
+
+  /*
+   * v296. A refused request spends the allowance exactly as a served one
+   * does, and a resampled generation spends it three times. A usage report
+   * that counts only the turns which produced an answer shows a fraction of
+   * what the provider's own console shows.
+   */
+  it('counts every request it made, including the ones that failed', async () => {
+    let attempts = 0;
+    const alwaysMalformed = providerWith(async () => {
+      attempts += 1;
+      return errorResponse(400, {
+        error: { message: 'output_parse_failed', code: 'output_parse_failed' },
+      });
+    });
+
+    const failure = await alwaysMalformed
+      .send({
+        system: 'x',
+        messages: [{ role: 'user', content: 'y' }],
+        tools: [TOOL],
+        maxOutputTokens: 1_000,
+        effort: 'medium',
+      })
+      .catch((cause: unknown) => cause as ProviderError);
+
+    expect(failure).toBeInstanceOf(ProviderError);
+    expect((failure as ProviderError).kind).toBe('malformed_generation');
+    // One try plus two resamples, all three against the day's allowance.
+    expect(attempts).toBe(3);
+    expect((failure as ProviderError).requests).toBe(3);
+  });
+
+  it('counts one request for an ordinary answer', async () => {
+    const provider = providerWith(async () => okResponse(ANSWER));
+    const reply = await provider.send({
+      system: 'x',
+      messages: [{ role: 'user', content: 'y' }],
+      tools: [TOOL],
+      maxOutputTokens: 1_000,
+      effort: 'medium',
+    });
+    expect(reply.requests).toBe(1);
+  });
+
+  it('counts the parameter fallback as the second request it is', async () => {
+    let attempts = 0;
+    const provider = providerWith(async () => {
+      attempts += 1;
+      if (attempts === 1) {
+        return errorResponse(400, {
+          error: { message: 'Unrecognized request argument supplied: reasoning_effort' },
+        });
+      }
+      return okResponse(ANSWER);
+    });
+    const reply = await provider.send({
+      system: 'x',
+      messages: [{ role: 'user', content: 'y' }],
+      tools: [TOOL],
+      maxOutputTokens: 1_000,
+      effort: 'medium',
+    });
+    expect(reply.requests).toBe(2);
   });
 
   it('knows an invalid key from a bad request from a server fault', () => {
@@ -451,7 +583,13 @@ describe('v295 how a failure is classified', () => {
   it('does not call an exhausted quota retryable', () => {
     const quota = new ProviderError('quota_exhausted', 'daily limit', { retryAfterMs: 3_600_000 });
     expect(quota.retryable).toBe(false);
-    expect(stopReasonFor('quota_exhausted')).toBe('rate_limited');
+    /*
+     * v296. This asserted `'rate_limited'`, which is how the one distinction
+     * the classifier exists to draw got lost again on the way to the reader:
+     * correctly identified as a quota, then described as a busy minute.
+     */
+    expect(stopReasonFor('quota_exhausted')).toBe('quota');
+    expect(stopReasonFor('rate_limited')).toBe('rate_limited');
     expect(stopReasonFor('context_too_long')).toBe('budget');
     expect(stopReasonFor('timeout')).toBe('clock');
     expect(stopReasonFor('auth')).toBe('failed');

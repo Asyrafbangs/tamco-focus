@@ -64,6 +64,8 @@ export async function POST(request: Request) {
     tokensToday: used.tokensToday,
     spentTodayUsd: used.chargedTodayUsd,
     tokensThisMinute: used.tokensThisMinute,
+    myTokensToday: used.myTokensToday,
+    personDailyShare: config.personDailyShare,
     /*
      * What the first step will cost: the question, the system prompt and the
      * tool list as they actually are, plus the reply allowance. Measured
@@ -123,6 +125,9 @@ export async function POST(request: Request) {
             : 'none',
           limits: config.limits,
           tokensUsedThisMinute: used.tokensThisMinute,
+          tokensUsedToday: used.tokensToday,
+          // From configuration, which is the whole point of having it.
+          effort: config.effort,
         });
         let result = await run.next();
         while (!result.done) {
@@ -136,7 +141,17 @@ export async function POST(request: Request) {
           messages: finished.messages,
           sources: finished.sources,
           usage: finished.usage,
-          requests: finished.toolCalls.length > 0 ? finished.toolCalls.length + 1 : 1,
+          /*
+           * What the provider was actually asked, counted by the thing doing
+           * the asking.
+           *
+           * This was `toolCalls.length + 1`, which counted database reads
+           * that never touched the network and missed every retry behind
+           * one: a resampled generation is three requests against the daily
+           * allowance and used to be recorded as one. The daily request
+           * guard is only as good as this number.
+           */
+          requests: finished.providerRequests,
           chargedUsd: finished.chargedUsd,
           listPriceUsd: finished.listPriceUsd,
           provider: provider.id,

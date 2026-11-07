@@ -16288,6 +16288,7 @@ export type Database = {
         Args: never
         Returns: {
           charged_today: number
+          my_tokens_today: number
           requests_today: number
           tokens_this_minute: number
           tokens_today: number

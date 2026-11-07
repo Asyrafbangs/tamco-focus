@@ -487,17 +487,27 @@ function grade(scenario, answer) {
     }
   }
   /*
-   * Rule 14, checked everywhere rather than per scenario. A tool name in the
-   * prose is not a citation the person can use - the interface adds the links
-   * - and in a recommendation it is worse: "run a list_team_workload search
-   * again" names a control the product does not have. Two answers in the first
-   * full run did this, and every deterministic check passed them.
+   * Rule 14 is measured here, not failed here.
+   *
+   * A tool name in the prose is not a citation the person can use - the
+   * interface adds the links - and in a recommendation it is worse: "run a
+   * list_team_workload search again" names a control the product does not
+   * have. Nine of fifteen answers in the first full run did it, and every
+   * deterministic check passed them.
+   *
+   * Asking the model not to was then measured and did not hold: the first
+   * three answers of the next run named one each. So the product now strips
+   * them on the way to the reader - `scrubToolNames`, proved against these
+   * exact observed forms in `ai-domain-v295.test.ts` - and nobody using
+   * TAMCO Focus sees one.
+   *
+   * Which leaves this a reading rather than a verdict. Failing a run for a
+   * symptom the reader cannot experience would block a release for nothing;
+   * ignoring it would lose the one measurement of how closely this model
+   * follows an explicit instruction, and that matters for the rules where
+   * there is no deterministic net - the ones about not inventing a finding.
+   * So it is counted and reported, and `namesTools` below is what carries it.
    */
-  for (const name of TOOL_NAMES) {
-    if (new RegExp(`\\b${name}\\b`).test(answer.text ?? '')) {
-      failures.push(`names the tool ${name}`);
-    }
-  }
   /*
    * Rule 9c. An empty read is a limit on what this person may see, not a
    * transient fault, and there is no index, cache or sync here to blame.
@@ -560,9 +570,19 @@ for (const scenario of scenarios) {
   try {
     const answer = await run(scenario);
     const failures = grade(scenario, answer);
+    /*
+     * Measured, not failed. See the long note in `grade`: the product strips
+     * these before anybody reads them, so a leak here is a reading on how
+     * closely the model follows an explicit instruction rather than a defect
+     * the reader meets.
+     */
+    const namesTools = TOOL_NAMES.filter((name) =>
+      new RegExp(`\\b${name}\\b`).test(answer.text ?? ''),
+    );
     results.push({
       id: scenario.id,
       failures,
+      namesTools,
       answer: answer.text,
       used: answer.used,
       tokens: answer.tokens,
@@ -571,7 +591,8 @@ for (const scenario of scenarios) {
       ms: Date.now() - began,
       graded_on: scenario.graded_on ?? [],
     });
-    console.log(failures.length === 0 ? 'pass' : `FAIL — ${failures.join('; ')}`);
+    const note = namesTools.length > 0 ? ` (named ${namesTools.join(', ')}; scrubbed)` : '';
+    console.log(failures.length === 0 ? `pass${note}` : `FAIL — ${failures.join('; ')}${note}`);
   } catch (cause) {
     results.push({ id: scenario.id, failures: [`errored: ${cause}`], answer: '', used: [] });
     console.log(`ERROR ${cause}`);
@@ -586,9 +607,28 @@ const tokensUsed = results.reduce(
   0,
 );
 
+const leaked = results.filter((one) => (one.namesTools ?? []).length > 0);
+
 console.log('');
 console.log(`${passed} of ${results.length} scenarios passed their deterministic checks.`);
 console.log(`${tokensUsed.toLocaleString()} tokens used.`);
+/*
+ * Per question, and what that means for a shared free tier. The limits belong
+ * to the API key rather than to a person: everybody here draws on 200,000
+ * tokens a day between them, so this number is the installation's capacity,
+ * not one employee's.
+ */
+if (results.length > 0) {
+  const perQuestion = Math.round(tokensUsed / results.length);
+  console.log(
+    `${perQuestion.toLocaleString()} tokens per question at ${EFFORT} effort, ` +
+      `so about ${Math.floor(200_000 / perQuestion)} questions a day shared across everybody.`,
+  );
+}
+console.log(
+  `${leaked.length} of ${results.length} answers wrote an internal tool name ` +
+    '(stripped before display; measured because it reads on instruction-following).',
+);
 console.log('The `graded_on` notes need a person; they are not scored here.');
 
 console.log(`Answers written to ${out}`);

@@ -15,7 +15,7 @@
 
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(18);
 
 create or replace function pg_temp.act_as(p_user_id uuid)
 returns void language plpgsql as $$
@@ -39,6 +39,22 @@ create or replace function pg_temp.izzul() returns uuid language sql immutable a
   $$ select 'f0c05000-0000-4000-a000-000000000002'::uuid $$;
 create or replace function pg_temp.lim() returns uuid language sql immutable as
   $$ select 'f0c05000-0000-4000-a000-000000000006'::uuid $$;
+
+/*
+ * The assistant's own tables start empty, because every count below is an
+ * exact one.
+ *
+ * This matters more since v296: the usage window totals the whole
+ * installation, so the pool is whatever anybody happened to ask on this
+ * database before the test ran. It was already fragile for the visibility
+ * counts - one real conversation on a developer's machine made "they see
+ * their own, and only their own" read 2 against a wanted 1. Rolled back with
+ * the rest of the transaction, so nothing is lost.
+ */
+delete from public.ai_tool_calls;
+delete from public.ai_usage;
+delete from public.ai_messages;
+delete from public.ai_conversations;
 
 -- Two people, two private threads, written as themselves.
 select pg_temp.act_as(pg_temp.izzul());
@@ -109,10 +125,30 @@ select throws_ok(
   NULL,
   'a conversation cannot be created in somebody else''s name');
 
+/*
+ * v296 — the allowance is the installation's, and this assertion used to say
+ * the opposite.
+ *
+ * It read "the usage window counts the caller's own usage, not everybody's",
+ * and it was green, and it was the bug. The ceilings this number is held
+ * against belong to the API key: one Groq account, one organisation, 200,000
+ * tokens a day shared by everybody. Counting one person against an
+ * organisation's limit told nine employees they each had the whole day.
+ *
+ * So Lim, who has spent nothing, must still see what Izzul spent - otherwise
+ * the route lets a question through that the provider will refuse. What Lim
+ * must NOT see is anything attributable: no row, no title, no question. The
+ * two assertions above and below this one are what keep those apart.
+ */
 select is(
   (select tokens_today from public.ai_usage_window())::bigint,
+  1290::bigint,
+  'a colleague who has spent nothing still sees the shared pool drawn down');
+
+select is(
+  (select my_tokens_today from public.ai_usage_window())::bigint,
   0::bigint,
-  'the usage window counts the caller''s own usage, not everybody''s');
+  'while their own share of it is still reported separately');
 
 select pg_temp.reset_role();
 select pg_temp.act_as(pg_temp.izzul());
@@ -120,7 +156,12 @@ select pg_temp.act_as(pg_temp.izzul());
 select is(
   (select tokens_today from public.ai_usage_window())::bigint,
   1290::bigint,
-  'and reports the tokens for the person who actually used them');
+  'and the person who spent them sees the same shared total');
+
+select is(
+  (select my_tokens_today from public.ai_usage_window())::bigint,
+  1290::bigint,
+  'which for them is all their own');
 
 select is(
   (select requests_today from public.ai_usage_window())::integer,
@@ -143,7 +184,19 @@ select is(
   0.000234::numeric(10,6),
   'while what it would have cost at list price is still answerable');
 
+/*
+ * The function reads past RLS to total everybody's usage, so it has to
+ * establish who is asking before it answers anything at all. Without this,
+ * an unauthenticated caller reads the installation's consumption. Last in
+ * this section because it leaves no caller set.
+ */
 select pg_temp.reset_role();
+select throws_ok(
+  $$select * from public.ai_usage_window()$$,
+  '42501',
+  NULL,
+  'and refuses to total anything for a caller it cannot identify');
+
 select pg_temp.act_as(pg_temp.admin());
 
 /*

@@ -63,12 +63,19 @@ import {
   type AgentEvent,
   type AgentResult,
 } from '@/server/ai/agent';
-import type { AiProvider, ProviderReply } from '@/server/ai/providers/types';
+import type { AiProvider, ProviderReply, ProviderRequest } from '@/server/ai/providers/types';
 
 const USAGE = { ...NO_USAGE, inputTokens: 300, outputTokens: 40 };
 
 function answers(text: string): ProviderReply {
-  return { text, toolCalls: [], usage: USAGE, stop: 'answered', model: 'openai/gpt-oss-120b' };
+  return {
+    text,
+    toolCalls: [],
+    usage: USAGE,
+    stop: 'answered',
+    model: 'openai/gpt-oss-120b',
+    requests: 1,
+  };
 }
 
 function callsTool(name = 'list_my_tasks', args = '{}'): ProviderReply {
@@ -83,6 +90,7 @@ function callsTool(name = 'list_my_tasks', args = '{}'): ProviderReply {
     usage: USAGE,
     stop: 'tool_calls',
     model: 'openai/gpt-oss-120b',
+    requests: 1,
   };
 }
 
@@ -128,6 +136,8 @@ function run(overrides: Partial<Parameters<typeof runInvestigation>[0]>) {
     eshAccess: 'none',
     limits: roomy,
     tokensUsedThisMinute: 0,
+    tokensUsedToday: 0,
+    effort: 'medium',
     wait: async () => {},
     ...overrides,
   });
@@ -294,6 +304,7 @@ describe('v295 an investigation that cannot finish says so', () => {
       usage: USAGE,
       stop: 'truncated',
       model: 'openai/gpt-oss-120b',
+      requests: 1,
     };
     const { result } = await collect(run({ provider: scripted([cut]) }));
     expect(result.stop).toBe('truncated');
@@ -340,9 +351,21 @@ describe('v295 a rate-limited provider', () => {
       }),
     );
     expect(waited).toEqual([]);
-    expect(result.stop).toBe('rate_limited');
+    /*
+     * v296: its own stop reason, and this test asserted the old one.
+     *
+     * A spent daily allowance and a busy minute are both 429s and both used
+     * to end the turn with "ask again in a minute". A usage export settled
+     * how often that mattered: 91 of 407 requests over one afternoon were
+     * refused on the daily token quota, and every one of them sent somebody
+     * back a minute later to be refused again.
+     */
+    expect(result.stop).toBe('quota');
     expect(result.failure?.kind).toBe('quota_exhausted');
-    expect(result.text).toMatch(/rate limited/i);
+    expect(result.text).not.toMatch(/ask again in a minute/i);
+    expect(result.text).toMatch(/shared/i);
+    // And it says when, from what the provider asked for.
+    expect(result.text).toMatch(/in about 1 hour/);
   });
 
   it('does not wait longer than the turn has left', async () => {
@@ -537,5 +560,225 @@ describe('v295 a tool that fails is answered, not thrown', () => {
     );
     expect(state.toolRuns).toHaveLength(0);
     expect(result.toolCalls[0]).toMatchObject({ name: 'delete_finding', ok: false });
+  });
+});
+
+/**
+ * v296 — what the turn reports about itself.
+ *
+ * Three numbers the rest of the feature is built on, each of which was wrong:
+ * the effort actually sent, the requests actually made, and the records
+ * actually read. None of them is observable from an answer, which is why each
+ * one stayed wrong while every test passed.
+ */
+describe('v296 the turn reports what it really did', () => {
+  /** Captures what the loop asked for, rather than only what came back. */
+  function recording(replies: (ProviderReply | ProviderError)[]) {
+    const sent: ProviderRequest[] = [];
+    let at = 0;
+    const provider: AiProvider = {
+      id: 'groq',
+      model: 'openai/gpt-oss-120b',
+      tier: 'free',
+      async send(request) {
+        sent.push(request);
+        const next = replies[Math.min(at, replies.length - 1)]!;
+        at += 1;
+        if (next instanceof ProviderError) throw next;
+        return next;
+      },
+    };
+    return { provider, sent };
+  }
+
+  /*
+   * `AI_EFFORT` was read, validated and defaulted to `medium` in config, and
+   * the loop sent the literal `'high'` regardless. The documented setting and
+   * the request were different things, and the eval suite - which does honour
+   * the setting - had therefore never measured what the product sends.
+   */
+  it('sends the effort it was configured with, not a hard-coded one', async () => {
+    for (const effort of ['low', 'medium', 'high'] as const) {
+      const { provider, sent } = recording([answers('ok')]);
+      // Short, so the no-tools nudge does not add a second request here.
+      await collect(run({ provider, effort, question: 'thanks' }));
+      expect(sent).toHaveLength(1);
+      expect(sent[0]!.effort).toBe(effort);
+    }
+  });
+
+  /*
+   * The closing request - the one with no tools, which turns four reads into
+   * a conclusion - used to be sent at `'low'` whatever the configuration
+   * said. It is the only request whose output a person actually reads.
+   */
+  it('synthesises the final answer at the configured effort too', async () => {
+    const { provider, sent } = recording([
+      callsTool('list_my_tasks'),
+      callsTool('list_steps_i_owe'),
+      callsTool('search_findings'),
+      callsTool('list_verification_queue'),
+      callsTool('get_hazard_distribution'),
+      callsTool('list_team_workload'),
+      answers('Drawn together from what I read.'),
+    ]);
+    const { result } = await collect(run({ provider, effort: 'high' }));
+    // The last request is the tools-less closing one.
+    const closing = sent.at(-1)!;
+    expect(closing.tools).toEqual([]);
+    expect(closing.effort).toBe('high');
+    expect(result.text).toContain('Drawn together');
+  });
+
+  it('counts the provider requests it made, not the tools it called', async () => {
+    /*
+     * Two steps, three tool calls in one of them. The old arithmetic was
+     * `toolCalls.length + 1`, which counts database reads that never leave
+     * the building: it would say four. The provider was asked twice.
+     */
+    const threeAtOnce: ProviderReply = {
+      text: '',
+      toolCalls: [
+        { id: 'a', name: 'list_my_tasks', arguments: '{}' },
+        { id: 'b', name: 'list_steps_i_owe', arguments: '{}' },
+        { id: 'c', name: 'search_findings', arguments: '{}' },
+      ],
+      usage: USAGE,
+      stop: 'tool_calls',
+      model: 'openai/gpt-oss-120b',
+      requests: 1,
+    };
+    const { result } = await collect(
+      run({ provider: scripted([threeAtOnce, answers('Here it is.')]) }),
+    );
+    expect(result.toolCalls).toHaveLength(3);
+    expect(result.providerRequests).toBe(2);
+  });
+
+  it('counts a step that resampled behind the scenes as the requests it cost', async () => {
+    const resampled: ProviderReply = { ...answers('Settled on the third sample.'), requests: 3 };
+    const { result } = await collect(run({ provider: scripted([resampled]), question: 'thanks' }));
+    expect(result.providerRequests).toBe(3);
+  });
+
+  /*
+   * The nudge - an answer with no reads behind it is discarded and asked
+   * again - is a second provider request, and the old arithmetic could not
+   * see it: a nudged turn that then answered without tools recorded one
+   * request and cost two.
+   */
+  it('counts the groundless-answer nudge, which is a second request', async () => {
+    const { provider, sent } = recording([answers('Nothing to worry about.')]);
+    const { result } = await collect(
+      run({ provider, question: 'Why are my corrective actions delayed?' }),
+    );
+    expect(sent).toHaveLength(2);
+    expect(result.providerRequests).toBe(2);
+  });
+
+  it('counts a refused request, which spent the allowance all the same', async () => {
+    const { result } = await collect(
+      run({
+        provider: scripted([
+          new ProviderError('quota_exhausted', 'tokens per day (TPD)', {
+            status: 429,
+            retryAfterMs: 1_800_000,
+            requests: 1,
+          }),
+        ]),
+      }),
+    );
+    expect(result.stop).toBe('quota');
+    expect(result.providerRequests).toBe(1);
+  });
+
+  /*
+   * Every stop used to end "What I read is listed below". A turn whose only
+   * read failed has nothing to list, and said it anyway.
+   */
+  it('does not promise a record list when every read failed', async () => {
+    state.toolBehaviour = 'throws';
+    const { result } = await collect(
+      run({
+        provider: scripted([callsTool('search_findings'), answers('')]),
+        limits: { ...roomy, tokensPerMinute: 1_000_000 },
+      }),
+    );
+    expect(result.readCount).toBe(0);
+    expect(result.sources).toEqual([]);
+    if (result.stop !== 'answered') {
+      expect(result.text).not.toMatch(/listed below/i);
+    }
+  });
+
+  /*
+   * The day was checked once, before the turn began, and never again - so a
+   * multi-step investigation could cross the shared daily ceiling halfway
+   * and take its 429 in the middle instead of being told up front.
+   */
+  it('stops for the shared day, and says so rather than blaming the minute', async () => {
+    const { result } = await collect(
+      run({
+        provider: scripted([answers('should never be reached')]),
+        limits: { ...GROQ_FREE_LIMITS, tokensPerMinute: 1_000_000, tokensPerDay: 200_000 },
+        tokensUsedToday: 199_000,
+      }),
+    );
+    expect(result.stop).toBe('quota');
+    expect(result.text).toMatch(/shared/i);
+    expect(result.providerRequests).toBe(0);
+  });
+});
+
+/**
+ * v296 — the model's own output, refused.
+ *
+ * Groq rejects a request when gpt-oss writes a call to something nobody
+ * offered (`tool_use_failed`, usually `commentary`, part of the format it
+ * reasons in) or prose where structure was expected (`output_parse_failed`).
+ * A usage export over one afternoon counted five of them. The provider
+ * resamples twice; what matters here is what the loop does when all three
+ * samples are refused, because the one unacceptable answer is a confident one
+ * with nothing behind it.
+ */
+describe('v296 a refused generation ends honestly', () => {
+  it('says it could not finish rather than answering anyway', async () => {
+    const { result } = await collect(
+      run({
+        provider: scripted([
+          new ProviderError('malformed_generation', 'tool_use_failed', {
+            status: 400,
+            // One try and two resamples, all three against the allowance.
+            requests: 3,
+          }),
+        ]),
+      }),
+    );
+    expect(result.stop).toBe('failed');
+    expect(result.text).toMatch(/could not complete/i);
+    expect(result.text).toMatch(/Nothing was changed/i);
+    // It read nothing, so it must not point at a list of records.
+    expect(result.text).not.toMatch(/listed below/i);
+    expect(result.providerRequests).toBe(3);
+  });
+
+  it('keeps the evidence it already had when a later sample is refused', async () => {
+    const { result } = await collect(
+      run({
+        provider: scripted([
+          callsTool('list_my_tasks'),
+          new ProviderError('malformed_generation', 'output_parse_failed', {
+            status: 400,
+            requests: 3,
+          }),
+        ]),
+      }),
+    );
+    expect(result.stop).toBe('failed');
+    expect(result.readCount).toBe(1);
+    // One read succeeded, so this time there is something to point at.
+    expect(result.text).toMatch(/listed below/i);
+    // One request for the tool-calling step, three for the refused one.
+    expect(result.providerRequests).toBe(4);
   });
 });

@@ -212,13 +212,33 @@ export const GROQ_FREE_LIMITS: TierLimits = {
 export function canAffordStep(input: {
   estimatedTokens: number;
   tokensUsedThisMinute: number;
+  /*
+   * What the whole account has spent in the rolling day, where it is known.
+   *
+   * Checked as well as the minute, because the day is the limit that
+   * actually bit: a usage export over one afternoon showed 91 of 407
+   * requests refused on the daily token quota and only one on the minute's.
+   * The day was guarded once before the turn began and never again, so a
+   * multi-step investigation could cross it halfway and take its 429 in the
+   * middle rather than being told up front.
+   */
+  tokensUsedToday?: number;
   limits: TierLimits;
   /** How much of the minute budget to leave unused, as a fraction. */
   headroom?: number;
 }): boolean {
   const headroom = input.headroom ?? 0.1;
   const ceiling = Math.floor(input.limits.tokensPerMinute * (1 - headroom));
-  return input.tokensUsedThisMinute + input.estimatedTokens <= ceiling;
+  if (input.tokensUsedThisMinute + input.estimatedTokens > ceiling) return false;
+  // No headroom on the day: it is a wall, not a pace, and leaving a tenth of
+  // 200,000 tokens unused would cost about four investigations a day.
+  if (
+    input.tokensUsedToday !== undefined &&
+    input.tokensUsedToday + input.estimatedTokens > input.limits.tokensPerDay
+  ) {
+    return false;
+  }
+  return true;
 }
 
 /** Why a request was refused before it was ever sent. */
@@ -229,6 +249,16 @@ export type RefusalReason =
   | 'daily_tokens'
   | 'daily_spend'
   | 'minute_tokens'
+  /*
+   * One person has had their share of a pool everybody draws on.
+   *
+   * The provider's quota belongs to the API key, not to the person holding
+   * the mouse: one key, one organisation, 200,000 tokens a day between
+   * everyone. Without a share, the first colleague to have a busy morning
+   * spends the afternoon's allowance for the other eight, and they find out
+   * as a 429 in the middle of a question.
+   */
+  | 'person_share'
   | 'too_long'
   | 'busy';
 
@@ -236,13 +266,15 @@ export const REFUSAL_WORDS: Record<RefusalReason, string> = {
   disabled: 'The assistant is switched off for this installation.',
   no_key: 'The assistant has no API key configured, so it cannot answer.',
   daily_requests:
-    'This account has used its daily number of questions. It resets 24 hours after the earliest one counted against it.',
+    'The assistant’s daily number of questions is shared across everyone here, and it has been used up. It frees up as the earliest questions fall outside the 24-hour window.',
   daily_tokens:
-    'This account has used its daily token allowance. It resets 24 hours after the earliest tokens counted against it.',
+    'The assistant’s daily token allowance is shared across everyone here, and it has been used up. It frees up as the earliest tokens fall outside the 24-hour window.',
   daily_spend:
-    'This account has reached its daily spending limit for the assistant. It resets 24 hours after the earliest spend counted against it.',
+    'The assistant has reached its daily spending limit. It resets 24 hours after the earliest spend counted against it.',
   minute_tokens:
     'The free tier allows a limited number of tokens each minute and this question would exceed it. Wait about a minute and ask again.',
+  person_share:
+    'You have used your share of the assistant’s daily allowance, which is shared with your colleagues. Your share frees up as your earliest tokens fall outside the 24-hour window.',
   too_long: 'That message is longer than the assistant accepts. Shorten it and ask again.',
   busy: 'This conversation already has a question in flight. Wait for it to finish, or stop it.',
 };
@@ -261,12 +293,23 @@ export function sendRefusal(input: {
   questionLength: number;
   maxQuestionLength: number;
   inFlight: boolean;
-  /** Usage over the rolling day, as recorded. */
+  /*
+   * Usage over the rolling day, across the whole installation.
+   *
+   * Everybody's, not the asker's. The limits being held against belong to
+   * one API key shared by the organisation, so counting one person's usage
+   * against an organisation's ceiling told nine employees they each had
+   * 200,000 tokens when between them they had 200,000.
+   */
   requestsToday: number;
   tokensToday: number;
   spentTodayUsd: number;
-  /** Tokens already spent in the last minute, across this account. */
+  /** Tokens already spent in the last minute, across the installation. */
   tokensThisMinute: number;
+  /** What this one person has spent today, held against their share. */
+  myTokensToday: number;
+  /** The slice of the day one person may have, as a fraction. 1 is no cap. */
+  personDailyShare: number;
   estimatedTokens: number;
   limits: TierLimits;
   dailySpendLimitUsd: number;
@@ -278,16 +321,105 @@ export function sendRefusal(input: {
   if (input.requestsToday >= input.limits.requestsPerDay) return 'daily_requests';
   if (input.tokensToday >= input.limits.tokensPerDay) return 'daily_tokens';
   if (input.spentTodayUsd >= input.dailySpendLimitUsd) return 'daily_spend';
+  /*
+   * The share is checked after the pool, so somebody who is inside their
+   * share on an exhausted day is told the truth - that it is gone - rather
+   * than that they personally have had enough.
+   */
+  if (input.personDailyShare > 0 && input.personDailyShare < 1) {
+    const share = Math.floor(input.limits.tokensPerDay * input.personDailyShare);
+    if (input.myTokensToday >= share) return 'person_share';
+  }
   if (
     !canAffordStep({
       estimatedTokens: input.estimatedTokens,
       tokensUsedThisMinute: input.tokensThisMinute,
+      tokensUsedToday: input.tokensToday,
       limits: input.limits,
     })
   ) {
-    return 'minute_tokens';
+    return input.tokensToday + input.estimatedTokens > input.limits.tokensPerDay
+      ? 'daily_tokens'
+      : 'minute_tokens';
   }
   return null;
+}
+
+/* ----------------------------------------------------------- tool names -- */
+
+/**
+ * What each tool reads, in words that mean something to the person reading.
+ *
+ * Here rather than in the tool definitions because both the answer and the
+ * progress line need it, and one of those runs in the browser.
+ */
+export const TOOL_LABELS: Record<string, string> = {
+  list_my_tasks: 'your tasks',
+  get_task_detail: 'a task in full',
+  list_steps_i_owe: 'steps you owe',
+  list_team_workload: 'the team’s work',
+  search_findings: 'the finding register',
+  get_finding_detail: 'a finding in full',
+  list_verification_queue: 'the verification queue',
+  get_hazard_distribution: 'hazard categories',
+};
+
+/**
+ * Takes our internal tool names out of an answer.
+ *
+ * A prompt rule asking the model not to write them was measured and did not
+ * hold: nine of fifteen eval answers named a tool, and after the rule was
+ * added the first three answers of the next run named one each. The names are
+ * meaningless to the reader - there is no query for them to run and the
+ * records they came from are already linked under the answer - and one answer
+ * went further and recommended "run a list_team_workload search again",
+ * which reads as a usable instruction for a control that does not exist.
+ *
+ * So the reader is protected here, deterministically, rather than by asking.
+ * A bracketed citation that holds nothing but a tool name is dropped; a name
+ * used in a sentence becomes what it reads. This is a safety net and not a
+ * measurement: the eval suite grades the model's own words, so a rule the
+ * model keeps breaking still shows up as a failure there.
+ */
+export function scrubToolNames(text: string, labels: Record<string, string> = TOOL_LABELS): string {
+  const names = Object.keys(labels);
+  if (names.length === 0 || !text) return text;
+  const alternatives = names.join('|');
+  return (
+    text
+      /*
+       * A citation and nothing else. The brackets go with it, the CJK pair
+       * included - gpt-oss reaches for those when it is citing something.
+       */
+      .replace(
+        new RegExp(
+          `\\s*[([\\u3010]\\s*(?:via|from|source:?|using)?\\s*(?:${alternatives})\\s*[)\\]\\u3011]`,
+          'gi',
+        ),
+        '',
+      )
+      /*
+       * Anything left is part of a sentence, so it becomes what it reads.
+       * An article in front of it is absorbed, because most of the labels
+       * carry their own: without that, "the list_team_workload query" came
+       * out as "the the team's work query".
+       */
+      .replace(
+        new RegExp(`(\\b(?:the|a|an)\\s+)?\\b(${alternatives})\\b`, 'gi'),
+        (_whole, article: string | undefined, name: string) => {
+          const label = labels[name.toLowerCase()] ?? name;
+          // Keep a capital that started the sentence.
+          return article && /^[A-Z]/.test(article)
+            ? label.charAt(0).toUpperCase() + label.slice(1)
+            : label;
+        },
+      )
+      // Tidy up after both passes.
+      .replace(/ {2,}/g, ' ')
+      .replace(/ ([,.;:])/g, '$1')
+      .replace(/\(\s*\)/g, '')
+      .trimEnd()
+  );
 }
 
 /* ------------------------------------------------------------ evidence -- */
@@ -459,16 +591,23 @@ export const AGENT_LIMITS = {
 } as const;
 
 export type StopReason =
-  'answered' | 'steps' | 'clock' | 'budget' | 'rate_limited' | 'truncated' | 'failed';
+  | 'answered'
+  | 'steps'
+  | 'clock'
+  | 'budget'
+  | 'rate_limited'
+  /*
+   * The shared allowance for the day is gone, as against the minute's.
+   *
+   * Its own reason because the only useful thing to say about it is the one
+   * thing `rate_limited` cannot say. Both arrive as a 429 and they have
+   * opposite advice: "ask again in a minute" is right for the minute limit
+   * and a waste of somebody's afternoon when the day's tokens are spent.
+   */
+  | 'quota'
+  | 'truncated'
+  | 'failed';
 
-/**
- * Why the loop stopped, in words a person can act on.
- *
- * Every one of these is said out loud. An investigation that ran out of
- * tokens and an investigation that finished look identical from the outside
- * unless the difference is stated, and a confident-looking partial answer is
- * the worst thing this feature could produce.
- */
 /**
  * The instruction that turns a dead stop into an answer.
  *
@@ -480,20 +619,75 @@ export type StopReason =
 export const FINAL_ANSWER_INSTRUCTION =
   'You are out of steps for this question. Answer now from the records already above: lead with the answer, cite what you read, and say plainly what you could not establish. Do not ask for more tools.';
 
-export const STOP_WORDS: Record<Exclude<StopReason, 'answered'>, string> = {
-  steps:
-    'I reached the limit on how many records I can read in one go. What I read is listed below; narrow the question and I can go deeper.',
-  clock:
-    'I ran out of time before I could finish this one. What I read is listed below — ask me again and I will carry on from there.',
-  budget:
-    'I ran out of the token allowance for this minute before I could finish. What I read is listed below; ask again shortly and I can continue.',
-  rate_limited:
-    'The model is rate limited at the moment, so I stopped early. What I read is listed below; ask again in a minute.',
-  truncated:
-    'My answer was cut off at its length limit. What I read is listed below; ask for one part of it and I can be more specific.',
-  failed:
-    'I could not complete this investigation. Nothing was changed. What I managed to read is listed below.',
+/** What happened, and what the person can do about it. */
+const STOP_LEAD: Record<Exclude<StopReason, 'answered'>, string> = {
+  steps: 'I reached the limit on how many records I can read in one go.',
+  clock: 'I ran out of time before I could finish this one.',
+  budget: 'I ran out of the token allowance for this minute before I could finish.',
+  rate_limited: 'The model is rate limited at the moment, so I stopped early.',
+  quota: 'The assistant’s daily allowance is shared across everyone here, and it is used up.',
+  truncated: 'My answer was cut off at its length limit.',
+  failed: 'I could not complete this investigation. Nothing was changed.',
 };
+
+const STOP_ADVICE: Record<Exclude<StopReason, 'answered'>, string> = {
+  steps: 'Narrow the question and I can go deeper.',
+  clock: 'Ask me again and I will carry on from there.',
+  budget: 'Ask again shortly and I can continue.',
+  rate_limited: 'Ask again in a minute.',
+  quota: '',
+  truncated: 'Ask for one part of it and I can be more specific.',
+  failed: '',
+};
+
+/**
+ * A wait, in words rather than milliseconds.
+ *
+ * Rounded up and hedged with "about", because the provider's own figure
+ * moves as other people's requests fall out of the window, and a precise
+ * "in 9m 7s" would be a precision we do not have.
+ */
+export function waitWords(ms: number): string {
+  if (ms < 60_000) return 'in under a minute';
+  const minutes = Math.ceil(ms / 60_000);
+  if (minutes < 60) return `in about ${minutes} minute${minutes === 1 ? '' : 's'}`;
+  const hours = Math.round(ms / 3_600_000);
+  return `in about ${hours} hour${hours === 1 ? '' : 's'}`;
+}
+
+/**
+ * Why the loop stopped, in words a person can act on.
+ *
+ * Every one of these is said out loud. An investigation that ran out of
+ * tokens and an investigation that finished look identical from the outside
+ * unless the difference is stated, and a confident-looking partial answer is
+ * the worst thing this feature could produce.
+ *
+ * Assembled rather than looked up, because the sentence that used to follow
+ * every one of them - "What I read is listed below" - was only true some of
+ * the time. A turn refused for budget before its first read, or one whose
+ * every read failed, said it too, and pointed at an empty space. What was
+ * read is now counted, and a stop that gathered nothing says that instead.
+ */
+export function stopWords(input: {
+  stop: Exclude<StopReason, 'answered'>;
+  /** Reads that succeeded. Failed ones are not records we hold. */
+  readCount: number;
+  /** What the provider said about waiting, where it said anything. */
+  retryAfterMs?: number | null;
+}): string {
+  const evidence =
+    input.readCount > 0
+      ? 'What I read is listed below.'
+      : 'I had not read anything by then, so there are no records to show.';
+  const advice =
+    input.stop === 'quota'
+      ? `It frees up ${waitWords(input.retryAfterMs ?? 3_600_000)} as the earliest tokens fall outside the window.`
+      : input.stop === 'rate_limited' && input.retryAfterMs
+        ? `Ask again ${waitWords(input.retryAfterMs)}.`
+        : STOP_ADVICE[input.stop];
+  return [STOP_LEAD[input.stop], evidence, advice].filter(Boolean).join(' ');
+}
 
 export function stepsExhausted(step: number, startedAt: number, now: number): boolean {
   return step >= AGENT_LIMITS.maxSteps || now - startedAt >= AGENT_LIMITS.softDeadlineMs;

@@ -137,12 +137,33 @@ export function parseResetDuration(value: string | null): number | null {
 export function classify(status: number, headers: Headers, body: string): ProviderErrorKind {
   if (status === 401 || status === 403) return 'auth';
   if (status === 429) {
+    /*
+     * Groq says which limit it was, in the body, and that is the only place
+     * it says so for tokens-per-day.
+     *
+     * This mattered more than anything else here. The headers carry requests
+     * remaining for the DAY and tokens remaining for the MINUTE - there is
+     * no header for tokens remaining for the day - so a day's token quota
+     * arrives as a 429 with requests to spare and a short request reset, and
+     * was classified as a per-minute limit. A usage export settled it: of
+     * 407 requests over one afternoon, 91 were refused on tokens-per-day and
+     * exactly one on tokens-per-minute, and every one of the 91 told the
+     * person to ask again in a minute. The message names the bucket -
+     * "on tokens per day (TPD)" - so the message is what is read first.
+     */
+    if (/\b(?:tokens|requests) per day\b|\b[TR]PD\b/i.test(body)) return 'quota_exhausted';
+    if (/\b(?:tokens|requests) per minute\b|\b[TR]PM\b/i.test(body)) return 'rate_limited';
     const remainingDay = Number(headers.get('x-ratelimit-remaining-requests') ?? 'NaN');
     if (Number.isFinite(remainingDay) && remainingDay <= 0) return 'quota_exhausted';
+    /*
+     * Failing that, a long wait. `retry-after` is included because it is the
+     * header Groq actually populated on those daily refusals - 507, 657 and
+     * 761 seconds were observed - while the request reset stayed small.
+     */
     const reset = parseResetDuration(headers.get('x-ratelimit-reset-requests'));
-    // A reset measured in hours is a day's allowance, whatever the header says
-    // is remaining.
     if (reset !== null && reset > 10 * 60_000) return 'quota_exhausted';
+    const waitAsked = parseResetDuration(headers.get('retry-after'));
+    if (waitAsked !== null && waitAsked > 5 * 60_000) return 'quota_exhausted';
     return 'rate_limited';
   }
   if (status === 413) return 'context_too_long';
@@ -249,6 +270,17 @@ export function createGroqProvider(options: GroqOptions): AiProvider {
     tier: options.tier,
 
     async send(request: ProviderRequest): Promise<ProviderReply> {
+      /*
+       * Counted here, per call, because the loop sums what each step cost.
+       * A counter living on the provider would accumulate across the steps
+       * of one turn and be added again each time.
+       */
+      let requests = 0;
+      const sendOne = async (body: Record<string, unknown>, signal?: AbortSignal) => {
+        requests += 1;
+        return post(body, signal);
+      };
+
       const base: Record<string, unknown> = {
         model: options.model,
         messages: [
@@ -291,7 +323,7 @@ export function createGroqProvider(options: GroqOptions): AiProvider {
       let response: Response;
       let text: string;
       try {
-        response = await post({ ...base, ...optional }, request.signal);
+        response = await sendOne({ ...base, ...optional }, request.signal);
         text = await response.text();
       } catch (cause) {
         const aborted =
@@ -301,15 +333,18 @@ export function createGroqProvider(options: GroqOptions): AiProvider {
           aborted
             ? 'The model did not answer in time.'
             : `Could not reach the model: ${String(cause)}`,
+          { requests },
         );
       }
 
       if (!response.ok && response.status === 400 && looksLikeUnknownParameter(text)) {
         try {
-          response = await post(base, request.signal);
+          response = await sendOne(base, request.signal);
           text = await response.text();
         } catch (cause) {
-          throw new ProviderError('network', `Could not reach the model: ${String(cause)}`);
+          throw new ProviderError('network', `Could not reach the model: ${String(cause)}`, {
+            requests,
+          });
         }
       }
 
@@ -328,10 +363,12 @@ export function createGroqProvider(options: GroqOptions): AiProvider {
         attempt += 1
       ) {
         try {
-          response = await post({ ...base, ...optional }, request.signal);
+          response = await sendOne({ ...base, ...optional }, request.signal);
           text = await response.text();
         } catch (cause) {
-          throw new ProviderError('network', `Could not reach the model: ${String(cause)}`);
+          throw new ProviderError('network', `Could not reach the model: ${String(cause)}`, {
+            requests,
+          });
         }
       }
 
@@ -342,6 +379,7 @@ export function createGroqProvider(options: GroqOptions): AiProvider {
           retryAfterMs:
             parseResetDuration(response.headers.get('retry-after')) ??
             parseResetDuration(response.headers.get('x-ratelimit-reset-tokens')),
+          requests,
         });
       }
 
@@ -349,12 +387,14 @@ export function createGroqProvider(options: GroqOptions): AiProvider {
       try {
         parsed = JSON.parse(text) as ChatResponse;
       } catch {
-        throw new ProviderError('malformed', 'The model returned something that was not JSON.');
+        throw new ProviderError('malformed', 'The model returned something that was not JSON.', {
+          requests,
+        });
       }
 
       const choice = parsed.choices?.[0];
       if (!choice) {
-        throw new ProviderError('malformed', 'The model returned no reply at all.');
+        throw new ProviderError('malformed', 'The model returned no reply at all.', { requests });
       }
 
       const toolCalls = toolCallsFrom(choice);
@@ -373,6 +413,7 @@ export function createGroqProvider(options: GroqOptions): AiProvider {
         usage: usageFrom(parsed),
         stop,
         model: parsed.model ?? options.model,
+        requests,
       };
     },
   };

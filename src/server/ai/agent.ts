@@ -3,12 +3,13 @@ import 'server-only';
 import {
   AGENT_LIMITS,
   FINAL_ANSWER_INSTRUCTION,
-  STOP_WORDS,
   ToolInputError,
   canAffordStep,
   chargeOf,
   estimateTokens,
   listPriceOf,
+  scrubToolNames,
+  stopWords,
   sumUsage,
   totalTokens,
   type AiMessage,
@@ -74,6 +75,16 @@ export interface AgentResult {
   listPriceUsd: number;
   toolCalls: ToolCallRecord[];
   stop: StopReason;
+  /*
+   * HTTP requests this turn actually cost the provider's allowance.
+   *
+   * Not the number of steps and not the number of tool calls: a step can
+   * resample twice behind the scenes, and a tool call is a database read
+   * that never leaves the building.
+   */
+  providerRequests: number;
+  /** Reads that succeeded. What the answer is allowed to claim it read. */
+  readCount: number;
   /** Set when the turn ended on a provider failure rather than an answer. */
   failure: { kind: string; message: string; retryAfterMs: number | null } | null;
 }
@@ -86,8 +97,22 @@ export interface RunInput {
   caller: ToolCaller;
   eshAccess: string;
   limits: TierLimits;
-  /** Tokens this account has already spent in the last minute. */
+  /** Tokens the installation has already spent in the last minute. */
   tokensUsedThisMinute: number;
+  /** And in the rolling day, against the shared daily ceiling. */
+  tokensUsedToday: number;
+  /*
+   * How hard the model works, from configuration rather than from here.
+   *
+   * This used to be the literal `'high'` at the one call site below, with
+   * `AI_EFFORT` read, validated and defaulted in `config.ts` and then never
+   * used. The documented default was `medium` and every request went out at
+   * `high`, which on the measured scenario is roughly twice the tokens - so
+   * the thing being paid for and the thing being configured were different,
+   * and the eval suite, which does honour the setting, had never measured
+   * what the product actually sent.
+   */
+  effort: 'low' | 'medium' | 'high';
   now?: () => number;
   /** Swapped in tests so a rate-limit wait does not take a real minute. */
   wait?: (ms: number) => Promise<void>;
@@ -175,9 +200,12 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
   let stop: StopReason = 'answered';
   let failure: AgentResult['failure'] = null;
   let minuteTokens = input.tokensUsedThisMinute;
+  let dayTokens = input.tokensUsedToday;
   let rateLimitWaited = false;
   let toolsUsed = 0;
   let nudged = false;
+  /* Every HTTP request the provider made for this turn, successful or not. */
+  let providerRequests = 0;
   /*
    * What has already been fetched this turn.
    *
@@ -215,10 +243,15 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
       !canAffordStep({
         estimatedTokens: estimated,
         tokensUsedThisMinute: minuteTokens,
+        tokensUsedToday: dayTokens,
         limits: input.limits,
       })
     ) {
-      stop = step === 0 ? 'budget' : 'budget';
+      /*
+       * Which allowance ran out, because the advice differs: the minute's
+       * comes back in a minute, the shared day's does not.
+       */
+      stop = dayTokens + estimated > input.limits.tokensPerDay ? 'quota' : 'budget';
       break;
     }
 
@@ -235,11 +268,13 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
         messages: conversation,
         tools: toolSpecs(),
         maxOutputTokens: AGENT_LIMITS.maxOutputTokens,
-        effort: 'high',
+        effort: input.effort,
       });
+      providerRequests += reply.requests;
     } catch (cause) {
       if (!(cause instanceof ProviderError)) {
         console.error(`[ai-agent] ${String(cause)}`);
+        providerRequests += 1;
         stop = 'failed';
         failure = {
           kind: 'unknown',
@@ -248,6 +283,9 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
         };
         break;
       }
+      // A refused request still spent the provider's allowance, retries and
+      // all, so it is counted before the turn decides what to do about it.
+      providerRequests += cause.requests;
       /*
        * One wait, and only for a per-minute limit that fits inside the time
        * this turn has left. A second wait would spend the remaining clock
@@ -277,6 +315,7 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
 
     turns.push(reply.usage);
     minuteTokens += totalTokens(reply.usage);
+    dayTokens += totalTokens(reply.usage);
 
     /*
      * An answer with nothing read behind it gets exactly one nudge.
@@ -312,26 +351,37 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
       continue;
     }
 
-    if (reply.text) {
-      answer += (answer ? '\n\n' : '') + reply.text;
-      yield { type: 'text', delta: reply.text };
+    /*
+     * Scrubbed once, here, so the streamed text and the stored message are
+     * the same words and neither carries an internal tool name.
+     */
+    const written = scrubToolNames(reply.text);
+    if (written) {
+      answer += (answer ? '\n\n' : '') + written;
+      yield { type: 'text', delta: written };
     }
 
     if (reply.stop === 'truncated') {
-      produced.push({ role: 'assistant', content: reply.text });
+      produced.push({ role: 'assistant', content: written });
       stop = 'truncated';
       break;
     }
 
     if (reply.stop === 'answered' || reply.toolCalls.length === 0) {
-      produced.push({ role: 'assistant', content: reply.text });
+      produced.push({ role: 'assistant', content: written });
       stop = 'answered';
       break;
     }
 
+    /*
+     * Scrubbed here too, because this message is stored and replayed into
+     * the thread on reload - unscrubbed, a reloaded conversation would show
+     * tool names the live one had taken out. The `toolCalls` beside it are
+     * untouched: those are the real call, not prose for a person.
+     */
     const asking: AiMessage = {
       role: 'assistant',
-      content: reply.text,
+      content: written,
       toolCalls: reply.toolCalls,
     };
     conversation.push(asking);
@@ -470,6 +520,7 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
       canAffordStep({
         estimatedTokens: estimated,
         tokensUsedThisMinute: minuteTokens,
+        tokensUsedToday: dayTokens,
         limits: input.limits,
       })
     ) {
@@ -481,17 +532,30 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
           // No tools: the only thing left to do is answer.
           tools: [],
           maxOutputTokens: AGENT_LIMITS.maxOutputTokens,
-          effort: 'low',
+          /*
+           * The configured effort, not the `'low'` this used to send.
+           *
+           * This is the request that turns four reads into a conclusion, and
+           * it is the only one whose output the person actually reads. Saving
+           * tokens on the synthesis step is saving them in the one place the
+           * quality is visible.
+           */
+          effort: input.effort,
         });
+        providerRequests += closing.requests;
         turns.push(closing.usage);
         minuteTokens += totalTokens(closing.usage);
-        if (closing.text) {
-          answer = closing.text;
+        dayTokens += totalTokens(closing.usage);
+        const written = scrubToolNames(closing.text);
+        if (written) {
+          answer = written;
           stop = closing.stop === 'truncated' ? 'truncated' : 'answered';
-          produced.push({ role: 'assistant', content: closing.text });
-          yield { type: 'text', delta: closing.text };
+          produced.push({ role: 'assistant', content: written });
+          yield { type: 'text', delta: written };
         }
       } catch (cause) {
+        if (cause instanceof ProviderError) providerRequests += cause.requests;
+        else providerRequests += 1;
         // The stop reason it already had is the honest one; keep it.
         console.error(`[ai-agent] closing request failed: ${String(cause)}`);
       }
@@ -504,7 +568,15 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
    * report, and the gap between those two is the whole value of the feature.
    */
   if (stop !== 'answered') {
-    const words = STOP_WORDS[stop];
+    /*
+     * `sources` rather than `toolsUsed`: a read that failed is not a record
+     * we hold, and the sentence that follows promises a list of them.
+     */
+    const words = stopWords({
+      stop,
+      readCount: sources.length,
+      retryAfterMs: failure?.retryAfterMs ?? null,
+    });
     answer = answer ? `${answer}\n\n${words}` : words;
     yield { type: 'text', delta: words };
     if (produced.at(-1)?.role !== 'assistant' || produced.at(-1)?.toolCalls) {
@@ -529,6 +601,8 @@ export async function* runInvestigation(input: RunInput): AsyncGenerator<AgentEv
     listPriceUsd,
     toolCalls,
     stop,
+    providerRequests,
+    readCount: sources.length,
     failure,
   };
 }

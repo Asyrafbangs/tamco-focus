@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRef, useState } from 'react';
 
-import type { Exchange as StoredExchange, SourceLink } from '@/domain/ai';
+import { TOOL_LABELS, type Exchange as StoredExchange, type SourceLink } from '@/domain/ai';
 
 /**
  * The conversation workspace.
@@ -30,16 +30,11 @@ export interface ConversationRow {
   updatedAt: string;
 }
 
-const READ_LABELS: Record<string, string> = {
-  list_my_tasks: 'your tasks',
-  get_task_detail: 'a task in full',
-  list_steps_i_owe: 'steps you owe',
-  list_team_workload: 'the team’s work',
-  search_findings: 'the finding register',
-  get_finding_detail: 'a finding in full',
-  list_verification_queue: 'the verification queue',
-  get_hazard_distribution: 'hazard categories',
-};
+/*
+ * The labels now live in the domain, beside the scrubber that takes these
+ * same names out of an answer. Two copies of this map would drift, and the
+ * one that drifted would show somebody `list_team_workload`.
+ */
 
 const SUGGESTIONS = [
   'Why are my corrective actions delayed?',
@@ -215,10 +210,31 @@ export function AiWorkspace({
             {(exchange.steps?.length ?? 0) > 0 && !exchange.answer && !exchange.failed && (
               <p className="ai-progress" role="status">
                 {exchange.steps![exchange.steps!.length - 1]}
-                {(exchange.reads?.length ?? 0) > 0 && (
+                {/*
+                 * Only the reads that worked.
+                 *
+                 * This listed every attempt, so a read that failed - a record
+                 * the person is not allowed to see, a register that would not
+                 * answer - was shown as "read the finding register". The
+                 * progress line was claiming evidence the answer did not
+                 * have, which is the one thing this feature must never do.
+                 */}
+                {(exchange.reads ?? []).some((read) => read.ok) && (
                   <span>
                     {' · read '}
-                    {exchange.reads!.map((read) => READ_LABELS[read.name] ?? read.name).join(', ')}
+                    {(exchange.reads ?? [])
+                      .filter((read) => read.ok)
+                      .map((read) => TOOL_LABELS[read.name] ?? 'your records')
+                      .join(', ')}
+                  </span>
+                )}
+                {(exchange.reads ?? []).some((read) => !read.ok) && (
+                  <span>
+                    {' · could not read '}
+                    {(exchange.reads ?? [])
+                      .filter((read) => !read.ok)
+                      .map((read) => TOOL_LABELS[read.name] ?? 'one record')
+                      .join(', ')}
                   </span>
                 )}
               </p>

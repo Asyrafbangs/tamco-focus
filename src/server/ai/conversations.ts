@@ -206,14 +206,22 @@ export async function appendTurn(input: {
 }
 
 export interface UsageWindow {
+  /* The installation's, over the rolling day. The quota is shared. */
   requestsToday: number;
   tokensToday: number;
   chargedTodayUsd: number;
   tokensThisMinute: number;
+  /* The caller's own daily total, held against their share of the pool. */
+  myTokensToday: number;
 }
 
 /**
- * What this person has used, over the day and the last minute.
+ * What the installation has used, over the day and the last minute.
+ *
+ * Everybody's, not the asker's. The ceilings these numbers are held against
+ * belong to one API key shared by the whole organisation, so a per-person
+ * count told every employee they had the entire day's allowance to
+ * themselves.
  *
  * A failed read is treated as "at the limit" on every count. Unknown usage is
  * not zero usage, and a budget that opens its gate when it cannot see is a
@@ -234,6 +242,7 @@ export async function usageWindow(): Promise<UsageWindow> {
       tokensToday: Number.POSITIVE_INFINITY,
       chargedTodayUsd: Number.POSITIVE_INFINITY,
       tokensThisMinute: Number.POSITIVE_INFINITY,
+      myTokensToday: Number.POSITIVE_INFINITY,
     };
   }
   return {
@@ -241,5 +250,6 @@ export async function usageWindow(): Promise<UsageWindow> {
     tokensToday: Number(row.tokens_today ?? 0),
     chargedTodayUsd: Number(row.charged_today ?? 0),
     tokensThisMinute: Number(row.tokens_this_minute ?? 0),
+    myTokensToday: Number(row.my_tokens_today ?? 0),
   };
 }
