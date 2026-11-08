@@ -107,6 +107,19 @@
   background: var(--amber);
 }
 
+/* v305 — a goal whose owner has asked for help says so here, instead of
+   carrying an amber "Needs attention" chip with a red "Support requested"
+   badge stacked underneath it. */
+.healthSupport {
+  border-color: color-mix(in srgb, var(--red) 25%, var(--line));
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.healthSupport::before {
+  background: var(--red);
+}
+
 .healthCompleted {
   background: var(--green-bg);
   color: var(--green);

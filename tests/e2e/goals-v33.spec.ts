@@ -71,8 +71,21 @@ test('Goals is a dedicated accessible workspace with whole-row drawer interactio
   await expect(row).toBeVisible();
   await expect(row).toContainText(/success measure/);
   await expect(row).not.toContainText(/\d+% progress/);
-  await expect(row).toContainText(/Needs attention|Update due/);
   await expect(row).not.toContainText(/overall/i);
+  /*
+   * v305 — one statement of health, not two.
+   *
+   * `goalDisplayHealth` returns "Needs attention" when a support request is
+   * open, and the row used to print a second "Support requested" badge beside
+   * it: one cause, two chips, stacked, and a row half again as tall as its
+   * neighbours. The row now says it once in the more specific wording.
+   *
+   * The second assertion is the invariant rather than a fact about this
+   * fixture: whichever of the two applies, they must never both appear.
+   */
+  const badges = row.locator('.goal-row-badges');
+  await expect(badges).toContainText(/Support requested|Needs attention|Update due|On track/);
+  expect(await badges.textContent()).not.toMatch(/Needs attention[\s\S]*Support requested/);
 
   for (const view of ['Draft', 'Completed', 'Active']) {
     await page
