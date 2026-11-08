@@ -6,12 +6,15 @@ import { getSettingsData, type PersonalSettingsData } from '@/server/queries';
 
 import { PersonalSettingsForm, SettingsPolicyRow } from '../SettingsForms';
 import { ThemeSettings } from '../ThemeSettings';
-import {
-  SETTINGS_SECTIONS,
-  SettingsPanel,
-  SettingsWorkspace,
-  type SettingsKey,
-} from './SettingsWorkspace';
+/*
+ * The section data comes from `./sections`, not from `./SettingsWorkspace`.
+ * That file is a client component, and this one is a server component: a plain
+ * value imported across that boundary arrives as a client reference proxy, so
+ * `SETTINGS_SECTIONS.filter` threw at request time and the page rendered no
+ * panels. Components still come from the client module.
+ */
+import { SETTINGS_SECTIONS, type SettingsKey } from './sections';
+import { SettingsPanel, SettingsWorkspace } from './SettingsWorkspace';
 
 const supportedOrgKeys = new Set([
   'focus.self_selection_allowed',

@@ -29,7 +29,15 @@ import { describe, expect, it } from 'vitest';
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 
 const STYLESHEET = read('src/app/globals.css');
-const WORKSPACE = read('src/app/(app)/more/settings/SettingsWorkspace.tsx');
+/*
+ * The section data lives in its own module, not in the client component.
+ * `page.tsx` is a server component and iterates these to build the panels;
+ * importing a plain value out of a `use client` module from the server yields
+ * a client reference proxy, and `SETTINGS_SECTIONS.filter` threw at request
+ * time. This guard reads where the data actually is, so moving it back would
+ * fail here rather than in a browser.
+ */
+const WORKSPACE = read('src/app/(app)/more/settings/sections.ts');
 const PAGE = read('src/app/(app)/more/settings/page.tsx');
 
 /** Every CSS rule whose selector mentions a settings panel. */
