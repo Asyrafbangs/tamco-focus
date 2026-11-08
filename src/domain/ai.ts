@@ -798,6 +798,44 @@ export function titleFrom(question: string): string {
   return `${(space > 24 ? cut.slice(0, space) : cut).trimEnd()}…`;
 }
 
+/** One conversation, as the sidebar lists it. */
+export interface ConversationRow {
+  id: string;
+  title: string;
+  updatedAt: string;
+}
+
+/**
+ * The conversation list after a thread has been written to.
+ *
+ * v302. The sidebar is rendered from a server read taken while the page was
+ * built, and a conversation is created by the streaming route afterwards - so
+ * the first question of a session produced a thread the list could not know
+ * about, and the panel went on saying "Nothing yet. Ask something below."
+ * beside the answer to the question just asked. Reported from a live screen.
+ *
+ * Here rather than inside the component, and pure, because the two rules are
+ * easy to get wrong and worth a test:
+ *
+ *   * an id already present is MOVED, never added again - the second question
+ *     of a conversation must not give it a second row;
+ *   * a row that already exists keeps the title it has. A title is made from
+ *     the question that OPENED the conversation, and rewriting it on every
+ *     turn would make the list retitle itself under the reader.
+ *
+ * Newest first, which is the order `listConversations` returns.
+ */
+export function withConversation(
+  list: readonly ConversationRow[],
+  row: ConversationRow,
+): ConversationRow[] {
+  const existing = list.find((one) => one.id === row.id);
+  return [
+    { ...row, title: existing?.title ?? row.title },
+    ...list.filter((one) => one.id !== row.id),
+  ];
+}
+
 /**
  * A tool called with arguments it cannot use.
  *

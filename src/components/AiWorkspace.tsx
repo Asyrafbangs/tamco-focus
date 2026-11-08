@@ -1,9 +1,17 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useRef, useState } from 'react';
 
-import { TOOL_LABELS, type Exchange as StoredExchange, type SourceLink } from '@/domain/ai';
+import {
+  TOOL_LABELS,
+  titleFrom,
+  withConversation,
+  type ConversationRow,
+  type Exchange as StoredExchange,
+  type SourceLink,
+} from '@/domain/ai';
 
 /**
  * The conversation workspace.
@@ -24,11 +32,7 @@ export interface Exchange extends StoredExchange {
   failed?: string | null;
 }
 
-export interface ConversationRow {
-  id: string;
-  title: string;
-  updatedAt: string;
-}
+export type { ConversationRow };
 
 /*
  * The labels now live in the domain, beside the scrubber that takes these
@@ -59,8 +63,23 @@ export function AiWorkspace({
   const [question, setQuestion] = useState('');
   const [busy, setBusy] = useState(false);
   const [thread, setThread] = useState<string | null>(conversationId);
+  /*
+   * Conversations started in this browser since the page was rendered, kept
+   * apart from the server's own list rather than replacing it. Seeding state
+   * from the prop would freeze the sidebar at whatever the first render saw,
+   * so a navigation or a refresh could never correct it again; derived this
+   * way, the server stays the source of truth and these are an overlay on it
+   * that `withConversation` de-duplicates by id.
+   */
+  const [started, setStarted] = useState<ConversationRow[]>([]);
   const abort = useRef<AbortController | null>(null);
   const bottom = useRef<HTMLDivElement | null>(null);
+  const router = useRouter();
+
+  const threads = started.reduce<ConversationRow[]>(
+    (list, row) => withConversation(list, row),
+    conversations,
+  );
 
   async function ask(text: string) {
     const asked = text.trim();
@@ -104,7 +123,23 @@ export function AiWorkspace({
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           const payload = JSON.parse(line.slice(6)) as Record<string, unknown>;
-          if (payload.type === 'conversation') setThread(String(payload.id));
+          if (payload.type === 'conversation') {
+            const id = String(payload.id);
+            setThread(id);
+            /*
+             * The title the server stored, computed rather than guessed:
+             * `titleFrom` is the same function `startConversation` uses. A
+             * thread already in the list keeps its own title, because that
+             * one was made from the question that opened it.
+             */
+            setStarted((current) =>
+              withConversation(current, {
+                id,
+                title: threads.find((one) => one.id === id)?.title ?? titleFrom(asked),
+                updatedAt: new Date().toISOString(),
+              }),
+            );
+          }
           if (payload.type === 'step') {
             update((one) => ({ ...one, steps: [...(one.steps ?? []), String(payload.label)] }));
           }
@@ -146,6 +181,15 @@ export function AiWorkspace({
       setBusy(false);
       abort.current = null;
       bottom.current?.scrollIntoView({ behavior: 'smooth' });
+      /*
+       * And then let the server say what the list really holds - the stored
+       * title, the real `updated_at` order, anything opened in another tab.
+       * The overlay above is what makes the row appear at once; this is what
+       * keeps it honest. Safe after the stream rather than during it, and
+       * safe at all only because the list is derived from the prop: a
+       * refreshed prop flows straight through.
+       */
+      router.refresh();
     }
   }
 
@@ -158,11 +202,11 @@ export function AiWorkspace({
             New
           </Link>
         </div>
-        {conversations.length === 0 ? (
+        {threads.length === 0 ? (
           <p className="form-hint">Nothing yet. Ask something below.</p>
         ) : (
           <ul>
-            {conversations.map((one) => (
+            {threads.map((one) => (
               <li key={one.id}>
                 <Link
                   href={`/ai?c=${one.id}`}
