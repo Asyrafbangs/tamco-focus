@@ -250,8 +250,18 @@ test.describe('v188 My Day says each thing once', () => {
     await expect(page.locator('.day-summary')).toHaveText(
       'Nothing overdue, and nothing due in the next 5 days',
     );
+    /*
+     * The clear day is stated once, by the line above, and it is the one that
+     * carries the window. The panel below used to head itself "Nothing
+     * overdue, and nothing due soon" — the same fact in weaker words, 300px
+     * further down, which is the duplication this test's own title forbids.
+     * It now says what the line above cannot: where the rest of the work is.
+     */
     await expect(
       page.getByRole('heading', { name: 'Nothing overdue, and nothing due soon' }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole('heading', { name: 'Where the rest of your work is' }),
     ).toBeVisible();
   });
 });

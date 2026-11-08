@@ -2707,6 +2707,13 @@ button {
     gap: 2px 10px;
     padding: 11px 12px;
     border-bottom: 1px solid var(--line-soft);
+    /*
+     * The row is the target: its title link is stretched across it by
+     * `.row-primary-link::after`. Stacking brought a one-line row down to
+     * 39px, which is under the 44px rule v303 states for a touch screen.
+     */
+    min-height: 44px;
+    align-content: center;
   }
   .data-table tbody tr:last-child {
     border-bottom: 0;

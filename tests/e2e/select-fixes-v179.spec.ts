@@ -33,6 +33,10 @@ test.describe('v179 a chosen option does something', () => {
     await signIn(page, 'admin@tamco.local');
 
     await open(page, '/more/admin/users');
+    // The directory is a search box first: "Person type" and "Status" fold
+    // behind "Narrow the list", the same pattern Records already uses below.
+    // Revealing them is a step; applying on choice is still what is asserted.
+    await page.getByText('Narrow the list').click();
     await page.locator('select[name="status"]').selectOption('deactivated');
     await expect(page).toHaveURL(/status=deactivated/);
 
@@ -54,6 +58,7 @@ test.describe('v179 a chosen option does something', () => {
     await signIn(page, 'admin@tamco.local');
     await open(page, '/more/admin/users');
 
+    await page.getByText('Narrow the list').click();
     const status = page.locator('select[name="status"]');
     // The directory streams in after the shell hydrates; a field that is not
     // on screen yet cannot take focus, and the arrow press would go nowhere.

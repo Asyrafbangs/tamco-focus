@@ -154,7 +154,7 @@ test.describe('v139 a grant is sight, not authority', () => {
 
     await open(page, '/work/routine');
     await expect(
-      page.getByRole('group', { name: 'Routine view' }).getByRole('link', { name: 'My team' }),
+      page.getByRole('navigation', { name: 'Routine view' }).getByRole('link', { name: 'My Team' }),
     ).toBeVisible();
 
     await open(page, '/goals');
@@ -199,7 +199,7 @@ test.describe('v139 no grant, no screen', () => {
     await expect(page.getByRole('navigation', { name: 'Goal workspace' })).toHaveCount(0);
 
     await open(page, '/work/routine');
-    await expect(page.getByRole('group', { name: 'Routine view' })).toHaveCount(0);
+    await expect(page.getByRole('navigation', { name: 'Routine view' })).toHaveCount(0);
   });
 
   test('and a direct URL cannot conjure one', async ({ page }) => {

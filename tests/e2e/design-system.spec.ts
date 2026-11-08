@@ -173,7 +173,21 @@ test.describe('settings sections', () => {
        * in the DOM whatever the active section, and hidden by CSS. It proves
        * the page rendered without asserting anything about this one.
        */
-      await page.locator('[data-settings-panel]').first().waitFor({ state: 'attached' });
+      /*
+       * Wait for THIS section's panel, not for any panel.
+       *
+       * These are client-side navigations, so the previous section's panels
+       * are still attached when the next one is still streaming — `.first()`
+       * was satisfied instantly by the page being replaced, and the section
+       * actually asked for was not in the DOM yet. It was then recorded as
+       * "never displays", which is how this test came and went depending on
+       * how far down the list a section sat. Attachment is not visibility:
+       * the assertion below still has to find a real box.
+       */
+      await page
+        .locator(`[data-settings-panel="${section}"]`)
+        .waitFor({ state: 'attached', timeout: 15_000 });
+      await expect(page.locator('.loading-skeleton')).toHaveCount(0, { timeout: 15_000 });
       const shown = await page.evaluate((key) => {
         const panel = document.querySelector(`[data-settings-panel="${key}"]`);
         if (!panel) return false;
