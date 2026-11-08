@@ -41,7 +41,9 @@ export default async function AiPage({ searchParams }: { searchParams: Promise<{
   const conversationId = /^[0-9a-f-]{36}$/i.test(params.c ?? '') ? params.c! : null;
   const [conversations, thread] = await Promise.all([
     listConversations(),
-    conversationId ? loadThread(conversationId) : Promise.resolve([]),
+    conversationId
+      ? loadThread(conversationId)
+      : Promise.resolve({ messages: [], failed: false as boolean }),
   ]);
 
   return (
@@ -56,8 +58,10 @@ export default async function AiPage({ searchParams }: { searchParams: Promise<{
         </div>
       </div>
       <AiWorkspace
-        conversations={conversations}
-        initial={conversationId ? pairExchanges(thread) : []}
+        conversations={conversations.rows}
+        conversationsFailed={conversations.failed}
+        initial={conversationId ? pairExchanges(thread.messages) : []}
+        threadFailed={thread.failed}
         conversationId={conversationId}
         enabled={config.enabled}
         disabledReason={

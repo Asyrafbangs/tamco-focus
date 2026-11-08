@@ -32,7 +32,23 @@ export interface StoredMessage extends AiMessage {
   sources?: SourceLink[];
 }
 
-export async function listConversations(limit = 30): Promise<ConversationSummary[]> {
+/**
+ * v302 — a read that failed is not a person with no conversations.
+ *
+ * This returned `[]` on error, and the sidebar renders an empty list as
+ * "Nothing yet. Ask something below." - which is a claim about that person's
+ * history, made from a query that never answered. The same sentence then
+ * means two opposite things, and the wrong one is the reassuring one.
+ *
+ * Reported as a flag rather than thrown, unlike `listImportBatches`, because
+ * the consequences differ: a duplicated import cannot be undone, while an
+ * unreadable sidebar costs nothing if the person simply asks their question.
+ * Taking the whole page down would remove a working assistant over a broken
+ * list.
+ */
+export async function listConversations(
+  limit = 30,
+): Promise<{ rows: ConversationSummary[]; failed: boolean }> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from('ai_conversations')
@@ -42,13 +58,16 @@ export async function listConversations(limit = 30): Promise<ConversationSummary
     .limit(limit);
   if (error) {
     console.error(`[ai:listConversations] ${error.code ?? 'unknown'}: ${error.message}`);
-    return [];
+    return { rows: [], failed: true };
   }
-  return (data ?? []).map((row) => ({
-    id: String(row.id),
-    title: String(row.title),
-    updatedAt: String(row.updated_at),
-  }));
+  return {
+    rows: (data ?? []).map((row) => ({
+      id: String(row.id),
+      title: String(row.title),
+      updatedAt: String(row.updated_at),
+    })),
+    failed: false,
+  };
 }
 
 /**
@@ -57,7 +76,9 @@ export async function listConversations(limit = 30): Promise<ConversationSummary
  * Returns an empty list for a conversation that is not the caller's — the
  * policy filters it out, so there is nothing here that needs to check.
  */
-export async function loadThread(conversationId: string): Promise<StoredMessage[]> {
+export async function loadThread(
+  conversationId: string,
+): Promise<{ messages: StoredMessage[]; failed: boolean }> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from('ai_messages')
@@ -66,9 +87,16 @@ export async function loadThread(conversationId: string): Promise<StoredMessage[
     .order('seq');
   if (error) {
     console.error(`[ai:loadThread] ${error.code ?? 'unknown'}: ${error.message}`);
-    return [];
+    /*
+     * v302. Empty means "not yours" here - the policy filtered the rows out -
+     * and both callers act on that: the page renders the opening screen, and
+     * the route refuses the id outright. A failed read reaching either of
+     * them tells somebody their own conversation is gone or was never theirs,
+     * on the strength of a query that errored.
+     */
+    return { messages: [], failed: true };
   }
-  return (data ?? []).map((row) => {
+  const messages = (data ?? []).map((row) => {
     const stored = (row.content ?? {}) as Partial<AiMessage> & { sources?: SourceLink[] };
     return {
       role: (row.role as AiMessage['role']) ?? 'user',
@@ -80,6 +108,7 @@ export async function loadThread(conversationId: string): Promise<StoredMessage[
       seq: Number(row.seq),
     };
   });
+  return { messages, failed: false };
 }
 
 /**
