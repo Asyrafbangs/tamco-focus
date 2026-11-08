@@ -59,7 +59,7 @@ export function GoalLifecycleCheckIn({
       <section className={styles.section}>
         <div className={styles.sectionHead}>
           <div>
-            <p className="eyebrow">Employee-level cadence</p>
+            <p className={styles.kicker}>Employee-level cadence</p>
             <h3>Goal session record</h3>
             <p>
               Monthly and quarterly sessions are completed once for the employee&apos;s full Active

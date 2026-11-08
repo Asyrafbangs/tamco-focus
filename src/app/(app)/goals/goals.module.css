@@ -1,3 +1,23 @@
+/*
+ * v305 — a kicker that says something, without shouting it.
+ *
+ * `.eyebrow` sets 0.14em tracking and `text-transform: uppercase`. Above an
+ * `<h1>` that already names the page it is pure costume; where the words are a
+ * fact a person wants — "Performance and development" above Goals — they stay
+ * and the capitals go, with weight and colour doing the separating instead.
+ *
+ * Scoped to this module rather than added to globals.css on purpose: three
+ * areas are being revised in parallel and the shared class is being retired at
+ * integration, so each area carries its own until then. Named `kicker`
+ * everywhere so they can be found in one search.
+ */
+.kicker {
+  margin: 0;
+  color: var(--blue);
+  font-size: var(--text-xs);
+  font-weight: 650;
+}
+
 .formalWeight {
   display: flex;
   align-items: center;
@@ -45,7 +65,7 @@
 }
 
 .ownerIdentity h2 {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 
@@ -112,12 +132,24 @@
   color: var(--green);
 }
 
-.under {
-  background: var(--amber-bg);
-}
-
+/*
+ * v305 — an unfinished allocation is not a warning.
+ *
+ * `.under` is every plan that has not yet been allocated to exactly 100%,
+ * which is the ordinary state of a goal set while it is being written, and it
+ * painted the band amber — the colour this product uses for "a person must
+ * act". On an account with no goals at all the loudest thing on the Goals
+ * page was an amber strip reading "0% formal Active weight · 100% remains
+ * available for the formal Active set", shouting about the absence of work
+ * nobody had started.
+ *
+ * The three states now read as a scale rather than three alarms: in progress
+ * is quiet, aligned at 100% is green, and over 100% stays red because it is
+ * the only one of the three that blocks the next goal from being agreed. The
+ * sentence beside it is unchanged and still says exactly how much is left.
+ */
 .under strong {
-  color: var(--amber);
+  color: var(--text);
 }
 
 .over {

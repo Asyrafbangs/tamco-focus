@@ -14,23 +14,63 @@
   max-width: 105px;
 }
 
+/*
+ * v305 — Revise and Open are shown unless there is a pointer that can hover.
+ *
+ * They used to be `opacity: 0` by default and revealed by `:hover`,
+ * `:focus-within` or the row being in an attention state. On a tablet that
+ * produced two faults at once. The obvious one: between 761px and 1120px the
+ * row keeps its action column and a touch screen has no hover, so on every
+ * goal that was not already shouting for attention the two controls were
+ * simply absent — the audit screenshots show one row with them and two
+ * without, for no reason a person could see.
+ *
+ * The less obvious one is worse. `opacity: 0` paints nothing and intercepts
+ * everything, and this column carries `z-index: 2` over a row whose title is a
+ * stretched link. Tapping the right-hand end of a goal row therefore opened
+ * the Revise dialog, from a button the person could not see and had not aimed
+ * at. An invisible control is not a hidden control.
+ *
+ * So: visible by default, and hidden only where a hover can reveal them again
+ * — and `pointer-events: none` while hidden, so what cannot be seen cannot be
+ * pressed. Keyboard focus is unaffected by `pointer-events`, so Tab still
+ * reaches them and `:focus-within` still brings them back.
+ */
 .rowAction {
   position: relative;
   z-index: 2;
   display: flex;
   gap: 6px;
-  opacity: 0;
-  transform: translateX(3px);
-  transition:
-    opacity var(--motion-fast) var(--motion-easing),
-    transform var(--motion-fast) var(--motion-easing);
 }
 
-.row:hover .rowAction,
-.row:focus-within .rowAction,
-.row:global(.attention) .rowAction {
-  opacity: 1;
-  transform: translateX(0);
+@media (hover: hover) and (pointer: fine) {
+  .rowAction {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(3px);
+    transition:
+      opacity var(--motion-fast) var(--motion-easing),
+      transform var(--motion-fast) var(--motion-easing);
+  }
+
+  .row:hover .rowAction,
+  .row:focus-within .rowAction,
+  .row:global(.attention) .rowAction {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+  }
+}
+
+/* A hybrid machine reports `hover: hover` because a mouse is attached, and the
+   person still reaches past it to the screen. Any coarse pointer at all means
+   the controls stay out. */
+@media (any-pointer: coarse) {
+  .rowAction {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
 }
 
 .healthLabel {
@@ -65,6 +105,19 @@
 
 .healthAttention::before {
   background: var(--amber);
+}
+
+/* v305 — a goal whose owner has asked for help says so here, instead of
+   carrying an amber "Needs attention" chip with a red "Support requested"
+   badge stacked underneath it. */
+.healthSupport {
+  border-color: color-mix(in srgb, var(--red) 25%, var(--line));
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.healthSupport::before {
+  background: var(--red);
 }
 
 .healthCompleted {

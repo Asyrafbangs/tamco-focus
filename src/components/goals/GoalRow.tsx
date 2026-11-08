@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 
 import { RowPrimaryLink, StatusBadge } from '@/components/ui/ParityPrimitives';
 import { GOAL_STATUS_LABELS, goalDisplayHealth, type GoalOverview } from '@/domain/goals';
@@ -40,6 +41,36 @@ export function GoalRow({
     displayHealth === 'Update due' ||
     displayHealth === 'At risk' ||
     displayHealth === 'Off track';
+  /*
+   * v305 — one statement of where the goal stands.
+   *
+   * `goalDisplayHealth` returns "Needs attention" when a support request is
+   * open, and the row then printed a second chip beside it saying "Support
+   * requested" — two chips, one cause, stacked, and the row grew by half
+   * again to carry the pair. The row says it once, in the more specific of
+   * the two wordings: a goal that needs attention BECAUSE somebody asked for
+   * help is better described by the asking.
+   */
+  const supportOpen = goal.openSupportCount > 0;
+  const healthText = supportOpen ? 'Support requested' : displayHealth;
+
+  /*
+   * v305 — the row's one primary progress value, which the specification asks
+   * for ("Each row shows one primary progress value, health, target date,
+   * last meaningful update, and secondary weight") and which the row did not
+   * show.
+   *
+   * Which value, and the fallback, follow the same specification: when
+   * structured measures exist, overall progress is the deterministic average
+   * of measure progress; a legacy Goal agreed before structured measures
+   * keeps the milestone-weighted figure. Only one of the two is ever drawn,
+   * so this stays the single current percentage rather than a competing one.
+   */
+  const hasMeasures = goal.successMeasureCount > 0;
+  const progressPercent = Math.max(
+    0,
+    Math.min(100, hasMeasures ? goal.measureProgress : goal.derivedProgress),
+  );
 
   return (
     <article
@@ -65,22 +96,46 @@ export function GoalRow({
         </span>
       </div>
 
-      <div className="goal-row-badges" aria-label={`Health: ${displayHealth}`}>
+      <div className="goal-row-badges" aria-label={`Health: ${healthText}`}>
         <span
-          className={`${styles.healthLabel}${needsAction ? ` ${styles.healthAttention}` : ''}${displayHealth === 'Completed' ? ` ${styles.healthCompleted}` : ''}`}
+          className={`${styles.healthLabel}${
+            supportOpen
+              ? ` ${styles.healthSupport}`
+              : needsAction
+                ? ` ${styles.healthAttention}`
+                : ''
+          }${displayHealth === 'Completed' ? ` ${styles.healthCompleted}` : ''}`}
         >
-          {displayHealth}
+          {healthText}
         </span>
-        {goal.openSupportCount > 0 && <StatusBadge tone="red">Support requested</StatusBadge>}
         {goal.pendingVersionId && <StatusBadge tone="purple">Changes to agree</StatusBadge>}
         {goal.status !== 'active' && (
           <StatusBadge tone="neutral">{GOAL_STATUS_LABELS[goal.status]}</StatusBadge>
         )}
       </div>
 
+      {/*
+        v305 — how far the goal has got, which this column is named for and did
+        not show. It held the NUMBER of success measures: a count of what was
+        agreed, which does not change once the goal is active, so a list of
+        five goals read "1 success measure" five times and said nothing about
+        any of them.
+
+        The bar is `aria-hidden`: it restates the percentage beside it, and two
+        announcements of one figure is worse than one.
+      */}
       <div className="goal-row-progress">
-        <strong>{goal.successMeasureCount}</strong>
-        <span className="sub">success measure{goal.successMeasureCount === 1 ? '' : 's'}</span>
+        <div className="goal-row-progress-figure">
+          <strong>{progressPercent}%</strong>
+          <span className="sub">
+            {hasMeasures
+              ? `of ${goal.successMeasureCount} success measure${goal.successMeasureCount === 1 ? '' : 's'}`
+              : 'from milestones'}
+          </span>
+        </div>
+        <span className="progress-track" aria-hidden="true">
+          <span style={{ '--progress': `${progressPercent}%` } as CSSProperties} />
+        </span>
       </div>
 
       <div className="goal-row-date">

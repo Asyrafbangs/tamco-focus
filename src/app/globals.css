@@ -4012,6 +4012,13 @@ fieldset:disabled label,
   margin-bottom: 12px;
   flex-wrap: wrap;
 }
+/* v305 — the month, which is the heading of the grid under it. It was an
+   inline `style={{ fontSize: 16 }}` on the element, and an inline literal is
+   the one place the personal text-size setting cannot reach: a reader on
+   Larger got a bigger page and the same 16px month. */
+.plan-month {
+  font-size: calc(16px * var(--font-scale));
+}
 
 .calendar {
   display: grid;
@@ -4049,6 +4056,13 @@ fieldset:disabled label,
 .day.today .daynum {
   color: var(--blue);
   font-weight: 700;
+}
+/* v305 — the grid is headed by a number, the agenda by the date itself. The
+   agenda forms are off here and switched on with the agenda below 700px; see
+   the note in `PlanCalendar`. */
+.daynum-date,
+.daynum-today {
+  display: none;
 }
 
 /* Section 17.3 - items open the task. Since v153 a due date can also be
@@ -4104,8 +4118,23 @@ fieldset:disabled label,
    column of entries. Sizes are relative, so the phone agenda's larger type
    carries through. `span.` matches the specificity of the rule above that
    makes every line a block. */
-.cal-item-title {
+/* v305 — the title is the only thing that tells two entries apart, so it gets
+   two lines before it gives up. One line in a 180px month column stopped at
+   about fifteen characters: "Isolate and t…" and "Replace the t…" sat on
+   neighbouring days and identified nothing, while the word "Task" underneath
+   them — already said by the glyph, the colour and the legend — had a whole
+   line to itself. Two lines roughly doubles what a cell can name, and the
+   clamp still keeps a busy day a column of entries rather than a wall of text.
+   `span.` beats the `.cal-item > span[aria-hidden]` rule above, which sets the
+   single-line ellipsis every other line still wants. */
+.cal-item > span.cal-item-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   font-weight: 650;
+  white-space: normal;
 }
 /* The meta line is the title's size, set apart by weight and colour: an em
    fraction here produced 8.28px on desktop and 11.04px on a phone, neither of
@@ -4229,6 +4258,12 @@ fieldset:disabled label,
   color: var(--muted);
   cursor: pointer;
   opacity: 0;
+  /* v305 — and unpressable while it is unseen. Its sizing and its reveal are
+     settled and unchanged; this is the other half of being hidden. An element
+     at `opacity: 0` paints nothing and still intercepts the click, so an
+     invisible 22px square sat beside every movable due date and opened "Move
+     due date" for anybody whose pointer landed on it. */
+  pointer-events: none;
   transition:
     opacity var(--motion-fast) var(--motion-easing),
     border-color var(--motion-fast) var(--motion-easing),
@@ -4239,6 +4274,7 @@ fieldset:disabled label,
 .cal-entry:hover > .cal-item-move,
 .cal-entry:focus-within > .cal-item-move {
   opacity: 1;
+  pointer-events: auto;
 }
 .cal-item-move:hover {
   border-color: var(--line);
@@ -4250,6 +4286,7 @@ fieldset:disabled label,
 @media (hover: none) {
   .cal-item-move {
     opacity: 1;
+    pointer-events: auto;
   }
 }
 @media (pointer: coarse) {
@@ -5799,8 +5836,40 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   .cal-row.is-empty-week {
     display: none;
   }
+  /* v305 — each card names its own day. Without the weekday column and the
+     days either side, "8" alone says nothing about which 8th it is or what
+     day of the week it falls on. */
+  .daynum {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    margin-bottom: 2px;
+  }
+  .daynum-number {
+    display: none;
+  }
+  .daynum-date {
+    display: inline;
+    color: var(--text);
+    font-size: calc(14px * var(--font-scale));
+    font-weight: 700;
+  }
+  .day.today .daynum-date {
+    color: var(--blue);
+  }
+  .daynum-today {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--blue-bg);
+    color: var(--blue);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    line-height: 1.6;
+  }
   .cal-item {
-    font-size: 12px;
+    font-size: var(--text-xs);
     padding: 8px 10px;
     white-space: normal;
     min-height: 40px;
@@ -6033,7 +6102,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .goal-milestones-done > summary {
   cursor: pointer;
   padding: 10px 14px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--muted);
   border: 1px solid var(--line);
@@ -6087,7 +6156,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .goal-row-main > .row-primary-link strong {
   display: block;
   margin-bottom: 4px;
-  font-size: 14px;
+  font-size: calc(14px * var(--font-scale));
   line-height: 1.35;
   transition: color var(--motion-fast) var(--motion-easing);
 }
@@ -6112,7 +6181,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   gap: 2px;
 }
 .goal-row-date strong {
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .team-goals-layout {
@@ -6161,7 +6230,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   white-space: nowrap;
 }
 .team-goal-person strong {
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .team-goal-person small {
   margin-top: 2px;
@@ -6204,7 +6273,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .team-goal-summary strong {
   color: var(--text);
-  font-size: 20px;
+  font-size: calc(20px * var(--font-scale));
 }
 .team-goal-summary span {
   color: var(--muted);
@@ -6276,7 +6345,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .goal-progress-hero strong {
   display: block;
   margin: 3px 0 9px;
-  font-size: 26px;
+  font-size: calc(26px * var(--font-scale));
 }
 .goal-progress-hero p {
   margin: 4px 0 0;
@@ -6313,12 +6382,12 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .goal-pending-version h3 {
   margin: 7px 0 3px;
-  font-size: 14px;
+  font-size: calc(14px * var(--font-scale));
 }
 .goal-pending-version p,
 .goal-support-callout p {
   margin: 3px 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .goal-support-callout {
   border-color: color-mix(in srgb, var(--red) 24%, var(--line));
@@ -6354,7 +6423,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .goal-metadata-grid dd,
 .goal-context-list dd {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
   line-height: 1.45;
 }
 .goal-context {
@@ -6367,7 +6436,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .goal-context > summary {
   cursor: pointer;
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 750;
 }
 .goal-context-list {
@@ -8479,7 +8548,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   gap: 4px 10px;
   padding: 10px 14px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: calc(13px * var(--font-scale));
   font-weight: 650;
 }
 .goal-session-disclosure > summary small {
@@ -8570,7 +8639,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: block;
   margin-bottom: 1px;
   color: var(--text);
-  font-size: 13px;
+  font-size: calc(13px * var(--font-scale));
 }
 .goal-summary-inline .attention b {
   color: var(--amber);
@@ -8664,6 +8733,23 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .goal-row-progress {
   grid-template-columns: minmax(0, 1fr);
   gap: 3px;
+}
+/* v305 — the figure on one line, the bar under it. Two lines, because the row
+   is 65px and a third would force every goal taller to carry one number. */
+.goal-row-progress-figure {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 6px;
+}
+.goal-row-progress-figure strong {
+  flex: none;
+  font-size: var(--text-xs);
+}
+.goal-row-progress-figure .sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .goal-row-progress .progress-track {
   height: 5px;

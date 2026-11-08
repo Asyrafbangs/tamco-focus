@@ -320,7 +320,9 @@ export default async function PlanPage({
     <>
       <div className="pagehead">
         <div>
-          <p className="eyebrow">Plan</p>
+          {/* v305 — no eyebrow. "PLAN" above "Monthly Plan" restated the
+              heading one line below it in capitals, which is decoration
+              wearing the costume of information. */}
           <h1>Monthly Plan</h1>
           <p>
             {scope === 'team'
@@ -369,7 +371,7 @@ export default async function PlanPage({
           >
             ←
           </Link>
-          <strong style={{ fontSize: 16 }}>{monthLabel}</strong>
+          <strong className="plan-month">{monthLabel}</strong>
           <Link
             href={`/plan?month=${next}${scopeSuffix}`}
             className="btn small"

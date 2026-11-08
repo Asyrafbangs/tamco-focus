@@ -95,9 +95,9 @@ export function GoalSessionPanel({
     <section className={styles.panel} aria-labelledby="goal-session-heading">
       <div className={styles.planSummary}>
         <div>
-          <p className="eyebrow" id="goal-session-heading">
+          <h3 className={styles.panelHeading} id="goal-session-heading">
             {plan?.performancePeriodName ?? 'Goal plan'}
-          </p>
+          </h3>
           <strong>{plan?.formalWeight ?? 0}% formal Active allocation</strong>
           <span>
             {plan?.status === 'finalized'
@@ -227,7 +227,7 @@ export function GoalSessionPanel({
         >
           <header className="modal-head">
             <div>
-              <p className="eyebrow">Monthly Goal session</p>
+              <p className={styles.kicker}>Monthly Goal session</p>
               <h2>
                 {month}/{year} · All Active Goals
               </h2>
@@ -351,7 +351,7 @@ export function GoalSessionPanel({
         >
           <header className="modal-head">
             <div>
-              <p className="eyebrow">Quarterly Goal session</p>
+              <p className={styles.kicker}>Quarterly Goal session</p>
               <h2>
                 Q{quarter} {year} · All Active Goals
               </h2>

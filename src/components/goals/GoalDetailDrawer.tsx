@@ -211,7 +211,7 @@ function MilestoneUpdateForm({
       >
         <header className="modalhead">
           <div>
-            <p className="eyebrow">Goal check-in</p>
+            <p className={styles.kicker}>Goal check-in</p>
             <h2>{milestone.title}</h2>
             <p className="sub">
               Update progress, record what changed and attach evidence when useful.
@@ -942,6 +942,31 @@ export function GoalDetailDrawer({
     setActiveTab('checkin');
   }
 
+  /*
+   * v305 — the hero's one health tone, and its one progress value.
+   *
+   * The value and the fallback follow the specification and match what the
+   * Goals list row shows: the deterministic average of measure progress when
+   * structured measures exist, the milestone-weighted figure for a legacy
+   * Goal agreed before them. One figure, chosen one way, in both places.
+   */
+  const heroTone =
+    detail.goal.health === 'support_requested' || detail.goal.health === 'off_track'
+      ? ('heroRed' as const)
+      : detail.goal.health === 'need_attention' || detail.goal.health === 'at_risk'
+        ? ('heroAmber' as const)
+        : ('heroGreen' as const);
+  const heroHasMeasures = detail.goal.successMeasureCount > 0;
+  const heroProgress = Math.max(
+    0,
+    Math.min(100, heroHasMeasures ? detail.goal.measureProgress : detail.goal.derivedProgress),
+  );
+  const heroProgressLabel = heroHasMeasures
+    ? `${heroProgress}% across ${detail.goal.successMeasureCount} agreed success measure${
+        detail.goal.successMeasureCount === 1 ? '' : 's'
+      }`
+    : `${heroProgress}% from agreed milestones`;
+
   return (
     <SideDrawer
       closeHref={closeHref}
@@ -1110,26 +1135,31 @@ export function GoalDetailDrawer({
               ))}
             </section>
 
+            {/*
+              v305 — the hero states the health once, and carries the overall
+              percentage the view is named for.
+
+              It used to print `goalDisplayHealth` twice: as the 26px figure on
+              the left and again, word for word, in a badge on the right. The
+              only thing the badge added was its tone, so the figure takes the
+              tone and the badge goes.
+
+              The percentage is what §"An Active Goal uses four views" asks for
+              — "Progress presents success measures first and the derived
+              overall percentage second" — and the Success view had no
+              percentage anywhere in it. The stylesheet had been waiting for
+              one: `.goalHeroCard :global(.progress-track)` has been sizing a
+              bar no component rendered. It is the same single value the Goals
+              list shows, chosen the same way, so the list and the drawer can
+              never disagree.
+            */}
             <section className={`goal-progress-hero ${styles.progressHero}`}>
               <div className={styles.goalHeroCard}>
                 <div className={styles.goalHeroTop}>
                   <div>
-                    <strong>{goalDisplayHealth(detail.goal)}</strong>
+                    <strong className={styles[heroTone]}>{goalDisplayHealth(detail.goal)}</strong>
                     <span>Current health · reported through employee-level sessions</span>
                   </div>
-                  <StatusBadge
-                    tone={
-                      detail.goal.health === 'support_requested' ||
-                      detail.goal.health === 'off_track'
-                        ? 'red'
-                        : detail.goal.health === 'need_attention' ||
-                            detail.goal.health === 'at_risk'
-                          ? 'amber'
-                          : 'green'
-                    }
-                  >
-                    {goalDisplayHealth(detail.goal)}
-                  </StatusBadge>
                 </div>
                 <div className={styles.goalHeroMeta}>
                   <span>
@@ -1142,6 +1172,7 @@ export function GoalDetailDrawer({
                     <b>Updated</b> {formatDate(detail.goal.lastMeaningfulUpdateAt, timeZone)}
                   </span>
                 </div>
+                <ProgressIndicator value={heroProgress} label={heroProgressLabel} />
               </div>
             </section>
 
@@ -1259,8 +1290,20 @@ export function GoalDetailDrawer({
             )}
 
             <div className={styles.agreementDetails}>
+              {/*
+                v305 — not "Success measures" a second time.
+
+                This disclosure holds `goal.successMeasure`, the sentence the
+                manager and employee wrote at setup. The section further up
+                holds the structured measures, each with its current value
+                against its target. Two blocks in one scrolling view carried
+                the same name, so nothing on the screen said which of them was
+                authoritative — and `goals-v33` had to reach for `.last()` to
+                tell them apart, which is the duplication showing up in the
+                tests before it showed up in the audit.
+              */}
               <details open>
-                <summary>Success measures</summary>
+                <summary>Measures in plain words</summary>
                 <p>{detail.goal.successMeasure ?? 'Not recorded'}</p>
               </details>
               <details>
