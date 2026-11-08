@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { requireAnswer } from '@/domain/esh-findings';
+import { requireAnswer } from '@/domain/reads';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 /**

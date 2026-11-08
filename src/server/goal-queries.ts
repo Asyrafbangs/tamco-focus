@@ -13,6 +13,7 @@ import {
 } from '@/domain/goals';
 import { readAll } from '@/lib/read-all';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { readCapabilities } from '@/domain/reads';
 
 type Raw = Record<string, unknown>;
 
@@ -572,7 +573,17 @@ export async function getGoalDetail(goalId: string): Promise<GoalDetail | null> 
       }),
   }));
 
-  const rawCapabilities = (capabilitiesResult.data ?? {}) as Raw;
+  /*
+   * The same insistence as the task drawer (v322). Ten capabilities decided
+   * every primary action on this screen, and a failed read set all ten to
+   * false without a word.
+   */
+  const rawCapabilities = await readCapabilities<Raw>({
+    read: () => supabase.rpc('get_goal_capabilities', { p_goal_id: goalId }),
+    source: 'getGoalDetail:capabilities',
+    reference: 'GOAL_CAPABILITIES_UNAVAILABLE',
+    first: capabilitiesResult,
+  });
   return {
     goal,
     capabilities: {

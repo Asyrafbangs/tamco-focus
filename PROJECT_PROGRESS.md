@@ -387,8 +387,10 @@ both.** Vitest does not match `tests/scripts` at all; its projects are
 
 ## UI/UX branch: verification and merge position (8 November 2026)
 
-The work above sits on `claude/uiux-integrated`, 29 commits on `cf2bad0`.
-**It is not merged into `main` and has not been pushed.**
+The work above sits on `claude/uiux-integrated`, 49 commits on `cf2bad0`, and
+now contains `origin/main` (`cf95e80`) by merge. `origin/main` is an ancestor
+of the branch and the local `main` is 24 behind it, so both the merge and the
+push are fast-forwards. **Not yet merged or pushed at the time of writing.**
 
 Verified at the time of writing:
 
@@ -400,27 +402,70 @@ Verified at the time of writing:
 | `plan-reschedule-v153`, `goals-v33`, `tab-hierarchy`, `plan-goals-legibility` | pass                        |
 | Full acceptance gate                                                          | **running; result pending** |
 
-The last completed full gate scored 15/17 — Format, and three browser
-failures. All four causes are fixed above (`uiux-audit/` output was being
-written inside the repository and failing Format; the records cell was not
-stretching to 44px; the calendar drag; the settings menu width). The run in
-flight is the one that decides 17/17, and this line is to be replaced with its
-verdict rather than an expectation.
+Gate history, because each score names a different fault and the pattern is
+the point:
+
+- **15/17** — Format, plus three browser failures: audit output written inside
+  the repository, the records cell not stretching to 44px, the calendar drag,
+  the settings menu width. All four fixed.
+- **16/17** — the touch-target guard, reporting ten rows of
+  `/more/attachments` at 338x39px. Not a defect in the product: `offsetParent`
+  is the nearest `td`/`th`/`table` for anything inside a table whether or not
+  it is positioned, while the `::after { inset: 0 }` that makes a row
+  pressable resolves against the nearest _positioned_ ancestor — the row, at
+  362x127px on a phone. Fixed in v320, which also stops that route reading as
+  a pass when the table is empty.
+- **16/17 again**, on a different fault: `evidence-upload-v135` found no
+  `Complete work` button in the task drawer on mobile, while the same test
+  passed on desktop in the same run and six of six passed in isolation. Root
+  cause in v322 below. **The gate has not been re-run since v322, so the
+  branch has no 17/17 result and is not merged or pushed.**
+
+### Paused here (8 November 2026)
+
+Exact next action: `npm run db:reset`, then re-run the full gate unpiped with
+`E2E_PORT=3200 APP_BASE_URL=http://localhost:3200 SMOKE_PORT=3300`, appending
+the exit code to the log. At 17/17, fast-forward `main` to
+`claude/uiux-integrated` and push; `origin/main` is already an ancestor, so
+both are fast-forwards. Below 17/17, do not push.
+
+One thing to know before reading a failure: **`goals-v33.spec.ts:252`
+("manager My Team and two-step setup retain the approved master-detail
+structure") fails on desktop when that file is run on its own after a
+`db:reset`, and passes inside the full gate.** It was confirmed pre-existing
+by reverting v322 and re-running it: it fails identically without the change.
+It depends on state another spec creates, so a lone run of that file is not
+evidence about it either way. Fixing that order dependency is open work, not
+part of this series.
 
 **Known limitations**
 
-- `main` has moved on since this branch was cut: six commits, including three
-  AI-assistant merges (#73, #74, #75). The branch does not contain them and
-  will need a rebase or merge before it lands.
-- The approved prototypes in `desktop/` and `mobile/` still encode the navy
-  folder tabs and the 9–11.5px type that v312 and v314 retired. `AGENTS.md` §1
-  tells agents to reconcile against them, so they will reintroduce both until
-  they are updated or explicitly superseded.
-- The personal text-size setting reaches `--text-xs` and the body, but every
-  literal `font-size` above 12px still ignores it. v312 fixed the floor and
-  left the same fault standing at every other size.
+Three of the four recorded here have been closed; what is left is stated as
+what remains, not as what was done.
+
+- ~~`main` has moved on since this branch was cut.~~ Merged in at `1af5a3c`.
+  `origin/main` is an ancestor of the branch.
+- ~~The approved prototypes still encode the navy folder tabs and the
+  9–11.5px type that v312 and v314 retired.~~ Both updated in v319.
+  **What remains:** the prototypes still carry 19px, 23px and 46px, which are
+  not steps on this product's scale. They were left alone deliberately —
+  tokenising a mockup by inventing three new steps would widen the locked
+  scale to match a drawing, and the scale test already catches anything they
+  would teach. The prototypes are a drawing, not the scale.
+- ~~Every literal `font-size` above 12px ignores the personal text-size
+  setting.~~ Closed in v321: the whole scale is tokenised on `--font-scale`
+  and the guard that checks it is product-wide rather than scoped to Plan and
+  Goals.
 - ESH screens were out of scope throughout, except the shared `.eyebrow` rule,
-  which was de-costumed product-wide with the owner's agreement.
+  which was de-costumed product-wide with the owner's agreement. This is a
+  scope boundary rather than a defect, and it still stands.
+- **New, and worth knowing:** the touch-target and scale guards both measured
+  nothing on at least one route and reported it as a pass. `/more/attachments`
+  is empty on a clean database, so a route with no rows satisfied the touch
+  guard for as long as that test had existed, and it failed only once a gate
+  run happened to leave attachments behind. Both guards now require that each
+  route yields controls. **A green route is not evidence until you know it had
+  something to measure.**
 
 ## Known test brittleness
 

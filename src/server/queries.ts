@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { barrierHref } from '@/domain/barriers';
 import { notificationHref } from '@/domain/notification-link';
 import type { ResolvedPeriod } from '@/domain/period';
+import { readCapabilities } from '@/domain/reads';
 import { describeRecurrence, patternFromRow } from '@/domain/routines';
 import {
   attentionPriority,
@@ -926,7 +927,29 @@ export async function getTaskDetail(taskId: string, viewerId: string): Promise<T
         .filter((id): id is string => Boolean(id)),
     ]),
   );
-  const rawCapabilities = (capabilityResult.data ?? {}) as Record<string, unknown>;
+  /*
+   * What this person may do with this task, insisted upon.
+   *
+   * `capabilityResult.data ?? {}` turned a failed read into a complete set of
+   * `false` capabilities, which the drawer cannot tell from a refusal: the
+   * footer's one primary action is chosen by them, so an owner looking at her
+   * own Active work got a drawer with nothing in it that she could do, and
+   * nothing anywhere recorded why. It cost a gate run at 16/17 on 8 November
+   * 2026, where `evidence-upload-v135` found no `Complete work` button on
+   * mobile while the same test passed on desktop in the same run and six of
+   * six passed in isolation. The local stack was answering some reads with a
+   * gateway 502 under load throughout that run.
+   *
+   * `requireAnswer` is the rule this repository already stated for Finding
+   * Management in v197 — a read that SAYS no is no, a read that FAILS is a
+   * different fact — applied where it was missing.
+   */
+  const rawCapabilities = await readCapabilities<Record<string, unknown>>({
+    read: () => supabase.rpc('get_task_capabilities', { p_task_id: taskId }),
+    source: 'getTaskDetail:capabilities',
+    reference: 'TASK_CAPABILITIES_UNAVAILABLE',
+    first: capabilityResult,
+  });
 
   let routine: TaskDetail['routine'] = null;
   if (overview.routineTemplateId) {
