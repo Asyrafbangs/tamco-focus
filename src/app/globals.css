@@ -1401,23 +1401,9 @@
   border-radius: 8px;
   background: transparent;
   color: var(--text);
-  text-align: left;
-}
-.settings-nav-row strong,
-.settings-nav-row span {
-  display: block;
-}
-.settings-nav-row strong {
   font-size: var(--text-xs);
   font-weight: 650;
-}
-.settings-nav-row span {
-  margin-top: 2px;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: var(--text-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-align: left;
 }
 .settings-nav-row:hover {
   background: var(--surface-2);
@@ -1460,23 +1446,17 @@
 .settings-body {
   padding: 4px 18px 18px;
 }
-.settings-body [data-settings-panel] {
+/*
+ * The closed sections, and nothing else.
+ *
+ * This was eleven selectors, one per section, and a section added without its
+ * line stayed `display: none` for good. `hidden` now comes from the workspace's
+ * own open-section state (`SettingsPanel`), so there is no list to fall out of.
+ * The rule is still written out because an author `display` on `section` would
+ * otherwise beat the browser's own `[hidden]`.
+ */
+.settings-body [data-settings-panel][hidden] {
   display: none;
-}
-.settings-workspace[data-active='workspace'] [data-settings-panel='workspace'],
-.settings-workspace[data-active='alerts'] [data-settings-panel='alerts'],
-.settings-workspace[data-active='accessibility'] [data-settings-panel='accessibility'],
-/* Every section needs a line here or its panel is display:none for good. A
-   test asserts the list is complete, because nothing else does. */
-.settings-workspace[data-active='appearance'] [data-settings-panel='appearance'],
-.settings-workspace[data-active='focus'] [data-settings-panel='focus'],
-.settings-workspace[data-active='review'] [data-settings-panel='review'],
-.settings-workspace[data-active='routine'] [data-settings-panel='routine'],
-.settings-workspace[data-active='reminders'] [data-settings-panel='reminders'],
-.settings-workspace[data-active='retention'] [data-settings-panel='retention'],
-.settings-workspace[data-active='delivery'] [data-settings-panel='delivery'],
-.settings-workspace[data-active='security'] [data-settings-panel='security'] {
-  display: block;
 }
 .settings-body .settings-form {
   gap: 0;
@@ -1585,9 +1565,6 @@
     width: auto;
     min-width: 132px;
     min-height: 44px;
-  }
-  .settings-nav-row span {
-    display: none;
   }
   .settings-body {
     padding-inline: 14px;
@@ -8978,9 +8955,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
     min-width: 132px;
     min-height: 44px;
     flex: 0 0 auto;
-  }
-  .settings-nav-row span {
-    display: none;
   }
   .settings-body .settings-form label:not(.check-row),
   .settings-policy-list .setting-row {
