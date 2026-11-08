@@ -463,11 +463,31 @@ export function PlanCalendar({
         onDrop={(event) => dropOnDay(event, day.date)}
       >
         <div className="daynum">
-          {/* The grid shows a bare number; the agenda needs the full
-              date, since it has no column headers to read from. */}
-          <span aria-hidden="true">{day.dayNumber}</span>
-          <span className="visually-hidden">{day.heading}</span>
-          {day.isToday && <span className="visually-hidden"> (today)</span>}
+          {/*
+            v305 — the grid shows a bare number; the agenda shows the full date.
+            Both were already here, but the full date was only ever in the
+            screen-reader span, so on a phone — where the weekday headers and
+            the surrounding days are gone — a card was headed "8" and nothing
+            else. The number carries the day in a grid because the column says
+            the weekday and the heading above says the month; on an agenda
+            neither of those anchors exists, so the card has to say it itself.
+            One markup tree, and the layout chooses which of the two shows.
+          */}
+          <span className="daynum-number" aria-hidden="true">
+            {day.dayNumber}
+          </span>
+          <span className="daynum-date" aria-hidden="true">
+            {day.heading}
+          </span>
+          {day.isToday && (
+            <span className="daynum-today" aria-hidden="true">
+              Today
+            </span>
+          )}
+          <span className="visually-hidden">
+            {day.heading}
+            {day.isToday ? ' (today)' : ''}
+          </span>
         </div>
 
         {day.items.map((item) => (

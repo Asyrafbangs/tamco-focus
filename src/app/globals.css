@@ -4050,6 +4050,13 @@ fieldset:disabled label,
   color: var(--blue);
   font-weight: 700;
 }
+/* v305 — the grid is headed by a number, the agenda by the date itself. The
+   agenda forms are off here and switched on with the agenda below 700px; see
+   the note in `PlanCalendar`. */
+.daynum-date,
+.daynum-today {
+  display: none;
+}
 
 /* Section 17.3 - items open the task. Since v153 a due date can also be
    dragged to another day, through the same governed action as the task
@@ -5798,6 +5805,38 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   .cal-head-row,
   .cal-row.is-empty-week {
     display: none;
+  }
+  /* v305 — each card names its own day. Without the weekday column and the
+     days either side, "8" alone says nothing about which 8th it is or what
+     day of the week it falls on. */
+  .daynum {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    margin-bottom: 2px;
+  }
+  .daynum-number {
+    display: none;
+  }
+  .daynum-date {
+    display: inline;
+    color: var(--text);
+    font-size: calc(14px * var(--font-scale));
+    font-weight: 700;
+  }
+  .day.today .daynum-date {
+    color: var(--blue);
+  }
+  .daynum-today {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--blue-bg);
+    color: var(--blue);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    line-height: 1.6;
   }
   .cal-item {
     font-size: 12px;
