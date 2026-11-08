@@ -3392,10 +3392,22 @@ button {
   gap: 16px;
   margin-bottom: var(--page-gap);
 }
+/*
+ * A small label above a block — one device, one name.
+ *
+ * It used to be set in tracked capitals, which is the single commonest tell of
+ * a generated interface and the hardest small text to read. Removing the
+ * costume left exactly the declarations the Goals area had already arrived at
+ * independently under a second name, `.kicker`, duplicated in five CSS
+ * modules because module scoping gave it no choice. There is one rule now,
+ * and one class.
+ *
+ * What a label is for is unchanged: it names a block the heading above does
+ * not already name. Where it only restated the heading it was deleted, and
+ * where it was the block's only label it became a real heading.
+ */
 .eyebrow {
   font-size: var(--text-xs);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
   color: var(--blue);
   font-weight: 650;
 }

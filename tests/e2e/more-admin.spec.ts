@@ -45,7 +45,14 @@ test('employee uses records, attachment history, audit, archive, and personal se
    * two matches rather than on the thing it is about.
    */
   await expect(page.getByRole('heading', { name: 'Attachments', exact: true })).toBeVisible();
-  await expect(page.getByRole('table')).toBeVisible();
+  /*
+   * The table or the empty state, the same way Records is checked above.
+   * `getByRole('table')` passed on an employee with no attachments at all,
+   * because the table rendered anyway and its visible head gave it a box —
+   * an assertion about a list that was never asserting anything in it. The
+   * table is no longer drawn with nothing in it, which is what exposed this.
+   */
+  await expect(page.locator('.data-table, .empty-state').first()).toBeVisible();
 
   await page.goto('/more/audit');
   await expect(page.getByRole('heading', { name: 'Audit history' })).toBeVisible();

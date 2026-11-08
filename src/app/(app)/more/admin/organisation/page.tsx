@@ -373,6 +373,7 @@ export default async function OrganisationPage({
 
       <WorkspaceTabs
         label="Identity and access"
+        level={1}
         items={[
           { href: '/more/admin/users', label: 'Directory' },
           { href: '/more/admin/organisation', label: 'Organisation', active: true },

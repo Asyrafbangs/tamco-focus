@@ -113,6 +113,7 @@ export default async function RecordsPage({
       </div>
       <WorkspaceTabs
         label="Record workspace"
+        level={1}
         items={
           profile.role === 'team_member'
             ? [

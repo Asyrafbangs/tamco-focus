@@ -277,7 +277,7 @@ export default async function GoalsPage({
     <>
       <div className="pagehead">
         <div>
-          <p className={styles.kicker}>Performance and development</p>
+          <p className="eyebrow">Performance and development</p>
           <h1>Goals</h1>
           <p>
             Agreed outcomes, visible progress, actionable milestones and evidence&mdash;separate
@@ -317,6 +317,7 @@ export default async function GoalsPage({
       {canSeeTeam && (
         <WorkspaceTabs
           label="Goal workspace"
+          level={1}
           items={[
             { href: '/goals', label: 'My Goals', active: view === 'my' },
             {
@@ -374,6 +375,7 @@ export default async function GoalsPage({
             <FormalWeight goals={rows} plan={myPlan} />
             <WorkspaceTabs
               label="Goal lifecycle"
+              level={3}
               items={[
                 {
                   href: lifecycleHref('active'),
@@ -535,7 +537,7 @@ export default async function GoalsPage({
               <>
                 <header className="team-goal-detail-head">
                   <div>
-                    <p className={styles.kicker}>Employee goals</p>
+                    <p className="eyebrow">Employee goals</p>
                     <h2 id="team-person-goals">{selectedPerson.fullName}</h2>
                     <p>{selectedPerson.employeeId} · Coaching and alignment</p>
                   </div>
@@ -585,6 +587,7 @@ export default async function GoalsPage({
                 <FormalWeight goals={teamGoals} plan={teamPlan} />
                 <WorkspaceTabs
                   label="Goal lifecycle"
+                  level={3}
                   items={GOAL_LIFECYCLE_VIEWS.map((item) => ({
                     href: lifecycleHref(item),
                     label: GOAL_LIFECYCLE_LABELS[item],

@@ -227,7 +227,7 @@ export function GoalSessionPanel({
         >
           <header className="modal-head">
             <div>
-              <p className={styles.kicker}>Monthly Goal session</p>
+              <p className="eyebrow">Monthly Goal session</p>
               <h2>
                 {month}/{year} · All Active Goals
               </h2>
@@ -351,7 +351,7 @@ export function GoalSessionPanel({
         >
           <header className="modal-head">
             <div>
-              <p className={styles.kicker}>Quarterly Goal session</p>
+              <p className="eyebrow">Quarterly Goal session</p>
               <h2>
                 Q{quarter} {year} · All Active Goals
               </h2>

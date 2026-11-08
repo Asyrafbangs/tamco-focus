@@ -55,54 +55,61 @@ export default async function AttachmentsPage({
           a `display` other than the table ones, so without these the stacked
           rows would reach a screen reader as a pile of text.
         */}
-        <table className="data-table" role="table">
-          <caption className="visually-hidden">Authorised attachments and evidence</caption>
-          <thead role="rowgroup">
-            <tr role="row">
-              <th role="columnheader">File</th>
-              <th role="columnheader">Work item</th>
-              <th role="columnheader">Uploaded by</th>
-              <th role="columnheader">Added</th>
-              <th role="columnheader">Opened</th>
-            </tr>
-          </thead>
-          <tbody role="rowgroup">
-            {items.map((item) => (
-              <tr key={item.id} className="interactive-row" role="row">
-                <td role="cell">
-                  <RowPrimaryLink
-                    href={`/api/attachments/${item.id}`}
-                    ariaLabel={`Open ${item.fileName}`}
-                  >
-                    <strong>{item.fileName}</strong>
-                  </RowPrimaryLink>
-                  {/* No media type. The file name carries its extension, and
+        {/*
+          No rows, no table. The phone layout hides the head, so an empty table
+          there is a nought-pixel element the empty state below has to speak
+          for — and a screen reader is offered a table with nothing in it.
+        */}
+        {items.length > 0 && (
+          <table className="data-table" role="table">
+            <caption className="visually-hidden">Authorised attachments and evidence</caption>
+            <thead role="rowgroup">
+              <tr role="row">
+                <th role="columnheader">File</th>
+                <th role="columnheader">Work item</th>
+                <th role="columnheader">Uploaded by</th>
+                <th role="columnheader">Added</th>
+                <th role="columnheader">Opened</th>
+              </tr>
+            </thead>
+            <tbody role="rowgroup">
+              {items.map((item) => (
+                <tr key={item.id} className="interactive-row" role="row">
+                  <td role="cell">
+                    <RowPrimaryLink
+                      href={`/api/attachments/${item.id}`}
+                      ariaLabel={`Open ${item.fileName}`}
+                    >
+                      <strong>{item.fileName}</strong>
+                    </RowPrimaryLink>
+                    {/* No media type. The file name carries its extension, and
                       "application/vnd.openxmlformats-officedocument.presentationml.presentation"
                       was three lines of a phone screen for a fact nobody acts on. */}
-                  <small>
-                    {bytes(item.byteSize)}
-                    {item.isEvidence ? ' · Evidence' : ''}
-                  </small>
-                </td>
-                <td role="cell">
-                  <Link href={taskDrawerHref(item.taskId, '/more/attachments')} data-row-action>
-                    {item.taskTitle}
-                  </Link>
-                </td>
-                <td role="cell">{item.uploadedByName}</td>
-                <td role="cell">
-                  {new Intl.DateTimeFormat('en-MY', { dateStyle: 'medium' }).format(
-                    new Date(item.createdAt),
-                  )}
-                </td>
-                {/* No second Open control. It pointed at the same address as
+                    <small>
+                      {bytes(item.byteSize)}
+                      {item.isEvidence ? ' · Evidence' : ''}
+                    </small>
+                  </td>
+                  <td role="cell">
+                    <Link href={taskDrawerHref(item.taskId, '/more/attachments')} data-row-action>
+                      {item.taskTitle}
+                    </Link>
+                  </td>
+                  <td role="cell">{item.uploadedByName}</td>
+                  <td role="cell">
+                    {new Intl.DateTimeFormat('en-MY', { dateStyle: 'medium' }).format(
+                      new Date(item.createdAt),
+                    )}
+                  </td>
+                  {/* No second Open control. It pointed at the same address as
                     the file name beside it, and cost the widest column on a
                     phone. */}
-                <td role="cell">{item.viewCount}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  <td role="cell">{item.viewCount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
         {items.length === 0 && (
           <div className="empty-state">
             <h2>No matching attachments</h2>

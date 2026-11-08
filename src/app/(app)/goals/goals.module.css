@@ -1,23 +1,3 @@
-/*
- * v305 — a kicker that says something, without shouting it.
- *
- * `.eyebrow` sets 0.14em tracking and `text-transform: uppercase`. Above an
- * `<h1>` that already names the page it is pure costume; where the words are a
- * fact a person wants — "Performance and development" above Goals — they stay
- * and the capitals go, with weight and colour doing the separating instead.
- *
- * Scoped to this module rather than added to globals.css on purpose: three
- * areas are being revised in parallel and the shared class is being retired at
- * integration, so each area carries its own until then. Named `kicker`
- * everywhere so they can be found in one search.
- */
-.kicker {
-  margin: 0;
-  color: var(--blue);
-  font-size: var(--text-xs);
-  font-weight: 650;
-}
-
 .formalWeight {
   display: flex;
   align-items: center;

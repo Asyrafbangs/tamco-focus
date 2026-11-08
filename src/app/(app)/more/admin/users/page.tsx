@@ -156,6 +156,7 @@ export default async function UsersPage({
       */}
       <WorkspaceTabs
         label="Identity and access"
+        level={1}
         items={[
           { href: '/more/admin/users', label: 'Directory', active: true },
           { href: '/more/admin/organisation', label: 'Organisation' },

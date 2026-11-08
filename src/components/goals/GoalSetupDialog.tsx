@@ -162,7 +162,7 @@ export function GoalSetupDialog({
         >
           <header className="modal-head">
             <div>
-              <p className={styles.kicker}>Step {step} of 2</p>
+              <p className="eyebrow">Step {step} of 2</p>
               <h2>{step === 1 ? 'Set the expectation' : 'Discuss and agree'}</h2>
               <p>{step === 1 ? 'What are we trying to achieve?' : 'How will we achieve it?'}</p>
             </div>
