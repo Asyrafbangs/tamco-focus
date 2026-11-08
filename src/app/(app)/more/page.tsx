@@ -12,7 +12,6 @@ export default async function MorePage() {
     <>
       <div className="pagehead">
         <div>
-          <p className="eyebrow">More</p>
           <h1>Records and settings</h1>
           <p>Review history, evidence, system rules and personal preferences.</p>
         </div>
@@ -25,16 +24,13 @@ export default async function MorePage() {
           </span>
           <h2>Records</h2>
           <p>Completion reviews, task records, attachments, audit history and archive.</p>
-          <span className="utility-meta">
-            <span>
-              {profile.role === 'team_member'
-                ? 'Your retained task history'
-                : `${pendingReviews} review${pendingReviews === 1 ? '' : 's'} waiting`}
+          {profile.role !== 'team_member' && (
+            <span className="utility-meta">
+              <span>
+                {pendingReviews} review{pendingReviews === 1 ? '' : 's'} waiting
+              </span>
             </span>
-            <span className="btn small" aria-hidden="true">
-              Open
-            </span>
-          </span>
+          )}
         </Link>
 
         <Link href="/more/settings" className="card utility-card">
@@ -43,14 +39,6 @@ export default async function MorePage() {
           </span>
           <h2>Settings</h2>
           <p>Capacity, review rules, notifications, permissions and accessibility.</p>
-          <span className="utility-meta">
-            <span>
-              {profile.role === 'team_member' ? 'Personal preferences' : 'Manager configuration'}
-            </span>
-            <span className="btn small" aria-hidden="true">
-              Open
-            </span>
-          </span>
         </Link>
 
         <Link href="/plan" className="card utility-card calendar-utility">
@@ -65,9 +53,6 @@ export default async function MorePage() {
                 new Date(),
               )}
             </span>
-            <span className="btn small" aria-hidden="true">
-              Open
-            </span>
           </span>
         </Link>
 
@@ -80,12 +65,6 @@ export default async function MorePage() {
           </span>
           <h2>Weekly email summary</h2>
           <p>Completed work, progress changes, overdue items and next actions.</p>
-          <span className="utility-meta">
-            <span>Delivery schedule and history</span>
-            <span className="btn small" aria-hidden="true">
-              Open
-            </span>
-          </span>
         </Link>
       </section>
 
@@ -93,7 +72,6 @@ export default async function MorePage() {
         <section className="section-block more-admin" aria-labelledby="admin-controls-heading">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">Administrator</p>
               <h2 id="admin-controls-heading">Identity and access</h2>
             </div>
           </div>

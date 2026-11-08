@@ -13,7 +13,6 @@ export default async function AuditPage({
     <>
       <div className="pagehead">
         <div>
-          <p className="eyebrow">Records</p>
           <h1>Audit history</h1>
           <p>
             Immutable authorised history. Undo adds a reversal; it never erases the original event.
@@ -32,7 +31,6 @@ export default async function AuditPage({
       <ol className="audit-timeline">
         {events.map((event) => (
           <li key={event.id} className={event.taskId ? 'interactive-row' : undefined}>
-            <span className="timeline-dot" aria-hidden="true" />
             <div>
               <div className="record-title-row">
                 <strong>{event.eventType.replaceAll('_', ' ')}</strong>
@@ -76,7 +74,7 @@ export default async function AuditPage({
       {events.length === 0 && (
         <div className="empty-state">
           <h2>No matching events</h2>
-          <p>Try a broader search.</p>
+          <p>Search by event, by the person who acted, or by the work item.</p>
         </div>
       )}
     </>

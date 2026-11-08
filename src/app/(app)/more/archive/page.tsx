@@ -13,7 +13,6 @@ export default async function ArchivePage({
     <>
       <div className="pagehead">
         <div>
-          <p className="eyebrow">Archive</p>
           <h1>Cancelled outcomes</h1>
           <p>
             Archive preserves the work, evidence, relationships, and reason. It is not deletion.
@@ -33,7 +32,8 @@ export default async function ArchivePage({
         {records.map(({ task }) => (
           <article className="record-card compact interactive-row" key={task.id}>
             <div>
-              <span className="flag amber">Cancelled</span>
+              {/* No "Cancelled" chip. This page reads only cancelled work, so
+                  the chip was on every row and told one row from none. */}
               <h2>
                 <RowPrimaryLink
                   href={taskDrawerHref(task.id, '/more/archive')}
@@ -62,7 +62,7 @@ export default async function ArchivePage({
       {records.length === 0 && (
         <div className="empty-state">
           <h2>No matching archived work</h2>
-          <p>Cancelled work will remain searchable here.</p>
+          <p>Cancelled work stays searchable here. Try a shorter search.</p>
         </div>
       )}
     </>

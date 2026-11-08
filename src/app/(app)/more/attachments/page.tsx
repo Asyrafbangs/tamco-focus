@@ -22,7 +22,6 @@ export default async function AttachmentsPage({
     <>
       <div className="pagehead">
         <div>
-          <p className="eyebrow">Records</p>
           <h1>Attachments</h1>
           <p>
             Every file follows the visibility of its work item. Opening it is recorded
@@ -50,52 +49,56 @@ export default async function AttachmentsPage({
         aria-label="Authorised attachments and evidence"
         tabIndex={0}
       >
-        <table className="data-table">
+        {/*
+          Roles written out, because the phone layout stacks the row.
+          Chromium drops a table's structure as soon as a `tr` or `td` is given
+          a `display` other than the table ones, so without these the stacked
+          rows would reach a screen reader as a pile of text.
+        */}
+        <table className="data-table" role="table">
           <caption className="visually-hidden">Authorised attachments and evidence</caption>
-          <thead>
-            <tr>
-              <th>File</th>
-              <th>Work item</th>
-              <th>Uploaded by</th>
-              <th>Added</th>
-              <th>Views</th>
-              <th>
-                <span className="visually-hidden">Open</span>
-              </th>
+          <thead role="rowgroup">
+            <tr role="row">
+              <th role="columnheader">File</th>
+              <th role="columnheader">Work item</th>
+              <th role="columnheader">Uploaded by</th>
+              <th role="columnheader">Added</th>
+              <th role="columnheader">Opened</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody role="rowgroup">
             {items.map((item) => (
-              <tr key={item.id} className="interactive-row">
-                <td>
+              <tr key={item.id} className="interactive-row" role="row">
+                <td role="cell">
                   <RowPrimaryLink
                     href={`/api/attachments/${item.id}`}
                     ariaLabel={`Open ${item.fileName}`}
                   >
                     <strong>{item.fileName}</strong>
                   </RowPrimaryLink>
+                  {/* No media type. The file name carries its extension, and
+                      "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                      was three lines of a phone screen for a fact nobody acts on. */}
                   <small>
-                    {bytes(item.byteSize)} · {item.mimeType}
+                    {bytes(item.byteSize)}
                     {item.isEvidence ? ' · Evidence' : ''}
                   </small>
                 </td>
-                <td>
+                <td role="cell">
                   <Link href={taskDrawerHref(item.taskId, '/more/attachments')} data-row-action>
                     {item.taskTitle}
                   </Link>
                 </td>
-                <td>{item.uploadedByName}</td>
-                <td>
+                <td role="cell">{item.uploadedByName}</td>
+                <td role="cell">
                   {new Intl.DateTimeFormat('en-MY', { dateStyle: 'medium' }).format(
                     new Date(item.createdAt),
                   )}
                 </td>
-                <td>{item.viewCount}</td>
-                <td>
-                  <a className="btn small" href={`/api/attachments/${item.id}`} data-row-action>
-                    Open
-                  </a>
-                </td>
+                {/* No second Open control. It pointed at the same address as
+                    the file name beside it, and cost the widest column on a
+                    phone. */}
+                <td role="cell">{item.viewCount}</td>
               </tr>
             ))}
           </tbody>
@@ -103,7 +106,9 @@ export default async function AttachmentsPage({
         {items.length === 0 && (
           <div className="empty-state">
             <h2>No matching attachments</h2>
-            <p>Only files you are authorised to view appear here.</p>
+            <p>
+              Files appear here once they are attached to work you can see. Try a shorter search.
+            </p>
           </div>
         )}
       </div>
