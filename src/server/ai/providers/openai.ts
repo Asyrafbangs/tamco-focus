@@ -170,7 +170,7 @@ export function classify(status: number, headers: Headers, body: string): Provid
         body,
       )
     ) {
-      return 'quota_exhausted';
+      return 'credits_exhausted';
     }
     if (/slow_down|rate limit reached|rate_limit/i.test(body)) return 'rate_limited';
     const reset =

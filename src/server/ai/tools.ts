@@ -24,6 +24,7 @@ import {
   getMyTasks,
   getStepsIOwe,
   getTaskDetail,
+  getLatestTaskUpdates,
   getTeamLoad,
   getVisibleTeamTasks,
 } from '@/server/queries';
@@ -277,7 +278,7 @@ const teamTasksSchema = z.object({
 const teamTasks: AgentTool = {
   name: 'list_team_tasks',
   description:
-    'The team’s actual open work, one row per TASK rather than per person: title, owner, status, due date, whether it is overdue or has gone stale, urgency, whether it is mandatory, progress, open barriers, delegated steps still owed, checklist progress, what completion requires as evidence, and whether it is waiting on review. Use it for ANY question about the team’s workload, priorities, what to do first, who is overloaded, what can be postponed or what needs a decision — those are questions about work, and list_team_workload only holds counts. scope: all (default), overdue, due_soon (the next seven days), blocked (open barriers or overdue delegated steps), in_review (submitted and awaiting a decision). It holds no effort or duration estimate because the product records none.',
+    'The team’s actual open work, one row per TASK rather than per person: title, owner, status, due date, whether it is overdue or has gone stale, urgency, whether it is mandatory, progress, open barriers, delegated steps still owed, checklist progress, what completion requires as evidence, whether it is waiting on review, and THE LAST UPDATE ITS OWNER WROTE - who wrote it, when, and what it said. The update is usually the answer to "why has this not moved": a job with no progress for a fortnight whose last note says the part is on order is not the same as one nobody has touched. Use it for ANY question about the team’s workload, priorities, what to do first, who is overloaded, what can be postponed or what needs a decision — those are questions about work, and list_team_workload only holds counts. scope: all (default), overdue, due_soon (the next seven days), blocked (open barriers or overdue delegated steps), in_review (submitted and awaiting a decision). It holds no effort or duration estimate because the product records none.',
   schema: teamTasksSchema,
   inputSchema: {
     type: 'object',
@@ -319,6 +320,21 @@ const teamTasks: AgentTool = {
     });
 
     const capped = capRows(ordered, AGENT_LIMITS.maxRowsPerTool);
+    /*
+     * v307 — what the owner last WROTE, not just when they last wrote.
+     *
+     * The rows already said "no update for twelve days", which tells a
+     * manager that something is quiet and nothing about why. "Waiting on the
+     * contractor's quote since 20 October" is the difference between a person
+     * who is behind and a job blocked on somebody outside the team, and it is
+     * the sentence a manager would have read first on the screen.
+     *
+     * One query for the rows being shown, after the cap rather than before,
+     * so the narrative is fetched for twenty-five tasks and never five
+     * hundred. Trimmed to 240 characters: enough for the situation, short of
+     * letting one person's essay crowd out the other eight jobs.
+     */
+    const updates = await getLatestTaskUpdates(capped.rows.map((task) => task.id));
     const rows = capped.rows.map((task) => ({
       task: task.title,
       owner: task.ownerName,
@@ -338,6 +354,16 @@ const teamTasks: AgentTool = {
       evidence_attached: task.evidenceCount,
       awaiting_review: task.reviewStatus === 'pending',
       assigned_by: task.assignedByName,
+      last_update: (() => {
+        const update = updates.get(task.id);
+        if (!update) return null;
+        const words = update.body.replace(/\s+/g, ' ').trim();
+        return {
+          by: update.authorName,
+          at: update.createdAt,
+          said: words.length > 240 ? `${words.slice(0, 240)}…` : words,
+        };
+      })(),
     }));
 
     return {

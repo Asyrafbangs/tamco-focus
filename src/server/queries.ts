@@ -2755,6 +2755,79 @@ export async function getVisibleTeamTasks(viewerId: string): Promise<TaskOvervie
   return (data ?? []).map(toTaskOverview);
 }
 
+/** The most recent thing a person wrote on each of these tasks. */
+export interface LatestTaskUpdate {
+  taskId: string;
+  authorName: string;
+  body: string;
+  createdAt: string;
+}
+
+/**
+ * v307 — the last update on each of a set of tasks, in the words written.
+ *
+ * `task_overview` carries `last_meaningful_update_at`, so a reader could
+ * already tell that nothing had been written for twelve days. What it could
+ * not tell is what the last thing said - and "waiting on the contractor's
+ * quote since 20 October" is the difference between a person who is behind
+ * and a job that is blocked on somebody outside the team.
+ *
+ * Evidence-only rows are skipped: those are an attachment with no words, and
+ * returning one as "the latest update" would hide the last real sentence
+ * behind a photograph.
+ *
+ * One query for the whole set. Visibility is `task_updates`'s own policy,
+ * reached with the caller's client like everything else here, so an update on
+ * a task the caller may not see does not come back.
+ */
+export async function getLatestTaskUpdates(
+  taskIds: readonly string[],
+): Promise<Map<string, LatestTaskUpdate>> {
+  const latest = new Map<string, LatestTaskUpdate>();
+  if (taskIds.length === 0) return latest;
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from('task_updates')
+    .select('task_id, author_id, body, created_at, is_evidence_only')
+    .in('task_id', [...taskIds])
+    .eq('is_evidence_only', false)
+    .order('created_at', { ascending: false })
+    .limit(400);
+
+  if (error) {
+    /*
+     * Reported, not thrown. The tasks themselves were read successfully, and
+     * losing the narrative is worse than having none only if the caller is
+     * told the opposite - so the rows still go out, without this.
+     */
+    console.error(`[getLatestTaskUpdates] ${error.message}`);
+    return latest;
+  }
+
+  const authors = new Map<string, string>();
+  const ids = [...new Set((data ?? []).map((row) => String(row.author_id)).filter(Boolean))];
+  if (ids.length > 0) {
+    const { data: people } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+    for (const person of people ?? []) {
+      authors.set(String(person.id), String(person.full_name));
+    }
+  }
+
+  for (const row of data ?? []) {
+    const taskId = String(row.task_id);
+    const body = typeof row.body === 'string' ? row.body.trim() : '';
+    if (!body || latest.has(taskId)) continue;
+    latest.set(taskId, {
+      taskId,
+      authorName: authors.get(String(row.author_id)) ?? 'Somebody',
+      body,
+      createdAt: String(row.created_at),
+    });
+  }
+  return latest;
+}
+
 /** Manager-configurable values the interface needs in order to render. */
 export async function getDisplaySettings(): Promise<{
   staleThresholdDays: number;
