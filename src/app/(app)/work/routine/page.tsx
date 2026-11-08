@@ -317,9 +317,15 @@ export default async function RoutinePage({
     <>
       <div className="pagehead">
         <div>
-          <p className="eyebrow">Work</p>
+          {/* No "WORK" above "My Work" — it restated the heading in capitals. */}
           <h1>My Work</h1>
-          <p>One workspace for focused commitments and repeating responsibilities.</p>
+          {/*
+            The sentence follows the mode, the way Focus's does. "One workspace
+            for focused commitments and repeating responsibilities" described
+            the shell to somebody who had already chosen one half of it; this
+            describes the list actually on screen.
+          */}
+          <p>Work that repeats, and whether any of it is due.</p>
         </div>
         {/*
           Routine's half of the contextual action (see the Focus page).

@@ -10717,6 +10717,19 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: var(--radius-sm);
   background: var(--surface);
 }
+/*
+  The block's own heading, which used to be an uppercase `.eyebrow` doing a
+  heading's job without being one. Sentence case, told apart by weight and a
+  tight line rather than by 0.14em of tracking (v305).
+*/
+.working-on-summary h2,
+.weekly-priorities h2 {
+  margin: 0 0 2px;
+  font-size: calc(13px * var(--font-scale));
+  font-weight: 650;
+  line-height: 1.3;
+  color: var(--text);
+}
 .working-on-summary strong {
   font-size: 13px;
 }

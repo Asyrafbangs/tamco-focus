@@ -231,7 +231,8 @@ export default async function TodayPage({
     <>
       <div className="pagehead">
         <div>
-          <p className="eyebrow">Daily workspace</p>
+          {/* No "DAILY WORKSPACE" above "My Day". It said the heading again in
+              capitals, and the line under it already says what the day holds. */}
           <h1>{profile.full_name.split(' ')[0]} · My Day</h1>
           <p>{todayLabel} · What is late, and what is due in the next few days.</p>
         </div>

@@ -101,7 +101,9 @@ export function WeeklyPriorities({
   if (commitments.length === 0) {
     return (
       <div className="weekly-priorities empty">
-        {labelled && <p className="eyebrow">This week</p>}
+        {/* The only label this block has, so it is a heading rather than a
+            tracked-out uppercase line pretending to be one. */}
+        {labelled && <h2>This week</h2>}
         {/*
           §8: say "No agreed priorities" rather than dressing a proposal up as
           an agreement — and never invent one for somebody who has not set any.
@@ -113,7 +115,7 @@ export function WeeklyPriorities({
 
   return (
     <div className="weekly-priorities">
-      {labelled && <p className="eyebrow">This week</p>}
+      {labelled && <h2>This week</h2>}
       {error && (
         <p className="notice error" role="alert">
           {error}
