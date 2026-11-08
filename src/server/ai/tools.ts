@@ -18,7 +18,7 @@ import {
   listRegister,
   listVerificationQueue,
 } from '@/server/esh/queries';
-import { getMyTasks, getStepsIOwe, getTaskDetail, getTeamAvailableWork } from '@/server/queries';
+import { getMyTasks, getStepsIOwe, getTaskDetail, getTeamLoad } from '@/server/queries';
 
 /**
  * Everything the assistant can read — and nothing else.
@@ -180,16 +180,52 @@ const owedSteps: AgentTool = {
 
 const teamSchema = z.object({});
 
+/**
+ * v302 — this tool answered "nobody" to everybody, for every team.
+ *
+ * It called `getTeamAvailableWork`, which returns `{ groups, failed }`, and
+ * then wrote `Array.isArray(work) ? work : []`. An object is not an array, so
+ * the branch was dead: the tool returned **zero rows on every call**, whatever
+ * the team was doing, and the model — correctly reading the empty result as
+ * the only evidence it had — told a head of department his team had no visible
+ * workload. The same expression discarded `failed`, so a failed query would
+ * have arrived as the same emptiness, which is the one thing
+ * `getTeamAvailableWork`'s own comment says must never happen.
+ *
+ * The source is now `team_load_summary` through `getTeamLoad`, which is what
+ * this tool's description has always promised: one row per person the caller
+ * may see, carrying their counts, so "is the delay one person or a queue" is a
+ * question the rows can actually answer. The previous source could not — it
+ * listed `status = 'backlog'` work only, so a team whose work was all in
+ * progress read as a team with nothing on.
+ *
+ * Visibility stays in the database. `team_load_summary` is RLS-scoped, so the
+ * rows are the people this caller is permitted to see and no filtering is
+ * repeated here. An empty result still means "manages nobody", and a failed
+ * read throws, which the agent loop reports to the model as a failed tool
+ * rather than as an empty one.
+ */
 const teamWorkload: AgentTool = {
   name: 'list_team_workload',
   description:
-    'Work visible across the team this person may see. Empty for somebody who manages nobody — that is an answer, not a failure. Use it to check whether a delay is one person or a queue.',
+    'Workload for each person on the team this person may see: how much work is available to them, how much is overdue, how much has gone stale, open barriers, this week’s routines and decisions waiting on them. Empty for somebody who manages nobody — that is an answer, not a failure. Use it to check whether a delay is one person or a queue.',
   schema: teamSchema,
   inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   async run(input, caller) {
     parse(teamSchema, input, 'list_team_workload');
-    const work = await getTeamAvailableWork(caller.userId);
-    const rows = Array.isArray(work) ? work : [];
+    const team = await getTeamLoad(caller.userId);
+    const rows = team.map((person) => ({
+      person: person.fullName,
+      employee_id: person.employeeId,
+      available_work: person.availableWorkCount,
+      overdue: person.overdueCount,
+      stale: person.staleCount,
+      open_barriers: person.openBarrierCount,
+      routines_this_week: person.routinesThisWeek,
+      routines_completed_this_week: person.routinesCompletedThisWeek,
+      routines_overdue: person.routinesOverdue,
+      decisions_pending: person.decisionsPending,
+    }));
     const capped = capRows(rows, AGENT_LIMITS.maxRowsPerTool);
     return {
       evidence: asEvidence('list_team_workload', capped),
