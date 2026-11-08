@@ -78,3 +78,7 @@ skills-lock.json
 # Eval run output: real model answers over synthetic fixtures, kept out of
 # the repository because each run is a few hundred kilobytes of prose.
 evals/ai/runs/
+
+# UI/UX audit crawl output: screenshots and a findings report, regenerated
+# on demand by tests/e2e/uiux-audit.spec.ts. Evidence, not source.
+uiux-audit/

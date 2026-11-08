@@ -300,11 +300,17 @@ export function PlanCalendar({
     };
   }, [focusTask, notice]);
 
-  useEffect(() => {
-    if (!failure) return;
-    const expiry = window.setTimeout(() => setFailure(null), UNDO_WINDOW_MS);
-    return () => window.clearTimeout(expiry);
-  }, [failure]);
+  /*
+   * A refusal stays until it is dismissed.
+   *
+   * It used to expire on the same ten-second timer as the success notice. That
+   * timer belongs to the notice, which carries an Undo offer with a deadline:
+   * when the offer lapses the message should go with it. A refusal is the only
+   * account a person gets of why their move did not take, and the grid behind
+   * it has already jumped to somebody else's date — so a message that removes
+   * itself leaves them with a change they did not make and no explanation.
+   * It has a Dismiss button, and the next move clears it.
+   */
 
   const moveTo = useCallback(
     (item: PlanCalendarItem, fromDate: string, toDate: string) => {

@@ -2713,7 +2713,6 @@ button {
      * 39px, which is under the 44px rule v303 states for a touch screen.
      */
     min-height: 44px;
-    align-content: center;
   }
   .data-table tbody tr:last-child {
     border-bottom: 0;

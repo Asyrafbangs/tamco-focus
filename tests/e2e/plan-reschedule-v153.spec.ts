@@ -304,7 +304,21 @@ test('v153 a move made on a stale calendar is refused, and the calendar catches 
       .eq('id', taskId);
     if (error) throw error;
 
-    await entryOn(page, shownOn, title).dragTo(page.locator(`.day[data-date="${droppedOn}"]`));
+    /*
+     * Bring the drop target fully into view first.
+     *
+     * Titles wrap to two lines since v315 instead of being clipped at fifteen
+     * characters, so the month grid is taller and the last week sits partly
+     * below an 900px viewport. Playwright scrolls a target into view as part
+     * of the action — mid-drag — and that loses the drag: the move never
+     * reached the server, so there was nothing to refuse and no toast, which
+     * read as a missing error message rather than a drag that never happened.
+     * A real browser auto-scrolls during a native drag; only the simulated one
+     * needs this.
+     */
+    const dropTarget = page.locator(`.day[data-date="${droppedOn}"]`);
+    await dropTarget.scrollIntoViewIfNeeded();
+    await entryOn(page, shownOn, title).dragTo(dropTarget);
 
     // Refused, and said plainly — not quietly applied over their change.
     await expect(page.locator('.toast.error')).toContainText('changed while it was open');
