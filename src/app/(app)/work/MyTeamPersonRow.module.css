@@ -311,7 +311,7 @@
   display: inline-block;
   color: var(--muted);
   transition: transform var(--motion-fast) var(--motion-easing);
-  font-size: 15px;
+  font-size: var(--text-15);
   line-height: 1;
 }
 

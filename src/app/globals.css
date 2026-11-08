@@ -89,6 +89,28 @@
    * by the personal scale the way `body` always has.
    */
   --text-xs: calc(12px * var(--font-scale));
+
+  /*
+   * The rest of the scale, on the same setting.
+   *
+   * v312 put the floor on `--font-scale` and left these as literals, so
+   * Large reached the body and nothing a component sized for itself. At
+   * the default scale every value here is what it always was.
+   */
+  --text-12-5: calc(12.5px * var(--font-scale));
+  --text-13: calc(13px * var(--font-scale));
+  --text-14: calc(14px * var(--font-scale));
+  --text-15: calc(15px * var(--font-scale));
+  --text-16: calc(16px * var(--font-scale));
+  --text-17: calc(17px * var(--font-scale));
+  --text-18: calc(18px * var(--font-scale));
+  --text-20: calc(20px * var(--font-scale));
+  --text-21: calc(21px * var(--font-scale));
+  --text-22: calc(22px * var(--font-scale));
+  --text-24: calc(24px * var(--font-scale));
+  --text-25: calc(25px * var(--font-scale));
+  --text-26: calc(26px * var(--font-scale));
+  --text-28: calc(28px * var(--font-scale));
 }
 
 /* V35 task drawer fidelity correction — matches the approved compact prototype
@@ -118,7 +140,7 @@
 }
 .task-detail-drawer .task-detail-head h2 {
   margin-top: 5px;
-  font-size: 20px;
+  font-size: var(--text-20);
   font-weight: 650;
   line-height: 1.25;
 }
@@ -137,7 +159,7 @@
 }
 .task-detail-drawer .task-detail-head-actions > .btn:last-child::after {
   content: '×';
-  font-size: 18px;
+  font-size: var(--text-18);
 }
 .task-detail-drawer .task-detail-scroll {
   flex: 1 1 auto;
@@ -154,7 +176,7 @@
   border-radius: 10px;
 }
 .task-detail-drawer .barrier-callout strong {
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .task-detail-drawer .barrier-callout p {
   margin-top: 2px;
@@ -297,7 +319,7 @@
 .task-tab-section > h3,
 .task-detail-drawer .recent-activity-heading {
   margin: 0 0 9px;
-  font-size: 12.5px;
+  font-size: var(--text-12-5);
   font-weight: 650;
 }
 .task-detail-drawer .next-action-card {
@@ -309,7 +331,7 @@
   padding: 13px 14px;
 }
 .task-detail-drawer .next-action-copy strong {
-  font-size: 12.5px;
+  font-size: var(--text-12-5);
 }
 .task-detail-drawer .next-action-copy span,
 .task-detail-drawer .next-action-copy small {
@@ -473,7 +495,7 @@
     padding: 13px;
   }
   .task-detail-drawer .task-detail-head h2 {
-    font-size: 18px;
+    font-size: var(--text-18);
   }
   .task-detail-drawer .task-detail-head-actions .btn {
     min-height: 40px;
@@ -714,7 +736,7 @@
 }
 .drawer-pending-title {
   margin: 8px 0 0;
-  font-size: 20px;
+  font-size: var(--text-20);
   font-weight: 650;
   line-height: 1.25;
   overflow-wrap: anywhere;
@@ -749,7 +771,7 @@
 }
 .task-detail-head h2 {
   margin: 4px 0 0;
-  font-size: 22px;
+  font-size: var(--text-22);
   line-height: 1.25;
 }
 .task-detail-scroll {
@@ -798,7 +820,7 @@
 .barrier-callout p {
   margin: 3px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .detail-section {
   margin-top: 16px;
@@ -810,7 +832,7 @@
 
 .detail-section h3 {
   margin: 0 0 7px;
-  font-size: 15px;
+  font-size: var(--text-15);
 }
 .detail-section > p {
   color: var(--muted);
@@ -819,7 +841,7 @@
   border-color: color-mix(in srgb, var(--blue) 30%, var(--line));
 }
 .do-next > h3 {
-  font-size: 18px;
+  font-size: var(--text-18);
   margin-top: 3px;
 }
 .task-age-controls {
@@ -837,7 +859,7 @@
   border-radius: 50%;
   background: var(--surface);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 750;
   cursor: pointer;
   transition:
@@ -866,13 +888,13 @@
   border-top: 0;
 }
 .task-age-explanation-row strong {
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .task-age-explanation-row span {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 .modal-layer .modal.task-age-modal {
@@ -921,7 +943,7 @@
 }
 .next-action-copy strong {
   display: block;
-  font-size: 15px;
+  font-size: var(--text-15);
   line-height: 1.45;
 }
 .next-action-copy strong.empty {
@@ -949,7 +971,7 @@
 .next-action-editor label {
   display: block;
   margin-bottom: 6px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 .next-action-editor input {
@@ -1017,7 +1039,7 @@
   align-items: center;
   gap: 8px;
   min-height: 38px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text);
 }
 .check-row input {
@@ -1136,7 +1158,7 @@
   display: block;
   margin-top: 7px;
   color: var(--blue);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .attachment-row {
   text-decoration: none;
@@ -1186,7 +1208,7 @@
 }
 .review-panel h3 {
   margin: 0 0 7px;
-  font-size: 15px;
+  font-size: var(--text-15);
 }
 
 /* The action sits with the entry it belongs to, so a manager reading
@@ -1301,7 +1323,7 @@
 }
 .settings-pagehead h1 {
   margin: 3px 0 5px;
-  font-size: 25px;
+  font-size: var(--text-25);
   line-height: 1.2;
   font-weight: 650;
 }
@@ -1349,7 +1371,7 @@
   border-bottom: 1px solid var(--line-soft);
 }
 .settings-master-head > strong {
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .settings-search input {
   width: 100%;
@@ -1434,7 +1456,7 @@
 }
 .settings-detail-head h2 {
   margin: 3px 0 4px;
-  font-size: 18px;
+  font-size: var(--text-18);
 }
 .settings-detail-head p {
   margin: 0;
@@ -1486,7 +1508,7 @@
   padding: 14px 0 8px;
   border-bottom: 1px solid var(--line-soft);
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .settings-body .form-grid,
 .settings-body .form-grid.two {
@@ -1682,7 +1704,7 @@
 }
 .record-row-title strong {
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2046,7 +2068,7 @@ button {
 .capture-question h2,
 .capture-recommendation h2 {
   margin: 0;
-  font-size: 21px;
+  font-size: var(--text-21);
 }
 .capture-question > p,
 .capture-recommendation > p {
@@ -2300,7 +2322,7 @@ button {
 }
 .activity-row > strong {
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 .activity-row > span {
@@ -2454,7 +2476,7 @@ button {
   border-radius: 8px;
   color: var(--muted);
   text-decoration: none;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .more-nav a:hover,
@@ -2492,7 +2514,7 @@ button {
 .metric-card strong {
   margin-top: auto;
   color: var(--heading);
-  font-size: 28px;
+  font-size: var(--text-28);
 }
 .section-block {
   padding: 18px;
@@ -2537,7 +2559,7 @@ button {
 .capability-grid p {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 .filterbar {
@@ -2612,7 +2634,7 @@ button {
   /* The 8px above was clearance for the "Cancelled" chip that used to sit on
      every row of a page of cancelled work. */
   margin: 0 0 3px;
-  font-size: 15px;
+  font-size: var(--text-15);
 }
 .record-card h2 a,
 .data-table a,
@@ -2651,7 +2673,7 @@ button {
 }
 .record-facts dd {
   margin-top: 4px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   overflow-wrap: anywhere;
 }
 .record-note {
@@ -2682,7 +2704,7 @@ button {
   border-bottom: 1px solid var(--line-soft);
   text-align: left;
   vertical-align: middle;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .data-table th {
   color: var(--muted);
@@ -2968,7 +2990,7 @@ button {
   gap: 2px 12px;
   padding: 9px 12px;
   border-bottom: 1px solid var(--line-soft);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .reporting-history li:last-child {
   border-bottom: 0;
@@ -3202,7 +3224,7 @@ button {
   display: grid;
   place-items: center;
   font-weight: 700;
-  font-size: 18px;
+  font-size: var(--text-18);
 }
 
 .railnav {
@@ -3223,7 +3245,7 @@ button {
   color: #b8c9df;
   display: grid;
   place-items: center;
-  font-size: 20px;
+  font-size: var(--text-20);
   text-decoration: none;
 }
 .railbtn:hover,
@@ -3243,7 +3265,7 @@ button {
   box-shadow: var(--shadow);
   padding: 7px 10px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   white-space: nowrap;
   opacity: 0;
   pointer-events: none;
@@ -3343,7 +3365,7 @@ button {
 }
 .product strong {
   display: block;
-  font-size: 14px;
+  font-size: var(--text-14);
   font-weight: 620;
 }
 .product span {
@@ -3379,7 +3401,7 @@ button {
   color: var(--surface);
   display: grid;
   place-items: center;
-  font-size: 16px;
+  font-size: var(--text-16);
 }
 
 .avatar {
@@ -3426,7 +3448,7 @@ button {
   font-weight: 650;
 }
 .pagehead h1 {
-  font-size: 24px;
+  font-size: var(--text-24);
   line-height: 1.2;
   /* v249 — 4px to the subtitle, which belongs to the title. */
   margin: 2px 0 4px;
@@ -3437,7 +3459,7 @@ button {
   margin: 0;
   color: var(--muted);
   max-width: 760px;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -3461,7 +3483,7 @@ button {
   color: var(--text);
   padding: 8px 12px;
   border-radius: 9px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 580;
   text-decoration: none;
   display: inline-flex;
@@ -3726,7 +3748,7 @@ fieldset:disabled label,
 }
 .sectionhead h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-14);
   font-weight: 620;
 }
 .sectionhead p {
@@ -3807,7 +3829,7 @@ fieldset:disabled label,
   color: var(--muted);
 }
 .summary-item strong {
-  font-size: 13px;
+  font-size: var(--text-13);
   color: var(--text);
 }
 /* The two counts that name a list are links to it. Underlined on hover rather
@@ -4136,7 +4158,7 @@ nav.tab-rail-3 > a.active {
 /* The row is the target — this only says so. */
 .row-chevron {
   color: var(--muted);
-  font-size: 17px;
+  font-size: var(--text-17);
   line-height: 1;
 }
 
@@ -4728,11 +4750,11 @@ nav.tab-rail-3 > a.active {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface);
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 .org-import-counts strong {
-  font-size: 20px;
+  font-size: var(--text-20);
   line-height: 1.2;
   color: var(--text);
 }
@@ -4750,7 +4772,7 @@ nav.tab-rail-3 > a.active {
 }
 .org-import-problems h3 {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .org-import-kinds {
   display: grid;
@@ -4773,7 +4795,7 @@ nav.tab-rail-3 > a.active {
   gap: 4px 16px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--line-soft);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .org-import-problem-list li:last-child {
   border-bottom: 0;
@@ -4848,7 +4870,7 @@ nav.tab-rail-3 > a.active {
   font-size: var(--text-xs);
 }
 .team-focus-summary .metric b {
-  font-size: 13px;
+  font-size: var(--text-13);
   color: var(--text);
 }
 .team-focus-summary .metric.bad b {
@@ -4875,7 +4897,7 @@ nav.tab-rail-3 > a.active {
   padding: 7px 12px;
   border-radius: 8px;
   font-weight: 600;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--muted);
   text-decoration: none;
   min-height: var(--control-h);
@@ -4907,7 +4929,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .team-focus-list {
@@ -4961,7 +4983,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   text-align: right;
 }
 .team-focus-chevron {
-  font-size: 17px;
+  font-size: var(--text-17);
   color: var(--muted);
 }
 .team-focus-capacity {
@@ -5010,7 +5032,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   padding: 24px;
   text-align: center;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 @media (max-width: 700px) {
@@ -5061,7 +5083,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   flex-wrap: wrap;
 }
 .team-member-attention-head strong {
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .team-member-attention-head span {
   color: var(--muted);
@@ -5095,7 +5117,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .team-manager-action strong {
   display: block;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .team-manager-action span {
   display: block;
@@ -5127,7 +5149,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .team-current-row strong {
   display: block;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .team-current-row-next {
   display: block;
@@ -5143,7 +5165,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .team-current-row-right b {
   display: block;
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .team-secondary-card {
   padding: 10px;
@@ -5153,7 +5175,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .team-secondary-card strong {
   display: block;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .team-secondary-card span {
   display: block;
@@ -5171,7 +5193,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .team-section-head h3 {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .team-section-head span {
   color: var(--muted);
@@ -5209,7 +5231,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .assign-toggle strong {
   display: block;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .assign-toggle small {
   display: block;
@@ -5363,7 +5385,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border: 1px solid var(--line);
   border-radius: 50%;
   background: var(--surface);
-  font-size: 15px;
+  font-size: var(--text-15);
   cursor: pointer;
 }
 .notification-bell-button:hover,
@@ -5424,7 +5446,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .notification-panel > header strong {
   display: block;
-  font-size: 12.5px;
+  font-size: var(--text-12-5);
 }
 .notification-panel > header span {
   display: block;
@@ -5457,7 +5479,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .notification-title {
   display: block;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .notification-dot {
@@ -5518,7 +5540,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .barrier-question > span {
   display: block;
   margin-top: 2px;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .barrier-responses {
   margin-top: 12px;
@@ -5578,7 +5600,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .request-type-chip input:checked + span {
@@ -5618,7 +5640,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .empty-state h3 {
   margin: 0 0 6px;
-  font-size: 15px;
+  font-size: var(--text-15);
   font-weight: 650;
 }
 .empty-state p {
@@ -5669,13 +5691,13 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .notice p {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 .notice ul {
   margin: 6px 0 0;
   padding-left: 18px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 
@@ -5748,7 +5770,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .modalhead h2 {
   margin: 0;
-  font-size: 17px;
+  font-size: var(--text-17);
   font-weight: 650;
 }
 .modalfoot {
@@ -6083,7 +6105,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   }
   .mobile-nav a span {
     display: block;
-    font-size: 18px;
+    font-size: var(--text-18);
   }
   .mobile-nav a.active {
     color: var(--blue);
@@ -6452,7 +6474,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .today-goal-exceptions h2 {
   margin: 2px 0 0;
-  font-size: 15px;
+  font-size: var(--text-15);
 }
 .today-goal-row {
   display: grid;
@@ -6795,16 +6817,16 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   min-width: 0;
 }
 .modal-head > div > strong {
-  font-size: 15px;
+  font-size: var(--text-15);
   font-weight: 650;
 }
 .modal-head > div > span {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 .modal-head h2 {
   margin: 2px 0 4px;
-  font-size: 20px;
+  font-size: var(--text-20);
 }
 .modal-head p:last-child {
   margin: 0;
@@ -7028,7 +7050,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
     font-size: var(--text-xs);
   }
   .mobile-nav a span {
-    font-size: 16px;
+    font-size: var(--text-16);
   }
   .goal-row > .btn {
     padding-inline: 8px;
@@ -7188,7 +7210,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .checklist-preview-row > span:last-child {
   color: var(--muted);
-  font-size: 22px;
+  font-size: var(--text-22);
 }
 
 .current-next-action-block {
@@ -7257,7 +7279,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: 50%;
   background: var(--surface);
   color: var(--green);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .task-checklist-row.completed .checklist-state {
@@ -7318,7 +7340,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 400;
 }
 /* `.field input` dresses every input as a text box - padding, a border and a
@@ -7551,7 +7573,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .action-queue-count {
   display: inline-grid;
@@ -7633,7 +7655,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
   line-height: 1.35;
 }
@@ -7869,7 +7891,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .action-queue-count {
   display: inline-grid;
@@ -8046,7 +8068,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .action-queue-count {
   display: inline-grid;
@@ -8125,7 +8147,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
   line-height: 1.35;
 }
@@ -8361,7 +8383,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .action-queue-count {
   display: inline-grid;
@@ -8419,7 +8441,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .step-menu-trigger {
   min-width: 0;
   padding: 0 8px;
-  font-size: 13px;
+  font-size: var(--text-13);
   line-height: 1;
   letter-spacing: 1px;
 }
@@ -8632,7 +8654,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border: 1px dashed var(--line);
   border-radius: var(--radius-sm);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 /* Deleted routines sit with the routines, folded away until wanted. */
@@ -8649,7 +8671,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   gap: 4px 10px;
   padding: 10px 14px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-13);
   font-weight: 650;
 }
 .routine-bin > summary small {
@@ -8676,7 +8698,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .routine-bin-row strong {
   display: block;
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .routine-bin-row small {
   display: block;
@@ -8926,7 +8948,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .task-detail-head h2 {
   margin: 2px 0 0;
-  font-size: 18px;
+  font-size: var(--text-18);
   font-weight: 620;
 }
 .task-detail-head-meta,
@@ -9013,7 +9035,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .utility-card h2 {
   margin: 0 0 5px;
-  font-size: 14px;
+  font-size: var(--text-14);
   font-weight: 620;
 }
 .utility-card p {
@@ -9042,7 +9064,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .settings-pagehead h1 {
   margin: 3px 0 5px;
-  font-size: 24px;
+  font-size: var(--text-24);
   font-weight: 620;
 }
 .settings-pagehead > div:first-child > .btn {
@@ -9073,7 +9095,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 
 .capture-modal-head h2 {
   margin: 2px 0 3px;
-  font-size: 16px;
+  font-size: var(--text-16);
 }
 .capture-modal-head p {
   margin: 0;
@@ -9477,7 +9499,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .member-other-chevron {
   color: var(--muted);
-  font-size: 18px;
+  font-size: var(--text-18);
   line-height: 1;
 }
 .member-other-empty {
@@ -9523,7 +9545,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   padding: 18px;
 }
 .attention-list-head h2 {
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .attention-list-head p {
   color: var(--muted);
@@ -9670,7 +9692,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .proposal-inbox > header h2 {
   margin: 2px 0 3px;
-  font-size: 15px;
+  font-size: var(--text-15);
 }
 .proposal-inbox > header p:last-child {
   margin: 0;
@@ -9736,7 +9758,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   color: var(--green);
 }
 .task-complete-callout span {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 
@@ -9815,14 +9837,14 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   gap: 2px;
 }
 .capture-urgent-row strong {
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .capture-urgent-row small {
   font-size: var(--text-xs);
   color: var(--muted);
 }
 .capture-urgent-go {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 650;
   color: var(--amber);
   white-space: nowrap;
@@ -9831,7 +9853,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 /* One line, where a whole page used to be. */
 .capture-preview {
   margin: 16px 0 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--muted);
 }
@@ -9853,7 +9875,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .capture-proposal-note {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 .capture-proposal .field {
@@ -9867,7 +9889,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
    claim: it is the proposer's estimate, not an agreed schedule. */
 .proposal-size {
   margin: 8px 0 0;
-  font-size: 13px;
+  font-size: var(--text-13);
   color: var(--muted);
 }
 
@@ -9888,7 +9910,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 
 @media (max-width: 560px) {
@@ -9925,7 +9947,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .routine-manager-head .muted {
   display: block;
   max-width: 62ch;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .routine-template-list {
   list-style: none;
@@ -9958,7 +9980,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: block;
 }
 .routine-template-main .muted {
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .routine-state {
   font-size: var(--text-xs);
@@ -9991,7 +10013,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .routine-template-next {
   display: block;
   margin-top: 2px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 650;
   color: var(--blue);
 }
@@ -10048,7 +10070,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   gap: 8px;
   padding: 7px 8px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: var(--text-13);
   font-weight: 600;
   cursor: pointer;
 }
@@ -10071,7 +10093,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .recurrence-line select,
 .recurrence-line input[type='time'],
@@ -10096,7 +10118,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 650;
   color: var(--muted);
   cursor: pointer;
@@ -10130,10 +10152,10 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   gap: 2px;
 }
 .recurrence-preview strong {
-  font-size: 14px;
+  font-size: var(--text-14);
 }
 .recurrence-preview span {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 
@@ -10145,7 +10167,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 
 @media (max-width: 640px) {
@@ -10161,7 +10183,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   }
   .recurrence-frequency {
     justify-content: center;
-    font-size: 12px;
+    font-size: var(--text-xs);
   }
 }
 .routine-custom {
@@ -10186,7 +10208,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 /* The sentence the list will show once saved, so the cadence is never a
    guess at what "every 3 months on the 15th" resolves to. */
@@ -10196,7 +10218,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: var(--radius-sm);
   background: var(--blue-bg);
   color: var(--blue);
-  font-size: 13px;
+  font-size: var(--text-13);
   font-weight: 600;
 }
 
@@ -10221,18 +10243,18 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .completion-blockers strong {
   display: block;
-  font-size: 14px;
+  font-size: var(--text-14);
 }
 .completion-blockers ul {
   margin: 8px 0 0;
   padding-left: 18px;
   display: grid;
   gap: 4px;
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .completion-blockers p {
   margin: 10px 0 0;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 .completion-blockers .btn {
@@ -10323,7 +10345,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   min-width: 0;
 }
 .task-accordion-copy strong {
-  font-size: 12.5px;
+  font-size: var(--text-12-5);
 }
 /* The count sits with the name rather than after the preview, so "Steps 0/3"
    reads as one fact. */
@@ -10408,7 +10430,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   padding: 12px 0 8px;
   cursor: pointer;
   font-weight: 650;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 /* Finishing sits on its own, always in the same place, so a task never looks
@@ -10514,7 +10536,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   align-items: center;
   border-radius: 7px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -10561,7 +10583,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .completed-tick {
   flex: 0 0 auto;
   color: var(--green);
-  font-size: 13px;
+  font-size: var(--text-13);
   line-height: 20px;
 }
 .completed-copy {
@@ -10574,7 +10596,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 /* Titles and parent names are user text of unpredictable length. They wrap;
    nothing here is truncated against the edge of the panel. */
 .completed-copy strong {
-  font-size: 12.5px;
+  font-size: var(--text-12-5);
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
@@ -10635,7 +10657,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--text-xs);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -10679,7 +10701,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   min-height: 40px;
   border-radius: 8px;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: var(--text-12-5);
   line-height: 22px;
   text-decoration: none;
 }
@@ -10713,7 +10735,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   background: none;
   color: var(--text);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--text-12-5);
   line-height: 22px;
   text-align: left;
   cursor: pointer;
@@ -10762,7 +10784,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   background: var(--surface);
 }
 .weekly-priorities.empty .muted {
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .weekly-priority-list {
   display: grid;
@@ -10801,7 +10823,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   min-width: 0;
 }
 .weekly-priority-copy strong {
-  font-size: 12.5px;
+  font-size: var(--text-12-5);
 }
 .weekly-priority-copy .muted {
   font-size: var(--text-xs);
@@ -10881,7 +10903,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   color: var(--text);
 }
 .working-on-summary strong {
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .working-on-summary .muted {
   font-size: var(--text-xs);
@@ -10895,7 +10917,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   align-items: center;
   gap: 8px;
   margin: 0 0 10px;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .period-picker-custom {
@@ -10935,7 +10957,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   min-width: 0;
 }
 .routine-outcome strong {
-  font-size: 12.5px;
+  font-size: var(--text-12-5);
 }
 .routine-outcome span {
   font-size: var(--text-xs);
@@ -11043,7 +11065,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .routine-exception-queue h2 {
   margin: 0 0 10px;
-  font-size: 12.5px;
+  font-size: var(--text-12-5);
 }
 .routine-exception-row {
   display: flex;
@@ -11061,7 +11083,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   min-width: 0;
 }
 .routine-exception-row strong {
-  font-size: 12px;
+  font-size: var(--text-xs);
   overflow-wrap: anywhere;
 }
 .routine-exception-row span {
@@ -11086,7 +11108,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   gap: 2px;
 }
 .routine-tally strong {
-  font-size: 18px;
+  font-size: var(--text-18);
   line-height: 1.1;
 }
 .routine-tally span {
@@ -11111,7 +11133,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   min-height: 44px;
   padding: 14px 2px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 650;
   cursor: pointer;
 }
@@ -11159,7 +11181,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--blue-bg) 88%, transparent);
   color: var(--blue);
-  font-size: 13px;
+  font-size: var(--text-13);
   font-weight: 650;
   /* The overlay must not become the drag target itself, or crossing onto it
      reads as leaving the box and the highlight drops out. */
@@ -11261,7 +11283,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .attachment-pdf-zoom-button {
   width: 34px;
   padding-inline: 0;
-  font-size: 16px;
+  font-size: var(--text-16);
 }
 .attachment-pdf-stage {
   position: relative;
@@ -11474,7 +11496,7 @@ button.attachment-row {
   min-width: 0;
 }
 .team-routine-copy strong {
-  font-size: 12.5px;
+  font-size: var(--text-12-5);
   overflow-wrap: anywhere;
 }
 .team-routine-copy > span {
@@ -11579,7 +11601,7 @@ button.attachment-row {
   background: var(--blue-bg);
 }
 .routine-breakdown-row strong {
-  font-size: 12px;
+  font-size: var(--text-xs);
   overflow-wrap: anywhere;
 }
 .routine-breakdown-row span {
@@ -11625,7 +11647,7 @@ button.attachment-row {
   min-width: 0;
 }
 .theme-field label strong {
-  font-size: 12.5px;
+  font-size: var(--text-12-5);
 }
 .theme-field label small {
   color: var(--muted);
@@ -11683,7 +11705,7 @@ button.attachment-row {
 }
 .theme-preview-head {
   margin: 0 0 10px;
-  font-size: 15px;
+  font-size: var(--text-15);
   font-weight: 700;
 }
 .theme-preview-card {
@@ -11694,7 +11716,7 @@ button.attachment-row {
   border-radius: var(--radius-sm);
 }
 .theme-preview-card strong {
-  font-size: 12.5px;
+  font-size: var(--text-12-5);
 }
 .theme-preview-card > span {
   font-size: var(--text-xs);
@@ -11850,7 +11872,7 @@ button.attachment-row {
 .other-active > summary::before {
   color: var(--muted);
   content: '›';
-  font-size: 14px;
+  font-size: var(--text-14);
   line-height: 1;
   transition: transform var(--motion-fast) var(--motion-easing);
 }
@@ -11920,7 +11942,7 @@ button.attachment-row {
 }
 
 .capture-purpose strong {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 
@@ -12017,7 +12039,7 @@ button.attachment-row {
 .team-person-section > summary::before {
   color: var(--muted);
   content: '›';
-  font-size: 14px;
+  font-size: var(--text-14);
   line-height: 1;
   transition: transform var(--motion-fast) var(--motion-easing);
 }
@@ -12054,7 +12076,7 @@ button.attachment-row {
 
 .team-person-name {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--text-13);
   font-weight: 700;
 }
 
@@ -12228,7 +12250,7 @@ button.attachment-row {
 }
 
 .evidence-target-title {
-  font-size: 13px;
+  font-size: var(--text-13);
   font-weight: 650;
 }
 
@@ -12302,7 +12324,7 @@ button.attachment-row {
   align-items: center;
   justify-content: center;
   border: 1px solid var(--line);
-  font-size: 16px;
+  font-size: var(--text-16);
 }
 
 .evidence-item-copy {
@@ -12314,7 +12336,7 @@ button.attachment-row {
 
 .evidence-item-copy strong {
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -12334,7 +12356,7 @@ button.attachment-row {
   background: var(--surface);
   color: var(--muted);
   cursor: pointer;
-  font-size: 15px;
+  font-size: var(--text-15);
   line-height: 1;
 }
 
@@ -12361,7 +12383,7 @@ button.attachment-row {
   align-items: baseline;
   gap: 8px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .completion-requirements li.met {
@@ -12381,7 +12403,7 @@ button.attachment-row {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .completion-label {
@@ -12406,7 +12428,7 @@ button.attachment-row {
   background: none;
   color: var(--blue);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 
@@ -12429,7 +12451,7 @@ button.attachment-row {
   border-left: 3px solid var(--blue);
   border-radius: var(--radius-sm);
   background: var(--surface-2);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .completion-blockers {
@@ -12594,7 +12616,7 @@ span.deadline span.deadline-glyph,
   border-radius: 12px;
   background: var(--surface);
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--text-13);
   font-weight: 650;
 }
 .day-summary-late {
@@ -12608,7 +12630,7 @@ span.deadline span.deadline-glyph,
 .day-section-count {
   margin-left: 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .day-card-list {
@@ -12632,7 +12654,7 @@ span.deadline span.deadline-glyph,
 }
 .day-card-chevron {
   color: var(--muted);
-  font-size: 18px;
+  font-size: var(--text-18);
 }
 /* The deadline sits inside a line, not on one of its own. */
 .today-copy span span.deadline,
@@ -12740,7 +12762,7 @@ span.deadline span.deadline-glyph,
   align-items: center;
   gap: 12px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .esh-switcher-bar {
   display: flex;
@@ -13018,7 +13040,7 @@ span.deadline span.deadline-glyph,
 .esh-data-time {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .esh-overview-controls {
   display: flex;
@@ -13125,7 +13147,7 @@ span.deadline span.deadline-glyph,
 }
 .esh-today-row-main strong {
   color: var(--blue);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .esh-today-row-main b {
   overflow: hidden;
@@ -13219,7 +13241,7 @@ span.deadline span.deadline-glyph,
 }
 .esh-signal > span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 750;
 }
 .esh-signal strong {
@@ -13257,7 +13279,7 @@ span.deadline span.deadline-glyph,
 .esh-definition-note {
   margin: 5px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .table-scroll {
   margin-top: 16px;
@@ -13413,7 +13435,7 @@ span.deadline span.deadline-glyph,
   min-height: 44px;
   cursor: pointer;
   color: var(--blue);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 .esh-intake-actions .settings-form {
@@ -13491,7 +13513,7 @@ span.deadline span.deadline-glyph,
 .esh-field-error {
   margin: 0;
   color: var(--red);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .esh-recipient-confirm {
   margin: -4px 0 0;
@@ -13499,7 +13521,7 @@ span.deadline span.deadline-glyph,
   border-radius: var(--radius-sm);
   background: var(--surface-2);
   border: 1px solid var(--line-soft);
-  font-size: 12px;
+  font-size: var(--text-xs);
   overflow-wrap: anywhere;
 }
 .esh-escalation-levels {
@@ -13547,7 +13569,7 @@ span.deadline span.deadline-glyph,
   border-radius: 999px;
   background: var(--blue-bg);
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .esh-chip span {
   overflow-wrap: anywhere;
@@ -13561,7 +13583,7 @@ span.deadline span.deadline-glyph,
   border-radius: 999px;
   background: transparent;
   color: var(--muted);
-  font-size: 15px;
+  font-size: var(--text-15);
   cursor: pointer;
 }
 .esh-chip button:hover,
@@ -13924,7 +13946,7 @@ span.deadline span.deadline-glyph,
   .esh-switcher summary {
     min-height: 44px;
     padding: 0 10px;
-    font-size: 12px;
+    font-size: var(--text-xs);
   }
 }
 
@@ -13964,7 +13986,7 @@ span.deadline span.deadline-glyph,
 .guest-identity {
   min-width: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
   text-align: right;
   overflow-wrap: anywhere;
 }
@@ -13997,7 +14019,7 @@ span.deadline span.deadline-glyph,
   gap: 6px;
   min-height: 44px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--text-13);
   cursor: pointer;
   list-style: none;
 }
@@ -14027,7 +14049,7 @@ span.deadline span.deadline-glyph,
 .guest-account-menu p {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
   overflow-wrap: anywhere;
 }
 .guest-account-menu .btn {
@@ -14049,7 +14071,7 @@ span.deadline span.deadline-glyph,
    * the owner is being told they owe.
    */
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 750;
 }
 .guest-action-ref {
@@ -14060,7 +14082,7 @@ span.deadline span.deadline-glyph,
 .guest-action-turn {
   flex: none;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--text-13);
   font-weight: 650;
   white-space: nowrap;
 }
@@ -14109,7 +14131,7 @@ span.deadline span.deadline-glyph,
   border-radius: 12px;
   background: var(--surface-2);
   color: var(--heading);
-  font-size: 20px;
+  font-size: var(--text-20);
   font-weight: 700;
 }
 .guest-lead {
@@ -14126,7 +14148,7 @@ span.deadline span.deadline-glyph,
 .guest-note {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .guest-link {
   color: var(--blue);
@@ -14222,7 +14244,7 @@ span.deadline span.deadline-glyph,
 }
 .guest-action-main small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 /*
  * The class sits on a span inside the `small`, not on the `small` itself, so
@@ -14306,7 +14328,7 @@ span.deadline span.deadline-glyph,
 .esh-message-meta {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
   overflow-wrap: anywhere;
 }
 .esh-message-body {
@@ -14353,7 +14375,7 @@ span.deadline span.deadline-glyph,
 .guest-composer-sent {
   margin: 0;
   color: var(--green);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .esh-release {
@@ -14484,7 +14506,7 @@ span.deadline span.deadline-glyph,
 .esh-file-source {
   margin: 2px 0 0;
   padding-left: 2px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   line-height: 1.4;
   color: var(--muted);
 }
@@ -14573,7 +14595,7 @@ span.deadline span.deadline-glyph,
   background: var(--surface-2);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .esh-submission-mark[data-state='withdrawn'] {
   color: var(--muted);
@@ -14581,7 +14603,7 @@ span.deadline span.deadline-glyph,
 .guest-withdraw {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .guest-original-files {
   margin-top: 10px;
@@ -15737,7 +15759,7 @@ span.deadline span.deadline-glyph,
 }
 .esh-import-summary dt {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .esh-import-summary dd {
   margin: 2px 0 0;
@@ -17155,7 +17177,7 @@ span.deadline span.deadline-glyph,
 }
 .public-report-shell h1 {
   margin: 0 0 8px;
-  font-size: 24px;
+  font-size: var(--text-24);
   line-height: 1.2;
 }
 .public-report-emergency {
@@ -17164,7 +17186,7 @@ span.deadline span.deadline-glyph,
 .public-report-lead {
   margin: 0 0 16px;
   color: var(--muted);
-  font-size: 15px;
+  font-size: var(--text-15);
 }
 /* v293 — the sticker's own answer, with a pin beside it: where this report is
    being made, said once, so the form never asks for it. */
@@ -17188,12 +17210,12 @@ span.deadline span.deadline-glyph,
   min-width: 0;
 }
 .public-report-where strong {
-  font-size: 17px;
+  font-size: var(--text-17);
   line-height: 1.3;
 }
 .public-report-where small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .public-report .esh-field {
   margin-bottom: 20px;
@@ -17205,7 +17227,7 @@ span.deadline span.deadline-glyph,
 .public-report input:not([type]) {
   width: 100%;
   min-height: 48px;
-  font-size: 17px;
+  font-size: var(--text-17);
 }
 /* Three rows to begin with — the box grows as it is typed into (v293). A
    taller empty box reads as "we expect an essay", and on a phone it pushes
@@ -17242,12 +17264,12 @@ span.deadline span.deadline-glyph,
   display: flex;
   flex-direction: column;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .public-report-send {
   width: 100%;
   min-height: 52px;
-  font-size: 17px;
+  font-size: var(--text-17);
 }
 .public-report-privacy {
   margin-top: 32px;
@@ -17256,12 +17278,12 @@ span.deadline span.deadline-glyph,
 }
 .public-report-privacy h2 {
   margin: 0 0 8px;
-  font-size: 15px;
+  font-size: var(--text-15);
 }
 .public-report-privacy > p {
   margin: 0 0 8px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--text-14);
   line-height: 1.5;
 }
 /*
@@ -17275,7 +17297,7 @@ span.deadline span.deadline-glyph,
  */
 .public-report-privacy summary {
   color: var(--blue);
-  font-size: 14px;
+  font-size: var(--text-14);
   cursor: pointer;
   min-height: 44px;
   padding: 10px 0;
@@ -17287,7 +17309,7 @@ span.deadline span.deadline-glyph,
   margin: 0;
   padding-left: 20px;
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--text-14);
   line-height: 1.5;
 }
 .public-report-privacy li + li {
@@ -17298,7 +17320,7 @@ span.deadline span.deadline-glyph,
 }
 .public-report-done h2 {
   margin: 0 0 12px;
-  font-size: 20px;
+  font-size: var(--text-20);
 }
 /* The reference is read aloud down a radio and typed into a message, so it is
    the largest thing on the screen and spaced for reading one character at a
@@ -17306,7 +17328,7 @@ span.deadline span.deadline-glyph,
 .public-report-reference {
   margin: 0 0 16px;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 28px;
+  font-size: var(--text-28);
   letter-spacing: 0.12em;
 }
 
@@ -17370,13 +17392,13 @@ span.deadline span.deadline-glyph,
 .esh-qr-address code {
   flex: 1;
   overflow-wrap: anywhere;
-  font-size: 13px;
+  font-size: var(--text-13);
   color: var(--muted);
 }
 .esh-qr-retired {
   margin: 8px 0 16px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .esh-qr-retired ul {
   margin: 8px 0 0;
@@ -17435,7 +17457,7 @@ span.deadline span.deadline-glyph,
    choosing one does something visible before it is ready to send. */
 .public-report-preparing {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .public-report-thumb-pending {
   display: block;
@@ -17458,7 +17480,7 @@ span.deadline span.deadline-glyph,
   justify-content: center;
   gap: 8px;
   min-height: 48px;
-  font-size: 16px;
+  font-size: var(--text-16);
 }
 .public-report-choose .btn svg {
   flex: none;
@@ -17507,12 +17529,12 @@ span.deadline span.deadline-glyph,
 }
 .esh-intake-queue-head h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--text-16);
 }
 .esh-intake-queue-head p {
   margin: 2px 0 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .esh-intake-list {
   margin: 0;
@@ -17542,13 +17564,13 @@ span.deadline span.deadline-glyph,
   background: var(--blue-bg);
 }
 .esh-intake-item strong {
-  font-size: 14px;
+  font-size: var(--text-14);
   font-weight: 600;
   line-height: 1.35;
 }
 .esh-intake-item small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 .esh-intake-item-top {
   display: flex;
@@ -17563,7 +17585,7 @@ span.deadline span.deadline-glyph,
 
 .esh-intake-review > h2 {
   margin: 0 0 12px;
-  font-size: 18px;
+  font-size: var(--text-18);
 }
 /* The employee's own words, marked as theirs and not editable here. */
 .esh-intake-original {
@@ -17583,7 +17605,7 @@ span.deadline span.deadline-glyph,
 }
 .esh-intake-original-text {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--text-15);
   line-height: 1.5;
   white-space: pre-wrap;
 }
@@ -17601,7 +17623,7 @@ span.deadline span.deadline-glyph,
 }
 .esh-intake-facts dd {
   margin: 2px 0 0;
-  font-size: 14px;
+  font-size: var(--text-14);
 }
 
 .esh-intake-other {
@@ -17611,7 +17633,7 @@ span.deadline span.deadline-glyph,
 }
 .esh-intake-other h3 {
   margin: 0 0 8px;
-  font-size: 14px;
+  font-size: var(--text-14);
   color: var(--muted);
 }
 .esh-intake-other details {
@@ -17627,12 +17649,12 @@ span.deadline span.deadline-glyph,
 }
 .esh-intake-other summary strong {
   display: block;
-  font-size: 14px;
+  font-size: var(--text-14);
 }
 .esh-intake-other summary small {
   display: block;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 /* A high or critical risk, said beside the choice rather than afterwards. */
@@ -17680,7 +17702,7 @@ span.deadline span.deadline-glyph,
 }
 .ai-threads-head h2 {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--text-14);
   color: var(--muted);
 }
 .ai-threads ul {
@@ -17703,7 +17725,7 @@ span.deadline span.deadline-glyph,
   padding: 10px 10px;
   border-radius: var(--radius-sm);
   color: inherit;
-  font-size: 13px;
+  font-size: var(--text-13);
   line-height: 1.3;
   text-decoration: none;
   overflow: hidden;
@@ -17726,7 +17748,7 @@ span.deadline span.deadline-glyph,
 }
 .ai-opening h2 {
   margin: 0 0 8px;
-  font-size: 18px;
+  font-size: var(--text-18);
 }
 .ai-opening p {
   margin: 0 0 12px;
@@ -17754,12 +17776,12 @@ span.deadline span.deadline-glyph,
   border-radius: var(--radius-sm);
   background: var(--blue-bg);
   color: var(--navy-2);
-  font-size: 15px;
+  font-size: var(--text-15);
 }
 .ai-answer p {
   margin: 0 0 10px;
   max-width: 68ch;
-  font-size: 15px;
+  font-size: var(--text-15);
   line-height: 1.6;
 }
 .ai-answer p:last-child {
@@ -17772,7 +17794,7 @@ span.deadline span.deadline-glyph,
  */
 .ai-answer h3 {
   margin: 14px 0 6px;
-  font-size: 15px;
+  font-size: var(--text-15);
   font-weight: 600;
 }
 .ai-answer h3:first-child {
@@ -17783,7 +17805,7 @@ span.deadline span.deadline-glyph,
   margin: 0 0 10px;
   padding-left: 22px;
   max-width: 68ch;
-  font-size: 15px;
+  font-size: var(--text-15);
   line-height: 1.6;
 }
 .ai-answer li {
@@ -17793,13 +17815,13 @@ span.deadline span.deadline-glyph,
   padding: 1px 5px;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 /* A comparison the eye can run down, which is the point of asking for one. */
 .ai-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: var(--text-14);
 }
 .ai-table th,
 .ai-table td {
@@ -17820,7 +17842,7 @@ span.deadline span.deadline-glyph,
 .ai-progress {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .ai-sources {
   padding: 10px 14px;
@@ -17838,7 +17860,7 @@ span.deadline span.deadline-glyph,
 .ai-sources ul {
   margin: 0;
   padding-left: 18px;
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 .ai-sources li + li {
   margin-top: 4px;
@@ -17857,7 +17879,7 @@ span.deadline span.deadline-glyph,
 .ai-ask textarea {
   flex: 1;
   min-height: 56px;
-  font-size: 16px;
+  font-size: var(--text-16);
   resize: vertical;
 }
 .ai-ask .btn {

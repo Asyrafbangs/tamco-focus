@@ -12,6 +12,19 @@ import { expect, test } from '@playwright/test';
 
 const PASSWORD = process.env.SEED_USER_PASSWORD ?? 'LocalFocus123!';
 
+/** Every screen a signed-in person reaches from the navigation. */
+const ROUTES = [
+  '/today',
+  '/work',
+  '/work/routine',
+  '/plan',
+  '/goals',
+  '/capture',
+  '/more',
+  '/more/settings',
+  '/more/attachments',
+];
+
 async function signIn(page: import('@playwright/test').Page) {
   await page.goto('/sign-in');
   await page.getByLabel('Email address').fill('izzah@tamco.local');
@@ -276,6 +289,90 @@ test.describe('typography', () => {
       'font sizes outside the scale',
     ).toEqual([]);
   });
+
+  /**
+   * The scale moves when a reader asks it to.
+   *
+   * The test above locks which sizes exist. It says nothing about whether a
+   * person can change them, and a rule writing a literal `14px` passes it
+   * perfectly while ignoring 22.2's personal text-size setting entirely —
+   * only `calc(... * var(--font-scale))` and the tokens built on it move when
+   * somebody chooses Large or Largest. v312 put the floor on the setting and
+   * left every other step a literal, so Large reached inherited body text and
+   * nothing a component sized for itself: 140 declarations across ten
+   * stylesheets, plus three inline `fontSize` values, one of them an 11px
+   * line on the sign-in page that was under the floor as well.
+   *
+   * v315 checked this on Plan and Goals, scoped by a regular expression to
+   * the classes those two screens declare for themselves, and said in as many
+   * words that somebody had to own widening it rather than allow-listing the
+   * shared classes it could not reach. This is that widening: the whole
+   * product, every element, no filter. It lives here because what it guards
+   * is the scale, not those two screens.
+   */
+  test('every size moves with the personal text setting', async ({ page }) => {
+    await signIn(page);
+
+    const measure = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('body *')]
+          .filter((element) => {
+            if (element.closest('.visually-hidden')) return false;
+            if ((element as HTMLElement).offsetParent === null) return false;
+            return [...element.childNodes].some(
+              (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim(),
+            );
+          })
+          .map((element) => ({
+            size: Number.parseFloat(getComputedStyle(element).fontSize),
+            label: `${element.tagName.toLowerCase()}.${String(element.className).slice(0, 40)}`,
+          })),
+      );
+
+    const SCALE = 1.25;
+    const fixed = new Set<string>();
+    for (const path of ROUTES) {
+      await page.goto(path);
+      await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+      await expect(page.locator('.loading-skeleton')).toHaveCount(0, { timeout: 30_000 });
+
+      const before = await measure();
+      expect(before.length, `${path} renders text`).toBeGreaterThan(0);
+
+      await page.evaluate(() => {
+        document.documentElement.dataset.textSize = 'larger';
+      });
+      /*
+       * Let the new size finish arriving.
+       *
+       * `font-size` is an animatable property, and a rule that transitions
+       * every property animates it: the rail's hover label carries a bare
+       * `transition: 0.15s`, so a measurement taken on the next tick reads
+       * the size it is leaving, not the one it is going to, and the label
+       * reported 12px on all nine routes. v183 settled the same class of
+       * artefact for the box model by measuring layout rather than paint.
+       * 150ms is the longest transition in the stylesheet.
+       */
+      await page.waitForTimeout(400);
+      const after = await measure();
+      expect(after.length, `${path} renders the same elements at both sizes`).toBe(before.length);
+
+      for (let index = 0; index < before.length; index += 1) {
+        const was = before[index]!;
+        const now = after[index]!;
+        // A glyph hidden behind a pseudo element has no size to scale.
+        if (was.size === 0) continue;
+        if (Math.abs(now.size / was.size - SCALE) < 0.02) continue;
+        fixed.add(`${path} · ${was.label} stayed at ${was.size}px`);
+      }
+
+      await page.evaluate(() => {
+        delete document.documentElement.dataset.textSize;
+      });
+    }
+
+    expect([...fixed], 'sizes the text-size setting cannot reach').toEqual([]);
+  });
 });
 
 test.describe('touch targets', () => {
@@ -294,17 +391,6 @@ test.describe('touch targets', () => {
    * stylesheet's touch rules are inert. An audit run that way reported
    * `.cal-item-move` as 22px wide when on a real phone it is 44.
    */
-  const ROUTES = [
-    '/today',
-    '/work',
-    '/work/routine',
-    '/plan',
-    '/goals',
-    '/capture',
-    '/more',
-    '/more/settings',
-    '/more/attachments',
-  ];
 
   test('every control is at least 44px in both directions on mobile', async ({
     page,

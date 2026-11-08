@@ -253,108 +253,18 @@ test.describe('nothing invisible is pressable', () => {
   });
 });
 
-/**
- * The blind spot in the locked type scale.
+/*
+ * The blind spot in the locked type scale is now guarded product-wide.
  *
- * `design-system.spec.ts` measures every rendered size against the scale, at
- * the default text size. A rule that writes a literal `12px` passes it
- * perfectly — and then ignores §22.2's personal text-size setting entirely,
- * because only `calc(… * var(--font-scale))` and the tokens built on it move
- * when a reader chooses Large or Larger. v304 named that fault for everything
- * below 12px; it is the same fault at every other size, and it was still
- * sitting in an inline `style={{ fontSize: 16 }}` on the Plan month label and
- * in five module rules in this area.
+ * The check that used to sit here measured whether a size moves with the
+ * personal text-size setting, scoped by a regular expression to the classes
+ * Plan and Goals declare for themselves. It said in as many words that the
+ * shared classes it could not reach — `.btn`, `.sub`, `.status-badge`, the
+ * page head's own 24px and 12px — were somebody else's rule to fix, and that
+ * somebody had to own widening it rather than allow-listing them.
  *
- * Scoped to the classes this area declares for itself — `cal-`, `daynum`,
- * `plan-`, `legend-`, `goal-`, `team-goal` — and to the unclassed elements
- * those rules reach through a descendant selector. Deliberately NOT the whole
- * subtree: a goal row contains `.btn`, `.sub`, `.status-badge` and
- * `.workspace-tabs`, which belong to every screen in the product, and the page
- * head above it carries the same fault at a literal 24px and 12px. Those are
- * somebody else's rule to fix and someone has to own the widening of this
- * check; claiming them here would mean either failing on work this area may
- * not touch or quietly allow-listing them, and an allowlist is how a guard
- * stops guarding.
- *
- * Module-declared sizes are also outside it: their class names are hashed and
- * carry no stable prefix to select on. The six in this area were corrected by
- * hand in the same series.
+ * v321 did that: the whole scale is on the setting, and
+ * `design-system.spec.ts` checks every element on all nine routes with no
+ * filter at all. That test supersedes this one, so this one is gone rather
+ * than left to re-measure a subset more slowly.
  */
-test.describe('the personal text size reaches this area', () => {
-  const ROUTES = ['/plan', '/goals'] as const;
-  const SCALE = 1.25;
-
-  test('every size this area sets grows with it', async ({ page }) => {
-    await signIn(page);
-
-    const fixed: string[] = [];
-    for (const route of ROUTES) {
-      await open(page, route);
-
-      const measure = () =>
-        page.evaluate(() => {
-          const AREA = /(^|\s)(cal-|daynum|plan-|legend-|goal-|team-goal)/;
-          const classesOf = (element: Element) =>
-            typeof element.className === 'string' ? element.className : '';
-          /*
-           * An element counts when it wears one of this area's classes, or
-           * when it wears none at all and its nearest classed ancestor does —
-           * which is how `.goal-session-disclosure > summary` and
-           * `.goal-summary-inline b` are reached. An element wearing somebody
-           * else's class is somebody else's rule.
-           */
-          const qualifies = (element: Element): boolean => {
-            const own = classesOf(element);
-            if (AREA.test(own)) return true;
-            if (own.trim()) return false;
-            let node = element.parentElement;
-            while (node) {
-              const classes = classesOf(node);
-              if (classes.trim()) return AREA.test(classes);
-              node = node.parentElement;
-            }
-            return false;
-          };
-
-          return [...document.querySelectorAll('body *')]
-            .filter((element) => {
-              if (element.closest('.visually-hidden')) return false;
-              if ((element as HTMLElement).offsetParent === null) return false;
-              if (!qualifies(element)) return false;
-              return [...element.childNodes].some(
-                (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim(),
-              );
-            })
-            .map((element) => ({
-              size: Number.parseFloat(getComputedStyle(element).fontSize),
-              label: `${element.tagName.toLowerCase()}.${String(element.className).slice(0, 40)}`,
-            }));
-        });
-
-      const before = await measure();
-      expect(before.length, `${route} has text this area sizes`).toBeGreaterThan(0);
-
-      await page.evaluate(() => {
-        document.documentElement.dataset.textSize = 'larger';
-      });
-      const after = await measure();
-      expect(after.length).toBe(before.length);
-
-      for (let index = 0; index < before.length; index += 1) {
-        const was = before[index]!;
-        const now = after[index]!;
-        // A control deliberately set to 0 to hide a glyph behind a pseudo
-        // element has no size to scale.
-        if (was.size === 0) continue;
-        if (Math.abs(now.size / was.size - SCALE) < 0.02) continue;
-        fixed.push(`${route} · ${was.label} stayed at ${was.size}px`);
-      }
-
-      await page.evaluate(() => {
-        delete document.documentElement.dataset.textSize;
-      });
-    }
-
-    expect([...new Set(fixed)], 'sizes the text-size setting cannot reach').toEqual([]);
-  });
-});

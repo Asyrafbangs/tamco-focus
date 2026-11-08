@@ -78,7 +78,9 @@ export default async function SignInPage({
           TF
         </div>
 
-        <h1 style={{ fontSize: 22, fontWeight: 650, margin: '14px 0 4px' }}>TAMCO Focus</h1>
+        <h1 style={{ fontSize: 'var(--text-22)', fontWeight: 650, margin: '14px 0 4px' }}>
+          TAMCO Focus
+        </h1>
         <p className="muted" style={{ marginTop: 0 }}>
           Sign in to see what needs your attention today.
         </p>
@@ -133,7 +135,7 @@ export default async function SignInPage({
           <Link href="/forgot-password">Forgot your password?</Link>
         </p>
 
-        <p className="muted" style={{ fontSize: 11, marginBottom: 0 }}>
+        <p className="muted" style={{ fontSize: 'var(--text-xs)', marginBottom: 0 }}>
           Accounts are created by your administrator. If you cannot sign in, ask them to check your
           account status.
         </p>

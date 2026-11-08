@@ -129,7 +129,7 @@ export default async function AuthCallbackPage({
             {copy.action}
           </button>
         </form>
-        <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>
+        <p className="muted" style={{ fontSize: 'var(--text-xs)', marginBottom: 0 }}>
           Links can be used once and expire an hour after they are sent. If this one no longer
           works, request a new password reset.
         </p>
