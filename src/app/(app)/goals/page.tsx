@@ -412,26 +412,32 @@ export default async function GoalsPage({
               <EmptyState
                 title={
                   rows.length === 0
-                    ? 'No Goals have been agreed yet'
+                    ? 'You have no Goals yet'
                     : `Nothing in ${GOAL_LIFECYCLE_LABELS[lifecycle]}`
                 }
                 action={
                   /* Section 27.2 — when a filter is hiding the goals rather than
-                   there being none, the next useful action is to widen it. */
+                   there being none, the next useful action is to widen it.
+
+                   v305 — and when there are genuinely none, no action here at
+                   all. "Return to My Day" was offered to everybody who is not a
+                   manager, which sent an employee away from the page at the one
+                   moment they could have started something: New goal is open to
+                   them too, at the top of this page, and saving for discussion
+                   is how an employee opens the conversation. An empty screen is
+                   an invitation to act, not a way out. The sentence below names
+                   the control rather than a second button duplicating it, since
+                   two GoalSetupDialogs on one page would be two dialogs. */
                   rows.length > 0 ? (
                     <Link href={lifecycleHref('active')} className="btn">
                       Show Active Goals
                     </Link>
-                  ) : canManage ? undefined : (
-                    <Link href="/today" className="btn">
-                      Return to My Day
-                    </Link>
-                  )
+                  ) : undefined
                 }
               >
                 <p>
                   {rows.length === 0
-                    ? 'Goals appear here after a manager and employee align the result and milestones.'
+                    ? 'A Goal is agreed between you and your manager. Start one with New goal above and save it for discussion, or wait for your manager to propose one.'
                     : LIFECYCLE_EMPTY[lifecycle]}
                 </p>
               </EmptyState>
@@ -606,9 +612,21 @@ export default async function GoalsPage({
                         : `Nothing in ${GOAL_LIFECYCLE_LABELS[lifecycle]}`
                     }
                   >
+                    {/*
+                      v305 — the control is called "Add goal". This sentence
+                      told the reader to use "Set a Goal", which is the name of
+                      the dialog it opens and not of anything on the screen; an
+                      action has to keep one name through a flow or the
+                      instruction is a riddle. It is also only an instruction
+                      for somebody who has the authority — a viewer here
+                      through a visibility grant has no such button, and
+                      pointing them at one is worse than saying nothing.
+                    */}
                     <p>
                       {teamGoals.length === 0
-                        ? 'Use Set a Goal to begin the manager-led alignment conversation.'
+                        ? canManage
+                          ? 'Use Add goal to begin the alignment conversation with this employee.'
+                          : 'This employee has no Goals yet. Their manager agrees the result and milestones with them.'
                         : LIFECYCLE_EMPTY[lifecycle]}
                     </p>
                   </EmptyState>
