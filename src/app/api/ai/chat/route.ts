@@ -118,14 +118,32 @@ export async function POST(request: Request) {
     );
   }
 
-  const thread = conversationId ? await loadThread(conversationId) : [];
+  const thread = conversationId
+    ? await loadThread(conversationId)
+    : { messages: [], failed: false };
+  /*
+   * v302 — a read that failed is not a conversation that is not yours.
+   *
+   * These two outcomes were one branch, and it answered 404 "That
+   * conversation is not available" to both: a database error was reported to
+   * somebody as a verdict about their own thread. Worse for the answer than
+   * for the message, had it not refused - `historyFor` would have built an
+   * empty history and the assistant would have replied to "and what about the
+   * overdue ones?" having silently forgotten the conversation it was in.
+   */
+  if (thread.failed) {
+    return NextResponse.json(
+      { error: 'This conversation could not be read just now. Nothing has been lost — try again.' },
+      { status: 503 },
+    );
+  }
   /*
    * A conversation id that returns nothing is one that is not this person's -
    * the policy filtered it out. Answering into a new thread rather than
    * refusing would be the right behaviour for a first message and the wrong
    * one for a stolen id, so it is refused when an id was given.
    */
-  if (conversationId && thread.length === 0) {
+  if (conversationId && thread.messages.length === 0) {
     return NextResponse.json({ error: 'That conversation is not available.' }, { status: 404 });
   }
   const id = conversationId ?? (await startConversation({ userId: profile.id, question }));
@@ -142,7 +160,7 @@ export async function POST(request: Request) {
       try {
         const run = runInvestigation({
           provider,
-          history: historyFor(thread),
+          history: historyFor(thread.messages),
           question,
           caller: {
             userId: profile.id,

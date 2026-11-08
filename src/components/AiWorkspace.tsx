@@ -48,13 +48,19 @@ const SUGGESTIONS = [
 
 export function AiWorkspace({
   conversations,
+  conversationsFailed = false,
   initial,
+  threadFailed = false,
   conversationId,
   enabled,
   disabledReason,
 }: {
   conversations: ConversationRow[];
+  /** The list could not be read. Not the same as having none. */
+  conversationsFailed?: boolean;
   initial: Exchange[];
+  /** This thread could not be read. Not the same as it being empty. */
+  threadFailed?: boolean;
   conversationId: string | null;
   enabled: boolean;
   disabledReason: string;
@@ -202,8 +208,21 @@ export function AiWorkspace({
             New
           </Link>
         </div>
+        {/*
+         * v302 — "Nothing yet" is a claim about this person's history, and a
+         * failed read does not support it. The notice replaces that sentence
+         * rather than sitting beside it, because the two together would say
+         * both things at once. Anything started in this browser since is
+         * still listed below: the list is incomplete, not absent.
+         */}
+        {conversationsFailed && (
+          <p className="notice error" role="status">
+            <strong>Your conversations could not be read</strong> — nothing has been lost. Reload in
+            a moment to see them.
+          </p>
+        )}
         {threads.length === 0 ? (
-          <p className="form-hint">Nothing yet. Ask something below.</p>
+          !conversationsFailed && <p className="form-hint">Nothing yet. Ask something below.</p>
         ) : (
           <ul>
             {threads.map((one) => (
@@ -223,7 +242,23 @@ export function AiWorkspace({
       </section>
 
       <section className="ai-conversation" aria-label="Conversation">
-        {exchanges.length === 0 && (
+        {/*
+         * And the same for the thread itself. The opening screen means "this
+         * conversation has nothing in it yet"; shown after a failed read it
+         * tells somebody their conversation is empty, which is the one thing
+         * the page does not know.
+         */}
+        {threadFailed && exchanges.length === 0 && (
+          <div className="notice error" role="status">
+            <strong>This conversation could not be read</strong>
+            <p>
+              Nothing from it is shown here, and nothing has been deleted. Reload to try again, or
+              ask a new question below.
+            </p>
+          </div>
+        )}
+
+        {exchanges.length === 0 && !threadFailed && (
           <div className="ai-opening">
             <h2>Ask about your work</h2>
             <p>
