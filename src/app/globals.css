@@ -17561,6 +17561,57 @@ span.deadline span.deadline-glyph,
 .ai-answer p:last-child {
   margin-bottom: 0;
 }
+/*
+ * v303 — the answer is parsed now, so it has structure to style. It used to
+ * be paragraphs only, which is why a reader saw `**bold**` with the asterisks
+ * and a list of recommendations ran together into one block of prose.
+ */
+.ai-answer h3 {
+  margin: 14px 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.ai-answer h3:first-child {
+  margin-top: 0;
+}
+.ai-answer ul,
+.ai-answer ol {
+  margin: 0 0 10px;
+  padding-left: 22px;
+  max-width: 68ch;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.ai-answer li {
+  margin-bottom: 4px;
+}
+.ai-answer code {
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-size: 13px;
+}
+/* A comparison the eye can run down, which is the point of asking for one. */
+.ai-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.ai-table th,
+.ai-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.ai-table th {
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.ai-answer .table-scroll {
+  margin: 0 0 10px;
+}
 /* What it is doing, while it is doing it. Not a spinner: a sentence. */
 .ai-progress {
   margin: 0;

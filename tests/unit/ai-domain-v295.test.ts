@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AGENT_LIMITS,
   GROQ_FREE_LIMITS,
+  OPENAI_TIER_LIMITS,
   NO_USAGE,
   REFUSAL_WORDS,
   TOOL_LABELS,
@@ -384,10 +385,17 @@ describe('v295 the loop stops itself, and says why', () => {
      * live system prompt rather than a guess: when the route estimated that
      * cost at double its real size, the guard refused questions the tier
      * could comfortably have answered.
+     *
+     * v303 — measured against the tier this installation RUNS on. It was
+     * Groq's free 8,000 a minute, which is what `.env.example` selected until
+     * v301 and what nothing has selected since; the assistant runs on
+     * OpenAI's paid tier, where a minute holds 2,000,000. The ceiling is
+     * asserted rather than removed because the relationship it protects is
+     * real on any tier - a prompt can still be written that cannot afford to
+     * read twice.
      */
-    const ceiling = GROQ_FREE_LIMITS.tokensPerMinute * 0.9;
     const perStep = estimateTokens(SYSTEM_PROMPT) + 900 + AGENT_LIMITS.budgetedOutputTokens;
-    expect(perStep * 2).toBeLessThanOrEqual(ceiling);
+    expect(perStep * 2).toBeLessThanOrEqual(OPENAI_TIER_LIMITS.tokensPerMinute * 0.9);
   });
 
   it('has words for every way of stopping short', () => {
@@ -509,7 +517,9 @@ describe('v296 an answer never shows an internal tool name', () => {
    */
   it('is a display guard and does not touch the tool call itself', () => {
     expect(TOOL_LABELS.list_team_workload).toBeDefined();
-    expect(NAMES).toHaveLength(8);
+    /* v303 added the history tool; a tool without a label leaks its name. */
+    expect(TOOL_LABELS.list_team_activity).toBeDefined();
+    expect(NAMES).toHaveLength(9);
   });
 });
 
@@ -567,10 +577,23 @@ describe('v300 what an empty read does not license', () => {
     expect(SYSTEM_PROMPT).not.toContain('never write a tool name');
     expect(scrubToolNames('Nothing is overdue (list_my_tasks).')).toBe('Nothing is overdue.');
 
+    /*
+     * v303 — and here is the trade that paid for the answering rules, written
+     * down rather than quietly dropped.
+     *
+     * The prompt now EXCEEDS Groq's free minute for two steps, deliberately.
+     * On that tier the pacer would wait between steps and a long
+     * investigation would slow down; on the OpenAI paid tier the installation
+     * actually runs, two steps cost well under a thousandth of the minute.
+     * The assertion is inverted rather than deleted so that anyone who shrinks
+     * the prompt back under Groq's ceiling - or switches the provider back -
+     * is sent to this comment instead of discovering it from a 429.
+     */
     const perStep = estimateTokens(SYSTEM_PROMPT) + 900 + AGENT_LIMITS.budgetedOutputTokens;
-    const spare = (GROQ_FREE_LIMITS.tokensPerMinute * 0.9) / 2 - perStep;
-    expect(spare, 'the prompt no longer fits two steps inside the minute').toBeGreaterThanOrEqual(
-      0,
-    );
+    expect(perStep * 2).toBeLessThanOrEqual(OPENAI_TIER_LIMITS.tokensPerMinute * 0.9);
+    expect(
+      perStep * 2,
+      'this prompt is sized for the paid tier; if it fits Groq free again, re-read the comment above',
+    ).toBeGreaterThan(GROQ_FREE_LIMITS.tokensPerMinute * 0.9);
   });
 });

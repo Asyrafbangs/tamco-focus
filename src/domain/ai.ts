@@ -447,6 +447,7 @@ export const TOOL_LABELS: Record<string, string> = {
   get_task_detail: 'a task in full',
   list_steps_i_owe: 'steps you owe',
   list_team_workload: 'the team’s work',
+  list_team_activity: 'what the team has been doing',
   search_findings: 'the finding register',
   get_finding_detail: 'a finding in full',
   list_verification_queue: 'the verification queue',

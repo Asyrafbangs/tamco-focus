@@ -12,6 +12,7 @@ import {
   type Exchange as StoredExchange,
   type SourceLink,
 } from '@/domain/ai';
+import { parseAnswer, type Span } from '@/domain/answer-format';
 
 /**
  * The conversation workspace.
@@ -39,6 +40,57 @@ export type { ConversationRow };
  * same names out of an answer. Two copies of this map would drift, and the
  * one that drifted would show somebody `list_team_workload`.
  */
+
+/**
+ * The answer, as the model formatted it.
+ *
+ * Elements, never HTML. Everything here came from a model that reads records
+ * written by other people, so `dangerouslySetInnerHTML` would be a direct
+ * path from a task title to script on this page. React escapes the text in a
+ * structure, so the worst a malformed answer can do is look wrong.
+ */
+function renderSpans(spans: Span[]) {
+  return spans.map((span, index) => {
+    if (span.bold) return <strong key={index}>{span.text}</strong>;
+    if (span.code) return <code key={index}>{span.text}</code>;
+    return <span key={index}>{span.text}</span>;
+  });
+}
+
+function renderAnswer(answer: string) {
+  return parseAnswer(answer).map((block, index) => {
+    if (block.kind === 'heading') return <h3 key={index}>{renderSpans(block.spans)}</h3>;
+    if (block.kind === 'list') {
+      const items = block.items.map((item, at) => <li key={at}>{renderSpans(item)}</li>);
+      return block.ordered ? <ol key={index}>{items}</ol> : <ul key={index}>{items}</ul>;
+    }
+    if (block.kind === 'table') {
+      return (
+        <div className="table-scroll" key={index}>
+          <table className="ai-table">
+            <thead>
+              <tr>
+                {block.head.map((cell, at) => (
+                  <th key={at}>{renderSpans(cell)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {block.rows.map((row, at) => (
+                <tr key={at}>
+                  {row.map((cell, cellAt) => (
+                    <td key={cellAt}>{renderSpans(cell)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+    return <p key={index}>{renderSpans(block.spans)}</p>;
+  });
+}
 
 const SUGGESTIONS = [
   'Why are my corrective actions delayed?',
@@ -325,13 +377,7 @@ export function AiWorkspace({
               </p>
             )}
 
-            {exchange.answer && (
-              <div className="ai-answer">
-                {exchange.answer.split('\n\n').map((paragraph, index) => (
-                  <p key={index}>{paragraph}</p>
-                ))}
-              </div>
-            )}
+            {exchange.answer && <div className="ai-answer">{renderAnswer(exchange.answer)}</div>}
 
             {exchange.sources.length > 0 && (
               <div className="ai-sources">

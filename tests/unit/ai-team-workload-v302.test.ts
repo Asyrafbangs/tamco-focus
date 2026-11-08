@@ -40,11 +40,17 @@ const getTeamAvailableWork = vi.fn(async () => ({
   failed: false,
 }));
 
+const getTeamActivity = vi.fn(async () => ({ events: [], team: [], failed: false }));
+
 vi.mock('@/server/esh/queries', () => ({
   listRegister: vi.fn(),
   getFindingDetail: vi.fn(),
   getHazardDistribution: vi.fn(),
   listVerificationQueue: vi.fn(),
+}));
+/* v303 — the tool layer now reads the team's history too. */
+vi.mock('@/server/team-activity', () => ({
+  getTeamActivity: () => getTeamActivity(),
 }));
 vi.mock('@/server/esh/access', () => ({
   getEshAccess: vi.fn(),
