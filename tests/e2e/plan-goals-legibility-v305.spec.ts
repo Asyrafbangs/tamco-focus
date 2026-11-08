@@ -265,52 +265,62 @@ test.describe('nothing invisible is pressable', () => {
  * sitting in an inline `style={{ fontSize: 16 }}` on the Plan month label and
  * in five module rules in this area.
  *
- * Scoped to this area's own containers. The page head (`.pagehead h1` at a
- * literal 24px, `.pagehead p` at 12px) is shared by every screen in the
- * product and has the same fault; widening this guard belongs with whoever
- * owns that rule.
+ * Scoped to the classes this area declares for itself — `cal-`, `daynum`,
+ * `plan-`, `legend-`, `goal-`, `team-goal` — and to the unclassed elements
+ * those rules reach through a descendant selector. Deliberately NOT the whole
+ * subtree: a goal row contains `.btn`, `.sub`, `.status-badge` and
+ * `.workspace-tabs`, which belong to every screen in the product, and the page
+ * head above it carries the same fault at a literal 24px and 12px. Those are
+ * somebody else's rule to fix and someone has to own the widening of this
+ * check; claiming them here would mean either failing on work this area may
+ * not touch or quietly allow-listing them, and an allowlist is how a guard
+ * stops guarding.
+ *
+ * Module-declared sizes are also outside it: their class names are hashed and
+ * carry no stable prefix to select on. The six in this area were corrected by
+ * hand in the same series.
  */
 test.describe('the personal text size reaches this area', () => {
-  const AREAS: ReadonlyArray<{ route: string; roots: readonly string[] }> = [
-    { route: '/plan', roots: ['.plan-head', '.plan-legend', '.calendar', '.empty-state'] },
-    {
-      route: '/goals',
-      roots: [
-        '#my-goal-list',
-        '.goal-summary-inline',
-        '.goal-list-panel',
-        '.goal-session-disclosure',
-        '.goals-page-intro',
-      ],
-    },
-  ];
+  const ROUTES = ['/plan', '/goals'] as const;
   const SCALE = 1.25;
 
-  test('every size grows with it', async ({ page }, testInfo) => {
-    test.skip(testInfo.project.name !== 'desktop', 'A stylesheet contract; one project proves it.');
+  test('every size this area sets grows with it', async ({ page }) => {
     await signIn(page);
 
     const fixed: string[] = [];
-    for (const area of AREAS) {
-      await open(page, area.route);
+    for (const route of ROUTES) {
+      await open(page, route);
 
-      const measure = (roots: readonly string[]) =>
-        page.evaluate((selectors) => {
-          const seen = new Set<Element>();
-          const elements: Element[] = [];
-          for (const selector of selectors) {
-            for (const root of Array.from(document.querySelectorAll(selector))) {
-              for (const element of [root, ...Array.from(root.querySelectorAll('*'))]) {
-                if (seen.has(element)) continue;
-                seen.add(element);
-                elements.push(element);
-              }
+      const measure = () =>
+        page.evaluate(() => {
+          const AREA = /(^|\s)(cal-|daynum|plan-|legend-|goal-|team-goal)/;
+          const classesOf = (element: Element) =>
+            typeof element.className === 'string' ? element.className : '';
+          /*
+           * An element counts when it wears one of this area's classes, or
+           * when it wears none at all and its nearest classed ancestor does —
+           * which is how `.goal-session-disclosure > summary` and
+           * `.goal-summary-inline b` are reached. An element wearing somebody
+           * else's class is somebody else's rule.
+           */
+          const qualifies = (element: Element): boolean => {
+            const own = classesOf(element);
+            if (AREA.test(own)) return true;
+            if (own.trim()) return false;
+            let node = element.parentElement;
+            while (node) {
+              const classes = classesOf(node);
+              if (classes.trim()) return AREA.test(classes);
+              node = node.parentElement;
             }
-          }
-          return elements
+            return false;
+          };
+
+          return [...document.querySelectorAll('body *')]
             .filter((element) => {
               if (element.closest('.visually-hidden')) return false;
               if ((element as HTMLElement).offsetParent === null) return false;
+              if (!qualifies(element)) return false;
               return [...element.childNodes].some(
                 (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim(),
               );
@@ -319,15 +329,15 @@ test.describe('the personal text size reaches this area', () => {
               size: Number.parseFloat(getComputedStyle(element).fontSize),
               label: `${element.tagName.toLowerCase()}.${String(element.className).slice(0, 40)}`,
             }));
-        }, roots);
+        });
 
-      const before = await measure(area.roots);
-      expect(before.length, `${area.route} has text to measure`).toBeGreaterThan(0);
+      const before = await measure();
+      expect(before.length, `${route} has text this area sizes`).toBeGreaterThan(0);
 
       await page.evaluate(() => {
         document.documentElement.dataset.textSize = 'larger';
       });
-      const after = await measure(area.roots);
+      const after = await measure();
       expect(after.length).toBe(before.length);
 
       for (let index = 0; index < before.length; index += 1) {
@@ -337,7 +347,7 @@ test.describe('the personal text size reaches this area', () => {
         // element has no size to scale.
         if (was.size === 0) continue;
         if (Math.abs(now.size / was.size - SCALE) < 0.02) continue;
-        fixed.push(`${area.route} · ${was.label} stayed at ${was.size}px`);
+        fixed.push(`${route} · ${was.label} stayed at ${was.size}px`);
       }
 
       await page.evaluate(() => {
