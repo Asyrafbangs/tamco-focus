@@ -108,7 +108,17 @@ test('Goals is a dedicated accessible workspace with whole-row drawer interactio
   await expect(drawer.getByText('Success comes first.', { exact: true })).toBeVisible();
   await expect(drawer.getByRole('heading', { name: 'Success measures' })).toBeVisible();
   await expect(drawer.getByText('Agreed outcome', { exact: true })).toBeVisible();
-  await expect(drawer.getByText('Success measures', { exact: true }).last()).toBeVisible();
+  /*
+   * v305 — the setup sentence, under a name of its own.
+   *
+   * It used to be a second "Success measures" in the same scrolling view as
+   * the structured list, which is why this assertion needed `.last()` to pick
+   * it out. Naming it for what it holds removes the ambiguity, and asserting
+   * the name is now exact rather than positional means a regression to the
+   * duplicate fails here.
+   */
+  await expect(drawer.getByText('Measures in plain words', { exact: true })).toBeVisible();
+  await expect(drawer.getByText('Success measures', { exact: true })).toHaveCount(1);
   await expect(drawer.getByRole('button', { name: 'Update milestone' })).toBeVisible();
 
   await page.keyboard.press('Escape');

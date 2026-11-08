@@ -316,6 +316,20 @@
   font-size: var(--text-xs);
 }
 
+/* v305 — the health figure carries its own tone, which is all the badge that
+   used to repeat it word for word was adding. */
+.heroRed {
+  color: var(--red);
+}
+
+.heroAmber {
+  color: var(--amber);
+}
+
+.heroGreen {
+  color: var(--green);
+}
+
 .goalHeroCard :global(.progress-indicator) {
   margin-top: 12px;
 }
