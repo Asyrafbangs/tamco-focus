@@ -20,7 +20,13 @@ import {
 } from '@/server/esh/queries';
 import { resolvePeriod } from '@/domain/period';
 import type { ActivityEvent } from '@/domain/team-activity';
-import { getMyTasks, getStepsIOwe, getTaskDetail, getTeamLoad } from '@/server/queries';
+import {
+  getMyTasks,
+  getStepsIOwe,
+  getTaskDetail,
+  getTeamLoad,
+  getVisibleTeamTasks,
+} from '@/server/queries';
 import { getTeamActivity } from '@/server/team-activity';
 
 /**
@@ -233,6 +239,115 @@ const teamWorkload: AgentTool = {
     return {
       evidence: asEvidence('list_team_workload', capped),
       sources: [],
+      rows: capped.shown,
+    };
+  },
+};
+
+const teamTasksSchema = z.object({
+  scope: z.enum(['all', 'overdue', 'due_soon', 'blocked', 'in_review']).default('all'),
+});
+
+/**
+ * v306 — the team's actual work, which nothing could see.
+ *
+ * The assistant was asked to help manage a team and could only count. Every
+ * team tool returned FIGURES PER PERSON - four overdue, two stale, three
+ * routines - and none returned a task. So "what is my team's workload this
+ * week" had exactly one shape of answer available to it: rank the people by
+ * their numbers and suggest chasing whoever is worst. It was not being
+ * unhelpful. It was describing the only thing it had been shown.
+ *
+ * `getVisibleTeamTasks` is what the My Team screen reads: backlog, active and
+ * paused work for everybody the caller may see, by the same `task_overview`
+ * row-level security, ordered by due date. The data existed; nothing had put
+ * it in front of the model.
+ *
+ * **The fields are chosen for a decision, not for a dashboard.** Due date and
+ * overdue say when; urgency and mandatory say how much it matters; barriers
+ * and delegated steps say what is in the way; checklist progress and evidence
+ * say how much is left and what finishing requires; review status separates
+ * "submitted" from "accepted", which a manager must not conflate. What is NOT
+ * here is an effort estimate, because this product holds none - and a
+ * recommendation built on an invented one is worse than no recommendation.
+ *
+ * Every row returned is also a source, so the table in an answer has a record
+ * behind each line rather than a name the reader has to go and find.
+ */
+const teamTasks: AgentTool = {
+  name: 'list_team_tasks',
+  description:
+    'The team’s actual open work, one row per TASK rather than per person: title, owner, status, due date, whether it is overdue or has gone stale, urgency, whether it is mandatory, progress, open barriers, delegated steps still owed, checklist progress, what completion requires as evidence, and whether it is waiting on review. Use it for ANY question about the team’s workload, priorities, what to do first, who is overloaded, what can be postponed or what needs a decision — those are questions about work, and list_team_workload only holds counts. scope: all (default), overdue, due_soon (the next seven days), blocked (open barriers or overdue delegated steps), in_review (submitted and awaiting a decision). It holds no effort or duration estimate because the product records none.',
+  schema: teamTasksSchema,
+  inputSchema: {
+    type: 'object',
+    properties: {
+      scope: {
+        type: 'string',
+        enum: ['all', 'overdue', 'due_soon', 'blocked', 'in_review'],
+        description: 'Which slice of the team’s open work to return',
+      },
+    },
+    additionalProperties: false,
+  },
+  async run(input, caller) {
+    const { scope } = parse(teamTasksSchema, input, 'list_team_tasks');
+    const tasks = await getVisibleTeamTasks(caller.userId);
+
+    const soon = Date.now() + 7 * 86_400_000;
+    const matches = tasks.filter((task) => {
+      if (scope === 'overdue') return task.isOverdue;
+      if (scope === 'blocked') return task.openBarrierCount > 0 || task.delegatedOverdueCount > 0;
+      if (scope === 'in_review') return task.reviewStatus === 'pending';
+      if (scope === 'due_soon') {
+        return task.dueAt ? new Date(task.dueAt).getTime() <= soon : false;
+      }
+      return true;
+    });
+
+    /*
+     * Ordered for a decision rather than by date alone: what is already late
+     * first, then what is mandatory, then by due date, so a truncated result
+     * keeps the rows a manager would have wanted.
+     */
+    const ordered = [...matches].sort((a, b) => {
+      if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1;
+      if (a.isMandatory !== b.isMandatory) return a.isMandatory ? -1 : 1;
+      const left = a.dueAt ? new Date(a.dueAt).getTime() : Number.POSITIVE_INFINITY;
+      const right = b.dueAt ? new Date(b.dueAt).getTime() : Number.POSITIVE_INFINITY;
+      return left - right;
+    });
+
+    const capped = capRows(ordered, AGENT_LIMITS.maxRowsPerTool);
+    const rows = capped.rows.map((task) => ({
+      task: task.title,
+      owner: task.ownerName,
+      status: task.status,
+      work_class: task.workClass,
+      due: task.dueAt,
+      overdue: task.isOverdue,
+      stale_no_update: task.isStale,
+      urgency: task.urgency,
+      mandatory: task.isMandatory,
+      progress_percent: task.progressPercent,
+      open_barriers: task.openBarrierCount,
+      delegated_steps_open: task.delegatedOpenCount,
+      delegated_steps_overdue: task.delegatedOverdueCount,
+      checklist: `${task.checklistCompleted}/${task.checklistTotal}`,
+      evidence_required: task.completionEvidenceRule,
+      evidence_attached: task.evidenceCount,
+      awaiting_review: task.reviewStatus === 'pending',
+      assigned_by: task.assignedByName,
+    }));
+
+    return {
+      evidence: asEvidence('list_team_tasks', {
+        scope,
+        note: 'No effort, duration or capacity estimate exists in this product. Do not infer one.',
+        ...capped,
+        rows,
+      }),
+      sources: capped.rows.map((task) => taskSource(task.id, task.title)),
       rows: capped.shown,
     };
   },
@@ -670,6 +785,7 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
    * the minority that ask about other people.
    */
   teamWorkload,
+  teamTasks,
   teamActivity,
 ];
 

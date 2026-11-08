@@ -116,6 +116,20 @@ const PROVIDERS = {
      */
     tokensPerMinute: 2_000_000,
     extra: {},
+    /*
+     * v306 — what the PRODUCT gives this model, which is not what this suite
+     * was giving it.
+     *
+     * `AGENT_LIMITS.maxOutputTokens` is 4,000, measured for gpt-oss on Groq,
+     * and `src/server/ai/config.ts` raises it to 12,000 for OpenAI with the
+     * note that 4,000 "truncates this model's answers outright". Every
+     * OpenAI round here ran at a third of the production ceiling, and it
+     * showed the moment the answers got long: five management scenarios
+     * failed across three rounds with "answer was cut off at the length
+     * limit", a verdict about the harness wearing the clothes of a verdict
+     * about the model.
+     */
+    maxOutputTokens: 12_000,
   },
 };
 const PROVIDER = (flag('--provider') ?? process.env.AI_PROVIDER?.trim() ?? 'groq').toLowerCase();
@@ -156,7 +170,9 @@ function limitFromDomain(name, fallback) {
   return Number(found?.replace(/_/g, '') ?? fallback);
 }
 
-const MAX_OUT = Number(flag('--max-out') ?? limitFromDomain('maxOutputTokens', 4000));
+const MAX_OUT = Number(
+  flag('--max-out') ?? SERVICE.maxOutputTokens ?? limitFromDomain('maxOutputTokens', 4000),
+);
 /** Reads before the loop forces a conclusion. From the domain. */
 const MAX_STEPS = limitFromDomain('maxSteps', 6);
 /** What one reply is expected to spend, for pacing. Also from the domain. */
@@ -250,22 +266,61 @@ async function waitForBudget(estimated) {
  * side of the question the prompt tells it to check, and never answered. That
  * was the eval's tool surface, not the model's judgement.
  */
+/**
+ * The product's tools, with the words the product actually gives the model.
+ *
+ * v306 — the names were read from the source and the DESCRIPTIONS were not:
+ * every tool was offered as "Fixture tool for the eval suite: <name>". So the
+ * model chose tools in here from a bare list while in production it chooses
+ * them from paragraphs that say when each one applies - and tool selection is
+ * most of what this suite grades. A run could pass or fail on a choice the
+ * product would never have put to it.
+ *
+ * `src/server/ai/tools.ts` imports 'server-only' and reaches the database
+ * layer, so it cannot be imported here; the text is read out of the source
+ * instead. A description that cannot be read throws rather than quietly
+ * falling back, because a silent fallback is the defect this replaces.
+ */
 function productTools() {
   const source = readFileSync(path.join(root, 'src', 'server', 'ai', 'tools.ts'), 'utf8');
   const names = [...source.matchAll(/^\s*name: '([a-z_]+)',$/gm)].map((match) => match[1]);
   if (names.length < 4)
     throw new Error('could not read the tool names from src/server/ai/tools.ts');
-  return names;
+
+  return names.map((name) => {
+    const at = source.indexOf(`name: '${name}',`);
+    const from = source.indexOf('description:', at);
+    const until = source.indexOf('schema:', from);
+    if (from === -1 || until === -1 || until < from) {
+      throw new Error(`could not read the description for ${name}`);
+    }
+    const expression = source
+      .slice(from + 'description:'.length, until)
+      .trim()
+      .replace(/,$/, '');
+    let description;
+    try {
+      /* Our own source, and the alternative is grading a tool list nobody ships. */
+      description = new Function(`return ${expression};`)();
+    } catch {
+      throw new Error(`could not evaluate the description for ${name}`);
+    }
+    if (typeof description !== 'string' || description.length < 40) {
+      throw new Error(`the description for ${name} did not read as text`);
+    }
+    return { name, description };
+  });
 }
 
-const TOOL_NAMES = productTools();
+const PRODUCT_TOOLS = productTools();
+const TOOL_NAMES = PRODUCT_TOOLS.map((one) => one.name);
 
 function toolsFor() {
-  return TOOL_NAMES.map((name) => ({
+  return PRODUCT_TOOLS.map((tool) => ({
     type: 'function',
     function: {
-      name,
-      description: `Fixture tool for the eval suite: ${name}`,
+      name: tool.name,
+      description: tool.description,
       parameters: { type: 'object', properties: {}, additionalProperties: true },
     },
   }));

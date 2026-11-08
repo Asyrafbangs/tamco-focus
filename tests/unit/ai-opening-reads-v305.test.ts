@@ -74,11 +74,48 @@ describe('v305 what gets read before the model is asked', () => {
      */
     for (const question of [
       'What did my team achieve last week?',
-      'Who has outstanding tasks?',
       'Who completed the most assigned work last week?',
       'What changed compared with the previous week?',
       'How has Mohd Fadli Baharil been doing this month?',
       'Thanks, that is helpful.',
+    ]) {
+      expect(names(question), question).toEqual([]);
+    }
+  });
+
+  it('reads the team’s WORK, and the register beside it, for a management question', () => {
+    /*
+     * v306. Every team tool returned figures per person - four overdue, two
+     * stale - and none returned a task. So "what is my team's workload"
+     * could only be answered by ranking people by their counts, which is
+     * what the assistant did, and why it read as a dashboard rather than a
+     * manager. The register comes too: a priority list built from tasks
+     * alone puts an overdue expense claim above an unguarded press, because
+     * the press is a finding.
+     */
+    for (const question of [
+      "What is my team's workload this week?",
+      'Is the workload fairly distributed?',
+      'Which tasks should be done first?',
+      'What should each employee accomplish this week?',
+      'Which work can be postponed without increasing risk?',
+      'What needs my decision or intervention?',
+      'Who has outstanding tasks?',
+    ]) {
+      expect(names(question), question).toEqual(['list_team_tasks', 'search_findings']);
+    }
+  });
+
+  it('leaves a question about the PAST to the history tool', () => {
+    /*
+     * Today's backlog cannot answer what happened last week, and reading it
+     * for that would answer a different question with a straight face.
+     */
+    for (const question of [
+      'What did my team achieve last week?',
+      'Who completed the most assigned work last week?',
+      'What changed compared with the previous week?',
+      'How has Mohd Fadli Baharil been doing this month?',
     ]) {
       expect(names(question), question).toEqual([]);
     }
