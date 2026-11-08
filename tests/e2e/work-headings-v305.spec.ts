@@ -80,4 +80,39 @@ test.describe('My Day and Work are named by headings', () => {
     // And written once, not once per branch of the line beneath it.
     await expect(page.getByRole('heading', { name: 'Working on', level: 2 })).toHaveCount(1);
   });
+
+  /**
+   * One queue, one spelling.
+   *
+   * The same list of things waiting on you is reached three ways: a summary on
+   * My Day, the full list behind it, and a filter on My Team. Two of them
+   * called it "Needs Attention" and the third "Needs attention", which is the
+   * interface teaching a person two names for one place. Sentence case is what
+   * the rest of the product writes, so sentence case wins.
+   */
+  test('the attention queue is spelled the same way wherever you reach it', async ({ page }) => {
+    await signIn(page, 'izzul@tamco.local');
+
+    const shouted: string[] = [];
+    for (const route of ['/today', '/work?filter=attention', '/work?scope=team']) {
+      await settle(page, route);
+      const found = await page.evaluate(() =>
+        [...document.querySelectorAll<HTMLElement>('body *')]
+          .filter((element) => element.offsetParent !== null)
+          .filter((element) =>
+            [...element.childNodes].some(
+              (node) =>
+                node.nodeType === Node.TEXT_NODE && /Needs Attention/.test(node.textContent ?? ''),
+            ),
+          )
+          .map((element) => element.className || element.tagName),
+      );
+      shouted.push(...found.map((where) => `${route} · ${where}`));
+    }
+
+    expect(shouted, '"Needs Attention" in title case').toEqual([]);
+
+    await settle(page, '/work?filter=attention');
+    await expect(page.getByRole('heading', { name: 'Needs attention' })).toBeVisible();
+  });
 });

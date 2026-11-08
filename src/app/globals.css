@@ -7371,7 +7371,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 /*
  * v49 §23 — the header wraps rather than compressing.
  *
- * "Needs Attention 12" and "View all 12 →" sit on one line when there is room
+ * "Needs attention 12" and "View all 12" sit on one line when there is room
  * and stack when there is not; forcing them into a row at 390px squeezes the
  * link into an unreadable strip.
  */

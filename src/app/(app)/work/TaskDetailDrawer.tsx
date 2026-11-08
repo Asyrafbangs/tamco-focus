@@ -212,7 +212,14 @@ export function TaskDetailDrawer({
     startTransition(async () => {
       const result = await work;
       if (result.ok) router.refresh();
-      else setMessage({ tone: 'error', text: result.message ?? 'That did not work.' });
+      // "That did not work" names nothing and asks for nothing. The fallback
+      // says which thing failed and what to do about it; the server's own
+      // message, when it sends one, is always more specific than either.
+      else
+        setMessage({
+          tone: 'error',
+          text: result.message ?? 'What you are working on was not changed. Try again in a moment.',
+        });
     });
   };
 

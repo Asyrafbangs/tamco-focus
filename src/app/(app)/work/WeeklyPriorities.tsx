@@ -93,7 +93,12 @@ export function WeeklyPriorities({
         setDeclineNote('');
         router.refresh();
       } else {
-        setError(result.message ?? 'That did not work.');
+        // Name the thing that failed and say what to do. "That did not work"
+        // does neither, and it is what a reader sees whenever the server has
+        // no message of its own.
+        setError(
+          result.message ?? 'This week’s priorities were not changed. Try again in a moment.',
+        );
       }
     });
   };
