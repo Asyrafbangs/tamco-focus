@@ -417,55 +417,38 @@ the point:
   a pass when the table is empty.
 - **16/17 again**, on a different fault: `evidence-upload-v135` found no
   `Complete work` button in the task drawer on mobile, while the same test
-  passed on desktop in the same run and six of six passed in isolation. Root
-  cause in v322 below. **The gate has not been re-run since v322, so the
-  branch has no 17/17 result and is not merged or pushed.**
+  passed on desktop in the same run and six of six passed in isolation. Fixed
+  in v322.
+- **16/17 once more**, this time with the browser suite green and only Format
+  failing, on sixteen files that `git checkout` and the `origin/main` merge
+  had rewritten as CRLF. `autocrlf=true` here, so Prettier's LF check fails
+  while `git diff` shows nothing; `md5` of each file with CR stripped matched
+  its committed copy exactly. Nothing in the commit was wrong and CI, which
+  checks out LF, would never have seen it.
+- **17/17, EXIT=0** on the re-run. Re-run rather than argued, because "all
+  seventeen passed, just not in one process" is the shape of reasoning the
+  17/17 bar exists to stop.
 
-### Paused here (8 November 2026)
+### Landed (9 November 2026)
 
-Exact next action: `npm run db:reset`, then re-run the full gate unpiped with
-`E2E_PORT=3200 APP_BASE_URL=http://localhost:3200 SMOKE_PORT=3300`, appending
-the exit code to the log. At 17/17, fast-forward `main` to
-`claude/uiux-integrated` and push; `origin/main` is already an ancestor, so
-both are fast-forwards. Below 17/17, do not push.
+`claude/uiux-integrated` is **merged and pushed**: `origin/main` is `a6a9c69`,
+identical to the branch head, reached as a fast-forward. The series v300-v322
+is on `main`.
 
-One thing to know before reading a failure: **`goals-v33.spec.ts:252`
-("manager My Team and two-step setup retain the approved master-detail
-structure") fails on desktop when that file is run on its own after a
-`db:reset`, and passes inside the full gate.** It was confirmed pre-existing
-by reverting v322 and re-running it: it fails identically without the change.
-It depends on state another spec creates, so a lone run of that file is not
-evidence about it either way. Fixing that order dependency is open work, not
-part of this series.
+`origin/main` had moved to `ddceccd` while this work was paused — PR #78
+(v307), which touched `src/server/queries.ts`, the same file as v322. It was
+merged in and the merge checked rather than trusted: `readCapabilities` and
+`TASK_CAPABILITIES_UNAVAILABLE` both survived, types clean, unit 1011/1011.
 
-**Known limitations**
-
-Three of the four recorded here have been closed; what is left is stated as
-what remains, not as what was done.
-
-- ~~`main` has moved on since this branch was cut.~~ Merged in at `1af5a3c`.
-  `origin/main` is an ancestor of the branch.
-- ~~The approved prototypes still encode the navy folder tabs and the
-  9–11.5px type that v312 and v314 retired.~~ Both updated in v319.
-  **What remains:** the prototypes still carry 19px, 23px and 46px, which are
-  not steps on this product's scale. They were left alone deliberately —
-  tokenising a mockup by inventing three new steps would widen the locked
-  scale to match a drawing, and the scale test already catches anything they
-  would teach. The prototypes are a drawing, not the scale.
-- ~~Every literal `font-size` above 12px ignores the personal text-size
-  setting.~~ Closed in v321: the whole scale is tokenised on `--font-scale`
-  and the guard that checks it is product-wide rather than scoped to Plan and
-  Goals.
-- ESH screens were out of scope throughout, except the shared `.eyebrow` rule,
-  which was de-costumed product-wide with the owner's agreement. This is a
-  scope boundary rather than a defect, and it still stands.
-- **New, and worth knowing:** the touch-target and scale guards both measured
-  nothing on at least one route and reported it as a pass. `/more/attachments`
-  is empty on a clean database, so a route with no rows satisfied the touch
-  guard for as long as that test had existed, and it failed only once a gate
-  run happened to leave attachments behind. Both guards now require that each
-  route yields controls. **A green route is not evidence until you know it had
-  something to measure.**
+One environment note worth keeping. Before that final run, every browser test
+failed at sign-in with `?error=invalid`, which reads exactly like an
+authentication regression. It was not: Kong, REST and nine other local
+services had stopped while `db`, `auth` and `storage` stayed up, so `db:reset`
+succeeded against Postgres on 54322 while every API call went through a dead
+gateway. `supabase start` only reprints status for a half-up project — it
+takes `supabase stop --no-backup` then `start`. The tell was that _all_
+thirty-two tests failed at the identical line: a clean cliff is environment, a
+scatter is code.
 
 ## Known test brittleness
 
