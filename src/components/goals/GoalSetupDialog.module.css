@@ -185,3 +185,14 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* v305 — a kicker above a real heading: the words stay, the capitals and the
+   0.14em tracking go. Weight and colour separate it instead. Scoped here
+   rather than in globals.css while three areas are revised in parallel; see
+   the note in `goals.module.css`. */
+.kicker {
+  margin: 0;
+  color: var(--blue);
+  font-size: var(--text-xs);
+  font-weight: 650;
+}

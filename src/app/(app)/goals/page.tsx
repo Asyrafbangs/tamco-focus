@@ -277,7 +277,7 @@ export default async function GoalsPage({
     <>
       <div className="pagehead">
         <div>
-          <p className="eyebrow">Performance and development</p>
+          <p className={styles.kicker}>Performance and development</p>
           <h1>Goals</h1>
           <p>
             Agreed outcomes, visible progress, actionable milestones and evidence&mdash;separate
@@ -529,7 +529,7 @@ export default async function GoalsPage({
               <>
                 <header className="team-goal-detail-head">
                   <div>
-                    <p className="eyebrow">Employee goals</p>
+                    <p className={styles.kicker}>Employee goals</p>
                     <h2 id="team-person-goals">{selectedPerson.fullName}</h2>
                     <p>{selectedPerson.employeeId} · Coaching and alignment</p>
                   </div>

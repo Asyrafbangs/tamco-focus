@@ -211,7 +211,7 @@ function MilestoneUpdateForm({
       >
         <header className="modalhead">
           <div>
-            <p className="eyebrow">Goal check-in</p>
+            <p className={styles.kicker}>Goal check-in</p>
             <h2>{milestone.title}</h2>
             <p className="sub">
               Update progress, record what changed and attach evidence when useful.

@@ -1,11 +1,16 @@
 import { LoadingSkeleton } from '@/components/ui/ParityPrimitives';
 
+import styles from './goals.module.css';
+
 export default function GoalsLoading() {
   return (
     <>
       <div className="pagehead">
         <div>
-          <p className="eyebrow">Goals</p>
+          {/* v305 — the same kicker the loaded page shows. It read "GOALS"
+              above "Goals", so the skeleton restated the heading AND differed
+              from the head it stands in for. */}
+          <p className={styles.kicker}>Performance and development</p>
           <h1>Goals</h1>
           <p>Loading agreed outcomes and milestones.</p>
         </div>
