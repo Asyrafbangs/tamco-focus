@@ -79,7 +79,9 @@ export function AttentionListView({
     <section className="card attention-list" aria-labelledby="attention-list-heading">
       <div className="attention-list-head">
         <div>
-          <h2 id="attention-list-heading">Needs Attention</h2>
+          {/* The same queue as My Day's summary and My Team's filter, so the
+              same words: sentence case, one spelling through the flow. */}
+          <h2 id="attention-list-heading">Needs attention</h2>
           <p>Everything waiting on your decision, approval or response.</p>
         </div>
       </div>

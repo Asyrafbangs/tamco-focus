@@ -1231,7 +1231,8 @@ export default async function WorkPage({
     <TaskActionFeedbackProvider>
       <div className="pagehead" data-task-feedback-page-anchor tabIndex={-1}>
         <div>
-          <p className="eyebrow">Work</p>
+          {/* No "WORK" above "My Work". It restated the heading in capitals
+              and cost a line of a phone screen to do it. */}
           {/* One Work shell; the heading follows the view rather than the view
               becoming another page (v42 section A). */}
           <h1>{scope === 'team' ? 'My Team' : 'My Work'}</h1>
@@ -1276,6 +1277,7 @@ export default async function WorkPage({
       {hasTeam && (
         <WorkspaceTabs
           label="Work scope"
+          level={1}
           items={[
             { href: '/work', label: 'My Work', active: scope === 'mine' },
             {
@@ -1293,6 +1295,7 @@ export default async function WorkPage({
         <WorkspaceTabs
           label="Work type"
           tone="mode"
+          level={2}
           items={[
             {
               href: '/work',
@@ -1325,7 +1328,9 @@ export default async function WorkPage({
         <section className="proposal-inbox" aria-labelledby="proposal-inbox-heading">
           <header>
             <div>
-              <p className="eyebrow">Decisions</p>
+              {/* "DECISIONS" sat above a heading that already names the block
+                  and a line that already says a decision is wanted. Three
+                  labels for one thing, the first of them shouted. */}
               <h2 id="proposal-inbox-heading">Major Projects for discussion</h2>
               <p>Agree, request changes or decline. Agreed work starts in Available.</p>
             </div>
@@ -1361,8 +1366,13 @@ export default async function WorkPage({
         <section className="proposal-inbox compact" aria-labelledby="my-proposals-heading">
           <header>
             <div>
-              <p className="eyebrow">Major Project proposals</p>
-              <h2 id="my-proposals-heading">Discussion status</h2>
+              {/*
+                The eyebrow carried the subject and the heading carried a
+                vaguer word for it, so the uppercase line was the one a reader
+                actually needed. They are one heading and one sentence now.
+              */}
+              <h2 id="my-proposals-heading">Major Project proposals</h2>
+              <p>Where each one you sent has got to.</p>
             </div>
           </header>
           <div className="proposal-list">
@@ -1447,9 +1457,16 @@ export default async function WorkPage({
           */}
           {activeTab === 'active' && (
             <div className="working-on-summary">
+              {/*
+                A real heading, in sentence case. It was a tracked-out
+                uppercase label — the only thing naming this block, so it was
+                already doing a heading's job while giving a screen reader no
+                structure at all. It was also written twice, once in each
+                branch of the line below it.
+              */}
+              <h2>Working on</h2>
               {currentFocus ? (
                 <>
-                  <p className="eyebrow">Working on</p>
                   <RowPrimaryLink
                     href={`/work?task=${currentFocus.taskId}`}
                     ariaLabel={`Open ${currentFocus.title}, the work you are on`}
@@ -1462,12 +1479,9 @@ export default async function WorkPage({
                   </span>
                 </>
               ) : (
-                <>
-                  <p className="eyebrow">Working on</p>
-                  <span className="muted">
-                    Not set. Open the work you are on and choose <strong>Set as working on</strong>.
-                  </span>
-                </>
+                <span className="muted">
+                  Not set. Open the work you are on and choose <strong>Set as working on</strong>.
+                </span>
               )}
             </div>
           )}
@@ -1508,9 +1522,12 @@ export default async function WorkPage({
             section 5 puts it.
           */}
           <div className="team-views">
+            {/* Choosing one of these replaces the whole list below it, which
+                is what level 2 means. The attention filter under it narrows
+                what this one chose, and is level 3. */}
             <FocusTabs
               label="Team views"
-              variant="underline"
+              level={2}
               items={[
                 {
                   href: teamHref(),
@@ -1551,7 +1568,6 @@ export default async function WorkPage({
             <div className="team-attention-filter">
               <FocusTabs
                 label="Team filter"
-                variant="underline"
                 items={[
                   {
                     href: teamHref(),

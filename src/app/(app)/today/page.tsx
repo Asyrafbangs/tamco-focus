@@ -231,7 +231,8 @@ export default async function TodayPage({
     <>
       <div className="pagehead">
         <div>
-          <p className="eyebrow">Daily workspace</p>
+          {/* No "DAILY WORKSPACE" above "My Day". It said the heading again in
+              capitals, and the line under it already says what the day holds. */}
           <h1>{profile.full_name.split(' ')[0]} · My Day</h1>
           <p>{todayLabel} · What is late, and what is due in the next few days.</p>
         </div>
@@ -264,10 +265,19 @@ export default async function TodayPage({
       {day.overdue.length === 0 && day.dueSoon.length === 0 ? (
         <section className="card coming day-section" aria-labelledby="day-clear-heading">
           <div className="empty-state">
-            <h3 id="day-clear-heading">Nothing overdue, and nothing due soon</h3>
+            {/*
+              The line at the top of the page already says the day is clear,
+              and it says it with the window in it. This said the same thing
+              again 300px further down, in slightly different words — the
+              reader's reward for scrolling was being told twice.
+
+              What it can say that the line above cannot is where the rest of
+              the work went, so that is what it says now.
+            */}
+            <h3 id="day-clear-heading">Where the rest of your work is</h3>
             <p>
-              Work due in the next {windowDays} days appears here, and anything that becomes late.
-              Everything else is in My Work and on the calendar.
+              Anything due in the next {windowDays} days arrives here, and anything that becomes
+              late. Everything else is in My Work and on the calendar.
             </p>
             <Link href="/work" className="btn">
               Open My Work
@@ -319,23 +329,39 @@ export default async function TodayPage({
         </section>
       ) : null}
 
-      {/* A compact workload summary, and the two counts that name a list go to it. */}
-      <div className="summary-strip" role="group" aria-label="Workload summary">
-        <Link href="/work" className="summary-item summary-link">
-          <span className="summary-dot" aria-hidden="true" />
-          <strong>{activeCount}</strong> active
-        </Link>
-        <Link href="/work?tab=available" className="summary-item summary-link">
-          <span className="summary-dot" style={{ background: 'var(--muted)' }} aria-hidden="true" />
-          <strong>{availableCount}</strong> available
-        </Link>
-        {staleCount > 0 && (
-          <span className="summary-item">
-            <span className="summary-dot amber" aria-hidden="true" />
-            <strong>{staleCount}</strong> without a recent update
-          </span>
-        )}
-      </div>
+      {/*
+        A compact workload summary, and the two counts that name a list go to
+        it.
+
+        Only when there is something to count. On an empty workspace this was a
+        bordered card holding "0 active" and "0 available" and nothing else —
+        the row of pixels reporting the absence of news that the comment below
+        rules out for goals, and that Work rules out for its own tab badges.
+        A zero still shows beside a count that is not zero, because "0 active,
+        3 available" is a fact about the day; three zeros are not.
+      */}
+      {activeCount + availableCount + staleCount > 0 && (
+        <div className="summary-strip" role="group" aria-label="Workload summary">
+          <Link href="/work" className="summary-item summary-link">
+            <span className="summary-dot" aria-hidden="true" />
+            <strong>{activeCount}</strong> active
+          </Link>
+          <Link href="/work?tab=available" className="summary-item summary-link">
+            <span
+              className="summary-dot"
+              style={{ background: 'var(--muted)' }}
+              aria-hidden="true"
+            />
+            <strong>{availableCount}</strong> available
+          </Link>
+          {staleCount > 0 && (
+            <span className="summary-item">
+              <span className="summary-dot amber" aria-hidden="true" />
+              <strong>{staleCount}</strong> without a recent update
+            </span>
+          )}
+        </div>
+      )}
 
       {/*
         Exception-based: a goal strip that says nothing needs attention is a

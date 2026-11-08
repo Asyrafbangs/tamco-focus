@@ -180,7 +180,11 @@ export function MyDayNeedsAttentionSummary({
       <div className={styles.header}>
         <div>
           <h2 id="needs-attention-heading">
-            Needs Attention{' '}
+            {/* Sentence case, which is how the rest of the product writes a
+                heading — and how My Team's own tab writes this one. The same
+                queue had two spellings depending on which screen you reached
+                it from. */}
+            Needs attention{' '}
             <span className={styles.count} data-testid="my-day-attention-count">
               {items.length}
             </span>
@@ -191,7 +195,9 @@ export function MyDayNeedsAttentionSummary({
         </div>
         {items.length > visible.length ? (
           <Link href="/work?scope=team&filter=attention" className={styles.viewAll}>
-            View all {items.length} <span aria-hidden="true">→</span>
+            {/* No arrow glyph. A link already says it goes somewhere, and the
+                arrow was decoration a screen reader was told to ignore. */}
+            View all {items.length}
           </Link>
         ) : null}
       </div>

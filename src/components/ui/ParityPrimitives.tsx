@@ -121,13 +121,12 @@ export interface TabItem {
   attention?: boolean;
 }
 
-function TabLink({ item, compact = false }: { item: TabItem; compact?: boolean }) {
+function TabLink({ item }: { item: TabItem }) {
   return (
     <Link
       href={item.href}
       className={item.active ? 'active' : undefined}
       aria-current={item.active ? 'page' : undefined}
-      data-compact={compact || undefined}
     >
       <span>{item.label}</span>
       {item.count !== undefined && (
@@ -138,53 +137,81 @@ function TabLink({ item, compact = false }: { item: TabItem; compact?: boolean }
 }
 
 /**
- * `tone` separates two questions that are not peers.
+ * The three levels of a tab rail, as one scale.
  *
- * Scope asks whose work you are looking at; mode asks what kind of work. They
- * were rendered with the same control, one directly under the other, so four
- * options read as one row of four peers and the distinction between them was
- * invisible — a reader had to learn it rather than see it. Mode is the lighter
- * of the two because it sits inside the scope you have already chosen.
+ * My Work stacked three of these rows in three unrelated idioms — an enclosed
+ * segmented box, a grey pill, and navy-filled folder tabs — and Routines added
+ * a fourth that was pixel-for-pixel the top-level control one row below the
+ * real one. Nothing said which of the nested questions a reader had just
+ * answered, and the heaviest ink on the page marked the least important
+ * choice.
+ *
+ * `tabRailLevel` is the whole hierarchy, stated once:
+ *
+ * - 1 — which workspace. One per page, under the heading it belongs to.
+ * - 2 — which view inside it. Navigation: choosing one replaces the content.
+ * - 3 — which slice of this list. A filter: it narrows what is already shown.
+ *
+ * The construction is identical at every level. Only the label size, the
+ * thickness of the selected bar and its colour change, and they move together,
+ * so the levels can be ranked on sight rather than learned. Blue marks
+ * navigation; by level 3 the reader is no longer moving, so the mark drops to
+ * ink.
+ */
+export type TabRailLevel = 1 | 2 | 3;
+
+function tabRailClass(base: string, level: TabRailLevel | undefined): string {
+  return level ? `${base} tab-rail tab-rail-${level}` : base;
+}
+
+/**
+ * Whose work, or which workspace: the first question a page asks.
+ *
+ * `level` is opt-in while the rail is rolled out screen by screen. Without it
+ * the control keeps the enclosed segmented form the pages outside My Work
+ * still use.
  */
 export function WorkspaceTabs({
   items,
   label = 'Workspace',
   tone = 'scope',
+  level,
 }: {
   items: TabItem[];
   label?: string;
   tone?: 'scope' | 'mode';
+  level?: TabRailLevel;
 }) {
   return (
-    <nav className={tone === 'mode' ? 'workspace-tabs mode' : 'workspace-tabs'} aria-label={label}>
+    <nav
+      className={tabRailClass(tone === 'mode' ? 'workspace-tabs mode' : 'workspace-tabs', level)}
+      aria-label={label}
+    >
       {items.map((item) => (
-        <TabLink key={item.href} item={item} compact />
+        <TabLink key={item.href} item={item} />
       ))}
     </nav>
   );
 }
 
 /**
- * `variant` tells a set of content tabs from a filter.
+ * A set of content tabs or a filter over one list, on the same rail.
  *
- * The dark tabs say "this is the list you are now looking at". A filter over
- * one list is a smaller claim, and giving it the same weight made My Team read
- * as two navigations stacked on each other.
+ * Level 3 is the default because narrowing a list is what most of these do.
+ * A set that replaces the content below it — My Team's Team / Waiting /
+ * Completed / Recent activity — is level 2 and says so.
  */
 export function FocusTabs({
   items,
   label = 'Focus areas',
-  variant = 'panel',
+  level = 3,
 }: {
   items: TabItem[];
   label?: string;
-  variant?: 'panel' | 'underline';
+  level?: TabRailLevel;
 }) {
   return (
-    <nav
-      className={variant === 'underline' ? 'focus-tabs underline' : 'focus-tabs'}
-      aria-label={label}
-    >
+    <nav className={tabRailClass('focus-tabs', level)} aria-label={label}>
       {items.map((item) => (
         <TabLink key={item.href} item={item} />
       ))}
