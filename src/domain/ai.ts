@@ -447,6 +447,8 @@ export const TOOL_LABELS: Record<string, string> = {
   get_task_detail: 'a task in full',
   list_steps_i_owe: 'steps you owe',
   list_team_workload: 'the team’s work',
+  list_team_tasks: 'the team’s open tasks',
+  list_team_activity: 'what the team has been doing',
   search_findings: 'the finding register',
   get_finding_detail: 'a finding in full',
   list_verification_queue: 'the verification queue',
@@ -789,6 +791,207 @@ export function stepsExhausted(step: number, startedAt: number, now: number): bo
  * conversations is for recognising your own question, and a paraphrase is
  * harder to recognise than the thing you typed.
  */
+/* ------------------------------------------------- the opening reads -- */
+
+/** A read the orchestration performs before the model is asked anything. */
+export interface OpeningRead {
+  name: string;
+  input: Record<string, unknown>;
+  /** Why it is mandatory, in the words the model is shown. */
+  why: string;
+}
+
+/**
+ * v305 — the records a question cannot be answered without, fetched for it.
+ *
+ * Measured over twelve full runs: the finding register was read in six of the
+ * sixteen scenarios that provide it. "What should I prioritise today", "what
+ * needs my attention" and "help me prepare for my review" were answered from
+ * the task list alone, so a finding the person owned was simply left out of
+ * their priorities. `review-preparation` and `workload-conflict` failed that
+ * way in almost every run.
+ *
+ * Three rounds of persuasion had already been tried: rule 1a has named these
+ * questions since v295, v303 narrowed the team tool's description, and v304
+ * put the register first in the tool list and told the task tools in their
+ * own descriptions that findings are not in them. Three runs before that
+ * change and three after were indistinguishable - 18, 18, 18 and 19, 18, 17.
+ *
+ * The conclusion is not that the model is disobedient. It is that a read the
+ * product considers MANDATORY should not be left to a choice made under a
+ * step budget. So the loop performs it, and the model starts the question
+ * already holding the evidence.
+ *
+ * Deliberately small, and deliberately keyword-driven rather than clever:
+ *
+ *   * it is inspectable - anybody can read these words and say what will be
+ *     fetched, which a learned classifier would not allow;
+ *   * it is cheap - at most three reads, through the same tools, the same
+ *     authorization and the same row limits as a read the model asks for;
+ *   * it fetches nothing for a question that does not need it. "What did my
+ *     team achieve last week" and "who has outstanding tasks" match nothing
+ *     here, and go to the model with no seeded evidence at all.
+ */
+const FINDING_REFERENCE = /\besh[-\s]?\d{3,4}\b/i;
+const FINDING_WORDS =
+  /\b(finding|findings|esh|hazard|hazards|register|corrective|action|actions|verification|verified|unsafe|guard|guards|risk|risks|incident|incidents|audit|non-?conformance)\b/i;
+/*
+ * Rule 1a's own list, which is where this should have been read from in the
+ * first place. The prompt has said since v295 that "what should I do", "what
+ * should I prioritise", "why is nothing moving" and "am I behind" need the
+ * task tools AND the finding tools - so the seeding has to fetch both for
+ * exactly those, or it enforces half of a rule the product already states.
+ *
+ * "Why has nothing moved on my findings this month" is the case that found
+ * the gap: seeded with the register alone, the answer was built from it and
+ * the task side was never looked at.
+ */
+const MANAGEMENT_WORDS =
+  /\b(priorit\w*|attention|behind|workload|work load|my plate|focus|review|what should i|what needs|most urgent|catch up|prepare)\b|\b(?:nothing|anything)\s+(?:has\s+)?(?:moved|moving|happened|progressed)\b|\bwhy\s+(?:has|is|are)\s+(?:nothing|my)\b/i;
+/**
+ * A question about the team's WORK rather than about the team's numbers.
+ *
+ * Kept separate from the management words because the records differ: "what
+ * should I prioritise" is answered from the asker's own tasks and the
+ * register, while "what should each person work on" needs the team's tasks -
+ * and answering the second from per-person counts is what made the assistant
+ * rank employees instead of prioritising jobs.
+ */
+const TEAM_WORK_WORDS =
+  /\b(team|teams|my people|everyone|everybody|staff|department|each (?:employee|person|member)|who (?:should|has|is|needs|can)|which (?:tasks?|work|jobs?|findings?)|what tasks|distributed|distribution|fairly|reassign\w*|bottleneck|capacity|postpone\w*|defer\w*|difficult|time.consuming|complex\w*|intervention|decision)\b/i;
+
+/**
+ * A question about what already happened, which the open-work tool cannot
+ * answer. "What did my team achieve last week" is for `list_team_activity`;
+ * reading today's backlog for it would answer a different question with a
+ * straight face.
+ */
+const PAST_PERIOD =
+  /\b(last week|previous week|last month|last year|past (?:week|month|year)|achieve[ds]?|achievement|been doing|so far|yesterday)\b/i;
+
+/** "Has it been done?" about a named piece of work, rather than a finding. */
+const WORK_STATUS =
+  /\b(?:has|have|is|was|are)\b[^?.]{0,60}\b(?:been\s+)?(?:completed|finished|done|submitted|signed off)\b/i;
+
+/** A question about ONE record, where the summary row is not the answer. */
+const SINGLE_RECORD =
+  /\b(?:has|have|is|was|did|are)\b[^?.]{0,80}?\b(?:fixed|closed|done|resolved|verified|completed|sorted|actioned)\b|\btell me about\b|\bsummaris|\bsummariz/i;
+
+export function openingReads(question: string): OpeningRead[] {
+  const asked = question ?? '';
+  const reference = FINDING_REFERENCE.exec(asked)?.[0];
+  const findings = FINDING_WORDS.test(asked);
+  const management = MANAGEMENT_WORDS.test(asked);
+  const reads: OpeningRead[] = [];
+
+  /*
+   * v306 — a question about the team's WORK, which is not a question about
+   * the team's numbers.
+   *
+   * Every team tool returned figures per person, so "what is my team's
+   * workload this week" could only be answered by ranking people by their
+   * counts. Both halves are read here, and deliberately: a prioritisation
+   * answer built from tasks alone puts an overdue expense claim above an
+   * unguarded press, because the press is a finding and findings were never
+   * on the table.
+   */
+  /*
+   * v306 — "has the noise survey been completed?"
+   *
+   * A question about whether one piece of work is finished, where the whole
+   * answer turns on a distinction only the record carries: submitted and
+   * waiting on a decision is neither done nor outstanding. Both lists are
+   * read because the work may be the asker's own or somebody else's, and
+   * guessing which would answer the wrong question half the time.
+   */
+  if (WORK_STATUS.test(asked) && !reference && !findings) {
+    return [
+      {
+        name: 'list_team_tasks',
+        input: { scope: 'all' },
+        why: 'the question asks whether a piece of work is finished, and the record is the only thing that separates submitted from accepted',
+      },
+      {
+        name: 'list_my_tasks',
+        input: {},
+        why: 'the work may be the asker’s own rather than the team’s',
+      },
+    ];
+  }
+
+  if (TEAM_WORK_WORDS.test(asked) && !PAST_PERIOD.test(asked) && !reference) {
+    reads.push({
+      name: 'list_team_tasks',
+      input: { scope: 'all' },
+      why: 'the question is about the team’s work, and the counts per person cannot say which job matters',
+    });
+    reads.push({
+      name: 'search_findings',
+      input: { filter: 'open', search: '' },
+      why: 'work to be prioritised includes findings, and a safety finding must be weighed against the tasks rather than left out of the comparison',
+    });
+    return reads;
+  }
+
+  if (reference || findings || management) {
+    reads.push({
+      name: 'search_findings',
+      /*
+       * A named reference is looked up by text across every state, because
+       * the question is about that record and it may well be closed. Without
+       * one the open register is the useful default: it is what "do I have a
+       * problem" means, and `filter: 'all'` would spend the row limit on
+       * history.
+       */
+      input: reference ? { filter: 'all', search: reference } : { filter: 'open', search: '' },
+      why: reference
+        ? `the question names ${reference.toUpperCase()}`
+        : 'the question is about findings, priorities or what needs attention, and the register is where those live',
+    });
+  }
+
+  /*
+   * The person's own tasks, for a question about their plate. Not for one
+   * that names a record - "is ESH-0900 a problem" is about the finding, not
+   * about what else they are carrying.
+   */
+  if (management && !reference) {
+    reads.push({
+      name: 'list_my_tasks',
+      input: {},
+      why: 'the question is about this person’s own workload, which is half tasks and half findings',
+    });
+  }
+
+  return reads;
+}
+
+/**
+ * The detail read that a summary row cannot stand in for.
+ *
+ * `contradictory-evidence` asks whether a finding was fixed while the
+ * rejected verification that answers it sits inside the detail. Answered from
+ * the register row - status `open` - the reply looks right and rests on
+ * nothing, which is why the scenario passed three runs without ever opening
+ * the record.
+ *
+ * Only when exactly one finding came back, because with several the model has
+ * to choose which matters and that is a judgement, not a fetch.
+ */
+export function detailFollowUp(
+  question: string,
+  findingIds: readonly string[],
+): OpeningRead | null {
+  const asked = question ?? '';
+  if (findingIds.length !== 1) return null;
+  if (!SINGLE_RECORD.test(asked) && !FINDING_REFERENCE.test(asked)) return null;
+  return {
+    name: 'get_finding_detail',
+    input: { finding_id: findingIds[0] },
+    why: 'the question is about this one record, and a register row does not carry its submissions, evidence or decisions',
+  };
+}
+
 export function titleFrom(question: string): string {
   const flat = question.replace(/\s+/g, ' ').trim();
   if (flat.length === 0) return 'New conversation';
@@ -796,6 +999,44 @@ export function titleFrom(question: string): string {
   const cut = flat.slice(0, 60);
   const space = cut.lastIndexOf(' ');
   return `${(space > 24 ? cut.slice(0, space) : cut).trimEnd()}…`;
+}
+
+/** One conversation, as the sidebar lists it. */
+export interface ConversationRow {
+  id: string;
+  title: string;
+  updatedAt: string;
+}
+
+/**
+ * The conversation list after a thread has been written to.
+ *
+ * v302. The sidebar is rendered from a server read taken while the page was
+ * built, and a conversation is created by the streaming route afterwards - so
+ * the first question of a session produced a thread the list could not know
+ * about, and the panel went on saying "Nothing yet. Ask something below."
+ * beside the answer to the question just asked. Reported from a live screen.
+ *
+ * Here rather than inside the component, and pure, because the two rules are
+ * easy to get wrong and worth a test:
+ *
+ *   * an id already present is MOVED, never added again - the second question
+ *     of a conversation must not give it a second row;
+ *   * a row that already exists keeps the title it has. A title is made from
+ *     the question that OPENED the conversation, and rewriting it on every
+ *     turn would make the list retitle itself under the reader.
+ *
+ * Newest first, which is the order `listConversations` returns.
+ */
+export function withConversation(
+  list: readonly ConversationRow[],
+  row: ConversationRow,
+): ConversationRow[] {
+  const existing = list.find((one) => one.id === row.id);
+  return [
+    { ...row, title: existing?.title ?? row.title },
+    ...list.filter((one) => one.id !== row.id),
+  ];
 }
 
 /**

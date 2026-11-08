@@ -26,11 +26,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const listRegister = vi.fn();
 const getEshAccess = vi.fn();
 
+const getTeamActivity = vi.fn(async () => ({ events: [], team: [], failed: false }));
+
 vi.mock('@/server/esh/queries', () => ({
   listRegister: (...args: unknown[]) => listRegister(...args),
   getFindingDetail: vi.fn(),
   getHazardDistribution: vi.fn(),
   listVerificationQueue: vi.fn(),
+}));
+/* v303 — the tool layer now reads the team's history too. */
+vi.mock('@/server/team-activity', () => ({
+  getTeamActivity: () => getTeamActivity(),
 }));
 vi.mock('@/server/esh/access', () => ({
   getEshAccess: () => getEshAccess(),
