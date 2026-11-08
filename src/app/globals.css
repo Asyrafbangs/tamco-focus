@@ -5636,7 +5636,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
     min-width: 44px;
     width: 44px;
   }
-  .theme-toggle span {
+  .theme-toggle span:not(.theme-knob) {
     display: none;
   }
   .main {
