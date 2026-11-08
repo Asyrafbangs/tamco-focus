@@ -92,6 +92,20 @@ async function today(access: EshAccess, timeZone: string) {
    * verification queue refuses a failed read rather than answering empty.
    */
   const protection = dashboard.failed ? null : (dashboard.data?.protection.unprotected ?? 0);
+  /*
+   * v301 - a hazard nobody has rated is in none of the figures above it.
+   *
+   * `protection` counts High and Critical, so a finding recorded as Not
+   * assessed is absent from the one number on this page that answers whether
+   * anybody is exposed. The risk level is optional when a finding is written -
+   * `risk_invalid` offers "Choose a risk level, or Not assessed" - so the gap
+   * is reachable from the ordinary path, not only from an import.
+   *
+   * It is not a second count of exposure. It is how much of the first count is
+   * unknown, which is why it reads as a note on that figure rather than as a
+   * fifth number competing with it.
+   */
+  const unassessed = dashboard.failed ? null : (dashboard.data?.protection.unassessed ?? 0);
   const overdue = dashboard.failed ? null : (dashboard.data?.overdueActions ?? 0);
   const awaiting = dashboard.data?.awaitingVerification ?? verification.length;
   const incoming = intake?.rows ?? [];
@@ -148,6 +162,11 @@ async function today(access: EshAccess, timeZone: string) {
           href={protection === null ? undefined : '/findings/register?filter=unprotected'}
           exception={protection !== null && protection > 0}
           disabled={protection === null}
+          note={
+            unassessed
+              ? `${unassessed} open finding${unassessed === 1 ? ' has' : 's have'} no risk level yet, so ${unassessed === 1 ? 'it is' : 'they are'} in neither figure.`
+              : undefined
+          }
         />
         <Signal
           label="Overdue owner actions"
@@ -281,20 +300,22 @@ async function today(access: EshAccess, timeZone: string) {
             </>
           )}
         </section>
-        <section className="esh-form-card" aria-labelledby="today-escalations-title">
-          <div className="esh-section-head">
-            <div>
-              <h2 id="today-escalations-title">Escalations</h2>
-              <p>Delivery failures and overdue work remain with the affected finding.</p>
-            </div>
-            <Link href="/findings/register?filter=attention">Review</Link>
-          </div>
-          <QueueEmpty
-            title="No separate escalation queue"
-            detail="Keeping escalation with the finding preserves the owner, protection and due-date context."
-          />
-        </section>
       </div>
+
+      {/*
+       * v301 - a sentence, where a third column used to stand.
+       *
+       * "Escalations" was a card whose only possible content was an empty
+       * state announcing that it would never have content. It took a third of
+       * the widest row on the board, permanently, beside two cards holding
+       * real work, and on a 768px screen it was one of three columns squeezed
+       * to 148px. The explanation is worth keeping; the column was not.
+       */}
+      <p className="esh-today-note">
+        Delivery failures and overdue work stay on the finding itself, next to the owner, the
+        protection and the due date, so there is no separate escalation queue to watch.{' '}
+        <Link href="/findings/register?filter=attention">Review everything needing attention</Link>.
+      </p>
     </>
   );
 }
@@ -403,6 +424,7 @@ function Signal({
   href,
   exception = false,
   disabled = false,
+  note,
 }: {
   label: string;
   /** `null` where the figure is not known, which is not the same as none. */
@@ -411,12 +433,15 @@ function Signal({
   href?: string;
   exception?: boolean;
   disabled?: boolean;
+  /** What the figure above does not cover, where leaving it out would flatter. */
+  note?: string;
 }) {
   const content = (
     <>
       <span>{label}</span>
       <strong aria-label={value === null ? 'not known' : undefined}>{value ?? '—'}</strong>
       <small>{detail}</small>
+      {note && <p>{note}</p>}
     </>
   );
   return href ? (
@@ -465,7 +490,21 @@ function VerificationRow({ row, timeZone }: { row: VerificationQueueRow; timeZon
     timeZone,
   }).format(new Date(row.submittedAt));
   return (
-    <li className="esh-register-row">
+    /*
+     * v301 - no `esh-register-row` here.
+     *
+     * That class is the register's four-column grid
+     * (`1.6fr 1fr 1.2fr auto`), written for a full-width table of findings.
+     * This row has one child, so the child took the 1.6fr track and the other
+     * three held nothing: measured at 36% of the card it sits in. The title
+     * ellipsised after about ten characters and the meta line wrapped beside
+     * two thirds of a card that was empty. Nothing overflowed and nothing was
+     * clipped, so no overflow check and no test ever saw it.
+     *
+     * `esh-today-list a` already lays these rows out, which is what the
+     * attention rows directly above have always used.
+     */
+    <li>
       <Link href={`/findings/${row.findingId}?action=${row.actionId}`}>
         <span className="esh-today-row-main">
           <strong>{row.reference}</strong>
@@ -494,7 +533,8 @@ function IntakeRow({ row, timeZone }: { row: ReportIntakeRow; timeZone: string }
   }).format(new Date(row.receivedAt));
   const flat = row.reportText.replace(/\s+/g, ' ').trim();
   return (
-    <li className="esh-register-row">
+    /* The register's grid does not belong here either - see VerificationRow. */
+    <li>
       <Link href="/findings/intake">
         <span className="esh-today-row-main">
           <b>{flat.length <= 90 ? flat : `${flat.slice(0, 89).trimEnd()}…`}</b>
