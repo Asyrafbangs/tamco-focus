@@ -48,7 +48,7 @@
   border-radius: 50%;
   background: var(--blue-bg);
   color: var(--blue);
-  font-size: 9px;
+  font-size: var(--text-xs);
   font-weight: 750;
 }
 
@@ -81,7 +81,7 @@
   border-radius: 0 8px 8px 0;
   background: var(--surface-2);
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 
@@ -107,7 +107,7 @@
 
 .formalWeight span {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 .formalWeight strong {
@@ -121,7 +121,7 @@
   padding: 9px 12px;
   background: var(--red-bg);
   color: var(--red);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
 }
 
 .error {
@@ -140,7 +140,7 @@
 
 .disclosure > summary {
   color: var(--blue);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
   cursor: pointer;
 }
@@ -157,7 +157,7 @@
   border: 1px solid var(--line-soft);
   border-radius: 10px;
   background: var(--surface-2);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
 }
 
 .alignmentWeight strong {

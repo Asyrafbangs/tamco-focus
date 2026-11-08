@@ -73,6 +73,22 @@
 
   /* Section 22.2 — text size is a personal accessibility setting. */
   --font-scale: 1;
+
+  /*
+   * v304 — the small end of the type scale, as tokens.
+   *
+   * Two faults sat here. The stylesheet carried 415 explicit sizes below 12px
+   * in seven different values (8, 9, 9.5, 10, 10.5, 11, 11.5) and not one
+   * `font-size: var(…)`, so the scale drifted with nothing to drift against;
+   * and because every one of them was a fixed pixel value, the personal text
+   * size setting above reached only inherited text. A person who chose Large
+   * got a larger body and the same 9px labels.
+   *
+   * Both are answered by one step: name the small size, give it a floor of
+   * 12px — the smallest size this product asks anybody to read — and multiply
+   * by the personal scale the way `body` always has.
+   */
+  --text-xs: calc(12px * var(--font-scale));
 }
 
 /* V35 task drawer fidelity correction — matches the approved compact prototype
@@ -96,7 +112,7 @@
 .task-detail-drawer .task-detail-heading .eyebrow {
   margin: 0;
   color: var(--blue);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 750;
   letter-spacing: 0.12em;
 }
@@ -142,7 +158,7 @@
 }
 .task-detail-drawer .barrier-callout p {
   margin-top: 2px;
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .task-detail-drawer .barrier-callout .btn {
   min-height: 34px;
@@ -166,7 +182,7 @@
   padding: 9px 0 8px;
   border-bottom: 2px solid transparent;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .task-detail-drawer .drawer-tabs button:hover {
@@ -198,14 +214,14 @@
   border-radius: 999px;
   background: var(--surface-2);
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 500;
   line-height: 1;
   white-space: nowrap;
 }
 .task-metadata-chip strong {
   color: var(--text);
-  font-size: 10.5px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .task-metadata-strip > .age-row {
@@ -297,7 +313,7 @@
 }
 .task-detail-drawer .next-action-copy span,
 .task-detail-drawer .next-action-copy small {
-  font-size: 9.5px;
+  font-size: var(--text-xs);
 }
 .task-detail-drawer:not(.expanded) .task-lifecycle-section {
   display: none;
@@ -309,7 +325,7 @@
 .task-actions-details > summary {
   cursor: pointer;
   color: var(--blue);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 .task-detail-drawer .drawer-panel-checklist .checklist-item {
@@ -339,10 +355,10 @@
   text-decoration: none;
 }
 .task-detail-drawer .checklist-copy > strong {
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .task-detail-drawer .checklist-copy > span {
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .task-detail-drawer .checklist-done-action {
   min-height: 26px;
@@ -366,7 +382,7 @@
 .task-update-composer .field label {
   display: block;
   margin-bottom: 5px;
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 .task-update-composer textarea {
@@ -389,7 +405,7 @@
 }
 .update-options {
   margin-top: 8px;
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .update-options > summary {
   cursor: pointer;
@@ -426,11 +442,11 @@
   background: var(--surface);
 }
 .update-history-note strong {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .update-history-note span {
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
 }
 .task-detail-drawer .activity-list {
   gap: 0;
@@ -444,7 +460,7 @@
 }
 .task-detail-drawer .activity-item p {
   margin: 5px 0;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 @media (max-width: 720px) {
@@ -917,7 +933,7 @@
   display: block;
   margin-top: 5px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   line-height: 1.45;
 }
 .next-action-actions {
@@ -943,7 +959,7 @@
   display: block;
   margin-top: 6px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   line-height: 1.45;
 }
 .next-action-editor .actions {
@@ -962,7 +978,7 @@
 }
 .next-action-checklist-empty span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .next-action-checklist-empty .btn {
   margin-top: 4px;
@@ -1016,7 +1032,7 @@
 }
 .mention-list legend {
   padding: 0 4px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 .checklist-item {
@@ -1060,7 +1076,7 @@
 .barrier-record span,
 .history-list span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 /* The explanation on a step the viewer cannot act on. Set apart from the
    assignee and evidence lines above it, which are attributes of the step; this
@@ -1082,12 +1098,12 @@
 }
 .checklist-evidence label {
   grid-column: 1 / -1;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 .checklist-evidence input {
   min-width: 0;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .activity-list,
 .attachment-list,
@@ -1146,7 +1162,7 @@
   margin-top: 10px;
 }
 .resolve-barrier label {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 .detail-two-column {
@@ -1303,7 +1319,7 @@
   border-radius: 999px;
   background: var(--amber-bg);
   color: var(--amber);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .settings-shell {
@@ -1372,7 +1388,7 @@
 .settings-menu-label {
   padding: 5px 7px 3px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1392,14 +1408,14 @@
   display: block;
 }
 .settings-nav-row strong {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 .settings-nav-row span {
   margin-top: 2px;
   overflow: hidden;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1422,7 +1438,7 @@
 .settings-detail-head p {
   margin: 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .settings-summary {
   display: grid;
@@ -1431,7 +1447,7 @@
   padding: 11px 18px;
   border-bottom: 1px solid var(--line-soft);
   background: var(--surface-2);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .settings-summary span {
   color: var(--muted);
@@ -1514,7 +1530,7 @@
   margin-top: 4px;
 }
 .settings-policy-list .setting-row > div:first-of-type strong {
-  font-size: 11px;
+  font-size: var(--text-xs);
   text-transform: capitalize;
 }
 .settings-policy-list .setting-row p {
@@ -1607,7 +1623,7 @@
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
   text-decoration: none;
   transition:
@@ -1635,7 +1651,7 @@
   padding: 11px 13px;
   cursor: pointer;
   color: var(--text);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .record-filters .filterbar {
@@ -1682,7 +1698,7 @@
 .record-row-owner,
 .record-row time {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .record-row-title span {
   margin-top: 3px;
@@ -1699,7 +1715,7 @@
   overflow: hidden;
   max-height: 0;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
   opacity: 0;
   transition:
     max-height var(--motion-standard) var(--motion-easing),
@@ -1798,7 +1814,7 @@
 .cal-item-owner {
   display: block;
   overflow: hidden;
-  font-size: 9px;
+  font-size: var(--text-xs);
   /* Quieter than the title by weight and position, not by fading. It used to
      be faded to 78%, which took blue on its tint from 4.5:1 to 3.2:1 - below
      what small text needs (WCAG 1.4.3) - and nothing noticed, because no
@@ -1888,7 +1904,7 @@ body {
  * were relying on the multiplier.
  */
 small {
-  font-size: 10.5px;
+  font-size: var(--text-xs);
 }
 
 strong,
@@ -1958,7 +1974,7 @@ button {
 /* Capture's progressive disclosure — checklist and attachments. */
 .capture-detail-heading {
   margin: 16px 0 8px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
   color: var(--muted);
   text-transform: uppercase;
@@ -2017,7 +2033,7 @@ button {
 }
 .capture-dropzone span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .capture-files {
   display: grid;
@@ -2074,7 +2090,7 @@ button {
 }
 .capture-answer span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .capture-facts {
   display: grid;
@@ -2095,11 +2111,11 @@ button {
 }
 .capture-facts dt {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .capture-facts dd {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 580;
 }
 @media (max-width: 700px) {
@@ -2217,7 +2233,7 @@ button {
   padding: 3px 8px;
   background: var(--surface-2);
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
@@ -2272,7 +2288,7 @@ button {
 }
 .progress-label {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 .loading-skeleton {
@@ -2303,7 +2319,7 @@ button {
 }
 .activity-row > span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   text-align: right;
 }
 
@@ -2320,7 +2336,7 @@ button {
 .attachment-picker-hint,
 .attachment-picker-error {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .attachment-picker-error {
   width: 100%;
@@ -2353,14 +2369,14 @@ button {
 .attachment-chip-copy strong {
   overflow: hidden;
   max-width: 220px;
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 650;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .attachment-chip-copy small {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .attachment-chip button {
   display: grid;
@@ -2559,7 +2575,7 @@ button {
 .filterbar label > span,
 .settings-form label > span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .filterbar .grow {
@@ -2636,7 +2652,7 @@ button {
 }
 .record-facts dt {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   text-transform: uppercase;
 }
 .record-facts dd {
@@ -2677,7 +2693,7 @@ button {
 .data-table th {
   color: var(--muted);
   background: var(--surface-2);
-  font-size: 10px;
+  font-size: var(--text-xs);
   text-transform: uppercase;
 }
 .data-table td small {
@@ -2705,7 +2721,7 @@ button {
 .audit-timeline time,
 .audit-timeline small {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .timeline-dot {
   width: 9px;
@@ -2765,7 +2781,7 @@ button {
 .form-hint {
   margin: 8px 0 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .setting-list {
   border: 1px solid var(--line);
@@ -2786,7 +2802,7 @@ button {
 .setting-row p {
   margin: 3px 0 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .setting-row .notice {
   grid-column: 1 / -1;
@@ -2819,7 +2835,7 @@ button {
   display: block;
   margin-top: 3px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .delivery-list li > small {
   grid-column: 1 / -1;
@@ -2870,7 +2886,7 @@ button {
 .master-list small {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .detail-pane {
   min-width: 0;
@@ -3197,7 +3213,7 @@ button {
   border-radius: 9px;
   background: var(--red);
   color: var(--on-accent);
-  font-size: 9px;
+  font-size: var(--text-xs);
   font-weight: 700;
   display: grid;
   place-items: center;
@@ -3272,7 +3288,7 @@ button {
 }
 .signed-in-name {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .product strong {
   display: block;
@@ -3282,7 +3298,7 @@ button {
 .product span {
   display: block;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 .theme-toggle {
@@ -3299,7 +3315,7 @@ button {
   gap: 7px;
 }
 .theme-toggle span {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 580;
   padding-left: 8px;
 }
@@ -3340,7 +3356,7 @@ button {
   margin-bottom: var(--page-gap);
 }
 .eyebrow {
-  font-size: 9px;
+  font-size: var(--text-xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--blue);
@@ -3411,7 +3427,7 @@ button {
 .btn.small {
   min-height: 32px;
   padding: 6px 9px;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .btn.ghost {
   border-color: transparent;
@@ -3556,7 +3572,7 @@ fieldset:disabled label,
   gap: 5px;
   border-radius: 999px;
   padding: 4px 8px;
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .pill {
@@ -3653,7 +3669,7 @@ fieldset:disabled label,
 .sectionhead p {
   margin: 2px 0 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 .today-item {
@@ -3705,7 +3721,7 @@ fieldset:disabled label,
 .today-copy span {
   display: block;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   margin-top: 2px;
 }
 
@@ -3724,7 +3740,7 @@ fieldset:disabled label,
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 .summary-item strong {
@@ -3814,7 +3830,7 @@ fieldset:disabled label,
 
 /* Counts read as a quiet secondary value, not part of the label. */
 .workspace-tabs a .count {
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
   padding: 2px 6px;
   border-radius: 999px;
@@ -3880,7 +3896,7 @@ fieldset:disabled label,
   color: #fff;
 }
 .focus-tabs .count {
-  font-size: 9px;
+  font-size: var(--text-xs);
   border-radius: 999px;
   background: color-mix(in srgb, currentColor 12%, transparent);
   padding: 3px 6px;
@@ -3921,7 +3937,7 @@ fieldset:disabled label,
 .task-row .sub {
   display: block;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   margin-top: 2px;
 }
 .task-row .title-link {
@@ -3957,7 +3973,7 @@ fieldset:disabled label,
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 650;
   line-height: 15px;
   white-space: nowrap;
@@ -4010,7 +4026,7 @@ fieldset:disabled label,
 .cal-head {
   padding: 9px;
   text-align: center;
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: var(--muted);
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -4027,7 +4043,7 @@ fieldset:disabled label,
   background: var(--blue-bg);
 }
 .daynum {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 .day.today .daynum {
@@ -4049,7 +4065,7 @@ fieldset:disabled label,
   border-radius: 6px;
   background: var(--surface);
   color: var(--text);
-  font-size: 9px;
+  font-size: var(--text-xs);
   text-decoration: none;
   white-space: nowrap;
   overflow: hidden;
@@ -4260,7 +4276,7 @@ fieldset:disabled label,
   gap: 12px;
   flex-wrap: wrap;
   margin-top: 12px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 /* v163 - the legend answers the same two questions the entries do. */
@@ -4511,7 +4527,7 @@ fieldset:disabled label,
    than bare `monospace`, which browsers shrink to 13/16 of the size around it. */
 .org-import code {
   font-family: ui-monospace, 'Cascadia Mono', Consolas, 'Courier New', monospace;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .org-import-counts {
   display: grid;
@@ -4645,7 +4661,7 @@ fieldset:disabled label,
   align-items: center;
   gap: 6px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .team-focus-summary .metric b {
   font-size: 13px;
@@ -4691,7 +4707,7 @@ fieldset:disabled label,
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 /* Once hydrated the select navigates on change, matching the prototype, so the
@@ -4745,7 +4761,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   margin: 0;
   width: 36px;
   height: 36px;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .team-focus-row strong {
   display: block;
@@ -4754,7 +4770,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .team-focus-row .sub {
   display: block;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   margin-top: 2px;
 }
 .team-focus-right {
@@ -4771,12 +4787,12 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   margin-top: 6px;
 }
 .team-cap {
-  font-size: 9.5px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 .team-cap b {
   color: var(--text);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
 }
 .team-cap.over {
   color: var(--red);
@@ -4792,7 +4808,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: 999px;
   background: var(--surface-2);
   border: 1px solid var(--line);
-  font-size: 9px;
+  font-size: var(--text-xs);
   color: var(--muted);
   margin-right: 6px;
 }
@@ -4836,7 +4852,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   margin: 0;
   width: 34px;
   height: 34px;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .team-member-summary {
   display: flex;
@@ -4865,7 +4881,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .team-member-attention-head span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .team-manager-action {
   display: grid;
@@ -4886,7 +4902,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   place-items: center;
   background: var(--amber-bg);
   color: var(--amber);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .team-manager-action-icon.bad {
@@ -4900,7 +4916,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .team-manager-action span {
   display: block;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   margin-top: 2px;
 }
 .team-current-row {
@@ -4932,12 +4948,12 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .team-current-row-next {
   display: block;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   margin-top: 3px;
 }
 .team-current-row-right {
   text-align: right;
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 .team-current-row-right b {
@@ -4958,7 +4974,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .team-secondary-card span {
   display: block;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   margin-top: 3px;
 }
 .team-section-head {
@@ -4975,7 +4991,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .team-section-head span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 /* Breathing room under the sentence, so the panel below is a separate thing
@@ -4983,7 +4999,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .focus-tab-meaning {
   margin: 8px 0 10px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -5015,7 +5031,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: block;
   margin-top: 3px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   line-height: 1.45;
 }
 .assign-fields {
@@ -5038,13 +5054,13 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .assign-people legend {
   padding: 0 5px;
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 .assign-hint {
   margin: 0 0 9px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   line-height: 1.45;
 }
 .assign-person {
@@ -5053,11 +5069,11 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   align-items: center;
   min-height: 32px;
   cursor: pointer;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .assign-person small {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 /* Quick Action drawer (v40 section 10) — small on purpose. */
@@ -5081,14 +5097,14 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .quick-action-secondary > summary {
   cursor: pointer;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--blue);
 }
 .quick-action-secondary > p {
   margin: 9px 0 12px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 
@@ -5102,7 +5118,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .checklist-more-options > summary {
   cursor: pointer;
   color: var(--blue);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   font-weight: 600;
   padding: 6px 0;
 }
@@ -5180,7 +5196,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: 999px;
   background: var(--red);
   color: var(--on-accent);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
   font-weight: 700;
   line-height: 17px;
   text-align: center;
@@ -5230,7 +5246,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: block;
   margin-top: 2px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .notification-panel ul {
   list-style: none;
@@ -5262,7 +5278,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .notification-dot {
   color: var(--blue);
-  font-size: 8px;
+  font-size: var(--text-xs);
   margin-right: 5px;
   vertical-align: 2px;
 }
@@ -5270,7 +5286,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: block;
   margin-top: 3px;
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: var(--text-xs);
   line-height: 1.45;
 }
 .notification-panel li.read .notification-title {
@@ -5281,14 +5297,14 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   margin: 0;
   padding: 18px 14px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 .notification-panel > footer {
   padding: 9px 13px;
   border-top: 1px solid var(--line);
   background: var(--surface-2);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 @media (max-width: 720px) {
@@ -5301,7 +5317,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .update-composer-note {
   margin: 8px 0 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 /* Structured barrier detail (v44 sections 17, 21). */
@@ -5310,7 +5326,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .barrier-question > strong {
   display: block;
-  font-size: 10px;
+  font-size: var(--text-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--muted);
@@ -5327,7 +5343,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .barrier-responses p {
   margin: 0 0 8px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 .barrier-response-form {
@@ -5338,7 +5354,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .barrier-response-form label {
   display: block;
   margin-bottom: 5px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .barrier-response-form textarea {
@@ -5350,7 +5366,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .barrier-response-form small {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 /* Request-type chips (v45 §23) — four options shown, not hidden in a menu. */
@@ -5486,7 +5502,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   margin-bottom: 12px;
 }
 .field label {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 .field input,
@@ -5500,11 +5516,11 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   min-height: var(--control-h);
 }
 .field .hint {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 .field .error {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--red);
   font-weight: 600;
 }
@@ -5591,7 +5607,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 
 @media (max-width: 900px) {
   .calendar {
-    font-size: 10px;
+    font-size: var(--text-xs);
   }
   .day {
     min-height: 90px;
@@ -5835,7 +5851,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
     border: 0;
     background: transparent;
     color: var(--muted);
-    font-size: 10px;
+    font-size: var(--text-xs);
     padding: 6px 2px;
     text-align: center;
     text-decoration: none;
@@ -5902,7 +5918,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: 999px;
   background: var(--line-soft);
   color: inherit;
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .drawer-tabs button.active span {
   color: var(--text);
@@ -5949,7 +5965,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .field-label {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 
@@ -5990,19 +6006,19 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: flex;
   justify-content: space-between;
   color: var(--muted);
-  font-size: 8px;
+  font-size: var(--text-xs);
   margin-top: 6px;
 }
 .goal-range-caption {
   display: flex;
   justify-content: space-between;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
   margin-top: 2px;
 }
 .goal-range-saved {
   margin: 6px 0 0;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 /* Amber, because an unsaved value is a state the user must resolve — and it is
@@ -6118,7 +6134,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   justify-content: space-between;
   padding: 14px 15px 10px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -6150,7 +6166,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .team-goal-person small {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .team-goal-avatar {
   display: grid;
@@ -6160,7 +6176,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: 50%;
   background: var(--navy);
   color: white;
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 800;
 }
 .team-goal-detail {
@@ -6192,7 +6208,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .team-goal-summary span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .team-goal-derived-summary {
   display: grid;
@@ -6202,7 +6218,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   gap: 12px;
   padding-top: 14px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 .today-goal-exceptions {
@@ -6265,7 +6281,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .goal-progress-hero p {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .goal-action-strip {
   display: flex;
@@ -6330,7 +6346,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .goal-context-list dt {
   margin-bottom: 3px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 750;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -6412,7 +6428,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .goal-milestone-summary small {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   line-height: 1.35;
 }
 .goal-milestone-state {
@@ -6423,7 +6439,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border: 1px solid var(--blue);
   border-radius: 50%;
   color: var(--blue);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 800;
 }
 .completed .goal-milestone-state {
@@ -6459,7 +6475,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .goal-update-head time {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   white-space: nowrap;
 }
 .goal-activity {
@@ -6648,7 +6664,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: 50%;
   background: var(--navy);
   color: white;
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 800;
 }
 .compact-field input {
@@ -6790,7 +6806,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   .mobile-nav a {
     min-width: 0;
     padding-inline: 1px;
-    font-size: 9px;
+    font-size: var(--text-xs);
   }
   .mobile-nav a span {
     font-size: 16px;
@@ -6799,7 +6815,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
     padding-inline: 8px;
   }
   .team-goal-summary span {
-    font-size: 9px;
+    font-size: var(--text-xs);
   }
 }
 
@@ -6837,7 +6853,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   overflow-x: auto;
   border-bottom: 1px solid var(--line-soft);
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: var(--text-xs);
   line-height: 1;
   scrollbar-width: none;
   white-space: nowrap;
@@ -6945,11 +6961,11 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   gap: 4px;
 }
 .checklist-preview-row strong {
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .checklist-preview-row small {
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
 }
 .checklist-preview-row > span:last-child {
   color: var(--muted);
@@ -6966,7 +6982,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .current-next-action-block > .eyebrow {
   margin: 0 0 7px;
   color: var(--blue);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .current-next-action-row {
   display: grid;
@@ -6976,7 +6992,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .current-next-action-row strong {
   min-width: 0;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .task-checklist-heading-row {
   display: flex;
@@ -6995,7 +7011,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .task-checklist-heading-row > span {
   margin: 0;
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
 }
 .task-checklist-heading-row > span {
   flex: 0 0 auto;
@@ -7045,11 +7061,11 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .task-checklist-row .checklist-copy strong {
   overflow-wrap: anywhere;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .task-checklist-row .checklist-copy span {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .checklist-evidence-link {
   padding: 0 2px;
@@ -7074,7 +7090,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .step-due-choice legend {
   margin-bottom: 2px;
   padding: 0;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 /* `.field label` makes every label in a field a bold field label; these two
@@ -7159,7 +7175,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   gap: 2px;
 }
 .barrier-exception-copy strong {
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .barrier-exception.owed .barrier-exception-copy strong {
   color: var(--red);
@@ -7170,7 +7186,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .barrier-exception-copy p {
   overflow-wrap: anywhere;
   color: var(--text);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .barrier-exception .btn {
   flex: 0 0 auto;
@@ -7195,7 +7211,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .barrier-action-eyebrow {
   color: var(--red);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -7206,18 +7222,18 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .barrier-action-question strong {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 .barrier-action-question span {
   overflow-wrap: anywhere;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .barrier-action-meta {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .barrier-action-form {
   display: grid;
@@ -7226,7 +7242,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-top: 1px solid var(--line-soft);
 }
 .barrier-action-form label {
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .barrier-action-form textarea {
@@ -7237,7 +7253,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-xs);
   resize: vertical;
 }
 .barrier-action-buttons {
@@ -7248,12 +7264,12 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .barrier-action-queued {
   color: var(--green);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .barrier-action-form small {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 /*
@@ -7295,7 +7311,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .action-queue-viewall {
   flex: 0 0 auto;
   color: var(--blue);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
@@ -7327,12 +7343,12 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: 9px;
   background: var(--red-bg);
   color: var(--red);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .action-queue-head p {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .action-queue-list {
   display: grid;
@@ -7375,7 +7391,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -7410,14 +7426,14 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   overflow: hidden;
   overflow-wrap: anywhere;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   line-height: 1.45;
 }
 .attention-card-meta {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .attention-card-action {
   grid-column: 2;
@@ -7512,7 +7528,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   gap: 2px;
 }
 .barrier-exception-copy strong {
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .barrier-exception.owed .barrier-exception-copy strong {
   color: var(--red);
@@ -7523,7 +7539,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .barrier-exception-copy p {
   overflow-wrap: anywhere;
   color: var(--text);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .barrier-exception .btn {
   flex: 0 0 auto;
@@ -7548,7 +7564,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .barrier-action-eyebrow {
   color: var(--red);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -7559,18 +7575,18 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .barrier-action-question strong {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 .barrier-action-question span {
   overflow-wrap: anywhere;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .barrier-action-meta {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .barrier-action-form {
   display: grid;
@@ -7579,7 +7595,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-top: 1px solid var(--line-soft);
 }
 .barrier-action-form label {
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .barrier-action-form textarea {
@@ -7590,7 +7606,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-xs);
   resize: vertical;
 }
 .barrier-action-buttons {
@@ -7601,12 +7617,12 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .barrier-action-queued {
   color: var(--green);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .barrier-action-form small {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 /*
@@ -7645,12 +7661,12 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: 9px;
   background: var(--red-bg);
   color: var(--red);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .action-queue-head p {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .action-queue-list {
   display: grid;
@@ -7689,7 +7705,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   gap: 2px;
 }
 .barrier-exception-copy strong {
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .barrier-exception.owed .barrier-exception-copy strong {
   color: var(--red);
@@ -7700,7 +7716,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .barrier-exception-copy p {
   overflow-wrap: anywhere;
   color: var(--text);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .barrier-exception .btn {
   flex: 0 0 auto;
@@ -7725,7 +7741,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .barrier-action-eyebrow {
   color: var(--red);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -7736,18 +7752,18 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .barrier-action-question strong {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 .barrier-action-question span {
   overflow-wrap: anywhere;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .barrier-action-meta {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .barrier-action-form {
   display: grid;
@@ -7756,7 +7772,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-top: 1px solid var(--line-soft);
 }
 .barrier-action-form label {
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .barrier-action-form textarea {
@@ -7767,7 +7783,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-xs);
   resize: vertical;
 }
 .barrier-action-buttons {
@@ -7778,12 +7794,12 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .barrier-action-queued {
   color: var(--green);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .barrier-action-form small {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 /*
@@ -7822,12 +7838,12 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: 9px;
   background: var(--red-bg);
   color: var(--red);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .action-queue-head p {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .action-queue-list {
   display: grid;
@@ -7870,7 +7886,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -7902,14 +7918,14 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   overflow: hidden;
   overflow-wrap: anywhere;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   line-height: 1.45;
 }
 .attention-card-meta {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .attention-card-action {
   grid-column: 2;
@@ -8004,7 +8020,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   gap: 2px;
 }
 .barrier-exception-copy strong {
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .barrier-exception.owed .barrier-exception-copy strong {
   color: var(--red);
@@ -8015,7 +8031,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .barrier-exception-copy p {
   overflow-wrap: anywhere;
   color: var(--text);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .barrier-exception .btn {
   flex: 0 0 auto;
@@ -8040,7 +8056,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .barrier-action-eyebrow {
   color: var(--red);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -8051,18 +8067,18 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .barrier-action-question strong {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 .barrier-action-question span {
   overflow-wrap: anywhere;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .barrier-action-meta {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .barrier-action-form {
   display: grid;
@@ -8071,7 +8087,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-top: 1px solid var(--line-soft);
 }
 .barrier-action-form label {
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .barrier-action-form textarea {
@@ -8082,7 +8098,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-xs);
   resize: vertical;
 }
 .barrier-action-buttons {
@@ -8093,12 +8109,12 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .barrier-action-queued {
   color: var(--green);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .barrier-action-form small {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 /*
@@ -8137,12 +8153,12 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: 9px;
   background: var(--red-bg);
   color: var(--red);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .action-queue-head p {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .action-queue-list {
   display: grid;
@@ -8165,7 +8181,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   margin: 8px 0 0;
   padding: 8px 10px;
   border-radius: 8px;
-  font-size: 10px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 .barrier-status-line.pending {
@@ -8207,7 +8223,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: 6px;
   background: none;
   color: var(--text);
-  font-size: 11px;
+  font-size: var(--text-xs);
   text-align: left;
   cursor: pointer;
 }
@@ -8239,7 +8255,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .due-current-value span,
 .optional-label {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 500;
 }
 .compact-evidence-form .attachment-picker {
@@ -8268,12 +8284,12 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   min-width: 0;
 }
 .task-activity-main strong {
-  font-size: 10.5px;
+  font-size: var(--text-xs);
 }
 .task-activity-main p {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -8283,7 +8299,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   justify-items: end;
   gap: 3px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
   text-align: right;
 }
 .task-activity-files {
@@ -8297,7 +8313,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--text);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 @media (max-width: 560px) {
@@ -8378,13 +8394,13 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .goal-quick-strip strong {
   display: block;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .goal-quick-strip span {
   display: block;
   margin-top: 3px;
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
   line-height: 1.45;
 }
 
@@ -8446,7 +8462,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .routine-bin-row small {
   display: block;
   margin-top: 2px;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 /* A once-a-month action, folded to one line the rest of the time. */
@@ -8485,13 +8501,13 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-bottom: 1px solid var(--line);
 }
 .goals-page-intro strong {
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .goals-page-intro > div > span {
   display: block;
   margin-top: 3px;
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
 }
 .goals-page-intro details {
   position: relative;
@@ -8527,7 +8543,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   background: var(--surface);
   box-shadow: var(--shadow);
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 .goal-list-panel {
@@ -8548,7 +8564,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .goal-summary-inline div {
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
 }
 .goal-summary-inline b {
   display: block;
@@ -8567,11 +8583,11 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-top: 1px solid var(--line-soft);
   background: var(--surface-2);
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .goal-weight-context strong {
   color: var(--text);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
 }
 .goal-list {
   border-top: 0;
@@ -8609,7 +8625,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .goal-row-titleline .row-primary-link strong {
   display: block;
   overflow: hidden;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -8634,7 +8650,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   margin: 4px 0 0 16px;
   overflow: hidden;
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
   line-height: 1.4;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -8653,17 +8669,17 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   height: 5px;
 }
 .goal-row-progress .sub {
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .goal-row-date {
   justify-items: end;
   text-align: right;
 }
 .goal-row-date strong {
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .goal-row-date .sub {
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 .task-detail-head {
@@ -8687,7 +8703,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   flex-wrap: wrap;
   margin-top: 5px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .task-detail-head-meta span + span::before {
   margin-right: 8px;
@@ -8767,7 +8783,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .utility-card p {
   margin: 0;
   color: var(--muted);
-  font-size: 10.5px;
+  font-size: var(--text-xs);
 }
 .utility-meta {
   display: flex;
@@ -8776,7 +8792,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   gap: 10px;
   margin-top: 16px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .utility-meta .btn {
   color: var(--text);
@@ -8829,7 +8845,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .capture-modal-head p {
   margin: 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .capture-modal-body {
   padding: 13px 16px 16px;
@@ -8857,14 +8873,14 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   justify-content: space-between;
   gap: 10px;
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
 }
 .capture-urgent-link {
   padding: 3px 0;
   border: 0;
   background: transparent;
   color: var(--red);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 .capture-urgent-link:hover {
@@ -9026,7 +9042,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: 9px;
   background: var(--blue-bg);
   color: var(--blue);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .meeting-queue-body {
@@ -9057,13 +9073,13 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .meeting-queue-copy strong {
   min-width: 0;
   overflow-wrap: anywhere;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .meeting-queue-copy span {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .meeting-queue-copy .meeting-queue-scheduled {
   color: var(--blue);
@@ -9122,11 +9138,11 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .member-attention-row p {
   min-width: 0;
   overflow-wrap: anywhere;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .member-attention-row p {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .tone-red {
   color: var(--red);
@@ -9154,13 +9170,13 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .member-work-row strong {
   min-width: 0;
   overflow-wrap: anywhere;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .member-work-row span {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .member-work-next {
   color: var(--blue) !important;
@@ -9176,10 +9192,10 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   overflow-wrap: anywhere;
   padding: 8px 0;
   border-bottom: 1px solid var(--line-soft);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .member-update .muted {
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .member-other-list {
   display: grid;
@@ -9223,11 +9239,11 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   overflow-wrap: anywhere;
 }
 .member-other-copy strong {
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .member-other-copy > span {
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
 }
 .member-other-chevron {
   color: var(--muted);
@@ -9237,7 +9253,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .member-other-empty {
   margin: 0;
   padding: 6px 9px;
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 .workload-review {
@@ -9245,7 +9261,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   gap: 12px;
 }
 .workload-review-question {
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .workload-review-list {
   display: grid;
@@ -9264,7 +9280,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   min-width: 0;
   flex: 1 1 200px;
   overflow-wrap: anywhere;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .workload-review-actions {
   display: flex;
@@ -9281,7 +9297,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .attention-list-head p {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .attention-list-filters,
 .attention-list-sort {
@@ -9296,7 +9312,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   text-decoration: none;
 }
 .attention-list-filters a.active,
@@ -9357,7 +9373,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-top: 1px solid var(--line-soft);
 }
 .detail-lifecycle-form label {
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 .detail-lifecycle-form textarea,
@@ -9369,7 +9385,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .detail-lifecycle-form .btn {
   justify-self: start;
@@ -9399,11 +9415,11 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .finding-row strong {
   min-width: 0;
   overflow-wrap: anywhere;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .finding-row span {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 /* Lean Major Project discussion workflow. */
@@ -9429,7 +9445,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .proposal-inbox > header p:last-child {
   margin: 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .proposal-inbox.compact > header {
   padding-block: 10px;
@@ -9498,7 +9514,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
    different consequence, so they are separated rather than interleaved. */
 .bin-section-heading {
   margin: 18px 0 8px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -9527,7 +9543,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: block;
 }
 .bin-row small {
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 @media (max-width: 560px) {
   .bin-row {
@@ -9572,7 +9588,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   font-size: 13px;
 }
 .capture-urgent-row small {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: var(--muted);
 }
 .capture-urgent-go {
@@ -9635,7 +9651,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .capture-followup legend {
   padding: 0;
   margin-bottom: 4px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 .capture-followup label {
@@ -9715,7 +9731,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   font-size: 12px;
 }
 .routine-state {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
   padding: 3px 8px;
   border-radius: 999px;
@@ -9776,7 +9792,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .recurrence-block legend {
   padding: 0 6px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -9933,7 +9949,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .routine-flags legend {
   padding: 0;
   margin-bottom: 4px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 .routine-flags label {
@@ -10021,7 +10037,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   gap: 4px 12px;
   margin-bottom: 12px;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .task-status-state {
   display: inline-flex;
@@ -10089,7 +10105,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   line-height: 1.4;
   white-space: normal;
 }
@@ -10140,7 +10156,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .task-written-update span {
   display: block;
   overflow-wrap: anywhere;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 @media (max-width: 560px) {
@@ -10285,7 +10301,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   margin: 0;
   padding: 12px 16px 4px;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 
 .completed-list {
@@ -10333,7 +10349,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .completed-copy > span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -10366,7 +10382,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border-radius: var(--radius-sm);
   background: var(--line-soft);
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 
@@ -10401,7 +10417,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .menu-dropdown-caret {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 /* Fixed, not absolute: `.focus-panel` sets `overflow: hidden` for its rounded
    corners, and an absolutely positioned child of a clipping ancestor is cut
@@ -10537,7 +10553,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .weekly-priority-rank {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 /*
@@ -10557,11 +10573,11 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   font-size: 12.5px;
 }
 .weekly-priority-copy .muted {
-  font-size: 10.5px;
+  font-size: var(--text-xs);
 }
 /* One word, and only where it is not the ordinary case. */
 .weekly-priority-outcome {
-  font-size: 10.5px;
+  font-size: var(--text-xs);
   font-weight: 650;
   white-space: nowrap;
 }
@@ -10593,7 +10609,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   flex: 1 1 220px;
   gap: 3px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 @media (max-width: 640px) {
@@ -10624,7 +10640,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   font-size: 13px;
 }
 .working-on-summary .muted {
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 /* The period sits above the filter disclosure on Records, because it is the
@@ -10649,7 +10665,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: grid;
   gap: 3px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .period-picker-custom input {
   min-width: 0;
@@ -10678,13 +10694,13 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   font-size: 12.5px;
 }
 .routine-outcome span {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
 .routine-outcome .muted {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .routine-outcome-actions {
   display: flex;
@@ -10724,7 +10740,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   border: 1px solid color-mix(in srgb, var(--red) 30%, var(--line));
   border-radius: var(--radius-sm);
   background: var(--red-bg);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 
@@ -10762,7 +10778,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   display: grid;
   gap: 3px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .routine-reason-other input {
   min-width: 0;
@@ -10805,7 +10821,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   overflow-wrap: anywhere;
 }
 .routine-exception-row span {
-  font-size: 11px;
+  font-size: var(--text-xs);
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -10831,13 +10847,13 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 }
 .routine-tally span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .routine-tally-note {
   grid-column: 1 / -1;
   margin: 2px 0 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 
@@ -10872,7 +10888,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 
 .attachment-picker-drophint {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 /* The whole box is the target.
@@ -10915,7 +10931,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
    says what steps are for rather than showing a blank list. */
 .task-steps-empty {
   margin: 0 0 12px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   line-height: 1.55;
 }
 
@@ -10991,7 +11007,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
 .attachment-pdf-control-group > span {
   min-width: 76px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   text-align: center;
   white-space: nowrap;
 }
@@ -11038,7 +11054,7 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   background: var(--surface);
   color: var(--muted);
   box-shadow: 0 2px 10px rgba(15, 23, 42, 0.12);
-  font-size: 10.5px;
+  font-size: var(--text-xs);
 }
 
 /* The row is a button now, and a button brings its own chrome. */
@@ -11087,7 +11103,7 @@ button.attachment-row {
   background: var(--surface);
   color: var(--blue);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-xs);
   text-align: left;
   text-decoration: none;
   cursor: pointer;
@@ -11095,7 +11111,7 @@ button.attachment-row {
 }
 .task-update-file::before {
   content: '📎';
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 .task-update-file:hover {
   border-color: var(--blue);
@@ -11122,7 +11138,7 @@ button.attachment-row {
 .attachment-viewer-failed p {
   margin: 0;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -11194,7 +11210,7 @@ button.attachment-row {
   margin: 0;
   padding: 12px 16px 6px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -11235,7 +11251,7 @@ button.attachment-row {
 }
 .team-routine-copy > span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -11247,7 +11263,7 @@ button.attachment-row {
   display: inline-block;
   padding: 14px 16px 0;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   text-decoration: none;
 }
 .team-routine-back:hover {
@@ -11264,7 +11280,7 @@ button.attachment-row {
 .routine-blockers {
   margin: 0;
   color: var(--amber);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 
@@ -11289,7 +11305,7 @@ button.attachment-row {
   display: grid;
   gap: 4px;
   margin: -2px 0 2px 26px;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .routine-form-flags label.routine-evidence-instruction > span {
   color: var(--muted);
@@ -11310,7 +11326,7 @@ button.attachment-row {
 .routine-axis a {
   padding: 4px 0;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   text-decoration: none;
   border-bottom: 2px solid transparent;
 }
@@ -11356,7 +11372,7 @@ button.attachment-row {
 }
 .routine-breakdown-row span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   line-height: 1.45;
 }
 
@@ -11401,7 +11417,7 @@ button.attachment-row {
 }
 .theme-field label small {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .theme-inputs {
   display: flex;
@@ -11422,7 +11438,7 @@ button.attachment-row {
   width: 92px;
   min-width: 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   text-transform: lowercase;
 }
 .theme-hex[aria-invalid='true'] {
@@ -11469,7 +11485,7 @@ button.attachment-row {
   font-size: 12.5px;
 }
 .theme-preview-card > span {
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .theme-preview-actions {
   display: flex;
@@ -11481,7 +11497,7 @@ button.attachment-row {
   padding: 6px 12px;
   border: 1px solid transparent;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 .theme-preview-states {
@@ -11489,7 +11505,7 @@ button.attachment-row {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 6px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 
@@ -11503,14 +11519,14 @@ button.attachment-row {
 .theme-warnings p {
   display: block;
   margin: 0;
-  font-size: 11.5px;
+  font-size: var(--text-xs);
 }
 .theme-warnings ul {
   margin: 6px 0;
   padding-left: 18px;
 }
 .theme-warnings li {
-  font-size: 11px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 .theme-warnings p {
@@ -11535,7 +11551,7 @@ button.attachment-row {
 .theme-intro {
   margin: 0;
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   line-height: 1.55;
 }
 
@@ -11634,7 +11650,7 @@ button.attachment-row {
   background: var(--surface-2);
   color: var(--text);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
   list-style: none;
 }
@@ -11662,13 +11678,13 @@ button.attachment-row {
 
 .other-active-count {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 
 .other-active-overdue {
   margin-left: auto;
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 
@@ -11694,7 +11710,7 @@ button.attachment-row {
   margin-bottom: 6px;
   padding: 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -11722,7 +11738,7 @@ button.attachment-row {
 
 .capture-purpose-meaning {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   line-height: 1.4;
 }
 
@@ -11742,14 +11758,14 @@ button.attachment-row {
 /* §9 — a weekly reference to Available or Shared work says so, quietly. */
 .weekly-priority-source {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-style: italic;
 }
 
 .task-purpose-meaning {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   line-height: 1.4;
 }
 
@@ -11795,7 +11811,7 @@ button.attachment-row {
   gap: 8px;
   margin: 0;
   color: var(--text);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 
@@ -11857,7 +11873,7 @@ button.attachment-row {
 .team-person-figures {
   margin: 2px 0 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 /* What they said they are on, and what they agreed to deliver. */
@@ -11867,7 +11883,7 @@ button.attachment-row {
   align-items: baseline;
   gap: 4px 8px;
   margin: 0 0 4px;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 .member-focus:last-child {
@@ -11876,7 +11892,7 @@ button.attachment-row {
 
 .member-focus .muted,
 .member-focus .tone-red {
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 /*
@@ -11893,7 +11909,7 @@ button.attachment-row {
 
 .team-person-exit a {
   color: var(--blue);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 
@@ -11901,7 +11917,7 @@ button.attachment-row {
    manager whether opening the section is worth the click. */
 .team-person-count {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 
@@ -11909,7 +11925,7 @@ button.attachment-row {
   padding: 6px 2px;
   color: var(--blue);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 
@@ -11917,7 +11933,7 @@ button.attachment-row {
    not read as a second, independent commitment. */
 .member-work-note {
   color: var(--blue);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 
@@ -11926,7 +11942,7 @@ button.attachment-row {
 .member-signals-plain {
   margin: 0 0 8px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 /* The whole panel narrows with the table it sits in. */
@@ -11953,7 +11969,7 @@ button.attachment-row {
   gap: 4px 14px;
   margin: 0 0 10px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 .member-signals .tone-red {
@@ -11964,7 +11980,7 @@ button.attachment-row {
   display: inline-block;
   margin-top: 8px;
   color: var(--blue);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   text-decoration: none;
 }
@@ -12030,14 +12046,14 @@ button.attachment-row {
 
 .evidence-target-sub {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 /* Said up front rather than discovered by having a file refused. */
 .evidence-target-formats {
   margin-top: 4px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 /* On a phone this is the primary route, not an extra: open the routine,
@@ -12049,7 +12065,7 @@ button.attachment-row {
 .evidence-error {
   margin: 8px 0 0;
   color: var(--red);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 .evidence-list {
@@ -12065,7 +12081,7 @@ button.attachment-row {
   border-bottom: 1px solid var(--line-soft);
   background: var(--surface-2);
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 
@@ -12118,7 +12134,7 @@ button.attachment-row {
 
 .evidence-item-copy span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 .evidence-remove {
@@ -12188,7 +12204,7 @@ button.attachment-row {
 
 .field-optional {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
 }
 
@@ -12231,7 +12247,7 @@ button.attachment-row {
 .completion-blockers {
   margin: 12px 0 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 /* A file that failed says so on its own row, and is retried on its own. */
@@ -12266,7 +12282,7 @@ button.attachment-row {
   background: transparent;
   color: var(--blue);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
   line-height: 16px;
   white-space: nowrap;
@@ -12321,7 +12337,7 @@ button.attachment-row {
 .update-composer-request {
   margin: 0 0 8px;
   color: var(--blue);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 
@@ -12444,7 +12460,7 @@ span.deadline span.deadline-glyph,
 .member-deadline-heading {
   margin: 0 0 4px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -12682,7 +12698,7 @@ span.deadline span.deadline-glyph,
   background: var(--surface-2);
   border: 1px solid var(--line-soft);
   color: var(--heading);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -12716,7 +12732,7 @@ span.deadline span.deadline-glyph,
 .esh-sidenav-title {
   margin: 0 10px 8px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -12836,7 +12852,7 @@ span.deadline span.deadline-glyph,
 .esh-closure-control,
 .esh-register-period {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 750;
 }
 .esh-overview-controls label {
@@ -13032,7 +13048,7 @@ span.deadline span.deadline-glyph,
   margin: auto 0 0;
   padding-top: 12px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 .esh-signal[data-exception='true'] strong,
 .esh-metric-exception strong {
@@ -13072,7 +13088,7 @@ span.deadline span.deadline-glyph,
 }
 .esh-overview-table thead th {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -13115,7 +13131,7 @@ span.deadline span.deadline-glyph,
   gap: 16px;
   padding: 0 18px 8px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -13275,7 +13291,7 @@ span.deadline span.deadline-glyph,
 .esh-field > label span,
 .esh-chips-field > label span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 750;
 }
 .esh-field textarea {
@@ -13416,7 +13432,7 @@ span.deadline span.deadline-glyph,
 }
 .esh-facts dt {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 750;
 }
 .esh-facts dd {
@@ -14085,7 +14101,7 @@ span.deadline span.deadline-glyph,
 .esh-conversation-day {
   margin: 6px 0 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 750;
   letter-spacing: 0.08em;
   text-align: center;
@@ -14165,7 +14181,7 @@ span.deadline span.deadline-glyph,
 .esh-notice-kind {
   display: block;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 500;
 }
 
@@ -14270,7 +14286,7 @@ span.deadline span.deadline-glyph,
 .esh-file small,
 .esh-upload-text small {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 /*
  * v271 - whether the picture on screen is the picture that was taken. Sits
@@ -14421,7 +14437,7 @@ span.deadline span.deadline-glyph,
 .esh-compare-label {
   margin: 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -14453,7 +14469,7 @@ span.deadline span.deadline-glyph,
 .esh-due-decision legend {
   padding: 0 6px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 750;
 }
 .esh-action-menu {
@@ -14483,7 +14499,7 @@ span.deadline span.deadline-glyph,
   border-radius: 999px;
   background: var(--navy);
   color: #fff;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 750;
 }
 .esh-sidenav ul a[aria-current='page'] .esh-nav-count {
@@ -15554,7 +15570,7 @@ span.deadline span.deadline-glyph,
   border-radius: 11px;
   background: var(--amber-bg);
   color: var(--amber);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 .esh-overlay[data-tone='problem'] {
@@ -17128,7 +17144,7 @@ span.deadline span.deadline-glyph,
 }
 .esh-intake-photos small {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 /* v289 — the QR locations list, one row per printed sticker. */
@@ -17354,7 +17370,7 @@ span.deadline span.deadline-glyph,
 }
 .esh-intake-item-evidence {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 .esh-intake-review > h2 {
@@ -17373,7 +17389,7 @@ span.deadline span.deadline-glyph,
 .esh-intake-original-eyebrow {
   margin: 0 0 6px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -17391,7 +17407,7 @@ span.deadline span.deadline-glyph,
 }
 .esh-intake-facts dt {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -17576,7 +17592,7 @@ span.deadline span.deadline-glyph,
 .ai-sources > p {
   margin: 0 0 6px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }

@@ -25,12 +25,12 @@
 
 .cadence span {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 .cadence strong {
   margin-top: 3px;
-  font-size: 10.5px;
+  font-size: var(--text-xs);
 }
 
 .section,
@@ -63,7 +63,7 @@
 .sectionHead p:last-child {
   margin-top: 4px;
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
 }
 
 .form {
@@ -83,7 +83,7 @@
 .statusChoice legend {
   width: 100%;
   margin-bottom: 5px;
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 
@@ -101,7 +101,7 @@
   padding: 7px 10px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  font-size: 9.5px;
+  font-size: var(--text-xs);
   cursor: pointer;
   transition:
     border-color var(--motion-fast) var(--motion-easing),
@@ -143,14 +143,14 @@
 }
 
 .checkRow strong {
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 .checkRow small,
 .muted {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
   line-height: 1.45;
 }
 
@@ -164,7 +164,7 @@
 
 .measureUpdates > summary {
   cursor: pointer;
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
 }
 
@@ -179,13 +179,13 @@
 }
 
 .measureUpdates > summary strong {
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 .measureUpdates > summary span {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 .measureInput {
@@ -196,7 +196,7 @@
 }
 
 .measureInput label {
-  font-size: 9.5px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 
@@ -217,20 +217,20 @@
 }
 
 .recorded strong {
-  font-size: 10.5px;
+  font-size: var(--text-xs);
   line-height: 1.45;
 }
 
 .recorded span,
 .agreement span {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 .recorded p,
 .agreement p {
   margin: 0;
-  font-size: 9.5px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 
@@ -246,7 +246,7 @@
 
 .yearEnd > summary {
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 750;
 }
 

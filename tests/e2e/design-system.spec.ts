@@ -193,8 +193,20 @@ test.describe('typography', () => {
    * Measured on the rendered page rather than read from the stylesheet, so it
    * covers inline styles and anything a component sets for itself.
    */
+  /*
+   * v304 — the floor is 12px, and the scale starts there.
+   *
+   * The steps below 12 are gone. Seven of them (8, 9, 9.5, 10, 10.5, 11, 11.5)
+   * covered 415 declarations, including a person's name at 11px and section
+   * labels at 9px, and nothing enforced a minimum because the floor was never
+   * stated. They are now one token, `--text-xs`, at 12px — the smallest size
+   * this product asks anybody to read.
+   *
+   * Keeping them listed here would let the next 9px rule back in, which is the
+   * whole point of locking a scale.
+   */
   const SCALE = [
-    8, 9, 9.5, 10, 10.5, 11, 11.5, 12, 12.5,
+    12, 12.5,
     // The inherited base, from `body { font: calc(13.5px * var(--font-scale)) }`.
     // Anything that sets no size of its own lands here.
     13.5, 13, 14, 15, 16, 17, 18, 20, 21, 22, 24, 25, 26, 28,

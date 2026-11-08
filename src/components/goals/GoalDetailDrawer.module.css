@@ -68,7 +68,7 @@
   border-radius: 0 9px 9px 0;
   background: var(--blue-bg);
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 .progressSource strong {
@@ -99,13 +99,13 @@
 }
 
 .measureRow strong {
-  font-size: 10.5px;
+  font-size: var(--text-xs);
 }
 
 .measureRow span {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
   line-height: 1.45;
 }
 
@@ -117,12 +117,12 @@
 
 .measureDue {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 .measureActual {
   color: var(--text) !important;
-  font-size: 9px !important;
+  font-size: var(--text-xs) !important;
 }
 
 .measureProgress {
@@ -176,12 +176,12 @@
   border-radius: 50%;
   background: var(--blue-bg);
   color: var(--blue);
-  font-size: 9px;
+  font-size: var(--text-xs);
   font-weight: 750;
 }
 
 .measureProgress b {
-  font-size: 9.5px;
+  font-size: var(--text-xs);
   text-align: right;
 }
 
@@ -196,7 +196,7 @@
 
 .moreFields > summary {
   cursor: pointer;
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 
@@ -231,13 +231,13 @@
 }
 
 .completeControl strong {
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 .completeControl small {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 .updateFooter {
@@ -310,7 +310,7 @@
 
 .goalHeroTop > div > span {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 .goalHeroCard :global(.progress-indicator) {
@@ -327,7 +327,7 @@
   gap: 13px;
   margin-top: 10px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 .goalHeroMeta b {
@@ -366,12 +366,12 @@
 .cadencePreview span,
 .cadencePreview small {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 .cadencePreview strong {
   margin-top: 3px;
-  font-size: 10.5px;
+  font-size: var(--text-xs);
 }
 
 .cadencePreview small {
@@ -392,11 +392,11 @@
 .outcome span {
   margin-bottom: 6px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 .outcome strong {
-  font-size: 11.5px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 
@@ -409,13 +409,13 @@
 }
 
 .currentFocus strong {
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 .currentFocus span {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
   line-height: 1.45;
 }
 
@@ -435,14 +435,14 @@
 
 .agreementDetails summary {
   cursor: pointer;
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 650;
 }
 
 .agreementDetails p {
   margin: 7px 0 0;
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 
@@ -494,7 +494,7 @@
 .milestoneHeader p {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
 }
 
 .milestoneHeader :global(.goal-structure-editor) {
@@ -518,13 +518,13 @@
 }
 
 .updateContext strong {
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 .updateContext span {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 .progressCard {
@@ -537,14 +537,14 @@
 .progressCard > label {
   display: block;
   min-height: 36px;
-  font-size: 11px;
+  font-size: var(--text-xs);
 }
 
 .progressCard > label output {
   float: right;
   margin-right: 82px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
   font-weight: 500;
 }
 
@@ -597,7 +597,7 @@
 .updateBody :global(.attachment-picker)::before {
   grid-row: 1;
   grid-column: 1;
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 700;
   content: 'Add evidence';
 }
@@ -626,7 +626,7 @@
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--text);
-  font-size: 9px;
+  font-size: var(--text-xs);
   text-decoration: none;
 }
 
@@ -634,7 +634,7 @@
   margin: 0;
   padding: 10px 1px 18px;
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
 }
 
 .linkWorkDisclosure {
@@ -689,16 +689,16 @@
 
 :global(.goal-detail-drawer .goal-update > time) {
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 :global(.goal-detail-drawer .goal-update-head strong) {
-  font-size: 10.5px;
+  font-size: var(--text-xs);
 }
 
 :global(.goal-detail-drawer .goal-update p) {
   color: var(--muted);
-  font-size: 9.5px;
+  font-size: var(--text-xs);
   line-height: 1.5;
 }
 
@@ -711,12 +711,12 @@
 
 :global(.goal-detail-drawer .goal-file-row strong),
 :global(.goal-detail-drawer .goal-work-row strong) {
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 :global(.goal-detail-drawer .goal-file-row small),
 :global(.goal-detail-drawer .goal-work-row small) {
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 
 @media (max-width: 760px) {
@@ -758,6 +758,6 @@
 .editorHint {
   margin: 6px 0 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
   max-width: 46ch;
 }

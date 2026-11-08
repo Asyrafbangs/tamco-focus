@@ -25,7 +25,7 @@
 .planSummary span,
 .sessionCard span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 .sessionGrid {
@@ -46,7 +46,7 @@
   margin: 0;
   padding: 8px 10px;
   border-radius: var(--radius-sm);
-  font-size: 10px;
+  font-size: var(--text-xs);
 }
 
 .success {
