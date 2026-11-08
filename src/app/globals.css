@@ -4111,8 +4111,23 @@ fieldset:disabled label,
    column of entries. Sizes are relative, so the phone agenda's larger type
    carries through. `span.` matches the specificity of the rule above that
    makes every line a block. */
-.cal-item-title {
+/* v305 — the title is the only thing that tells two entries apart, so it gets
+   two lines before it gives up. One line in a 180px month column stopped at
+   about fifteen characters: "Isolate and t…" and "Replace the t…" sat on
+   neighbouring days and identified nothing, while the word "Task" underneath
+   them — already said by the glyph, the colour and the legend — had a whole
+   line to itself. Two lines roughly doubles what a cell can name, and the
+   clamp still keeps a busy day a column of entries rather than a wall of text.
+   `span.` beats the `.cal-item > span[aria-hidden]` rule above, which sets the
+   single-line ellipsis every other line still wants. */
+.cal-item > span.cal-item-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   font-weight: 650;
+  white-space: normal;
 }
 /* The meta line is the title's size, set apart by weight and colour: an em
    fraction here produced 8.28px on desktop and 11.04px on a phone, neither of
