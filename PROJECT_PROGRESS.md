@@ -179,6 +179,89 @@ implements its navigation and queues in a separate branch.
 - **v256** — Fixture-cardinality assertions replaced with behavioural ones
   (`AGENTS.md` §10, §11).
 
+- **v310–v318 — the UI/UX audit, and what it found.** An audit crawl of the core
+  product (ESH excluded) as three roles, at three widths, in both themes — 120
+  page states, with axe, overflow, touch-target, type and focus-ring checks and
+  a screenshot each. `tests/e2e/uiux-audit.spec.ts` is the instrument; it
+  asserts nothing, because its output is evidence to rank.
+
+  What it found, in the order it was fixed:
+
+  - **v310** The Day/Night control was a blank circle on every authenticated
+    page below 768px, in both themes: the phone rule hid every span inside it
+    and the component renders two, the word and the knob. axe passed it — the
+    button keeps its `aria-label`. Only a screenshot showed it.
+  - **v311** Eighteen controls under 44px, and a guard that could not see them.
+    `design-system.spec.ts` measured height alone, on one page, over six
+    hand-listed selectors. It now measures both dimensions across nine routes
+    over every interactive element, and understands three patterns it must not
+    punish: the stretched link (`.row-primary-link::after` makes the row the
+    hit area), a checkbox aimed at through its label, and a visually-hidden
+    input behind its own button. Sizing is keyed to `pointer: coarse`, not to
+    viewport width.
+  - **v312** 415 declarations below 12px in seven values, and no type token in
+    the stylesheet at all — 2,265 colour `var()` references and not one
+    `font-size: var(…)`. One token, `--text-xs: calc(12px * var(--font-scale))`,
+    replaces them. Because every size had been a literal, the personal
+    text-size setting (§22.2) reached only inherited text: somebody choosing
+    Large got a larger body and the same 9px labels. The steps below 12 are
+    gone from the locked scale, so the next 9px rule fails the gate.
+  - **v313** The audit crawl itself.
+  - **v314** My Day and My Work: three tab rows turned out to be **six** idioms
+    — different levels in one costume and one level in several. Replaced by a
+    `.tab-rail` family at three weights. Seven eyebrow labels retired; four
+    copy and empty-state faults.
+  - **v315** Plan and Goals: the month cell clipped titles at fifteen
+    characters and spent a line on "Task"; the phone agenda headed every day
+    with a bare number; the Goals column named "progress" counted measures and
+    showed none; a goal row's Revise was invisible on a tablet and still took
+    the tap; health was stated twice and an unfinished allocation was painted
+    as a warning.
+  - **v316** More, Settings and the record screens, leaned: 25 eyebrows, a dead
+    component, four `aria-hidden` spans styled as buttons, two facts repeated
+    per record row, a column, and a media-type string that wrapped to three
+    lines of a phone to say what ".pptx" says in five characters. The records
+    table stacks below 600px with its ARIA roles written out, because Chromium
+    drops a table's structure as soon as a `tr` takes a non-table `display`.
+
+  **Integration found what no area could.** The three areas were revised in
+  parallel, each locally right, and together produced two tab systems and two
+  class names for one label. Both are now one. It also caught a server
+  component importing a plain value out of a `'use client'` module — the server
+  receives a client reference proxy, `SETTINGS_SECTIONS.filter` threw at
+  request time, and the settings page rendered the error page. The type checker
+  and 944 unit tests both passed it; only a browser run found it. Its unstyled
+  `h1` was also the "27px off the scale" failure, so one cause had produced two
+  red tests that looked unrelated.
+
+  **v317 — the calendar refusal.** A stale-move test reported a missing error
+  toast. The toast was never at fault: a probe shows it render at 100ms with
+  the right words and stay. The move never reached the server. Titles wrap to
+  two lines since v315 instead of being clipped at fifteen characters, so the
+  month grid is taller and the last week sits partly below a 900px viewport;
+  Playwright scrolls a target into view as part of the action, mid-drag, and
+  that loses the drag. `due_at` was unchanged afterwards, which settled it.
+  Separately and in its own right, a refusal used to expire after ten seconds
+  on the same timer as the success notice — the notice carries an Undo offer
+  with a deadline, a refusal is the only account of why a move did not take,
+  and the grid behind it has already jumped to somebody else's date. It now
+  stays until dismissed.
+
+  **v318 — the settings menu, and a fault of my own making.** The mobile
+  appearance panel could not be used: "Save theme" was visible, stable and
+  unobstructed, and no tap reached it. Removing the settings rows'
+  descriptions and carrying them in a `visually-hidden` span — absolutely
+  positioned, `white-space: nowrap` — pushed the document to 722px. The layout
+  viewport expanded past the 390px device, the browser zoomed out to fit, and
+  controls near the foot of a panel fell outside the tappable area.
+  `window.innerWidth` read 722 against a 390px device and removing the span
+  restored it, which is how it was settled rather than guessed. An
+  `aria-label` was worse in a quieter way: `getByLabel` reads `aria-label` but
+  not a button's own text, so `getByLabel('Text size')` matched the
+  Accessibility row as well as its control. The description is visible again,
+  under the label, wrapping. The original fault was that it was clipped to one
+  line, not that it existed.
+
 ## Partial work
 
 Stage 2 is the only v4.1 work started and not finished. `codex/finding-v41-stage2`
@@ -302,7 +385,92 @@ ran 18. **When adding a `node:test` suite, check it is actually reached by
 both.** Vitest does not match `tests/scripts` at all; its projects are
 `tests/unit` and `tests/integration` only.
 
+## UI/UX branch: verification and merge position (8 November 2026)
+
+The work above sits on `claude/uiux-integrated`, 29 commits on `cf2bad0`.
+**It is not merged into `main` and has not been pushed.**
+
+Verified at the time of writing:
+
+| Check                                                                         | Result                      |
+| ----------------------------------------------------------------------------- | --------------------------- |
+| Unit                                                                          | 944 pass, 83 files          |
+| `design-system` (type scale, touch targets, settings panels, tab rails)       | pass, every viewport        |
+| `theme-appearance-v108`, `a11y-sweep-v192`, `more-admin`                      | pass, every viewport        |
+| `plan-reschedule-v153`, `goals-v33`, `tab-hierarchy`, `plan-goals-legibility` | pass                        |
+| Full acceptance gate                                                          | **running; result pending** |
+
+The last completed full gate scored 15/17 — Format, and three browser
+failures. All four causes are fixed above (`uiux-audit/` output was being
+written inside the repository and failing Format; the records cell was not
+stretching to 44px; the calendar drag; the settings menu width). The run in
+flight is the one that decides 17/17, and this line is to be replaced with its
+verdict rather than an expectation.
+
+**Known limitations**
+
+- `main` has moved on since this branch was cut: six commits, including three
+  AI-assistant merges (#73, #74, #75). The branch does not contain them and
+  will need a rebase or merge before it lands.
+- The approved prototypes in `desktop/` and `mobile/` still encode the navy
+  folder tabs and the 9–11.5px type that v312 and v314 retired. `AGENTS.md` §1
+  tells agents to reconcile against them, so they will reintroduce both until
+  they are updated or explicitly superseded.
+- The personal text-size setting reaches `--text-xs` and the body, but every
+  literal `font-size` above 12px still ignores it. v312 fixed the floor and
+  left the same fault standing at every other size.
+- ESH screens were out of scope throughout, except the shared `.eyebrow` rule,
+  which was de-costumed product-wide with the owner's agreement.
+
 ## Known test brittleness
+
+## What the parallel pass taught (v310–v316)
+
+Three agents revised three areas at once, in separate worktrees, with the
+database and the browser held by the integrator. The engineering came out well;
+every lesson worth keeping is about the seams.
+
+**A cross-area contract must name the mechanism, not the intent, and exist
+before the work starts.** The one rule issued mid-flight — how to classify an
+eyebrow label — produced near-consistency. It said what to classify and
+forbade touching the shared class, without saying what to use instead, so an
+agent obeying it invented `.kicker` and CSS-module scoping forced it to
+duplicate the same five lines five times. The one axis left unspecified, the
+tab treatment, diverged outright: the rail landed on My Work and nowhere else,
+and the defect it was built to fix moved from inside one screen to between
+screens.
+
+**Guards fail by construction, in ways their own suites cannot show.** Four
+distinct blind spots surfaced, each found by a different pair of eyes:
+
+- the touch guard walked a fixed list of default URLs, so every `?panel=`,
+  `?view=` and `?tab=` state in the product was unmeasured — a 20px control
+  sat behind one through a whole 44px pass;
+- `touch-targets-v183` skipped `opacity: 0`, which is exactly the state where
+  a control is unaimable _and still takes the click_;
+- the page-level overflow assertion passed while the records table was
+  unusable on a phone, because the table scrolls inside its own box;
+- `more-admin` asserted `getByRole('table')` is visible for an employee with
+  no attachments: the table rendered anyway and its head gave it a box, so the
+  assertion was about a list while asserting nothing in it.
+
+**A static guard is cheaper and finds more than a visual pass.** Six eyebrows
+were removed by reading screenshots; a 300ms unit guard written afterwards
+found twelve more in component files no screenshot showed. Write the guard
+first.
+
+**Measure the thing a person touches, not the element.** Three of the audit's
+"defects" were patterns working correctly: a stretched link whose row is the
+hit area, a checkbox aimed at through its label, and a visually-hidden input
+behind its own button. A fourth, `.cal-item-move`, was reported at 22px only
+because a 390px desktop window reports `pointer: fine` and every
+`@media (pointer: coarse)` rule in the stylesheet was inert.
+
+**Hydration is not arrival.** The first crawl measured the loading skeleton on
+all 120 states and reported zero accessibility violations. The numbers were
+plausible and meaningless; the screenshots exposed it. Wait for
+`.loading-skeleton` to detach, and prove an all-clear by seeding a violation
+the tool must catch.
 
 **Database suite (v258, v259): resolved.** Assertions that counted whole tables
 or whole organisations now state what their own fixtures contributed, so
