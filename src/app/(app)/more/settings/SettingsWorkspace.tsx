@@ -91,20 +91,22 @@ export function SettingsNavigation({
                   onClick={() => onSelect(item.key)}
                 >
                   {/*
-                   * The label is all that is drawn. Each row also printed its
-                   * description, clipped to one line, so eleven rows read
-                   * "Opening page, daily b…", "Theme, text size, mo…" — half a
-                   * sentence each and no row legible at a glance. The
-                   * description is on the panel it opens, where it has the
-                   * width to be read; the search still matches on it.
+                   * The description reads under the label, wrapping.
                    *
-                   * It stays in the accessible name, unseen. A row that reads
-                   * only "Alerts & escalation" tells somebody listening
-                   * nothing about what is inside it, and the attention window
-                   * is in there.
+                   * It used to be clipped to one line, so eleven rows read
+                   * "Opening page, daily b…", "Theme, text size, mo…" — half a
+                   * sentence each, and removing it was the obvious answer. But
+                   * it is also what tells somebody listening what a row
+                   * contains: a row announcing only "Alerts & escalation" does
+                   * not mention the attention window inside it. Carrying it as
+                   * an `aria-label` instead made `getByLabel('Text size')`
+                   * match this row as well as the control it belongs to; as a
+                   * visually-hidden span it pushed the phone layout to 722px.
+                   * Visible and wrapping is the form that costs nothing: a
+                   * button's own text names it without becoming a label.
                    */}
-                  {item.label}
-                  <span className="visually-hidden"> — {item.description}</span>
+                  <span className="settings-nav-row-label">{item.label}</span>
+                  <span className="settings-nav-row-desc">{item.description}</span>
                 </button>
               ))}
             </div>

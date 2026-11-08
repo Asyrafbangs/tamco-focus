@@ -1405,6 +1405,21 @@
   font-weight: 650;
   text-align: left;
 }
+.settings-nav-row-label {
+  display: block;
+}
+/* Wrapping, not clipped: a description cut mid-word tells nobody anything,
+   and it is what a screen reader uses to say what the row contains. */
+.settings-nav-row-desc {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--text-xs);
+  font-weight: 450;
+  color: var(--muted);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
 .settings-nav-row:hover {
   background: var(--surface-2);
 }
