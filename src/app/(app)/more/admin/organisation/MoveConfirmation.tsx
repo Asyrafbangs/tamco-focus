@@ -80,7 +80,6 @@ export function MoveConfirmation({
     <section className="org-move-panel" aria-labelledby="org-move-heading">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Confirm</p>
           <h2 id="org-move-heading">{copy.heading}</h2>
         </div>
       </div>

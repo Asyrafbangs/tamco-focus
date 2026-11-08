@@ -58,7 +58,6 @@ export function ReportingHistory({
     <section className="admin-history-section" aria-labelledby="reporting-history-heading">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">History</p>
           <h3 id="reporting-history-heading">Reporting history</h3>
           <p>
             Every change to {firstName}&apos;s reporting line and dotted line, by the date it took

@@ -157,7 +157,6 @@ export function ContactAdministration({
     <section className="admin-esh-access-section" aria-labelledby="contact-access-heading">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Email-link contact · no account required</p>
           <h3 id="contact-access-heading">Finding Management access</h3>
           <p>
             Current participation is derived from live work. Identity facts are linked, but

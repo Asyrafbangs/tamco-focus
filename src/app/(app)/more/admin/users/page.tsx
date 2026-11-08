@@ -276,7 +276,6 @@ export default async function UsersPage({
             <>
               <div className="section-heading">
                 <div>
-                  <p className="eyebrow">New identity</p>
                   <h2>Create user</h2>
                 </div>
               </div>
@@ -286,10 +285,9 @@ export default async function UsersPage({
             <>
               <div className="section-heading">
                 <div>
-                  <p className="eyebrow">{selectedPerson.employeeId}</p>
                   <h2>{selectedPerson.fullName}</h2>
                   <p>
-                    {selectedPerson.status} · created{' '}
+                    {selectedPerson.employeeId} · {selectedPerson.status} · created{' '}
                     {new Intl.DateTimeFormat('en-MY', { dateStyle: 'medium' }).format(
                       new Date(selectedPerson.createdAt),
                     )}
@@ -316,7 +314,6 @@ export default async function UsersPage({
               >
                 <div className="section-heading">
                   <div>
-                    <p className="eyebrow">Access administration</p>
                     <h3 id="module-access-heading">Module access</h3>
                     <p>
                       TAMCO Focus, Finding Management and platform administration are independent.
@@ -355,7 +352,6 @@ export default async function UsersPage({
                 <section className="admin-visibility-section">
                   <div className="section-heading">
                     <div>
-                      <p className="eyebrow">Visibility</p>
                       <h3>What {selectedPerson.fullName.split(' ')[0]} can see</h3>
                       <p>
                         Reporting line and job title decide nothing here. Tick the people this
@@ -379,7 +375,6 @@ export default async function UsersPage({
                 <section className="admin-esh-access-section" aria-labelledby="esh-access-heading">
                   <div className="section-heading">
                     <div>
-                      <p className="eyebrow">Module access</p>
                       <h3 id="esh-access-heading">Finding Management access</h3>
                       <p>
                         Separate from the TAMCO Focus role above. Job title, manager and department
@@ -414,9 +409,11 @@ export default async function UsersPage({
             <>
               <div className="section-heading">
                 <div>
-                  <p className="eyebrow">Email-link contact · no account required</p>
                   <h2>{selectedContact.displayName || selectedContact.email}</h2>
-                  {selectedContact.displayName ? <p>{selectedContact.email}</p> : null}
+                  <p>
+                    {selectedContact.displayName ? `${selectedContact.email} · ` : ''}
+                    Email-link contact · no account required
+                  </p>
                 </div>
               </div>
               <ContactAdministration
