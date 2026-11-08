@@ -488,3 +488,66 @@ test('a reference from a record it never opened is not citable', () => {
     `expected an unread reference to be caught, got ${JSON.stringify(failures)}`,
   );
 });
+
+test('a tool name as the subject of "failed" is an admission too', () => {
+  /*
+   * v307, and the fourth time this check has had to learn that the honest
+   * answer does not use the words the pattern expects. When a seeded read
+   * fails the model writes the tool's own name: "list_team_tasks failed, so
+   * I cannot establish the full workload". The name is scrubbed before a
+   * reader sees it; the grader reads what was written.
+   */
+  const scenario = { id: 'team-work-unreadable', fixtures: { list_team_tasks: { failed: true } } };
+  for (const text of [
+    'The workload view returned no rows, and `list_team_tasks` failed, so I cannot establish the full picture.',
+    'list_my_tasks failed, so the task side is unknown rather than empty.',
+    'The call to the register failed and I have nothing from it.',
+  ]) {
+    assert.deepEqual(
+      grade(scenario, { text, used: ['list_team_tasks'], finish: 'stop' }),
+      [],
+      `expected an admission to pass: ${text}`,
+    );
+  }
+
+  /* And the hedge that names no failure at all is still caught. */
+  assert.ok(
+    grade(scenario, {
+      text: 'I am not able to give you a full picture of the workload at the moment.',
+      used: ['list_team_tasks'],
+      finish: 'stop',
+    }).includes('does not say a read failed, having had one fail'),
+    'a bare hedge must still fail',
+  );
+});
+
+test('a required shape is checked, and is not a phrase check in disguise', () => {
+  /*
+   * v308. "Give me a priority table with the next action" is a request for a
+   * structure. `must_mention` can only look for a literal; this looks for the
+   * shape, so an answer that reasons beautifully in prose and leaves the
+   * manager nothing to act from is still a failure.
+   */
+  const scenario = {
+    id: 'planning',
+    fixtures: { list_team_tasks: { total: 1, rows: [{ task: 'Replace guarding' }] } },
+    must_match: ['\\|.*\\|'],
+  };
+  assert.deepEqual(
+    grade(scenario, {
+      text: '| Priority | Task | Owner |\n| 1 | Replace guarding | Nagarajan |',
+      used: ['list_team_tasks'],
+      finish: 'stop',
+    }),
+    [],
+    'a table must pass',
+  );
+  assert.ok(
+    grade(scenario, {
+      text: 'Nagarajan should do the guarding work first because it is mandatory.',
+      used: ['list_team_tasks'],
+      finish: 'stop',
+    }).some((one) => one.startsWith('does not match required pattern')),
+    'prose where a plan was asked for must fail',
+  );
+});
