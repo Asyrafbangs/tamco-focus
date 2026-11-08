@@ -64,6 +64,18 @@ export interface ProviderReply {
 export type ProviderErrorKind =
   | 'rate_limited'
   | 'quota_exhausted'
+  /*
+   * v309 — the account has no money, which is not the same as a spent daily
+   * allowance and must not be reported as one.
+   *
+   * Found in production: the API answered "You have no credits remaining" and
+   * the screen said "the assistant's daily allowance is shared across
+   * everyone here, and it is used up" - so the honest action, topping up, was
+   * invisible, and the apparent one, waiting until tomorrow, would have
+   * failed again. `classify` already told the two apart; the kinds collapsed
+   * them one line later.
+   */
+  | 'credits_exhausted'
   | 'context_too_long'
   | 'timeout'
   | 'auth'
@@ -141,6 +153,8 @@ export function stopReasonFor(kind: ProviderErrorKind): StopReason {
      */
     case 'quota_exhausted':
       return 'quota';
+    case 'credits_exhausted':
+      return 'credits';
     case 'context_too_long':
       return 'budget';
     case 'timeout':

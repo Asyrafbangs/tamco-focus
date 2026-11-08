@@ -17,6 +17,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  */
 
 const getVisibleTeamTasks = vi.fn();
+/* v307 - the rows now carry the last thing the owner wrote. */
+const getLatestTaskUpdates = vi.fn(async (_ids: readonly string[]) => new Map());
 
 vi.mock('@/server/esh/queries', () => ({
   listRegister: vi.fn(),
@@ -32,6 +34,7 @@ vi.mock('@/server/queries', () => ({
   getTaskDetail: vi.fn(),
   getTeamLoad: vi.fn(),
   getVisibleTeamTasks: (...args: unknown[]) => getVisibleTeamTasks(...args),
+  getLatestTaskUpdates: (ids: readonly string[]) => getLatestTaskUpdates(ids),
 }));
 
 const { toolByName } = await import('@/server/ai/tools');
@@ -78,6 +81,9 @@ function payload(evidence: string): Record<string, unknown> {
 
 beforeEach(() => {
   getVisibleTeamTasks.mockReset();
+  /* v307 — reset too, or one test reads the call another made. */
+  getLatestTaskUpdates.mockReset();
+  getLatestTaskUpdates.mockResolvedValue(new Map());
 });
 
 describe('v306 the team’s work, as work', () => {
@@ -187,5 +193,81 @@ describe('v306 the team’s work, as work', () => {
   it('a team whose work cannot be read fails rather than reading as an idle team', async () => {
     getVisibleTeamTasks.mockRejectedValue(new Error('TEAM_TASKS_UNAVAILABLE'));
     await expect(teamTasks.run({ scope: 'all' }, caller)).rejects.toThrow('TEAM_TASKS_UNAVAILABLE');
+  });
+});
+
+describe('v307 the last thing the owner wrote', () => {
+  it('carries the words, the author and the date', async () => {
+    /*
+     * The row already said "no update for twelve days", which tells a manager
+     * something is quiet and nothing about why. "Waiting on the contractor's
+     * quote since 20 October" is the difference between a person who is
+     * behind and a job blocked on somebody outside the team.
+     */
+    getVisibleTeamTasks.mockResolvedValue([task({ id: 't-5', title: 'Replace torn hose' })]);
+    getLatestTaskUpdates.mockResolvedValue(
+      new Map([
+        [
+          't-5',
+          {
+            taskId: 't-5',
+            authorName: 'Nagarajan Munusamy',
+            body: 'Waiting on the contractor quote, chased again on 20 October.',
+            createdAt: '2026-10-20T02:00:00.000Z',
+          },
+        ],
+      ]),
+    );
+
+    const rows = shownRows((await teamTasks.run({ scope: 'all' }, caller)).evidence);
+    expect(rows[0]!.last_update).toEqual({
+      by: 'Nagarajan Munusamy',
+      at: '2026-10-20T02:00:00.000Z',
+      said: 'Waiting on the contractor quote, chased again on 20 October.',
+    });
+  });
+
+  it('trims an essay rather than letting it crowd out the other jobs', async () => {
+    getVisibleTeamTasks.mockResolvedValue([task({ id: 't-6' })]);
+    getLatestTaskUpdates.mockResolvedValue(
+      new Map([
+        [
+          't-6',
+          {
+            taskId: 't-6',
+            authorName: 'Amer Syazwan Mansoor',
+            body: `${'word '.repeat(200)}end`,
+            createdAt: '2026-11-01T00:00:00.000Z',
+          },
+        ],
+      ]),
+    );
+
+    const rows = shownRows((await teamTasks.run({ scope: 'all' }, caller)).evidence);
+    const said = (rows[0]!.last_update as { said: string }).said;
+    expect(said.length).toBeLessThanOrEqual(241);
+    expect(said.endsWith('…')).toBe(true);
+  });
+
+  it('asks only for the rows it is showing', async () => {
+    /*
+     * After the cap, not before: the narrative is fetched for the
+     * twenty-five tasks a reader will see, never for five hundred.
+     */
+    const many = Array.from({ length: 40 }, (_, at) => task({ id: `t-${at}` }));
+    getVisibleTeamTasks.mockResolvedValue(many);
+    getLatestTaskUpdates.mockResolvedValue(new Map());
+
+    await teamTasks.run({ scope: 'all' }, caller);
+
+    const asked = getLatestTaskUpdates.mock.calls[0]![0];
+    expect(asked).toHaveLength(25);
+  });
+
+  it('says nothing rather than something when there is no update', async () => {
+    getVisibleTeamTasks.mockResolvedValue([task({ id: 't-7' })]);
+    getLatestTaskUpdates.mockResolvedValue(new Map());
+    const rows = shownRows((await teamTasks.run({ scope: 'all' }, caller)).evidence);
+    expect(rows[0]!.last_update).toBeNull();
   });
 });

@@ -696,6 +696,8 @@ export type StopReason =
    * and a waste of somebody's afternoon when the day's tokens are spent.
    */
   | 'quota'
+  /* The account has no credits: waiting cannot clear it, only a top-up. */
+  | 'credits'
   | 'truncated'
   | 'failed';
 
@@ -717,6 +719,8 @@ const STOP_LEAD: Record<Exclude<StopReason, 'answered'>, string> = {
   budget: 'I ran out of the token allowance for this minute before I could finish.',
   rate_limited: 'The model is rate limited at the moment, so I stopped early.',
   quota: 'The assistant’s daily allowance is shared across everyone here, and it is used up.',
+  credits:
+    'The account this assistant runs on has no credits left, so the model refused the request.',
   truncated: 'My answer was cut off at its length limit.',
   failed: 'I could not complete this investigation. Nothing was changed.',
 };
@@ -727,6 +731,7 @@ const STOP_ADVICE: Record<Exclude<StopReason, 'answered'>, string> = {
   budget: 'Ask again shortly and I can continue.',
   rate_limited: 'Ask again in a minute.',
   quota: '',
+  credits: 'Waiting will not clear this - an administrator has to add credits to the account.',
   truncated: 'Ask for one part of it and I can be more specific.',
   failed: '',
 };
@@ -869,6 +874,19 @@ const TEAM_WORK_WORDS =
 const PAST_PERIOD =
   /\b(last week|previous week|last month|last year|past (?:week|month|year)|achieve[ds]?|achievement|been doing|so far|yesterday)\b/i;
 
+/**
+ * "Why is this not moving?" about a named piece of work.
+ *
+ * v307 — the question this feature exists for, and it matched none of the
+ * patterns: `why has …` only fired on "nothing" or "my", and "work" only on
+ * "which work". So "why has the press 2 guarding work not moved" went to the
+ * model with no records at all, and the only reading available was that the
+ * owner is slow - when his own last update says the part is not due until
+ * the 14th.
+ */
+const STALLED_WORK =
+  /\b(?:why|what)\b[^?.]{0,70}\b(?:not moved|not moving|no progress|stalled|stuck|held up|holding up|holding (?:it|this|that) up|blocking|blocked|delayed|behind schedule|taking so long)\b/i;
+
 /** "Has it been done?" about a named piece of work, rather than a finding. */
 const WORK_STATUS =
   /\b(?:has|have|is|was|are)\b[^?.]{0,60}\b(?:been\s+)?(?:completed|finished|done|submitted|signed off)\b/i;
@@ -904,6 +922,25 @@ export function openingReads(question: string): OpeningRead[] {
    * read because the work may be the asker's own or somebody else's, and
    * guessing which would answer the wrong question half the time.
    */
+  /*
+   * v307 — a stalled piece of work. The owner's own last update is usually
+   * the answer, and it is on the task row.
+   */
+  if (STALLED_WORK.test(asked) && !reference && !findings) {
+    return [
+      {
+        name: 'list_team_tasks',
+        input: { scope: 'all' },
+        why: 'the question asks why a job is not moving, and the owner’s last update is on the record',
+      },
+      {
+        name: 'list_my_tasks',
+        input: {},
+        why: 'the stalled work may be the asker’s own',
+      },
+    ];
+  }
+
   if (WORK_STATUS.test(asked) && !reference && !findings) {
     return [
       {

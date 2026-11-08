@@ -8,7 +8,7 @@ import {
   toolCallsFrom,
   usageFrom,
 } from '@/server/ai/providers/openai';
-import { totalTokens } from '@/domain/ai';
+import { stopWords, totalTokens } from '@/domain/ai';
 import { ProviderError, stopReasonFor } from '@/server/ai/providers/types';
 
 /**
@@ -319,9 +319,28 @@ describe('v297 telling a wait apart from a bill', () => {
     ['project spend limit', '{"error":{"code":"project_spend_limit_exceeded"}}'],
     ['organization usage limit', '{"error":{"code":"organization_usage_limit_exceeded"}}'],
     ['the wording the live API used', '{"error":{"message":"You have no credits remaining."}}'],
-  ])('treats %s as a quota, which waiting cannot clear', (_name, body) => {
-    expect(classify(429, headers, body)).toBe('quota_exhausted');
-    expect(stopReasonFor('quota_exhausted')).toBe('quota');
+  ])('treats %s as a bill, which waiting cannot clear', (_name, body) => {
+    /*
+     * v309 — its own kind, not the daily allowance's.
+     *
+     * This suite has told a wait from a bill since v297 and then handed both
+     * to the same stop reason, so the screen said "the assistant's daily
+     * allowance is shared across everyone here, and it is used up" when the
+     * API had said "You have no credits remaining" - seen in production on
+     * 8 November. The honest action, topping up, was invisible; the apparent
+     * one, waiting until tomorrow, would have failed again.
+     */
+    expect(classify(429, headers, body)).toBe('credits_exhausted');
+    expect(stopReasonFor('credits_exhausted')).toBe('credits');
+  });
+
+  it('says what to do about a bill, and does not call it an allowance', () => {
+    const said = stopWords({ stop: 'credits', readCount: 0 });
+    expect(said).toMatch(/no credits/i);
+    expect(said).not.toMatch(/daily allowance/i);
+    expect(said).toMatch(/add credits/i);
+    /* And the daily allowance keeps its own words. */
+    expect(stopWords({ stop: 'quota', readCount: 0 })).toMatch(/daily allowance/i);
   });
 
   it.each([
