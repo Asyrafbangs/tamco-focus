@@ -447,6 +447,7 @@ export const TOOL_LABELS: Record<string, string> = {
   get_task_detail: 'a task in full',
   list_steps_i_owe: 'steps you owe',
   list_team_workload: 'the team’s work',
+  list_team_tasks: 'the team’s open tasks',
   list_team_activity: 'what the team has been doing',
   search_findings: 'the finding register',
   get_finding_detail: 'a finding in full',
@@ -847,6 +848,31 @@ const FINDING_WORDS =
  */
 const MANAGEMENT_WORDS =
   /\b(priorit\w*|attention|behind|workload|work load|my plate|focus|review|what should i|what needs|most urgent|catch up|prepare)\b|\b(?:nothing|anything)\s+(?:has\s+)?(?:moved|moving|happened|progressed)\b|\bwhy\s+(?:has|is|are)\s+(?:nothing|my)\b/i;
+/**
+ * A question about the team's WORK rather than about the team's numbers.
+ *
+ * Kept separate from the management words because the records differ: "what
+ * should I prioritise" is answered from the asker's own tasks and the
+ * register, while "what should each person work on" needs the team's tasks -
+ * and answering the second from per-person counts is what made the assistant
+ * rank employees instead of prioritising jobs.
+ */
+const TEAM_WORK_WORDS =
+  /\b(team|teams|my people|everyone|everybody|staff|department|each (?:employee|person|member)|who (?:should|has|is|needs|can)|which (?:tasks?|work|jobs?|findings?)|what tasks|distributed|distribution|fairly|reassign\w*|bottleneck|capacity|postpone\w*|defer\w*|difficult|time.consuming|complex\w*|intervention|decision)\b/i;
+
+/**
+ * A question about what already happened, which the open-work tool cannot
+ * answer. "What did my team achieve last week" is for `list_team_activity`;
+ * reading today's backlog for it would answer a different question with a
+ * straight face.
+ */
+const PAST_PERIOD =
+  /\b(last week|previous week|last month|last year|past (?:week|month|year)|achieve[ds]?|achievement|been doing|so far|yesterday)\b/i;
+
+/** "Has it been done?" about a named piece of work, rather than a finding. */
+const WORK_STATUS =
+  /\b(?:has|have|is|was|are)\b[^?.]{0,60}\b(?:been\s+)?(?:completed|finished|done|submitted|signed off)\b/i;
+
 /** A question about ONE record, where the summary row is not the answer. */
 const SINGLE_RECORD =
   /\b(?:has|have|is|was|did|are)\b[^?.]{0,80}?\b(?:fixed|closed|done|resolved|verified|completed|sorted|actioned)\b|\btell me about\b|\bsummaris|\bsummariz/i;
@@ -857,6 +883,55 @@ export function openingReads(question: string): OpeningRead[] {
   const findings = FINDING_WORDS.test(asked);
   const management = MANAGEMENT_WORDS.test(asked);
   const reads: OpeningRead[] = [];
+
+  /*
+   * v306 — a question about the team's WORK, which is not a question about
+   * the team's numbers.
+   *
+   * Every team tool returned figures per person, so "what is my team's
+   * workload this week" could only be answered by ranking people by their
+   * counts. Both halves are read here, and deliberately: a prioritisation
+   * answer built from tasks alone puts an overdue expense claim above an
+   * unguarded press, because the press is a finding and findings were never
+   * on the table.
+   */
+  /*
+   * v306 — "has the noise survey been completed?"
+   *
+   * A question about whether one piece of work is finished, where the whole
+   * answer turns on a distinction only the record carries: submitted and
+   * waiting on a decision is neither done nor outstanding. Both lists are
+   * read because the work may be the asker's own or somebody else's, and
+   * guessing which would answer the wrong question half the time.
+   */
+  if (WORK_STATUS.test(asked) && !reference && !findings) {
+    return [
+      {
+        name: 'list_team_tasks',
+        input: { scope: 'all' },
+        why: 'the question asks whether a piece of work is finished, and the record is the only thing that separates submitted from accepted',
+      },
+      {
+        name: 'list_my_tasks',
+        input: {},
+        why: 'the work may be the asker’s own rather than the team’s',
+      },
+    ];
+  }
+
+  if (TEAM_WORK_WORDS.test(asked) && !PAST_PERIOD.test(asked) && !reference) {
+    reads.push({
+      name: 'list_team_tasks',
+      input: { scope: 'all' },
+      why: 'the question is about the team’s work, and the counts per person cannot say which job matters',
+    });
+    reads.push({
+      name: 'search_findings',
+      input: { filter: 'open', search: '' },
+      why: 'work to be prioritised includes findings, and a safety finding must be weighed against the tasks rather than left out of the comparison',
+    });
+    return reads;
+  }
 
   if (reference || findings || management) {
     reads.push({

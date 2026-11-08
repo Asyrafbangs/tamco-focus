@@ -519,7 +519,9 @@ describe('v296 an answer never shows an internal tool name', () => {
     expect(TOOL_LABELS.list_team_workload).toBeDefined();
     /* v303 added the history tool; a tool without a label leaks its name. */
     expect(TOOL_LABELS.list_team_activity).toBeDefined();
-    expect(NAMES).toHaveLength(9);
+    /* v306 added the team's open tasks; a tool without a label leaks its name. */
+    expect(TOOL_LABELS.list_team_tasks).toBeDefined();
+    expect(NAMES).toHaveLength(10);
   });
 });
 
