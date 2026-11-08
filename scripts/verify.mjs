@@ -60,10 +60,18 @@ const GATES = [
   { name: 'Lint', command: 'node', args: [bin.eslint, '.', '--max-warnings=0'] },
   { name: 'Type check', command: 'node', args: [bin.tsc, '--noEmit'] },
   { name: 'Unit tests', command: 'node', args: [bin.vitest, 'run', '--project', 'unit'] },
+  // The `node:test` suites, which vitest's unit project does not match: its
+  // include patterns are `tests/unit` and `tests/integration` only. Named by
+  // glob, not by file. This gate ran `storage-backup.test.mjs` alone, so
+  // `environment-key-target` and `ai-answer-grader` passed the local gate by
+  // never being executed - while CI ran all three through `npm run test:unit`,
+  // which chains `test:backup`'s glob. A local gate that is a subset of CI
+  // reports a green that CI can contradict, which is the one thing it exists
+  // not to do.
   {
-    name: 'Backup guards',
+    name: 'Script guards',
     command: 'node',
-    args: ['--test', 'tests/scripts/storage-backup.test.mjs'],
+    args: ['--test', 'tests/scripts/*.test.mjs'],
   },
   {
     name: 'Production build',

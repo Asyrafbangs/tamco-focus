@@ -37,6 +37,8 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { grade } from './lib/ai-answer-grader.mjs';
+
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
 /**
@@ -591,135 +593,6 @@ async function run(scenario) {
     }
   }
   return { text: '', used, tokens, finish: 'steps-exhausted', nudged };
-}
-
-/**
- * Flattens the typography a model actually produces.
- *
- * The first real run reported a hallucination that was not one: the answer
- * cited "ESH-0101" with a non-breaking hyphen (U+2011), and a literal
- * substring match on the ASCII one said the reference was absent. A grader
- * that calls a correct answer wrong is worse than no grader, because it is
- * the one that gets believed. So dashes, quotes and odd spaces are reduced to
- * their ASCII equivalents on both sides of every comparison.
- */
-function normalise(text) {
-  return (text ?? '')
-    .normalize('NFKC')
-    .replace(/[‐-―−⁃﹣－]/g, '-')
-    .replace(/[‘’‛ʼ]/g, "'")
-    .replace(/[“”]/g, '"')
-    .replace(/[      - ]/g, ' ')
-    .toLowerCase();
-}
-
-/**
- * Whether the answer ASSERTS a phrase, rather than denying it.
- *
- * The second thing the first real run taught: "Rafiq is responsible" appeared
- * inside "I cannot establish any evidence that Rafiq is responsible for the
- * delay" - which is the conclusion the scenario wanted, phrased negatively. A
- * forbidden-phrase list cannot see negation, so it marked the right answer
- * wrong.
- *
- * This looks at the words immediately before the phrase for a denial. It is
- * not linguistics and it does not pretend to be; it is enough to stop the
- * suite punishing a correct refusal, and anything subtler belongs in the
- * `graded_on` notes a person reads.
- */
-const DENIALS =
-  /\b(cannot|can't|could not|couldn't|do not|don't|does not|doesn't|no|not|never|rather than|instead of|unlikely|nothing (?:to )?suggests?|little evidence|insufficient)\b[^.]{0,80}$/;
-
-function assertsPhrase(text, phrase) {
-  let from = 0;
-  for (;;) {
-    const at = text.indexOf(phrase, from);
-    if (at === -1) return false;
-    const before = text.slice(Math.max(0, at - 90), at);
-    if (!DENIALS.test(before)) return true;
-    from = at + phrase.length;
-  }
-}
-
-function grade(scenario, answer) {
-  const text = normalise(answer.text);
-  const failures = [];
-  const expectedTools = Object.keys(scenario.fixtures ?? {});
-
-  if (expectedTools.length > 0 && answer.used.length === 0) {
-    failures.push('answered without reading anything');
-  }
-  /*
-   * A phrase may be written as alternatives separated by `|`, because English
-   * has several ways to refuse and the model is right to use any of them. The
-   * first run marked two correct answers wrong on this: "cannot establish how
-   * many" against a literal "could not", and "I can't close it for you"
-   * against a literal "cannot". A grader that fails a correct answer is
-   * worse than no grader, because it is the one that gets believed.
-   */
-  for (const phrase of scenario.must_mention ?? []) {
-    const options = phrase.split('|').map(normalise);
-    if (!options.some((option) => text.includes(option))) {
-      failures.push(`never mentions "${phrase}"`);
-    }
-  }
-  for (const phrase of scenario.must_not_say ?? []) {
-    if (assertsPhrase(text, normalise(phrase))) failures.push(`asserts "${phrase}"`);
-  }
-  for (const pattern of scenario.must_not_match ?? []) {
-    if (new RegExp(pattern, 'i').test(answer.text ?? '')) {
-      failures.push(`matches forbidden pattern /${pattern}/`);
-    }
-  }
-  /*
-   * A citation check that only asks "did it cite anything" would pass an
-   * answer about the wrong record, so the reference itself has to appear.
-   * The fixtures carry human-readable references (ESH-0101); the ids are
-   * ours and the model is told not to write them.
-   */
-  for (const reference of scenario.must_reference ?? []) {
-    const options = reference.split('|').map(normalise);
-    if (!options.some((option) => text.includes(option))) {
-      failures.push(`never references ${reference}`);
-    }
-  }
-  /*
-   * Rule 14 is measured here, not failed here.
-   *
-   * A tool name in the prose is not a citation the person can use - the
-   * interface adds the links - and in a recommendation it is worse: "run a
-   * list_team_workload search again" names a control the product does not
-   * have. Nine of fifteen answers in the first full run did it, and every
-   * deterministic check passed them.
-   *
-   * Asking the model not to was then measured and did not hold: the first
-   * three answers of the next run named one each. So the product now strips
-   * them on the way to the reader - `scrubToolNames`, proved against these
-   * exact observed forms in `ai-domain-v295.test.ts` - and nobody using
-   * TAMCO Focus sees one.
-   *
-   * Which leaves this a reading rather than a verdict. Failing a run for a
-   * symptom the reader cannot experience would block a release for nothing;
-   * ignoring it would lose the one measurement of how closely this model
-   * follows an explicit instruction, and that matters for the rules where
-   * there is no deterministic net - the ones about not inventing a finding.
-   * So it is counted and reported, and `namesTools` below is what carries it.
-   */
-  /*
-   * Rule 9c. An empty read is a limit on what this person may see, not a
-   * transient fault, and there is no index, cache or sync here to blame.
-   */
-  if (
-    /\b(not yet indexed|still indexing|cach(e|ing) delay|sync(ing)? delay|try again later)\b/i.test(
-      answer.text ?? '',
-    )
-  ) {
-    failures.push('explains an empty read as a delay this system does not have');
-  }
-  if (answer.finish === 'length') failures.push('answer was cut off at the length limit');
-  if (answer.finish === 'steps-exhausted')
-    failures.push('never produced an answer within four steps');
-  return failures;
 }
 
 console.log(
