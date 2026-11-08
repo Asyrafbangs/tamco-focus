@@ -149,10 +149,9 @@ export function PersonalSettingsForm({
               />
             </label>
           </div>
-          <p className="form-hint">
-            Identity and timezone are controlled by your administrator: {profile.email} ·{' '}
-            {profile.timezone}
-          </p>
+          {/* The address and zone themselves are in the Context line above,
+              once. This says only why they are not editable here. */}
+          <p className="form-hint">Your administrator sets your email address and timezone.</p>
         </fieldset>
       )}
 

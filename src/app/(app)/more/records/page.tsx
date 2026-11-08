@@ -104,12 +104,11 @@ export default async function RecordsPage({
           <Link href="/more" className="btn ghost small">
             ← More
           </Link>
-          <p className="eyebrow">Records</p>
           <h1>Records and completion review</h1>
-          <p>
-            Search retained records and review completion evidence without changing normal task
-            states.
-          </p>
+          {/* The reassurance only. "Search retained records and review
+              completion evidence" was the heading again in longer words; that
+              reading a record changes nothing is the part nobody can infer. */}
+          <p>Reading and reviewing here never changes a task&rsquo;s state.</p>
         </div>
       </div>
       <WorkspaceTabs
@@ -231,7 +230,7 @@ export default async function RecordsPage({
             <p>Adjust the search or filters.</p>
           </div>
         ) : (
-          records.map(({ task, submittedAt, decidedAt, decision, decisionNote }) => (
+          records.map(({ task, submittedAt, decidedAt, decisionNote }) => (
             <RecordRow
               key={task.id}
               href={taskDrawerHref(task.id, '/more/records')}
@@ -249,11 +248,11 @@ export default async function RecordsPage({
               }
               details={
                 <>
+                  {/* The outcome is on the badge beside the title. It was
+                      printed here as well, and "Decision pending" a third time
+                      for the same row. */}
                   <span>Submitted {formatDate(submittedAt)}</span>
-                  <span>
-                    {decision?.replaceAll('_', ' ') ?? task.reviewStatus.replaceAll('_', ' ')}
-                  </span>
-                  <span>{decidedAt ? `Decided ${formatDate(decidedAt)}` : 'Decision pending'}</span>
+                  {decidedAt && <span>Decided {formatDate(decidedAt)}</span>}
                   <span>
                     {task.attachmentCount} attachment{task.attachmentCount === 1 ? '' : 's'}
                   </span>

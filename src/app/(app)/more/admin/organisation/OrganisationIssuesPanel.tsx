@@ -153,7 +153,6 @@ export function OrganisationIssuesPanel({
     <section className="section-block org-issues" aria-labelledby="org-issues-heading">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Issues</p>
           <h2 id="org-issues-heading">
             {issues.total === 0
               ? 'No organisation issues'

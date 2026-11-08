@@ -66,6 +66,29 @@ test.describe('v181 crawl findings', () => {
 
     await open(page, '/more/attachments');
     expect(await pageScrollsSideways(page), 'attachments page scrolls sideways').toBe(false);
+    /*
+     * v306 — and the table does not scroll sideways inside its own box.
+     *
+     * The assertion above passed for five months while the file name was the
+     * only readable column on a phone: `min-width: 760px` kept the work item,
+     * who added the file and when off the right edge of `.data-table-wrap`,
+     * which scrolls on its own and leaves the page alone. v181 fixed the page
+     * and made the box keyboard-reachable, which is the correct answer for a
+     * 1024px window and the wrong one for a 390px screen, where there is no
+     * width to find. The rows stack below 600px, so there is nothing left to
+     * scroll to.
+     */
+    if (testInfo.project.name === 'mobile') {
+      const overflow = await page.evaluate(() => {
+        const wrap = document.querySelector('.data-table-wrap');
+        if (!wrap) return null;
+        return wrap.scrollWidth - wrap.clientWidth;
+      });
+      expect(overflow, 'the attachments table is not on this page').not.toBeNull();
+      expect(overflow, 'the attachments table scrolls sideways inside its box').toBeLessThanOrEqual(
+        1,
+      );
+    }
     expect(await seriousViolations(page)).toEqual([]);
 
     await open(page, '/more/records?review=pending');

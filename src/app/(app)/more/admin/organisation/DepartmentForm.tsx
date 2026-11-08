@@ -64,7 +64,6 @@ export function DepartmentForm({
     <section className="org-move-panel" aria-labelledby="org-department-heading">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Department</p>
           <h2 id="org-department-heading">{creating ? 'New department' : 'Edit department'}</h2>
         </div>
       </div>

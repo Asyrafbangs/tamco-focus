@@ -131,11 +131,18 @@ test.describe('settings sections', () => {
   /**
    * Every section shows its panel.
    *
-   * The panels are hidden by default and revealed by an enumerated list of
-   * `[data-active='x'] [data-settings-panel='x']` rules. Adding a section
-   * without adding its line leaves it `display: none` for good - navigable,
-   * present in the DOM, and invisible. That is a silent failure no type
-   * checker can see, so it is checked here.
+   * This used to guard an enumerated list of
+   * `[data-active='x'] [data-settings-panel='x']` rules, where a section added
+   * without its line was `display: none` for good - navigable, present in the
+   * DOM, and invisible. v305 took the list away: `SettingsPanel` sets `hidden`
+   * from the open section the workspace already holds, `page.tsx` builds its
+   * panels as a `Record<SettingsKey, ReactNode>` so a section without one is a
+   * type error, and `tests/unit/settings-sections-v305.test.ts` asserts both
+   * shapes without a browser.
+   *
+   * It stays because none of that measures a panel. A rule elsewhere in a
+   * 17,000-line stylesheet can still collapse one, and only a rendered page
+   * knows.
    */
   test('each one reveals a panel with something in it', async ({ page }) => {
     await signIn(page);

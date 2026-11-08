@@ -51,7 +51,6 @@ export function OrganisationImport({
     <section className="org-move-panel org-import" aria-labelledby="org-import-heading">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Import</p>
           <h2 id="org-import-heading">Import organisation</h2>
         </div>
       </div>

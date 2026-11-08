@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 
 import { RevealCurrent } from '@/components/ui/RevealCurrent';
 
@@ -26,7 +26,7 @@ interface SettingsItem {
   editable: boolean;
 }
 
-const ITEMS: SettingsItem[] = [
+export const SETTINGS_SECTIONS: SettingsItem[] = [
   {
     key: 'workspace',
     label: 'My workspace',
@@ -106,6 +106,36 @@ const ITEMS: SettingsItem[] = [
   },
 ];
 
+/**
+ * Which section is open, for the panels the page passes in as children.
+ *
+ * The panels used to be revealed by an enumerated list of
+ * `[data-active='x'] [data-settings-panel='x']` rules in the stylesheet, one
+ * line per section. A section added without its line was `display: none` for
+ * good — present in the DOM, navigable, and invisible — and nothing but a
+ * browser test could see it. The open section is state this component already
+ * holds, so it is the thing that decides, and a new section cannot be left out
+ * of a list that no longer exists.
+ */
+const OpenSection = createContext<SettingsKey>('workspace');
+
+export function SettingsPanel({
+  section,
+  label,
+  children,
+}: {
+  section: SettingsKey;
+  label: string;
+  children: ReactNode;
+}) {
+  const open = useContext(OpenSection);
+  return (
+    <section data-settings-panel={section} aria-label={label} hidden={open !== section}>
+      {children}
+    </section>
+  );
+}
+
 export function SettingsNavigation({
   items,
   active,
@@ -158,8 +188,15 @@ export function SettingsNavigation({
                   aria-current={active === item.key ? 'page' : undefined}
                   onClick={() => onSelect(item.key)}
                 >
-                  <strong>{item.label}</strong>
-                  <span>{item.description}</span>
+                  {/*
+                   * The label only. Each row also carried its description,
+                   * clipped to one line, so eleven rows read "Opening page,
+                   * daily b…", "Theme, text size, mo…" — half a sentence each
+                   * and no row legible at a glance. The description is on the
+                   * panel it opens, where it has the width to be read; the
+                   * search still matches on it.
+                   */}
+                  {item.label}
                 </button>
               ))}
             </div>
@@ -181,14 +218,28 @@ export function SettingsWorkspace({
   initialSection?: SettingsKey;
   children: ReactNode;
 }) {
-  const available = ITEMS.filter((item) => canManageOperations || item.group !== 'Organisation');
+  const available = SETTINGS_SECTIONS.filter(
+    (item) => canManageOperations || item.group !== 'Organisation',
+  );
+  /*
+   * A link that names a real section opens that section, even when this
+   * person may not change it.
+   *
+   * It used to fall back to "My workspace" without saying so, so an
+   * administrator who sent "/more/settings?section=focus" to a team member
+   * got back "that link just opens my own preferences". The section opens and
+   * states who may change it instead; silently landing somewhere else is the
+   * one outcome that teaches nobody anything. A key that names no section at
+   * all is a mistyped address and still opens the default.
+   */
   const [active, setActive] = useState<SettingsKey>(
-    available.some((item) => item.key === initialSection) ? initialSection : 'workspace',
+    SETTINGS_SECTIONS.some((item) => item.key === initialSection) ? initialSection : 'workspace',
   );
   const [query, setQuery] = useState('');
   const [dirtyPanels, setDirtyPanels] = useState<Set<SettingsKey>>(() => new Set());
   const detailRef = useRef<HTMLDivElement>(null);
-  const current = available.find((item) => item.key === active) ?? available[0]!;
+  const current = SETTINGS_SECTIONS.find((item) => item.key === active) ?? SETTINGS_SECTIONS[0]!;
+  const outOfReach = !available.some((item) => item.key === active);
   const dirty = dirtyPanels.has(active);
   const filtered = available.filter((item) =>
     `${item.label} ${item.description}`.toLowerCase().includes(query.trim().toLowerCase()),
@@ -225,12 +276,7 @@ export function SettingsWorkspace({
           <Link href="/more" className="btn ghost small">
             ← More
           </Link>
-          <p className="eyebrow">Settings</p>
           <h1>Team rules and my preferences</h1>
-          <p>
-            Configure only settings that change how work is selected, reviewed, escalated or
-            displayed.
-          </p>
         </div>
         <div className="settings-savebar">
           {dirtyPanels.size > 0 && (
@@ -245,7 +291,7 @@ export function SettingsWorkspace({
             type="button"
             className="btn primary"
             onClick={submitActiveForms}
-            disabled={!dirty || !current.editable}
+            disabled={!dirty || !current.editable || outOfReach}
           >
             Save changes
           </button>
@@ -264,7 +310,6 @@ export function SettingsWorkspace({
         <section className="settings-detail" aria-labelledby="settings-detail-title">
           <header className="settings-detail-head">
             <div>
-              <p className="eyebrow">{current.group}</p>
               <h2 id="settings-detail-title">{current.label}</h2>
               <p>{current.description}</p>
             </div>
@@ -279,7 +324,15 @@ export function SettingsWorkspace({
             onChange={() => setDirtyPanels((previous) => new Set(previous).add(active))}
             onInput={() => setDirtyPanels((previous) => new Set(previous).add(active))}
           >
-            {children}
+            {outOfReach && (
+              <div className="empty-state compact">
+                <p>
+                  A manager or administrator sets {current.label.toLowerCase()} for the whole team.
+                  Ask yours to change it. Your own settings are in the list beside this.
+                </p>
+              </div>
+            )}
+            <OpenSection value={active}>{children}</OpenSection>
           </div>
         </section>
       </div>

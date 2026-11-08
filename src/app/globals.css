@@ -1401,23 +1401,9 @@
   border-radius: 8px;
   background: transparent;
   color: var(--text);
-  text-align: left;
-}
-.settings-nav-row strong,
-.settings-nav-row span {
-  display: block;
-}
-.settings-nav-row strong {
   font-size: var(--text-xs);
   font-weight: 650;
-}
-.settings-nav-row span {
-  margin-top: 2px;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: var(--text-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-align: left;
 }
 .settings-nav-row:hover {
   background: var(--surface-2);
@@ -1460,23 +1446,17 @@
 .settings-body {
   padding: 4px 18px 18px;
 }
-.settings-body [data-settings-panel] {
+/*
+ * The closed sections, and nothing else.
+ *
+ * This was eleven selectors, one per section, and a section added without its
+ * line stayed `display: none` for good. `hidden` now comes from the workspace's
+ * own open-section state (`SettingsPanel`), so there is no list to fall out of.
+ * The rule is still written out because an author `display` on `section` would
+ * otherwise beat the browser's own `[hidden]`.
+ */
+.settings-body [data-settings-panel][hidden] {
   display: none;
-}
-.settings-workspace[data-active='workspace'] [data-settings-panel='workspace'],
-.settings-workspace[data-active='alerts'] [data-settings-panel='alerts'],
-.settings-workspace[data-active='accessibility'] [data-settings-panel='accessibility'],
-/* Every section needs a line here or its panel is display:none for good. A
-   test asserts the list is complete, because nothing else does. */
-.settings-workspace[data-active='appearance'] [data-settings-panel='appearance'],
-.settings-workspace[data-active='focus'] [data-settings-panel='focus'],
-.settings-workspace[data-active='review'] [data-settings-panel='review'],
-.settings-workspace[data-active='routine'] [data-settings-panel='routine'],
-.settings-workspace[data-active='reminders'] [data-settings-panel='reminders'],
-.settings-workspace[data-active='retention'] [data-settings-panel='retention'],
-.settings-workspace[data-active='delivery'] [data-settings-panel='delivery'],
-.settings-workspace[data-active='security'] [data-settings-panel='security'] {
-  display: block;
 }
 .settings-body .settings-form {
   gap: 0;
@@ -1586,9 +1566,6 @@
     min-width: 132px;
     min-height: 44px;
   }
-  .settings-nav-row span {
-    display: none;
-  }
   .settings-body {
     padding-inline: 14px;
   }
@@ -1662,6 +1639,7 @@
   background: var(--surface-2);
 }
 .record-list {
+  display: grid;
   gap: 0;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -2600,15 +2578,21 @@ button {
 .settings-form textarea {
   resize: vertical;
 }
-.record-list {
-  display: grid;
-  gap: 10px;
-}
+/*
+ * Archive rows are rows, not cards.
+ *
+ * `.record-list` already draws the box — Records' rows sit in it with a rule
+ * between them. Archive put a second border, radius and background around
+ * every row inside that same box, so three cancelled items read as three
+ * objects in a frame rather than three lines of one list. Same list, same
+ * treatment.
+ */
 .record-card {
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.record-card:last-child {
+  border-bottom: 0;
 }
 .record-card.compact {
   display: flex;
@@ -2617,8 +2601,10 @@ button {
   gap: 14px;
 }
 .record-card h2 {
-  margin: 8px 0 4px;
-  font-size: 16px;
+  /* The 8px above was clearance for the "Cancelled" chip that used to sit on
+     every row of a page of cancelled work. */
+  margin: 0 0 3px;
+  font-size: 15px;
 }
 .record-card h2 a,
 .data-table a,
@@ -2701,6 +2687,52 @@ button {
   margin-top: 3px;
   color: var(--muted);
 }
+/*
+ * The attachment table on a phone.
+ *
+ * `min-width: 760px` put every column on a sideways scroll inside its box: the
+ * file name was legible and the work item, who added it and when were off the
+ * right edge, reachable only by dragging a table nobody expects to drag. The
+ * row stacks instead — name, work item, then who and when on one line. The
+ * open count is a figure nobody acts on, so it keeps to the widths that have
+ * room for it.
+ */
+@media (max-width: 600px) {
+  .data-table {
+    min-width: 0;
+  }
+  .data-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .data-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 10px;
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .data-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .data-table td {
+    padding: 0;
+    border: 0;
+  }
+  .data-table td:nth-child(-n + 2) {
+    grid-column: 1 / -1;
+  }
+  .data-table td:nth-child(3),
+  .data-table td:nth-child(4) {
+    color: var(--muted);
+  }
+  .data-table td:nth-child(5) {
+    display: none;
+  }
+}
 .audit-timeline {
   list-style: none;
   padding: 0;
@@ -2709,7 +2741,7 @@ button {
 .audit-timeline li {
   position: relative;
   display: grid;
-  grid-template-columns: 12px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   padding: 12px 0;
   border-bottom: 1px solid var(--line-soft);
@@ -2722,13 +2754,6 @@ button {
 .audit-timeline small {
   color: var(--muted);
   font-size: var(--text-xs);
-}
-.timeline-dot {
-  width: 9px;
-  height: 9px;
-  margin-top: 5px;
-  border-radius: 50%;
-  background: var(--blue);
 }
 .settings-layout {
   display: grid;
@@ -2860,6 +2885,18 @@ button {
   border: 0;
   border-bottom: 1px solid var(--line);
   border-radius: 0;
+}
+/* The directory's secondary filters, folded behind their own summary. The
+   search box above them is what an administrator came to use. */
+.filterbar.stacked > details {
+  display: grid;
+  gap: 10px;
+}
+.filterbar.stacked > details > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
 }
 .master-list {
   max-height: 650px;
@@ -3055,10 +3092,10 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .audit-timeline li {
-    grid-template-columns: 12px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
   .audit-timeline time {
-    grid-column: 2;
+    grid-column: 1;
   }
   .setting-row {
     grid-template-columns: 1fr;
@@ -8880,9 +8917,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   color: var(--muted);
   font-size: var(--text-xs);
 }
-.utility-meta .btn {
-  color: var(--text);
-}
 .more-admin {
   margin-top: 22px;
 }
@@ -9064,9 +9098,6 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
     min-width: 132px;
     min-height: 44px;
     flex: 0 0 auto;
-  }
-  .settings-nav-row span {
-    display: none;
   }
   .settings-body .settings-form label:not(.check-row),
   .settings-policy-list .setting-row {

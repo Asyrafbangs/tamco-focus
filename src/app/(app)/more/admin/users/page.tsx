@@ -123,12 +123,23 @@ export default async function UsersPage({
       : Promise.resolve({ relationships: [], accessItems: [] }),
   ]);
   const askedDate = /^\d{4}-\d{2}-\d{2}$/.test(params.on ?? '') ? (params.on as string) : '';
+  /* What the folded filters are currently doing, said in the summary so a
+     narrowed list is never mistaken for the whole directory. */
+  const status = params.status && params.status !== 'all' ? params.status : '';
+  const narrowing = [
+    kind === 'users' ? 'registered users' : kind === 'contacts' ? 'email-link contacts' : '',
+    status === 'active'
+      ? 'active accounts'
+      : status === 'deactivated'
+        ? 'deactivated accounts'
+        : '',
+  ].filter(Boolean);
+  const narrowed = narrowing.length > 0;
 
   return (
     <>
       <div className="pagehead">
         <div>
-          <p className="eyebrow">Administrator</p>
           <h1>Identity and access</h1>
           <p>Manage people, module access and reporting relationships in one directory.</p>
         </div>
@@ -163,22 +174,34 @@ export default async function UsersPage({
               <span>Person, employee ID, or email</span>
               <input name="q" defaultValue={params.q} placeholder="Search people" />
             </label>
-            <label>
-              <span>Person type</span>
-              <select name="type" defaultValue={kind}>
-                <option value="all">All</option>
-                <option value="users">Registered users</option>
-                <option value="contacts">Email-link contacts</option>
-              </select>
-            </label>
-            <label>
-              <span>Status</span>
-              <select name="status" defaultValue={params.status ?? 'all'}>
-                <option value="all">All accounts</option>
-                <option value="active">Active</option>
-                <option value="deactivated">Deactivated</option>
-              </select>
-            </label>
+            {/*
+              Folded. The directory is a search box: typing a name is what an
+              administrator came to do, and "Person type" and "Status" were two
+              selects and a third of the pane's height offered before anybody
+              had looked for anyone. Open when either is set, so a narrowed
+              list never looks like the whole one.
+            */}
+            <details open={narrowed}>
+              <summary>
+                {narrowed ? `Narrowed to ${narrowing.join(' and ')}` : 'Narrow the list'}
+              </summary>
+              <label>
+                <span>Person type</span>
+                <select name="type" defaultValue={kind}>
+                  <option value="all">All</option>
+                  <option value="users">Registered users</option>
+                  <option value="contacts">Email-link contacts</option>
+                </select>
+              </label>
+              <label>
+                <span>Status</span>
+                <select name="status" defaultValue={params.status ?? 'all'}>
+                  <option value="all">All accounts</option>
+                  <option value="active">Active</option>
+                  <option value="deactivated">Deactivated</option>
+                </select>
+              </label>
+            </details>
             <button className="btn small" type="submit">
               Apply
             </button>
@@ -253,7 +276,6 @@ export default async function UsersPage({
             <>
               <div className="section-heading">
                 <div>
-                  <p className="eyebrow">New identity</p>
                   <h2>Create user</h2>
                 </div>
               </div>
@@ -263,10 +285,9 @@ export default async function UsersPage({
             <>
               <div className="section-heading">
                 <div>
-                  <p className="eyebrow">{selectedPerson.employeeId}</p>
                   <h2>{selectedPerson.fullName}</h2>
                   <p>
-                    {selectedPerson.status} · created{' '}
+                    {selectedPerson.employeeId} · {selectedPerson.status} · created{' '}
                     {new Intl.DateTimeFormat('en-MY', { dateStyle: 'medium' }).format(
                       new Date(selectedPerson.createdAt),
                     )}
@@ -293,7 +314,6 @@ export default async function UsersPage({
               >
                 <div className="section-heading">
                   <div>
-                    <p className="eyebrow">Access administration</p>
                     <h3 id="module-access-heading">Module access</h3>
                     <p>
                       TAMCO Focus, Finding Management and platform administration are independent.
@@ -332,7 +352,6 @@ export default async function UsersPage({
                 <section className="admin-visibility-section">
                   <div className="section-heading">
                     <div>
-                      <p className="eyebrow">Visibility</p>
                       <h3>What {selectedPerson.fullName.split(' ')[0]} can see</h3>
                       <p>
                         Reporting line and job title decide nothing here. Tick the people this
@@ -356,7 +375,6 @@ export default async function UsersPage({
                 <section className="admin-esh-access-section" aria-labelledby="esh-access-heading">
                   <div className="section-heading">
                     <div>
-                      <p className="eyebrow">Module access</p>
                       <h3 id="esh-access-heading">Finding Management access</h3>
                       <p>
                         Separate from the TAMCO Focus role above. Job title, manager and department
@@ -391,9 +409,11 @@ export default async function UsersPage({
             <>
               <div className="section-heading">
                 <div>
-                  <p className="eyebrow">Email-link contact · no account required</p>
                   <h2>{selectedContact.displayName || selectedContact.email}</h2>
-                  {selectedContact.displayName ? <p>{selectedContact.email}</p> : null}
+                  <p>
+                    {selectedContact.displayName ? `${selectedContact.email} · ` : ''}
+                    Email-link contact · no account required
+                  </p>
                 </div>
               </div>
               <ContactAdministration

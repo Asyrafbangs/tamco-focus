@@ -358,7 +358,6 @@ export default async function OrganisationPage({
     <>
       <div className="pagehead">
         <div>
-          <p className="eyebrow">Administrator</p>
           <h1>Identity and access</h1>
           <p>Manage people, departments and reporting relationships.</p>
         </div>
@@ -505,7 +504,6 @@ export default async function OrganisationPage({
         <section className="section-block" aria-labelledby="org-search-heading">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">{term ? 'Search' : 'Department'}</p>
               <h2 id="org-search-heading">
                 {matches.length} {matches.length === 1 ? 'person' : 'people'}{' '}
                 {term ? `matching “${term}”` : ''}
@@ -568,11 +566,12 @@ export default async function OrganisationPage({
       <section className="section-block" aria-labelledby="org-departments-heading">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Departments</p>
             <h2 id="org-departments-heading">
               {active.length} {active.length === 1 ? 'department' : 'departments'}
             </h2>
-            <p>Each one with its size and who heads it. Archived departments are not listed.</p>
+            {/* The rule only. That each row carries a size and a head is what
+                the rows show. */}
+            <p>Archived departments are not listed.</p>
           </div>
         </div>
         {active.length === 0 ? (
@@ -597,12 +596,8 @@ export default async function OrganisationPage({
       <section className="section-block" aria-labelledby="org-reporting-heading">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Reporting</p>
             <h2 id="org-reporting-heading">Who reports to whom</h2>
-            <p>
-              Starts at the top of the line. Open a branch to load the people under it, rather than
-              drawing the whole organisation at once.
-            </p>
+            <p>Open a branch to load the people under it.</p>
           </div>
         </div>
         {overview.roots.length === 0 ? (
