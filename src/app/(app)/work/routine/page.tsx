@@ -345,6 +345,7 @@ export default async function RoutinePage({
       {canSeeTeam && (
         <WorkspaceTabs
           label="Work scope"
+          level={1}
           items={[
             { href: '/work', label: 'My Work', active: true },
             {
@@ -363,6 +364,7 @@ export default async function RoutinePage({
       <WorkspaceTabs
         label="Work type"
         tone="mode"
+        level={2}
         items={[
           // Counted only where there is something to count: "0 active" and
           // "none due" are badges reporting the absence of news.
@@ -401,41 +403,43 @@ export default async function RoutinePage({
         so this is a switch rather than a role.
       */}
       {canSeeTeam && (
-        <div className="routine-audience" role="group" aria-label="Routine view">
+        <nav className="routine-audience tab-rail tab-rail-2" aria-label="Routine view">
           <Link
             href="/work/routine"
             className={managerPanel ? undefined : 'active'}
-            aria-current={managerPanel ? undefined : 'true'}
+            aria-current={managerPanel ? undefined : 'page'}
           >
-            My routine
+            <span>My routine</span>
           </Link>
           <Link
             href="/work/routine?panel=manager"
             className={managerPanel ? 'active' : undefined}
-            aria-current={managerPanel ? 'true' : undefined}
+            aria-current={managerPanel ? 'page' : undefined}
           >
-            My team
+            {/* "My Team" everywhere else in Work, so "My Team" here. The same
+                destination had two spellings one row apart. */}
+            <span>My Team</span>
           </Link>
-        </div>
+        </nav>
       )}
 
       {managerPanel && !managerPerson && !managerRoutine && (
-        <div className="routine-axis" role="group" aria-label="Read the team by">
+        <nav className="routine-axis tab-rail tab-rail-3" aria-label="Read the team by">
           <Link
             href={`/work/routine?panel=manager&${managerQuery}`}
             className={managerAxis === 'people' ? 'active' : undefined}
-            aria-current={managerAxis === 'people' ? 'true' : undefined}
+            aria-current={managerAxis === 'people' ? 'page' : undefined}
           >
-            People
+            <span>People</span>
           </Link>
           <Link
             href={`/work/routine?panel=manager&by=routines&${managerQuery}`}
             className={managerAxis === 'routines' ? 'active' : undefined}
-            aria-current={managerAxis === 'routines' ? 'true' : undefined}
+            aria-current={managerAxis === 'routines' ? 'page' : undefined}
           >
-            Routines
+            <span>Routines</span>
           </Link>
-        </div>
+        </nav>
       )}
 
       {managerPanel ? (

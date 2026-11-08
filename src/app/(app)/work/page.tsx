@@ -1276,6 +1276,7 @@ export default async function WorkPage({
       {hasTeam && (
         <WorkspaceTabs
           label="Work scope"
+          level={1}
           items={[
             { href: '/work', label: 'My Work', active: scope === 'mine' },
             {
@@ -1293,6 +1294,7 @@ export default async function WorkPage({
         <WorkspaceTabs
           label="Work type"
           tone="mode"
+          level={2}
           items={[
             {
               href: '/work',
@@ -1508,9 +1510,12 @@ export default async function WorkPage({
             section 5 puts it.
           */}
           <div className="team-views">
+            {/* Choosing one of these replaces the whole list below it, which
+                is what level 2 means. The attention filter under it narrows
+                what this one chose, and is level 3. */}
             <FocusTabs
               label="Team views"
-              variant="underline"
+              level={2}
               items={[
                 {
                   href: teamHref(),
@@ -1551,7 +1556,6 @@ export default async function WorkPage({
             <div className="team-attention-filter">
               <FocusTabs
                 label="Team filter"
-                variant="underline"
                 items={[
                   {
                     href: teamHref(),
