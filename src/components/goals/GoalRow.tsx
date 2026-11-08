@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 
 import { RowPrimaryLink, StatusBadge } from '@/components/ui/ParityPrimitives';
 import { GOAL_STATUS_LABELS, goalDisplayHealth, type GoalOverview } from '@/domain/goals';
@@ -78,9 +79,36 @@ export function GoalRow({
         )}
       </div>
 
+      {/*
+        v305 — how far the goal has got, which this column is named for and did
+        not show. It held the NUMBER of success measures: a count of what was
+        agreed, which does not change once the goal is active, so a list of
+        five goals read "1 success measure" five times and said nothing about
+        any of them. `measureProgress` is the figure the database already
+        derives from the agreed measures — current against target for a number,
+        and not started / progressing / achieved for a qualitative one — so the
+        bar is a reading of the thing a goal is actually judged on.
+
+        The bar is `aria-hidden`: it restates the percentage beside it, and two
+        announcements of one figure is worse than one.
+      */}
       <div className="goal-row-progress">
-        <strong>{goal.successMeasureCount}</strong>
-        <span className="sub">success measure{goal.successMeasureCount === 1 ? '' : 's'}</span>
+        <div className="goal-row-progress-figure">
+          <strong>{goal.measureProgress}%</strong>
+          <span className="sub">
+            of {goal.successMeasureCount} success measure
+            {goal.successMeasureCount === 1 ? '' : 's'}
+          </span>
+        </div>
+        <span className="progress-track" aria-hidden="true">
+          <span
+            style={
+              {
+                '--progress': `${Math.max(0, Math.min(100, goal.measureProgress))}%`,
+              } as CSSProperties
+            }
+          />
+        </span>
       </div>
 
       <div className="goal-row-date">

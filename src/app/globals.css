@@ -8719,6 +8719,23 @@ html[data-app-hydrated='true'] .team-focus-sort-apply {
   grid-template-columns: minmax(0, 1fr);
   gap: 3px;
 }
+/* v305 — the figure on one line, the bar under it. Two lines, because the row
+   is 65px and a third would force every goal taller to carry one number. */
+.goal-row-progress-figure {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 6px;
+}
+.goal-row-progress-figure strong {
+  flex: none;
+  font-size: var(--text-xs);
+}
+.goal-row-progress-figure .sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .goal-row-progress .progress-track {
   height: 5px;
 }
