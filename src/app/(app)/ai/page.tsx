@@ -22,14 +22,20 @@ export const dynamic = 'force-dynamic';
 
 export default async function AiPage({ searchParams }: { searchParams: Promise<{ c?: string }> }) {
   const profile = await requireProfile();
+  const config = aiConfig();
   /*
    * v299 — before the reads, not after. `notFound` for the same reason the
    * admin screens use it: a 404 tells somebody without the role that there is
    * nothing here for them, where a 403 would confirm there is something worth
    * asking about. Checked here and not only in the rail, because a hidden
    * link is still a reachable address.
+   *
+   * v301 — the configuration is now read before the gate rather than after
+   * it, because the gate consults it. The named list lives there and not in
+   * the domain, so that who may use this is a setting an owner changes rather
+   * than a deploy an engineer runs.
    */
-  if (!canUseAssistant(profile.role)) notFound();
+  if (!canUseAssistant(profile.role, profile.email, config.allowedEmails)) notFound();
 
   const params = await searchParams;
   const conversationId = /^[0-9a-f-]{36}$/i.test(params.c ?? '') ? params.c! : null;
@@ -37,7 +43,6 @@ export default async function AiPage({ searchParams }: { searchParams: Promise<{
     listConversations(),
     conversationId ? loadThread(conversationId) : Promise.resolve([]),
   ]);
-  const config = aiConfig();
 
   return (
     <>

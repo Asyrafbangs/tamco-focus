@@ -5,6 +5,7 @@ import {
   GROQ_FREE_LIMITS,
   MODEL_RATES,
   OPENAI_TIER_LIMITS,
+  parseAllowedEmails,
   type TierLimits,
 } from '@/domain/ai';
 
@@ -37,6 +38,15 @@ export interface AiConfig {
    * to set a variable the running code no longer reads.
    */
   keyVariable: string;
+  /*
+   * The people named in `AI_ALLOWED_EMAILS`, lowercased and trimmed.
+   *
+   * Empty means nobody was named, and the role rule in `canUseAssistant`
+   * stands. Non-empty means these addresses and no others, whatever role they
+   * hold. v301: the owner wanted it running for one account while the team
+   * waits, and `administrator` is a job rather than a person.
+   */
+  allowedEmails: string[];
   /** Optional OpenAI scoping headers, when the account uses them. */
   organization: string | null;
   project: string | null;
@@ -189,6 +199,7 @@ export function aiConfig(): AiConfig {
     provider,
     apiKey,
     keyVariable: defaults.keyVariable,
+    allowedEmails: parseAllowedEmails(process.env.AI_ALLOWED_EMAILS),
     organization: process.env.OPENAI_ORG_ID?.trim() || null,
     project: process.env.OPENAI_PROJECT_ID?.trim() || null,
     model,

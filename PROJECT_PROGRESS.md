@@ -599,8 +599,28 @@ The v299 disabled notice names whichever variable the running configuration
 actually reads, so a half-finished setup now says what is missing instead of
 naming Groq's key on an OpenAI installation.
 
+**v301 - OpenAI is the default, and the audience is a named list.** Two
+corrections after the owner saw a live screen asking for `GROQ_API_KEY`:
+
+- `.env.example` now sets `AI_PROVIDER=openai` and `AI_MODEL=gpt-5.4-mini`.
+  The old defaults were `groq` and `openai/gpt-oss-120b` - the latter a Groq
+  model whose name merely begins "openai/" - so a fresh installation ran as
+  Groq and said so, two versions after the provider became OpenAI and after an
+  evaluation conducted entirely on OpenAI. `AI_TIER` is now left **empty** so
+  it follows the provider: the literal `free` that was there is true on Groq
+  and a lie on OpenAI, where it would record billed requests as costing
+  nothing - and `AI_DAILY_LIMIT_USD` is enforced against that recorded figure.
+- `AI_ALLOWED_EMAILS` names the accounts that may use the assistant. Empty
+  means the role rule below applies. Set, it becomes the whole rule: those
+  addresses and nobody else, whatever role they hold, so it admits a named
+  manager and keeps out a second administrator. Emptying it widens the
+  rollout with no deploy.
+
+Note for whoever reads this next: a local `.env.local` carrying both keys and
+no `AI_PROVIDER` has been running on **Groq**, not OpenAI, since v297.
+
 **Who may use it: manager and administrator** (`canUseAssistant` in
-`@/domain/ai`). v295 shipped `/ai` with no role gate anywhere, so the v298
+`@/domain/ai`), unless `AI_ALLOWED_EMAILS` names people. v295 shipped `/ai` with no role gate anywhere, so the v298
 merge widened the audience to every signed-in person as a side effect of a
 deploy. Nothing leaked - every tool runs as the asker, against the same RLS
 they already have - but the decision had not been made. v299 enforces it in
