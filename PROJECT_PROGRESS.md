@@ -291,6 +291,17 @@ Do not re-raise these without new information:
   login on a shared or personal phone, and it is now the rule that ends most
   sessions.
 
+## The local gate ran one of three script suites (fixed 8 November 2026)
+
+`npm run verify` named `tests/scripts/storage-backup.test.mjs` by file, so
+`ai-answer-grader` and `environment-key-target` passed the local gate by
+never being executed - while CI ran all three, because `npm run test:unit`
+chains `test:backup`'s glob. A local gate that is a subset of CI reports a
+green CI can contradict. The gate now uses the same glob: 35 tests where it
+ran 18. **When adding a `node:test` suite, check it is actually reached by
+both.** Vitest does not match `tests/scripts` at all; its projects are
+`tests/unit` and `tests/integration` only.
+
 ## Known test brittleness
 
 **Database suite (v258, v259): resolved.** Assertions that counted whole tables
@@ -568,7 +579,7 @@ applied in Production**, together with v289, v290 and v294. Verified 7 November
 latest applied version is `20261107001000 v296_ai_shared_quota`. Nothing is
 waiting for `npx supabase db push --linked`.
 
-## TAMCO AI, merged and dormant (v295-v299)
+## TAMCO AI, configured and limited to named accounts (v295-v301)
 
 Merged to `main` as `fe2f41d` (v295-v298) and `36f9d10` (v299, PR #68) on
 7 November 2026, and deployed to Production - `tamco-focus-gborm9vtu`, built
@@ -619,6 +630,36 @@ corrections after the owner saw a live screen asking for `GROQ_API_KEY`:
 Note for whoever reads this next: a local `.env.local` carrying both keys and
 no `AI_PROVIDER` has been running on **Groq**, not OpenAI, since v297.
 
+**Merged and deployed, 8 November 2026.** v301 as `26ceccb` (PR #70) and the
+v300 eval work as `7fd209b` (PR #71). The main run on the merge commit passed
+the complete suite, browser job included. The owner then set `AI_PROVIDER`,
+`OPENAI_API_KEY` and `AI_ALLOWED_EMAILS` in Vercel, and production was
+redeployed, because **Vercel captures environment variables when a deployment
+is built**: the live build predated the variables and kept running on Groq
+until the redeploy, which is not a fault anybody can see from the dashboard.
+
+**Then `/ai` answered 404 to the owner, and the gate was right.** Production
+holds two accounts under the same name. The signed-in administrator is
+`EHS-001`, whose address is on the `@tamco.com.my` domain; the separate
+`EHS-ADM` "(System Administrator)" record holds the personal address that was
+put on the allow list. So the configured list named a real account - just not
+the one anybody signs in with. The rail hid the entry and the page answered
+404, both correctly, which is also the first live evidence that the v301
+wiring works. **Before changing code over an access complaint, read the
+signed-in account's own email from the directory.** Listing both addresses is
+the safe form.
+
+**The eval grader had three defects of its own, found by review after v300
+landed** (`76ac75b`, in PR #71). `READ_FAILURE` was the one phrase check
+reading the raw answer rather than the normalised one, so it rejected `can't`
+written with a curly apostrophe, `could not` with a non-breaking space, and
+the plain sentence "the read of your finding register failed" - three honest
+admissions graded as the dishonesty it exists to catch, which is the same
+defect the ESH-0101 hyphen taught this suite once already. Rule 9c had it
+pointing the other way, permissive rather than false. `must_not_match`
+deliberately still reads raw, and a test pins that, because those patterns are
+the scenario author's and may rest on characters normalising removes.
+
 **Who may use it: manager and administrator** (`canUseAssistant` in
 `@/domain/ai`), unless `AI_ALLOWED_EMAILS` names people. v295 shipped `/ai` with no role gate anywhere, so the v298
 merge widened the audience to every signed-in person as a side effect of a
@@ -638,10 +679,49 @@ data exists anywhere, so the assistant correctly refuses completion dates),
 the spend ceiling set deliberately, `high` effort measured, and the suite
 re-run against production-shaped data.
 
+**Re-run on OpenAI, 8 November 2026: 14 of 15.** The first run against the
+corrected grader and the v300 prompt - `gpt-5.4-mini`, medium effort, 77,928
+tokens, 5,195 a question, so the default `AI_DAILY_LIMIT_USD=1` buys roughly
+38 questions a day shared across everybody. The one failure is real, not a
+grader artefact: `review-preparation` never called `search_findings`, so a
+performance-review answer left out the finding the person had raised, and
+reported the empty result of an unfixtured `list_team_workload` as "the team
+workload view is empty in the records I can see". An empty read presented as a
+fact is the exact defect rule 9c exists for, arriving by a route the rule does
+not cover.
+
+**The run also exposed a blind spot in the suite.** Seven of the fifteen
+scenarios never called a tool their own fixtures provide - almost always
+`search_findings`. Only `review-preparation` failed for it, and only
+because it happened to carry a `must_reference` that the unread fixture
+supplied; the other six scored as passes on answers built from part of the
+evidence they were given. v300 settled this argument for failed reads, where a
+scenario that did not run its own premise is inconclusive rather than passing,
+and the same reasoning covers any fixtured tool. It belongs as a **reported
+reading rather than a failure**, like the tool-name count, because a fixture
+may legitimately be offered and not needed.
+
+Runs are not committed: `evals/ai/runs/` is gitignored, so the verbatim
+answers live only on the machine that ran them.
+
 ## Exact next action
 
-All four lean-package stages are merged; `main` is green at `490bbc6` and
-carries three later fixes. Production readiness is **PASS on six of seven
+All four lean-package stages are merged. `main` is green at `26ceccb`,
+verified by a complete suite run with the browser job included, and carries
+`db9124b` (PR #62, the environment-refusal hint) on top of it.
+
+**The assistant needs one more configuration change, not a deploy.**
+`AI_ALLOWED_EMAILS` must name the address the owner actually signs in with -
+the `EHS-001` account - and Vercel then needs a redeploy for the new value to
+reach a build. Nothing in the code is waiting.
+
+PR #63 (Stage 3 taxonomy) was closed on 8 November rather than merged. Its
+related-findings half is already on `main` as
+`20261103001000_v279_related_findings.sql`; what it uniquely held is the
+hazard taxonomy, and its migration is dated `20261102007000`, which sits
+below four migrations already applied in production, so it cannot be placed in
+order. The branch remains on the remote: re-cut the taxonomy as a new
+forward-dated migration, with its pgTAP test, whenever that work is scheduled. Production readiness is **PASS on six of seven
 steps**, recorded in `deployment-2026-11-04.md`:
 
 - a production backup of 413 storage objects and 71 tables, restored into
