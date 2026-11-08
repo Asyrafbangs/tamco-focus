@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   AGENT_LIMITS,
   GROQ_FREE_LIMITS,
+  OPENAI_TIER_LIMITS,
   NO_USAGE,
   ToolInputError,
   type AiToolCall,
@@ -131,7 +132,13 @@ function run(overrides: Partial<Parameters<typeof runInvestigation>[0]>) {
   return runInvestigation({
     provider: scripted([answers('ok')]),
     history: [],
-    question: 'What should I do today?',
+    /*
+     * v305 — a question that seeds no opening read, so these tests still
+     * measure the loop rather than the fetch in front of it. "What should I
+     * do today" is now a management question and arrives with its records
+     * already read; the seeding has tests of its own.
+     */
+    question: 'What did my team achieve last week?',
     caller,
     eshAccess: 'none',
     limits: roomy,
@@ -157,11 +164,19 @@ describe('v295 what every request carries before a word of conversation', () => 
      * guessed it at 2,600 against a real 1,251 and refused questions the free
      * tier could have answered; it is now computed from the live prompt and
      * the live tools, and this is the test that notices when either grows.
+     *
+     * v305 — measured against the tier this installation runs on, as its twin
+     * in `ai-domain-v295` already is. The ceiling was Groq's free 8,000 a
+     * minute, which `.env.example` stopped selecting at v301; the assistant
+     * runs on OpenAI's paid tier at 2,000,000. The relationship is still
+     * asserted because it is real on any tier - a prompt and a tool list can
+     * still grow until an investigation cannot afford to read twice - but it
+     * is measured against the real ceiling rather than a historical one.
      */
     const fixed = fixedPromptCost();
     expect(fixed).toBeGreaterThan(200);
     const perStep = fixed + 300 + AGENT_LIMITS.budgetedOutputTokens;
-    expect(perStep * 2).toBeLessThanOrEqual(GROQ_FREE_LIMITS.tokensPerMinute * 0.9);
+    expect(perStep * 2).toBeLessThanOrEqual(OPENAI_TIER_LIMITS.tokensPerMinute * 0.9);
   });
 });
 
@@ -668,9 +683,15 @@ describe('v296 the turn reports what it really did', () => {
    * request and cost two.
    */
   it('counts the groundless-answer nudge, which is a second request', async () => {
+    /*
+     * v305 — on a question whose records are read for it, this path cannot
+     * be reached at all: the evidence is already there, so no answer is
+     * groundless. "Why are my corrective actions delayed" is now one of
+     * those, so the nudge is measured on a question that seeds nothing.
+     */
     const { provider, sent } = recording([answers('Nothing to worry about.')]);
     const { result } = await collect(
-      run({ provider, question: 'Why are my corrective actions delayed?' }),
+      run({ provider, question: 'What did my team achieve last week?' }),
     );
     expect(sent).toHaveLength(2);
     expect(result.providerRequests).toBe(2);

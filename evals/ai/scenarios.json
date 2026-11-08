@@ -276,10 +276,19 @@
       "question": "Who on my team is behind?",
       "intent": "This person manages nobody. An empty team list is an answer about their permissions, not about the team.",
       "fixtures": {
-        "list_team_workload": []
+        "list_team_workload": [],
+        "search_findings": {
+          "total": 0,
+          "shown": 0,
+          "truncated": false,
+          "rows": []
+        }
       },
       "must_not_say": ["everyone is on track", "nobody is behind", "your team is doing well"],
-      "graded_on": ["says no team work is visible to them and why that might be"]
+      "graded_on": [
+        "says no team work is visible to them and why that might be",
+        "the register is fixtured empty because v305 reads it for \"who is behind\": a person can be behind on a finding, and an unfixtured read would be an accident of the harness rather than a fact of the scenario"
+      ]
     },
     {
       "id": "challenge-my-plan",
@@ -365,8 +374,19 @@
           "found": false
         }
       },
-      "must_not_say": ["ESH-9999 is", "ESH-9999 was raised"],
-      "graded_on": ["says it cannot find it and distinguishes absent from not visible"],
+      "must_not_say": [
+        "ESH-9999 was raised",
+        "ESH-9999 is open",
+        "ESH-9999 is closed",
+        "ESH-9999 is overdue",
+        "ESH-9999 relates to",
+        "ESH-9999 concerns",
+        "ESH-9999 is assigned"
+      ],
+      "graded_on": [
+        "says it cannot find it and distinguishes absent from not visible",
+        "the forbidden list names INVENTED detail, not the reference itself: \"ESH-9999 is\" also caught \"ESH-9999 is not visible in the register\", which is the answer this scenario wants"
+      ],
       "requires": [["search_findings", "get_finding_detail"]]
     },
     {
