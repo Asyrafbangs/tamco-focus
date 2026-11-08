@@ -246,22 +246,104 @@ test.describe('typography', () => {
 });
 
 test.describe('touch targets', () => {
-  test('every control is at least 44px tall on mobile', async ({ page }, testInfo) => {
+  /**
+   * v302 — both dimensions, every control, across the product.
+   *
+   * The previous form of this test measured `height` alone, on whichever page
+   * sign-in landed on, over six hand-listed selectors. All three narrowed it
+   * until it could not see what an audit crawl then found: "ESH Home" at
+   * 30px wide, the month pager at 35px wide, and the My Day counts, the
+   * Monthly Plan and Routines scope switches and the Records row actions —
+   * all plain `a` elements, 16-38px, matched by none of those selectors.
+   *
+   * It runs on the mobile project because that is what reports
+   * `pointer: coarse`; a 390px desktop window does not, and under it the
+   * stylesheet's touch rules are inert. An audit run that way reported
+   * `.cal-item-move` as 22px wide when on a real phone it is 44.
+   */
+  const ROUTES = [
+    '/today',
+    '/work',
+    '/work/routine',
+    '/plan',
+    '/goals',
+    '/capture',
+    '/more',
+    '/more/settings',
+    '/more/attachments',
+  ];
+
+  test('every control is at least 44px in both directions on mobile', async ({
+    page,
+  }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile', 'Touch sizing applies to the mobile build.');
     await signIn(page);
 
-    // `.btn.small`, `.why-btn`, and `.theme-toggle` each declare their own
-    // height after `.btn` in the cascade, so a rule on `.btn` alone left them
-    // at 36-42px. This asserts the measured result rather than the rule.
-    const undersized = await page.evaluate(() =>
-      [...document.querySelectorAll('button, a.btn, .mobile-nav a, input, select, .why-btn')]
-        .map((element) => ({
-          label: (element.textContent ?? '').trim().slice(0, 24) || element.tagName,
-          height: Math.round(element.getBoundingClientRect().height),
-        }))
-        .filter((entry) => entry.height > 0 && entry.height < 44),
-    );
+    const undersized: string[] = [];
+    for (const route of ROUTES) {
+      await page.goto(route);
+      await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+      await expect(page.locator('.loading-skeleton')).toHaveCount(0, { timeout: 30_000 });
 
-    expect(undersized).toEqual([]);
+      const found = await page.evaluate(() => {
+        const selector =
+          'a[href], button, input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab], [role=link]';
+        const small: string[] = [];
+        for (const el of Array.from(document.querySelectorAll<HTMLElement>(selector))) {
+          // Hidden inputs behind their own styled button are the correct
+          // pattern, not a small target.
+          if (el.closest('.visually-hidden')) continue;
+          const style = getComputedStyle(el);
+          if (style.visibility === 'hidden' || style.display === 'none') continue;
+          if (parseFloat(style.opacity) === 0) continue;
+
+          // What a finger actually aims at is not always the element itself.
+          // A checkbox is aimed at through the row that labels it, and a row's
+          // title link through the row, which is clickable along its whole
+          // width (v181). Measuring the inline text instead would demand 44px
+          // of every list row and reopen the settled 39px one-line row.
+          const input = el as HTMLInputElement;
+          let measured: HTMLElement = el;
+          const after = getComputedStyle(el, '::after');
+          if (input.type === 'checkbox' || input.type === 'radio') {
+            measured = (el.closest('label') as HTMLElement | null) ?? el;
+          } else if (after.content !== 'none' && after.position === 'absolute') {
+            // The stretched-link pattern: `.row-primary-link::after` is
+            // `position: absolute; inset: 0`, so the row is the hit area and
+            // the 16px of text is only its label. Measure what is pressable.
+            measured = (el.offsetParent as HTMLElement | null) ?? el;
+          }
+          /*
+           * Layout size, not painted size. New Work is a dialog, and while its
+           * opening transform is still running `getBoundingClientRect` returns
+           * the scaled box — every 44px control in it measures 43 and reads as
+           * a defect. v183 settled this: measure `offsetWidth`/`offsetHeight`.
+           */
+          const width = measured.offsetWidth;
+          const height = measured.offsetHeight;
+          if (width === 0 || height === 0) continue;
+          if (width >= 44 && height >= 44) continue;
+          const box = { width, height };
+
+          const name = (
+            el.getAttribute('aria-label') ||
+            el.id ||
+            el.getAttribute('name') ||
+            el.textContent ||
+            el.tagName
+          )
+            .trim()
+            .slice(0, 40);
+          small.push(
+            `${el.tagName.toLowerCase()}${el.className ? `.${String(el.className).trim().split(/\s+/).join('.')}` : ''} "${name}" — ${Math.round(box.width)}×${Math.round(box.height)}px`,
+          );
+        }
+        return [...new Set(small)];
+      });
+
+      undersized.push(...found.map((entry) => `${route} · ${entry}`));
+    }
+
+    expect(undersized, 'controls under 44px on a touch screen').toEqual([]);
   });
 });

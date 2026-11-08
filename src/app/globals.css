@@ -17608,3 +17608,59 @@ span.deadline span.deadline-glyph,
 .ai-ask .btn {
   min-height: 44px;
 }
+
+/* ---------------------------------------------------------------------------
+   v302 — the 44px rule, in both directions, on a touch screen.
+
+   v183 sized controls by viewport width and measured height alone. Three
+   things slipped through, and an audit crawl of every core screen found them:
+
+   1. Width was never checked. "ESH Home" (30px), the month pager (35px) and
+      "Close New Work" (34px) are all 44px tall and too narrow to hit.
+   2. Plain links were never covered. The My Day summary counts, the Monthly
+      Plan and Routines scope switches and the Records tables are `a`
+      elements, not `.btn`, so no rule reached them: 16-38px.
+   3. Width is the wrong question. `.cal-item-move` already sizes itself under
+      `pointer: coarse` and was correct all along; a 390px desktop window
+      reports `pointer: fine`, so a width-based audit reads it as broken.
+
+   Keyed to the pointer, which is what a finger actually is, and placed last so
+   it wins over the compact sizes each component declares for itself.
+   --------------------------------------------------------------------------- */
+
+@media (pointer: coarse) {
+  /* Narrow icon-and-label chrome: tall enough already, too thin to press. */
+  .esh-home-link,
+  .btn.small {
+    min-width: 44px;
+  }
+
+  /* Counts that are links to a list (My Day, New Work). */
+  .summary-item.summary-link,
+  /* Scope switches: "My team" / "Only me", "My routine" / "My team". */
+  .team-focus-filter a,
+  .routine-audience a,
+  /* Anything a record table offers as a row action. */
+  [data-row-action] {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  /* A typed field is a target too. Checkboxes and radios keep their own size:
+     the row that carries the label is what a finger aims at, so that is what
+     grows. */
+  input:not([type='checkbox']):not([type='radio']):not([type='hidden']):not([type='file']) {
+    min-height: 44px;
+  }
+
+  /* A label that wraps its own box is the aim area, whatever it is called:
+     `.check-row` in Settings, `.capture-followup label` on New Work, and
+     anything added later. Stated once, as a rule about the pattern rather
+     than a list of classes to keep up to date. */
+  .check-row,
+  label:has(> input[type='checkbox']),
+  label:has(> input[type='radio']) {
+    min-height: 44px;
+  }
+}

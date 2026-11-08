@@ -319,3 +319,12 @@
     flex: 0 0 auto;
   }
 }
+
+@media (pointer: coarse) {
+  /* v302 — a count that links to a list is a target, not a caption. */
+  .viewAll {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
