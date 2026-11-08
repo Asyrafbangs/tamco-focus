@@ -179,6 +179,111 @@ describe('v303 list_team_activity', () => {
     expect(call[2]).toBe('Asia/Kuala_Lumpur');
   });
 
+  it('counts one person finishing one piece of work once', async () => {
+    /*
+     * v304. The source merges three queries and a task can arrive from two
+     * of them: `task_overview` as the owner's completion, and
+     * `completed_contributions` as that same person's contribution to it.
+     * Counted naively, three finished tasks read as six and the titles
+     * repeat - a figure a head of department would take into a review.
+     * `getTeamActivityCount` has always de-duplicated for this reason, so
+     * this agrees with the screen instead of inventing a second arithmetic.
+     */
+    getTeamActivity.mockResolvedValue({
+      team: TEAM,
+      failed: false,
+      events: [
+        event({ kind: 'completed', taskId: 't-1', taskTitle: 'Replace damaged fence panel' }),
+        event({ kind: 'contribution', taskId: 't-1', taskTitle: 'Replace damaged fence panel' }),
+        event({ kind: 'completed', taskId: 't-2', taskTitle: 'Guard interlock check' }),
+      ],
+    });
+
+    const rows = shownRows((await teamActivity.run({ period: '7' }, caller)).evidence);
+    const nagarajan = rows.find((one) => one.person === 'Nagarajan Munusamy')!;
+
+    expect(nagarajan).toMatchObject({ completed: 2, contributed: 0 });
+    expect(nagarajan.completed_titles).toEqual([
+      'Replace damaged fence panel',
+      'Guard interlock check',
+    ]);
+  });
+
+  it('keeps the completion when the same work also arrives as a contribution', async () => {
+    /*
+     * Order-independent: the queries are concatenated, so whichever ran
+     * first must not decide how the work is described. A completion is the
+     * stronger statement and wins either way round.
+     */
+    for (const events of [
+      [
+        event({ kind: 'contribution', taskId: 't-7', taskTitle: 'Noise survey' }),
+        event({ kind: 'completed', taskId: 't-7', taskTitle: 'Noise survey' }),
+      ],
+      [
+        event({ kind: 'completed', taskId: 't-7', taskTitle: 'Noise survey' }),
+        event({ kind: 'contribution', taskId: 't-7', taskTitle: 'Noise survey' }),
+      ],
+    ]) {
+      getTeamActivity.mockResolvedValue({ team: TEAM, failed: false, events });
+      const rows = shownRows((await teamActivity.run({ period: '7' }, caller)).evidence);
+      expect(rows.find((one) => one.person === 'Nagarajan Munusamy')).toMatchObject({
+        completed: 1,
+        contributed: 0,
+      });
+    }
+  });
+
+  it('reports the latest activity, not whichever query answered first', async () => {
+    /*
+     * v304. `getTeamActivity` concatenates three queries rather than merging
+     * them in time order, so "the first event seen" was whichever query ran
+     * first - which reported a fortnight-old audit event as somebody's most
+     * recent activity, on a screen a manager reads to find out who has gone
+     * quiet.
+     */
+    getTeamActivity.mockResolvedValue({
+      team: TEAM,
+      failed: false,
+      events: [
+        event({ kind: 'note', taskId: 't-3', at: '2026-11-02T01:00:00.000Z' }),
+        event({ kind: 'completed', taskId: 't-4', at: '2026-11-06T08:30:00.000Z' }),
+        event({ kind: 'evidence', taskId: 't-5', at: '2026-11-03T04:00:00.000Z' }),
+      ],
+    });
+
+    const rows = shownRows((await teamActivity.run({ period: '7' }, caller)).evidence);
+    expect(rows.find((one) => one.person === 'Nagarajan Munusamy')!.last_activity).toBe(
+      '2026-11-06T08:30:00.000Z',
+    );
+  });
+
+  it('ignores an event for somebody the caller may not see', async () => {
+    /*
+     * Visibility is the database's answer, not this tool's: `getTeamLoad`
+     * decides who is in `team`. This asserts the tool cannot widen it - an
+     * event whose person is outside that list adds no row and no count, so a
+     * future change to the underlying query cannot leak a stranger's work
+     * into a head of department's summary through the back door.
+     */
+    getTeamActivity.mockResolvedValue({
+      team: TEAM,
+      failed: false,
+      events: [
+        event({ kind: 'completed', personId: 'outsider-9', personName: 'Someone Else' }),
+        event({ kind: 'completed', taskId: 't-2' }),
+      ],
+    });
+
+    const rows = shownRows((await teamActivity.run({ period: '7' }, caller)).evidence);
+    expect(rows.map((one) => one.person)).toEqual(
+      expect.arrayContaining(['Nagarajan Munusamy', 'Nurizzah Aqilah']),
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows.some((one) => one.person === 'Someone Else')).toBe(false);
+    expect(rows.find((one) => one.person === 'Nagarajan Munusamy')).toMatchObject({ completed: 1 });
+  });
+
   it('a period that cannot be read fails, rather than reporting an idle team', async () => {
     getTeamActivity.mockResolvedValue({ team: TEAM, failed: true, events: [] });
     await expect(teamActivity.run({ period: '7' }, caller)).rejects.toThrow(

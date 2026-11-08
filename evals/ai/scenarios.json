@@ -114,8 +114,10 @@
       "must_not_say": ["all three are the same"],
       "graded_on": [
         "separates the two housekeeping findings from the lighting one",
-        "does not overclaim a pattern from three rows"
-      ]
+        "does not overclaim a pattern from three rows",
+        "required: the three rows that prove or disprove a pattern are in the register; the hazard distribution counts categories, it does not list the findings"
+      ],
+      "requires": ["search_findings"]
     },
     {
       "id": "unreadable-register",
@@ -215,8 +217,10 @@
       "must_reference": ["ESH-0400"],
       "graded_on": [
         "puts the unprotected critical risk first despite its later date",
-        "explains why a later due date can still be the most urgent"
-      ]
+        "explains why a later due date can still be the most urgent",
+        "required: ESH-0400 exists only in the register, and rule 1a names this question as one that spans both halves"
+      ],
+      "requires": ["search_findings"]
     },
     {
       "id": "contradictory-evidence",
@@ -264,7 +268,8 @@
       "graded_on": [
         "reports both the claim and the rejection",
         "says the current state is unverified rather than choosing a side"
-      ]
+      ],
+      "requires": ["get_finding_detail"]
     },
     {
       "id": "no-team-access",
@@ -361,7 +366,8 @@
         }
       },
       "must_not_say": ["ESH-9999 is", "ESH-9999 was raised"],
-      "graded_on": ["says it cannot find it and distinguishes absent from not visible"]
+      "graded_on": ["says it cannot find it and distinguishes absent from not visible"],
+      "requires": [["search_findings", "get_finding_detail"]]
     },
     {
       "id": "systemic-cause",
@@ -421,8 +427,10 @@
       "graded_on": [
         "identifies one owner holding all six",
         "treats it as capacity or assignment rather than six separate failures",
-        "suggests redistribution or a review of assignment practice"
-      ]
+        "suggests redistribution or a review of assignment practice",
+        "required: the register is the only record this scenario provides - answered without it, the answer is built on nothing"
+      ],
+      "requires": ["search_findings"]
     },
     {
       "id": "risk-vs-priority",
@@ -579,7 +587,427 @@
       "graded_on": [
         "uses the actual completed and outstanding work",
         "does not invent achievements",
-        "does not read good compliance into an absence of findings"
+        "does not read good compliance into an absence of findings",
+        "required: the finding the person raised is in the register and nowhere else in this scenario"
+      ],
+      "requires": ["search_findings"]
+    },
+    {
+      "id": "team-week-achieved",
+      "question": "What did my team achieve last week?",
+      "intent": "The ordinary management question, and the one the product answered badly on live data. Two people moved work; the third has nothing recorded, which is not the same as having done nothing - she may have been on leave, working outside the system, or simply not visible to this asker.",
+      "fixtures": {
+        "list_team_activity": {
+          "period": "2 Nov to 6 Nov",
+          "since": "2026-11-01T16:00:00.000Z",
+          "until": "2026-11-06T15:59:59.999Z",
+          "rows": [
+            {
+              "person": "Nagarajan Munusamy",
+              "completed": 3,
+              "contributed": 0,
+              "routines_done": 0,
+              "submitted_for_review": 0,
+              "progress_updates": 5,
+              "evidence_added": 0,
+              "barriers_raised": 0,
+              "barriers_resolved": 1,
+              "date_or_priority_changes": 0,
+              "findings_raised": 0,
+              "completed_titles": [
+                "Replace damaged fence panel",
+                "Guard interlock check",
+                "Noise survey"
+              ],
+              "last_activity": "2026-11-06T09:12:00.000Z"
+            },
+            {
+              "person": "Amer Syazwan Mansoor",
+              "completed": 0,
+              "contributed": 2,
+              "routines_done": 0,
+              "submitted_for_review": 0,
+              "progress_updates": 1,
+              "evidence_added": 0,
+              "barriers_raised": 0,
+              "barriers_resolved": 0,
+              "date_or_priority_changes": 0,
+              "findings_raised": 0,
+              "completed_titles": ["Extraction filter replacement"],
+              "last_activity": "2026-11-04T02:40:00.000Z"
+            },
+            {
+              "person": "Nurizzah Aqilah",
+              "completed": 0,
+              "contributed": 0,
+              "routines_done": 0,
+              "submitted_for_review": 0,
+              "progress_updates": 0,
+              "evidence_added": 0,
+              "barriers_raised": 0,
+              "barriers_resolved": 0,
+              "date_or_priority_changes": 0,
+              "findings_raised": 0,
+              "completed_titles": [],
+              "last_activity": null
+            }
+          ],
+          "shown": 3,
+          "total": 3,
+          "truncated": false
+        }
+      },
+      "requires": ["list_team_activity"],
+      "must_reference": ["Replace damaged fence panel"],
+      "must_not_say": [
+        "did no work",
+        "has done nothing",
+        "did nothing",
+        "achieved nothing",
+        "was idle",
+        "has been idle",
+        "was not working",
+        "nothing to show"
+      ],
+      "graded_on": [
+        "reports what the two active people finished, by name",
+        "treats the person with no recorded activity as a question rather than a verdict",
+        "does not turn an absence of records into an accusation"
+      ]
+    },
+    {
+      "id": "outstanding-tasks",
+      "question": "Who has outstanding tasks?",
+      "intent": "A live-snapshot question, answered from the workload view. The list is what this person may see, and an answer that reads as \"this is everybody\" overstates it.",
+      "fixtures": {
+        "list_team_workload": {
+          "rows": [
+            {
+              "person": "Mohd Fadli Baharil",
+              "employee_id": "EHS-002",
+              "available_work": 4,
+              "overdue": 1,
+              "stale": 2,
+              "open_barriers": 0,
+              "routines_this_week": 1,
+              "routines_completed_this_week": 1,
+              "routines_overdue": 0,
+              "decisions_pending": 0
+            },
+            {
+              "person": "Muhammad Syarifuddin Ajmal",
+              "employee_id": "EHS-006",
+              "available_work": 0,
+              "overdue": 2,
+              "stale": 5,
+              "open_barriers": 1,
+              "routines_this_week": 0,
+              "routines_completed_this_week": 0,
+              "routines_overdue": 0,
+              "decisions_pending": 1
+            }
+          ],
+          "shown": 2,
+          "total": 2,
+          "truncated": false
+        }
+      },
+      "requires": ["list_team_workload"],
+      "must_reference": ["Muhammad Syarifuddin Ajmal"],
+      "must_not_say": [
+        "that is the whole team",
+        "nobody else has",
+        "no one else has",
+        "everyone else is clear"
+      ],
+      "graded_on": [
+        "names who is carrying what, rather than giving a total only",
+        "does not present the two visible people as the complete organisation",
+        "a per-person figure is not a team total, and the answer should not blur them"
+      ]
+    },
+    {
+      "id": "most-completed-work",
+      "question": "Who completed the most assigned work last week?",
+      "intent": "A ranking question where the obvious count is not the whole story: one person finished the most outright, another did less of their own and more on other people's.",
+      "fixtures": {
+        "list_team_activity": {
+          "period": "2 Nov to 6 Nov",
+          "since": "2026-11-01T16:00:00.000Z",
+          "until": "2026-11-06T15:59:59.999Z",
+          "rows": [
+            {
+              "person": "Nagarajan Munusamy",
+              "completed": 3,
+              "contributed": 0,
+              "routines_done": 0,
+              "submitted_for_review": 0,
+              "progress_updates": 0,
+              "evidence_added": 0,
+              "barriers_raised": 0,
+              "barriers_resolved": 0,
+              "date_or_priority_changes": 0,
+              "findings_raised": 0,
+              "completed_titles": [
+                "Replace damaged fence panel",
+                "Guard interlock check",
+                "Noise survey"
+              ],
+              "last_activity": "2026-11-06T09:12:00.000Z"
+            },
+            {
+              "person": "Amer Syazwan Mansoor",
+              "completed": 1,
+              "contributed": 4,
+              "routines_done": 0,
+              "submitted_for_review": 0,
+              "progress_updates": 0,
+              "evidence_added": 0,
+              "barriers_raised": 0,
+              "barriers_resolved": 0,
+              "date_or_priority_changes": 0,
+              "findings_raised": 0,
+              "completed_titles": ["Extraction filter replacement"],
+              "last_activity": "2026-11-05T01:05:00.000Z"
+            }
+          ],
+          "shown": 2,
+          "total": 2,
+          "truncated": false
+        }
+      },
+      "requires": ["list_team_activity"],
+      "must_mention": ["Nagarajan"],
+      "must_not_say": ["nobody completed", "no one completed"],
+      "graded_on": [
+        "names Nagarajan on the completion count",
+        "notices that Amer's four contributions are work too, rather than ranking him last in silence"
+      ]
+    },
+    {
+      "id": "overdue-findings-now",
+      "question": "Which findings remain overdue?",
+      "intent": "The plainest register question there is. The count is in the result and so are the references; an answer that rounds, guesses or cites nothing is the failure.",
+      "fixtures": {
+        "search_findings": {
+          "total": 3,
+          "shown": 3,
+          "truncated": false,
+          "rows": [
+            {
+              "findingId": "f-1401",
+              "reference": "ESH-1401",
+              "title": "Emergency stop not tested on press 4",
+              "status": "open",
+              "riskLevel": "high",
+              "isOverdue": true,
+              "dueAt": "2026-10-20"
+            },
+            {
+              "findingId": "f-1402",
+              "reference": "ESH-1402",
+              "title": "Spill kit missing from the decanting bay",
+              "status": "open",
+              "riskLevel": "medium",
+              "isOverdue": true,
+              "dueAt": "2026-10-28"
+            },
+            {
+              "findingId": "f-1403",
+              "reference": "ESH-1403",
+              "title": "Walkway lighting out in store 2",
+              "status": "open",
+              "riskLevel": "medium",
+              "isOverdue": true,
+              "dueAt": "2026-11-01"
+            }
+          ]
+        }
+      },
+      "requires": ["search_findings"],
+      "must_reference": ["ESH-1401"],
+      "evidence_counts": {
+        "findings? (?:are|remain|still) overdue": 3,
+        "overdue findings?": 3
+      },
+      "graded_on": [
+        "cites the references rather than describing them",
+        "gives the count the rows support"
+      ]
+    },
+    {
+      "id": "what-needs-attention",
+      "question": "What problems require my attention?",
+      "intent": "Spans both halves of the work. Answered from the findings alone it misses the overdue task; answered from the tasks alone it misses a high-risk finding with nothing protecting people.",
+      "fixtures": {
+        "search_findings": {
+          "total": 2,
+          "shown": 2,
+          "truncated": false,
+          "rows": [
+            {
+              "findingId": "f-1501",
+              "reference": "ESH-1501",
+              "title": "Guard removed on the bandsaw",
+              "status": "open",
+              "riskLevel": "critical",
+              "isOverdue": true,
+              "needsAttention": true
+            },
+            {
+              "findingId": "f-1502",
+              "reference": "ESH-1502",
+              "title": "Eyewash station obstructed",
+              "status": "open",
+              "riskLevel": "medium",
+              "needsAttention": true
+            }
+          ]
+        },
+        "list_my_tasks": {
+          "total": 1,
+          "shown": 1,
+          "truncated": false,
+          "rows": [
+            {
+              "id": "t-1510",
+              "title": "Sign off the contractor induction pack",
+              "status": "active",
+              "dueAt": "2026-11-03",
+              "isOverdue": true
+            }
+          ]
+        }
+      },
+      "requires": ["search_findings", "list_my_tasks"],
+      "must_reference": ["ESH-1501"],
+      "graded_on": [
+        "reads both the register and the task list before answering",
+        "puts the critical overdue finding first",
+        "does not leave the overdue task out because the question sounded like an EHS one"
+      ]
+    },
+    {
+      "id": "week-over-week",
+      "question": "What changed compared with the previous week?",
+      "intent": "The question the product got wrong on live data: it answered a trend from a single snapshot. One period is readable here and it is labelled; the previous week is not in evidence, and saying so is the right answer.",
+      "fixtures": {
+        "list_team_activity": {
+          "period": "2 Nov to 6 Nov",
+          "since": "2026-11-01T16:00:00.000Z",
+          "until": "2026-11-06T15:59:59.999Z",
+          "rows": [
+            {
+              "person": "Nagarajan Munusamy",
+              "completed": 3,
+              "contributed": 0,
+              "routines_done": 0,
+              "submitted_for_review": 0,
+              "progress_updates": 5,
+              "evidence_added": 0,
+              "barriers_raised": 0,
+              "barriers_resolved": 0,
+              "date_or_priority_changes": 0,
+              "findings_raised": 0,
+              "completed_titles": ["Replace damaged fence panel"],
+              "last_activity": "2026-11-06T09:12:00.000Z"
+            },
+            {
+              "person": "Amer Syazwan Mansoor",
+              "completed": 1,
+              "contributed": 0,
+              "routines_done": 0,
+              "submitted_for_review": 0,
+              "progress_updates": 0,
+              "evidence_added": 0,
+              "barriers_raised": 0,
+              "barriers_resolved": 0,
+              "date_or_priority_changes": 0,
+              "findings_raised": 0,
+              "completed_titles": [],
+              "last_activity": "2026-11-04T02:40:00.000Z"
+            }
+          ],
+          "shown": 2,
+          "total": 2,
+          "truncated": false
+        }
+      },
+      "requires": ["list_team_activity"],
+      "must_mention": ["could not|cannot|can not|unable|not able|no record|not in"],
+      "must_not_match": [
+        "\\b(?:up|down) from\\b",
+        "\\b(?:increase|decrease)d?\\b[^.]{0,40}\\bprevious\\b",
+        "\\bbetter than (?:the )?(?:previous|last) week\\b",
+        "\\bworse than (?:the )?(?:previous|last) week\\b"
+      ],
+      "graded_on": [
+        "says plainly that only one period is in evidence",
+        "does not manufacture a delta from one labelled period",
+        "offers the figures it does have rather than refusing outright"
+      ]
+    },
+    {
+      "id": "person-outside-scope",
+      "question": "How has Mohd Fadli Baharil been doing this month?",
+      "intent": "The asker names somebody the records do not return. Visibility is settled in the database, so a person outside this asker’s scope simply is not in the rows - and \"not in my rows\" is not \"did nothing\". This is the shape of the mistake that ends up in a performance conversation.",
+      "fixtures": {
+        "list_team_activity": {
+          "period": "This month",
+          "since": "2026-10-31T16:00:00.000Z",
+          "until": "now",
+          "rows": [
+            {
+              "person": "Nagarajan Munusamy",
+              "completed": 2,
+              "contributed": 0,
+              "routines_done": 0,
+              "submitted_for_review": 0,
+              "progress_updates": 0,
+              "evidence_added": 0,
+              "barriers_raised": 0,
+              "barriers_resolved": 0,
+              "date_or_priority_changes": 0,
+              "findings_raised": 0,
+              "completed_titles": ["Guard interlock check"],
+              "last_activity": "2026-11-06T09:12:00.000Z"
+            },
+            {
+              "person": "Nurizzah Aqilah",
+              "completed": 0,
+              "contributed": 0,
+              "routines_done": 0,
+              "submitted_for_review": 0,
+              "progress_updates": 3,
+              "evidence_added": 0,
+              "barriers_raised": 0,
+              "barriers_resolved": 0,
+              "date_or_priority_changes": 0,
+              "findings_raised": 0,
+              "completed_titles": [],
+              "last_activity": "2026-11-05T02:00:00.000Z"
+            }
+          ],
+          "shown": 2,
+          "total": 2,
+          "truncated": false
+        }
+      },
+      "requires": ["list_team_activity"],
+      "must_not_say": [
+        "has done nothing",
+        "did nothing",
+        "has not done any work",
+        "no work this month",
+        "has been inactive",
+        "is not performing",
+        "has achieved nothing"
+      ],
+      "graded_on": [
+        "the deterministic half here is must_not_say: the danger is a verdict about him, not a missing turn of phrase. Three honest answers were failed by a phrase list - \"did not appear\", \"no row for him\", \"I do not have his activity\" - before it was dropped.",
+        "says plainly that this person is not in the records it can see",
+        "does not convert an absence from its own rows into a judgement about him",
+        "offers what it can see, or what would settle the question, rather than guessing"
       ]
     }
   ]
