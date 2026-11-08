@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * v305 — the Monthly Plan and the Goals workspace, guarded.
+ * v315 — the Monthly Plan and the Goals workspace, guarded.
  *
  * Each test here exists because the audit crawl found the defect it describes
  * on a screen that every other gate reported as green. They assert measured,

@@ -4,7 +4,7 @@ import { join, relative, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * v306 — no heading is announced twice on the More screens.
+ * v316 — no heading is announced twice on the More screens.
  *
  * Every page under `/more` opened with a tracked, uppercase label stating what
  * the heading below it already stated: "MORE" over "Records and settings",
@@ -28,7 +28,7 @@ function sources(directory: string): string[] {
   });
 }
 
-describe('v306 More page heads', () => {
+describe('v316 More page heads', () => {
   it('no eyebrow sits directly above a heading', () => {
     const files = sources(AREA);
     expect(files.length, 'no components were found under /more').toBeGreaterThan(5);

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * v305 — My Day and Work name their blocks with headings, not with capitals.
+ * v314 — My Day and Work name their blocks with headings, not with capitals.
  *
  * Every block on these screens was introduced by a tracked-out uppercase
  * label: "DAILY WORKSPACE" above "My Day", "WORK" above "My Work", "DECISIONS"

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 /**
- * v305 — the tab rails in Work are one control at three weights.
+ * v314 — the tab rails in Work are one control at three weights.
  *
  * My Work stacked three rows of tabs in three unrelated idioms — an enclosed
  * segmented track, a grey filled pill, and navy-filled folder tabs — and

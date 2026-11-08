@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * v305 — a settings section cannot be opened and show nothing.
+ * v316 — a settings section cannot be opened and show nothing.
  *
  * The panels used to be revealed by an enumerated list in the stylesheet, one
  * `[data-active='x'] [data-settings-panel='x']` selector per section. A section
@@ -50,7 +50,7 @@ function panelRules() {
   return rules;
 }
 
-describe('v305 settings panels', () => {
+describe('v316 settings panels', () => {
   it('the stylesheet names no section, so none can be left out of a list', () => {
     const rules = panelRules();
     expect(rules.length, 'no rule in the stylesheet addresses a settings panel').toBeGreaterThan(0);

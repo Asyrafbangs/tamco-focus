@@ -134,10 +134,10 @@ test.describe('settings sections', () => {
    * This used to guard an enumerated list of
    * `[data-active='x'] [data-settings-panel='x']` rules, where a section added
    * without its line was `display: none` for good - navigable, present in the
-   * DOM, and invisible. v305 took the list away: `SettingsPanel` sets `hidden`
+   * DOM, and invisible. v316 took the list away: `SettingsPanel` sets `hidden`
    * from the open section the workspace already holds, `page.tsx` builds its
    * panels as a `Record<SettingsKey, ReactNode>` so a section without one is a
-   * type error, and `tests/unit/settings-sections-v305.test.ts` asserts both
+   * type error, and `tests/unit/settings-sections-v316.test.ts` asserts both
    * shapes without a browser.
    *
    * It stays because none of that measures a panel. A rule elsewhere in a
