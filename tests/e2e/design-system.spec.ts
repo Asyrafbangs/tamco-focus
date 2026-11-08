@@ -313,12 +313,26 @@ test.describe('touch targets', () => {
     await signIn(page);
 
     const undersized: string[] = [];
+    /*
+     * What the crawl actually looked at, per route.
+     *
+     * This test reported green for as long as it has existed and then failed
+     * the moment a gate run happened to leave attachments behind, because
+     * `/more/attachments` is empty on a clean database and a route with no
+     * rows has nothing to measure. A count of zero is not a pass, so each
+     * route has to yield controls, and the stretched-link branch — the one
+     * that was measuring the wrong box — has to run somewhere.
+     */
+    const inspected = new Map<string, number>();
+    let stretched = 0;
     for (const route of ROUTES) {
       await page.goto(route);
       await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
       await expect(page.locator('.loading-skeleton')).toHaveCount(0, { timeout: 30_000 });
 
       const found = await page.evaluate(() => {
+        let seen = 0;
+        let rows = 0;
         const selector =
           'a[href], button, input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab], [role=link]';
         const small: string[] = [];
@@ -326,6 +340,7 @@ test.describe('touch targets', () => {
           // Hidden inputs behind their own styled button are the correct
           // pattern, not a small target.
           if (el.closest('.visually-hidden')) continue;
+          seen += 1;
           const style = getComputedStyle(el);
           if (style.visibility === 'hidden' || style.display === 'none') continue;
           if (parseFloat(style.opacity) === 0) continue;
@@ -341,10 +356,27 @@ test.describe('touch targets', () => {
           if (input.type === 'checkbox' || input.type === 'radio') {
             measured = (el.closest('label') as HTMLElement | null) ?? el;
           } else if (after.content !== 'none' && after.position === 'absolute') {
-            // The stretched-link pattern: `.row-primary-link::after` is
-            // `position: absolute; inset: 0`, so the row is the hit area and
-            // the 16px of text is only its label. Measure what is pressable.
-            measured = (el.offsetParent as HTMLElement | null) ?? el;
+            /*
+             * The stretched-link pattern: `.row-primary-link::after` is
+             * `position: absolute; inset: 0`, so the row is the hit area and
+             * the 16px of text is only its label. Measure what is pressable.
+             *
+             * That box is the containing block of the pseudo-element — the
+             * nearest ancestor that is positioned — and NOT `offsetParent`.
+             * For anything inside a table `offsetParent` is the nearest
+             * `td`/`th`/`table` whether or not it is positioned, so the ten
+             * rows of `/more/attachments` reported 338x39px: the width of the
+             * first cell and the height of its two lines of text. The row
+             * itself is `.interactive-row { position: relative }` and measures
+             * 362x127px on a phone, which is what a finger lands on. Walk up
+             * to it instead.
+             */
+            let block = el.parentElement;
+            while (block && getComputedStyle(block).position === 'static') {
+              block = block.parentElement;
+            }
+            measured = block ?? (el.offsetParent as HTMLElement | null) ?? el;
+            rows += 1;
           }
           /*
            * Layout size, not painted size. New Work is a dialog, and while its
@@ -371,12 +403,19 @@ test.describe('touch targets', () => {
             `${el.tagName.toLowerCase()}${el.className ? `.${String(el.className).trim().split(/\s+/).join('.')}` : ''} "${name}" — ${Math.round(box.width)}×${Math.round(box.height)}px`,
           );
         }
-        return [...new Set(small)];
+        return { small: [...new Set(small)], seen, rows };
       });
 
-      undersized.push(...found.map((entry) => `${route} · ${entry}`));
+      inspected.set(route, found.seen);
+      stretched += found.rows;
+      undersized.push(...found.small.map((entry) => `${route} · ${entry}`));
     }
 
+    expect(
+      [...inspected].filter(([, count]) => count === 0).map(([route]) => route),
+      'routes where the crawl measured no controls at all',
+    ).toEqual([]);
+    expect(stretched, 'stretched row links measured').toBeGreaterThan(0);
     expect(undersized, 'controls under 44px on a touch screen').toEqual([]);
   });
 });
