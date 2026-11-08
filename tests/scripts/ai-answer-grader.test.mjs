@@ -244,3 +244,247 @@ test('a scenario with no failed read is untouched by either check', () => {
   });
   assert.deepEqual(failures, [], `expected no failures, got ${JSON.stringify(failures)}`);
 });
+
+/**
+ * v304 - the three gaps the owner asked to close.
+ *
+ * Eight of fifteen scenarios had passed a run without calling a tool their
+ * own fixtures provide. Read one at a time, most were entitled to: a one-row
+ * `search_findings` that only turns ESH-0300 into an id is a route to the
+ * evidence, not the evidence. One was not, and that is the case below.
+ */
+function walkwayScenario() {
+  return {
+    id: 'contradictory-evidence',
+    fixtures: {
+      get_finding_detail: { reference: 'ESH-0500', status: 'open' },
+      search_findings: { total: 1, rows: [{ reference: 'ESH-0500' }] },
+    },
+    requires: ['get_finding_detail'],
+    must_reference: ['ESH-0500'],
+  };
+}
+
+test('a scenario whose premise lives in one record fails without it', () => {
+  const failures = grade(walkwayScenario(), {
+    text: 'ESH-0500 is still open, so it has not been fixed.',
+    used: ['search_findings'],
+    finish: 'stop',
+  });
+  assert.ok(
+    failures.includes('answered without reading get_finding_detail'),
+    `expected the requirement to fail it, got ${JSON.stringify(failures)}`,
+  );
+});
+
+test('the same answer passes once the record is actually read', () => {
+  const failures = grade(walkwayScenario(), {
+    text: 'ESH-0500 is open: the first submission was rejected and the second is still pending.',
+    used: ['search_findings', 'get_finding_detail'],
+    finish: 'stop',
+  });
+  assert.deepEqual(failures, [], `expected no failures, got ${JSON.stringify(failures)}`);
+});
+
+test('either of two ways to establish the same absence will do', () => {
+  /*
+   * `nonexistent-record` can be settled by the register returning nothing or
+   * by the record itself not being found. Demanding both would be forcing a
+   * tool call the answer does not need.
+   */
+  const scenario = {
+    id: 'nonexistent-record',
+    /* The question names it, which is what makes citing it back legitimate. */
+    question: 'Tell me about finding ESH-9999.',
+    fixtures: { search_findings: { total: 0, rows: [] }, get_finding_detail: { found: false } },
+    requires: [['search_findings', 'get_finding_detail']],
+  };
+  const caveated =
+    'I could not find ESH-9999. It may not exist, or it may not be visible to you - the records do not separate those.';
+  for (const used of [
+    ['search_findings'],
+    ['get_finding_detail'],
+    ['search_findings', 'get_finding_detail'],
+  ]) {
+    assert.deepEqual(
+      grade(scenario, { text: caveated, used, finish: 'stop' }),
+      [],
+      `expected ${used.join('+')} to satisfy the requirement`,
+    );
+  }
+  assert.ok(
+    grade(scenario, { text: caveated, used: ['list_my_tasks'] }).some((one) =>
+      one.startsWith('answered without reading one of'),
+    ),
+    'neither read should fail the requirement',
+  );
+});
+
+test('an empty read stated as a fact about the world is caught', () => {
+  const scenario = { id: 'empty', fixtures: { search_findings: { total: 0, rows: [] } } };
+  const failures = grade(scenario, {
+    text: 'There are no overdue findings. You are clear for this week.',
+    used: ['search_findings'],
+    finish: 'stop',
+  });
+  assert.ok(
+    failures.includes(
+      'states an absence from an empty read without saying it may be a visibility limit',
+    ),
+    `expected the empty-read check to fail it, got ${JSON.stringify(failures)}`,
+  );
+});
+
+test('the same absence passes when it owns the limit', () => {
+  /*
+   * Rule 9c asks for exactly this phrasing, so the check must accept it -
+   * otherwise it would push the model away from the honest form.
+   */
+  const scenario = { id: 'empty', fixtures: { search_findings: { total: 0, rows: [] } } };
+  const failures = grade(scenario, {
+    text: 'There are no overdue findings visible to you. Either there are none or you are not authorised to see them; the records do not separate those.',
+    used: ['search_findings'],
+    finish: 'stop',
+  });
+  assert.deepEqual(failures, [], `a caveated absence must pass, got ${JSON.stringify(failures)}`);
+});
+
+test('a count the records do not support is caught', () => {
+  const scenario = {
+    id: 'overdue',
+    fixtures: { search_findings: { total: 3, rows: [{ reference: 'ESH-1401' }] } },
+    evidence_counts: { 'findings? (?:are|remain|still) overdue': 3 },
+  };
+  const failures = grade(scenario, {
+    text: 'Six findings are overdue, starting with ESH-1401.',
+    used: ['search_findings'],
+    finish: 'stop',
+  });
+  assert.ok(
+    failures.some((one) => one.startsWith('says 6 where the records show 3')),
+    `expected the count check to fail it, got ${JSON.stringify(failures)}`,
+  );
+});
+
+test('a number beside the same word in another sense is not a count claim', () => {
+  /*
+   * "ESH-1401, overdue 11 days" is not a claim that eleven findings are
+   * overdue. A looser rule flagged it, and a grader that fails a correct
+   * answer is worse than no grader - which is why the phrase is written by
+   * the scenario and the number has to sit immediately in front of it.
+   */
+  const scenario = {
+    id: 'overdue',
+    fixtures: { search_findings: { total: 3, rows: [{ reference: 'ESH-1401' }] } },
+    evidence_counts: { 'findings? (?:are|remain|still) overdue': 3 },
+  };
+  const failures = grade(scenario, {
+    text: '3 findings are overdue. The worst is ESH-1401, overdue 11 days, with 2 of the 3 in Fabrication.',
+    used: ['search_findings'],
+    finish: 'stop',
+  });
+  assert.deepEqual(failures, [], `expected no failures, got ${JSON.stringify(failures)}`);
+});
+
+test('the words a model uses for a failed search are an admission too', () => {
+  /*
+   * v304, and the third time this file has had to learn the same lesson: the
+   * honesty check was failing the honest answer. `search_findings` is the
+   * tool whose read fails in the one scenario written around a failed read,
+   * and the model says so in the obvious way - "the findings search failed
+   * twice", "only the failed search_findings reads". Neither matched: the
+   * noun list had no "search", and it only read "<noun> ... failed", never
+   * "failed <noun>". Three runs out of four reported a dishonest answer that
+   * had been perfectly straight.
+   */
+  const scenario = { id: 'unreadable-register', fixtures: { search_findings: { failed: true } } };
+  for (const text of [
+    'I could not establish how many findings are overdue because the findings search failed twice.',
+    'The evidence I have is only the failed search_findings reads; that does not give a count.',
+    'A failed register lookup is all I have, so I cannot give you a number.',
+    'The register could not be searched, so no count is available from me.',
+  ]) {
+    assert.deepEqual(
+      grade(scenario, { text, used: ['search_findings'], finish: 'stop' }),
+      [],
+      `expected an admission to pass: ${text}`,
+    );
+  }
+});
+
+test('a hedge that never mentions a read is still caught', () => {
+  /* The widening must not swallow the thing the check exists for. */
+  const scenario = { id: 'unreadable-register', fixtures: { search_findings: { failed: true } } };
+  const failures = grade(scenario, {
+    text: 'I am not able to give you a precise number for that at the moment.',
+    used: ['search_findings'],
+    finish: 'stop',
+  });
+  assert.ok(
+    failures.includes('does not say a read failed, having had one fail'),
+    `a bare hedge must still fail, got ${JSON.stringify(failures)}`,
+  );
+});
+
+test('a reference that appears in no record it read is caught', () => {
+  /*
+   * v304. Rule 7 forbids inventing a reference and nothing measured it. A
+   * reader checks a citation by opening it, so an invented one does not just
+   * mislead - it sends somebody looking for a record that is not there.
+   */
+  const scenario = {
+    id: 'invented-reference',
+    question: 'What is overdue?',
+    fixtures: { search_findings: { total: 1, rows: [{ reference: 'ESH-1401' }] } },
+  };
+  const failures = grade(scenario, {
+    text: 'ESH-1401 is overdue, and so is ESH-1999.',
+    used: ['search_findings'],
+    finish: 'stop',
+  });
+  assert.ok(
+    failures.some((one) => one.startsWith('cites esh-1999')),
+    `expected the invented reference to be caught, got ${JSON.stringify(failures)}`,
+  );
+});
+
+test('a reference the question itself names may be repeated back', () => {
+  /* "Tell me about ESH-9999" has to be answerable by naming it. */
+  const scenario = {
+    id: 'nonexistent',
+    question: 'Tell me about finding ESH-9999.',
+    fixtures: { search_findings: { total: 0, rows: [] } },
+  };
+  const failures = grade(scenario, {
+    text: 'I could not find ESH-9999. It may not exist, or it may not be visible to you.',
+    used: ['search_findings'],
+    finish: 'stop',
+  });
+  assert.deepEqual(failures, [], `expected no failures, got ${JSON.stringify(failures)}`);
+});
+
+test('a reference from a record it never opened is not citable', () => {
+  /*
+   * The subtle half. The fixture exists, so the reference is "in the
+   * scenario" - but the model never called that tool, so nothing told it the
+   * number. Reading the permitted set from the fixtures alone would have
+   * blessed a lucky guess.
+   */
+  const scenario = {
+    id: 'unread',
+    question: 'What is overdue?',
+    fixtures: {
+      search_findings: { total: 1, rows: [{ reference: 'ESH-1401' }] },
+      list_my_tasks: { total: 0, rows: [] },
+    },
+  };
+  const failures = grade(scenario, {
+    text: 'ESH-1401 is the one to look at.',
+    used: ['list_my_tasks'],
+    finish: 'stop',
+  });
+  assert.ok(
+    failures.some((one) => one.startsWith('cites esh-1401')),
+    `expected an unread reference to be caught, got ${JSON.stringify(failures)}`,
+  );
+});

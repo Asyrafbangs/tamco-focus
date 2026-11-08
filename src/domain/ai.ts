@@ -447,6 +447,7 @@ export const TOOL_LABELS: Record<string, string> = {
   get_task_detail: 'a task in full',
   list_steps_i_owe: 'steps you owe',
   list_team_workload: 'the team’s work',
+  list_team_activity: 'what the team has been doing',
   search_findings: 'the finding register',
   get_finding_detail: 'a finding in full',
   list_verification_queue: 'the verification queue',
@@ -789,6 +790,133 @@ export function stepsExhausted(step: number, startedAt: number, now: number): bo
  * conversations is for recognising your own question, and a paraphrase is
  * harder to recognise than the thing you typed.
  */
+/* ------------------------------------------------- the opening reads -- */
+
+/** A read the orchestration performs before the model is asked anything. */
+export interface OpeningRead {
+  name: string;
+  input: Record<string, unknown>;
+  /** Why it is mandatory, in the words the model is shown. */
+  why: string;
+}
+
+/**
+ * v305 — the records a question cannot be answered without, fetched for it.
+ *
+ * Measured over twelve full runs: the finding register was read in six of the
+ * sixteen scenarios that provide it. "What should I prioritise today", "what
+ * needs my attention" and "help me prepare for my review" were answered from
+ * the task list alone, so a finding the person owned was simply left out of
+ * their priorities. `review-preparation` and `workload-conflict` failed that
+ * way in almost every run.
+ *
+ * Three rounds of persuasion had already been tried: rule 1a has named these
+ * questions since v295, v303 narrowed the team tool's description, and v304
+ * put the register first in the tool list and told the task tools in their
+ * own descriptions that findings are not in them. Three runs before that
+ * change and three after were indistinguishable - 18, 18, 18 and 19, 18, 17.
+ *
+ * The conclusion is not that the model is disobedient. It is that a read the
+ * product considers MANDATORY should not be left to a choice made under a
+ * step budget. So the loop performs it, and the model starts the question
+ * already holding the evidence.
+ *
+ * Deliberately small, and deliberately keyword-driven rather than clever:
+ *
+ *   * it is inspectable - anybody can read these words and say what will be
+ *     fetched, which a learned classifier would not allow;
+ *   * it is cheap - at most three reads, through the same tools, the same
+ *     authorization and the same row limits as a read the model asks for;
+ *   * it fetches nothing for a question that does not need it. "What did my
+ *     team achieve last week" and "who has outstanding tasks" match nothing
+ *     here, and go to the model with no seeded evidence at all.
+ */
+const FINDING_REFERENCE = /\besh[-\s]?\d{3,4}\b/i;
+const FINDING_WORDS =
+  /\b(finding|findings|esh|hazard|hazards|register|corrective|action|actions|verification|verified|unsafe|guard|guards|risk|risks|incident|incidents|audit|non-?conformance)\b/i;
+/*
+ * Rule 1a's own list, which is where this should have been read from in the
+ * first place. The prompt has said since v295 that "what should I do", "what
+ * should I prioritise", "why is nothing moving" and "am I behind" need the
+ * task tools AND the finding tools - so the seeding has to fetch both for
+ * exactly those, or it enforces half of a rule the product already states.
+ *
+ * "Why has nothing moved on my findings this month" is the case that found
+ * the gap: seeded with the register alone, the answer was built from it and
+ * the task side was never looked at.
+ */
+const MANAGEMENT_WORDS =
+  /\b(priorit\w*|attention|behind|workload|work load|my plate|focus|review|what should i|what needs|most urgent|catch up|prepare)\b|\b(?:nothing|anything)\s+(?:has\s+)?(?:moved|moving|happened|progressed)\b|\bwhy\s+(?:has|is|are)\s+(?:nothing|my)\b/i;
+/** A question about ONE record, where the summary row is not the answer. */
+const SINGLE_RECORD =
+  /\b(?:has|have|is|was|did|are)\b[^?.]{0,80}?\b(?:fixed|closed|done|resolved|verified|completed|sorted|actioned)\b|\btell me about\b|\bsummaris|\bsummariz/i;
+
+export function openingReads(question: string): OpeningRead[] {
+  const asked = question ?? '';
+  const reference = FINDING_REFERENCE.exec(asked)?.[0];
+  const findings = FINDING_WORDS.test(asked);
+  const management = MANAGEMENT_WORDS.test(asked);
+  const reads: OpeningRead[] = [];
+
+  if (reference || findings || management) {
+    reads.push({
+      name: 'search_findings',
+      /*
+       * A named reference is looked up by text across every state, because
+       * the question is about that record and it may well be closed. Without
+       * one the open register is the useful default: it is what "do I have a
+       * problem" means, and `filter: 'all'` would spend the row limit on
+       * history.
+       */
+      input: reference ? { filter: 'all', search: reference } : { filter: 'open', search: '' },
+      why: reference
+        ? `the question names ${reference.toUpperCase()}`
+        : 'the question is about findings, priorities or what needs attention, and the register is where those live',
+    });
+  }
+
+  /*
+   * The person's own tasks, for a question about their plate. Not for one
+   * that names a record - "is ESH-0900 a problem" is about the finding, not
+   * about what else they are carrying.
+   */
+  if (management && !reference) {
+    reads.push({
+      name: 'list_my_tasks',
+      input: {},
+      why: 'the question is about this person’s own workload, which is half tasks and half findings',
+    });
+  }
+
+  return reads;
+}
+
+/**
+ * The detail read that a summary row cannot stand in for.
+ *
+ * `contradictory-evidence` asks whether a finding was fixed while the
+ * rejected verification that answers it sits inside the detail. Answered from
+ * the register row - status `open` - the reply looks right and rests on
+ * nothing, which is why the scenario passed three runs without ever opening
+ * the record.
+ *
+ * Only when exactly one finding came back, because with several the model has
+ * to choose which matters and that is a judgement, not a fetch.
+ */
+export function detailFollowUp(
+  question: string,
+  findingIds: readonly string[],
+): OpeningRead | null {
+  const asked = question ?? '';
+  if (findingIds.length !== 1) return null;
+  if (!SINGLE_RECORD.test(asked) && !FINDING_REFERENCE.test(asked)) return null;
+  return {
+    name: 'get_finding_detail',
+    input: { finding_id: findingIds[0] },
+    why: 'the question is about this one record, and a register row does not carry its submissions, evidence or decisions',
+  };
+}
+
 export function titleFrom(question: string): string {
   const flat = question.replace(/\s+/g, ' ').trim();
   if (flat.length === 0) return 'New conversation';

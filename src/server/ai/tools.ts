@@ -18,7 +18,10 @@ import {
   listRegister,
   listVerificationQueue,
 } from '@/server/esh/queries';
+import { resolvePeriod } from '@/domain/period';
+import type { ActivityEvent } from '@/domain/team-activity';
 import { getMyTasks, getStepsIOwe, getTaskDetail, getTeamLoad } from '@/server/queries';
+import { getTeamActivity } from '@/server/team-activity';
 
 /**
  * Everything the assistant can read — and nothing else.
@@ -91,7 +94,7 @@ const myWorkSchema = z.object({});
 const myWork: AgentTool = {
   name: 'list_my_tasks',
   description:
-    "The signed-in person's own tasks: title, status, due date, priority and who else is involved. Use this before answering anything about their workload, their deadlines or what they should do next.",
+    'The signed-in person\'s own tasks: title, status, due date, priority and who else is involved. Use this before answering anything about their workload, their deadlines or what they should do next. It holds TASKS ONLY — ESH findings are separate records and none of them are in here, so for "what should I prioritise", "what needs my attention", "am I behind" or anything that weighs the person\'s whole workload, read the finding register as well before answering.',
   schema: myWorkSchema,
   inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   async run(input, caller) {
@@ -157,7 +160,7 @@ const owedSchema = z.object({
 const owedSteps: AgentTool = {
   name: 'list_steps_i_owe',
   description:
-    "Steps this person owes on other people's tasks within a horizon, with their dates. This is the half of somebody's workload that does not appear in their own task list.",
+    "Steps this person owes on other people's tasks within a horizon, with their dates. This is the half of somebody's workload that does not appear in their own task list. Still tasks: an ESH finding assigned to them is not here either, so a question about everything on their plate needs the finding register too.",
   schema: owedSchema,
   inputSchema: {
     type: 'object',
@@ -208,7 +211,7 @@ const teamSchema = z.object({});
 const teamWorkload: AgentTool = {
   name: 'list_team_workload',
   description:
-    'Workload for each person on the team this person may see: how much work is available to them, how much is overdue, how much has gone stale, open barriers, this week’s routines and decisions waiting on them. Empty for somebody who manages nobody — that is an answer, not a failure. Use it to check whether a delay is one person or a queue.',
+    'The team’s workload AS IT STANDS RIGHT NOW, one row per person the caller may see: work available to them, overdue, stale, open barriers, this week’s routines, decisions waiting on them. It holds no history — for what anybody DID over a week, a month or any past period, including "what have they achieved", use list_team_activity instead. Empty for somebody who manages nobody — that is an answer, not a failure.',
   schema: teamSchema,
   inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   async run(input, caller) {
@@ -230,6 +233,195 @@ const teamWorkload: AgentTool = {
     return {
       evidence: asEvidence('list_team_workload', capped),
       sources: [],
+      rows: capped.shown,
+    };
+  },
+};
+
+const PERIOD_KEYS = ['7', '14', '30', '60', '90', 'this-month', 'last-month', 'all'] as const;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+const activitySchema = z.object({
+  period: z.enum(PERIOD_KEYS).default('7'),
+  from: z.string().regex(DATE).optional(),
+  to: z.string().regex(DATE).optional(),
+});
+
+/**
+ * v303 — what the team actually did, which nothing could answer before.
+ *
+ * A head of department asked "tell me about my team load last week, what have
+ * they achieved so far" and got a true but useless reply: a snapshot of right
+ * now, and "I cannot establish last week's load from this record alone". It
+ * was right. `team_load_summary` holds live counts and no history, so no
+ * amount of prompting could have produced the answer — the data was not on
+ * the table.
+ *
+ * It was on the table elsewhere. `getTeamActivity` is what the My Team screen
+ * reads: audit events plus completions, over a period, scoped by the same
+ * `getTeamLoad` every other team view uses, so this makes no new claim about
+ * who may see whose work.
+ *
+ * **Aggregated per person rather than listed as events.** A week of six
+ * people runs to hundreds of events and `maxRowsPerTool` is 25, so a raw list
+ * would be truncated into a misleading sample - and the question is "what did
+ * they achieve", which is a count and a few titles, not a log. People with no
+ * recorded activity are returned with zeros rather than left out, because
+ * "nobody recorded anything for X last week" is usually the finding.
+ */
+const teamActivity: AgentTool = {
+  name: 'list_team_activity',
+  description:
+    'What each PERSON on the team did over a past period: work completed, contributions to others’ work, routines done, items submitted for review, progress updates, evidence added, barriers raised and resolved, plus the titles of what they completed. Use it ONLY when the question is about OTHER PEOPLE over a PAST period: "what has my team achieved", "how did last week go", "who has been quiet". Do not call it for what the caller should do or prioritise, for their own work, or for why one task or finding is late — those are answered from their task list and the finding register, and a step spent here is a step not spent reading the register. Period is one of 7, 14, 30, 60, 90, this-month, last-month, all (days back unless named), or give from and to as YYYY-MM-DD for an exact range such as one past week. A person with nothing recorded is returned with zeros.',
+  schema: activitySchema,
+  inputSchema: {
+    type: 'object',
+    properties: {
+      period: {
+        type: 'string',
+        enum: [...PERIOD_KEYS],
+        description: 'Days back, or a named period. Ignored when from/to are given.',
+      },
+      from: { type: 'string', description: 'Start date, YYYY-MM-DD, inclusive' },
+      to: { type: 'string', description: 'End date, YYYY-MM-DD, inclusive' },
+    },
+    additionalProperties: false,
+  },
+  async run(input, caller) {
+    const { period: key, from, to } = parse(activitySchema, input, 'list_team_activity');
+    const period = resolvePeriod(
+      from || to ? 'custom' : key,
+      from,
+      to,
+      new Date(),
+      '7',
+      caller.timezone,
+    );
+    const activity = await getTeamActivity(caller.userId, period, caller.timezone);
+    /*
+     * Thrown, not reported as an empty week. The loop hands the model a
+     * failed tool, which rule 9 obliges it to say out loud; returning zeros
+     * would tell somebody their team did nothing.
+     */
+    if (activity.failed) throw new Error('TEAM_ACTIVITY_UNAVAILABLE');
+
+    const tally = new Map<
+      string,
+      {
+        person: string;
+        completed: number;
+        contributed: number;
+        routines_done: number;
+        submitted_for_review: number;
+        progress_updates: number;
+        evidence_added: number;
+        barriers_raised: number;
+        barriers_resolved: number;
+        date_or_priority_changes: number;
+        findings_raised: number;
+        completed_titles: string[];
+        last_activity: string | null;
+      }
+    >();
+    for (const person of activity.team) {
+      tally.set(person.userId, {
+        person: person.fullName,
+        completed: 0,
+        contributed: 0,
+        routines_done: 0,
+        submitted_for_review: 0,
+        progress_updates: 0,
+        evidence_added: 0,
+        barriers_raised: 0,
+        barriers_resolved: 0,
+        date_or_priority_changes: 0,
+        findings_raised: 0,
+        completed_titles: [],
+        last_activity: null,
+      });
+    }
+
+    /*
+     * One person finishing one piece of work counts once.
+     *
+     * The source merges three queries, and a task can arrive from two of
+     * them: `task_overview` as the owner's completion and
+     * `completed_contributions` as that same person's contribution to it.
+     * Counted naively, somebody who finished three tasks reads as having
+     * finished six, and the titles list repeats itself - a figure a head of
+     * department would take to a review. `getTeamActivityCount` has always
+     * de-duplicated for exactly this reason ("one person on one task for an
+     * afternoon is one card"), so this agrees with the screen rather than
+     * inventing a second arithmetic.
+     *
+     * Ranked rather than first-wins, because the events arrive in query
+     * order: completion outranks a routine occurrence, which outranks a
+     * contribution, so the stronger description of the same work survives
+     * whichever query reported it first.
+     */
+    const RANK: Record<string, number> = { completed: 3, routine: 2, contribution: 1 };
+    const achievements = new Map<
+      string,
+      { personId: string; kind: string; event: ActivityEvent }
+    >();
+
+    const finished: SourceLink[] = [];
+    for (const one of activity.events) {
+      const row = tally.get(one.personId);
+      if (!row) continue;
+      if (RANK[one.kind]) {
+        const key = `${one.personId}|${one.taskId}`;
+        const held = achievements.get(key);
+        if (!held || (RANK[one.kind] ?? 0) > (RANK[held.kind] ?? 0)) {
+          achievements.set(key, { personId: one.personId, kind: one.kind, event: one });
+        }
+      } else if (one.kind === 'submitted') row.submitted_for_review += 1;
+      else if (one.kind === 'step' || one.kind === 'note') row.progress_updates += 1;
+      else if (one.kind === 'evidence') row.evidence_added += 1;
+      else if (one.kind === 'blocked') row.barriers_raised += 1;
+      else if (one.kind === 'unblocked') row.barriers_resolved += 1;
+      else if (one.kind === 'due' || one.kind === 'priority') row.date_or_priority_changes += 1;
+      else if (one.kind === 'finding') row.findings_raised += 1;
+      /*
+       * The latest, by comparison. The three queries are concatenated rather
+       * than merged in time order, so "the first one seen" is whichever query
+       * ran first - which would have reported a fortnight-old audit event as
+       * somebody's most recent activity.
+       */
+      if (!row.last_activity || one.at > row.last_activity) row.last_activity = one.at;
+    }
+
+    for (const { personId, kind, event: one } of achievements.values()) {
+      const row = tally.get(personId);
+      if (!row) continue;
+      if (kind === 'completed') row.completed += 1;
+      else if (kind === 'routine') row.routines_done += 1;
+      else row.contributed += 1;
+      if (row.completed_titles.length < 4) row.completed_titles.push(one.taskTitle);
+      if (finished.length < 8 && one.taskId) finished.push(taskSource(one.taskId, one.taskTitle));
+    }
+
+    const rows = [...tally.values()].sort(
+      (a, b) =>
+        b.completed +
+          b.contributed +
+          b.routines_done -
+          (a.completed + a.contributed + a.routines_done) || a.person.localeCompare(b.person),
+    );
+    const capped = capRows(rows, AGENT_LIMITS.maxRowsPerTool);
+    return {
+      /*
+       * The period travels with the rows. Without it the model has counts and
+       * no range to attribute them to, and "last week" is exactly the thing
+       * the answer has to be precise about.
+       */
+      evidence: asEvidence('list_team_activity', {
+        period: period.label,
+        since: period.since,
+        until: period.until ?? 'now',
+        ...capped,
+      }),
+      sources: finished,
       rows: capped.shown,
     };
   },
@@ -458,11 +650,27 @@ export const AGENT_TOOLS: readonly AgentTool[] = [
   myWork,
   taskDetail,
   owedSteps,
-  teamWorkload,
   searchFindings,
   findingDetail,
   verificationQueue,
   hazardPatterns,
+  /*
+   * v304 — the team views come last, and the order is not cosmetic.
+   *
+   * Measured across three full runs: the finding register was read in six of
+   * the sixteen scenarios that provide it, and `list_team_activity` was
+   * called in two to four scenarios that do not need it - including "why are
+   * six actions late" and "help me prepare for my review", where the answer
+   * then missed the finding entirely. Adding a ninth tool made the register
+   * harder to reach, which is a cost of the feature rather than a bug in it.
+   *
+   * Tool order is one of the few levers that does not spend prompt budget or
+   * compete for the model's attention as another instruction. The register
+   * and its detail are what most questions here need; the team views are for
+   * the minority that ask about other people.
+   */
+  teamWorkload,
+  teamActivity,
 ];
 
 export function toolByName(name: string): AgentTool | undefined {
