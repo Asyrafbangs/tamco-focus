@@ -57,7 +57,7 @@
 
 .sectionHead h3 {
   margin-top: 2px;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .sectionHead p:last-child {

@@ -371,7 +371,7 @@ export default async function PlanPage({
           >
             ←
           </Link>
-          <strong style={{ fontSize: 16 }}>{monthLabel}</strong>
+          <strong className="plan-month">{monthLabel}</strong>
           <Link
             href={`/plan?month=${next}${scopeSuffix}`}
             className="btn small"

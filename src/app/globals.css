@@ -4012,6 +4012,13 @@ fieldset:disabled label,
   margin-bottom: 12px;
   flex-wrap: wrap;
 }
+/* v305 — the month, which is the heading of the grid under it. It was an
+   inline `style={{ fontSize: 16 }}` on the element, and an inline literal is
+   the one place the personal text-size setting cannot reach: a reader on
+   Larger got a bigger page and the same 16px month. */
+.plan-month {
+  font-size: calc(16px * var(--font-scale));
+}
 
 .calendar {
   display: grid;
@@ -4251,6 +4258,12 @@ fieldset:disabled label,
   color: var(--muted);
   cursor: pointer;
   opacity: 0;
+  /* v305 — and unpressable while it is unseen. Its sizing and its reveal are
+     settled and unchanged; this is the other half of being hidden. An element
+     at `opacity: 0` paints nothing and still intercepts the click, so an
+     invisible 22px square sat beside every movable due date and opened "Move
+     due date" for anybody whose pointer landed on it. */
+  pointer-events: none;
   transition:
     opacity var(--motion-fast) var(--motion-easing),
     border-color var(--motion-fast) var(--motion-easing),
@@ -4261,6 +4274,7 @@ fieldset:disabled label,
 .cal-entry:hover > .cal-item-move,
 .cal-entry:focus-within > .cal-item-move {
   opacity: 1;
+  pointer-events: auto;
 }
 .cal-item-move:hover {
   border-color: var(--line);
@@ -4272,6 +4286,7 @@ fieldset:disabled label,
 @media (hover: none) {
   .cal-item-move {
     opacity: 1;
+    pointer-events: auto;
   }
 }
 @media (pointer: coarse) {

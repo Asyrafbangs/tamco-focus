@@ -304,7 +304,10 @@
 
 .goalHeroTop > div > strong {
   margin: 0 0 4px !important;
-  font-size: 26px !important;
+  /* v305 — through the personal text-size scale, like every other size. A
+     literal `26px` is the same height whether the reader chose Default or
+     Larger. */
+  font-size: calc(26px * var(--font-scale)) !important;
   line-height: 1;
 }
 
@@ -488,7 +491,7 @@
 }
 
 .milestoneHeader h3 {
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .milestoneHeader p {
@@ -558,7 +561,7 @@
   top: -43px;
   right: 0;
   height: 38px;
-  font-size: 13px;
+  font-size: calc(13px * var(--font-scale));
   font-weight: 750;
 }
 
@@ -670,7 +673,7 @@
 }
 
 :global(.goal-detail-drawer .task-detail-head-actions > .ghost:last-child)::before {
-  font-size: 14px;
+  font-size: calc(14px * var(--font-scale));
   content: '×';
 }
 

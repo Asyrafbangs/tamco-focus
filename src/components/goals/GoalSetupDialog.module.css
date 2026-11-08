@@ -112,7 +112,7 @@
 
 .formalWeight strong {
   margin-top: 3px;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .formalWeight p {
