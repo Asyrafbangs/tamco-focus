@@ -13233,6 +13233,118 @@ span.deadline span.deadline-glyph,
   font-weight: 700;
   text-decoration: underline;
 }
+
+/*
+ * v303 — the band the board now opens with.
+ *
+ * Two halves that have to read as one statement: the counted figure, keeping
+ * the `esh-signal` shape it has everywhere else on this page so the counter
+ * invariant is visibly the same rule, and the findings that figure is about.
+ * Side by side where there is room, stacked where there is not, and the band
+ * takes its colour from whether anybody is exposed rather than from the digit.
+ */
+.esh-exposure {
+  display: grid;
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.esh-exposure[data-state='exposed'] {
+  border-color: color-mix(in srgb, var(--red) 40%, var(--line));
+  background: var(--red-bg);
+}
+.esh-exposure .esh-signal {
+  min-height: 0;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+.esh-exposure[data-state='exposed'] .esh-signal strong {
+  color: var(--red);
+}
+.esh-exposure-body {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 18px;
+}
+.esh-exposure-words {
+  margin: 0;
+  color: var(--heading);
+  font-size: calc(15px * var(--font-scale));
+  font-weight: 650;
+}
+.esh-exposure-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.esh-exposure-list a {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+.esh-exposure-list a:hover,
+.esh-exposure-list a:focus-visible {
+  border-color: color-mix(in srgb, var(--blue) 35%, var(--line));
+}
+.esh-exposure-list strong {
+  color: var(--blue);
+  font-size: 12px;
+}
+.esh-exposure-list b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.esh-exposure-list small {
+  color: var(--muted);
+}
+.esh-exposure-more {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.esh-exposure-more a {
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: underline;
+}
+@media (max-width: 720px) {
+  .esh-exposure {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .esh-exposure .esh-signal {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+/*
+ * The age beneath a counter. Written as `.esh-signal p.esh-signal-dwell`
+ * deliberately: `.esh-signal p` above is (0,1,1) and a bare class is (0,1,0),
+ * so the shared declarations there would otherwise win and this would
+ * silently do nothing.
+ */
+.esh-signal p.esh-signal-dwell {
+  font-weight: 650;
+}
+.esh-signal p.esh-signal-dwell[data-exception='true'] {
+  color: var(--amber);
+}
 .esh-pattern-empty {
   max-width: 760px;
 }

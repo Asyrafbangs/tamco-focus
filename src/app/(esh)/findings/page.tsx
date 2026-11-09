@@ -2,8 +2,15 @@ import Link from 'next/link';
 
 import { HeldNoticesRelease } from '@/components/esh/HeldNoticesRelease';
 import { OperationalHealth } from '@/components/esh/OperationalHealth';
-import { PRIORITY_LABELS, type EshAccess } from '@/domain/esh-findings';
+import { daysOverdue, PRIORITY_LABELS, type EshAccess } from '@/domain/esh-findings';
 import { reportingWords } from '@/domain/esh-intake';
+import {
+  exposureWords,
+  rankExposure,
+  todayStages,
+  type Exposure,
+  type Stage,
+} from '@/domain/esh-today';
 import { requireProfile } from '@/lib/supabase/server';
 import { requireEshAccess } from '@/server/esh/access';
 import {
@@ -54,17 +61,21 @@ export default async function FindingsTodayPage({
 
 async function today(access: EshAccess, timeZone: string) {
   const now = new Date();
-  const [dashboard, attention, verification, health, rollout, intake, qrIntake] = await Promise.all(
-    [
+  /*
+   * v303 - the register read twice more, for the two things the board could
+   * only state as bare numbers.
+   *
+   * Both are ordered by `due_at` ascending with nulls last, so the first page
+   * holds the longest overdue: the age this board prints is the real maximum
+   * and not the maximum of a page. They go in the same `Promise.all` as the
+   * rest, because a board that reads nine things in sequence is a board
+   * somebody waits for.
+   */
+  const page0 = { search: '', departmentId: null, closedUntil: null, page: 0 } as const;
+  const [dashboard, attention, verification, health, rollout, intake, qrIntake, exposed, pastDue] =
+    await Promise.all([
       getDashboard(),
-      listRegister({
-        filter: 'attention',
-        search: '',
-        departmentId: null,
-        closedSince: now.toISOString(),
-        closedUntil: null,
-        page: 0,
-      }),
+      listRegister({ filter: 'attention', closedSince: now.toISOString(), ...page0 }),
       listVerificationQueue(),
       getOperationalHealth(),
       access.canCoordinate ? getRolloutStatus() : Promise.resolve(ROLLOUT_NOT_ASKED),
@@ -75,8 +86,9 @@ async function today(access: EshAccess, timeZone: string) {
        */
       access.canCoordinate ? listReportIntake() : Promise.resolve(null),
       getQrIntakeStatus(),
-    ],
-  );
+      listRegister({ filter: 'unprotected', closedSince: now.toISOString(), ...page0 }),
+      listRegister({ filter: 'overdue', closedSince: now.toISOString(), ...page0 }),
+    ]);
 
   /*
    * v291 - null, not nought, when the figures could not be read.
@@ -110,6 +122,52 @@ async function today(access: EshAccess, timeZone: string) {
   const awaiting = dashboard.data?.awaitingVerification ?? verification.length;
   const incoming = intake?.rows ?? [];
 
+  /*
+   * v303 - what the board leads with, and the ages under each queue.
+   *
+   * The counters this replaces answered "how many". Nobody opens this screen
+   * to find that out: they open it to learn whether anybody is working
+   * unprotected, and whose desk the rest is sitting on. A failed read stays
+   * `null` all the way through `todayStages`, so a stage that could not be
+   * read says so instead of claiming to be empty.
+   */
+  const exposures = exposed.failed
+    ? []
+    : rankExposure(
+        exposed.rows.map((row) => ({
+          findingId: row.findingId,
+          actionId: row.actionId,
+          reference: row.reference,
+          title: row.title,
+          riskLevel: row.riskLevel,
+          departmentName: row.departmentName,
+          location: row.location,
+          dueAt: row.dueAt,
+          isOverdue: row.isOverdue,
+        })),
+        timeZone,
+        now,
+      );
+  const stages = todayStages({
+    /*
+     * A reader who may not triage gets no tile at all, rather than a nought
+     * for work they are not allowed to see (§43.3). A reader who may, but
+     * whose read failed, gets the tile with no figure in it.
+     */
+    triage: intake
+      ? {
+          total: intake.failed ? null : intake.total,
+          oldest: intake.failed ? null : earliest(incoming.map((row) => row.receivedAt)),
+        }
+      : null,
+    pastDue: { total: overdue, oldest: earliest(pastDue.rows.map((row) => row.dueAt)) },
+    checking: { total: awaiting, oldest: earliest(verification.map((row) => row.submittedAt)) },
+    openTotal: dashboard.failed ? null : (dashboard.data?.openFindings ?? 0),
+    oldestOpenDays: dashboard.failed ? null : (dashboard.data?.oldestOpenDays ?? null),
+    timeZone,
+    now,
+  });
+
   return (
     <>
       <div className="pagehead esh-today-head">
@@ -132,61 +190,32 @@ async function today(access: EshAccess, timeZone: string) {
        * used to link to every open finding, so a reader who clicked three
        * arrived at forty rows with no way to tell which three were meant.
        */}
+      {/*
+       * v303 - the board leads with who is unprotected, by name.
+       *
+       * "Significant risks without verified protection: 1" is a count of
+       * something nobody can act on without clicking, and because the same
+       * finding is usually the overdue one as well, a single problem read as
+       * two numbers out of four. The figure keeps its own link, so the rule
+       * that every counter lands on a list holding exactly it still holds -
+       * but it now sits with the findings it counts instead of beside them.
+       */}
+      <ExposureBand
+        value={protection}
+        exposures={exposures}
+        total={exposed.failed ? null : exposed.total}
+        unassessed={unassessed}
+      />
+
+      {/*
+       * How much is waiting, and how long it has been waiting there. A count
+       * says there is work; an age says the work is stuck, which is the thing
+       * a daily board is actually read for.
+       */}
       <section className="esh-signals esh-today-signals" aria-label="Today’s queues">
-        {intake && !intake.failed ? (
-          <Signal
-            label="New reports"
-            value={incoming.length}
-            detail="Private reports waiting for triage"
-            href="/findings/intake"
-            exception={incoming.length > 0}
-          />
-        ) : (
-          <Signal
-            label="New reports"
-            value={intake ? null : 0}
-            detail={
-              intake ? 'The intake queue could not be read' : 'Triage needs coordinator access'
-            }
-            disabled
-          />
-        )}
-        <Signal
-          label="Significant risks without verified protection"
-          value={protection}
-          detail={
-            protection === null
-              ? 'This figure could not be read — it is not a count of none'
-              : 'Open, high or critical, nothing verified in place'
-          }
-          href={protection === null ? undefined : '/findings/register?filter=unprotected'}
-          exception={protection !== null && protection > 0}
-          disabled={protection === null}
-          note={
-            unassessed
-              ? `${unassessed} open finding${unassessed === 1 ? ' has' : 's have'} no risk level yet, so ${unassessed === 1 ? 'it is' : 'they are'} in neither figure.`
-              : undefined
-          }
-        />
-        <Signal
-          label="Overdue owner actions"
-          value={overdue}
-          detail={
-            overdue === null
-              ? 'This figure could not be read — it is not a count of none'
-              : 'Owner action past its due date'
-          }
-          href={overdue === null ? undefined : '/findings/register?filter=overdue'}
-          exception={overdue !== null && overdue > 0}
-          disabled={overdue === null}
-        />
-        <Signal
-          label="Waiting for ESH verification"
-          value={awaiting}
-          detail="Submitted proof needs a decision"
-          href="/findings?queue=verification"
-          exception={awaiting > 0}
-        />
+        {stages.map((stage) => (
+          <Signal key={stage.key} stage={stage} />
+        ))}
       </section>
 
       <OperationalHealth reading={health} />
@@ -295,6 +324,55 @@ async function today(access: EshAccess, timeZone: string) {
               {incoming.length > TODAY_PREVIEW && (
                 <p className="esh-register-foot">
                   <Link href="/findings/intake">{incoming.length} waiting · see them all</Link>
+                </p>
+              )}
+            </>
+          )}
+        </section>
+        {/*
+         * v303 - the column v301 emptied, holding the work nobody could see.
+         *
+         * Today showed two queues, and both were ESH's own. The corrections
+         * sitting with an owner - the ones a coordinator can chase but cannot
+         * finish - existed only as the number "Overdue owner actions", so the
+         * question this page's own subtitle asks, who owes the next move, had
+         * an answer for one side of the work and a digit for the other.
+         */}
+        <section className="esh-form-card" aria-labelledby="today-waiting-title">
+          <div className="esh-section-head">
+            <div>
+              <h2 id="today-waiting-title">Waiting on someone else</h2>
+              <p>You can chase these. You cannot finish them.</p>
+            </div>
+            <Link href="/findings/register?filter=overdue">Open register</Link>
+          </div>
+          {pastDue.failed ? (
+            <div className="notice error" role="alert">
+              <strong>The overdue list could not be read</strong>
+              <p>No rows are shown rather than a list that might be incomplete.</p>
+            </div>
+          ) : pastDue.rows.length === 0 ? (
+            <QueueEmpty
+              title="Nothing is past its date"
+              detail="Every correction with an owner is still inside the date it was given."
+            />
+          ) : (
+            <>
+              <ul className="esh-today-list">
+                {pastDue.rows.slice(0, TODAY_PREVIEW).map((row) => (
+                  <WaitingRow
+                    key={row.actionId ?? row.findingId}
+                    row={row}
+                    now={now}
+                    timeZone={timeZone}
+                  />
+                ))}
+              </ul>
+              {pastDue.total > TODAY_PREVIEW && (
+                <p className="esh-register-foot">
+                  <Link href="/findings/register?filter=overdue">
+                    {pastDue.total} past due · see them all
+                  </Link>
                 </p>
               )}
             </>
@@ -417,41 +495,167 @@ async function verificationQueue(access: EshAccess, query: Query, timeZone: stri
   );
 }
 
-function Signal({
-  label,
-  value,
-  detail,
-  href,
-  exception = false,
-  disabled = false,
-  note,
-}: {
-  label: string;
-  /** `null` where the figure is not known, which is not the same as none. */
-  value: number | null;
-  detail: string;
-  href?: string;
-  exception?: boolean;
-  disabled?: boolean;
-  /** What the figure above does not cover, where leaving it out would flatter. */
-  note?: string;
-}) {
+/** The earliest instant in a list: the thing that has been waiting longest. */
+function earliest(instants: Array<string | null>): string | null {
+  let oldest: string | null = null;
+  for (const value of instants) {
+    if (!value) continue;
+    if (oldest === null || Date.parse(value) < Date.parse(oldest)) oldest = value;
+  }
+  return oldest;
+}
+
+function Signal({ stage }: { stage: Stage }) {
   const content = (
     <>
-      <span>{label}</span>
-      <strong aria-label={value === null ? 'not known' : undefined}>{value ?? '—'}</strong>
-      <small>{detail}</small>
-      {note && <p>{note}</p>}
+      <span>{stage.label}</span>
+      <strong aria-label={stage.value === null ? 'not known' : undefined}>
+        {stage.value ?? '—'}
+      </strong>
+      <small>{stage.detail}</small>
+      {stage.dwell && (
+        <p className="esh-signal-dwell" data-exception={stage.exception || undefined}>
+          {stage.dwell}
+        </p>
+      )}
     </>
   );
-  return href ? (
-    <Link className="esh-signal" data-exception={exception || undefined} href={href}>
+  return stage.href ? (
+    <Link
+      className="esh-signal"
+      data-desk={stage.desk}
+      data-exception={stage.exception || undefined}
+      href={stage.href}
+    >
       {content}
     </Link>
   ) : (
-    <div className="esh-signal" data-disabled={disabled || undefined}>
+    <div
+      className="esh-signal"
+      data-desk={stage.desk}
+      data-disabled={stage.value === null || undefined}
+    >
       {content}
     </div>
+  );
+}
+
+/**
+ * The one question this screen exists to answer, at the top of it.
+ *
+ * The counter is inside the band rather than beside it, so the figure and the
+ * findings it counts are a single statement. It keeps its own link to the
+ * register view holding exactly it, which is the invariant
+ * `esh-today-counts-v4101` holds and the reason the protection figure stopped
+ * linking to every open finding in the first place.
+ */
+function ExposureBand({
+  value,
+  exposures,
+  total,
+  unassessed,
+}: {
+  value: number | null;
+  exposures: Exposure[];
+  /** How many there are in all, which may exceed the rows read. */
+  total: number | null;
+  unassessed: number | null;
+}) {
+  const shown = exposures.slice(0, 3);
+  const figure = (
+    <>
+      <span>Significant risks without verified protection</span>
+      <strong aria-label={value === null ? 'not known' : undefined}>{value ?? '—'}</strong>
+      <small>
+        {value === null
+          ? 'This figure could not be read — it is not a count of none'
+          : 'Open, high or critical, nothing verified in place'}
+      </small>
+      {/*
+       * v301 - what the figure above does not cover. A finding nobody has
+       * rated is in neither count, and saying so is the difference between a
+       * quiet board and a board that is quiet because nobody looked.
+       */}
+      {unassessed ? (
+        <p>
+          {unassessed} open finding{unassessed === 1 ? ' has' : 's have'} no risk level yet, so{' '}
+          {unassessed === 1 ? 'it is' : 'they are'} in neither figure.
+        </p>
+      ) : null}
+    </>
+  );
+  return (
+    <section
+      className="esh-exposure"
+      data-state={value === null ? 'unknown' : value > 0 ? 'exposed' : 'clear'}
+      aria-labelledby="today-exposure-title"
+    >
+      <h2 id="today-exposure-title" className="visually-hidden">
+        Significant findings with nothing protecting anybody
+      </h2>
+      {value === null ? (
+        <div className="esh-signal" data-disabled>
+          {figure}
+        </div>
+      ) : (
+        <Link
+          className="esh-signal"
+          data-exception={value > 0 || undefined}
+          href="/findings/register?filter=unprotected"
+        >
+          {figure}
+        </Link>
+      )}
+      <div className="esh-exposure-body">
+        {value === 0 ? (
+          <p className="esh-exposure-words">
+            Every open High or Critical finding has an interim control that somebody has checked, or
+            a record that none is needed.
+          </p>
+        ) : shown.length === 0 ? (
+          /*
+           * The figure read and the list did not. Saying nothing here would
+           * leave a number with no findings under it, which reads as a bug in
+           * the band rather than as a read that failed.
+           */
+          <p className="esh-exposure-words">
+            The findings behind this figure could not be read, so none are named here.
+          </p>
+        ) : (
+          <>
+            <p className="esh-exposure-words">{exposureWords(exposures)}</p>
+            <ul className="esh-exposure-list">
+              {shown.map((one) => (
+                <li key={one.findingId}>
+                  <Link href={one.href}>
+                    <strong>{one.reference}</strong>
+                    <b>{one.title}</b>
+                    <small>
+                      {[
+                        `${one.riskLabel} risk`,
+                        one.location ?? one.departmentName,
+                        one.overdueDays === null
+                          ? null
+                          : `${one.overdueDays} day${one.overdueDays === 1 ? '' : 's'} past due`,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </small>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            {total !== null && total > shown.length && (
+              <p className="esh-exposure-more">
+                <Link href="/findings/register?filter=unprotected">
+                  {total} in all · open the list
+                </Link>
+              </p>
+            )}
+          </>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -477,6 +681,43 @@ function AttentionRow({ row }: { row: RegisterListRow }) {
           {reasons.map((reason) => (
             <small key={reason}>{reason}</small>
           ))}
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+/**
+ * A correction sitting with its owner, past the date it was given.
+ *
+ * It names the person, because "chase it" is an instruction nobody can follow
+ * without one, and it says how far past the date the work is rather than what
+ * the date was: by the time a row reaches this card, "due 16 October" is
+ * arithmetic the reader has been left to do.
+ */
+function WaitingRow({ row, now, timeZone }: { row: RegisterListRow; now: Date; timeZone: string }) {
+  const over = row.dueAt ? daysOverdue(row.dueAt, now, timeZone) : null;
+  const href = row.actionId
+    ? `/findings/${row.findingId}?action=${row.actionId}`
+    : `/findings/${row.findingId}`;
+  return (
+    <li>
+      <Link href={href}>
+        <span className="esh-today-row-main">
+          <strong>{row.reference}</strong>
+          <b>{row.title}</b>
+          <small>
+            {[row.ownerEmail, row.location ?? row.departmentName].filter(Boolean).join(' · ')}
+          </small>
+        </span>
+        <span className="esh-today-row-reasons">
+          {over !== null && (
+            <small>
+              {over} day{over === 1 ? '' : 's'} past due
+            </small>
+          )}
+          {row.changesRequested && <small>Owner needs to improve proof</small>}
+          {row.notificationFailed && <small>Notification needs attention</small>}
         </span>
       </Link>
     </li>
