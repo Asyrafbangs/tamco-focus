@@ -392,6 +392,15 @@ export interface ReportIntakeRow {
    * somebody to go looking for the person.
    */
   reporterContact: string | null;
+  /*
+   * v310 - who is holding it, when anybody is.
+   *
+   * The screen used to know only the status, so it could say "Already held
+   * for triage" and nothing else. That is why v307's take over shipped with
+   * no way to press it: the branch that would have offered one could not tell
+   * whether the holder was you or a colleague on leave.
+   */
+  heldBy: { id: string; name: string } | null;
   /** v288 - the photographs that came with it, already stripped and stored. */
   photos: Array<{ id: string; name: string; sizeBytes: number; scanState: string }>;
 }
@@ -421,6 +430,36 @@ function intakePhotos(rows: unknown): ReportIntakeRow['photos'] {
 }
 
 /**
+ * The names behind a set of triager ids (v310).
+ *
+ * Looked up by id rather than embedded: `esh_report_intake` already embeds
+ * its photographs, and a second relationship to `user_profiles` on the same
+ * select is the shape PostgREST answers with PGRST200 at runtime however
+ * willing the generated types look.
+ *
+ * A name that cannot be read is not an error here - the screen says somebody
+ * else is holding the report either way, and that is the part that matters.
+ */
+async function triagerNames(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  ids: string[],
+): Promise<Map<string, string>> {
+  const wanted = [...new Set(ids)];
+  if (wanted.length === 0) return new Map();
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('id, full_name')
+    .in('id', wanted);
+  if (error) {
+    console.error(`[triagerNames] ${error.code ?? 'unknown'}: ${error.message}`);
+    return new Map();
+  }
+  return new Map(
+    (data ?? []).map((row) => [String(row.id), String(row.full_name ?? 'a colleague')]),
+  );
+}
+
+/**
  * One in-scope report for the Finding review form. RLS remains the authority;
  * a report that is no longer triaging is not offered as a fresh Finding.
  */
@@ -431,7 +470,7 @@ export async function getReportIntakeForFinding(
   const { data, error } = await supabase
     .from('esh_report_intake')
     .select(
-      'id, source, status, report_text, reported_location, department_id, received_at, reporter_contact, esh_report_intake_photos(id, original_name, size_bytes, scan_state, state)',
+      'id, source, status, report_text, reported_location, department_id, received_at, reporter_contact, assigned_triager_id, esh_report_intake_photos(id, original_name, size_bytes, scan_state, state)',
     )
     .eq('id', intakeId)
     .eq('status', 'triaging')
@@ -441,6 +480,8 @@ export async function getReportIntakeForFinding(
     return { row: null, failed: true };
   }
   if (!data) return { row: null, failed: false };
+  const holder = data.assigned_triager_id ? String(data.assigned_triager_id) : null;
+  const names = await triagerNames(supabase, holder ? [holder] : []);
   return {
     failed: false,
     row: {
@@ -452,6 +493,7 @@ export async function getReportIntakeForFinding(
       departmentId: data.department_id ?? null,
       receivedAt: String(data.received_at),
       reporterContact: data.reporter_contact ?? null,
+      heldBy: holder ? { id: holder, name: names.get(holder) ?? 'a colleague' } : null,
       photos: intakePhotos(data.esh_report_intake_photos),
     },
   };
@@ -483,7 +525,7 @@ export async function listReportIntake(): Promise<{
   const { data, error, count } = await supabase
     .from('esh_report_intake')
     .select(
-      'id, source, status, report_text, reported_location, department_id, received_at, reporter_contact, esh_report_intake_photos(id, original_name, size_bytes, scan_state, state)',
+      'id, source, status, report_text, reported_location, department_id, received_at, reporter_contact, assigned_triager_id, esh_report_intake_photos(id, original_name, size_bytes, scan_state, state)',
       { count: 'exact' },
     )
     .in('status', ['new', 'triaging'])
@@ -494,21 +536,29 @@ export async function listReportIntake(): Promise<{
     return { rows: [], failed: true, total: 0, truncated: false };
   }
   const rows = data ?? [];
+  const names = await triagerNames(
+    supabase,
+    rows.map((row) => row.assigned_triager_id).filter((id): id is string => Boolean(id)),
+  );
   return {
     failed: false,
     total: count ?? rows.length,
     truncated: (count ?? rows.length) > rows.length,
-    rows: rows.map((row) => ({
-      id: String(row.id),
-      source: row.source === 'esh_manual' ? 'esh_manual' : 'qr',
-      status: row.status as ReportIntakeRow['status'],
-      reportText: String(row.report_text),
-      reportedLocation: row.reported_location ?? null,
-      departmentId: row.department_id ?? null,
-      receivedAt: String(row.received_at),
-      reporterContact: row.reporter_contact ?? null,
-      photos: intakePhotos(row.esh_report_intake_photos),
-    })),
+    rows: rows.map((row) => {
+      const holder = row.assigned_triager_id ? String(row.assigned_triager_id) : null;
+      return {
+        id: String(row.id),
+        source: row.source === 'esh_manual' ? 'esh_manual' : 'qr',
+        status: row.status as ReportIntakeRow['status'],
+        reportText: String(row.report_text),
+        reportedLocation: row.reported_location ?? null,
+        departmentId: row.department_id ?? null,
+        receivedAt: String(row.received_at),
+        reporterContact: row.reporter_contact ?? null,
+        heldBy: holder ? { id: holder, name: names.get(holder) ?? 'a colleague' } : null,
+        photos: intakePhotos(row.esh_report_intake_photos),
+      };
+    }),
   };
 }
 

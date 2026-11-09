@@ -105,7 +105,14 @@ describe('v307 a claimed report can be taken over', () => {
     // Before: Lim could neither take it nor accept it, and the report was
     // stuck with Izzul for as long as Izzul was away.
     const lim = await signInAs('lim');
-    const takenOver = await lim.rpc('esh_claim_report_intake', { p_intake_id: intakeId });
+    /*
+     * v310 - and it has to ask. Without `p_take_over` this is refused, which
+     * is the test below; the rescue is deliberate or it is not a rescue.
+     */
+    const takenOver = await lim.rpc('esh_claim_report_intake', {
+      p_intake_id: intakeId,
+      p_take_over: true,
+    });
     expect(takenOver.error).toBeNull();
     expect(takenOver.data).toMatchObject({ ok: true, status: 'triaging', taken_over: true });
 
@@ -145,7 +152,7 @@ describe('v307 a claimed report can be taken over', () => {
     const izzul = await signInAs('izzul');
     await izzul.rpc('esh_claim_report_intake', { p_intake_id: intakeId });
     const lim = await signInAs('lim');
-    await lim.rpc('esh_claim_report_intake', { p_intake_id: intakeId });
+    await lim.rpc('esh_claim_report_intake', { p_intake_id: intakeId, p_take_over: true });
 
     const service = serviceClient();
     const { data: events } = await service
@@ -162,6 +169,60 @@ describe('v307 a claimed report can be taken over', () => {
       PEOPLE.izzul.id,
     );
     expect(handover!.actor_user_id).toBe(PEOPLE.lim.id);
+  });
+
+  it('refuses to take a report over unless the caller asks to', async () => {
+    /*
+     * v310, and the reason v307 was wrong as shipped.
+     *
+     * `saveFinding` claims on the coordinator's behalf: accepting a report
+     * answers `not_claimed` when somebody else holds it, and on that answer
+     * the action claims and retries, so a report can be assigned in one press
+     * without pressing "Keep for triage" first. v307 made that claim able to
+     * take over, which turned the convenience into a silent theft - press
+     * "Assign & next" on a colleague's report and it was taken, accepted, and
+     * a Finding existed behind their back.
+     *
+     * So the default is a refusal. This is the property, not the mechanism:
+     * whatever calls this without asking cannot take anything.
+     */
+    await ensureCoordinator('lim');
+    const marker = crypto.randomUUID().slice(0, 8);
+    const intakeId = await reportFrom(marker);
+
+    const izzul = await signInAs('izzul');
+    await izzul.rpc('esh_claim_report_intake', { p_intake_id: intakeId });
+
+    const lim = await signInAs('lim');
+    const refused = await lim.rpc('esh_claim_report_intake', { p_intake_id: intakeId });
+    expect(refused.error).toBeNull();
+    expect(refused.data).toMatchObject({ ok: false, code: 'held_by_other' });
+
+    // And it is still Izzul's: a refusal that moved the hold would be worse.
+    const service = serviceClient();
+    const { data: intake } = await service
+      .from('esh_report_intake')
+      .select('assigned_triager_id, status')
+      .eq('id', intakeId)
+      .single();
+    expect(intake!.assigned_triager_id).toBe(PEOPLE.izzul.id);
+    expect(intake!.status).toBe('triaging');
+  });
+
+  it('lets the person already holding it claim again', async () => {
+    /*
+     * Claiming what you already hold is not a take over, and the triage
+     * workspace claims on assign, so a coordinator assigning their own
+     * report must not be refused by the guard above.
+     */
+    const marker = crypto.randomUUID().slice(0, 8);
+    const intakeId = await reportFrom(marker);
+
+    const izzul = await signInAs('izzul');
+    await izzul.rpc('esh_claim_report_intake', { p_intake_id: intakeId });
+    const again = await izzul.rpc('esh_claim_report_intake', { p_intake_id: intakeId });
+    expect(again.error).toBeNull();
+    expect(again.data).toMatchObject({ ok: true, status: 'triaging', taken_over: false });
   });
 
   it('still refuses a report that already has an outcome', async () => {
@@ -307,9 +368,14 @@ describe('v307 who may take a report over', () => {
     const izzul = await signInAs('izzul');
     const lim = await signInAs('lim');
 
+    /*
+     * Both ask to take over, so neither is refused by v310's guard and the
+     * race this is about - two coordinators accepting at once - still
+     * happens. `for update` decides which of them ends up holding it.
+     */
     await Promise.all([
-      izzul.rpc('esh_claim_report_intake', { p_intake_id: intakeId }),
-      lim.rpc('esh_claim_report_intake', { p_intake_id: intakeId }),
+      izzul.rpc('esh_claim_report_intake', { p_intake_id: intakeId, p_take_over: true }),
+      lim.rpc('esh_claim_report_intake', { p_intake_id: intakeId, p_take_over: true }),
     ]);
 
     const payload = (who: string) => ({

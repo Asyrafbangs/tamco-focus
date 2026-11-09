@@ -271,6 +271,9 @@ export default async function IntakeQueuePage({
                 intakeId={selected.id}
                 status={selected.status}
                 hasContact={Boolean(selected.reporterContact)}
+                heldByOther={
+                  selected.heldBy && selected.heldBy.id !== profile.id ? selected.heldBy.name : null
+                }
               />
             </section>
           )}

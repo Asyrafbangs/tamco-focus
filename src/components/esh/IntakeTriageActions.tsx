@@ -26,10 +26,16 @@ export function IntakeOtherDecisions({
   intakeId,
   status,
   hasContact,
+  heldByOther,
 }: {
   intakeId: string;
   status: string;
   hasContact: boolean;
+  /**
+   * The colleague holding this report, when it is somebody other than you
+   * (v310). Null when it is yours or nobody's.
+   */
+  heldByOther: string | null;
 }) {
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<IntakeActionResult | null>(null);
@@ -42,8 +48,8 @@ export function IntakeOtherDecisions({
    */
   const hydrated = useHydrated();
 
-  function claim() {
-    startTransition(async () => setResult(await claimReportIntake({ intakeId })));
+  function claim(takeOver = false) {
+    startTransition(async () => setResult(await claimReportIntake({ intakeId, takeOver })));
   }
 
   function decline(event: FormEvent<HTMLFormElement>) {
@@ -115,9 +121,35 @@ export function IntakeOtherDecisions({
             : 'This report is anonymous, so there is nobody to ask. Inspect the location yourself, or decline it below with a reason.'}
         </p>
         {status === 'new' ? (
-          <button className="btn small" type="button" onClick={claim} disabled={pending}>
+          <button className="btn small" type="button" onClick={() => claim()} disabled={pending}>
             {pending ? 'Saving…' : 'Keep for triage'}
           </button>
+        ) : heldByOther ? (
+          /*
+           * v310 - the control v307 was for, and never had.
+           *
+           * v307 let a claimed report be taken over so that one stuck with
+           * somebody on leave was not stuck for good. The only branch here
+           * was "Already held for triage", which is true and useless: it is
+           * the same sentence whether the holder is you or a colleague who
+           * left three weeks ago, and it offers nothing either way. So this
+           * names them and asks, because taking a report off a colleague who
+           * is working on it right now is exactly what must not happen by
+           * accident.
+           */
+          <>
+            <p className="form-hint">
+              {heldByOther} is holding this report. Assigning it is theirs to do while they have it.
+            </p>
+            <button
+              className="btn small"
+              type="button"
+              onClick={() => claim(true)}
+              disabled={!hydrated || pending}
+            >
+              {pending ? 'Saving…' : `Take over from ${heldByOther}`}
+            </button>
+          </>
         ) : (
           <p className="form-hint">Already held for triage.</p>
         )}

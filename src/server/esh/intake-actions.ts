@@ -21,8 +21,19 @@ function revalidateIntake() {
   revalidatePath('/findings');
 }
 
-/** Claim one private intake before an ESH coordinator begins triage. */
-export async function claimReportIntake(input: { intakeId: string }): Promise<IntakeActionResult> {
+/**
+ * Claim one private intake before an ESH coordinator begins triage.
+ *
+ * `takeOver` is the deliberate version (v310). Without it the procedure
+ * refuses a report somebody else is holding, which is what keeps the
+ * automatic claim inside `saveFinding` from quietly taking one; with it, a
+ * report stuck with a colleague who is not coming back can be rescued, and
+ * the audit keeps the person it was taken from.
+ */
+export async function claimReportIntake(input: {
+  intakeId: string;
+  takeOver?: boolean;
+}): Promise<IntakeActionResult> {
   const intakeId = parseReportIntakeId(input.intakeId);
   if (!intakeId) return { ok: false, message: 'That report is no longer available.' };
 
@@ -34,16 +45,25 @@ export async function claimReportIntake(input: { intakeId: string }): Promise<In
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc('esh_claim_report_intake', {
     p_intake_id: intakeId,
+    p_take_over: input.takeOver === true,
   });
   if (error) {
     console.error(`[esh_claim_report_intake] ${error.code ?? 'unknown'}: ${error.message}`);
     return { ok: false, message: 'The report could not be claimed.' };
   }
 
-  const result = (data ?? {}) as { ok?: boolean; code?: string };
+  const result = (data ?? {}) as { ok?: boolean; code?: string; taken_over?: boolean };
   if (result.ok) {
     revalidateIntake();
-    return { ok: true, message: 'Report claimed for triage.' };
+    return {
+      ok: true,
+      message: result.taken_over
+        ? 'Taken over. The handover is recorded, and the report is yours to triage.'
+        : 'Report claimed for triage.',
+    };
+  }
+  if (result.code === 'held_by_other') {
+    return { ok: false, message: 'Another coordinator is holding this report.' };
   }
   if (result.code === 'not_available') {
     return { ok: false, message: 'Another coordinator has already started this report.' };
