@@ -6,17 +6,22 @@ name: Verify
 #
 # v227 - a branch with an open pull request used to run everything twice, once
 # for the push and once for the pull request, and the private repository ran
-# out of minutes. Feature branches now run through their pull request only, and
-# a change that touches nothing but documentation runs nothing. `main` still
-# runs on every push, because it is the last chance before Production.
+# out of minutes. Feature branches still run through their pull request only.
+# `main` runs on every push, because it is the last chance before Production.
+#
+# v326 removed the `paths-ignore` that let a documentation-only pull request
+# run nothing. It was sound while nothing was required to merge, and unsound
+# the moment anything is: GitHub counts a *skipped* required check as a
+# successful one, and a workflow that never triggers reports nothing at all —
+# so the same filter either blocks a documentation pull request forever or
+# waves one through with no verification, depending on how the protection is
+# written. The repository is public, where standard runners are unlimited, so
+# the saving it bought is worth nothing and the ambiguity it bought is worth
+# less. Every pull request now runs every job.
 on:
   push:
     branches: [main]
   pull_request:
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - 'release-shots/**'
   workflow_dispatch:
 
 concurrency:
@@ -100,14 +105,31 @@ jobs:
       - name: Production build
         run: npm run build
 
-  # End-to-end deliberately runs on demand rather than on every push. It needs
-  # a browser, a production build and a database reset between viewport
-  # projects, and on a free runner that is several minutes each time. Run it
-  # before merging to main, and before any deployment.
+      # The local gate runs this and CI did not, so the two could disagree on
+      # a build that starts but does not serve. A gate that is a subset of the
+      # other reports a green the other can contradict, whichever way round
+      # the subset runs.
+      - name: Production smoke
+        run: npm run test:smoke
+
+  # End-to-end runs on everything that reaches this workflow: pull requests,
+  # pushes to `main`, and manual dispatches.
+  #
+  # It used to run on `main` and on dispatch only, because the repository was
+  # private and GitHub Free gives 2,000 Actions minutes a month there. It is
+  # public now, where standard runners are unlimited, so the reason is gone —
+  # and what it was costing was the thing this suite exists for. A pull
+  # request could go green having executed no browser test at all, which is
+  # how `settings-menu-reveals-v243` stayed red on `main` from 8 to 9
+  # November: the last browser evidence came from a dispatch, and every pull
+  # request merged in between reported success on two jobs out of three.
+  #
+  # If minutes ever become a constraint again, narrow this by path rather than
+  # by event: a change under `supabase/` or `docs/` has no browser surface,
+  # while one under `src/app` or `src/components` always does.
   end-to-end:
-    name: End-to-end (on demand)
+    name: End-to-end
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
     needs: database
     steps:
       - uses: actions/checkout@v4

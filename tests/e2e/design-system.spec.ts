@@ -313,31 +313,85 @@ test.describe('typography', () => {
   test('every size moves with the personal text setting', async ({ page }) => {
     await signIn(page);
 
-    const measure = () =>
+    /*
+     * Mark every element that is rendered and carries text of its own, and
+     * say how many there were.
+     *
+     * Stamping rather than collecting, because the two measurements have to be
+     * of the same elements. The guard used to compare `before[i]` with
+     * `after[i]`: the same element only while nothing in the document moves,
+     * so anything inserted, removed or reordered between the passes shifted
+     * the pairing silently and the guard could compare a heading's size with
+     * a caption's. Reading the stamp back compares like with like, and makes
+     * the count a check rather than a dependency.
+     */
+    const stamp = () =>
+      page.evaluate(() => {
+        for (const marked of document.querySelectorAll('[data-scale-probe]')) {
+          delete (marked as HTMLElement).dataset.scaleProbe;
+        }
+        let index = 0;
+        for (const element of document.querySelectorAll('body *')) {
+          const node = element as HTMLElement;
+          if (node.closest('.visually-hidden')) continue;
+          if (node.offsetParent === null) continue;
+          const ownText = [...node.childNodes].some(
+            (child) => child.nodeType === Node.TEXT_NODE && (child.textContent ?? '').trim(),
+          );
+          if (!ownText) continue;
+          node.dataset.scaleProbe = String(index);
+          index += 1;
+        }
+        return index;
+      });
+
+    const readStamped = () =>
       page.evaluate(() =>
-        [...document.querySelectorAll('body *')]
-          .filter((element) => {
-            if (element.closest('.visually-hidden')) return false;
-            if ((element as HTMLElement).offsetParent === null) return false;
-            return [...element.childNodes].some(
-              (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim(),
-            );
-          })
-          .map((element) => ({
-            size: Number.parseFloat(getComputedStyle(element).fontSize),
-            label: `${element.tagName.toLowerCase()}.${String(element.className).slice(0, 40)}`,
-          })),
+        [...document.querySelectorAll('[data-scale-probe]')].map((element) => ({
+          id: (element as HTMLElement).dataset.scaleProbe!,
+          size: Number.parseFloat(getComputedStyle(element).fontSize),
+          label: `${element.tagName.toLowerCase()}.${String(element.className).slice(0, 40)}`,
+        })),
       );
+
+    /*
+     * Stamp until the page stops arriving, and leave it stamped.
+     *
+     * Hydration and the loading skeleton are both waited for below, and
+     * neither is the end of the rendering: `/capture` holds 55 eligible
+     * elements at that point and 87 a tenth of a second later. Measuring
+     * there and again after a 400ms pause compared two different populations,
+     * which is what failed in CI on 9 November — 53 against 85 — and
+     * intermittently before it.
+     *
+     * Two identical counts in a row rather than one, because a single match
+     * can be two polls either side of one insertion.
+     */
+    const settle = async (path: string) => {
+      let previous = -1;
+      let steady = 0;
+      for (let attempt = 0; attempt < 80; attempt += 1) {
+        const count = await stamp();
+        steady = count === previous ? steady + 1 : 0;
+        previous = count;
+        if (steady >= 2) return count;
+        await page.waitForTimeout(120);
+      }
+      throw new Error(`${path} never stopped rendering; the last count was ${previous}`);
+    };
 
     const SCALE = 1.25;
     const fixed = new Set<string>();
+    let compared = 0;
+
     for (const path of ROUTES) {
       await page.goto(path);
       await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
       await expect(page.locator('.loading-skeleton')).toHaveCount(0, { timeout: 30_000 });
 
-      const before = await measure();
-      expect(before.length, `${path} renders text`).toBeGreaterThan(0);
+      const stamped = await settle(path);
+      expect(stamped, `${path} renders text`).toBeGreaterThan(0);
+      const before = new Map((await readStamped()).map((entry) => [entry.id, entry]));
 
       await page.evaluate(() => {
         document.documentElement.dataset.textSize = 'larger';
@@ -354,23 +408,45 @@ test.describe('typography', () => {
        * 150ms is the longest transition in the stylesheet.
        */
       await page.waitForTimeout(400);
-      const after = await measure();
-      expect(after.length, `${path} renders the same elements at both sizes`).toBe(before.length);
+      const after = await readStamped();
 
-      for (let index = 0; index < before.length; index += 1) {
-        const was = before[index]!;
-        const now = after[index]!;
+      /*
+       * Everything stamped is still there to be read. The settle above is what
+       * makes that true; if it stops being true this says so rather than
+       * quietly checking a smaller page.
+       */
+      expect(after.length, `${path} lost stamped elements between the two measurements`).toBe(
+        stamped,
+      );
+
+      for (const now of after) {
+        const was = before.get(now.id);
+        if (!was) continue;
         // A glyph hidden behind a pseudo element has no size to scale.
         if (was.size === 0) continue;
+        compared += 1;
         if (Math.abs(now.size / was.size - SCALE) < 0.02) continue;
         fixed.add(`${path} · ${was.label} stayed at ${was.size}px`);
       }
 
       await page.evaluate(() => {
         delete document.documentElement.dataset.textSize;
+        for (const marked of document.querySelectorAll('[data-scale-probe]')) {
+          delete (marked as HTMLElement).dataset.scaleProbe;
+        }
       });
     }
 
+    /*
+     * And it looked at something.
+     *
+     * A filter that stops matching, or a settle that returns an empty page,
+     * would otherwise leave this reporting an empty set of faults from an
+     * empty set of measurements — which is the shape every vacuous guard in
+     * this repository has had. The floor is well under the ~1,400 the nine
+     * routes currently yield, so it catches collapse rather than drift.
+     */
+    expect(compared, 'sizes actually compared across the product').toBeGreaterThan(400);
     expect([...fixed], 'sizes the text-size setting cannot reach').toEqual([]);
   });
 });
