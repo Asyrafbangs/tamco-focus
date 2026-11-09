@@ -51,7 +51,9 @@ async function scrollsSideways(page: Page) {
 }
 
 test.describe('v295 TAMCO AI workspace', () => {
-  test('is reachable from the rail and opens for a signed-in person', async ({ page }) => {
+  test('the rail opens the brief, and the chat still opens at its own address', async ({
+    page,
+  }) => {
     await signIn(page);
     /*
      * The rail collapses to labels only at some widths, so the destination is
@@ -61,7 +63,28 @@ test.describe('v295 TAMCO AI workspace', () => {
     await expect(entry).toBeVisible();
     await entry.click();
 
-    await expect(page).toHaveURL(/\/ai/);
+    /*
+     * v317 - the rail now lands on the export, so the assertion follows it.
+     * `/ai$` rather than `/ai`, because the old pattern also matched
+     * `/ai/chat` and would have passed whichever page had rendered. That is
+     * what let the first version of this case ask the brief page for the
+     * chat's heading.
+     *
+     * `level: 1` matters too: the export control repeats "Export AI brief"
+     * as its own h2, so an unlevelled name resolves to two elements.
+     */
+    await expect(page).toHaveURL(/\/ai$/);
+    await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+    await expect(page.getByRole('heading', { name: 'Export AI brief', level: 1 })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Copy AI brief' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Download .md' })).toBeVisible();
+
+    /*
+     * And the conversation is still there, one address along, for a signed-in
+     * person. Nothing links to it - that is the point of hiding it - so this
+     * is the only thing that proves the route did not go away with the link.
+     */
+    await page.goto('/ai/chat');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
     await expect(
       page.getByRole('heading', { name: 'Ask about your work', level: 1 }),
