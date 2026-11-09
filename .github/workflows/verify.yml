@@ -83,7 +83,36 @@ jobs:
       - run: npm ci
 
       - name: Start the local Supabase stack
-        run: npx supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,pooler
+        # Retried, because the runner's Docker loses a port to itself.
+        #
+        # Twice in four database runs on 9 November, `supabase start` brought
+        # the database up, applied every migration, seeded, and then failed
+        # starting the remaining containers with "failed to bind host port
+        # 0.0.0.0:54324/tcp: address already in use" — Inbucket's web port, on
+        # a GitHub-hosted runner that had nothing else on it. Docker's own
+        # message names the cause: "driver failed programming external
+        # connectivity", a race in the networking driver rather than a port
+        # genuinely taken.
+        #
+        # This retries the stack coming up. It does not retry a test: nothing
+        # here re-runs an assertion hoping for a different answer, and the
+        # warning makes a retry visible in the log rather than silent. If it
+        # ever exhausts the attempts, the listener dump says what actually
+        # held the port, so the next person does not start where this did.
+        run: |
+          for attempt in 1 2 3; do
+            if npx supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,pooler; then
+              exit 0
+            fi
+            echo "::warning::Supabase stack failed to start on attempt ${attempt}; cleaning up and retrying"
+            npx supabase stop --no-backup || true
+            sleep 10
+          done
+          echo "::error::Supabase stack did not start after 3 attempts"
+          echo "Listening sockets at the time of failure:"
+          ss -ltnp || netstat -ltnp || true
+          docker ps -a || true
+          exit 1
 
       - name: Write the environment CI resolves to
         run: node scripts/write-env.mjs
@@ -149,7 +178,36 @@ jobs:
       - run: npx playwright install --with-deps chromium
 
       - name: Start the local Supabase stack
-        run: npx supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,pooler
+        # Retried, because the runner's Docker loses a port to itself.
+        #
+        # Twice in four database runs on 9 November, `supabase start` brought
+        # the database up, applied every migration, seeded, and then failed
+        # starting the remaining containers with "failed to bind host port
+        # 0.0.0.0:54324/tcp: address already in use" — Inbucket's web port, on
+        # a GitHub-hosted runner that had nothing else on it. Docker's own
+        # message names the cause: "driver failed programming external
+        # connectivity", a race in the networking driver rather than a port
+        # genuinely taken.
+        #
+        # This retries the stack coming up. It does not retry a test: nothing
+        # here re-runs an assertion hoping for a different answer, and the
+        # warning makes a retry visible in the log rather than silent. If it
+        # ever exhausts the attempts, the listener dump says what actually
+        # held the port, so the next person does not start where this did.
+        run: |
+          for attempt in 1 2 3; do
+            if npx supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,pooler; then
+              exit 0
+            fi
+            echo "::warning::Supabase stack failed to start on attempt ${attempt}; cleaning up and retrying"
+            npx supabase stop --no-backup || true
+            sleep 10
+          done
+          echo "::error::Supabase stack did not start after 3 attempts"
+          echo "Listening sockets at the time of failure:"
+          ss -ltnp || netstat -ltnp || true
+          docker ps -a || true
+          exit 1
 
       - name: Write the environment CI resolves to
         run: node scripts/write-env.mjs
