@@ -153,6 +153,14 @@ export interface RegisterListRow {
   notificationFailed: boolean;
   /** v227 - ESH sent the correction back and nothing new was submitted. */
   changesRequested: boolean;
+  /**
+   * v306 - the owner has said they cannot proceed and nobody has cleared it.
+   *
+   * Recorded by the owner's own "Report this", shown on the finding page since
+   * Stage 2, and on no list until now. An action with an open blocker is still
+   * `in_progress`, so without this a cry for help reads as work in hand.
+   */
+  blocked: boolean;
   isOverdue: boolean;
   /** v210 - the highest escalation level live under this assignment (§24). */
   escalationLevel: number | null;
@@ -294,6 +302,41 @@ export async function listRegister(options: {
     return { rows: [], total: 0, failed: true };
   }
 
+  /*
+   * v306 - who has said they are stuck.
+   *
+   * An Action Owner can report a blocker: "I cannot do this without X". It is
+   * recorded in `esh_action_blockers`, it is shown on that finding's own page,
+   * and it appeared on no list anywhere. The action stays `in_progress`, which
+   * reads as "In progress" on every register and on Today, so an owner asking
+   * for help looked exactly like an owner getting on with it. Nobody finds
+   * that without opening each finding in turn, which is the one thing a
+   * register exists to save.
+   *
+   * Read for the rows in hand rather than joined into the view, because the
+   * view is a migration and this is a page. `cleared_at is null` is the open
+   * ones; a blocker somebody has already dealt with is history.
+   */
+  const actionIds = (data ?? [])
+    .map((row) => (row.action_id ? String(row.action_id) : null))
+    .filter((id): id is string => Boolean(id));
+  let blockedIds = new Set<string>();
+  if (actionIds.length > 0) {
+    const { data: blockers, error: blockerError } = await supabase
+      .from('esh_action_blockers')
+      .select('action_id')
+      .in('action_id', actionIds)
+      .is('cleared_at', null);
+    if (blockerError) {
+      // Not fatal: the register is still true, it simply cannot flag this.
+      console.error(
+        `[listRegister.blockers] ${blockerError.code ?? 'unknown'}: ${blockerError.message}`,
+      );
+    } else {
+      blockedIds = new Set((blockers ?? []).map((row) => String(row.action_id)));
+    }
+  }
+
   return {
     total: count ?? 0,
     failed: false,
@@ -316,6 +359,8 @@ export async function listRegister(options: {
       ownerEmail: row.owner_email ?? null,
       notificationFailed: Boolean(row.notification_failed),
       changesRequested: Boolean(row.changes_requested),
+      /** v306 - the owner has reported a blocker nobody has cleared. */
+      blocked: row.action_id ? blockedIds.has(String(row.action_id)) : false,
       isOverdue: Boolean(row.is_overdue),
       escalationLevel:
         'escalation_level' in row && row.escalation_level !== null

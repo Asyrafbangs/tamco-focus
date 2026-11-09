@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useRef, useState, useTransition } from 'react';
 
 import { AttachButtons, UploadList, useEvidenceUploads } from '@/components/esh/EvidenceUploader';
+import { useHydrated } from '@/components/esh/use-hydrated';
 import { MESSAGE_MAX_LENGTH } from '@/domain/esh-guest';
 import { postEshMessage } from '@/server/esh/conversation-actions';
 import {
@@ -32,6 +33,8 @@ export function StaffMessageForm({
   const [problem, setProblem] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [pending, startTransition] = useTransition();
+  // v306 - see use-hydrated: before this the submit is a native one.
+  const hydrated = useHydrated();
   const clientKey = useRef('');
   const uploads = useEvidenceUploads({
     start: (file) =>
@@ -116,7 +119,11 @@ export function StaffMessageForm({
       </p>
       <div className="guest-composer-row">
         <AttachButtons onFiles={(files) => uploads.add(files)} disabled={pending} />
-        <button type="submit" className="btn primary" disabled={pending || waitingOnFiles}>
+        <button
+          type="submit"
+          className="btn primary"
+          disabled={!hydrated || pending || waitingOnFiles}
+        >
           {pending ? 'Sending…' : 'Send to owner'}
         </button>
       </div>

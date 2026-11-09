@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRef, useState, useTransition, type DragEvent } from 'react';
 
+import { useHydrated } from '@/components/esh/use-hydrated';
+
 import { MESSAGE_MAX_LENGTH, ownerMessageProblem, submitProblems } from '@/domain/esh-guest';
 import {
   AttachButtons,
@@ -117,6 +119,9 @@ export function OwnerComposer({
       timeZone,
     }).format(new Date(instant));
   const [pending, startTransition] = useTransition();
+  // v306 - until this is true the form has no onSubmit, and a press would be
+  // a native submit that reloads the page and discards the typed message.
+  const hydrated = useHydrated();
   const clientKey = useRef('');
   const uploads = useEvidenceUploads(
     {
@@ -358,7 +363,7 @@ export function OwnerComposer({
           type="submit"
           className="guest-send"
           aria-label="Send update"
-          disabled={pending || waitingOnFiles}
+          disabled={!hydrated || pending || waitingOnFiles}
         >
           <span aria-hidden="true">{pending ? '···' : '↑'}</span>
         </button>
@@ -479,7 +484,7 @@ export function OwnerComposer({
             <button
               type="button"
               className="btn primary small"
-              disabled={pending || waitingOnFiles || askingTime || handingOver}
+              disabled={!hydrated || pending || waitingOnFiles || askingTime || handingOver}
               onClick={blocked ? reportStuck : submit}
             >
               {blocked ? 'Report this' : 'Submit for review'}

@@ -116,3 +116,46 @@ describe('v214/v227 who has to act next (§24, §33)', () => {
     expect(agoWords('2026-09-22T09:00:00Z', NOW)).toBe('2 days');
   });
 });
+
+describe('v306 an owner who has asked for help', () => {
+  /*
+   * Reporting a blocker leaves the action `in_progress`, so every list said
+   * "In progress" while the owner was waiting on somebody. The blocker was
+   * recorded, and shown on that finding's own page, and on no list at all -
+   * which meant finding it required opening each finding in turn.
+   */
+  it('is flagged on the row, ahead of the other overlays', () => {
+    const overlays = rowOverlays(
+      {
+        dueAt: '2026-09-21T09:00:00Z',
+        isOverdue: true,
+        notificationFailed: true,
+        escalationLevel: 1,
+        blocked: true,
+      },
+      NOW,
+    );
+    expect(overlays[0]).toEqual({ label: 'Owner is stuck', tone: 'problem' });
+    // And it does not displace what was already there.
+    expect(overlays.map((one) => one.label)).toContain('Email failed');
+    expect(overlays.map((one) => one.label)).toContain('Escalated L1');
+  });
+
+  it('says nothing when there is no blocker, or when it has been cleared', () => {
+    // `blocked` is computed from `cleared_at is null`, so a cleared blocker
+    // arrives here as false and must leave no trace on the row.
+    for (const blocked of [false, undefined]) {
+      const overlays = rowOverlays(
+        {
+          dueAt: null,
+          isOverdue: false,
+          notificationFailed: false,
+          escalationLevel: null,
+          blocked,
+        },
+        NOW,
+      );
+      expect(overlays).toEqual([]);
+    }
+  });
+});
