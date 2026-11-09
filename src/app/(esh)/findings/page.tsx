@@ -240,11 +240,32 @@ async function today(access: EshAccess, timeZone: string) {
             detail="No open finding currently needs an ESH decision."
           />
         ) : (
-          <ul className="esh-today-list" aria-label="Needs attention">
-            {attention.rows.map((row) => (
-              <AttentionRow key={row.actionId ?? row.findingId} row={row} />
-            ))}
-          </ul>
+          <>
+            {/*
+             * v303 - a preview, like every other queue on this board.
+             *
+             * This was the one list that showed everything it had read, which
+             * is a page of fifty. On a real register that is four thousand
+             * pixels of one list, and the three queue cards beneath it - the
+             * ones that say whose desk the work is on - were below all of it.
+             * A board nobody can see the bottom of is not a board.
+             *
+             * Six, the same as the cards, and the footer says how many there
+             * are so six of thirty-one never reads as all of them.
+             */}
+            <ul className="esh-today-list" aria-label="Needs attention">
+              {attention.rows.slice(0, TODAY_PREVIEW).map((row) => (
+                <AttentionRow key={row.actionId ?? row.findingId} row={row} />
+              ))}
+            </ul>
+            {attention.total > TODAY_PREVIEW && (
+              <p className="esh-register-foot">
+                <Link href="/findings/register?filter=attention">
+                  {attention.total} need attention · see them all
+                </Link>
+              </p>
+            )}
+          </>
         )}
       </section>
 

@@ -13178,12 +13178,14 @@ span.deadline span.deadline-glyph,
    Night, both on the day it was written. It is styled like the other links in
    the same card rather than like the pager, which sits on the page background
    and not on a card. */
-.esh-today-columns .esh-register-foot {
+.esh-today-columns .esh-register-foot,
+.esh-today-queue .esh-register-foot {
   padding: 12px 20px;
   margin-top: 0;
   border-top: 1px solid var(--line);
 }
-.esh-today-columns .esh-register-foot a {
+.esh-today-columns .esh-register-foot a,
+.esh-today-queue .esh-register-foot a {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
