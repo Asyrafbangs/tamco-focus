@@ -32,11 +32,51 @@ export interface SourceCoverage {
   source: string;
   /** What reached this brief. */
   included: number;
-  /** What the source held, when it is knowable and different. */
+  /**
+   * What the source actually held — a counted total, never the number of rows
+   * that happened to come back. Left undefined when it is genuinely unknown,
+   * which is itself reported rather than papered over with `included`.
+   */
   available?: number;
   /** Null when the read succeeded; the reason otherwise. */
   failure?: string | null;
+  /**
+   * v317 — what is missing, in the source's own words, when it knows better
+   * than the arithmetic does. A walk that ran out of pages has no shortfall
+   * `available - included` can express: the total itself is unverified.
+   */
+  shortfall?: string | null;
   note?: string;
+}
+
+/**
+ * Whether a source is whole, and what to say when it is not.
+ *
+ * Exported because the test suite asserts on it directly: "complete" is a
+ * claim about records somebody will act on, and the original version of this
+ * function printed it whenever no read had thrown - including when it had
+ * returned the first page of nine.
+ */
+export function coverageStatus(source: SourceCoverage): string {
+  if (source.failure) return 'NOT READ';
+  if (source.shortfall) return 'INCOMPLETE';
+  if (source.available === undefined) return 'TOTAL NOT VERIFIED';
+  if (source.included < source.available) return 'INCOMPLETE';
+  return 'complete';
+}
+
+/** The missing portion as a sentence, or null when nothing is missing. */
+export function coverageShortfall(source: SourceCoverage): string | null {
+  if (source.failure) return null;
+  if (source.shortfall) return source.shortfall;
+  if (source.available === undefined) {
+    return `${source.included} record(s) are here, but how many the source held was not counted.`;
+  }
+  if (source.included < source.available) {
+    const missing = source.available - source.included;
+    return `${missing} of ${source.available} not included.`;
+  }
+  return null;
 }
 
 export interface BriefChecklistAction {
@@ -338,13 +378,21 @@ export function buildAiBrief(snapshot: AiBriefSnapshot): string {
   body.push('| Source | Included | Available | Status |');
   body.push('|---|---|---|---|');
   for (const source of snapshot.coverage) {
-    const available = source.available === undefined ? '—' : String(source.available);
-    const status = source.failure ? `**NOT READ** — ${cell(source.failure)}` : 'complete';
+    const available = source.available === undefined ? 'not counted' : String(source.available);
+    const state = coverageStatus(source);
+    const why = source.failure ?? coverageShortfall(source);
+    const status = state === 'complete' ? 'complete' : `**${state}** — ${cell(why ?? '')}`;
     body.push(
       `| ${cell(source.source)} | ${source.included} | ${available} | ${status}` +
         `${source.note ? ` ${cell(source.note)}` : ''} |`,
     );
   }
+  body.push('');
+  body.push(
+    '*Available* is a counted total from the source, not the number of rows that came back. ' +
+      'Where it says *not counted*, the figure was not available and the row says so rather ' +
+      'than repeating the included count as if it were the total.',
+  );
   body.push('');
 
   const failures = snapshot.coverage.filter((one) => one.failure);
@@ -357,6 +405,29 @@ export function buildAiBrief(snapshot: AiBriefSnapshot): string {
     );
     body.push('');
     for (const source of failures) body.push(`- **${source.source}**: ${source.failure}`);
+    body.push('');
+  }
+
+  /*
+   * A short read is not a failure and is not nothing. It is the case the
+   * export was most likely to get wrong - every row present, every count
+   * plausible, and a ninth of the register absent - so it gets its own
+   * heading rather than a quiet cell in a table.
+   */
+  const short = snapshot.coverage
+    .filter((one) => !one.failure)
+    .map((one) => ({ source: one.source, missing: coverageShortfall(one) }))
+    .filter((one): one is { source: string; missing: string } => one.missing !== null);
+  if (short.length > 0) {
+    body.push('### Incomplete sources');
+    body.push('');
+    body.push(
+      'These sources were read successfully but did not all fit. **Do not treat the sections ' +
+        'below as the complete set for these sources**, and do not compute a total, a share or ' +
+        'a ranking from them without allowing for what is named here.',
+    );
+    body.push('');
+    for (const one of short) body.push(`- **${one.source}**: ${one.missing}`);
     body.push('');
   }
 

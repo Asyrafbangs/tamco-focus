@@ -11,8 +11,8 @@ import {
 import type { TaskOverview } from '@/domain/types';
 import { createSupabaseServerClient, requireProfile } from '@/lib/supabase/server';
 import { getEshAccess } from '@/server/esh/access';
-import { listRegister } from '@/server/esh/queries';
-import { getLatestTaskUpdates, getMyTasks, getVisibleTeamTasks } from '@/server/queries';
+import { listRegister, REGISTER_PAGE_SIZE, type RegisterListRow } from '@/server/esh/queries';
+import { getLatestTaskUpdatesComplete, listOpenTasksComplete } from '@/server/queries';
 
 /**
  * Gathering the AI brief: the product's own reads, nothing more.
@@ -56,52 +56,135 @@ function findingLink(id: string): string | null {
 async function openChecklistActions(taskIds: readonly string[]): Promise<{
   actions: Map<string, BriefChecklistAction[]>;
   count: number;
+  /** Rows that arrived, whether or not they carried wording to include. */
+  fetched: number;
+  total: number;
+  complete: boolean;
   failure: string | null;
 }> {
   const actions = new Map<string, BriefChecklistAction[]>();
-  if (taskIds.length === 0) return { actions, count: 0, failure: null };
+  if (taskIds.length === 0) {
+    return { actions, count: 0, fetched: 0, total: 0, complete: true, failure: null };
+  }
 
+  const PAGE = 1000;
+  const MAX_PAGES = 10;
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from('task_checklist_items')
-    .select('task_id, action, position, state, due_at, evidence_rule, depends_on_item_id')
-    .in('task_id', [...taskIds])
-    .neq('state', 'completed')
-    .order('position', { ascending: true })
-    .limit(1000);
-
-  if (error) {
-    console.error(`[ai-brief:checklist] ${error.code ?? 'unknown'}: ${error.message}`);
-    return {
-      actions,
-      count: 0,
-      failure:
-        'The checklist actions could not be read, so the steps inside each task are missing.',
-    };
-  }
-
   let count = 0;
-  for (const row of data ?? []) {
-    const action = typeof row.action === 'string' ? row.action.trim() : '';
-    if (!action) continue;
-    const key = String(row.task_id);
-    const held = actions.get(key) ?? [];
-    held.push({
-      action,
-      state: String(row.state ?? 'open'),
-      dueAt: row.due_at ? String(row.due_at) : null,
-      evidenceRule: row.evidence_rule ? String(row.evidence_rule) : null,
-      /*
-       * Named as a dependency rather than resolved to the other step's words:
-       * one more lookup per row, for a sentence the reader can already infer
-       * from "waiting on another step". The id is there if they want it.
-       */
-      blockedBy: row.depends_on_item_id ? 'another step on this task' : null,
-    });
-    actions.set(key, held);
-    count += 1;
+  let fetched = 0;
+  let total = 0;
+  let ranOut = false;
+
+  for (let page = 0; page < MAX_PAGES && !ranOut; page += 1) {
+    const from = page * PAGE;
+    const {
+      data,
+      count: matched,
+      error,
+    } = await supabase
+      .from('task_checklist_items')
+      .select('id, task_id, action, position, state, due_at, evidence_rule, depends_on_item_id', {
+        count: 'exact',
+      })
+      .in('task_id', [...taskIds])
+      .neq('state', 'completed')
+      .order('task_id', { ascending: true })
+      .order('position', { ascending: true })
+      /* Unique last key: `position` repeats across tasks, and ties would make
+       * offset paging drop a step and duplicate another. */
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+
+    if (error) {
+      console.error(`[ai-brief:checklist] ${error.code ?? 'unknown'}: ${error.message}`);
+      return {
+        actions,
+        count,
+        fetched,
+        total,
+        complete: false,
+        failure:
+          'The checklist actions could not be read, so the steps inside each task are missing.',
+      };
+    }
+
+    if (matched !== null && matched !== undefined) total = matched;
+    const rows = data ?? [];
+    fetched += rows.length;
+
+    for (const row of rows) {
+      const action = typeof row.action === 'string' ? row.action.trim() : '';
+      if (!action) continue;
+      const key = String(row.task_id);
+      const held = actions.get(key) ?? [];
+      held.push({
+        action,
+        state: String(row.state ?? 'open'),
+        dueAt: row.due_at ? String(row.due_at) : null,
+        evidenceRule: row.evidence_rule ? String(row.evidence_rule) : null,
+        /*
+         * Named as a dependency rather than resolved to the other step's words:
+         * one more lookup per row, for a sentence the reader can already infer
+         * from "waiting on another step". The id is there if they want it.
+         */
+        blockedBy: row.depends_on_item_id ? 'another step on this task' : null,
+      });
+      actions.set(key, held);
+      count += 1;
+    }
+
+    if (rows.length < PAGE) ranOut = true;
   }
-  return { actions, count, failure: null };
+
+  /* Measured against the count, not against the last page being small. */
+  const counted = Math.max(total, fetched);
+  return { actions, count, fetched, total: counted, complete: fetched >= counted, failure: null };
+}
+
+/**
+ * v317 — the whole register for one filter, not its first page.
+ *
+ * `listRegister` is the screen's read and pages at fifty, which is right for
+ * a screen and wrong for an export: a team with sixty open findings would
+ * have had ten of them silently absent, and - worse - a high-risk finding on
+ * page two would have been absent from the unprotected set and therefore
+ * described in the brief as protected. The filter, the ordering and the
+ * permission scope are unchanged; only the number of pages asked for is.
+ *
+ * `total` comes from the view's own exact count, so a short walk can be
+ * reported as a number rather than guessed at.
+ */
+async function listRegisterComplete(
+  filter: 'open' | 'unprotected',
+  closedSince: string,
+): Promise<{ rows: RegisterListRow[]; total: number; complete: boolean; failed: boolean }> {
+  const MAX_PAGES = 20;
+  const rows: RegisterListRow[] = [];
+  let total = 0;
+
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const result = await listRegister({
+      filter,
+      search: '',
+      departmentId: null,
+      closedSince,
+      closedUntil: null,
+      page,
+    });
+    if (result.failed) return { rows, total, complete: false, failed: true };
+    total = result.total;
+    rows.push(...result.rows);
+    /*
+     * `complete` is measured against the counted total, never against the page
+     * running short. A page can come back short while the count says there is
+     * more - a row filtered out underneath us, a count taken a moment earlier
+     * - and "the last page was small" is not evidence that nothing is missing.
+     */
+    if (result.rows.length < REGISTER_PAGE_SIZE || rows.length >= total) break;
+  }
+
+  const counted = Math.max(total, rows.length);
+  return { rows, total: counted, complete: rows.length >= counted, failed: false };
 }
 
 function asBriefTask(
@@ -153,34 +236,44 @@ export async function gatherAiBrief(): Promise<AiBriefResult> {
    * because its access gate decides whether to ask at all.
    */
   const [teamResult, mineResult] = await Promise.allSettled([
-    getVisibleTeamTasks(profile.id),
-    getMyTasks(profile.id),
+    listOpenTasksComplete({ viewerId: profile.id, scope: 'team' }),
+    listOpenTasksComplete({ viewerId: profile.id, scope: 'mine' }),
   ]);
 
-  const teamTasks = teamResult.status === 'fulfilled' ? teamResult.value : [];
-  const myTasks = mineResult.status === 'fulfilled' ? mineResult.value : [];
+  const team =
+    teamResult.status === 'fulfilled' ? teamResult.value : { tasks: [], total: 0, complete: false };
+  const mine =
+    mineResult.status === 'fulfilled' ? mineResult.value : { tasks: [], total: 0, complete: false };
+  const teamTasks = team.tasks;
+  const myTasks = mine.tasks;
 
   const allIds = [...teamTasks, ...myTasks].map((task) => task.id);
   const [updateResult, checklistResult] = await Promise.allSettled([
-    getLatestTaskUpdates(allIds),
+    getLatestTaskUpdatesComplete(allIds),
     openChecklistActions(allIds),
   ]);
 
-  const updates =
-    updateResult.status === 'fulfilled' ? updateResult.value : new Map<string, never>();
+  const updateRead =
+    updateResult.status === 'fulfilled'
+      ? updateResult.value
+      : { updates: new Map<string, never>(), unverified: allIds.length, failed: true };
+  const updates = updateRead.updates;
   const checklist =
     checklistResult.status === 'fulfilled'
       ? checklistResult.value
       : {
           actions: new Map<string, BriefChecklistAction[]>(),
           count: 0,
+          fetched: 0,
+          total: 0,
+          complete: false,
           failure: 'The checklist actions could not be read.',
         };
 
   coverage.push({
     source: 'Team tasks (open)',
     included: teamTasks.length,
-    available: teamTasks.length,
+    available: teamResult.status === 'fulfilled' ? team.total : undefined,
     failure:
       teamResult.status === 'rejected'
         ? 'The team task list could not be read. This is NOT the same as the team having no work.'
@@ -189,22 +282,43 @@ export async function gatherAiBrief(): Promise<AiBriefResult> {
   coverage.push({
     source: 'My own work (open)',
     included: myTasks.length,
-    available: myTasks.length,
+    available: mineResult.status === 'fulfilled' ? mine.total : undefined,
     failure: mineResult.status === 'rejected' ? 'Your own task list could not be read.' : null,
   });
   coverage.push({
     source: 'Checklist actions (open)',
     included: checklist.count,
+    available: checklist.failure ? undefined : checklist.total,
     failure: checklist.failure,
+    shortfall: checklist.failure
+      ? null
+      : !checklist.complete
+        ? `${checklist.total - checklist.fetched} of ${checklist.total} open steps were not ` +
+          `read, so the steps shown inside each task are not all of them.`
+        : checklist.count < checklist.total
+          ? `${checklist.total - checklist.count} of ${checklist.total} open steps carry no ` +
+            `wording, so there is nothing in them to include.`
+          : null,
   });
   coverage.push({
     source: 'Latest employee updates',
     included: updates.size,
-    available: allIds.length,
-    note: `(one per task, where anybody has written one)`,
-    failure:
-      updateResult.status === 'rejected'
-        ? 'The latest updates could not be read, so what people wrote is missing.'
+    /*
+     * Not `allIds.length`: that is the number of tasks asked about, not the
+     * number that have anything written on them, and printing it as the
+     * available total made a quiet team look like a failed read. When the walk
+     * finishes, every task with an update has one here, and that - not a row
+     * count - is what makes this figure verified.
+     */
+    available: updateRead.failed || updateRead.unverified > 0 ? undefined : updates.size,
+    note: `(one per task, from ${allIds.length} task(s); tasks nobody has written on have none)`,
+    failure: updateRead.failed
+      ? 'The latest updates could not be read, so what people wrote is missing.'
+      : null,
+    shortfall:
+      !updateRead.failed && updateRead.unverified > 0
+        ? `${updateRead.unverified} task(s) could not be walked to the end, so whether anybody ` +
+          `has written on them is unknown rather than no.`
         : null,
   });
 
@@ -229,34 +343,39 @@ export async function gatherAiBrief(): Promise<AiBriefResult> {
     coverage.push({
       source: 'ESH findings (open)',
       included: 0,
+      /*
+       * Nought of nought, verified: this account may not look, so there is
+       * nothing uncounted. Left undefined it would read "total not verified",
+       * which would be a gap where there is only a permission boundary.
+       */
+      available: 0,
       note: '(not authorised for this account)',
     });
   } else {
     const closedSince = new Date(takenAt.getTime() - 180 * 86_400_000).toISOString();
     const [openResult, unprotectedResult] = await Promise.allSettled([
-      listRegister({
-        filter: 'open',
-        search: '',
-        departmentId: null,
-        closedSince,
-        closedUntil: null,
-        page: 0,
-      }),
-      listRegister({
-        filter: 'unprotected',
-        search: '',
-        departmentId: null,
-        closedSince,
-        closedUntil: null,
-        page: 0,
-      }),
+      listRegisterComplete('open', closedSince),
+      listRegisterComplete('unprotected', closedSince),
     ]);
 
     const open = openResult.status === 'fulfilled' ? openResult.value : null;
     const unprotected = unprotectedResult.status === 'fulfilled' ? unprotectedResult.value : null;
-    const unprotectedIds = new Set(
-      unprotected && !unprotected.failed ? unprotected.rows.map((row) => row.findingId) : [],
-    );
+
+    /*
+     * The one place the confidentiality rule could have leaked back in.
+     *
+     * The register body drops restricted findings, but this set feeds the
+     * interim-protection summary - a count, and the product's rule covers
+     * "leadership reports and their counts" without exception. A restricted
+     * finding left in here would be counted in the brief while being absent
+     * from it, which is both a disclosure and an arithmetic that does not add
+     * up. Filtered on the same predicate as the body, from the same field.
+     */
+    const unprotectedVisible =
+      unprotected && !unprotected.failed ? unprotected.rows.filter((row) => !row.isRestricted) : [];
+    const unprotectedRestricted =
+      unprotected && !unprotected.failed ? unprotected.rows.length - unprotectedVisible.length : 0;
+    const unprotectedIds = new Set(unprotectedVisible.map((row) => row.findingId));
 
     if (!open || open.failed) {
       coverage.push({
@@ -295,24 +414,41 @@ export async function gatherAiBrief(): Promise<AiBriefResult> {
       coverage.push({
         source: 'ESH findings (open)',
         included: findings.length,
-        available: open.total,
+        /*
+         * The total with restricted findings taken out of it, because the
+         * product's rule covers counts as well as content. The number dropped
+         * is stated once, in the note, and appears in no other figure.
+         */
+        available: open.complete ? open.total - restrictedFindingsExcluded : undefined,
+        shortfall: open.complete
+          ? null
+          : `The register walk stopped at its page ceiling: ${open.total - open.rows.length} of ` +
+            `${open.total} open findings were not read.`,
         note:
           restrictedFindingsExcluded > 0
-            ? `(${restrictedFindingsExcluded} restricted finding(s) excluded by product rule)`
+            ? `(${restrictedFindingsExcluded} restricted finding(s) excluded by product rule, ` +
+              `from this count and from every other count in this brief)`
             : undefined,
       });
+
+      const unprotectedRead = unprotected && !unprotected.failed ? unprotected : null;
       coverage.push({
         source: 'Interim protection check',
         included: unprotectedIds.size,
-        failure:
-          !unprotected || unprotected.failed
-            ? 'Whether a verified interim control is in place could not be read. For a high or ' +
-              'critical finding, treat that as UNKNOWN and establish it before planning anything else.'
+        available: unprotectedRead?.complete
+          ? unprotectedRead.total - unprotectedRestricted
+          : undefined,
+        failure: unprotectedRead
+          ? null
+          : 'Whether a verified interim control is in place could not be read. For a high or ' +
+            'critical finding, treat that as UNKNOWN and establish it before planning anything else.',
+        shortfall:
+          unprotectedRead && !unprotectedRead.complete
+            ? `Only ${unprotectedRead.rows.length} of ${unprotectedRead.total} significant ` +
+              `findings were checked for an interim control. Any finding below is therefore ` +
+              `"not known to be unprotected", which is not the same as protected.`
             : null,
-        note:
-          !unprotected || unprotected.failed
-            ? undefined
-            : '(significant findings with none verified)',
+        note: unprotectedRead ? '(significant findings with none verified)' : undefined,
       });
     }
   }

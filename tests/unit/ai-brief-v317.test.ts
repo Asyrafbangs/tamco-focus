@@ -183,12 +183,81 @@ describe('v317 completeness: nothing missing, nothing silent', () => {
   });
 
   it('gives each source as included against available, so a cap cannot hide', () => {
+    /*
+     * This assertion used to read `| 25 | 112 | complete`, which is the defect
+     * the independent review found: the status column said "complete" whenever
+     * no read had thrown, including when it had returned a quarter of the
+     * rows. The numbers were honest and the word beside them was not, and the
+     * word is what a reader acts on.
+     */
     const brief = buildAiBrief(
       snapshot({
         coverage: [{ source: 'Team tasks (open)', included: 25, available: 112, failure: null }],
       }),
     );
-    expect(brief).toContain('| Team tasks (open) | 25 | 112 | complete');
+    expect(brief).toContain('| Team tasks (open) | 25 | 112 | **INCOMPLETE**');
+    expect(brief).toContain('87 of 112 not included.');
+  });
+
+  it('names an incomplete source under its own heading, and forbids totals from it', () => {
+    const brief = buildAiBrief(
+      snapshot({
+        coverage: [{ source: 'ESH findings (open)', included: 50, available: 61, failure: null }],
+      }),
+    );
+    expect(brief).toContain('### Incomplete sources');
+    expect(brief).toContain('**ESH findings (open)**: 11 of 61 not included.');
+    expect(brief).toContain('Do not treat the sections below as the complete set');
+    expect(brief).toContain('do not compute a total, a share or a ranking');
+    /* A short read is not a failed read, and must not be filed as one. */
+    expect(brief).not.toContain('Retrieval failures');
+  });
+
+  it('prefers the source’s own account of what is missing over the arithmetic', () => {
+    const brief = buildAiBrief(
+      snapshot({
+        coverage: [
+          {
+            source: 'Latest employee updates',
+            included: 4,
+            failure: null,
+            shortfall: '9 task(s) could not be walked to the end.',
+          },
+        ],
+      }),
+    );
+    expect(brief).toContain('| Latest employee updates | 4 | not counted | **INCOMPLETE**');
+    expect(brief).toContain('9 task(s) could not be walked to the end.');
+  });
+
+  it('refuses to call a count verified when nothing counted it', () => {
+    /*
+     * The rule the review asked for, in one assertion: a source that reports
+     * only what came back is reported as exactly that. Returned rows are
+     * never promoted to the available total by default.
+     */
+    const brief = buildAiBrief(
+      snapshot({
+        coverage: [{ source: 'Checklist actions (open)', included: 30, failure: null }],
+      }),
+    );
+    expect(brief).toContain(
+      '| Checklist actions (open) | 30 | not counted | **TOTAL NOT VERIFIED**',
+    );
+    expect(brief).toContain('how many the source held was not counted');
+    expect(brief).toContain(
+      '*Available* is a counted total from the source, not the number of rows that came back.',
+    );
+  });
+
+  it('says complete only when the counted total was reached', () => {
+    const brief = buildAiBrief(
+      snapshot({
+        coverage: [{ source: 'My own work (open)', included: 7, available: 7, failure: null }],
+      }),
+    );
+    expect(brief).toContain('| My own work (open) | 7 | 7 | complete');
+    expect(brief).not.toContain('### Incomplete sources');
   });
 });
 
