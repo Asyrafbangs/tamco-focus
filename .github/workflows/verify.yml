@@ -102,8 +102,14 @@ jobs:
       - name: Integration tests
         run: npm run test:integration
 
+      # Into `.next-verify`, because that is where the smoke test below looks.
+      # `scripts/run-production-smoke.mjs` pins `NEXT_DIST_DIR` to it, and
+      # `scripts/verify.mjs` builds there for the same reason — so a default
+      # `next build` here produces a build the smoke step cannot find.
       - name: Production build
         run: npm run build
+        env:
+          NEXT_DIST_DIR: .next-verify
 
       # The local gate runs this and CI did not, so the two could disagree on
       # a build that starts but does not serve. A gate that is a subset of the
