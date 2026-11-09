@@ -109,6 +109,70 @@ async function pastTheEdge(page: Page) {
   });
 }
 
+/**
+ * A client acting as a real person, so RLS decides what the call may do.
+ * `service()` bypasses it and is kept for the fixtures that are pure setup.
+ */
+async function apiAs(email: string) {
+  const client = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+  const { error } = await client.auth.signInWithPassword({ email, password: PASSWORD });
+  if (error) throw new Error(`Could not sign in as ${email}: ${error.message}`);
+  return client;
+}
+
+/*
+ * v301 - the finding this spec opens is now its own.
+ *
+ * It used to read whichever finding happened to be in the database and assert
+ * that one existed. `supabase/seed.sql` creates none: it seeds
+ * `esh_import_batches`, `esh_import_rows` and `esh_staff_access` and stops. So
+ * the row it found was always one another spec had left behind, and on a
+ * database where nothing else had run the spec failed before it opened a
+ * single page - `the seed must hold a finding to open at these widths`, with
+ * 0 rows in `esh_findings` and the rest of the seed intact.
+ *
+ * Which also meant the detail page was opened with whatever title that other
+ * spec had chosen. The title here is long on purpose: a narrow-width check
+ * that opens a finding called "v269 abc123" proves nothing about the widths
+ * where a real title has to wrap, and production titles run past sixty
+ * characters.
+ *
+ * Not deleted afterwards. That is this suite's convention for ESH fixtures -
+ * `esh-audit-gaps-v269` and the others leave theirs - and a finding carries
+ * audit rows that a delete would have to reach around.
+ */
+async function raiseFinding(): Promise<string> {
+  const izzul = await apiAs('izzul@tamco.local');
+  const { data: departments } = await izzul.from('departments').select('id').eq('code', 'OPS');
+  const { data, error } = await izzul.rpc('esh_save_finding', {
+    p_finding_id: null,
+    p_payload: {
+      title:
+        'v290 the guard fence on the number three press has been modified and the interlock no longer stops the machine',
+      description: 'Raised so this spec has a detail page of its own to open at every width.',
+      reported_on: '2026-10-20',
+      accountable_department_id: departments?.[0]?.id,
+      location: 'BR2 Workshop',
+      required_outcome:
+        'Refit the fence and make the interlock stop the machine whenever it is open.',
+      priority: 'high',
+      risk_level: 'high',
+      owner_email: 'widths@example.com',
+      due_date: '2026-12-10',
+      escalation: [],
+      no_further_escalation_reason: 'e2e',
+    },
+    p_assign: true,
+    p_idempotency_key: crypto.randomUUID(),
+  });
+  if (error || !data?.ok) throw new Error(`raise: ${error?.message ?? JSON.stringify(data)}`);
+  return data.finding_id as string;
+}
+
 async function signIn(page: Page) {
   await page.context().clearCookies();
   await page.goto('/sign-in');
@@ -155,15 +219,8 @@ test('v290 every Finding screen fits a narrow phone, in Day and Night', async ({
   test.skip(testInfo.project.name !== 'mobile', 'One narrow pass; the crawl covers 390 upward.');
   test.setTimeout(300_000);
 
-  const db = service();
-  const { data: finding } = await db
-    .from('esh_findings')
-    .select('id')
-    .eq('organization_id', ORGANIZATION)
-    .limit(1)
-    .maybeSingle();
-  const paths = finding?.id ? [...PATHS, `/findings/${finding.id}`] : PATHS;
-  expect(finding?.id, 'the seed must hold a finding to open at these widths').toBeTruthy();
+  const findingId = await raiseFinding();
+  const paths = [...PATHS, `/findings/${findingId}`];
 
   await signIn(page);
 
