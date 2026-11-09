@@ -1,0 +1,35 @@
+/*
+ * The export control's own layout.
+ *
+ * Scoped rather than added to `globals.css`, which several people edit at
+ * once, and because two buttons and a fallback box do not need a vocabulary
+ * anybody else has to learn. `section-block` supplies the padded panel; this
+ * supplies the row and the box inside it.
+ */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+
+/*
+ * Each button takes the full width below the narrowest layout, because two
+ * side by side at 320px leaves "Copy AI brief" wrapping mid-phrase.
+ */
+@media (max-width: 420px) {
+  .actions {
+    display: grid;
+    gap: 8px;
+  }
+}
+
+.fallback {
+  width: 100%;
+  margin-top: 8px;
+  /* A document, so a monospaced face and no wrapping surprises. */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}

@@ -1,75 +1,77 @@
 import { notFound } from 'next/navigation';
 
-import { AiWorkspace } from '@/components/AiWorkspace';
-import { canUseAssistant, pairExchanges } from '@/domain/ai';
+import { canUseAssistant } from '@/domain/ai';
 import { requireProfile } from '@/lib/supabase/server';
 import { aiConfig } from '@/server/ai/config';
-import { listConversations, loadThread } from '@/server/ai/conversations';
+
+import { ExportAiBrief } from './ExportAiBrief';
 
 /**
- * TAMCO AI.
+ * TAMCO AI — the brief, not the conversation.
  *
- * The page resolves who is asking and what they have asked before; everything
- * else happens through the streaming route, which runs every tool as this
- * person. A conversation id in the address that is not theirs simply loads
- * nothing — the policy filters it out before this code sees it.
+ * v317. The owner analyses the team's week in an assistant of their own
+ * choosing and wanted the facts extracted in one press rather than retyped
+ * off the screens. So this address now offers the export, and the chat that
+ * used to live here is at `/ai/chat`: hidden, because nothing links to it,
+ * and working, because the code and its tests are untouched.
  *
- * Pairing the stored turns into question-and-answer lives in the domain, with
- * a test, because the rule it encodes is easy to get wrong: a tool result is
- * kept so somebody can audit what was read, and it is not an answer.
+ * The gate is unchanged. `canUseAssistant` decides who sees the rail entry and
+ * who may open this page, and it is asked here as well as in the action
+ * behind the buttons, for the reason v299 recorded: a hidden link is still a
+ * reachable address. `notFound` rather than a refusal, like the admin
+ * screens - a 404 says there is nothing here for you, where a 403 confirms
+ * there is something worth asking about.
+ *
+ * Nothing on this page reads a record. The export action does that when
+ * pressed, through the same permission-scoped queries the screens use.
  */
 export const dynamic = 'force-dynamic';
 
-export default async function AiPage({ searchParams }: { searchParams: Promise<{ c?: string }> }) {
+export default async function AiBriefPage() {
   const profile = await requireProfile();
   const config = aiConfig();
-  /*
-   * v299 — before the reads, not after. `notFound` for the same reason the
-   * admin screens use it: a 404 tells somebody without the role that there is
-   * nothing here for them, where a 403 would confirm there is something worth
-   * asking about. Checked here and not only in the rail, because a hidden
-   * link is still a reachable address.
-   *
-   * v301 — the configuration is now read before the gate rather than after
-   * it, because the gate consults it. The named list lives there and not in
-   * the domain, so that who may use this is a setting an owner changes rather
-   * than a deploy an engineer runs.
-   */
   if (!canUseAssistant(profile.role, profile.email, config.allowedEmails)) notFound();
-
-  const params = await searchParams;
-  const conversationId = /^[0-9a-f-]{36}$/i.test(params.c ?? '') ? params.c! : null;
-  const [conversations, thread] = await Promise.all([
-    listConversations(),
-    conversationId
-      ? loadThread(conversationId)
-      : Promise.resolve({ messages: [], failed: false as boolean }),
-  ]);
 
   return (
     <>
       <div className="pagehead">
         <div>
           <p className="eyebrow">TAMCO AI</p>
-          <h1>Ask about your work</h1>
+          <h1>Export AI brief</h1>
           <p>
-            Answers come from the records you are authorised to see, with links to the ones I read.
+            Take your team&rsquo;s open work, blockers, updates and findings out as one document,
+            ready to paste into an assistant for analysis.
           </p>
         </div>
       </div>
-      <AiWorkspace
-        conversations={conversations.rows}
-        conversationsFailed={conversations.failed}
-        initial={conversationId ? pairExchanges(thread.messages) : []}
-        threadFailed={thread.failed}
-        conversationId={conversationId}
-        enabled={config.enabled}
-        disabledReason={
-          config.enabled
-            ? ''
-            : `The assistant is not switched on for this installation. An administrator sets ${config.keyVariable} to enable it.`
-        }
-      />
+
+      <ExportAiBrief />
+
+      <section className="section-block" aria-labelledby="ai-brief-contents-title">
+        <h2 id="ai-brief-contents-title">What the brief contains</h2>
+        <ul>
+          <li>
+            Open team tasks: owner, status, deadline, reported progress and the written scope.
+          </li>
+          <li>Open checklist actions, dependencies, barriers and review state.</li>
+          <li>The latest update on each task, with its author, date and words as written.</li>
+          <li>
+            Open ESH findings with risk level, action state, overdue status and whether a verified
+            interim control is in place.
+          </li>
+          <li>Your own open work, for the management overview.</li>
+          <li>
+            The snapshot time, your timezone, record identifiers, direct links, what each source
+            covered, and any read that failed.
+          </li>
+        </ul>
+        <p className="form-hint">
+          Deliberately excluded: hours, effort and capacity figures, because this product records
+          none; attachments and their contents; restricted ESH findings, which the register keeps
+          out of leadership reports and their counts; and identifiers matching a known pattern in
+          free text. The brief states each exclusion and its count, so nothing is missing silently.
+        </p>
+      </section>
     </>
   );
 }
