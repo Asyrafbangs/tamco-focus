@@ -10,6 +10,7 @@ const RUNNING: OperationalHealth = {
   failing: 0,
   held: 0,
   reviewOverdue: 0,
+  effectivenessDue: 0,
 };
 
 describe('v210 what is worth saying about the machinery (§27)', () => {
@@ -66,5 +67,43 @@ describe('v210 what is worth saying about the machinery (§27)', () => {
     expect(one[0]?.href).toBe('/findings/verification');
     const several = healthNotes({ ...RUNNING, reviewOverdue: 4 });
     expect(several[0]?.text).toBe('4 submissions have been waiting over a week for ESH');
+  });
+});
+
+describe('v308 effectiveness checks nobody is going to be reminded about', () => {
+  /*
+   * The tail of the lifecycle. A finding was closed, the fix was booked for a
+   * re-check, and the date has come. No screen anywhere lists these: the only
+   * thing that asks for one is `esh_run_effectiveness_due` behind the daily
+   * cron. So when that run is not happening, the re-check never happens, and
+   * the finding stays closed on a fix nobody confirmed held.
+   */
+  it('mentions them, and treats them as a problem while the run is stopped', () => {
+    const notes = healthNotes({
+      ...RUNNING,
+      lastRunAt: null,
+      hoursSinceRun: null,
+      effectivenessDue: 3,
+    });
+    const note = notes.find((one) => one.text.includes('effectiveness check'));
+    expect(note?.text).toContain('3 effectiveness checks are past the date');
+    expect(note?.exception, 'nothing will mention these again while the run is stopped').toBe(true);
+  });
+
+  it('is a queue rather than a problem while the run is working', () => {
+    const notes = healthNotes({ ...RUNNING, effectivenessDue: 2 });
+    const note = notes.find((one) => one.text.includes('effectiveness check'));
+    expect(note?.exception).toBe(false);
+  });
+
+  it('counts one in the singular', () => {
+    const notes = healthNotes({ ...RUNNING, effectivenessDue: 1 });
+    expect(notes.find((one) => one.text.includes('effectiveness'))?.text).toContain(
+      '1 effectiveness check is past the date',
+    );
+  });
+
+  it('says nothing when none has fallen due', () => {
+    expect(healthNotes(RUNNING).some((one) => one.text.includes('effectiveness'))).toBe(false);
   });
 });

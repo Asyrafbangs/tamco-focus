@@ -16,6 +16,17 @@ export interface OperationalHealth {
   failing: number;
   held: number;
   reviewOverdue: number;
+  /**
+   * v308 - effectiveness checks past their date and still undecided.
+   *
+   * These are the tail of the lifecycle: a finding was closed, the fix was
+   * meant to be re-checked later, and the date has come. Nothing on any screen
+   * lists them. The only thing that asks for one is `esh_run_effectiveness_due`
+   * behind the daily cron, so when that run is not happening a re-check simply
+   * never happens either, and the finding stays closed on a fix nobody
+   * confirmed held.
+   */
+  effectivenessDue: number;
 }
 
 /**
@@ -110,6 +121,19 @@ export function healthNotes(health: OperationalHealth): HealthNote[] {
     notes.push({
       text: `${health.queued} notifications waiting to be sent`,
       exception: false,
+    });
+  }
+  if (health.effectivenessDue > 0) {
+    /*
+     * An exception only while the scheduled run is not working. When it runs,
+     * these are being asked for and the number is merely a queue; when it is
+     * not, nothing anywhere is going to mention them again.
+     */
+    notes.push({
+      text:
+        `${health.effectivenessDue} effectiveness check${health.effectivenessDue === 1 ? ' is' : 's are'} past the date ` +
+        'they were booked for, and only the scheduled run asks for them',
+      exception: stale,
     });
   }
   if (health.reviewOverdue > 0) {

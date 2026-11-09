@@ -24,6 +24,7 @@ const healthy: OperationalHealth = {
   failing: 0,
   held: 0,
   reviewOverdue: 0,
+  effectivenessDue: 0,
 };
 
 describe('v290 what the health panel says', () => {

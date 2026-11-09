@@ -1842,6 +1842,34 @@ export async function getFollowupSettings(): Promise<FollowupSettings | null> {
  */
 export type { HealthReading, OperationalHealth };
 
+/**
+ * v308 - effectiveness checks whose date has passed and nobody has decided.
+ *
+ * Counted beside the health read rather than inside `esh_operational_health`,
+ * which would be a migration for a number a page wants. It runs as the reader,
+ * so each coordinator is told about the checks in their own scope.
+ *
+ * A failed count returns 0 rather than refusing the whole panel: this is the
+ * last line of a banner whose other lines still have something to say, and
+ * losing all of them over this one would be the trade the panel exists to
+ * avoid.
+ */
+async function effectivenessDue(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10);
+  const { count, error } = await supabase
+    .from('esh_effectiveness_checks')
+    .select('id', { count: 'exact', head: true })
+    .eq('state', 'scheduled')
+    .lte('due_on', today);
+  if (error) {
+    console.error(`[effectivenessDue] ${error.code ?? 'unknown'}: ${error.message}`);
+    return 0;
+  }
+  return count ?? 0;
+}
+
 export async function getOperationalHealth(): Promise<HealthReading> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc('esh_operational_health');
@@ -1873,6 +1901,7 @@ export async function getOperationalHealth(): Promise<HealthReading> {
     failing: Number(health.failing ?? 0),
     held: Number(health.held ?? 0),
     reviewOverdue: Number(health.review_overdue ?? 0),
+    effectivenessDue: await effectivenessDue(supabase),
   };
   return { available: true, health: reading };
 }
