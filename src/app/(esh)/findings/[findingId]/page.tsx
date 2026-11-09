@@ -29,8 +29,8 @@ import { EVIDENCE_IMAGE_TYPES, evidenceLabel } from '@/domain/esh-evidence';
 import { nextActor } from '@/domain/esh-next-actor';
 import { VERIFICATION_METHOD_LABELS, type VerificationMethod } from '@/domain/esh-verification';
 import {
-  ACTION_STATE_LABELS,
-  canonicalEmail,
+  actionStateWords,
+  isOwnWork,
   FINDING_STATUS_LABELS,
   FINDING_WARNING_MESSAGES,
   PRIORITY_LABELS,
@@ -391,7 +391,9 @@ export default async function FindingPage({
         <div className="esh-detail-head-actions">
           <span className="flag neutral esh-status-flag">
             {finding.status === 'open' && action
-              ? ACTION_STATE_LABELS[action.state]
+              ? // v305 - a rejected correction sits in the same state as one
+                // the owner has started, so the flag says which this is.
+                actionStateWords(action.state, { changesRequested })
               : finding.resolvedOutcome
                 ? (OUTCOME_LABELS[finding.resolvedOutcome] ?? FINDING_STATUS_LABELS[finding.status])
                 : FINDING_STATUS_LABELS[finding.status]}
@@ -413,6 +415,7 @@ export default async function FindingPage({
         canCoordinate={access.canCoordinate}
         canVerify={access.canVerify}
         viewerEmail={profile.email}
+        viewerUserId={profile.id}
         isAdministrator={profile.role === 'administrator'}
         full={query.full === '1'}
         reviewOpen={query.review === '1'}
@@ -638,6 +641,7 @@ function FindingSummary({
   canCoordinate,
   canVerify,
   viewerEmail,
+  viewerUserId,
   isAdministrator,
   full,
   reviewOpen,
@@ -648,6 +652,8 @@ function FindingSummary({
   canCoordinate: boolean;
   canVerify: boolean;
   viewerEmail: string;
+  /** v305 - the second arm of `focus.esh_is_own_work`, which the email alone misses. */
+  viewerUserId: string;
   /** Only an administrator may correct a contact's address (§31.3). */
   isAdministrator: boolean;
   /** v221 - a closed finding shows its result; this asks for everything. */
@@ -675,9 +681,12 @@ function FindingSummary({
   const ownerReachable = Boolean(action?.ownerAccessEnabled) && !assignmentHeld;
   // Nobody verifies their own correction: the panel says so rather than
   // offering a button the procedure would refuse (FM25).
-  const ownWork =
-    Boolean(action?.ownerEmail) &&
-    canonicalEmail(action?.ownerEmail ?? '') === canonicalEmail(viewerEmail);
+  const ownWork = isOwnWork({
+    ownerEmail: action?.ownerEmail ?? null,
+    ownerStaffUserId: action?.ownerStaffUserId ?? null,
+    viewerEmail,
+    viewerUserId,
+  });
   const lastOpenAction = finding.openActionCount <= 1;
 
   /*

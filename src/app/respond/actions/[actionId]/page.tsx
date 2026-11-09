@@ -6,8 +6,8 @@ import { GuestTopBar } from '@/components/esh/guest/GuestTopBar';
 import { OwnerComposer } from '@/components/esh/guest/OwnerComposer';
 import { RequestLinkForm } from '@/components/esh/guest/RequestLinkForm';
 import { EVIDENCE_IMAGE_TYPES, EVIDENCE_KIND_LABELS, evidenceLabel } from '@/domain/esh-evidence';
-import { ACTION_STATE_LABELS } from '@/domain/esh-findings';
-import { firstName } from '@/domain/esh-guest';
+import { actionStateWords } from '@/domain/esh-findings';
+import { firstName, lastSubmissionWasSentBack } from '@/domain/esh-guest';
 import { orgConfig } from '@/lib/env';
 import { loadGuestAction } from '@/server/esh/guest';
 
@@ -120,6 +120,13 @@ export default async function GuestActionPage({
   const identity = `${data.displayName ?? data.email} · ${escalation ? 'Escalation recipient' : 'Action Owner'}`;
   const earliest = data.messages[0]?.sentAt;
   const awaitingReview = data.action.state === 'awaiting_verification';
+  /*
+   * v305 - this line said "In progress" to somebody whose work ESH had just
+   * sent back. The state alone cannot tell a rejection from a withdrawal or a
+   * reopening, so the newest submission is asked instead, and the words are
+   * the owner's rather than the register's.
+   */
+  const sentBack = lastSubmissionWasSentBack(data.submissions);
 
   return (
     <>
@@ -140,7 +147,10 @@ export default async function GuestActionPage({
             <p className="guest-chat-meta">
               {[
                 data.finding.reference,
-                ACTION_STATE_LABELS[data.action.state],
+                actionStateWords(data.action.state, {
+                  changesRequested: sentBack,
+                  audience: 'owner',
+                }),
                 due ? `Due ${due}` : null,
                 data.finding.location ?? data.finding.department,
               ]

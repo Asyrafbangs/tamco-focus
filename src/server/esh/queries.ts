@@ -669,6 +669,13 @@ export interface FindingDetail {
     priority: ActionPriority | null;
     state: ActionState;
     ownerEmail: string | null;
+    /**
+     * v305 - the staff account this owner's address is linked to, where there
+     * is one. `focus.esh_is_own_work` matches on either this or the email, and
+     * a screen that decides the same question on the email alone will offer a
+     * control the procedure then refuses.
+     */
+    ownerStaffUserId: string | null;
     draftOwnerEmail: string | null;
     dueAt: string | null;
     baselineDueAt: string | null;
@@ -1026,7 +1033,19 @@ export async function getFindingDetail(
   const { data: principals } = principalIds.length
     ? await supabase
         .from('esh_email_principals')
-        .select('id, display_email, access_enabled, status, access_disabled_by')
+        /*
+         * v305 - `staff_user_id` as well, because the page decides whether
+         * this is the viewer's own work and the database decides the same
+         * thing by a wider rule. `focus.esh_is_own_work` matches on
+         * `canonical_email = canonical(profile.email) OR staff_user_id =
+         * actor`; the page was matching on the email alone. They agree today
+         * only because `esh_principal_for` links a principal to a staff user
+         * exactly when those emails already match. The moment a staff
+         * member's profile email changes they part company, and the page then
+         * offers a Verify panel that the procedure refuses - which is the
+         * thing the ownWork check exists to prevent.
+         */
+        .select('id, display_email, access_enabled, status, access_disabled_by, staff_user_id')
         .in('id', principalIds)
     : {
         data: [] as Array<{
@@ -1035,9 +1054,13 @@ export async function getFindingDetail(
           access_enabled: boolean;
           status: string;
           access_disabled_by: string | null;
+          staff_user_id: string | null;
         }>,
       };
   const emailOf = new Map((principals ?? []).map((row) => [row.id, row.display_email]));
+  const staffIdOf = new Map(
+    (principals ?? []).map((row) => [row.id, row.staff_user_id ?? null] as const),
+  );
   /*
    * v224 — who can actually be written to, which is the rollout's rule and not
    * this file's. Under a restricted rollout it is whoever an administrator
@@ -1178,6 +1201,10 @@ export async function getFindingDetail(
           state: action.state as ActionState,
           ownerEmail: action.owner_principal_id
             ? (emailOf.get(action.owner_principal_id) ?? null)
+            : null,
+          /** v305 - the second half of the database's own-work test. */
+          ownerStaffUserId: action.owner_principal_id
+            ? (staffIdOf.get(action.owner_principal_id) ?? null)
             : null,
           draftOwnerEmail: action.draft_owner_email ?? null,
           dueAt: action.due_at ?? null,

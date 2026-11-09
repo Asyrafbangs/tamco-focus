@@ -66,6 +66,67 @@ export const ACTION_STATE_LABELS: Record<ActionState, string> = {
   cancelled: 'Cancelled',
 };
 
+/**
+ * v305 — the database's own-work test, mirrored where the page can use it.
+ *
+ * `focus.esh_is_own_work` decides whether somebody may verify a correction,
+ * and it matches on two things:
+ *
+ *     p.canonical_email = focus.esh_canonical_email(u.email)
+ *     or p.staff_user_id = p_user_id
+ *
+ * The finding page was matching on the first alone. The two agree today only
+ * by accident of how principals are created: `esh_principal_for` sets
+ * `staff_user_id` exactly when the emails already match. Change a staff
+ * member's profile email and they part, and then the page offers a Verify
+ * panel that `esh_verify_submission` answers with `self_verification` — a
+ * button the procedure refuses, which is the one thing the check exists to
+ * prevent.
+ *
+ * Both arms live here so the rule is stated once and can be tested, rather
+ * than being an email comparison repeated at each screen that needs it.
+ */
+export function isOwnWork(input: {
+  ownerEmail: string | null;
+  ownerStaffUserId: string | null;
+  viewerEmail: string;
+  viewerUserId: string;
+}): boolean {
+  if (input.ownerStaffUserId && input.ownerStaffUserId === input.viewerUserId) return true;
+  if (!input.ownerEmail) return false;
+  return canonicalEmail(input.ownerEmail) === canonicalEmail(input.viewerEmail);
+}
+
+/**
+ * v305 — what an action's state means to the person reading it.
+ *
+ * `in_progress` carries two situations that a reader has to tell apart, and
+ * the label shows only one of them.
+ *
+ * It is entered honestly when the owner starts: `esh_guest_send_message` moves
+ * `assigned` to `in_progress` the first time the owner writes, and "In
+ * progress" is exactly right for that. But `esh_verify_submission` returns an
+ * action to the same state when it REJECTS a submission, and so does
+ * `esh_guest_withdraw` and `esh_reopen_finding`. A correction ESH has sent
+ * back therefore reads identically to one being worked on — momentum, where in
+ * fact the work has bounced and the clock is still running against the owner.
+ *
+ * Only the rejection is reworded, because only the rejection is a decision
+ * somebody made that the label hides. A withdrawal or a reopen leaves the work
+ * genuinely with the owner, which is what "In progress" already says.
+ *
+ * The audience matters as much as the state. ESH needs to know the work
+ * bounced; the owner needs to know what is being asked, and "Sent back" told
+ * to the person who must now act reads as a verdict rather than a request.
+ */
+export function actionStateWords(
+  state: ActionState,
+  options: { changesRequested?: boolean; audience?: 'esh' | 'owner' } = {},
+): string {
+  if (state !== 'in_progress' || !options.changesRequested) return ACTION_STATE_LABELS[state];
+  return options.audience === 'owner' ? 'More needed from you' : 'Sent back for more';
+}
+
 export const FINDING_STATUS_LABELS: Record<FindingStatus, string> = {
   draft: 'Draft',
   new: 'Not assigned',
