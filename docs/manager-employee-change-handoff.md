@@ -15,10 +15,28 @@ pushed.
 ### The manager
 
 **A person opens in place.** The team-member drawer is gone. Clicking a
-person's row expands them underneath it, with the rest of the team still on
+person's card opens them beside the roster, with the rest of the team still on
 screen — which is the comparison a manager came for and could previously only
-do from memory. Name, whitespace and chevron are one control; "Keep open" holds
+do from memory. Name, whitespace and chevron are one control; "Compare" holds
 one person while another is read (§6, A01–A03).
+
+> **Superseded in part by v323.** The expansion opened _underneath_ the row
+> until then, which honoured §6 and defeated it at the same time: the panel is
+> about a thousand pixels tall, so opening the second of six people pushed the
+> other four off the screen and the comparison was back to being done from
+> memory. The roster is now a column of cards and the person being read is the
+> column beside it, so both are on screen at once; below 1000px the panel
+> follows the roster down the page. A01 and A02 are unchanged. A03's control is
+> unchanged in mechanism and URL (`?kept=`) and is now called **Compare**,
+> because beside the roster "keep open" described a state that is no longer
+> what the manager is choosing — with two people open the panels sit side by
+> side wherever there is room for both.
+>
+> What a card carries changed with it. Four columns of prose down six people
+> was most of what made the list long, so what somebody is working on and what
+> they agreed to deliver are read from the panel — which is open the whole time
+> now — and the card carries who they are, a load bar drawn to the team's own
+> scale, the exception counts, and the reason where one is owed.
 
 **The dashboard above the list is gone.** Team / Not started / Completed are
 three views of the same people; "Needs attention" is a filter inside Team

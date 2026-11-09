@@ -152,20 +152,32 @@ test.describe('v130 My Team is an exception list, not a table of buttons', () =>
     await expect(page.getByTestId('my-team-person-row').first()).toBeVisible();
   });
 
-  test('the columns say what they hold', async ({ page }) => {
-    const header = page.locator('[class*="listHeader"]');
-    // v235 merged five columns into three. "Currently working on" still names
-    // the person's own selection rather than the most recently touched task,
-    // and "Latest" still says which latest it means — it now says it beside
-    // the exceptions, because they are one question.
-    await expect(header).toContainText('Currently working on');
-    await expect(header).toContainText('Needs attention · Latest');
-    // Still not the bare "Working on", which could not answer which of four
-    // Active items this was.
-    await expect(header).not.toContainText('Working on');
-    await expect(header.getByText('Action', { exact: true })).toHaveCount(0);
-    // The two columns of repeated absence are gone, not relabelled.
-    await expect(header).not.toContainText('Next agreed result');
+  test('the roster is a list of people, not a table of columns', async ({ page }) => {
+    /*
+     * v235 merged five columns into three; v323 made the roster a column
+     * beside the person being read, and a 300px column is not a table. The
+     * header went with the columns — a row of labels over cards is chrome
+     * naming fields that are already named by what they hold.
+     */
+    await expect(page.locator('[class*="listHeader"]')).toHaveCount(0);
+    await expect(page.getByText('Currently working on')).toHaveCount(0);
+    await expect(page.getByText('Next agreed result')).toHaveCount(0);
+
+    /*
+     * What a card carries instead: a name that opens the person, how much they
+     * are carrying, and when they last said anything. Asserted on every card,
+     * so a field that silently stops rendering is not hidden by the one row
+     * that happens to have everything.
+     */
+    const rows = page.getByTestId('my-team-person-row');
+    const count = await rows.count();
+    expect(count, 'the seed must carry a team for this to mean anything').toBeGreaterThan(0);
+    for (let index = 0; index < count; index += 1) {
+      const row = rows.nth(index);
+      await expect(row.locator('[data-cell="person"] strong')).toHaveText(/\S/);
+      await expect(row.locator('[data-cell="load"]')).toHaveText(/\S/);
+      await expect(row.locator('[data-cell="latest"]')).toHaveText(/updated |no updates recorded/);
+    }
   });
 
   test('healthy rows are quiet and carry no buttons', async ({ page }) => {
@@ -178,8 +190,12 @@ test.describe('v130 My Team is an exception list, not a table of buttons', () =>
     await expect(rows.getByRole('button', { name: 'Open task' })).toHaveCount(0);
     await expect(rows.getByRole('button', { name: 'Open routine' })).toHaveCount(0);
 
-    // Somebody with nothing outstanding shows a dash, not a sentence.
-    await expect(rows.filter({ hasText: 'Nothing needed from you' }).first()).toBeVisible();
+    /*
+     * Somebody with nothing outstanding says so in one labelled phrase, which
+     * v324 gives to every reader rather than hiding it for the screen reader
+     * alone.
+     */
+    await expect(rows.filter({ hasText: 'No issues flagged' }).first()).toBeVisible();
   });
 
   test('the filter row browses people, and only people', async ({ page }) => {
@@ -212,7 +228,7 @@ test.describe('v130 My Team is an exception list, not a table of buttons', () =>
 
   test('a row carries a button only where a decision is owed', async ({ page }) => {
     const rows = page.getByTestId('my-team-person-row');
-    const quiet = rows.filter({ hasText: 'Nothing needed from you' }).first();
+    const quiet = rows.filter({ hasText: 'No issues flagged' }).first();
     // One button only: the name, which opens the person (v181). No action.
     await expect(quiet.getByRole('button')).toHaveCount(1);
     await expect(quiet.getByRole('button', { name: /team member detail for/ })).toHaveCount(1);

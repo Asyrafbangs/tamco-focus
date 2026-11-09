@@ -256,6 +256,14 @@ test('manager My Team and two-step setup retain the approved master-detail struc
   await signIn(page, 'izzul@tamco.local');
 
   await page.goto('/work?scope=team&filter=attention');
+  /*
+   * The decision button is a client control, so a click landing before
+   * hydration does nothing at all and the assertion below reports a URL that
+   * never changed — which reads as the button being wired to the wrong place.
+   * The reason assertion underneath is no substitute: it is satisfied by the
+   * server's own HTML.
+   */
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   const goalAttention = page
     .getByTestId('my-team-person-row')
     .filter({ hasText: 'Goal support needed' });

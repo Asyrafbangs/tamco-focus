@@ -63,8 +63,9 @@ import {
 
 import { BinList } from './BinList';
 import { AttentionListView } from './AttentionListView';
-import { MyTeamListHeader, MyTeamPersonRow } from './MyTeamPersonRow';
+import { MyTeamPersonRow } from './MyTeamPersonRow';
 import { MyTeamPersonPanel } from './MyTeamPersonPanel';
+import { MyTeamComparison } from './MyTeamComparison';
 import { TeamDelivered } from './TeamDelivered';
 import { TeamRecentActivity } from './TeamRecentActivity';
 import { TeamWaiting } from './TeamWaiting';
@@ -1095,6 +1096,21 @@ export default async function WorkPage({
   const detailByPerson = new Map(
     expandedPeople.filter((detail) => detail !== null).map((detail) => [detail.person.id, detail]),
   );
+
+  /*
+   * v323 — the people whose detail is open, in the order the roster lists them.
+   *
+   * Paired here rather than in the markup because the panel needs the row as
+   * well as the detail: what somebody said they are working on and what they
+   * agreed to deliver are the row's own facts, and reading them from there
+   * rather than querying again is why the roster and the panel cannot state
+   * different things.
+   */
+  const expandedRows = teamRows.flatMap((person) => {
+    const detail = detailByPerson.get(person.userId);
+    return detail ? [{ person, detail }] : [];
+  });
+
   /*
    * The same page with one person's expansion turned on or off.
    *
@@ -1523,7 +1539,7 @@ export default async function WorkPage({
           */}
           <div className="team-views">
             {/* Choosing one of these replaces the whole list below it, which
-                is what level 2 means. The attention filter under it narrows
+                is what level 2 means. The attention filter beside it narrows
                 what this one chose, and is level 3. */}
             <FocusTabs
               label="Team views"
@@ -1555,37 +1571,36 @@ export default async function WorkPage({
                 },
               ]}
             />
+            {/*
+              Attention is a filter within Team, not a view beside it.
+
+              Its scope is stated rather than assumed: "needs you" means a
+              request addressed to this manager or an exception on somebody's
+              work, which is narrower than "everything that looks wrong".
+            */}
+            {(teamFilter === 'everyone' || teamFilter === 'attention') && (
+              <div className="team-attention-filter">
+                <FocusTabs
+                  label="Team filter"
+                  items={[
+                    {
+                      href: teamHref(),
+                      label: 'Everyone',
+                      active: teamFilter === 'everyone',
+                      count: team.length,
+                    },
+                    {
+                      href: teamHref('attention'),
+                      label: 'Needs attention',
+                      active: teamFilter === 'attention',
+                      count: teamNeedingAttention.length,
+                      attention: teamNeedingAttention.length > 0,
+                    },
+                  ]}
+                />
+              </div>
+            )}
           </div>
-
-          {/*
-            Attention is a filter within Team, not a view beside it.
-
-            Its scope is stated rather than assumed: "needs you" means a request
-            addressed to this manager or an exception on somebody's work, which
-            is a narrower thing than "everything that looks wrong".
-          */}
-          {(teamFilter === 'everyone' || teamFilter === 'attention') && (
-            <div className="team-attention-filter">
-              <FocusTabs
-                label="Team filter"
-                items={[
-                  {
-                    href: teamHref(),
-                    label: 'Everyone',
-                    active: teamFilter === 'everyone',
-                    count: team.length,
-                  },
-                  {
-                    href: teamHref('attention'),
-                    label: 'Needs attention',
-                    active: teamFilter === 'attention',
-                    count: teamNeedingAttention.length,
-                    attention: teamNeedingAttention.length > 0,
-                  },
-                ]}
-              />
-            </div>
-          )}
         </>
       )}
 
@@ -1649,50 +1664,87 @@ export default async function WorkPage({
       )}
 
       {/*
-        The people table belongs to the two views that are about people.
+        The roster and the person being read, side by side (v323).
 
-        It was written as "every filter except these two", so each view added
-        since has quietly inherited it: Recent activity rendered its cards and
-        then the whole table underneath, which is the opposite of a tab having
-        one unmistakable purpose. Naming the two views that want it means a
-        fifth cannot inherit it by accident.
+        This belongs to the two views that are about people. It was written as
+        "every filter except these two", so each view added since has quietly
+        inherited it: Recent activity rendered its cards and then the whole
+        table underneath, which is the opposite of a tab having one
+        unmistakable purpose. Naming the two views that want it means a fifth
+        cannot inherit it by accident.
+
+        The panel used to sit inside the row it belonged to, which was right
+        when the alternative was a drawer over the list (v143) and wrong at a
+        thousand pixels tall: opening the second of six people pushed the other
+        four off the screen, so the comparison the manager came for was still
+        being done from memory. It is a column now. Below the board's own
+        width it falls back to following the roster down the page, which is the
+        same reading order on a phone.
       */}
-      {scope === 'team' && (teamFilter === 'everyone' || teamFilter === 'attention') && (
-        <div className="focus-panel">
-          {teamRows.length > 0 ? (
-            <>
-              <MyTeamListHeader />
-              {teamRows.map((person) => {
-                const detail = detailByPerson.get(person.userId) ?? null;
-                const panelId = `team-person-${person.userId}`;
-                return (
-                  <MyTeamPersonRow
-                    key={person.userId}
-                    person={person}
-                    nowIso={now.toISOString()}
-                    attentionWindowDays={settings.upcomingWindowDays}
-                    expanded={detail !== null}
-                    toggleHref={personToggleHref(person.userId)}
-                    panelId={panelId}
-                  >
-                    {detail && (
-                      <MyTeamPersonPanel
-                        detail={detail}
-                        row={person}
-                        panelId={panelId}
-                        taskHrefBase={closeLayerHref('/work', params, [...TASK_LAYER_PARAMS])}
-                        keepHref={personKeepHref(person.userId)}
-                        kept={keptIds.includes(person.userId)}
-                        timeZone={profile.timezone}
-                        now={now}
-                        attentionWindowDays={settings.upcomingWindowDays}
-                      />
-                    )}
-                  </MyTeamPersonRow>
-                );
-              })}
-            </>
-          ) : (
+      {scope === 'team' &&
+        (teamFilter === 'everyone' || teamFilter === 'attention') &&
+        (teamRows.length > 0 ? (
+          <div className="team-board">
+            <div className="focus-panel team-roster">
+              {teamRows.map((person) => (
+                <MyTeamPersonRow
+                  key={person.userId}
+                  person={person}
+                  nowIso={now.toISOString()}
+                  attentionWindowDays={settings.upcomingWindowDays}
+                  expanded={detailByPerson.has(person.userId)}
+                  toggleHref={personToggleHref(person.userId)}
+                  panelId={`team-person-${person.userId}`}
+                />
+              ))}
+            </div>
+            <div className="team-detail">
+              {/*
+                Two or more open is a comparison, and a comparison is the
+                figures laid out across the people — not two full registers for
+                the manager to reconcile from memory while scrolling between
+                them. In roster order, so the columns are in the order they
+                were just read in the list beside them.
+              */}
+              {expandedRows.length > 1 ? (
+                <MyTeamComparison
+                  people={expandedRows}
+                  windowDays={settings.upcomingWindowDays}
+                  openHref={(personId) => teamUrl({ ...withoutTask, person: personId, kept: null })}
+                  stopHref={teamUrl({ ...withoutTask, kept: null })}
+                />
+              ) : expandedRows.length === 1 ? (
+                <MyTeamPersonPanel
+                  key={expandedRows[0]!.person.userId}
+                  detail={expandedRows[0]!.detail}
+                  row={expandedRows[0]!.person}
+                  panelId={`team-person-${expandedRows[0]!.person.userId}`}
+                  taskHrefBase={closeLayerHref('/work', params, [...TASK_LAYER_PARAMS])}
+                  keepHref={personKeepHref(expandedRows[0]!.person.userId)}
+                  kept={keptIds.includes(expandedRows[0]!.person.userId)}
+                  timeZone={profile.timezone}
+                  now={now}
+                  attentionWindowDays={settings.upcomingWindowDays}
+                />
+              ) : (
+                /*
+                  An empty column is an instruction, not a mood. It says what
+                  to do and what the reader will get for doing it, and it names
+                  the comparison, because nothing else on the screen does.
+                */
+                <div className="team-detail-empty">
+                  <p>Choose someone to read their week.</p>
+                  <p className="muted">
+                    Their decisions, deadlines and work open here, beside the roster. Press{' '}
+                    <strong>Compare</strong> on one person and open another to see their figures
+                    side by side.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="focus-panel">
             <div className="empty-state">
               <h3>No team items currently need your attention</h3>
               <p>
@@ -1703,9 +1755,8 @@ export default async function WorkPage({
                 See everyone
               </Link>
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        ))}
 
       {scope === 'mine' && (
         <div className="focus-panel">

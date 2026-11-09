@@ -450,6 +450,146 @@ takes `supabase stop --no-backup` then `start`. The tell was that _all_
 thirty-two tests failed at the identical line: a clean cliff is environment, a
 scatter is code.
 
+## My Team is a board, and TAMCO AI organises its evidence (v323)
+
+Two screens the user called out by name: the AI answer page ("so ugly, and not
+organised") and My Team ("messy, not much help, hard to observe, a lot of
+things hidden, and it is a long list").
+
+**My Team.** The roster is a column of cards and the person being read is the
+column beside it. The expansion opened _underneath_ the row from v143, which
+honoured §6 and defeated it at the same time: the panel is about a thousand
+pixels tall, so opening the second of six people pushed the other four off the
+screen and the comparison a manager came for was back to being done from
+memory. Below 1000px the panel follows the roster down the page, which is the
+same reading order on a phone.
+
+What a card carries changed with it. Four columns of prose down six people was
+most of what made the list long, so what somebody is working on and what they
+agreed to deliver are read from the panel — open the whole time now — and the
+card carries the name, a load bar drawn to the team's own scale, the exception
+counts as chips, and the reason where a decision is owed. The bar is volume
+only (active, shared steps, waiting): a red segment would make it a verdict,
+and §6's refusal of a score still stands.
+
+The panel opens on what needs answering. Decisions, then deadlines, then
+current focus, then the week and the active list — all open; the five
+reference sections stay folded under a label that says what they are. The
+variable sentence of figures became five fixed cells in a fixed order, because
+a sentence that changes length and order with its contents cannot be compared
+across two panels, which is what the panel is now for.
+
+"Keep open" is **Compare**: the same mechanism, the same `?kept=` URL, and two
+panels side by side wherever there is room. Three strips of tabs became two —
+the Everyone / Needs attention filter sits on the end of the views row it
+narrows.
+
+**TAMCO AI.** Three structural faults, not decorative ones. Every cited record
+was a bulleted full-length link, so one answer citing thirty made the evidence
+several times taller than the reasoning it supported; it is now a disclosure
+stating the count, grouping by kind and laying the titles in columns. The
+question was a small tinted pill and the answer was body text one step
+smaller, so a thread had no landmark to scroll back to; the question is the
+exchange's heading and a rule separates one exchange from the next. The
+composer is docked rather than floating over the end of the conversation.
+
+### What the specs had to be told
+
+Nine spec files, because the roster's contract changed. The ones worth
+remembering:
+
+- **A section that opens by itself breaks an unconditional `click()` on its
+  summary.** `ask-for-update-v184` and `own-steps-v159` both opened "Other
+  active work" that way, which now _closes_ it, and every row they then reach
+  for is invisible for the rest of the test. `openPanelSection` in
+  `tests/e2e/support/work-list.ts` asks for the state rather than assuming it.
+- **An exception chip that draws `⚠3` and speaks "3 overdue" must be asserted
+  on the words.** The drawn half is a red smudge to anybody not looking at it,
+  so `team-deadlines-v189` and `team-contributions-v157` read the accessible
+  text, which is the half that can be dropped without anybody noticing.
+- **`team-context-v48` caught a real height regression** — 151px against its
+  140px cap at 1440 — and the fix was the card, not the cap: the reason is one
+  line inside the board's roster column, where the panel beside it states the
+  case in full, and keeps both lines below the board where there is no panel.
+- **Two guards were one keystroke from measuring nothing.**
+  `team-phone-layout-v239` finds reasons by `[data-cell="attention-reason"]`,
+  which nearly left the card; it now asserts the count before the clipping.
+  `team-row-density-v235` asserts the load bars are ordered by load and that
+  the heaviest fills the track, because a per-row normalisation draws a full
+  bar for everybody, says nothing at all, and looks exactly like a working one.
+
+## My Team reads as a dashboard, not a register (v324)
+
+v323 put the roster beside the person being read, which fixed the scrolling and
+left the card illegible. The manager's own words: it should say who needs
+attention, why, what decision is theirs, and who has nothing flagged — inside
+ten seconds, without reading anybody's task list.
+
+**Four named states, decided in one place.** `teamRowState` in
+`src/domain/prioritisation.ts` returns `manager_action`, `work_attention`,
+`due_soon` or `none`, and the card, the sort and the panel headings all read
+it. The distinction between the first two was asked for outright: not every
+overdue task is the manager's to intervene in. `getTeamAttention` already
+defaults an unmarked candidate to `action_required` — "a branch that forgets
+should over-report rather than hide a request" — so the classification fails
+towards flagging, and `teamRowState` reads that field rather than re-deriving
+it.
+
+**No inferred status.** "Steady" and "on track" were proposed and rejected:
+they are judgements about a person that no count on this screen supports, and a
+quiet week and a week nobody recorded look identical from here. `none` says
+only that nothing has been flagged. Whether somebody has work at all is a
+separate factual line — "4 active · 2 waiting · updated 3h ago", or "No open
+items · no updates recorded".
+
+**The workload bar is gone, and nothing replaced it.** It drew each person's
+open items as a share of the busiest person's, on a scale nothing on screen
+stated, inches from a red overdue count — so it said that carrying more work is
+carrying worse work. `teamLoadMax` went with it rather than being left unused.
+Comparison shows the counts themselves.
+
+**Comparison is a table.** Six measures across the people, a `Needs you` row
+carrying each decision and its control, and `Open <name>` per column. No panels
+underneath: two full registers was the thing that made comparing them a memory
+exercise. Nothing marks a winner — more overdue is worse, more done is better,
+more active is neither, so one highlight rule would say three different things
+with one mark. `teamStatCells` is shared with the panel so the same person
+cannot be counted two ways.
+
+**The panel stopped rendering nothing.** A tail section with no content renders
+no disclosure at all; the empty ones are named in one sentence, which is
+shorter and says strictly more than four shut drawers. The active list is
+folded again because, open, it repeated the tasks "Work needs attention" had
+just listed 300px above.
+
+**Sorting.** The rank keyed off `sourceType === 'barrier' || 'goal'`, so a
+request with any other source would have sorted below an overdue task. It now
+checks `kind === 'action_required'` first. Ranks: request 1, overdue exception
+2, other exception 3, overdue with no item raised 4 (a guard), due soon 5,
+nothing flagged with work 9, nothing flagged and nothing assigned 10. The old
+rule put everyone without an attention _item_ at 9, which is how a person with
+work due inside the window sorted below two people carrying nothing.
+
+### What the specs had to be told, again
+
+Fourteen cases across seven files, every one a test pinned to the v323
+contract rather than a product defect. Worth keeping:
+
+- **A one-pixel margin is a flake, not a pass.** At 1024 the card measured
+  139px against `team-context-v48`'s 140px cap, because a 272px roster left
+  242px of content and the longest name wrapped the state onto a second line.
+  The floor came up to 300px. Measured at nine widths on both pointer types:
+  36 of 36 clear, worst case 119/140.
+- **v132 asserted order _and_ roll call in one `toHaveLength`**, so it failed
+  on a person who had completed nothing — which has nothing to do with the
+  ordering it exists to protect. It now walks the headings as a subsequence and
+  requires any absent section to be named in the empty-tail sentence.
+- **A hidden phrase for one reader is worse than a visible one for all.** v235
+  gave screen readers "Nothing needed from you" in a `visually-hidden` span
+  because sighted readers took the absence of a flag as the answer. The state
+  label says "No issues flagged" to everybody now, so the hidden span is gone
+  rather than duplicated — and the spec asserts both halves of that.
+
 ## Known test brittleness
 
 ## What the parallel pass taught (v310–v316)

@@ -142,13 +142,12 @@ test.describe('v141 the manager agrees', () => {
     await openWork(page, '?scope=team');
     const row = page.getByTestId('my-team-person-row').filter({ hasText: 'Ajmal' });
     /*
-     * A proposal is not an agreement, and the row must not say it is.
+     * A proposal is not an agreement, and nothing must say it is.
      *
      * v235 stopped stating the absence: "No agreed priorities" on every line
      * was the same nothing restated down the table. So the assertion is that
-     * nothing is claimed at all — no agreed result, and not this title.
+     * nothing is claimed at all — not on the card, and not this title.
      */
-    await expect(row.locator('[data-cell="next-result"]')).toHaveCount(0);
     await expect(row).not.toContainText(title);
 
     // Agree it where the work is already being read.
@@ -156,10 +155,11 @@ test.describe('v141 the manager agrees', () => {
     const panel = page.getByTestId('my-team-person-panel');
     await expect(panel).toBeVisible();
     await expect(panel).toContainText(title);
+    // Nor in the panel, which is where an agreed result is stated since v323.
+    await expect(panel.locator('[data-field="agreed"]')).toHaveCount(0);
     /*
-     * v236 folded this section. Agreeing is a real thing a manager does here
-     * and it is still one click away — but it is an action taken after reading
-     * rather than part of the reading, so the panel no longer opens into it.
+     * The section opens by itself when there is something in it (v323), and
+     * this helper leaves an already-open section alone.
      */
     await openPriorities(panel);
     await panel.getByRole('button', { name: 'Agree' }).first().click();
@@ -168,10 +168,12 @@ test.describe('v141 the manager agrees', () => {
     );
 
     await openWork(page, '?scope=team');
-    const agreed = page
+    await page
       .getByTestId('my-team-person-row')
       .filter({ hasText: 'Ajmal' })
-      .locator('[data-cell="next-result"]');
+      .locator('[data-cell="person"] strong')
+      .click();
+    const agreed = page.getByTestId('my-team-person-panel').locator('[data-field="agreed"]');
     await expect(agreed).toContainText(title);
     // v235 moved this beside the work they are currently on, so it carries a
     // label: unlabelled it reads as a second title rather than as a result.

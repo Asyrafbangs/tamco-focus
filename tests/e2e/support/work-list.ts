@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
  * Open "Other active work" if the page has closed it.
@@ -23,5 +23,23 @@ export async function showActiveWork(page: Page): Promise<void> {
   if (open) return;
 
   await shell.locator('summary').click();
+  await expect(shell).toHaveAttribute('open', '');
+}
+
+/**
+ * Open one of the person panel's sections, if the page has not already.
+ *
+ * v236 folded all seven; v323 opens the two that are the reading — the week
+ * and the active list — wherever there is anything in them, and leaves the
+ * five reference sections shut. So a spec that clicks a summary to open a
+ * section now closes it instead, and the rows it was reaching for go invisible
+ * for the rest of the test. The state is asked for rather than assumed, and
+ * the rule belongs to the page rather than to any one spec.
+ */
+export async function openPanelSection(panel: Locator, section: string): Promise<void> {
+  const shell = panel.locator(`.team-person-section[data-section="${section}"]`);
+  await expect(shell, `the panel has no ${section} section`).toHaveCount(1);
+  if (await shell.evaluate((node) => (node as HTMLDetailsElement).open)) return;
+  await shell.locator('> summary').click();
   await expect(shell).toHaveAttribute('open', '');
 }
