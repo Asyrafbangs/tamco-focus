@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 
+import { useHydrated } from '@/components/esh/use-hydrated';
 import { changeDueDate } from '@/server/esh/verification-actions';
 
 /**
@@ -26,6 +27,17 @@ export function AcceptProposedDate({
   label: string;
 }) {
   const [pending, startTransition] = useTransition();
+  /*
+   * v311 - not pressable until React owns it.
+   *
+   * These controls are `type="button"` with a React handler and nothing
+   * underneath: no form, no action, no native behaviour. Pressed before the
+   * page hydrates they do nothing whatsoever - no request, no error, no
+   * change on screen - and the person who pressed has every reason to think
+   * the decision was taken. On the controls that accept, reject, reopen and
+   * reassign a correction, that is the lifecycle silently not moving.
+   */
+  const hydrated = useHydrated();
   const [problem, setProblem] = useState<string | null>(null);
 
   return (
@@ -33,7 +45,7 @@ export function AcceptProposedDate({
       <button
         type="button"
         className="btn small"
-        disabled={pending}
+        disabled={!hydrated || pending}
         onClick={() =>
           startTransition(async () => {
             const result = await changeDueDate({

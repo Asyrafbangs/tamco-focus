@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useRef, useState, useTransition, type DragEvent } from 'react';
+import { useEffect, useRef, useState, useTransition, type DragEvent } from 'react';
 
 import { useHydrated } from '@/components/esh/use-hydrated';
 
@@ -96,7 +96,29 @@ export function OwnerComposer({
   // work away, or an action could be passed round until it expired (§14).
   const [handingOver, setHandingOver] = useState(false);
   const [proposedOwner, setProposedOwner] = useState('');
-  const [helpOpen, setHelpOpen] = useState(false);
+  /*
+   * The help panel's `open` is NOT React state, and that is the fix for a
+   * real failure rather than a style choice.
+   *
+   * It used to be `open={askingTime || handingOver || helpOpen}`. A `details`
+   * element toggles itself natively the moment its summary is clicked, with
+   * no handler needed - so a click that lands before React hydrates opens it
+   * in the DOM while React's state still says closed. Hydration then finds
+   * `open=""` where it rendered `open={false}`, reports the mismatch, throws
+   * the subtree away and re-renders it shut. The owner sees the panel open
+   * and close itself, and the two things behind it - asking for more time,
+   * and saying the work is not theirs - are unreachable until the page is
+   * reloaded. `esh-owner-chat-v211` and `esh-handover-v212` both died there.
+   *
+   * With no `open` prop the native toggle is simply left alone, and the one
+   * case that needs forcing - a request already in progress - is forced
+   * through the element itself.
+   */
+  const helpRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    // A request in progress keeps its own controls in view; nothing closes it.
+    if ((askingTime || handingOver) && helpRef.current) helpRef.current.open = true;
+  }, [askingTime, handingOver]);
   /*
    * v219 - which already-sent update would stand as the completion.
    *
@@ -398,19 +420,23 @@ export function OwnerComposer({
              * Asking for time or saying the work is not yours are real
              * capabilities, but they are not what an owner does most days.
              * They wait behind one control instead of occupying the bar.
+             *
+             * Each of them is a React handler and nothing else - the panel's
+             * own disclosure is native, so it opens before React arrives and
+             * these read as ready when they are not. Pressed then, the
+             * button does nothing at all: no draft opening written, no field
+             * shown, no error. So they are not pressable until the handler
+             * exists, which is v306's rule applied to the controls behind
+             * the one it was written for.
              */}
-            <details
-              className="guest-help"
-              open={askingTime || handingOver || helpOpen}
-              onToggle={(event) => setHelpOpen(event.currentTarget.open)}
-            >
+            <details className="guest-help" ref={helpRef}>
               <summary>Need help?</summary>
               <div className="guest-help-choices">
                 <button
                   type="button"
                   className="btn small ghost"
                   aria-pressed={askingTime}
-                  disabled={pending || handingOver}
+                  disabled={!hydrated || pending || handingOver}
                   onClick={() => {
                     setAskingTime((asking) => !asking);
                     if (!body.trim()) setBody('I need more time because ');
@@ -422,7 +448,7 @@ export function OwnerComposer({
                   type="button"
                   className="btn small ghost"
                   aria-pressed={handingOver}
-                  disabled={pending || askingTime}
+                  disabled={!hydrated || pending || askingTime}
                   onClick={() => {
                     setHandingOver((handing) => !handing);
                     if (!body.trim())
@@ -435,7 +461,7 @@ export function OwnerComposer({
                   type="button"
                   className="btn small ghost"
                   aria-pressed={blocked}
-                  disabled={pending || askingTime || handingOver}
+                  disabled={!hydrated || pending || askingTime || handingOver}
                   onClick={() => {
                     setBlocked((was) => !was);
                     if (!body.trim()) setBody('I cannot finish this because ');

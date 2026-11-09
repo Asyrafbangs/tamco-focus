@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
+import { useHydrated } from '@/components/esh/use-hydrated';
 import { VERIFICATION_METHODS, type VerificationMethod } from '@/domain/esh-verification';
 import { verifySubmission } from '@/server/esh/verification-actions';
 
@@ -34,6 +35,17 @@ export function VerifyPanel({
   const [dueDate, setDueDate] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  /*
+   * v311 - not pressable until React owns it.
+   *
+   * These controls are `type="button"` with a React handler and nothing
+   * underneath: no form, no action, no native behaviour. Pressed before the
+   * page hydrates they do nothing whatsoever - no request, no error, no
+   * change on screen - and the person who pressed has every reason to think
+   * the decision was taken. On the controls that accept, reject, reopen and
+   * reassign a correction, that is the lifecycle silently not moving.
+   */
+  const hydrated = useHydrated();
 
   function decide(decision: 'accepted' | 'changes_requested') {
     startTransition(async () => {
@@ -148,7 +160,7 @@ export function VerifyPanel({
                 setAsking(false);
                 setProblem(null);
               }}
-              disabled={pending}
+              disabled={!hydrated || pending}
             >
               Cancel
             </button>
@@ -156,7 +168,7 @@ export function VerifyPanel({
               type="button"
               className="btn primary"
               onClick={() => decide('changes_requested')}
-              disabled={pending}
+              disabled={!hydrated || pending}
             >
               {pending ? 'Sending…' : `Send back version ${version}`}
             </button>
@@ -170,7 +182,7 @@ export function VerifyPanel({
                 setAsking(true);
                 setProblem(null);
               }}
-              disabled={pending}
+              disabled={!hydrated || pending}
             >
               Request improvement
             </button>
@@ -178,7 +190,7 @@ export function VerifyPanel({
               type="button"
               className="btn primary"
               onClick={() => decide('accepted')}
-              disabled={pending}
+              disabled={!hydrated || pending}
             >
               {pending
                 ? 'Saving…'

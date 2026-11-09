@@ -28,8 +28,14 @@ export function ContactAccessForm({
    * submit — a GET to this same URL carrying `principal_id`, `enabled` and
    * `reason` as query parameters — and the page comes back looking saved with
    * nothing granted or revoked. On a screen that governs who may open an
-   * owner's findings that is the worst way to fail, so the button is not
-   * pressable until the handler behind it exists.
+   * owner's findings that is the worst way to fail.
+   *
+   * Guarding the button alone was not enough, and the browser suite showed
+   * why: these inputs are controlled, so React reconciles them to its own
+   * state when it hydrates and a tick made before that is thrown away. The
+   * administrator then presses Save on a form that looks filled in and the
+   * server is told the access is off. So nothing here is operable until
+   * React owns it - which is also what makes the save deterministic.
    */
   const hydrated = useHydrated();
 
@@ -49,6 +55,7 @@ export function ContactAccessForm({
           type="checkbox"
           name="enabled"
           checked={enabled}
+          disabled={!hydrated}
           onChange={(event) => {
             setEnabled(event.target.checked);
             setState(null);
@@ -64,7 +71,7 @@ export function ContactAccessForm({
       </label>
       <label>
         <span>Reason (recorded in the audit)</span>
-        <input name="reason" maxLength={200} />
+        <input name="reason" maxLength={200} disabled={!hydrated} />
       </label>
       {state && (
         <p className={`notice ${state.ok ? 'success' : 'error'}`} role="status">
