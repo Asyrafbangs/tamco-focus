@@ -36,6 +36,17 @@ test.describe('v239 the phone layout', () => {
     await page.goto('/work?scope=team');
     await expect(page.getByTestId('my-team-person-row').first()).toBeVisible();
 
+    /*
+     * A reason nobody renders cannot be clipped, so the count is asserted
+     * before the clipping is. v323 moved most of the card's prose into the
+     * panel and this attribute was one keystroke from going with it, which
+     * would have left a guard that passes because it measures nothing.
+     */
+    expect(
+      await page.locator('[data-cell="attention-reason"]').count(),
+      'no card in this fixture states a reason, so this measures nothing',
+    ).toBeGreaterThan(0);
+
     const clipped = await page.evaluate(() => {
       const out: string[] = [];
       for (const reason of document.querySelectorAll('[data-cell="attention-reason"]')) {

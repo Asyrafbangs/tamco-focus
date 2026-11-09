@@ -83,9 +83,22 @@ test.describe('v179 a chosen option does something', () => {
     // is listening and the change is simply lost. Holding the scripts back
     // makes that window wide enough to choose in; under a loaded full suite it
     // opened on its own once, and the list stayed as it was (v199).
+    /*
+     * The unroute below disposes this handler, and any request already inside
+     * the sleep wakes to a route the page has stopped caring about —
+     * `route.continue()` then throws "Route is already handled!". In isolation
+     * the page is loaded long before the unroute and nothing is mid-sleep; the
+     * full gate is slower, so it failed there and passed here, four runs out
+     * of four. Forced in a probe to confirm it rather than inferred: the bare
+     * `continue()` throws every time, the guarded one never does.
+     *
+     * The flag closes most of the window and the catch closes the rest. A
+     * route the test has finished with is not a failure of the test.
+     */
+    let holdingScripts = true;
     await page.route('**/*.js', async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 1_500));
-      await route.continue();
+      if (holdingScripts) await new Promise((resolve) => setTimeout(resolve, 1_500));
+      await route.continue().catch(() => {});
     });
     await page.goto('/more/admin/organisation', { waitUntil: 'commit' });
 
@@ -94,6 +107,7 @@ test.describe('v179 a chosen option does something', () => {
     await dept.selectOption({ label: 'Operations' });
     await expect(page).not.toHaveURL(/dept=/);
 
+    holdingScripts = false;
     await page.unroute('**/*.js');
     await expect(page).toHaveURL(/dept=/, { timeout: 20_000 });
     await expect(page.getByRole('heading', { name: /in Operations/ })).toBeVisible();

@@ -1,103 +1,91 @@
 /*
-  Three columns, weighted towards the one a manager acts on (v235).
+  A roster card that states its case (v323, refined v324).
 
-  There were five, and two of them were mostly absence: a column of "No agreed
-  priorities" and a column of "No action needed from you", restated on every
-  line. The agreed result now sits with the work it is a result of, and the
-  latest update sits with the exceptions, because "is this person in trouble,
-  and when did they last say anything" is one question and was being read in
-  two places a row apart.
+  v323 made the roster a column beside the person being read. v324 made it
+  legible: the state was a chip reading "⚠4" with the words hidden in a title
+  attribute, and the load was a bar scaled to the busiest person on a scale
+  nothing on screen stated. A manager had to decode the one thing the card
+  exists to say, and the bar quietly answered a question nobody asked — whether
+  carrying more work is carrying worse work.
+
+  What is left is four lines at most: who, what state they are in, what is
+  late, and why — with the control that answers it where the answer is the
+  manager's to give.
 */
-/*
-  Named rather than found by position. These rules used to select the reason as
-  `.attention > span:last-child`, so adding a button after it silently dropped
-  the reason to default body type in the middle of the table.
-*/
-.listHeader,
-.row {
-  display: grid;
-  /* Person, current focus, what needs you and when they last spoke, chevron. */
-  grid-template-columns:
-    minmax(150px, 1fr)
-    minmax(190px, 1.25fr)
-    minmax(230px, 1.6fr)
-    26px;
-  gap: 14px;
-  min-width: 0;
-}
-
-.listHeader {
-  align-items: center;
-  padding: 9px 14px;
-  border-bottom: 1px solid var(--line-soft);
-  background: var(--surface-2);
-  color: var(--muted);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.listHeader span:last-child {
-  text-align: right;
-}
-
-.row {
-  align-items: center;
-  min-height: 72px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--line-soft);
-  background: var(--surface);
-  cursor: pointer;
-  transition:
-    background-color var(--motion-fast) var(--motion-easing),
-    border-color var(--motion-fast) var(--motion-easing),
-    transform var(--motion-fast) var(--motion-easing);
-}
-
 .block {
   min-width: 0;
 }
 
-/*
-  The row is no longer the last thing in the panel: it sits inside a block with
-  its expansion, so "last row" is now the last block's row. When that block is
-  open the border is wanted again, because the expansion follows it.
-*/
-.block:last-child:not([data-expanded]) > .row:last-child {
-  border-bottom: 0;
-}
-
-.block[data-expanded] > .row {
+.row {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  /* The right padding is the chevron's lane, so nothing has to share with it. */
+  padding: 10px 30px 10px 12px;
   border-bottom: 1px solid var(--line-soft);
-  background: var(--surface-2);
+  background: var(--surface);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--motion-easing);
 }
 
-/* Pointing down while open, so the header states which way it goes. */
-.block[data-expanded] .chevron {
-  transform: rotate(90deg);
+.row:last-child {
+  border-bottom: 0;
 }
 
 .row:hover {
   background: var(--surface-2);
 }
 
-.row:active {
-  transform: translateY(1px);
+/*
+  The person being read, marked in the roster.
+
+  Without it the roster and the panel are two unconnected things on screen: the
+  manager has chosen somebody and nothing in the list says who. A background
+  tint rather than an edge rail, because an unexplained coloured rail is
+  exactly the kind of indicator this card has just stopped using.
+*/
+.row[data-selected] {
+  background: var(--blue-bg);
 }
 
-/* The name is the control (v181); the ring still draws round the whole row,
-   because the row is what it opens. */
+/* The name is the control (v181); the ring draws round the whole card,
+   because the card is what it opens. */
 .row:has(.toggle:focus-visible) {
-  position: relative;
   z-index: 1;
   outline: 2px solid var(--blue);
   outline-offset: -2px;
 }
 
+.person,
+.attention {
+  min-width: 0;
+}
+
+.person {
+  display: grid;
+  gap: 3px;
+}
+
+.action {
+  position: absolute;
+  top: 11px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+}
+
+/* Who, and whether they need anything — the two facts a scan is looking for. */
+.nameLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
 .toggle {
-  display: block;
-  max-width: 100%;
+  min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
@@ -106,198 +94,158 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+  flex: 1 1 auto;
 }
 
 .toggle:focus-visible {
   outline: none;
 }
 
-/* A full touch target on a phone (v183): the name alone measured 15px. The
-   negative margins give the target back to the row's padding and the line
-   below, so the row keeps its height — the band layout has a height budget. */
-@media (max-width: 700px) {
-  .toggle {
-    display: flex;
-    align-items: center;
-    min-height: 44px;
-    margin-block: -12px;
-  }
-}
-
-.person,
-.working,
-.attention {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-}
-
-.person strong,
-.working strong,
-.person span,
-.working span,
-.agreed,
-.reason,
-.latest {
-  min-width: 0;
+.toggle strong {
+  display: block;
   overflow: hidden;
-  overflow-wrap: anywhere;
-  text-overflow: ellipsis;
-}
-
-.person strong,
-.working strong {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
   color: var(--text);
-  font-size: var(--text-xs);
-  line-height: 1.35;
-  white-space: normal;
-}
-
-.person span,
-.working span,
-.agreed,
-.exceptions,
-.reason,
-.latest {
-  color: var(--muted);
-  font-size: var(--text-xs);
-  line-height: 1.4;
-}
-
-.working span,
-.agreed,
-.reason {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-/*
-  The exceptions read as one line, wrapping if they must.
-
-  Stacked they cost the cell a line each, and the cell also carries the flag,
-  the decision button and a reason — the row has a height budget that
-  `team-context-v48` measures at eight widths.
-*/
-.exceptions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 10px;
-}
-
-/*
-  What is wrong, and when they last spoke, on one line.
-
-  The timestamp goes to the right so the exceptions keep the reading edge: a
-  manager scanning the column is looking for the red, not for the clock.
-*/
-.state {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 12px;
-}
-
-.state .latest {
-  margin-left: auto;
-}
-
-/* A label, not emphasis: italic made it read as a quotation of the result. */
-.agreed em {
-  font-style: normal;
+  font-size: var(--text-13);
   font-weight: 650;
-}
-
-.flag {
-  width: fit-content;
-  max-width: 100%;
-  padding: 2px 6px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: var(--surface-2);
-  color: var(--muted);
-  font-size: var(--text-xs);
-  font-weight: 700;
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.flag[data-tone='critical'] {
+/*
+  A full touch target on a phone (v183): the name alone measured 15px.
+
+  The negative margins give the 26px back to the card's own padding and the
+  line below, because the card has a height budget — `team-context-v48` caps it
+  at 140px above 640px of width, and the crawl runs on the touch project too.
+*/
+@media (pointer: coarse) {
+  .nameLine {
+    align-items: center;
+  }
+
+  .toggle {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    margin-block: -13px;
+  }
+}
+
+/*
+  The state, in words.
+
+  Four of them, and the words carry the distinction a manager asked for by
+  name: an overdue task is theirs to catch up on, and a request addressed to
+  the manager is not. Colour carries urgency only — it is never the only thing
+  saying what the state is.
+*/
+.state {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+/*
+  The one filled chip on the screen, and the only one that is not red.
+
+  Red is this product's colour for late work, and a request addressed to the
+  manager is not late work — it is somebody stopped, waiting for an answer only
+  they can give. Filled navy says "this one is yours" in a register the
+  exception colours do not use, so the two flagged states are told apart before
+  either is read.
+*/
+.state[data-tone='manager_action'] {
+  background: var(--navy-2);
+  color: var(--on-accent);
+}
+
+.state[data-tone='manager_action']::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentcolor;
+}
+
+.state[data-tone='work_attention'] {
   background: var(--red-bg);
   color: var(--red);
 }
 
-.flag[data-tone='attention'] {
+.state[data-tone='due_soon'] {
   background: var(--amber-bg);
   color: var(--amber);
 }
 
-.muted {
-  color: var(--muted);
+/* What is wrong, counted and named — never a glyph and a number. */
+.exceptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  min-width: 0;
+  font-size: var(--text-xs);
+  line-height: 1.4;
 }
 
-/*
-  Overdue is the one number in the summary worth a second look, so it is the
-  only part of that line in red.
-
-  Scoped to the cells it sits in. As a bare class it lost to `.person span` and
-  `.agreed`, each one element more specific, so neither the overdue count nor
-  "Missed" ever actually turned red - they were bold and grey.
-*/
-.person .summaryAlert,
-.agreed .summaryAlert,
-.exceptions .summaryAlert,
 .summaryAlert {
   color: var(--red);
   font-weight: 650;
 }
 
-/* v189 — due inside the attention window: amber, as it is everywhere else. */
-.person .summarySoon,
-.exceptions .summarySoon,
 .summarySoon {
   color: var(--amber);
   font-weight: 650;
 }
 
-.dot {
-  width: 5px;
-  height: 5px;
-  margin-right: 5px;
-  border-radius: 50%;
-  background: currentColor;
-  flex: none;
+/*
+  What they are carrying, and when they last said anything.
+
+  Counts the product already keeps, stated as it states them elsewhere. There
+  is no bar: a bar here was a share of the busiest person's load, which is a
+  comparison between people that no count on this screen supports.
+*/
+.volume {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.flag {
-  display: inline-flex;
-  align-items: center;
-}
-
-.action {
+/* Why, and the control that answers it, on one line. */
+.attention {
   display: flex;
-  align-items: center;
-  align-self: center;
-  justify-self: end;
-  justify-content: flex-end;
-}
-
-/* The state and the response share a line, so the cell costs two lines rather
-   than three and the control stays next to the thing it answers. */
-.attentionHead {
-  display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
-  min-width: 0;
 }
 
-.attentionHead .flag {
+.reason {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  flex: 1 1 auto;
   min-width: 0;
-  flex: 0 1 auto;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
+.reason strong {
+  color: var(--text);
+  font-weight: 650;
 }
 
 .attention button {
@@ -305,8 +253,8 @@
   white-space: nowrap;
 }
 
-/* The affordance for a row that opens, matching the work rows on My Work.
-   Quiet, because the row itself is the control. */
+/* The affordance for a card that opens, matching the work rows on My Work.
+   Quiet, because the card itself is the control. */
 .chevron {
   display: inline-block;
   color: var(--muted);
@@ -315,140 +263,34 @@
   line-height: 1;
 }
 
-@media (max-width: 1120px) {
-  .listHeader {
-    display: none;
-  }
+.row[data-selected] .chevron {
+  color: var(--blue);
+}
 
-  .row {
-    /*
-      Two bands, not three.
-
-      The sixth column made a third band at this width and the row grew to
-      159px against a 140px cap. Pairing the fields keeps the same height the
-      table had with four cells, and keeps who they are and what they are on
-      side by side on the first line where §5 wants them.
-    */
-    grid-template-areas:
-      'person working action'
-      'attention attention action';
-    grid-template-columns:
-      minmax(120px, 0.95fr)
-      minmax(150px, 1.25fr)
-      auto;
-    /*
-      The bands sit closer than the columns do.
-
-      `team-context-v48` caps this row at 140px and the merged attention cell
-      can carry four lines, so the 14px that separates columns is more than a
-      band boundary needs — the bands are already told apart by starting at the
-      left edge.
-    */
-    gap: 6px 14px;
-    align-items: start;
-  }
-
-  /*
-    One line of reason at this width, not two.
-
-    The band is two columns wide here, so a line holds most of what a reason
-    says; the second line was costing the row more than it gave back.
-
-    Undone on a phone below, where the row is a stack rather than a table and
-    the reason is the whole of what the manager is being told.
-  */
-  .reason {
-    -webkit-line-clamp: 1;
-  }
-
-  /*
-    The timestamp follows the exceptions rather than being pushed to the far
-    edge of the row.
-
-    Right-aligned it reads as a column of its own, which is what it is above
-    1120 where the header names it. Here there is no header and the band is the
-    width of the whole row, so a person with nothing wrong had "No recent
-    activity" stranded alone on the right of an otherwise empty line.
-  */
-  .state .latest {
-    margin-left: 0;
-  }
-
-  .person {
-    grid-area: person;
-  }
-
-  .working {
-    grid-area: working;
-  }
-
-  .attention {
-    grid-area: attention;
-  }
-
-  .action {
-    grid-area: action;
-    align-self: center;
+/*
+  Below the board's own width the panel follows the roster down the page
+  instead of sitting beside it, so a card that is open says so by pointing at
+  what it opened. On the board it keeps pointing right, at the column the panel
+  is in.
+*/
+@media (max-width: 999px) {
+  .block[data-expanded] .chevron {
+    transform: rotate(90deg);
   }
 }
 
+/*
+  The phone gives the reason its lines back. There is no table here to keep
+  aligned, and no panel beside the card: the reason is the whole of what a
+  manager is being told.
+*/
 @media (max-width: 640px) {
-  .row {
-    grid-template-areas:
-      'person action'
-      'working working'
-      'attention attention';
-    grid-template-columns: minmax(0, 1fr) auto;
-    /*
-      Tighter than the wider layouts, because on a phone the row is a stack of
-      three labelled bands rather than a table row, and the separators already
-      do the work the whitespace was doing.
-
-      The height matters here: a row that carries a manager action carries a
-      44px touch target, which is not negotiable, so the room it needs comes
-      out of spacing instead.
-    */
-    gap: 6px 12px;
-    min-height: 0;
-    padding: 11px 12px;
-  }
-
-  /* Three bands now, which gives back the height the merged attention cell
-     costs. The 44px touch target is not negotiable and is left alone, exactly
-     as in v130. */
-  .working,
   .attention {
-    padding-top: 4px;
-    border-top: 1px solid var(--line-soft);
+    flex-wrap: wrap;
   }
 
-  .action {
-    align-self: start;
-  }
-
-  /*
-    The reason gets its lines back.
-
-    v235 clamped it to one line to win back row height in the two-band table
-    layout, and a phone inherited that — so "Please confirm the approved pilot
-    platform and arrange access to three Operations…" was the whole of what a
-    manager was told. There is no table here to keep aligned: the row is a
-    stack of labelled bands, and the band is as wide as the screen.
-  */
   .reason {
     -webkit-line-clamp: 3;
-  }
-
-  /*
-    The decision button goes to the edge rather than floating beside its chip.
-
-    Chip then button then nothing left a ragged line with the button adrift in
-    the middle of the row, which reads as a control that belongs to neither
-    side. Against the edge it lines up down the column, which is how a reader
-    finds the rows that want something from them.
-  */
-  .attentionHead {
-    justify-content: space-between;
-    width: 100%;
+    flex-basis: 100%;
   }
 }

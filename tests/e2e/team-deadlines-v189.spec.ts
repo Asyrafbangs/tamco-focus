@@ -118,12 +118,19 @@ test('v189 a person’s row and panel say what is late and what is due soon', as
     /*
      * v235 moved these out of the person's summary, where they sat beside
      * volume figures of the same shape and read as facts of equal standing.
-     * They are exceptions, and they now live in the column a manager reads to
-     * decide whether this row needs them at all.
+     * v323 made them chips on the name line: a card 300px wide cannot carry
+     * "⚠ 1 overdue · ! 2 due within 5 days" and still be scanned, so the mark
+     * and the figure are what is drawn and the words are what is spoken.
+     *
+     * Asserted on the words, because the words are the part that can be lost:
+     * a chip reading "⚠1" with no accessible text is a red smudge to anybody
+     * not looking at it.
      */
-    await expect(row.locator('[data-cell="needs-you"]')).toContainText('⚠ 1 overdue');
-    await expect(row.locator('[data-cell="needs-you"]')).toContainText('! 2 due within 5 days');
-    await expect(row.locator('[data-cell="person"]')).not.toContainText('overdue');
+    const exceptions = row.locator('[data-cell="exceptions"]');
+    await expect(exceptions).toContainText('1 overdue');
+    await expect(exceptions).toContainText('2 due within 5 days');
+    // And the load figures beside them stay load figures.
+    await expect(row.locator('[data-cell="load"]')).not.toContainText('overdue');
 
     const attention = page
       .getByTestId('my-team-person-panel')

@@ -105,24 +105,30 @@ test.describe('v143 §6 inline person expansion', () => {
     await expect(panel).toBeVisible();
 
     /*
-     * v236 — the figures and what they are on, then everything else folded.
-     * The panel opened into eight sections, which is most of an application
-     * inside one row: a manager comparing two people was reading a page each.
+     * v323 — the five figures, then what needs answering, then what they are
+     * on, then the two lists that are the reading. The reference stays folded.
+     *
+     * v236 folded all seven lists because the panel was an expansion inside
+     * the row: a manager comparing two people was reading a page each. The
+     * panel is the column beside the roster now, so height is no longer the
+     * thing being rationed — and "a lot of things are hidden" is what sent it
+     * back the other way.
      */
-    await expect(panel.locator('.team-person-figures')).toHaveText(/\S/);
+    await expect(panel.getByTestId('team-person-stats')).toBeVisible();
     await expect(panel.getByRole('heading', { name: 'Current focus' })).toBeVisible();
-    for (const section of [
-      'week',
-      'active',
-      'contributions',
-      'waiting',
-      'routines',
-      'completed',
-      'activity',
-    ]) {
-      await expect(
-        panel.locator(`.team-person-section[data-section="${section}"]`),
-      ).not.toHaveAttribute('open', '');
+    for (const section of ['contributions', 'waiting', 'routines', 'completed', 'activity']) {
+      /*
+       * Present and shut, or absent and named in the sentence underneath.
+       * v324 stopped rendering a disclosure for a section with nothing in it:
+       * four of the five said zero on a typical person, which is four shut
+       * drawers a manager has to decide about in order to learn nothing.
+       */
+      const details = panel.locator(`.team-person-section[data-section="${section}"]`);
+      if ((await details.count()) > 0) {
+        await expect(details).not.toHaveAttribute('open', '');
+      } else {
+        await expect(panel.getByTestId('team-person-tail-empty')).toContainText(/\S/);
+      }
     }
 
     /*
@@ -183,8 +189,15 @@ test.describe('v143 §6 inline person expansion', () => {
     expect(Math.abs((await page.evaluate(() => window.scrollY)) - scrollBefore)).toBeLessThan(80);
   });
 
-  /** A03 — Keep open retains one person while another is read. */
-  test('A03 Keep open holds a person while the next one opens', async ({ page }) => {
+  /**
+   * A03 — one person held while another is read.
+   *
+   * The control was called Keep open while the panel was an expansion inside
+   * the roster, where open was the state being described. Beside the roster
+   * the mechanism is the same and the word is wrong: what it gives the
+   * manager is two people on screen at once, which is a comparison.
+   */
+  test('A03 Compare holds a person while the next one opens', async ({ page }) => {
     await openTeam(page);
     const rows = page.getByTestId('my-team-person-row');
     expect(
@@ -197,7 +210,7 @@ test.describe('v143 §6 inline person expansion', () => {
       await rows.nth(1).locator('[data-cell="person"] strong').innerText()
     ).trim();
 
-    // Without Keep open, opening the second closes the first. That is the
+    // Without Compare, opening the second closes the first. That is the
     // default §6 asks for: one expanded person at a time.
     await rowFor(page, firstName).getByText(firstName).click();
     await expect(page.getByTestId('my-team-person-panel')).toHaveCount(1);
@@ -212,11 +225,17 @@ test.describe('v143 §6 inline person expansion', () => {
       'true',
     );
 
-    // With it, both stay — which is what makes them comparable.
-    await page.getByRole('link', { name: 'Keep open' }).click();
-    await expect(page.getByRole('link', { name: 'Stop keeping open' })).toBeVisible();
+    /*
+     * With it, both are held — and from v324 what is held is a comparison
+     * rather than two panels: the same six figures laid out across the two
+     * people. Two full registers was the thing that made comparing them a
+     * memory exercise.
+     */
+    await page.getByRole('link', { name: 'Compare' }).click();
+    await expect(page.getByRole('link', { name: 'Stop comparing' })).toBeVisible();
     await rowFor(page, firstName).getByText(firstName).click();
-    await expect(page.getByTestId('my-team-person-panel')).toHaveCount(2);
+    await expect(page.locator('.team-compare-table')).toBeVisible();
+    await expect(page.getByTestId('my-team-person-panel')).toHaveCount(0);
     await expect(rowFor(page, firstName).locator('[aria-controls]')).toHaveAttribute(
       'aria-expanded',
       'true',
@@ -226,10 +245,11 @@ test.describe('v143 §6 inline person expansion', () => {
       'true',
     );
 
-    // Releasing the pin closes the person it was holding, and leaves the one
-    // the manager is actually reading.
-    await page.getByRole('link', { name: 'Stop keeping open' }).click();
+    // Releasing it closes the person it was holding, and leaves the one the
+    // manager is actually reading.
+    await page.getByRole('link', { name: 'Stop comparing' }).click();
     await expect(page.getByTestId('my-team-person-panel')).toHaveCount(1);
+    await expect(page.locator('.team-compare-table')).toHaveCount(0);
     await expect(rowFor(page, firstName).locator('[aria-controls]')).toHaveAttribute(
       'aria-expanded',
       'true',
