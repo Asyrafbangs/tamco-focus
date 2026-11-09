@@ -102,6 +102,18 @@ export async function declineReportIntake(input: {
   if (result.code === 'reason_required') {
     return { ok: false, message: 'Explain why the report is being declined.' };
   }
+  /*
+   * v313 — declining a report a colleague is holding is theirs to do, not
+   * yours. The screen does not offer this while somebody else holds it, so
+   * reaching this answer means the hold changed under you.
+   */
+  if (result.code === 'held_by_other') {
+    return {
+      ok: false,
+      message:
+        'Another coordinator is holding this report. Take it over first if the decision should be yours.',
+    };
+  }
   return { ok: false, message: 'That report is no longer available.' };
 }
 
@@ -156,6 +168,14 @@ export async function markReportIntakeDuplicate(input: {
   }
   if (result.code === 'reason_required')
     return { ok: false, message: 'Explain why this is a duplicate.' };
+  // v313 — as with declining: retiring the report belongs to whoever holds it.
+  if (result.code === 'held_by_other') {
+    return {
+      ok: false,
+      message:
+        'Another coordinator is holding this report. Take it over first if the decision should be yours.',
+    };
+  }
   return { ok: false, message: 'That report or Finding is no longer available.' };
 }
 

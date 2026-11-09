@@ -79,6 +79,48 @@ export function IntakeOtherDecisions({
     });
   }
 
+  /*
+   * v313 — while a colleague holds the report, none of these decisions are
+   * yours to make.
+   *
+   * v310 named the holder and gave the take over a button, but left the two
+   * decisions that end a report sitting underneath it: a working Decline form
+   * and "Link duplicate without action", directly below a sentence saying
+   * assigning it was theirs to do while they had it. Either press closed
+   * somebody else's report with your reason and your name on it, and the
+   * procedures allowed it — they asked only that the status be `new` or
+   * `triaging`, never who was holding it. v313 refuses both at the database
+   * and this screen now offers the take over on its own: take it over first,
+   * which is deliberate and recorded, and then decide.
+   */
+  if (heldByOther) {
+    return (
+      <section className="esh-intake-other" aria-labelledby="esh-intake-other-title">
+        <h3 id="esh-intake-other-title">Other decisions</h3>
+        <p className="form-hint">
+          {heldByOther} is holding this report. Assigning it, declining it and linking it as a
+          duplicate are all theirs to do while they have it.
+        </p>
+        <button
+          className="btn small"
+          type="button"
+          onClick={() => claim(true)}
+          disabled={!hydrated || pending}
+        >
+          {pending ? 'Saving…' : `Take over from ${heldByOther}`}
+        </button>
+        {result && (
+          <p
+            className={result.ok ? 'notice success' : 'notice error'}
+            role={result.ok ? 'status' : 'alert'}
+          >
+            {result.message}
+          </p>
+        )}
+      </section>
+    );
+  }
+
   return (
     <section className="esh-intake-other" aria-labelledby="esh-intake-other-title">
       <h3 id="esh-intake-other-title">Other decisions</h3>
@@ -120,38 +162,23 @@ export function IntakeOtherDecisions({
             ? 'This report carries a contact. Reaching them is outside this system — the report stays here, held in your name, until you decide.'
             : 'This report is anonymous, so there is nobody to ask. Inspect the location yourself, or decline it below with a reason.'}
         </p>
+        {/*
+         * v311 - this one was missed. An onClick with no form behind it does
+         * nothing at all before React owns the button, and claiming a report
+         * is the press that stops a second coordinator starting on it.
+         */}
         {status === 'new' ? (
-          <button className="btn small" type="button" onClick={() => claim()} disabled={pending}>
+          <button
+            className="btn small"
+            type="button"
+            onClick={() => claim()}
+            disabled={!hydrated || pending}
+          >
             {pending ? 'Saving…' : 'Keep for triage'}
           </button>
-        ) : heldByOther ? (
-          /*
-           * v310 - the control v307 was for, and never had.
-           *
-           * v307 let a claimed report be taken over so that one stuck with
-           * somebody on leave was not stuck for good. The only branch here
-           * was "Already held for triage", which is true and useless: it is
-           * the same sentence whether the holder is you or a colleague who
-           * left three weeks ago, and it offers nothing either way. So this
-           * names them and asks, because taking a report off a colleague who
-           * is working on it right now is exactly what must not happen by
-           * accident.
-           */
-          <>
-            <p className="form-hint">
-              {heldByOther} is holding this report. Assigning it is theirs to do while they have it.
-            </p>
-            <button
-              className="btn small"
-              type="button"
-              onClick={() => claim(true)}
-              disabled={!hydrated || pending}
-            >
-              {pending ? 'Saving…' : `Take over from ${heldByOther}`}
-            </button>
-          </>
         ) : (
-          <p className="form-hint">Already held for triage.</p>
+          // Held, and held by you: v313 returns above when it is somebody else.
+          <p className="form-hint">You are holding this report.</p>
         )}
       </details>
 
