@@ -50,6 +50,11 @@ const DESTINATIONS: Destination[] = [
   // call for themselves. The two must agree, and an e2e case holds them to it.
   // v301 — the same rule, asked once on the server, because it can now name
   // accounts as well as roles.
+  // v317 — the destination is unchanged; what lives at it is not. `/ai` now
+  // offers the AI brief export, and the conversational assistant moved to
+  // `/ai/chat`, which nothing links to. The owner asked for the chat to be
+  // hidden rather than removed: its code, its route and its tests are intact,
+  // and restoring the link is one entry in this list.
   { href: '/ai', label: 'TAMCO AI', icon: '✦', assistant: true },
   { href: '/more', label: 'More', icon: '•••' },
 ];

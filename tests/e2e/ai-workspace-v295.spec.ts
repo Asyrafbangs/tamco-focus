@@ -1,3 +1,8 @@
+/*
+ * v317 - the conversation moved to `/ai/chat`. `/ai` now offers the AI brief
+ * export, and nothing links to the chat any more; these cases follow it to
+ * the new address, because the behaviour they pin is unchanged.
+ */
 import { expect, test, type Page } from '@playwright/test';
 import { config } from 'dotenv';
 
@@ -65,7 +70,7 @@ test.describe('v295 TAMCO AI workspace', () => {
 
   test('says it is switched off rather than offering a box that fails', async ({ page }) => {
     await signIn(page);
-    await page.goto('/ai');
+    await page.goto('/ai/chat');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
     /*
@@ -95,7 +100,7 @@ test.describe('v295 TAMCO AI workspace', () => {
 
   test('lists conversations and offers a new one', async ({ page }) => {
     await signIn(page);
-    await page.goto('/ai');
+    await page.goto('/ai/chat');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
     await expect(page.getByRole('heading', { name: 'Conversations' })).toBeVisible();
@@ -105,7 +110,7 @@ test.describe('v295 TAMCO AI workspace', () => {
   test('fits a phone without scrolling sideways', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await signIn(page);
-    await page.goto('/ai');
+    await page.goto('/ai/chat');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
     await expect(
       page.getByRole('heading', { name: 'Ask about your work', level: 1 }),
