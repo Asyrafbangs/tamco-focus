@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from 'react';
 
+import { useHydrated } from '@/components/esh/use-hydrated';
 import { setContactAccess, type ContactAccessState } from '@/server/esh/conversation-actions';
 
 /**
@@ -21,6 +22,16 @@ export function ContactAccessForm({
   const [enabled, setEnabled] = useState(initiallyEnabled);
   const [state, setState] = useState<ContactAccessState | null>(null);
   const [pending, startTransition] = useTransition();
+  /*
+   * This form has no `action`, so its submission exists only in `onSubmit`.
+   * Pressed before React has hydrated, the browser does its own default
+   * submit — a GET to this same URL carrying `principal_id`, `enabled` and
+   * `reason` as query parameters — and the page comes back looking saved with
+   * nothing granted or revoked. On a screen that governs who may open an
+   * owner's findings that is the worst way to fail, so the button is not
+   * pressable until the handler behind it exists.
+   */
+  const hydrated = useHydrated();
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,7 +71,7 @@ export function ContactAccessForm({
           {state.message}
         </p>
       )}
-      <button type="submit" className="btn primary" disabled={pending}>
+      <button type="submit" className="btn primary" disabled={!hydrated || pending}>
         {pending ? 'Saving…' : 'Save contact access'}
       </button>
     </form>

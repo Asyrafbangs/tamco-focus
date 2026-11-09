@@ -20,6 +20,7 @@ import {
 } from '@/server/esh/evidence-actions';
 
 import { EmailChips } from '@/components/esh/EmailChips';
+import { useHydrated } from '@/components/esh/use-hydrated';
 import {
   PRIORITY_LABELS,
   RISK_LABELS,
@@ -139,6 +140,14 @@ export function FindingForm({
   const triage = variant === 'triage';
   const [state, setState] = useState<SaveFindingState | null>(null);
   const [pending, startTransition] = useTransition();
+  /*
+   * The hand submission above is why this matters: with no `action` on the
+   * form, a press before React has hydrated is a plain GET to this URL. The
+   * finding is not recorded, and every field typed into it — title, what was
+   * seen, the owner's email address — is written into the query string
+   * instead. Not pressable until the handler exists.
+   */
+  const hydrated = useHydrated();
   const [idempotencyKey] = useState(() => crypto.randomUUID());
   const [ownerEmail, setOwnerEmail] = useState(initial.ownerEmail);
   /*
@@ -1048,7 +1057,7 @@ export function FindingForm({
           type="submit"
           name="intent"
           value="draft"
-          disabled={pending || savedFindingId !== null}
+          disabled={!hydrated || pending || savedFindingId !== null}
         >
           {triage ? 'Save for later' : 'Save draft'}
         </button>
@@ -1083,7 +1092,7 @@ export function FindingForm({
              * re-encode takes a moment on a large picture, and saving through
              * it would send the original or nothing at all.
              */
-            disabled={pending || preparing || savedFindingId !== null}
+            disabled={!hydrated || pending || preparing || savedFindingId !== null}
             aria-busy={pending}
           >
             {attaching ??

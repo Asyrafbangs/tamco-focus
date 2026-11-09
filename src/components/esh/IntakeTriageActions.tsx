@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from 'react';
 
+import { useHydrated } from '@/components/esh/use-hydrated';
 import {
   claimReportIntake,
   declineReportIntake,
@@ -32,6 +33,14 @@ export function IntakeOtherDecisions({
 }) {
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<IntakeActionResult | null>(null);
+  /*
+   * Neither of the two forms here has an `action`, so a press before
+   * hydration is a native GET: the report is neither declined nor marked a
+   * duplicate, the reason is left in the URL, and the row stays in the queue
+   * looking untouched. Declining is the one triage decision that cannot be
+   * undone from a screen, so it must not be able to half-happen.
+   */
+  const hydrated = useHydrated();
 
   function claim() {
     startTransition(async () => setResult(await claimReportIntake({ intakeId })));
@@ -82,7 +91,7 @@ export function IntakeOtherDecisions({
             <span>Reason</span>
             <textarea name="reason" rows={2} maxLength={2000} required />
           </label>
-          <button className="btn small" type="submit" disabled={pending}>
+          <button className="btn small" type="submit" disabled={!hydrated || pending}>
             {pending ? 'Saving…' : 'Link duplicate without action'}
           </button>
         </form>
@@ -124,7 +133,7 @@ export function IntakeOtherDecisions({
             <span>Reason</span>
             <textarea name="reason" rows={2} maxLength={2000} required />
           </label>
-          <button className="btn small" type="submit" disabled={pending}>
+          <button className="btn small" type="submit" disabled={!hydrated || pending}>
             {pending ? 'Saving…' : 'Decline without action'}
           </button>
         </form>

@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from 'react';
 
+import { useHydrated } from '@/components/esh/use-hydrated';
 import { ESH_PRESET_DESCRIPTIONS, ESH_PRESET_LABELS, type EshPreset } from '@/domain/esh-findings';
 import { setStaffEshAccess, type StaffAccessState } from '@/server/esh/actions';
 import type { StaffEshAccess } from '@/server/esh/queries';
@@ -38,6 +39,14 @@ export function EshAccessForm({
   );
   const [state, setState] = useState<StaffAccessState | null>(null);
   const [pending, startTransition] = useTransition();
+  /*
+   * No `action` on the form, so a press before hydration is a plain GET to
+   * this URL with the role, scope and reason as query parameters: the screen
+   * reloads showing the person's access exactly as it was, and the audit has
+   * no record because nothing happened. Granting Finding Management authority
+   * must not be able to fail quietly, so wait for the handler.
+   */
+  const hydrated = useHydrated();
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -186,7 +195,12 @@ export function EshAccessForm({
       )}
 
       <div className="esh-form-actions">
-        <button className="btn primary" type="submit" disabled={pending} aria-busy={pending}>
+        <button
+          className="btn primary"
+          type="submit"
+          disabled={!hydrated || pending}
+          aria-busy={pending}
+        >
           {pending ? 'Saving…' : 'Save Finding Management access'}
         </button>
       </div>
