@@ -503,6 +503,15 @@ export async function getMyCompletedWork(
   return { records, failed: false };
 }
 
+/**
+ * What "open work" means, in one place.
+ *
+ * `getMyTasks`, `getVisibleTeamTasks` and `listOpenTasksComplete` must agree
+ * on it exactly, or a brief and the screen it was taken from would disagree
+ * about what the week contains.
+ */
+export const OPEN_TASK_STATUSES = ['backlog', 'active', 'paused'] as const;
+
 /** The caller's own workable tasks, for My Day and the focus tabs. */
 export async function getMyTasks(userId: string): Promise<TaskOverview[]> {
   const supabase = await createSupabaseServerClient();
@@ -511,7 +520,7 @@ export async function getMyTasks(userId: string): Promise<TaskOverview[]> {
     .from('task_overview')
     .select('*')
     .eq('primary_owner_id', userId)
-    .in('status', ['backlog', 'active', 'paused'])
+    .in('status', [...OPEN_TASK_STATUSES])
     .order('due_at', { ascending: true, nullsFirst: false })
     .limit(300);
 
@@ -2767,7 +2776,7 @@ export async function getVisibleTeamTasks(viewerId: string): Promise<TaskOvervie
     .from('task_overview')
     .select('*')
     .neq('primary_owner_id', viewerId)
-    .in('status', ['backlog', 'active', 'paused'])
+    .in('status', [...OPEN_TASK_STATUSES])
     .order('due_at', { ascending: true, nullsFirst: false })
     .limit(500);
 
@@ -2776,6 +2785,84 @@ export async function getVisibleTeamTasks(viewerId: string): Promise<TaskOvervie
     throw new Error('TEAM_TASKS_UNAVAILABLE');
   }
   return (data ?? []).map(toTaskOverview);
+}
+
+/** A read that says how much it did not get, rather than how much it got. */
+export interface CompleteTaskRead {
+  tasks: TaskOverview[];
+  /** The exact number of rows the filter matches for this caller. */
+  total: number;
+  /** False when the page ceiling stopped the walk before `total` was reached. */
+  complete: boolean;
+}
+
+/**
+ * v317 — every open task this caller may see, with the true total beside it.
+ *
+ * The screen reads above stop at 300 and 500 rows, which is right for a
+ * screen: nobody scrolls five hundred rows, and the first page is the work.
+ * An export is the opposite - its whole purpose is to be the complete set -
+ * and the honest failure mode is not "fetch more" but "say what you did not
+ * fetch". So this walks the same filter in pages and asks PostgREST for an
+ * exact count in the same request, which is the only figure here that is not
+ * simply the number of rows that happened to come back.
+ *
+ * Bounded deliberately. `MAX_PAGES` pages of `PAGE` rows is the ceiling, and
+ * reaching it sets `complete: false` with `total` still exact, so the caller
+ * can report the missing portion as a number rather than as a shrug. An
+ * unbounded loop against a table somebody can add rows to is a different
+ * kind of defect.
+ */
+export async function listOpenTasksComplete(options: {
+  viewerId: string;
+  scope: 'mine' | 'team';
+}): Promise<CompleteTaskRead> {
+  const PAGE = 500;
+  const MAX_PAGES = 20;
+  const supabase = await createSupabaseServerClient();
+  const tasks: TaskOverview[] = [];
+  let total = 0;
+
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const from = page * PAGE;
+    let query = supabase
+      .from('task_overview')
+      .select('*', { count: 'exact' })
+      .in('status', [...OPEN_TASK_STATUSES])
+      .order('due_at', { ascending: true, nullsFirst: false })
+      /*
+       * A second, unique sort key. `due_at` is not unique and many open tasks
+       * have none at all, so paging on it alone can repeat a row on one page
+       * and skip another - the classic unstable-pagination defect, and one
+       * that would make an export quietly wrong rather than loudly broken.
+       */
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+
+    query =
+      options.scope === 'mine'
+        ? query.eq('primary_owner_id', options.viewerId)
+        : query.neq('primary_owner_id', options.viewerId);
+
+    const { data, count, error } = await query;
+    if (error) {
+      console.error(`[listOpenTasksComplete:${options.scope}] ${error.message}`);
+      throw new Error(options.scope === 'mine' ? 'TASKS_UNAVAILABLE' : 'TEAM_TASKS_UNAVAILABLE');
+    }
+
+    if (count !== null && count !== undefined) total = count;
+    const rows = data ?? [];
+    tasks.push(...rows.map(toTaskOverview));
+    /*
+     * A short page ends the walk but does not prove it was whole: the count
+     * is the only thing that can say that, so `complete` is measured against
+     * it rather than against the page having run out.
+     */
+    if (rows.length < PAGE) break;
+  }
+
+  const counted = Math.max(total, tasks.length);
+  return { tasks, total: counted, complete: tasks.length >= counted };
 }
 
 /** The most recent thing a person wrote on each of these tasks. */
@@ -2849,6 +2936,138 @@ export async function getLatestTaskUpdates(
     });
   }
   return latest;
+}
+
+/** Author names for a set of ids, in one read per two hundred people. */
+async function resolveAuthorNames(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  authorIds: Iterable<string>,
+): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  const ids = [...new Set([...authorIds].filter(Boolean))];
+  for (let at = 0; at < ids.length; at += 200) {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', ids.slice(at, at + 200));
+    for (const person of data ?? []) names.set(String(person.id), String(person.full_name));
+  }
+  return names;
+}
+
+export interface CompleteUpdateRead {
+  updates: Map<string, LatestTaskUpdate>;
+  /**
+   * Tasks whose updates could not be walked to the end, so whether they have
+   * anything written on them is genuinely unknown rather than known-empty.
+   */
+  unverified: number;
+  failed: boolean;
+}
+
+/**
+ * v317 — the latest update on each of these tasks, with none left behind.
+ *
+ * `getLatestTaskUpdates` takes the newest four hundred updates across the
+ * whole set and keeps the first per task. For the twenty-five tasks the
+ * assistant asks about that is complete; for an export covering several
+ * hundred, it is not even close - the four hundred newest rows can all belong
+ * to a dozen busy tasks, and every other task then arrives looking like one
+ * nobody has written on. Indistinguishable, in the document, from a team that
+ * has gone quiet. That is the defect this exists to remove.
+ *
+ * So the walk is ordered by task and only then by recency, which is what makes
+ * it bounded: paging through `(task_id, created_at desc)` reaches every task
+ * in the chunk in turn, where paging a global recency order can be consumed
+ * entirely by the busiest one. A chunk stops as soon as it has seen all of its
+ * tasks, or the rows run out.
+ *
+ * `unverified` is the honest remainder: tasks in a chunk that hit the page
+ * ceiling before being reached. Zero means the walk finished, and only then is
+ * "this task has no written update" a fact rather than an artefact.
+ */
+export async function getLatestTaskUpdatesComplete(
+  taskIds: readonly string[],
+): Promise<CompleteUpdateRead> {
+  const updates = new Map<string, LatestTaskUpdate>();
+  if (taskIds.length === 0) return { updates, unverified: 0, failed: false };
+
+  const CHUNK = 50;
+  const PAGE = 500;
+  const MAX_PAGES = 10;
+  const CONCURRENCY = 8;
+
+  const supabase = await createSupabaseServerClient();
+  const chunks: string[][] = [];
+  for (let at = 0; at < taskIds.length; at += CHUNK) {
+    chunks.push([...taskIds.slice(at, at + CHUNK)]);
+  }
+
+  const pending = new Map<string, { authorId: string; body: string; createdAt: string }>();
+  let unverified = 0;
+  let failed = false;
+
+  async function walk(ids: string[]): Promise<void> {
+    const seen = new Set<string>();
+    for (let page = 0; page < MAX_PAGES; page += 1) {
+      const from = page * PAGE;
+      const { data, error } = await supabase
+        .from('task_updates')
+        .select('id, task_id, author_id, body, created_at')
+        .in('task_id', ids)
+        .eq('is_evidence_only', false)
+        .order('task_id', { ascending: true })
+        .order('created_at', { ascending: false })
+        /* A unique final key, so offset paging cannot repeat or skip a row. */
+        .order('id', { ascending: false })
+        .range(from, from + PAGE - 1);
+
+      if (error) {
+        console.error(
+          `[getLatestTaskUpdatesComplete] ${error.code ?? 'unknown'}: ${error.message}`,
+        );
+        failed = true;
+        return;
+      }
+
+      const rows = data ?? [];
+      for (const row of rows) {
+        const taskId = String(row.task_id);
+        seen.add(taskId);
+        const body = typeof row.body === 'string' ? row.body.trim() : '';
+        if (!body || pending.has(taskId)) continue;
+        pending.set(taskId, {
+          authorId: String(row.author_id),
+          body,
+          createdAt: String(row.created_at),
+        });
+      }
+
+      /* Walked to the end of this chunk's rows, or learnt all there is. */
+      if (rows.length < PAGE) return;
+      if (ids.every((id) => seen.has(id))) return;
+    }
+    unverified += ids.filter((id) => !seen.has(id)).length;
+  }
+
+  for (let at = 0; at < chunks.length; at += CONCURRENCY) {
+    await Promise.all(chunks.slice(at, at + CONCURRENCY).map((ids) => walk(ids)));
+  }
+
+  const names = await resolveAuthorNames(
+    supabase,
+    [...pending.values()].map((one) => one.authorId),
+  );
+  for (const [taskId, one] of pending) {
+    updates.set(taskId, {
+      taskId,
+      authorName: names.get(one.authorId) ?? 'Somebody',
+      body: one.body,
+      createdAt: one.createdAt,
+    });
+  }
+
+  return { updates, unverified, failed };
 }
 
 /** Manager-configurable values the interface needs in order to render. */

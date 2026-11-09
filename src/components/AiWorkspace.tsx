@@ -300,7 +300,7 @@ export function AiWorkspace({
       <section className="ai-threads" aria-labelledby="ai-threads-title">
         <div className="ai-threads-head">
           <h2 id="ai-threads-title">Conversations</h2>
-          <Link className="btn small" href="/ai">
+          <Link className="btn small" href="/ai/chat">
             New
           </Link>
         </div>
@@ -324,7 +324,7 @@ export function AiWorkspace({
             {threads.map((one) => (
               <li key={one.id}>
                 <Link
-                  href={`/ai?c=${one.id}`}
+                  href={`/ai/chat?c=${one.id}`}
                   className="ai-thread"
                   aria-current={one.id === thread ? 'true' : undefined}
                   data-selected={one.id === thread || undefined}
