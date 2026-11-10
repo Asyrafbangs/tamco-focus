@@ -42,40 +42,113 @@ async function openPerson(page: Page) {
 }
 
 test.describe('v236 the person opens as an overview', () => {
-  test('states the figures and what they are on, before any list', async ({ page }) => {
+  test('states six figures, in six fixed cells, in one fixed order', async ({ page }) => {
     const panel = await openPerson(page);
 
-    // The name, so a panel kept open beside another is still identifiable.
+    // The name, so a panel held beside another is still identifiable.
     await expect(panel.locator('.team-person-name')).toHaveText('Izzah Nurul');
-    // The figures a manager opens somebody to see. Never empty: where there is
-    // nothing outstanding it says so rather than printing a row of zeroes.
-    await expect(panel.locator('.team-person-figures')).toHaveText(
-      /(\d+ (overdue|due within|active|shared|waiting))|Nothing outstanding/,
+
+    /*
+     * v236 wrote these as a sentence with the zeroes left out, on the argument
+     * that "0 overdue · 0 due soon" is nothing happening said at length. That
+     * is true of one person read alone and false of two read side by side,
+     * which is what the panel is for since v323: a sentence that changes
+     * length and order with its contents makes the reader count words instead
+     * of comparing figures.
+     *
+     * So the cells are fixed, and the assertion is that they are — in order,
+     * all five, every one of them a number.
+     */
+    const stats = panel.getByTestId('team-person-stats');
+    await expect(stats.locator('.team-person-stat')).toHaveCount(6);
+    expect(
+      await stats
+        .locator('.team-person-stat')
+        .evaluateAll((cells) => cells.map((cell) => cell.getAttribute('data-stat'))),
+    ).toEqual(['overdue', 'soon', 'active', 'shared', 'waiting', 'completed']);
+    /*
+     * Five measures of load and risk and one of output. Without the last one
+     * two people read side by side can be compared on what they are carrying
+     * and not on what they are getting done, which is half the question.
+     */
+    await expect(stats.locator('.team-person-stat[data-stat="completed"] dt')).toHaveText(
+      /^Done, /,
     );
-    // No zeroes: "0 overdue · 0 due soon" is nothing happening, said at length.
-    // Bounded, because "10 overdue" is a figure and contains a zero.
-    await expect(panel.locator('.team-person-figures')).not.toContainText(/(^|\s)0\s/);
+    for (const value of await stats.locator('dd').allInnerTexts()) {
+      expect(value.trim(), 'every cell carries a figure, zero included').toMatch(/^\d+$/);
+    }
+    /*
+     * And the ones worth acting on are the ones that are not zero, which is
+     * what the tone says. Izzah is overdue in this seed, so the positive case
+     * is real rather than skipped.
+     */
+    await expect(stats.locator('.team-person-stat[data-stat="overdue"]')).toHaveAttribute(
+      'data-tone',
+      'alert',
+    );
 
     // What they said they are on, which is a different question from what they
     // have been touching. "Not set" is a real answer to it.
     await expect(panel.getByRole('heading', { name: 'Current focus' })).toBeVisible();
-    await expect(panel.locator('.team-person-section').first()).toContainText(
+    await expect(panel.locator('.team-person-section[aria-labelledby$="-focus"]')).toContainText(
       /Set \S|Not set|Agreed:/,
     );
   });
 
-  test('everything that is a list is folded', async ({ page }) => {
+  test('the reading is open and the reference is folded', async ({ page }) => {
     const panel = await openPerson(page);
-    const folded = [
-      'week',
-      'active',
-      'contributions',
-      'waiting',
-      'routines',
-      'completed',
-      'activity',
-    ];
+
+    /*
+     * v236 folded all seven, because the panel was an expansion inside the
+     * roster and six open sections pushed the next person off the screen. The
+     * panel has its own column since v323, so the thing that cost height costs
+     * nothing — and "a lot of things are hidden" is the complaint that started
+     * that change.
+     *
+     * What the person has agreed for the week and what they are carrying are
+     * the reading, so they are open wherever there is anything in them. The
+     * five below are the reference, and stay folded.
+     */
+    /*
+     * v324 folded the active list again: open, it repeated the tasks that
+     * "Work needs attention" had just listed directly above it.
+     */
+    await expect(panel.locator('.team-person-section[data-section="active"]')).not.toHaveAttribute(
+      'open',
+      '',
+    );
+
+    for (const section of ['week']) {
+      const details = panel.locator(`.team-person-section[data-section="${section}"]`);
+      await expect(details, `${section} is missing from the panel`).toHaveCount(1);
+      const count = Number(
+        ((await details.locator('.team-person-count').first().innerText()) ?? '0').trim(),
+      );
+      if (count > 0) {
+        await expect(details, `${section} holds ${count} and starts folded`).toHaveAttribute(
+          'open',
+          '',
+        );
+      } else {
+        /*
+         * A heading, a count of zero and an empty box are three statements of
+         * the same nothing, so an empty section stays shut.
+         */
+        await expect(details, `${section} is empty and starts open`).not.toHaveAttribute(
+          'open',
+          '',
+        );
+      }
+    }
+
+    const folded = ['contributions', 'waiting', 'routines', 'completed', 'activity'];
     for (const section of folded) {
+      /* Absent is the other correct answer from v324: a section with nothing
+         in it is named in the sentence below rather than shut in a drawer. */
+      if ((await panel.locator(`.team-person-section[data-section="${section}"]`).count()) === 0) {
+        await expect(panel.getByTestId('team-person-tail-empty')).toContainText(/\S/);
+        continue;
+      }
       const details = panel.locator(`.team-person-section[data-section="${section}"]`);
       await expect(details, `${section} is missing from the panel`).toHaveCount(1);
       await expect(details, `${section} starts open`).not.toHaveAttribute('open', '');

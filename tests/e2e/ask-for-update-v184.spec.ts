@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
 import { expect, test, type Page } from '@playwright/test';
 
+import { openPanelSection } from './support/work-list';
+
 config({ path: '.env.local', quiet: true });
 
 /**
@@ -117,7 +119,7 @@ test('v184 a manager asks for an update from My Team, and the owner answers it',
      * work this test asks about is in there, so it is opened before it is
      * clicked — which is what a manager now does too.
      */
-    await panel.locator('.team-person-section[data-section="active"] > summary').click();
+    await openPanelSection(panel, 'active');
     await panel.locator('.member-work-row', { hasText: title }).click();
 
     const drawer = page.getByRole('dialog', { name: title });

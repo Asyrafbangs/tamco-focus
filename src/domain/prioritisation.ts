@@ -317,7 +317,44 @@ export function availableOrder(
  */
 export interface TeamOrderRow {
   fullName: string;
-  attention: { reasonCode: string; sourceType: string } | null;
+  attention: { reasonCode: string; sourceType: string; kind?: string } | null;
+  /**
+   * The exception counts, so the order can see what the attention item cannot.
+   *
+   * A person with work due inside the attention window has no attention item —
+   * correctly, because nothing is wrong yet — and until v324 that put them
+   * below people carrying nothing at all. Optional because the unit tests
+   * build rows from the two fields the rank used to need, and a missing count
+   * is a count of none.
+   */
+  overdueCount?: number;
+  sharedStepOverdueCount?: number;
+  dueSoonCount?: number;
+  activeCount?: number;
+  sharedStepCount?: number;
+  availableCount?: number;
+}
+
+/**
+ * Which of four states a person is in, named rather than inferred.
+ *
+ * `manager_action` is the only one that asks the reader for anything. The
+ * distinction from `work_attention` is the one a manager asked for by name:
+ * an overdue task is the person's to catch up on, and a barrier or a goal
+ * support request is not. `none` says what the product knows — that nothing
+ * has been flagged — and deliberately does not say that somebody is doing
+ * well, which is a judgement no count here can support.
+ */
+export type TeamRowState = 'manager_action' | 'work_attention' | 'due_soon' | 'none';
+
+export function teamRowState(row: TeamOrderRow): TeamRowState {
+  if (row.attention?.kind === 'action_required') return 'manager_action';
+  if (row.attention) return 'work_attention';
+  if ((row.overdueCount ?? 0) > 0 || (row.sharedStepOverdueCount ?? 0) > 0) {
+    return 'work_attention';
+  }
+  if ((row.dueSoonCount ?? 0) > 0) return 'due_soon';
+  return 'none';
 }
 
 /**
@@ -339,7 +376,22 @@ export interface TeamOrderRow {
  */
 export function teamRowRank(row: TeamOrderRow): number {
   const attention = row.attention;
-  if (!attention) return 9;
+  if (!attention) {
+    /*
+     * v324 — what the attention item cannot see.
+     *
+     * Overdue work raises an item, so rank 4 is a guard rather than an
+     * expected case; work due inside the window raises none, and a person
+     * carrying some of it sorted below people carrying nothing. Last of all
+     * is somebody with no open work: nothing is flagged and nothing is
+     * assigned, which is the least urgent row on the list and not a verdict
+     * on the person.
+     */
+    if ((row.overdueCount ?? 0) > 0 || (row.sharedStepOverdueCount ?? 0) > 0) return 4;
+    if ((row.dueSoonCount ?? 0) > 0) return 5;
+    const open = (row.activeCount ?? 0) + (row.sharedStepCount ?? 0) + (row.availableCount ?? 0);
+    return open > 0 ? 9 : 10;
+  }
   /*
    * `workload_review` used to rank above everything, including a barrier.
    * v144 removed it with the focus target (specification §3): the loudest row
@@ -347,6 +399,18 @@ export function teamRowRank(row: TeamOrderRow): number {
    * not a reliable workload measure, and it outranked a person who was
    * actually stopped and waiting for an answer.
    */
+  /*
+   * v324 — anything the manager must answer, not only the two source types
+   * that happen to produce one today.
+   *
+   * `getTeamAttention` defaults a candidate's kind to `action_required` on the
+   * stated principle that a branch which forgets should over-report rather
+   * than hide a request. Ranking on the kind rather than on the source type
+   * follows that principle here too: a future request with a new source would
+   * otherwise have sorted below an overdue task, which is the one thing a
+   * manager asked this order not to do.
+   */
+  if (attention.kind === 'action_required') return 1;
   if (attention.sourceType === 'barrier' || attention.sourceType === 'goal') return 1;
   if (attention.reasonCode === 'overdue') return 2;
   return 3;

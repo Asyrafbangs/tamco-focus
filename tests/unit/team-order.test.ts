@@ -38,7 +38,14 @@ describe('teamRowRank', () => {
     expect(teamRowRank(row('a', overdueRoutine))).toBe(2);
     // Worth knowing, but nothing is being asked.
     expect(teamRowRank(row('a', awareness))).toBe(3);
-    expect(teamRowRank(row('a'))).toBe(9);
+    /*
+     * 10 rather than 9 since v324. A row with no attention item and no counts
+     * is somebody with nothing flagged and nothing assigned, which is the
+     * least urgent row on the list — 9 is now the rank of somebody carrying
+     * work with nothing wrong with it. The states and the ranks between them
+     * are covered by `team-state-v324`.
+     */
+    expect(teamRowRank(row('a'))).toBe(10);
   });
 });
 

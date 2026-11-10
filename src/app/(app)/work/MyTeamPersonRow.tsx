@@ -1,9 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import type { MouseEvent, ReactNode } from 'react';
+import type { MouseEvent } from 'react';
 
 import { resolveAttentionAction } from '@/domain/attention';
+import { teamRowState, type TeamRowState } from '@/domain/prioritisation';
 import type { TeamAttentionRow } from '@/server/queries';
 
 import styles from './MyTeamPersonRow.module.css';
@@ -18,40 +19,34 @@ function agoWords(iso: string, now: Date): string {
   return days === 1 ? 'yesterday' : `${days} days ago`;
 }
 
-/**
- * Three columns, in the order a manager reads them (v235, §20).
- *
- * The row carried eight figures across five columns — overdue, due soon,
- * active, shared steps, overdue shared steps, current work, agreed priorities
- * and the latest update — so every person had to be decoded rather than read.
- * Worse, two of the columns were mostly absence: "No agreed priorities" and
- * "No action needed from you" repeated down the table were the loudest text on
- * the page, and both said nothing.
- *
- * Now: who they are and how much they are carrying; what they are on; and what
- * needs you, with when they were last heard from. Exceptions are in one place
- * instead of split between the first column and the fourth.
- */
-export function MyTeamListHeader() {
-  return (
-    <div className={styles.listHeader} aria-hidden="true">
-      <span>Person</span>
-      {/* What the person said they are on, not what the data suggests. It was
-          the most recently touched Active task until v140 §8 — a column that
-          could never be empty, never be wrong, and never quite meant anything.
-          It is now their own selection, and "Not set" is a real answer. */}
-      <span>Currently working on</span>
-      {/* One column, because they are one question: is this person in trouble,
-          and when did they last say anything. Split across two, a manager read
-          the exceptions in the middle of the row and the silence at the end. */}
-      <span>Needs attention · Latest</span>
-      {/* The chevron's column. It needs no heading, and "Action" over a column
-          of Open buttons described the buttons rather than the work. */}
-      <span />
-    </div>
-  );
-}
+/** What each state is called, in the words a manager would use. */
+const STATE_LABEL: Record<TeamRowState, string> = {
+  manager_action: 'Action needed from you',
+  work_attention: 'Work needs attention',
+  due_soon: 'Due soon',
+  none: 'No issues flagged',
+};
 
+/**
+ * One person, as a card on the roster (v323, refined v324).
+ *
+ * The card answers four questions in the order a manager asks them: who, what
+ * state are they in, why, and what am I being asked to do. Everything else —
+ * what they are working on, what they agreed, the full list of their work — is
+ * in the panel beside the roster, which is open the whole time.
+ *
+ * v323 drew the state as a chip reading "⚠4" with the words in a title
+ * attribute, and the load as a bar scaled to the busiest person. Both were
+ * wrong for the same reason: they made the reader infer. "⚠4" is a glyph and a
+ * number; the bar implied that carrying more work is carrying worse work, on a
+ * scale nothing on screen stated. The state is a sentence now, and the figures
+ * are the figures the product already computes — no derived indicator, no
+ * ranking of people against each other.
+ *
+ * The one thing that is not words is the rail down the left edge, which is
+ * severity. It is there so a column of seven can be scanned without being
+ * read, which is what an andon lamp is for on the floors this product serves.
+ */
 export function MyTeamPersonRow({
   person,
   nowIso,
@@ -59,23 +54,20 @@ export function MyTeamPersonRow({
   expanded,
   toggleHref,
   panelId,
-  children,
 }: {
   person: TeamAttentionRow;
   nowIso: string;
   /** v189 — the organisation's attention window, in days. */
   attentionWindowDays?: number;
-  /** Whether this person's detail is open underneath (§6). */
+  /** Whether this person's detail is open beside the roster (§6). */
   expanded: boolean;
   /**
    * Where clicking the header goes: the same URL with this person expanded, or
    * with them dropped. The page builds it because it is the page that knows
-   * the period, the filter and who else is being kept open.
+   * the period, the filter and who else is being compared.
    */
   toggleHref: string;
   panelId: string;
-  /** The expansion itself, rendered by the server and slotted in below. */
-  children?: ReactNode;
 }) {
   const router = useRouter();
   const action = person.attention
@@ -84,29 +76,27 @@ export function MyTeamPersonRow({
   /*
    * A button only where the manager is being asked to do something.
    *
-   * Every row used to end in one: Open, Open task, Open routine — three labels
-   * for the one interaction the whole row already performs, sized and placed
-   * like the most important thing in the row. Work that is merely overdue is
-   * the person's to catch up on; the manager reads it and moves on. What
-   * survives is the case where they owe a decision, and there the button says
-   * which decision.
+   * This is the distinction the card now states outright: an overdue task is
+   * the person's to catch up on, and a request addressed to the manager is
+   * not. Work that is merely late gets a state and a reason; a decision gets a
+   * state, a reason and the control that answers it.
    */
   const managerAction = person.attention?.kind === 'action_required' ? action : null;
   const now = new Date(nowIso);
+  const state = teamRowState(person);
 
   /*
-   * How much this person is carrying. Volume only — the exceptions moved to
-   * the attention column, where the manager is already looking for them.
+   * How much this person is carrying, in the figures the product states
+   * elsewhere — not an index, a score or a share of anything.
    *
-   * Zeroes are left out entirely: a column of "0 overdue" is a column of
-   * nothing happening, said loudly. Waiting work is included because load is
-   * what is carried plus what is queued, and the queued half used to be
-   * readable only in a view that replaces this table.
+   * Waiting work is here because v136 fixed a reported bug by putting it here:
+   * from Needs attention a manager could not see what somebody had queued
+   * without leaving the table that held the person they were reading.
    */
   const volume = [
     person.activeCount > 0 ? `${person.activeCount} active` : null,
     // v157 — what they owe on other people's work, which their own list cannot
-    // show because the work is somebody else's.
+    // show because the work belongs to somebody else.
     person.sharedStepCount > 0
       ? `${person.sharedStepCount} shared ${person.sharedStepCount === 1 ? 'step' : 'steps'}`
       : null,
@@ -114,57 +104,61 @@ export function MyTeamPersonRow({
   ].filter((part): part is string => part !== null);
 
   /*
-   * The figures that decide whether this row needs reading, in one place.
+   * What is wrong, counted and named.
    *
-   * They used to lead the person's summary line, where they sat beside volume
-   * figures of the same shape and weight — so "15 overdue" and "3 active" read
-   * as two facts of equal standing rather than a problem and a workload.
+   * Every one of these was a two-character chip until v324, with the words
+   * only in a `title` and in the screen reader's text — so the thing the card
+   * exists to communicate was the one thing a manager had to decode.
    */
   const exceptions = [
     person.overdueCount > 0
-      ? { text: `⚠ ${person.overdueCount} overdue`, tone: 'alert' as const, testId: undefined }
-      : null,
-    // v189 — and what is about to be: the manager can step in before it is late.
-    person.dueSoonCount > 0
       ? {
-          text: `! ${person.dueSoonCount} due within ${attentionWindowDays} day${attentionWindowDays === 1 ? '' : 's'}`,
-          tone: 'soon' as const,
+          key: 'overdue',
+          tone: 'alert' as const,
+          text: `${person.overdueCount} overdue`,
           testId: undefined,
         }
       : null,
-    // v157 — a late step is late for somebody else's work, so it is said on its
-    // own line rather than folded into a count of this person's own work.
+    // v157 — a late step is late for somebody else's work, so it is counted on
+    // its own rather than folded into a count of this person's own work.
     person.sharedStepOverdueCount > 0
       ? {
-          text: `⚠ ${person.sharedStepOverdueCount} assigned ${person.sharedStepOverdueCount === 1 ? 'step' : 'steps'} overdue`,
+          key: 'shared-overdue',
           tone: 'alert' as const,
+          text: `${person.sharedStepOverdueCount} assigned ${person.sharedStepOverdueCount === 1 ? 'step' : 'steps'} overdue`,
           testId: 'assigned-step-overdue',
+        }
+      : null,
+    // v189 — and what is about to be late, so the manager can step in first.
+    person.dueSoonCount > 0
+      ? {
+          key: 'soon',
+          tone: 'soon' as const,
+          text: `${person.dueSoonCount} due within ${attentionWindowDays} day${attentionWindowDays === 1 ? '' : 's'}`,
+          testId: undefined,
         }
       : null,
   ].filter((part): part is NonNullable<typeof part> => part !== null);
 
   /*
    * §6 A01 — name, whitespace and chevron all do the same thing, because they
-   * are all the same control: the header is the accordion button, and the
+   * are all the same control: the card is the accordion button, and the
    * chevron inside it is decoration rather than a second target.
    *
-   * `scroll: false` because this is an expansion, not a navigation. Without it
-   * opening the fourth person in the list sends the page back to the top, and
-   * the manager has to find them again to read what they just opened.
+   * `scroll: false` because this selects a person, it does not navigate.
+   * Without it, choosing the fourth person sends the page back to the top and
+   * the manager has to find them again.
    */
   function togglePerson() {
     router.push(toggleHref, { scroll: false });
   }
 
   /*
-   * The whole row still opens the person for a pointer, but it is no longer
-   * announced as one button (v181). As a `role="button"` with a label, a screen
-   * reader heard "Expand team member detail for Amer" and nothing else — what
-   * they are working on, their agreed priorities and their latest update were
-   * hidden inside the label — and the manager's decision button sat inside
-   * another button, where it could not be reached as itself. The accordion
-   * control is now the name, a real button; the rest of the row is read as
-   * text; a click on the row's blank space is a pointer convenience only.
+   * The whole card opens the person for a pointer, but it is not announced as
+   * one button (v181). As a `role="button"` with a label, a screen reader
+   * heard "Expand team member detail for Amer" and nothing else, and the
+   * manager's decision button sat inside another button where it could not be
+   * reached as itself.
    */
   function handleRowClick(event: MouseEvent<HTMLDivElement>) {
     if ((event.target as HTMLElement).closest('button, a, input, select, textarea, summary')) {
@@ -180,157 +174,86 @@ export function MyTeamPersonRow({
 
   return (
     <div className={styles.block} data-expanded={expanded ? 'true' : undefined}>
-      <div className={styles.row} data-testid="my-team-person-row" onClick={handleRowClick}>
+      <div
+        className={styles.row}
+        data-testid="my-team-person-row"
+        data-selected={expanded ? 'true' : undefined}
+        data-state={state}
+        onClick={handleRowClick}
+      >
         <div className={styles.person} data-cell="person">
-          <button
-            type="button"
-            className={styles.toggle}
-            aria-expanded={expanded}
-            aria-controls={panelId}
-            aria-label={`${expanded ? 'Collapse' : 'Expand'} team member detail for ${person.fullName}`}
-            onClick={togglePerson}
-          >
-            <strong>{person.fullName}</strong>
-          </button>
-          <span>{volume.length === 0 ? 'Nothing active' : volume.join(' · ')}</span>
-        </div>
-
-        <div className={styles.working} data-cell="working-on">
-          {person.workingOn ? (
-            <>
-              <strong>{person.workingOn.title}</strong>
-              {/*
-                When it was said, not how long ago something was touched.
-                §8: this communicates a main focus, not presence — so a
-                selection made on Tuesday says Tuesday rather than implying
-                somebody is at it right now.
-              */}
-              <span>
-                Set {agoWords(person.workingOn.confirmedAt, now)}
-                {person.otherActiveCount > 0 ? ` · +${person.otherActiveCount} other active` : ''}
-              </span>
-            </>
-          ) : (
-            /*
-              "Not set" is a real answer, and a different one from "nothing
-              active". The column used to name the most recently touched Active
-              task, so it could never be empty and never be wrong — and never
-              quite meant anything either.
-            */
-            <span className={styles.muted}>
-              Not set
-              {person.activeCount > 0 ? ` · ${person.activeCount} active` : ''}
-            </span>
-          )}
-
-          {/*
-            The agreed result, only when there is one.
-
-            It had a column of its own, which meant most rows carried "No
-            agreed priorities" — the same absence restated on every line, in a
-            column a manager cannot act on. Said here it is a fact about what
-            this person is working towards, beside what they are working on.
-          */}
-          {person.nextAgreedResult && (
-            <span className={styles.agreed} data-cell="next-result">
-              <em>Agreed:</em> {person.nextAgreedResult.expectedResult}
-              {person.nextAgreedResult.outcome === 'missed' && (
-                <span className={styles.summaryAlert}> · Missed</span>
-              )}
-            </span>
-          )}
-        </div>
-
-        <div className={styles.attention} data-cell="needs-you">
-          {/*
-            What is wrong and when they last spoke, on one line.
-
-            They are the two halves of the same glance — is this person in
-            trouble, and have they said anything about it — and stacked they
-            cost the cell a line it has not got: `team-context-v48` caps the
-            row, and this cell can already carry a flag, a button and a reason.
-          */}
-          <span className={styles.state}>
-            {exceptions.length > 0 && (
-              <span className={styles.exceptions}>
-                {exceptions.map((part) => (
-                  <span
-                    key={part.text}
-                    className={part.tone === 'soon' ? styles.summarySoon : styles.summaryAlert}
-                    data-testid={part.testId}
-                  >
-                    {part.text}
-                  </span>
-                ))}
-              </span>
-            )}
-            <span className={styles.latest} data-cell="latest">
-              {person.latestUpdate
-                ? `Updated ${agoWords(person.latestUpdate.at, now)}`
-                : 'No recent activity'}
-              {/*
-                Said for a screen reader only. Sighted readers take the absence
-                of a flag as the answer, which is why "No action needed from
-                you" was removed from every healthy row; a screen reader has no
-                absence to take, so it is given the words.
-              */}
-              {!person.attention && (
-                <span className="visually-hidden"> Nothing needed from you</span>
-              )}
+          <span className={styles.nameLine}>
+            <button
+              type="button"
+              className={styles.toggle}
+              aria-expanded={expanded}
+              aria-controls={panelId}
+              aria-label={`${expanded ? 'Collapse' : 'Expand'} team member detail for ${person.fullName}`}
+              onClick={togglePerson}
+            >
+              <strong>{person.fullName}</strong>
+            </button>
+            {/*
+              The state, said rather than drawn. It is the one line that
+              answers "do I need to do something about this person", so it sits
+              on the name line where the eye already is.
+            */}
+            <span className={styles.state} data-cell="state" data-tone={state}>
+              {STATE_LABEL[state]}
             </span>
           </span>
 
-          {person.attention && (
-            <>
-              {/*
-                The state and the response on one line.
-
-                The button used to sit under the reason, which cost the cell a
-                third line. On a narrower screen the row already folds into two
-                bands, so that line pushed the row past the height the layout
-                test allows — and it separated "a decision is owed" from the
-                control that gives it by the width of the reason text.
-              */}
-              <span className={styles.attentionHead}>
+          {exceptions.length > 0 && (
+            <span className={styles.exceptions} data-cell="exceptions">
+              {exceptions.map((part) => (
                 <span
-                  className={styles.flag}
-                  data-tone={
-                    person.attention.kind === 'exception'
-                      ? 'neutral'
-                      : person.attention.severity === 'critical'
-                        ? 'critical'
-                        : 'attention'
-                  }
+                  key={part.key}
+                  className={part.tone === 'soon' ? styles.summarySoon : styles.summaryAlert}
+                  data-testid={part.testId}
                 >
-                  {/* Small, and only present on an exception. The words alone
-                      were easy to miss because a row with a problem was
-                      otherwise identical to a row without one. */}
-                  <span className={styles.dot} aria-hidden="true" />
-                  {person.attention.headline}
+                  {part.text}
                 </span>
-                {/*
-                  Not in a column of its own at the end of the row: that gave a
-                  variable width to a column the header could not match, so the
-                  table lost its alignment on exactly the rows a manager most
-                  needs to read.
-                */}
-                {managerAction ? (
-                  <button
-                    type="button"
-                    className="btn small primary"
-                    onClick={handleAction}
-                    aria-label={`${managerAction.label} for ${person.fullName}: ${person.attention.reason}`}
-                  >
-                    {managerAction.label}
-                  </button>
-                ) : null}
-              </span>
-              <span className={styles.reason} data-cell="attention-reason">
-                {person.attention.reason}
-              </span>
-            </>
+              ))}
+            </span>
           )}
+
+          {/*
+            What they are carrying, and when they last said anything. Both are
+            counts the product already keeps; neither is combined into a score.
+          */}
+          <span className={styles.volume} data-cell="load">
+            {volume.length === 0 ? 'No open items' : volume.join(' · ')}
+            {' · '}
+            <span data-cell="latest">
+              {person.latestUpdate
+                ? `updated ${agoWords(person.latestUpdate.at, now)}`
+                : 'no updates recorded'}
+            </span>
+          </span>
         </div>
+
+        {person.attention && (
+          <div className={styles.attention} data-cell="needs-you">
+            {/*
+              Why, in the product's own words, and the control that answers it
+              where there is one. This is the half of the card a manager reads
+              rather than scans, so it keeps its sentence.
+            */}
+            <span className={styles.reason} data-cell="attention-reason">
+              <strong>{person.attention.headline}</strong> — {person.attention.reason}
+            </span>
+            {managerAction ? (
+              <button
+                type="button"
+                className="btn small primary"
+                onClick={handleAction}
+                aria-label={`${managerAction.label} for ${person.fullName}: ${person.attention.reason}`}
+              >
+                {managerAction.label}
+              </button>
+            ) : null}
+          </div>
+        )}
 
         <div className={styles.action} data-cell="action">
           <span className={styles.chevron} aria-hidden="true">
@@ -338,8 +261,6 @@ export function MyTeamPersonRow({
           </span>
         </div>
       </div>
-
-      {children}
     </div>
   );
 }

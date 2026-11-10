@@ -39,6 +39,22 @@ test.describe('v243 the settings menu', () => {
       // Every panel is in the DOM whatever the active section, so this waits
       // for the page to have arrived without asserting anything about which.
       await page.locator('[data-settings-panel]').first().waitFor({ state: 'attached' });
+      /*
+       * And then for the scroll to have been possible at all.
+       *
+       * `RevealCurrent` reveals the row from a `useEffect`, so nothing moves
+       * until the page is hydrated — while the markup this measures is in the
+       * server's HTML, which `attached` is satisfied by. Measuring in between
+       * reads the menu at scrollLeft 0 and reports the row as scrolled out of
+       * a menu that has not scrolled yet.
+       *
+       * It cost a day. The gate's production build hydrates fast enough to win
+       * the race nearly always, so this passed locally every time; CI's
+       * loaded runners lost it, and the spec was red on main from 8 November
+       * while every local run said otherwise. A development server loses it
+       * 20 times out of 20, which is what finally made it reproducible.
+       */
+      await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
       const where = await page.evaluate(() => {
         const menu = document.querySelector('.settings-menu');
@@ -51,6 +67,12 @@ test.describe('v243 the settings menu', () => {
           label: (current.textContent ?? '').trim().slice(0, 30),
           scrolls: menu.scrollWidth > menu.clientWidth + 2,
           whole: box.left >= bounds.left - 1 && box.right <= bounds.right + 1,
+          /* Said out loud, because "is scrolled out of its own menu" without
+             the figures cost most of a day: it cannot tell a row that never
+             scrolled from one sitting a pixel proud of the edge. */
+          left: Math.round((box.left - bounds.left) * 10) / 10,
+          right: Math.round((bounds.right - box.right) * 10) / 10,
+          scrollLeft: Math.round(menu.scrollLeft),
         };
       });
 
@@ -60,7 +82,12 @@ test.describe('v243 the settings menu', () => {
        * this test is measuring nothing and should say so rather than passing.
        */
       expect(where!.scrolls, 'the menu no longer scrolls; this test is moot').toBe(true);
-      expect(where!.whole, `"${where!.label}" is scrolled out of its own menu`).toBe(true);
+      expect(
+        where!.whole,
+        `"${where!.label}" is scrolled out of its own menu: ` +
+          `${where!.left}px clear on the left, ${where!.right}px on the right, ` +
+          `strip at scrollLeft ${where!.scrollLeft}`,
+      ).toBe(true);
     });
   }
 });

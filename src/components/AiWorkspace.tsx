@@ -92,6 +92,50 @@ function renderAnswer(answer: string) {
   });
 }
 
+/**
+ * Cited records, grouped and folded.
+ *
+ * A long answer cites thirty records, and listing them all under every answer
+ * made the evidence several times taller than the reasoning it supports. The
+ * count is the part that belongs on screen unprompted — it is the claim this
+ * feature makes about itself — and the records themselves are one press away,
+ * grouped by what they are so a reader looking for the finding behind a
+ * sentence is not reading task titles to get to it.
+ */
+const SOURCE_GROUPS: { kind: SourceLink['kind']; title: string }[] = [
+  { kind: 'task', title: 'Tasks' },
+  { kind: 'finding', title: 'Findings' },
+  { kind: 'action', title: 'Actions' },
+];
+
+function AiSources({ sources }: { sources: SourceLink[] }) {
+  const groups = SOURCE_GROUPS.map((group) => ({
+    ...group,
+    items: sources.filter((source) => source.kind === group.kind),
+  })).filter((group) => group.items.length > 0);
+
+  return (
+    <details className="ai-sources">
+      <summary>{sources.length === 1 ? 'Read 1 record' : `Read ${sources.length} records`}</summary>
+      {groups.map((group) => (
+        <div className="ai-sources-group" key={group.kind}>
+          <h4>{group.title}</h4>
+          <ul>
+            {group.items.map((source) => (
+              <li key={`${source.kind}-${source.id}`}>
+                {/* The title attribute carries what the one-line clamp cuts. */}
+                <Link href={source.href} title={source.label}>
+                  {source.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </details>
+  );
+}
+
 const SUGGESTIONS = [
   'Why are my corrective actions delayed?',
   'What should I prioritise today?',
@@ -256,7 +300,7 @@ export function AiWorkspace({
       <section className="ai-threads" aria-labelledby="ai-threads-title">
         <div className="ai-threads-head">
           <h2 id="ai-threads-title">Conversations</h2>
-          <Link className="btn small" href="/ai">
+          <Link className="btn small" href="/ai/chat">
             New
           </Link>
         </div>
@@ -280,7 +324,7 @@ export function AiWorkspace({
             {threads.map((one) => (
               <li key={one.id}>
                 <Link
-                  href={`/ai?c=${one.id}`}
+                  href={`/ai/chat?c=${one.id}`}
                   className="ai-thread"
                   aria-current={one.id === thread ? 'true' : undefined}
                   data-selected={one.id === thread || undefined}
@@ -312,7 +356,6 @@ export function AiWorkspace({
 
         {exchanges.length === 0 && !threadFailed && (
           <div className="ai-opening">
-            <h2>Ask about your work</h2>
             <p>
               I read the tasks and findings you are authorised to see, and answer from those
               records. I will tell you what I could not establish rather than guess, and I will not
@@ -379,18 +422,7 @@ export function AiWorkspace({
 
             {exchange.answer && <div className="ai-answer">{renderAnswer(exchange.answer)}</div>}
 
-            {exchange.sources.length > 0 && (
-              <div className="ai-sources">
-                <p>What I read</p>
-                <ul>
-                  {exchange.sources.map((source) => (
-                    <li key={`${source.kind}-${source.id}`}>
-                      <Link href={source.href}>{source.label}</Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            {exchange.sources.length > 0 && <AiSources sources={exchange.sources} />}
 
             {exchange.failed && (
               <p className="notice error" role="alert">

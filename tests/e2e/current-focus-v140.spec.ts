@@ -131,8 +131,17 @@ test.describe('v140 the manager reads it', () => {
 
     await switchTo(page, 'izzul@tamco.local');
     await openWork(page, '?scope=team');
+    /*
+     * Read from the panel, which is where the manager reads it since v323: a
+     * roster column cannot carry a task title at 300px, and it no longer has
+     * to, because the panel beside it is open while the roster is being read.
+     */
     const row = page.getByTestId('my-team-person-row').filter({ hasText: 'Izzah' });
-    await expect(row.locator('[data-cell="working-on"]')).toContainText('Not set');
+    await row.locator('[data-cell="person"] strong').click();
+    const focus = page
+      .getByTestId('my-team-person-panel')
+      .locator('.team-person-section[aria-labelledby$="-focus"]');
+    await expect(focus).toContainText('Not set');
   });
 
   test('names the chosen work once it has been chosen', async ({ page }) => {
@@ -142,13 +151,17 @@ test.describe('v140 the manager reads it', () => {
 
     await switchTo(page, 'izzul@tamco.local');
     await openWork(page, '?scope=team');
-    const cell = page
+    await page
       .getByTestId('my-team-person-row')
       .filter({ hasText: 'Izzah' })
-      .locator('[data-cell="working-on"]');
-    await expect(cell).toContainText(title);
+      .locator('[data-cell="person"] strong')
+      .click();
+    const focus = page
+      .getByTestId('my-team-person-panel')
+      .locator('.team-person-section[aria-labelledby$="-focus"]');
+    await expect(focus).toContainText(title);
     // When it was said, not how long ago something moved.
-    await expect(cell).toContainText(/Set /);
+    await expect(focus).toContainText(/Set /);
 
     // Leave the fixture as it was found.
     await switchTo(page, 'izzah@tamco.local');

@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
 import { expect, test, type Page } from '@playwright/test';
 
-import { showActiveWork } from './support/work-list';
+import { openPanelSection, showActiveWork } from './support/work-list';
 
 config({ path: '.env.local', quiet: true });
 
@@ -218,7 +218,7 @@ test('v159 the card says when your own step is next or late, and so does My Team
     // v236 folded the lists, so her active work is a disclosure now — and
     // "Show more" is a second one nested inside it, which cannot be clicked
     // until the first is open.
-    await panel.locator('.team-person-section[data-section="active"] > summary').click();
+    await openPanelSection(panel, 'active');
     const more = panel.locator('.team-person-more > summary');
     if ((await more.count()) > 0) await more.first().click();
     await expect(panel.locator('.member-work-row', { hasText: late })).toContainText(

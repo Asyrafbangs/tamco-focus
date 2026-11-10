@@ -130,9 +130,14 @@ test('v157 My Team shows the steps Amer owes, and opens one at the step', async 
      * Counted, not matched exactly: the phone project runs its own copy of
      * this fixture against the same database, so either run may see both.
      */
-    await expect(row.locator('[data-cell="person"]')).toContainText(/\d+ shared steps/);
-    await expect(row.getByTestId('assigned-step-overdue')).toContainText(
-      /⚠ \d+ assigned steps? overdue/,
+    await expect(row.locator('[data-cell="load"]')).toContainText(/\d+ shared steps/);
+    /*
+     * v324 states it outright. v323 drew "1" beside a warning glyph and put
+     * the words in a title attribute, which made the thing the card exists to
+     * say the one thing a manager had to decode.
+     */
+    await expect(row.getByTestId('assigned-step-overdue')).toHaveText(
+      /\d+ assigned steps? overdue/,
     );
 
     await row.locator('[data-cell="person"] strong').click();

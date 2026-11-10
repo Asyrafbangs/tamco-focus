@@ -162,8 +162,8 @@ test.describe('v132 the person expansion', () => {
   });
 
   test('reads the week, then the work, then what closed', async ({ page }) => {
-    const headings = await page
-      .getByTestId('my-team-person-panel')
+    const panel = page.getByTestId('my-team-person-panel');
+    const headings = await panel
       .locator('.team-person-section > h4, .team-person-section > summary')
       .allInnerTexts();
     const order = headings.map((text) => text.trim().split('\n')[0]!.trim());
@@ -187,15 +187,28 @@ test.describe('v132 the person expansion', () => {
      * same way, and comes first when it is there.
      */
     /*
-     * v236 puts "Current focus" first and unconditionally: what somebody said
-     * they are working on is the first thing a manager opens them to read, and
-     * "Not set" is a real answer rather than a reason to omit the section.
+     * v236 made "Current focus" unconditional: what somebody said they are
+     * working on is something a manager opens them to read, and "Not set" is a
+     * real answer rather than a reason to omit the section. v323 moved it
+     * below the two conditional blocks without making it conditional.
      */
-    const withoutFocus = order[0]?.startsWith('Current focus') ? order.slice(1) : order;
-    const withoutAttention = withoutFocus[0]?.startsWith('Needs attention')
-      ? withoutFocus.slice(1)
-      : withoutFocus;
-    const withoutDecision = withoutAttention[0]?.startsWith('Needs your decision')
+    /*
+     * v323 reorders the three conditional blocks at the top. The panel sits
+     * beside the roster now rather than inside it, and the roster carries the
+     * load and the exceptions — so the panel's first screen answers the two
+     * questions a roster card cannot: what do I have to decide, and what is
+     * late. What somebody is on follows, above the lists it gives meaning to.
+     */
+    /*
+     * Named for whose action it is since v324: a manager asked for the
+     * distinction outright, because not every overdue task is theirs to
+     * intervene in.
+     */
+    const withoutDecision = order[0]?.startsWith('Action needed from you') ? order.slice(1) : order;
+    const withoutAttention = withoutDecision[0]?.startsWith('Work needs attention')
+      ? withoutDecision.slice(1)
+      : withoutDecision;
+    const rest = withoutAttention[0]?.startsWith('Current focus')
       ? withoutAttention.slice(1)
       : withoutAttention;
     /*
@@ -215,8 +228,32 @@ test.describe('v132 the person expansion', () => {
       'Completed',
       'Recent activity',
     ];
-    expect(withoutDecision).toHaveLength(expected.length);
-    withoutDecision.forEach((text, index) => expect(text).toContain(expected[index]!));
+    /*
+     * The order, not the roll call.
+     *
+     * v324 renders no disclosure for a section with nothing in it, so which of
+     * the six are on screen depends on the person — but whichever are there
+     * must be in this order, and whichever are not must be named in the
+     * sentence that replaced them. Asserting the full list by length made the
+     * spec a fixture check: it failed on a person who had completed nothing,
+     * which is not a defect in the ordering it exists to protect.
+     */
+    let cursor = 0;
+    for (const text of rest) {
+      const found = expected.findIndex((name, index) => index >= cursor && text.includes(name));
+      expect(
+        found,
+        `"${text}" is out of order, or is not a section this panel should show`,
+      ).toBeGreaterThanOrEqual(0);
+      cursor = found + 1;
+    }
+    const missing = expected.filter((name) => !rest.some((text) => text.includes(name)));
+    if (missing.length > 0) {
+      await expect(
+        panel.getByTestId('team-person-tail-empty'),
+        `${missing.join(', ')} is absent without being accounted for`,
+      ).toContainText(/\S/);
+    }
   });
 
   test('never renders a null update', async ({ page }) => {
@@ -272,6 +309,19 @@ test('v132 delivery is split by kind, not reported as one number', async ({ page
     // §6 collapses Completed behind its count, so the count is read from the
     // summary and the records are opened only when there is something in them.
     const delivery = panel.locator('.team-person-section[data-section="completed"]');
+    /*
+     * v324 renders no disclosure where there is nothing to disclose. Nothing
+     * completed is a fact this spec cannot test the splitting of, so it says
+     * so rather than timing out on a summary that is not there.
+     */
+    if ((await delivery.count()) === 0) {
+      await expect(panel.getByTestId('team-person-tail-empty')).toContainText('nothing completed');
+      test.info().annotations.push({
+        type: 'note',
+        description: 'This person completed nothing in the period, so the split is untestable.',
+      });
+      return;
+    }
     const summary = (await delivery.locator('summary').innerText()).trim();
 
     if (!/^Completed\s+0\b/.test(summary)) {

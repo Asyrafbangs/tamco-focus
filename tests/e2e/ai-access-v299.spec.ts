@@ -67,7 +67,16 @@ test.describe('v299 assistant access', () => {
      */
     await expect(page.getByText('One moment')).toHaveCount(0, { timeout: 20_000 });
     await expect(page.getByText('This page could not be found')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Ask about your work' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Export AI brief' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Copy AI brief' })).toHaveCount(0);
+
+    /*
+     * v317 - and the chat at its new address is behind the same gate. It is
+     * hidden rather than removed, and a hidden address is still an address.
+     */
+    await page.goto('/ai/chat');
+    await expect(page.getByText('One moment')).toHaveCount(0, { timeout: 20_000 });
+    await expect(page.getByText('This page could not be found')).toBeVisible();
     await expect(page.getByLabel('Ask the assistant', { exact: true })).toHaveCount(0);
 
     const posted = await page.request.post('/api/ai/chat', {
@@ -89,6 +98,13 @@ test.describe('v299 assistant access', () => {
 
     await page.goto('/ai');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
+    /* v317 - what lives at this address is the brief export. */
+    await expect(page.getByRole('heading', { name: 'Export AI brief', level: 1 })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Copy AI brief' })).toBeVisible();
+
+    /* And the chat is still there for them, unlinked. */
+    await page.goto('/ai/chat');
+    await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
     await expect(
       page.getByRole('heading', { name: 'Ask about your work', level: 1 }),
     ).toBeVisible();
@@ -108,7 +124,7 @@ test.describe('v299 assistant access', () => {
 
   test('the disabled notice names the variable this installation reads', async ({ page }) => {
     await signIn(page, 'izzul@tamco.local');
-    await page.goto('/ai');
+    await page.goto('/ai/chat');
     await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
 
     const box = page.getByLabel('Ask the assistant', { exact: true });
