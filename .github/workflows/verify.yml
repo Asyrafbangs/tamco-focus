@@ -6,17 +6,22 @@ name: Verify
 #
 # v227 - a branch with an open pull request used to run everything twice, once
 # for the push and once for the pull request, and the private repository ran
-# out of minutes. Feature branches now run through their pull request only, and
-# a change that touches nothing but documentation runs nothing. `main` still
-# runs on every push, because it is the last chance before Production.
+# out of minutes. Feature branches still run through their pull request only.
+# `main` runs on every push, because it is the last chance before Production.
+#
+# v326 removed the `paths-ignore` that let a documentation-only pull request
+# run nothing. It was sound while nothing was required to merge, and unsound
+# the moment anything is: GitHub counts a *skipped* required check as a
+# successful one, and a workflow that never triggers reports nothing at all —
+# so the same filter either blocks a documentation pull request forever or
+# waves one through with no verification, depending on how the protection is
+# written. The repository is public, where standard runners are unlimited, so
+# the saving it bought is worth nothing and the ambiguity it bought is worth
+# less. Every pull request now runs every job.
 on:
   push:
     branches: [main]
   pull_request:
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - 'release-shots/**'
   workflow_dispatch:
 
 concurrency:
@@ -78,7 +83,36 @@ jobs:
       - run: npm ci
 
       - name: Start the local Supabase stack
-        run: npx supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,pooler
+        # Retried, because the runner's Docker loses a port to itself.
+        #
+        # Twice in four database runs on 9 November, `supabase start` brought
+        # the database up, applied every migration, seeded, and then failed
+        # starting the remaining containers with "failed to bind host port
+        # 0.0.0.0:54324/tcp: address already in use" — Inbucket's web port, on
+        # a GitHub-hosted runner that had nothing else on it. Docker's own
+        # message names the cause: "driver failed programming external
+        # connectivity", a race in the networking driver rather than a port
+        # genuinely taken.
+        #
+        # This retries the stack coming up. It does not retry a test: nothing
+        # here re-runs an assertion hoping for a different answer, and the
+        # warning makes a retry visible in the log rather than silent. If it
+        # ever exhausts the attempts, the listener dump says what actually
+        # held the port, so the next person does not start where this did.
+        run: |
+          for attempt in 1 2 3; do
+            if npx supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,pooler; then
+              exit 0
+            fi
+            echo "::warning::Supabase stack failed to start on attempt ${attempt}; cleaning up and retrying"
+            npx supabase stop --no-backup || true
+            sleep 10
+          done
+          echo "::error::Supabase stack did not start after 3 attempts"
+          echo "Listening sockets at the time of failure:"
+          ss -ltnp || netstat -ltnp || true
+          docker ps -a || true
+          exit 1
 
       - name: Write the environment CI resolves to
         run: node scripts/write-env.mjs
@@ -97,17 +131,40 @@ jobs:
       - name: Integration tests
         run: npm run test:integration
 
+      # Into `.next-verify`, because that is where the smoke test below looks.
+      # `scripts/run-production-smoke.mjs` pins `NEXT_DIST_DIR` to it, and
+      # `scripts/verify.mjs` builds there for the same reason — so a default
+      # `next build` here produces a build the smoke step cannot find.
       - name: Production build
         run: npm run build
+        env:
+          NEXT_DIST_DIR: .next-verify
 
-  # End-to-end deliberately runs on demand rather than on every push. It needs
-  # a browser, a production build and a database reset between viewport
-  # projects, and on a free runner that is several minutes each time. Run it
-  # before merging to main, and before any deployment.
+      # The local gate runs this and CI did not, so the two could disagree on
+      # a build that starts but does not serve. A gate that is a subset of the
+      # other reports a green the other can contradict, whichever way round
+      # the subset runs.
+      - name: Production smoke
+        run: npm run test:smoke
+
+  # End-to-end runs on everything that reaches this workflow: pull requests,
+  # pushes to `main`, and manual dispatches.
+  #
+  # It used to run on `main` and on dispatch only, because the repository was
+  # private and GitHub Free gives 2,000 Actions minutes a month there. It is
+  # public now, where standard runners are unlimited, so the reason is gone —
+  # and what it was costing was the thing this suite exists for. A pull
+  # request could go green having executed no browser test at all, which is
+  # how `settings-menu-reveals-v243` stayed red on `main` from 8 to 9
+  # November: the last browser evidence came from a dispatch, and every pull
+  # request merged in between reported success on two jobs out of three.
+  #
+  # If minutes ever become a constraint again, narrow this by path rather than
+  # by event: a change under `supabase/` or `docs/` has no browser surface,
+  # while one under `src/app` or `src/components` always does.
   end-to-end:
-    name: End-to-end (on demand)
+    name: End-to-end
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
     needs: database
     steps:
       - uses: actions/checkout@v4
@@ -121,7 +178,36 @@ jobs:
       - run: npx playwright install --with-deps chromium
 
       - name: Start the local Supabase stack
-        run: npx supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,pooler
+        # Retried, because the runner's Docker loses a port to itself.
+        #
+        # Twice in four database runs on 9 November, `supabase start` brought
+        # the database up, applied every migration, seeded, and then failed
+        # starting the remaining containers with "failed to bind host port
+        # 0.0.0.0:54324/tcp: address already in use" — Inbucket's web port, on
+        # a GitHub-hosted runner that had nothing else on it. Docker's own
+        # message names the cause: "driver failed programming external
+        # connectivity", a race in the networking driver rather than a port
+        # genuinely taken.
+        #
+        # This retries the stack coming up. It does not retry a test: nothing
+        # here re-runs an assertion hoping for a different answer, and the
+        # warning makes a retry visible in the log rather than silent. If it
+        # ever exhausts the attempts, the listener dump says what actually
+        # held the port, so the next person does not start where this did.
+        run: |
+          for attempt in 1 2 3; do
+            if npx supabase start -x realtime,imgproxy,edge-runtime,logflare,vector,pooler; then
+              exit 0
+            fi
+            echo "::warning::Supabase stack failed to start on attempt ${attempt}; cleaning up and retrying"
+            npx supabase stop --no-backup || true
+            sleep 10
+          done
+          echo "::error::Supabase stack did not start after 3 attempts"
+          echo "Listening sockets at the time of failure:"
+          ss -ltnp || netstat -ltnp || true
+          docker ps -a || true
+          exit 1
 
       - name: Write the environment CI resolves to
         run: node scripts/write-env.mjs

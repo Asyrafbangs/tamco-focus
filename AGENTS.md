@@ -748,18 +748,71 @@ with a log that stopped mid-browser-stage at test 237 of 797, four
 cleanly on their own. Without the `Verification summary` block the run has no
 verdict at all.
 
-**`autocrlf=true` here.** `git checkout` rewrites files as CRLF, Prettier's LF
-check then fails against an empty `git diff`, and `git status` shows ~120
-phantom modifications. Fix with `prettier --write`, and compare with
-`git diff --ignore-cr-at-eol` when you need to see real changes.
+**`autocrlf=true` here, and `git status` lies about it.** `git checkout`
+rewrites files as CRLF while Prettier writes LF, so files show as modified with
+nothing in them changed. Prettier's LF check fails against an empty `git diff`,
+and `git status` can show a hundred or more phantom modifications. Fix a format
+failure with `prettier --write`.
+
+Never decide what to stage from `git status` in this repository. Ask which
+files differ by something other than a line ending:
+
+```sh
+for f in $(git status --short | grep '^ M' | sed 's/^ M //'); do
+  [ -n "$(git -c core.safecrlf=false diff --ignore-cr-at-eol -- "$f")" ] && echo "REAL $f"
+done
+```
+
+Everything that prints is a real edit; everything else is the phantom and must
+stay unstaged. On 9 November that separated four real files from nineteen
+listed.
+
+**The durable fix is a `.gitattributes`, and it is not safe to land casually.**
+`* text=auto eol=lf` makes checkout produce LF and the phantom disappears for
+good. The stored blobs are already LF, so nothing is rewritten in history — but
+every other working tree then shows its CRLF files as modified until it
+re-checks-out, which in a repository three sessions share at once can bury
+somebody's uncommitted work in noise. `core.autocrlf` cannot be scoped to one
+worktree either: `extensions.worktreeConfig` is off, so `.git/config` is shared
+from `tamco-focus/.git` and changing it changes everybody's. Land the
+`.gitattributes` when the repository is quiet, with `git add --renormalize .`
+in the same commit, and tell the other checkouts to re-checkout afterwards.
 
 **The repository is shared.** Another session may hold changes on `main` in this
 same folder. **Stage files by name — never `git add -A`** — and re-check the
 tree around every run. A `git checkout main` that refuses is this, not a fault.
 
-**A green pull request has run no browser test.** The e2e job runs only on a
-push to `main` or a dispatch. Before relying on a PR being green, dispatch it:
-`gh workflow run verify.yml --ref <branch>`.
+**A green pull request now runs the browser suite — it did not until v326.**
+The e2e job was gated on `github.event_name == 'workflow_dispatch' ||
+github.ref == 'refs/heads/main'`, so a pull request went green having executed
+no browser test at all. That was deliberate once: the repository was private
+and GitHub Free gives 2,000 Actions minutes a month there. It is public now,
+where standard runners are unlimited, so the gate was costing the thing it was
+meant to protect. It cost exactly that from 8 to 9 November, when
+`settings-menu-reveals-v243` sat red on `main` while every merged pull request
+reported success on two jobs out of three.
+
+What survives of the old warning is the shape, not the rule: **a green run is
+only evidence about the jobs that ran.** Read which jobs a run actually
+executed before believing it. A job whose `needs:` dependency fails is
+*skipped*, not failed — the run still ends red, but the suite you cared about
+produced no result, which looks identical to a suite that found nothing wrong.
+
+**A gate that is a subset of the other reports a green the other can
+contradict — in both directions.** `verify.mjs` ran Production smoke and CI did
+not, so a build that compiled but would not serve could pass CI and fail
+locally. CI runs it from v326. When you add a stage to one, add it to the
+other, and check `scripts/verify.mjs` against `.github/workflows/verify.yml`
+rather than assuming they agree.
+
+**`test.only` is barred by a guard, because it reports success.** A single
+committed `.only` reduces a suite to one test, prints a pass and exits zero —
+every gate in this repository would go green with nothing behind it.
+`tests/scripts/no-focused-tests.test.mjs` walks `tests/` and `supabase/tests/`
+and fails on any `.only`, and it runs inside `npm run test:unit`, so it is in
+the local gate and in CI. `test.skip` is deliberately not barred: a skip states
+a condition and a reason, and the five viewport projects share one database so
+a mutation legitimately belongs to one of them.
 
 **`.env.example` is CI's configuration.** `write-env.mjs` copies it on every CI
 run, so a stale value there is what CI accepts. A new environment variable
