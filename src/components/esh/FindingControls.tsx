@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
+import { useHydrated } from '@/components/esh/use-hydrated';
 import { EVIDENCE_KIND_LABELS } from '@/domain/esh-evidence';
 import { RISK_LABELS, type RiskLevel } from '@/domain/esh-findings';
 import {
@@ -35,6 +36,17 @@ function useChange() {
   const [problem, setProblem] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  /*
+   * v311 - not pressable until React owns it.
+   *
+   * These controls are `type="button"` with a React handler and nothing
+   * underneath: no form, no action, no native behaviour. Pressed before the
+   * page hydrates they do nothing whatsoever - no request, no error, no
+   * change on screen - and the person who pressed has every reason to think
+   * the decision was taken. On the controls that accept, reject, reopen and
+   * reassign a correction, that is the lifecycle silently not moving.
+   */
+  const hydrated = useHydrated();
 
   function run(work: () => Promise<EshDecision>, said: string) {
     startTransition(async () => {
@@ -65,7 +77,12 @@ function useChange() {
     </>
   );
 
-  return { run, pending, status, clear: () => setProblem(null) };
+  /*
+   * `blocked` is what the controls use, and it is deliberately not `pending`:
+   * `pending` still drives the "Saving..." label, which must not appear
+   * before anybody has pressed anything.
+   */
+  return { run, pending, blocked: !hydrated || pending, status, clear: () => setProblem(null) };
 }
 
 export function ChangeDueForm({
@@ -78,7 +95,7 @@ export function ChangeDueForm({
   /** The current due date, as a date input reads it. */
   dueDate: string;
 }) {
-  const { run, pending, status, clear } = useChange();
+  const { run, blocked, status, clear } = useChange();
   const [newDue, setNewDue] = useState(dueDate);
   const [reason, setReason] = useState('');
   return (
@@ -111,7 +128,7 @@ export function ChangeDueForm({
       <button
         type="button"
         className="btn"
-        disabled={pending}
+        disabled={blocked}
         onClick={() =>
           run(
             () => changeDueDate({ actionId, findingId, dueDate: newDue, dueTime: null, reason }),
@@ -134,7 +151,7 @@ export function ChangeOwnerForm({
   findingId: string;
   ownerEmail: string;
 }) {
-  const { run, pending, status, clear } = useChange();
+  const { run, blocked, status, clear } = useChange();
   const [newOwner, setNewOwner] = useState('');
   const [reason, setReason] = useState('');
   return (
@@ -170,7 +187,7 @@ export function ChangeOwnerForm({
       <button
         type="button"
         className="btn"
-        disabled={pending}
+        disabled={blocked}
         onClick={() =>
           run(
             () => reassignAction({ actionId, findingId, ownerEmail: newOwner, reason }),
@@ -194,7 +211,7 @@ export function ChangePriorityForm({
   /** What the owner is told to do first today. */
   priority: string;
 }) {
-  const { run, pending, status, clear } = useChange();
+  const { run, blocked, status, clear } = useChange();
   const [newPriority, setNewPriority] = useState(priority);
   const [reason, setReason] = useState('');
   return (
@@ -237,7 +254,7 @@ export function ChangePriorityForm({
       <button
         type="button"
         className="btn"
-        disabled={pending}
+        disabled={blocked}
         onClick={() =>
           run(
             () => changePriority({ actionId, findingId, priority: newPriority, reason }),
@@ -266,7 +283,7 @@ export function EditFindingForm({
   departmentId: string;
   departments: Array<{ id: string; name: string }>;
 }) {
-  const { run, pending, status, clear } = useChange();
+  const { run, blocked, status, clear } = useChange();
   const [values, setValues] = useState({ title, description, location, departmentId });
   const set = (key: keyof typeof values) => (value: string) => {
     setValues((current) => ({ ...current, [key]: value }));
@@ -322,7 +339,7 @@ export function EditFindingForm({
       <button
         type="button"
         className="btn"
-        disabled={pending}
+        disabled={blocked}
         onClick={() => run(() => editFinding({ findingId, ...values }), 'Finding updated.')}
       >
         Save changes
@@ -358,7 +375,7 @@ export function InterimControlForm({
   findingId: string;
   position: InterimPosition;
 }) {
-  const { run, pending, status, clear } = useChange();
+  const { run, blocked, status, clear } = useChange();
   const [needed, setNeeded] = useState(position.notRequiredReason === null);
   const [containment, setContainment] = useState(position.containment ?? '');
   const [control, setControl] = useState(position.control ?? '');
@@ -469,7 +486,7 @@ export function InterimControlForm({
         <button
           type="button"
           className="btn"
-          disabled={pending}
+          disabled={blocked}
           onClick={() =>
             run(
               () =>
@@ -490,7 +507,7 @@ export function InterimControlForm({
           <button
             type="button"
             className="btn primary"
-            disabled={pending}
+            disabled={blocked}
             onClick={() => run(() => verifyInterimControl({ findingId }), 'Recorded as checked.')}
           >
             I have checked it is in place
@@ -510,7 +527,7 @@ export function InterimControlForm({
  * stopped blocking anything.
  */
 export function ClearBlockerButton({ blockerId }: { blockerId: string }) {
-  const { run, pending, status } = useChange();
+  const { run, blocked, status } = useChange();
   const [note, setNote] = useState('');
   return (
     <div className="esh-blocker-clear">
@@ -527,7 +544,7 @@ export function ClearBlockerButton({ blockerId }: { blockerId: string }) {
       <button
         type="button"
         className="btn small"
-        disabled={pending}
+        disabled={blocked}
         onClick={() => run(() => clearBlocker({ blockerId, note }), 'Blocker cleared.')}
       >
         This is no longer blocking
@@ -538,7 +555,7 @@ export function ClearBlockerButton({ blockerId }: { blockerId: string }) {
 
 /** v269 - correct what will be accepted as proof, after assignment. */
 export function EvidenceKindForm({ actionId, kind }: { actionId: string; kind: string | null }) {
-  const { run, pending, status, clear } = useChange();
+  const { run, blocked, status, clear } = useChange();
   const [next, setNext] = useState(kind ?? '');
   return (
     <div className="esh-action-menu-panel">
@@ -568,7 +585,7 @@ export function EvidenceKindForm({ actionId, kind }: { actionId: string; kind: s
       <button
         type="button"
         className="btn"
-        disabled={pending}
+        disabled={blocked}
         onClick={() =>
           run(() => changeEvidenceKind({ actionId, kind: next }), 'Evidence kind changed.')
         }
@@ -600,7 +617,7 @@ export function EffectivenessForm({
   actionId: string;
   check: EffectivenessState | null;
 }) {
-  const { run, pending, status, clear } = useChange();
+  const { run, blocked, status, clear } = useChange();
   const [dueOn, setDueOn] = useState('');
   const [criteria, setCriteria] = useState('');
   const [checker, setChecker] = useState('');
@@ -631,7 +648,7 @@ export function EffectivenessForm({
           <button
             type="button"
             className="btn primary"
-            disabled={pending}
+            disabled={blocked}
             onClick={() =>
               run(
                 () => recordEffectivenessCheck({ checkId: waiting.id, passed: true, note }),
@@ -644,7 +661,7 @@ export function EffectivenessForm({
           <button
             type="button"
             className="btn"
-            disabled={pending}
+            disabled={blocked}
             onClick={() =>
               run(
                 () => recordEffectivenessCheck({ checkId: waiting.id, passed: false, note }),
@@ -712,7 +729,7 @@ export function EffectivenessForm({
       <button
         type="button"
         className="btn"
-        disabled={pending}
+        disabled={blocked}
         onClick={() =>
           run(
             () => scheduleEffectivenessCheck({ actionId, dueOn, passCriteria: criteria, checker }),
@@ -727,7 +744,7 @@ export function EffectivenessForm({
 }
 
 export function ChangeRiskForm({ findingId, risk }: { findingId: string; risk: RiskLevel }) {
-  const { run, pending, status, clear } = useChange();
+  const { run, blocked, status, clear } = useChange();
   const [newRisk, setNewRisk] = useState<string>(risk);
   const [reason, setReason] = useState('');
   return (
@@ -770,7 +787,7 @@ export function ChangeRiskForm({ findingId, risk }: { findingId: string; risk: R
       <button
         type="button"
         className="btn"
-        disabled={pending}
+        disabled={blocked}
         onClick={() => run(() => changeRisk({ findingId, risk: newRisk, reason }), 'Risk changed.')}
       >
         Change risk

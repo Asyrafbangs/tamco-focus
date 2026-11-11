@@ -144,6 +144,44 @@ async function consumedAt(secret: string) {
   return data?.consumed_at ?? null;
 }
 
+/**
+ * Type into a controlled field and make sure React kept what was typed.
+ *
+ * `reactStrictMode` is on, so in development React mounts every component,
+ * unmounts it and mounts it again. The composer's text lives in `useState`,
+ * and a remount resets it: text typed in that window is wiped, the DOM value
+ * goes back to '' because the textarea is controlled, and pressing send then
+ * answers "Write a message first." The page looks finished the whole time.
+ *
+ * `data-app-hydrated` does not cover this. It marks the application hydrating,
+ * which can happen before this subtree has finished its second mount, so
+ * waiting on it is necessary and not sufficient — which is why v290 added that
+ * wait and these two cases still failed.
+ *
+ * Production mounts once, so this is a development artefact rather than a
+ * defect an owner can hit. It is handled here, in the suite, rather than by
+ * turning StrictMode off for the browser server: CI runs `npm run dev` instead
+ * of `scripts/start-e2e-server.mjs`, so a flag set in that script would fix
+ * this machine and leave CI racing.
+ */
+async function typeInto(page: Page, label: string, text: string, sendButton: string) {
+  /*
+   * Wait for the composer's OWN send button to be enabled first. It is
+   * disabled until `useHydrated` reports that this subtree is running, so an
+   * enabled button is the only honest signal that React is listening to the
+   * field beside it. Checking the typed value is not enough on its own: a
+   * `fill` before hydration leaves the words in the DOM while the state behind
+   * them stays empty, so the field reads back correctly and the send still
+   * answers "Write a message first."
+   */
+  await expect(page.getByRole('button', { name: sendButton })).toBeEnabled({ timeout: 20_000 });
+  const field = page.getByLabel(label);
+  await expect(async () => {
+    await field.fill(text);
+    await expect(field).toHaveValue(text, { timeout: 1_000 });
+  }).toPass({ timeout: 20_000 });
+}
+
 async function openLink(page: Page, path: string, button: 'Open action' | 'Open my actions') {
   await page.goto(path);
   await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
@@ -192,7 +230,12 @@ test('v198 an owner opens their email link in a browser that never signed in', a
   await expect(page.locator('.esh-switcher, .rail')).toHaveCount(0);
 
   // An update is a message; it starts the work and submits nothing (FM16).
-  await page.getByLabel('Message ESH').fill('Done. We are moving the materials this morning.');
+  await typeInto(
+    page,
+    'Message ESH',
+    'Done. We are moving the materials this morning.',
+    'Send update',
+  );
   await page.getByRole('button', { name: 'Send update' }).click();
   await expect(page.locator('.esh-message.mine')).toContainText(
     'Done. We are moving the materials this morning.',
@@ -231,6 +274,13 @@ test('v198 an owner opens their email link in a browser that never signed in', a
 
   // End access on a shared device (§10) - quietly, from the address menu.
   await expect(page.getByRole('button', { name: 'End access on this device' })).toBeHidden();
+  /*
+   * Hydrated first. `endGuestAccess` is a server action on a plain form, so a
+   * press before React is running posts it natively - and the development
+   * server answers that with "Invalid Server Actions request." and a blank
+   * page, which reads exactly like ending access having failed.
+   */
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   await page.locator('.guest-account summary').click();
   await page.getByRole('button', { name: 'End access on this device' }).click();
   await expect(page.getByRole('heading', { name: 'Access ended on this device' })).toBeVisible();
@@ -298,7 +348,12 @@ test('v198 ESH writes to the owner; the email waits for access and a deliberate 
   await expect(page.getByText('Owner not told yet')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^Release/ })).toHaveCount(0);
 
-  await page.getByLabel('Message the owner').fill('Please include the whole walkway in the photo.');
+  await typeInto(
+    page,
+    'Message the owner',
+    'Please include the whole walkway in the photo.',
+    'Send to owner',
+  );
   await page.getByRole('button', { name: 'Send to owner' }).click();
   await expect(page.locator('.esh-message.mine')).toContainText(
     'Please include the whole walkway in the photo.',
@@ -310,6 +365,13 @@ test('v198 ESH writes to the owner; the email waits for access and a deliberate 
   await page.getByRole('link', { name: new RegExp(arranged.owner) }).click();
   const access = page.getByRole('region', { name: 'Finding Management access' });
   await expect(access).toBeVisible();
+  /*
+   * Hydrated before touching the form. Pressing Save before React is running
+   * submits it natively, which puts `enabled=on&reason=...` in the address as
+   * a GET and re-renders the page having changed nothing - so the banner that
+   * confirms the change never appears, and it reads as the save failing.
+   */
+  await expect(page.locator('html')).toHaveAttribute('data-app-hydrated', 'true');
   await access.getByLabel(/Enable email-link access/).check();
   await access.getByLabel('Reason (recorded in the audit)').fill('v198 e2e');
   await access.getByRole('button', { name: 'Save contact access' }).click();

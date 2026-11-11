@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from 'react';
 
+import { useHydrated } from '@/components/esh/use-hydrated';
 import { ESH_PRESET_DESCRIPTIONS, ESH_PRESET_LABELS, type EshPreset } from '@/domain/esh-findings';
 import { setStaffEshAccess, type StaffAccessState } from '@/server/esh/actions';
 import type { StaffEshAccess } from '@/server/esh/queries';
@@ -38,6 +39,24 @@ export function EshAccessForm({
   );
   const [state, setState] = useState<StaffAccessState | null>(null);
   const [pending, startTransition] = useTransition();
+  /*
+   * No `action` on the form, so a press before hydration is a plain GET to
+   * this URL with the role, scope and reason as query parameters: the screen
+   * reloads showing the person's access exactly as it was, and the audit has
+   * no record because nothing happened.
+   *
+   * And guarding the button alone was not enough. These controls are all
+   * controlled by React state, so when it hydrates it reconciles them to that
+   * state and a tick made beforehand is thrown away. `esh-foundations-v197`
+   * caught the result: the role, the scope and the reason were all filled in,
+   * Save was pressed, and the screen answered "Finding Management access is
+   * off for this person" with the reason box empty again. It passed on `main`
+   * only because the press landed before React got there.
+   *
+   * So nothing here is operable until React owns it. Granting Finding
+   * Management authority must not be able to fail quietly.
+   */
+  const hydrated = useHydrated();
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -75,6 +94,7 @@ export function EshAccessForm({
           type="checkbox"
           name="enabled"
           checked={enabled}
+          disabled={!hydrated}
           onChange={(event) => setEnabled(event.target.checked)}
         />
         <span>
@@ -85,7 +105,7 @@ export function EshAccessForm({
         </span>
       </label>
 
-      <fieldset className={enabled ? undefined : 'esh-dimmed'}>
+      <fieldset className={enabled ? undefined : 'esh-dimmed'} disabled={!hydrated}>
         <legend>Role</legend>
         {(Object.keys(ESH_PRESET_LABELS) as EshPreset[]).map((option) => (
           <label key={option} className="radio-row">
@@ -104,7 +124,7 @@ export function EshAccessForm({
         ))}
       </fieldset>
 
-      <fieldset className={enabled ? undefined : 'esh-dimmed'}>
+      <fieldset className={enabled ? undefined : 'esh-dimmed'} disabled={!hydrated}>
         <legend>Scope</legend>
         <label className="radio-row">
           <input
@@ -173,7 +193,12 @@ export function EshAccessForm({
 
       <label>
         <span>Reason (recorded in the audit)</span>
-        <input name="reason" maxLength={300} placeholder="Pilot user, ESH coordinator for BR2" />
+        <input
+          name="reason"
+          maxLength={300}
+          disabled={!hydrated}
+          placeholder="Pilot user, ESH coordinator for BR2"
+        />
       </label>
 
       {state && (
@@ -186,7 +211,12 @@ export function EshAccessForm({
       )}
 
       <div className="esh-form-actions">
-        <button className="btn primary" type="submit" disabled={pending} aria-busy={pending}>
+        <button
+          className="btn primary"
+          type="submit"
+          disabled={!hydrated || pending}
+          aria-busy={pending}
+        >
           {pending ? 'Saving…' : 'Save Finding Management access'}
         </button>
       </div>

@@ -145,7 +145,17 @@ export async function saveFinding(
   }
 
   if (intakeId.success && !error && (data as { code?: string } | null)?.code === 'not_claimed') {
-    const claimed = await supabase.rpc('esh_claim_report_intake', { p_intake_id: intakeId.data });
+    /*
+     * v310 - explicitly NOT a take over. This claim is a convenience so a
+     * coordinator who never pressed "Keep for triage" can still assign a
+     * report in one press; left able to take over, it assigned reports out
+     * from under the colleague holding them. A report held by somebody else
+     * is refused here, and the message below says so.
+     */
+    const claimed = await supabase.rpc('esh_claim_report_intake', {
+      p_intake_id: intakeId.data,
+      p_take_over: false,
+    });
     if (!claimed.error && (claimed.data as { ok?: boolean } | null)?.ok) {
       ({ data, error } = await acceptIntake());
     }

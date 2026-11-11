@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 
+import { useHydrated } from '@/components/esh/use-hydrated';
 import { requestLinkByEmail, requestReportLinkByEmail } from '@/server/esh/guest-actions';
 
 /**
@@ -13,6 +14,14 @@ export function RequestLinkForm({ purpose = 'actions' }: { purpose?: 'actions' |
   const [problem, setProblem] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [pending, startTransition] = useTransition();
+  /*
+   * The form has no `action`, so a press before hydration submits natively:
+   * a GET to this page with the address in the query string. Nothing is sent,
+   * and the person's email address ends up in the URL, in history and in any
+   * access log along the way — for a page whose whole promise is that it
+   * never reveals whether an address has work. Wait for the handler.
+   */
+  const hydrated = useHydrated();
 
   if (sent) {
     return (
@@ -61,7 +70,7 @@ export function RequestLinkForm({ purpose = 'actions' }: { purpose?: 'actions' |
           {problem}
         </p>
       )}
-      <button type="submit" className="btn primary guest-primary" disabled={pending}>
+      <button type="submit" className="btn primary guest-primary" disabled={!hydrated || pending}>
         {pending ? 'Sending…' : 'Send me a link'}
       </button>
       <p className="guest-note">No account or password needed.</p>

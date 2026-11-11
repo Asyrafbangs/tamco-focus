@@ -299,3 +299,23 @@ export interface SubmissionMark {
   version: number;
   state: 'pending' | 'withdrawn' | 'accepted' | 'changes_requested';
 }
+
+/**
+ * v305 — whether the last thing to happen was ESH asking for more.
+ *
+ * An action is `in_progress` for three different reasons: ESH rejected what
+ * was sent, the owner withdrew it, or the finding was reopened. The action row
+ * cannot tell them apart; the submissions can, and only the newest one speaks
+ * for the current state — an accepted version two rounds ago says nothing
+ * about where this sits now.
+ *
+ * Versions are compared rather than array order, because the order rows arrive
+ * in is the query's business and not a fact about the work.
+ */
+export function lastSubmissionWasSentBack(marks: SubmissionMark[]): boolean {
+  let latest: SubmissionMark | null = null;
+  for (const mark of marks) {
+    if (!latest || mark.version > latest.version) latest = mark;
+  }
+  return latest?.state === 'changes_requested';
+}

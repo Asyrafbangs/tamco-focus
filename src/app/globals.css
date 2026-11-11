@@ -2255,6 +2255,44 @@ button {
     box-shadow var(--motion-fast) var(--motion-easing),
     transform var(--motion-fast) var(--motion-easing);
 }
+/* ------------------------------------------------------------------------ */
+/* v312 — a disabled button must not fade into an enabled one                 */
+/*                                                                            */
+/* The group above fades background, border and text over 140ms, which is      */
+/* right for a hover and wrong for the only other thing that changes those    */
+/* three at once: a control becoming available. Since v306 a guarded button   */
+/* renders disabled and enables when React owns it, so on every page load a   */
+/* primary action interpolates from the disabled palette to its own. Both      */
+/* ends are legible and every frame between them is not — measured at the     */
+/* moment the crawl's hydration gate opens, the register's primary action was  */
+/* `rgb(186,192,201)` on `rgb(117,165,240)`, about 1.6:1, on its way to white  */
+/* on `#1668e8`. `esh-crawl-v218` caught exactly that twice in a loaded run,   */
+/* on two different routes, reported as `color-contrast` against an enabled    */
+/* button — axe skips a genuinely disabled one.                               */
+/*                                                                            */
+/* It cannot be waited out from the test side: a workspace streams in after   */
+/* the shell marks itself hydrated, so the fade can start after the page has  */
+/* settled and during axe's own walk. The fade is the defect. A control        */
+/* becoming available was never a transition anybody asked for, so the base   */
+/* state animates only the press and the focus ring, and the colour fade      */
+/* belongs to the pointer and the keyboard, which is where it was meant.      */
+/* ------------------------------------------------------------------------ */
+.btn {
+  transition:
+    box-shadow var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing);
+}
+.btn:hover:not([disabled]),
+.btn:focus-visible,
+.btn:active:not([disabled]) {
+  transition:
+    background-color var(--motion-fast) var(--motion-easing),
+    border-color var(--motion-fast) var(--motion-easing),
+    color var(--motion-fast) var(--motion-easing),
+    box-shadow var(--motion-fast) var(--motion-easing),
+    transform var(--motion-fast) var(--motion-easing);
+}
+
 .btn:active:not([disabled]),
 .workspace-tabs a:active,
 .focus-tabs a:active,

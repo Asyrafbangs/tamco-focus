@@ -153,6 +153,14 @@ export interface RegisterListRow {
   notificationFailed: boolean;
   /** v227 - ESH sent the correction back and nothing new was submitted. */
   changesRequested: boolean;
+  /**
+   * v306 - the owner has said they cannot proceed and nobody has cleared it.
+   *
+   * Recorded by the owner's own "Report this", shown on the finding page since
+   * Stage 2, and on no list until now. An action with an open blocker is still
+   * `in_progress`, so without this a cry for help reads as work in hand.
+   */
+  blocked: boolean;
   isOverdue: boolean;
   /** v210 - the highest escalation level live under this assignment (§24). */
   escalationLevel: number | null;
@@ -294,6 +302,41 @@ export async function listRegister(options: {
     return { rows: [], total: 0, failed: true };
   }
 
+  /*
+   * v306 - who has said they are stuck.
+   *
+   * An Action Owner can report a blocker: "I cannot do this without X". It is
+   * recorded in `esh_action_blockers`, it is shown on that finding's own page,
+   * and it appeared on no list anywhere. The action stays `in_progress`, which
+   * reads as "In progress" on every register and on Today, so an owner asking
+   * for help looked exactly like an owner getting on with it. Nobody finds
+   * that without opening each finding in turn, which is the one thing a
+   * register exists to save.
+   *
+   * Read for the rows in hand rather than joined into the view, because the
+   * view is a migration and this is a page. `cleared_at is null` is the open
+   * ones; a blocker somebody has already dealt with is history.
+   */
+  const actionIds = (data ?? [])
+    .map((row) => (row.action_id ? String(row.action_id) : null))
+    .filter((id): id is string => Boolean(id));
+  let blockedIds = new Set<string>();
+  if (actionIds.length > 0) {
+    const { data: blockers, error: blockerError } = await supabase
+      .from('esh_action_blockers')
+      .select('action_id')
+      .in('action_id', actionIds)
+      .is('cleared_at', null);
+    if (blockerError) {
+      // Not fatal: the register is still true, it simply cannot flag this.
+      console.error(
+        `[listRegister.blockers] ${blockerError.code ?? 'unknown'}: ${blockerError.message}`,
+      );
+    } else {
+      blockedIds = new Set((blockers ?? []).map((row) => String(row.action_id)));
+    }
+  }
+
   return {
     total: count ?? 0,
     failed: false,
@@ -316,6 +359,8 @@ export async function listRegister(options: {
       ownerEmail: row.owner_email ?? null,
       notificationFailed: Boolean(row.notification_failed),
       changesRequested: Boolean(row.changes_requested),
+      /** v306 - the owner has reported a blocker nobody has cleared. */
+      blocked: row.action_id ? blockedIds.has(String(row.action_id)) : false,
       isOverdue: Boolean(row.is_overdue),
       escalationLevel:
         'escalation_level' in row && row.escalation_level !== null
@@ -347,6 +392,15 @@ export interface ReportIntakeRow {
    * somebody to go looking for the person.
    */
   reporterContact: string | null;
+  /*
+   * v310 - who is holding it, when anybody is.
+   *
+   * The screen used to know only the status, so it could say "Already held
+   * for triage" and nothing else. That is why v307's take over shipped with
+   * no way to press it: the branch that would have offered one could not tell
+   * whether the holder was you or a colleague on leave.
+   */
+  heldBy: { id: string; name: string } | null;
   /** v288 - the photographs that came with it, already stripped and stored. */
   photos: Array<{ id: string; name: string; sizeBytes: number; scanState: string }>;
 }
@@ -376,6 +430,36 @@ function intakePhotos(rows: unknown): ReportIntakeRow['photos'] {
 }
 
 /**
+ * The names behind a set of triager ids (v310).
+ *
+ * Looked up by id rather than embedded: `esh_report_intake` already embeds
+ * its photographs, and a second relationship to `user_profiles` on the same
+ * select is the shape PostgREST answers with PGRST200 at runtime however
+ * willing the generated types look.
+ *
+ * A name that cannot be read is not an error here - the screen says somebody
+ * else is holding the report either way, and that is the part that matters.
+ */
+async function triagerNames(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  ids: string[],
+): Promise<Map<string, string>> {
+  const wanted = [...new Set(ids)];
+  if (wanted.length === 0) return new Map();
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('id, full_name')
+    .in('id', wanted);
+  if (error) {
+    console.error(`[triagerNames] ${error.code ?? 'unknown'}: ${error.message}`);
+    return new Map();
+  }
+  return new Map(
+    (data ?? []).map((row) => [String(row.id), String(row.full_name ?? 'a colleague')]),
+  );
+}
+
+/**
  * One in-scope report for the Finding review form. RLS remains the authority;
  * a report that is no longer triaging is not offered as a fresh Finding.
  */
@@ -386,7 +470,7 @@ export async function getReportIntakeForFinding(
   const { data, error } = await supabase
     .from('esh_report_intake')
     .select(
-      'id, source, status, report_text, reported_location, department_id, received_at, reporter_contact, esh_report_intake_photos(id, original_name, size_bytes, scan_state, state)',
+      'id, source, status, report_text, reported_location, department_id, received_at, reporter_contact, assigned_triager_id, esh_report_intake_photos(id, original_name, size_bytes, scan_state, state)',
     )
     .eq('id', intakeId)
     .eq('status', 'triaging')
@@ -396,6 +480,8 @@ export async function getReportIntakeForFinding(
     return { row: null, failed: true };
   }
   if (!data) return { row: null, failed: false };
+  const holder = data.assigned_triager_id ? String(data.assigned_triager_id) : null;
+  const names = await triagerNames(supabase, holder ? [holder] : []);
   return {
     failed: false,
     row: {
@@ -407,6 +493,7 @@ export async function getReportIntakeForFinding(
       departmentId: data.department_id ?? null,
       receivedAt: String(data.received_at),
       reporterContact: data.reporter_contact ?? null,
+      heldBy: holder ? { id: holder, name: names.get(holder) ?? 'a colleague' } : null,
       photos: intakePhotos(data.esh_report_intake_photos),
     },
   };
@@ -438,7 +525,7 @@ export async function listReportIntake(): Promise<{
   const { data, error, count } = await supabase
     .from('esh_report_intake')
     .select(
-      'id, source, status, report_text, reported_location, department_id, received_at, reporter_contact, esh_report_intake_photos(id, original_name, size_bytes, scan_state, state)',
+      'id, source, status, report_text, reported_location, department_id, received_at, reporter_contact, assigned_triager_id, esh_report_intake_photos(id, original_name, size_bytes, scan_state, state)',
       { count: 'exact' },
     )
     .in('status', ['new', 'triaging'])
@@ -449,21 +536,29 @@ export async function listReportIntake(): Promise<{
     return { rows: [], failed: true, total: 0, truncated: false };
   }
   const rows = data ?? [];
+  const names = await triagerNames(
+    supabase,
+    rows.map((row) => row.assigned_triager_id).filter((id): id is string => Boolean(id)),
+  );
   return {
     failed: false,
     total: count ?? rows.length,
     truncated: (count ?? rows.length) > rows.length,
-    rows: rows.map((row) => ({
-      id: String(row.id),
-      source: row.source === 'esh_manual' ? 'esh_manual' : 'qr',
-      status: row.status as ReportIntakeRow['status'],
-      reportText: String(row.report_text),
-      reportedLocation: row.reported_location ?? null,
-      departmentId: row.department_id ?? null,
-      receivedAt: String(row.received_at),
-      reporterContact: row.reporter_contact ?? null,
-      photos: intakePhotos(row.esh_report_intake_photos),
-    })),
+    rows: rows.map((row) => {
+      const holder = row.assigned_triager_id ? String(row.assigned_triager_id) : null;
+      return {
+        id: String(row.id),
+        source: row.source === 'esh_manual' ? 'esh_manual' : 'qr',
+        status: row.status as ReportIntakeRow['status'],
+        reportText: String(row.report_text),
+        reportedLocation: row.reported_location ?? null,
+        departmentId: row.department_id ?? null,
+        receivedAt: String(row.received_at),
+        reporterContact: row.reporter_contact ?? null,
+        heldBy: holder ? { id: holder, name: names.get(holder) ?? 'a colleague' } : null,
+        photos: intakePhotos(row.esh_report_intake_photos),
+      };
+    }),
   };
 }
 
@@ -669,6 +764,13 @@ export interface FindingDetail {
     priority: ActionPriority | null;
     state: ActionState;
     ownerEmail: string | null;
+    /**
+     * v305 - the staff account this owner's address is linked to, where there
+     * is one. `focus.esh_is_own_work` matches on either this or the email, and
+     * a screen that decides the same question on the email alone will offer a
+     * control the procedure then refuses.
+     */
+    ownerStaffUserId: string | null;
     draftOwnerEmail: string | null;
     dueAt: string | null;
     baselineDueAt: string | null;
@@ -1026,7 +1128,19 @@ export async function getFindingDetail(
   const { data: principals } = principalIds.length
     ? await supabase
         .from('esh_email_principals')
-        .select('id, display_email, access_enabled, status, access_disabled_by')
+        /*
+         * v305 - `staff_user_id` as well, because the page decides whether
+         * this is the viewer's own work and the database decides the same
+         * thing by a wider rule. `focus.esh_is_own_work` matches on
+         * `canonical_email = canonical(profile.email) OR staff_user_id =
+         * actor`; the page was matching on the email alone. They agree today
+         * only because `esh_principal_for` links a principal to a staff user
+         * exactly when those emails already match. The moment a staff
+         * member's profile email changes they part company, and the page then
+         * offers a Verify panel that the procedure refuses - which is the
+         * thing the ownWork check exists to prevent.
+         */
+        .select('id, display_email, access_enabled, status, access_disabled_by, staff_user_id')
         .in('id', principalIds)
     : {
         data: [] as Array<{
@@ -1035,9 +1149,13 @@ export async function getFindingDetail(
           access_enabled: boolean;
           status: string;
           access_disabled_by: string | null;
+          staff_user_id: string | null;
         }>,
       };
   const emailOf = new Map((principals ?? []).map((row) => [row.id, row.display_email]));
+  const staffIdOf = new Map(
+    (principals ?? []).map((row) => [row.id, row.staff_user_id ?? null] as const),
+  );
   /*
    * v224 — who can actually be written to, which is the rollout's rule and not
    * this file's. Under a restricted rollout it is whoever an administrator
@@ -1178,6 +1296,10 @@ export async function getFindingDetail(
           state: action.state as ActionState,
           ownerEmail: action.owner_principal_id
             ? (emailOf.get(action.owner_principal_id) ?? null)
+            : null,
+          /** v305 - the second half of the database's own-work test. */
+          ownerStaffUserId: action.owner_principal_id
+            ? (staffIdOf.get(action.owner_principal_id) ?? null)
             : null,
           draftOwnerEmail: action.draft_owner_email ?? null,
           dueAt: action.due_at ?? null,
@@ -1770,6 +1892,34 @@ export async function getFollowupSettings(): Promise<FollowupSettings | null> {
  */
 export type { HealthReading, OperationalHealth };
 
+/**
+ * v308 - effectiveness checks whose date has passed and nobody has decided.
+ *
+ * Counted beside the health read rather than inside `esh_operational_health`,
+ * which would be a migration for a number a page wants. It runs as the reader,
+ * so each coordinator is told about the checks in their own scope.
+ *
+ * A failed count returns 0 rather than refusing the whole panel: this is the
+ * last line of a banner whose other lines still have something to say, and
+ * losing all of them over this one would be the trade the panel exists to
+ * avoid.
+ */
+async function effectivenessDue(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+): Promise<number> {
+  const today = new Date().toISOString().slice(0, 10);
+  const { count, error } = await supabase
+    .from('esh_effectiveness_checks')
+    .select('id', { count: 'exact', head: true })
+    .eq('state', 'scheduled')
+    .lte('due_on', today);
+  if (error) {
+    console.error(`[effectivenessDue] ${error.code ?? 'unknown'}: ${error.message}`);
+    return 0;
+  }
+  return count ?? 0;
+}
+
 export async function getOperationalHealth(): Promise<HealthReading> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc('esh_operational_health');
@@ -1801,6 +1951,7 @@ export async function getOperationalHealth(): Promise<HealthReading> {
     failing: Number(health.failing ?? 0),
     held: Number(health.held ?? 0),
     reviewOverdue: Number(health.review_overdue ?? 0),
+    effectivenessDue: await effectivenessDue(supabase),
   };
   return { available: true, health: reading };
 }

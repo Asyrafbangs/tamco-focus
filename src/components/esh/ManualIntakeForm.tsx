@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition, type FormEvent } from 'react';
 
+import { useHydrated } from '@/components/esh/use-hydrated';
 import { createManualReportIntake, type IntakeActionResult } from '@/server/esh/intake-actions';
 
 /**
@@ -30,6 +31,14 @@ export function ManualIntakeForm({
   const formRef = useRef<HTMLFormElement>(null);
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<IntakeActionResult | null>(null);
+  /*
+   * No `action`, so a press before hydration is a native GET and the report
+   * is never recorded — while the text of it, which is somebody describing a
+   * hazard and often naming people, is written into the URL. This is the one
+   * form a coordinator fills in while somebody is standing in front of them,
+   * so losing it is losing the report. Wait for the handler.
+   */
+  const hydrated = useHydrated();
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -93,7 +102,7 @@ export function ManualIntakeForm({
           </p>
         )}
         <div className="form-actions">
-          <button className="btn primary" type="submit" disabled={pending}>
+          <button className="btn primary" type="submit" disabled={!hydrated || pending}>
             {pending ? 'Recording…' : 'Record for triage'}
           </button>
         </div>

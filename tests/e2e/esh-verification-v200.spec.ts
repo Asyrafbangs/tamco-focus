@@ -211,7 +211,15 @@ test('v200 ESH reviews from the queue, asks for more, then accepts and closes', 
   await expect(page.locator('.esh-detail-side details', { hasText: 'Full record' })).toContainText(
     'Version 1 sent back',
   );
-  await expect(page.locator('.esh-status-flag')).toHaveText('In progress');
+  /*
+   * v305 - the flag says the work bounced, rather than that it is moving.
+   * `esh_guest_send_message` puts an action into `in_progress` when the owner
+   * starts, and `esh_verify_submission` puts a rejected one back into the same
+   * state, so "In progress" here read as momentum on a correction ESH had just
+   * sent back. The reopen case further down still reads "In progress", because
+   * a reopened action genuinely is the owner's to get on with.
+   */
+  await expect(page.locator('.esh-status-flag')).toHaveText('Sent back for more');
   await expect(
     page
       .getByRole('region', { name: 'Conversation with the owner' })

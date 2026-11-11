@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from 'react';
 
+import { useHydrated } from '@/components/esh/use-hydrated';
 import {
   claimReportIntake,
   declineReportIntake,
@@ -25,16 +26,30 @@ export function IntakeOtherDecisions({
   intakeId,
   status,
   hasContact,
+  heldByOther,
 }: {
   intakeId: string;
   status: string;
   hasContact: boolean;
+  /**
+   * The colleague holding this report, when it is somebody other than you
+   * (v310). Null when it is yours or nobody's.
+   */
+  heldByOther: string | null;
 }) {
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<IntakeActionResult | null>(null);
+  /*
+   * Neither of the two forms here has an `action`, so a press before
+   * hydration is a native GET: the report is neither declined nor marked a
+   * duplicate, the reason is left in the URL, and the row stays in the queue
+   * looking untouched. Declining is the one triage decision that cannot be
+   * undone from a screen, so it must not be able to half-happen.
+   */
+  const hydrated = useHydrated();
 
-  function claim() {
-    startTransition(async () => setResult(await claimReportIntake({ intakeId })));
+  function claim(takeOver = false) {
+    startTransition(async () => setResult(await claimReportIntake({ intakeId, takeOver })));
   }
 
   function decline(event: FormEvent<HTMLFormElement>) {
@@ -64,6 +79,48 @@ export function IntakeOtherDecisions({
     });
   }
 
+  /*
+   * v313 — while a colleague holds the report, none of these decisions are
+   * yours to make.
+   *
+   * v310 named the holder and gave the take over a button, but left the two
+   * decisions that end a report sitting underneath it: a working Decline form
+   * and "Link duplicate without action", directly below a sentence saying
+   * assigning it was theirs to do while they had it. Either press closed
+   * somebody else's report with your reason and your name on it, and the
+   * procedures allowed it — they asked only that the status be `new` or
+   * `triaging`, never who was holding it. v313 refuses both at the database
+   * and this screen now offers the take over on its own: take it over first,
+   * which is deliberate and recorded, and then decide.
+   */
+  if (heldByOther) {
+    return (
+      <section className="esh-intake-other" aria-labelledby="esh-intake-other-title">
+        <h3 id="esh-intake-other-title">Other decisions</h3>
+        <p className="form-hint">
+          {heldByOther} is holding this report. Assigning it, declining it and linking it as a
+          duplicate are all theirs to do while they have it.
+        </p>
+        <button
+          className="btn small"
+          type="button"
+          onClick={() => claim(true)}
+          disabled={!hydrated || pending}
+        >
+          {pending ? 'Saving…' : `Take over from ${heldByOther}`}
+        </button>
+        {result && (
+          <p
+            className={result.ok ? 'notice success' : 'notice error'}
+            role={result.ok ? 'status' : 'alert'}
+          >
+            {result.message}
+          </p>
+        )}
+      </section>
+    );
+  }
+
   return (
     <section className="esh-intake-other" aria-labelledby="esh-intake-other-title">
       <h3 id="esh-intake-other-title">Other decisions</h3>
@@ -82,7 +139,7 @@ export function IntakeOtherDecisions({
             <span>Reason</span>
             <textarea name="reason" rows={2} maxLength={2000} required />
           </label>
-          <button className="btn small" type="submit" disabled={pending}>
+          <button className="btn small" type="submit" disabled={!hydrated || pending}>
             {pending ? 'Saving…' : 'Link duplicate without action'}
           </button>
         </form>
@@ -105,12 +162,23 @@ export function IntakeOtherDecisions({
             ? 'This report carries a contact. Reaching them is outside this system — the report stays here, held in your name, until you decide.'
             : 'This report is anonymous, so there is nobody to ask. Inspect the location yourself, or decline it below with a reason.'}
         </p>
+        {/*
+         * v311 - this one was missed. An onClick with no form behind it does
+         * nothing at all before React owns the button, and claiming a report
+         * is the press that stops a second coordinator starting on it.
+         */}
         {status === 'new' ? (
-          <button className="btn small" type="button" onClick={claim} disabled={pending}>
+          <button
+            className="btn small"
+            type="button"
+            onClick={() => claim()}
+            disabled={!hydrated || pending}
+          >
             {pending ? 'Saving…' : 'Keep for triage'}
           </button>
         ) : (
-          <p className="form-hint">Already held for triage.</p>
+          // Held, and held by you: v313 returns above when it is somebody else.
+          <p className="form-hint">You are holding this report.</p>
         )}
       </details>
 
@@ -124,7 +192,7 @@ export function IntakeOtherDecisions({
             <span>Reason</span>
             <textarea name="reason" rows={2} maxLength={2000} required />
           </label>
-          <button className="btn small" type="submit" disabled={pending}>
+          <button className="btn small" type="submit" disabled={!hydrated || pending}>
             {pending ? 'Saving…' : 'Decline without action'}
           </button>
         </form>

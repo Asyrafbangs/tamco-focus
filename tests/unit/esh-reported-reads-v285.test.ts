@@ -44,7 +44,28 @@ const UPSTREAM_502: Answer = {
 const state = vi.hoisted(() => ({
   rpcs: new Map<string, unknown>(),
   calls: [] as string[],
+  /** What the counting read of `esh_effectiveness_checks` answers (v308). */
+  tables: new Map<
+    string,
+    { count: number | null; error: { code?: string; message: string } | null }
+  >(),
 }));
+
+/*
+ * `getOperationalHealth` reads a table as well as its RPC since v308: the
+ * effectiveness re-checks that have fallen due. A stub with only `rpc` on it
+ * made that a TypeError, which is the failure this file exists to rule out -
+ * the panel reporting nothing when it could not read.
+ */
+function tableStub(name: string) {
+  const answer = state.tables.get(name) ?? { count: 0, error: null };
+  const chain = {
+    select: () => chain,
+    eq: () => chain,
+    lte: () => Promise.resolve(answer),
+  };
+  return chain;
+}
 
 vi.mock('@/lib/supabase/server', () => ({
   createSupabaseServerClient: async () => ({
@@ -56,6 +77,7 @@ vi.mock('@/lib/supabase/server', () => ({
       }
       return queued ?? { data: null, error: null };
     },
+    from: (name: string) => tableStub(name),
   }),
 }));
 
@@ -88,6 +110,7 @@ const FIGURES = {
 beforeEach(() => {
   state.rpcs.clear();
   state.calls.length = 0;
+  state.tables.clear();
   // The console.error is the production behaviour under test, not noise to fix.
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -217,6 +240,38 @@ describe('v285 getOperationalHealth, on v290 contract', () => {
     answerRpc('esh_operational_health', { data: { ok: false }, error: null });
 
     await expect(getOperationalHealth()).resolves.toEqual({ available: false });
+  });
+
+  /*
+   * v308. The re-check a closed finding is waiting on has no screen of its
+   * own: the only thing that asks for one is the daily run, and the board
+   * already reports that the run has never reported in. So the count of
+   * re-checks past their date rides along with the health reading, which is
+   * the panel that says the run is stopped.
+   */
+  it('carries the re-checks that have fallen due', async () => {
+    answerRpc('esh_operational_health', { data: HEALTHY, error: null });
+    state.tables.set('esh_effectiveness_checks', { count: 4, error: null });
+
+    const reading = await getOperationalHealth();
+
+    expect(reading.available && reading.health.effectivenessDue).toBe(4);
+  });
+
+  /*
+   * And the same rule the rest of this file is about, applied to the new read:
+   * a count that could not be read must not take the health panel down with
+   * it. The panel still reports what the RPC answered.
+   */
+  it('still reports the health when the re-check count cannot be read', async () => {
+    answerRpc('esh_operational_health', { data: HEALTHY, error: null });
+    state.tables.set('esh_effectiveness_checks', { count: null, error: UPSTREAM_502.error });
+
+    const reading = await getOperationalHealth();
+
+    expect(reading.available).toBe(true);
+    expect(reading.available && reading.health.effectivenessDue).toBe(0);
+    expect(console.error).toHaveBeenCalled();
   });
 });
 

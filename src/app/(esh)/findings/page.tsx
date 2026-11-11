@@ -434,6 +434,8 @@ function AttentionRow({ row }: { row: RegisterListRow }) {
   const reasons = [
     row.isOverdue && 'Overdue owner action',
     row.actionState === 'awaiting_verification' && 'Waiting for ESH verification',
+    // v306 - the owner has asked for help; that outranks every other reason.
+    row.blocked && 'Owner reported a blocker',
     row.notificationFailed && 'Notification needs attention',
     row.changesRequested && 'Owner needs to improve proof',
   ].filter((value): value is string => Boolean(value));

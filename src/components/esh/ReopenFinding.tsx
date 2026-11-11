@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
+import { useHydrated } from '@/components/esh/use-hydrated';
 import { reopenFinding } from '@/server/esh/verification-actions';
 
 /**
@@ -16,6 +17,17 @@ export function ReopenFinding({ findingId }: { findingId: string }) {
   const [dueDate, setDueDate] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  /*
+   * v311 - not pressable until React owns it.
+   *
+   * These controls are `type="button"` with a React handler and nothing
+   * underneath: no form, no action, no native behaviour. Pressed before the
+   * page hydrates they do nothing whatsoever - no request, no error, no
+   * change on screen - and the person who pressed has every reason to think
+   * the decision was taken. On the controls that accept, reject, reopen and
+   * reassign a correction, that is the lifecycle silently not moving.
+   */
+  const hydrated = useHydrated();
 
   return (
     <div className="esh-action-menu-panel">
@@ -51,7 +63,7 @@ export function ReopenFinding({ findingId }: { findingId: string }) {
       <button
         type="button"
         className="btn"
-        disabled={pending}
+        disabled={!hydrated || pending}
         onClick={() =>
           startTransition(async () => {
             const result = await reopenFinding({

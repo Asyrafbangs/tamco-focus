@@ -36,6 +36,8 @@ export interface RowOverlayInput {
   isOverdue: boolean;
   notificationFailed: boolean;
   escalationLevel: number | null;
+  /** v306 - the owner has reported a blocker and nobody has cleared it. */
+  blocked?: boolean;
 }
 
 /**
@@ -47,6 +49,13 @@ export function rowOverlays(
   now: Date,
 ): Array<{ label: string; tone: 'problem' | 'warn' }> {
   const overlays: Array<{ label: string; tone: 'problem' | 'warn' }> = [];
+  /*
+   * v306 - first, because it is the only one of these that is somebody asking
+   * for help. An owner who reports a blocker stays `in_progress`, so without
+   * this the row reads as work in hand and the request is invisible until
+   * somebody opens that finding.
+   */
+  if (row.blocked) overlays.push({ label: 'Owner is stuck', tone: 'problem' });
   if (row.notificationFailed) overlays.push({ label: 'Email failed', tone: 'problem' });
   if (row.isOverdue && row.dueAt) {
     const days = Math.max(

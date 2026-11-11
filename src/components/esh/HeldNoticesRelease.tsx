@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 
+import { useHydrated } from '@/components/esh/use-hydrated';
 import { releaseHeldNotifications } from '@/server/esh/rollout-actions';
 
 /**
@@ -22,6 +23,15 @@ import { releaseHeldNotifications } from '@/server/esh/rollout-actions';
 export function HeldNoticesRelease({ releasable }: { releasable: number }) {
   const [said, setSaid] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  /*
+   * The press is the whole act, and it is a React handler with nothing
+   * underneath it: no form, no action, no native behaviour. Pressed before
+   * hydration it does nothing and says nothing, so the ninety-four
+   * notifications this button exists to send stay held while the person who
+   * pressed it believes they went. `esh-handover-v212` reloads the register
+   * and presses immediately, and that is how it found this.
+   */
+  const hydrated = useHydrated();
   if (releasable === 0 && !said) return null;
 
   return (
@@ -43,7 +53,7 @@ export function HeldNoticesRelease({ releasable }: { releasable: number }) {
         <button
           type="button"
           className="btn primary"
-          disabled={pending}
+          disabled={!hydrated || pending}
           onClick={() =>
             startTransition(async () => {
               const answer = await releaseHeldNotifications();

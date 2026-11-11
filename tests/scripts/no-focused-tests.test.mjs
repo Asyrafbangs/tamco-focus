@@ -65,7 +65,17 @@ test('no test or suite is focused with .only', () => {
 
   const offenders = [];
   for (const file of files) {
-    const lines = readFileSync(file, 'utf8').split('\n');
+    /*
+     * Split on either ending. `autocrlf=true` is on in this repository, so a
+     * checkout on Windows gives every line a trailing `\r`, and splitting on
+     * '\n' alone leaves it there. That breaks the comment strip below, whose
+     * `.*$` cannot reach past a `\r` — `.` matches it, but `$` without the `m`
+     * flag anchors to the end of the string. The guard's own line 32, which
+     * names `.only` chains in prose, then reads as code and the guard reports
+     * itself. It fails that way on every Windows checkout of `main`, and
+     * passes in CI, where Linux checks out LF.
+     */
+    const lines = readFileSync(file, 'utf8').split(/\r?\n/);
     lines.forEach((line, index) => {
       // A line that is only a comment is describing the rule, not breaking it.
       const code = line.replace(/^\s*(\/\/|\*|\/\*).*$/, '');
