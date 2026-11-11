@@ -118,8 +118,53 @@ function tablesInDump(text, schema) {
   return [...found].sort();
 }
 
+/**
+ * Says which database is about to be emptied, and refuses the shared one.
+ *
+ * `assertLocal` inspects the **URL** only. The database this script truncates
+ * comes from `TAMCO_DB_CONTAINER`, which it does not look at, and whose default
+ * is the shared development stack. So a drill run with only the URL overridden
+ * passes every guard and empties the database other sessions are working in —
+ * and the first thing it prints is the dump file, not the target.
+ *
+ * Naming the target is the greater part of the safeguard: a restore of a
+ * Production backup carries real employee records and real ESH evidence, and
+ * where those land is the one thing the operator has to be sure of.
+ */
+function assertRestoreTarget() {
+  const shared = 'supabase_db_tamco-focus';
+  const allowShared = process.env.TAMCO_RESTORE_ALLOW_SHARED === '1';
+  if (CONTAINER === shared && !allowShared) {
+    throw new Error(
+      `Refusing to restore into ${shared}: that is the shared development database, ` +
+        'and a restore truncates every application table in it.\n' +
+        'Set TAMCO_DB_CONTAINER to an isolated stack, for example:\n' +
+        '  $env:TAMCO_DB_CONTAINER = "supabase_db_tamco-lifecycle"\n' +
+        'If the shared database really is the intended target, say so explicitly ' +
+        'with TAMCO_RESTORE_ALLOW_SHARED=1.',
+    );
+  }
+  const reachable = spawnSync('docker', ['inspect', '--format', '{{.State.Running}}', CONTAINER], {
+    encoding: 'utf8',
+  });
+  if (reachable.status !== 0 || reachable.stdout.trim() !== 'true') {
+    throw new Error(
+      `Container ${CONTAINER} is not running, so there is nothing to restore into. ` +
+        'Start its stack first, or correct TAMCO_DB_CONTAINER.',
+    );
+  }
+  return CONTAINER;
+}
+
 async function main() {
   const local = assertLocal('restore a backup');
+  const target = assertRestoreTarget();
+  console.log(`Target database: ${target}`);
+  console.log(
+    'A Production backup holds employee records and ESH evidence. Wipe this ' +
+      'database when the drill is done:\n' +
+      "  npx supabase db reset --workdir <that stack's project directory>\n",
+  );
 
   const dumpFile = newestDataDump();
   const runDirectory = dirname(dumpFile);

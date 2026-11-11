@@ -112,8 +112,13 @@ read the names, not the tick.
 $env:TAMCO_ENV = "production"
 $env:NEXT_PUBLIC_SUPABASE_URL = "https://<project-ref>.supabase.co"
 $env:SUPABASE_SERVICE_ROLE_KEY = "<service role key>"
-npm run check:deployment
+npm run check:deployment -- --smoke
 ```
+
+**`--smoke` is required, and is the whole point of the command.** Without it the
+script runs the base checks and prints "Add --smoke for the read-only production
+checks." — no views, no evidence states, and no scheduler history. The `--`
+passes the flag through npm to the script.
 
 The project ref is in `supabase/.temp/project-ref`. Record the output. The lines
 that matter before this release:
@@ -151,15 +156,26 @@ backup taken over an empty bucket tells you nothing about that path.
 
 ### Prove the restore, in an isolated database
 
-The restore is destructive to whatever it points at, and two of its defaults
-point somewhere you do not want:
+**What is in your hands at this point.** A Production backup is the employee
+directory, every task and finding, the full audit history, and the real bytes of
+every ESH evidence photograph and task attachment. Restoring it puts all of that
+into a local database. Treat the drill as handling confidential records, because
+it is.
+
+The restore is destructive to whatever it points at, and its defaults used to
+point somewhere you would not want:
 
 - `assertLocal` only inspects the **URL**. It will refuse a Production URL.
-- The container is `TAMCO_DB_CONTAINER`, defaulting to **`supabase_db_tamco-focus`
-  — the shared development stack**. The URL guard does not cover this, so the
-  URL being local is not enough.
+- The container comes from `TAMCO_DB_CONTAINER`, whose default is
+  **`supabase_db_tamco-focus` — the shared development stack**. The URL guard
+  never looked at it, so a local URL was not enough protection.
 
-So both must be set, every time:
+**That is now enforced rather than documented.** `verify-restore.mjs` prints the
+target database before it touches anything, refuses
+`supabase_db_tamco-focus` outright unless `TAMCO_RESTORE_ALLOW_SHARED=1` is set
+deliberately, and refuses a container that is not running instead of failing
+halfway through. Set the target anyway, every time — the guard is a backstop,
+not a substitute for knowing where the data is going:
 
 ```powershell
 # New shell. TAMCO_ENV and the Production URL must NOT be set.
@@ -174,11 +190,14 @@ not the shared development database and it is not Production. The isolated
 stack's key comes from
 `npx supabase status --workdir "D:/AI Project/Task Management/tamco-lifecycle-db"`.
 
+The first line must read `Target database: supabase_db_tamco-lifecycle`. If it
+names anything else, stop.
+
 Expect `Restore verified: every populated table came back with its full row
 count.` and `Storage verified: N private objects uploaded to local Storage and
 read back with the manifest byte sizes and SHA-256 hashes.`
 
-Two things to know:
+Three things to know:
 
 - **A failed restore leaves that database empty.** It truncates before loading.
   Run `npx supabase db reset --workdir "D:/AI Project/Task Management/tamco-lifecycle-db"`
@@ -187,12 +206,44 @@ Two things to know:
   That is fine here precisely because these three migrations add no columns, so
   a data-only load has nowhere to go wrong. It would not be fine for a release
   that changed a table.
+- Docker must be running. The stack is containers; if the engine is down the
+  drill cannot start, and the guard now says so rather than failing obscurely.
 
-Afterwards, return the isolated stack to fixtures:
+### Wipe it afterwards — this is a required step, not tidying up
 
 ```powershell
 npx supabase db reset --workdir "D:/AI Project/Task Management/tamco-lifecycle-db"
 ```
+
+Until this runs, real employee records and real evidence sit in a local database
+whose Studio is served on `127.0.0.1:55323` with no authentication, and which
+the browser suite will later run against — mixing live records with test
+fixtures. Reset it the moment the drill has reported.
+
+### Where the backups live, and how long they should
+
+Backups are written outside the repository, to
+`D:\AI Project\Task Management\tamco-focus-backups`. That is deliberate — a
+dump can never be committed — but it also means the files are plain,
+unencrypted, and nothing expires them.
+
+**As of 12 November that directory holds 294 MB**, including a complete 31
+October Production backup with real evidence files, and **four abandoned
+`.incomplete` Production runs** from failed attempts on 31 October and 3
+November. Partial employee records left behind by a crash serve no purpose and
+nobody is tracking them.
+
+Rules for this release:
+
+1. Delete the `.incomplete` directories before taking a new backup. A partial
+   dump cannot be restored and cannot be verified, so it is only exposure.
+2. Keep **one** verified Production backup — the newest. Remove older ones once
+   a newer one has passed `restore:verify`.
+3. Keep the directory off any synced or shared location, and out of anything
+   that backs up to a third party.
+4. The dumps carry no secrets (`check:deployment` and the backup script both
+   avoid printing keys), but they do carry people. Handle them as you would the
+   HR file they partly are.
 
 ## 7. Step 3 — Apply the migrations (needs approval)
 
@@ -277,7 +328,7 @@ gh run list --branch main --limit 1
 
 ```powershell
 # New shell, Production variables set as in step 1
-npm run check:deployment
+npm run check:deployment -- --smoke
 ```
 
 Migration head must now read `20261110001000`. Everything else must read as it
@@ -302,18 +353,76 @@ Sign in as an ESH coordinator.
 A second account is needed for checks 3 and 4. Any staff account with Finding
 coordination access will do.
 
-### The scheduler
+### The scheduler — read its history first, and do not call it to find out
+
+An HTTP status is not evidence about the scheduler. Unauthenticated, `/api/cron`
+answers **401** whether the schedule has been firing daily for a month or has
+never fired at all; 401 only rules out the one case of an unset `CRON_SECRET`,
+which returns **503**. The history is in the database, and
+`esh_worker_runs` is append-only — an `update` or `delete` on it is refused by a
+trigger — so what it holds is what happened.
+
+`check:deployment -- --smoke` prints the newest run and fails if it is over 36
+hours old, but it reads only `worker, ran_at, ok`. The per-worker breakdown is
+in the `detail` column, which the endpoint writes as
+`{"workers": [{"worker": ..., "ok": ...}, ...]}`. Read it in the Supabase SQL
+editor (read-only):
+
+```sql
+-- Every scheduled run of the last fortnight, and each worker inside it.
+select r.ran_at,
+       r.ok                        as run_ok,
+       w ->> 'worker'              as worker,
+       (w ->> 'ok')::boolean       as worker_ok
+  from public.esh_worker_runs r
+  cross join lateral jsonb_array_elements(
+         coalesce(r.detail -> 'workers', '[]'::jsonb)) w
+ where r.worker = 'cron'
+   and r.ran_at > now() - interval '14 days'
+ order by r.ran_at desc, worker;
+
+-- The short version: which workers have failed, and how often.
+select w ->> 'worker'                                        as worker,
+       count(*)                                              as runs,
+       count(*) filter (where (w ->> 'ok')::boolean is false) as failures,
+       max(r.ran_at) filter (where (w ->> 'ok')::boolean is false) as last_failure
+  from public.esh_worker_runs r
+  cross join lateral jsonb_array_elements(
+         coalesce(r.detail -> 'workers', '[]'::jsonb)) w
+ where r.worker = 'cron'
+   and r.ran_at > now() - interval '14 days'
+ group by 1
+ order by failures desc, worker;
+```
+
+Read the second result first. `failures = 0` across every worker is the pass.
+`esh_effectiveness_due` and `esh_followups` are the two this release cares
+about; `esh_scan` reporting "no scanner configured" is an `ok: true` and not a
+failure. **No rows at all** means the scheduler has never recorded a run, which
+is the symptom a missing or malformed `CRON_SECRET` produces — and is not the
+same as "it ran and found nothing".
+
+### Calling it by hand — a production change, needing approval
 
 ```powershell
 curl.exe -s -o - -w "`n%{http_code}`n" -H "Authorization: Bearer $env:CRON_SECRET" https://tamco-focus.vercel.app/api/cron
 ```
 
-Expect **200** and a body naming each worker with `ok: true`, including
-`esh_effectiveness_due` and `esh_followups`. A **503** means `CRON_SECRET` is
-not set; a **401** means the secret presented does not match the one deployed.
+**This writes.** It generates routine occurrences, raises overdue and
+due-tomorrow notices, runs the follow-up and escalation pass, queues
+effectiveness-check notifications, sweeps orphaned uploads, builds digests, and
+then drains the mail outbox — which **sends email to real people**. It is a
+production change and belongs with the other three, not among the read-only
+checks. Do not use it to establish whether the scheduler works: read the
+history above, which costs nothing and tells you more.
 
-Calling it by hand is safe: every worker keys its own work, so a second run the
-same day adds nothing. Proven on 10 November — a second call reported the same
+Use it only when the history shows the schedule is not firing and you need the
+work done now, or to confirm a fix. Expect **200** and a body naming each worker
+with `ok: true`. A **503** means `CRON_SECRET` is not set; a **401** means the
+secret presented does not match the one deployed.
+
+Running it twice in a day duplicates nothing: every worker keys its own work.
+Proven on 10 November — a second call reported the same
 check still due and `queued: 0`.
 
 ## 11. Step 7 — Escalation recipients, with rollout left restricted
@@ -369,20 +478,23 @@ call.
 
 ## 12. The controlled sequence, in order
 
-| #   | Step                                                  | Touches Production | Needs approval |
-| --- | ----------------------------------------------------- | ------------------ | -------------- |
-| 1   | Branch checks green, all three jobs ran               | no                 | no             |
-| 2   | `check:deployment` against Production                 | read only          | no             |
-| 3   | `backup:database` against Production                  | read only          | no             |
-| 4   | `restore:verify` into the isolated stack              | no                 | no             |
-| 5   | `supabase db push`                                    | **yes**            | **yes**        |
-| 6   | `migration list` + the two SQL checks                 | read only          | no             |
-| 7   | `gh pr merge 80`                                      | **yes, deploys**   | **yes**        |
-| 8   | Watch the Production deployment reach success         | no                 | no             |
-| 9   | `check:deployment` again, then the nine manual checks | read only          | no             |
-| 10  | Call `/api/cron` once and read the workers            | writes queued mail | no             |
-| 11  | Enable escalation recipients                          | **yes**            | **yes**        |
+| #   | Step                                                             | Touches Production        | Needs approval |
+| --- | ---------------------------------------------------------------- | ------------------------- | -------------- |
+| 1   | Branch checks green, all three jobs ran                          | no                        | no             |
+| 2   | `check:deployment -- --smoke` against Production                 | read only                 | no             |
+| 3   | The two scheduler-history queries                                | read only                 | no             |
+| 4   | `backup:database` against Production                             | read only                 | no             |
+| 5   | `restore:verify` into the isolated stack, then wipe it           | no                        | no             |
+| 6   | `supabase db push`                                               | **yes**                   | **yes**        |
+| 7   | `migration list` + the two SQL checks                            | read only                 | no             |
+| 8   | `gh pr merge 80`                                                 | **yes, deploys**          | **yes**        |
+| 9   | Watch the Production deployment reach success                    | no                        | no             |
+| 10  | `check:deployment -- --smoke` again, then the nine manual checks | read only                 | no             |
+| 11  | Enable escalation recipients                                     | **yes**                   | **yes**        |
+| 12  | Call `/api/cron` by hand — **only if step 3 showed a problem**   | **yes, sends real email** | **yes**        |
 
-Steps 5, 7 and 11 are the only ones that change Production. Each is reversible:
-5 by re-applying the previous definitions, 7 by promoting the previous
-deployment, 11 by revoking the access in the same screen.
+Steps 6, 8, 11 and 12 are the only ones that change Production. Each is
+reversible or bounded: 6 by re-applying the previous definitions, 8 by promoting
+the previous deployment, 11 by revoking the access in the same screen. 12 is not
+reversible — mail that has left has left — which is why it sits last, needs
+approval, and is skipped entirely when the scheduler's own history is clean.
