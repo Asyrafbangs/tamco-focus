@@ -14,14 +14,13 @@ deliberately short.
 > environment facts that have each already produced a wrong conclusion here.
 > Read §27 before running anything.
 
-**Last verified:** 2 November 2026 · Stage 2 private intake on
-`codex/finding-v41-stage2`, based on `origin/main` @ `07c1054`, which carries
-Stage 0 (PR #49), the backup prerequisite (PR #50) and the reviewed Stage 1
-(PR #51). Local schema is reset through v278; generated types, SQL parser,
-TypeScript, focused unit coverage and v278 pgTAP pass. Full Stage 2 regression
-and CI remain pending. The last Production evidence is still the user-run
-schema dump of 31 October: v271 evidence objects present, v4.1 QR intake
-absent.
+**Checkpoint reconciled:** 12 November 2026 · `origin/main` @ `10825e6`
+contains the merged v4.1 implementation through S6: private intake, reviewed
+links and patterns, workflow hardening, supplied hazard classification, public
+QR implementation, readiness tooling and QR locations (PRs #52–#60). This
+reconciliation made no live Production read or configuration change. Historical
+owner evidence records v279, v280 and v286–v290 as applied; see
+`PROJECT_PROGRESS.md` and `docs/finding-management-v4.1/deployment-2026-11-04.md`.
 
 A commit hash in a document goes stale the moment the document is merged, so
 treat that one as provenance, not as the current head. For the head, run
@@ -60,15 +59,20 @@ surfaces in one codebase:
 
 ## 2. Current status
 
-The backup prerequisite and Stage 0 are **merged** (PR #50, then PR #49 as merge commit `10848ba`). The backup loop now checks its own completeness against `storage.objects` rather than against the bucket listing it was built from, so a short listing can no longer produce a backup that passes every check while missing files; that was proven against the 31 October Production run, 354 recorded and 354 saved with every byte re-hashed.
+S0–S6 implementation is complete in merged history. The lean package supplied
+the nine-category taxonomy that had initially been held back; v287 preserves
+the original safety rule by making classification optional and audited, with no
+historical backfill. Stage A hardens uploads and scanner truthfulness, while
+Stage D/E add readiness tooling and safe QR-location administration.
 
-Stage 1 is implemented and has been **reviewed against its own gate**, which found five defects the stage's own acceptance criteria ask about — a verification queue that showed six of however many were waiting, four controls lost from it in the move, a counter linking to a list that was not its own, two missing register views, and a menu item pointing at what is now Today. All five are fixed, each with a browser case proven by breaking what it guards. See `docs/finding-management-v4.1/stage1-review.md`. No schema change in Stage 1, and no hosted or Production deployment is approved.
+This does **not** authorize an activation. The current automation must leave
+public QR intake, public uploads, emergency notification delivery, scanner
+hosting and Production rollout disabled. Pilot operation still requires the
+owner's privacy, safety-routing, queue-ownership and rollout decisions.
 
-**Deployed and complete:** v262 (owner screens on a phone, 8h idle / 12h maximum
-guest session) · v263–v267 (interim controls, who is actually slow, blockers,
-evidence kind, effectiveness checks) · v268 (effectiveness reminders) · v269
-(four audit gaps) · v270 (background evidence scanning, photo compression) ·
-v271 (**fixed v270, which was inert**, and keeps the camera's own file).
+**Historical deployment evidence:** v279, v280 and v286–v290 were recorded as
+applied by 7 November. Treat that as dated evidence only: before any new
+Production change, establish current state using the readiness runbook.
 
 **Known risks** — the full register is in `PROJECT_PROGRESS.md`:
 
@@ -83,30 +87,13 @@ v271 (**fixed v270, which was inert**, and keeps the camera's own file).
 
 ## 3. Next steps, in priority order
 
-1. **Finish Stage 2.** PR #52 (`codex/finding-v41-stage2`) implements private
-   staff intake only: manual report capture, claim, decline, duplicate linking
-   and atomic Finding acceptance. Public QR, public uploads, emergency delivery
-   and any hosted rollout stay disabled, so the stage does not depend on the
-   decisions below.
-2. **The Stage 2 activation decisions** — anonymous reporting and its notice,
-   emergency-contact routing in and out of hours, photo retention/EXIF and
-   scanner hosting — are in
-   `docs/finding-management-v4.1/07_BUILD_TRACKER.md` under _Decisions
-   requiring human ownership_. They gate the **public** QR half only.
-   **Do not invent any of them.**
-3. **Host the scanner** — a decision and a card, not engineering. Cloud Run
-   scaling to zero is ≈$0/month if the signature databases are baked into the
-   image *and that image is rebuilt weekly*; Fly.io always-on is ≈$13/month at
-   2GB, ≈$25 at the 4GB ClamAV recommends. Then set `ESH_SCANNER_URL` **and**
-   `ESH_SCANNER_TOKEN` in Vercel and redeploy. See
-   `docs/evidence-scanner-deployment.md` and `deploy/evidence-scanner/`.
-4. **Check two Vercel variables** — user action; they cannot be read back.
-5. **`TREND_MINIMUM_EVENTS = 10`** in `src/domain/esh-dashboard.ts` — a product
-   judgement about when the sign-in-free page may name a backlog direction.
-6. **Public-dashboard suppression below a threshold.**
-
-Item 2 needs the deployment/approval decision; items 3–6 need a credential or
-product decision.
+1. **Do not add further S2–S6 code.** Reconcile the tracker and project
+   checkpoint against merged history before treating older stage notes as live.
+2. **Keep all public/operational controls disabled.** No QR opening, public
+   upload, notification route, scanner host or rollout belongs to an agent.
+3. **When the owner explicitly chooses a pilot,** use
+   `production-readiness-runbook.md` to establish current deployment state and
+   record queue ownership, safety routing, privacy/retention and pilot terms.
 
 ---
 
@@ -158,49 +145,25 @@ bulk UI, rollout not yet. See `PROJECT_PROGRESS.md` → _Settled decisions_.
 
 ---
 
-## 5. Current Stage 2 checkpoint
+## 5. v4.1 completion checkpoint
 
-Today / Findings / Patterns navigation, the four Today counters, the Needs
-attention queue, the Incoming reports queue and the department-preserving
-verification redirect are implemented and **merged**. The historical panels
-were **moved, not rebuilt**: `/findings/patterns/insights` renders the same
-`DashboardPanels` from the same queries, and the sign-in-free leadership route
-is untouched.
+The durable S2–S6 invariants are now implemented:
 
-Two rules this screen keeps, and that a later stage must not undo:
-
-- **A counter links to a list that holds exactly it.** Each live counter has a
-  named register view behind it, and a browser case compares the number with
-  the view's own total. They are read through different paths — the
-  `esh_dashboard` procedure and the register views under RLS — so the
-  comparison is two answers to one question, not an assertion with itself.
-- **A queue that is the only route to an obligation is complete.** The
-  verification queue shows every waiting row; Today's card shows six and says
-  how many it is not showing. Incoming reports now follows the same rule.
-
-Stage 2 adds private staff intake through v278 on `codex/finding-v41-stage2` /
-PR #52: RLS-protected, staff-only, locally reset-tested. Public QR intake,
-public uploads and emergency delivery remain disabled by a database `check`
-constraint, so the outstanding policy decisions gate activation, not this
-stage.
-
-Two rules it added to the two above. **A negated scope check is `<> all`, never
-`<> any`** — six procedures had the wrong one, which refused every
-department-scoped coordinator on reports they do cover while the RLS policies
-still showed them the rows, and a `scope_all` test actor returns before
-reaching the comparison. **A queue is reached from Today, not by address** —
-`/findings/intake` had no inbound link in the whole application, and the card
-that exists to surface it still said QR intake was not enabled.
+- staff intake stays server-authorized and department-scoped; a negated scope
+  check is `<> all`, never `<> any`;
+- reviewed links and pattern counts only expose findings both ends may see;
+- hazard classification is an optional coordinator action over stable supplied
+  category codes, never an inferred historical rewrite;
+- urgent safety workflow notices are not left behind ordinary outbox backlog;
+- public controls are reversible and must remain disabled until an owner runs a
+  separately approved pilot.
 
 ## 6. Last agent handover note
 
-`main` is at merge commit `10848ba`: the backup prerequisite (PR #50) and Stage
-0 (PR #49) are both in. Run `git log --oneline -1` rather than trusting that
-hash. Stage 1 lives on `codex/finding-v41-stage1` / PR #51, rebased onto `main`,
-reviewed and corrected; `docs/finding-management-v4.1/stage1-review.md` says
-what the review found and how each fix was proven. The stacked Stage 2 branch
-(PR #52, `codex/finding-v41-stage2`) exists but is **unreviewed** and its policy
-inputs are undecided — do not merge it on the strength of a green run.
+The v4.1 stages are merged to `origin/main` through PR #60. Do not use the old
+stage worktrees or their pre-merge notes as a current checkpoint. Read
+`PROJECT_PROGRESS.md` first, then the tracker and the specific stage document
+for historical rationale.
 
 Three things worth knowing before you run anything:
 
@@ -210,12 +173,11 @@ Three things worth knowing before you run anything:
   for a form's Next button, and the browser suite leaves its fixtures behind so
   a register view outgrows its first page. `npm run db:reset` before a gate run
   you intend to believe.
-- **A green pull request has run no browser test.** The e2e job runs only on a
-  push to `main` or a dispatch: `gh workflow run verify.yml --ref <branch>`.
-- **Production is not readable from here.** To establish what it contains, ask
-  the user to run `npm run backup:database` with `TAMCO_ENV=production` set in
-  the shell, then grep the resulting `*-schema.sql`. Take a fresh dump; `db
-push` reporting "up to date" has misled before.
+- **A green run proves only the jobs that ran.** Confirm the browser job before
+  treating CI as end-to-end evidence.
+- **Production is not readable from here.** Establish current state from a
+  fresh owner-run backup or the documented readiness procedure; never infer it
+  from an old dump or `db push` output.
 
 `PROJECT_PROGRESS.md` is the current-state authority, and the history that used
 to sit in this section lives there.

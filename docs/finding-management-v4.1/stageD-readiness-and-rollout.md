@@ -1,5 +1,12 @@
 # Stage D — readiness, and what is still somebody else's to do
 
+> **Historical status note (12 November 2026):** this document records the
+> pre-deployment readiness assessment. Later owner evidence in
+> `deployment-2026-11-04.md` and `PROJECT_PROGRESS.md` records v279, v280 and
+> v286–v290 as applied. That evidence is not a current deployment read and does
+> not authorize a change: public QR, public uploads, emergency delivery,
+> scanner hosting and rollout remain disabled in the current workstream.
+
 Stage D is the stage with the least code in it and the most that cannot be
 closed from a session. Everything below separates three things that get
 confused when somebody asks "are we ready?": what has been **proven**, what
