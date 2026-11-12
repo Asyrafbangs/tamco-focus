@@ -13565,6 +13565,24 @@ span.deadline span.deadline-glyph,
 .esh-today-queue .empty-state {
   margin: 0;
 }
+/*
+ * v301 — the escalation note, which used to be a whole column.
+ *
+ * It sits on the page background rather than on a card, so its link is
+ * underlined in the body colour like the pager's, not styled like the links
+ * inside the cards above it.
+ */
+.esh-today-note {
+  max-width: 78ch;
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.esh-today-note a {
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: underline;
+}
 .esh-pattern-empty {
   max-width: 760px;
 }
