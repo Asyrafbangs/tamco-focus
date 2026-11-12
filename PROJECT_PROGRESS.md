@@ -7,55 +7,42 @@ Factual and verified against the repository, not against conversation claims.
 removed; what was durable in it is below. Do not reintroduce a second
 current-state document.
 
-**Last verified:** 2 November 2026 · `main` @ `07c1054` carries the backup
-prerequisite (PR #50), Stage 0 (PR #49) and the reviewed Stage 1 (PR #51),
-whose dispatched run `41440950624` passed all three jobs with the browser job
-executed, not skipped. Stage 2 private intake is on `codex/finding-v41-stage2`
-/ PR #52, merged up to `main` and reviewed against gate S2; see
-`docs/finding-management-v4.1/stage2-review.md`. The review found that six
-intake scope checks used `<> any` where the predicate needs `<> all`, which
-refused every department-scoped coordinator, and that nothing in the
-application linked to the intake queue. Both are fixed. Full Stage 2
-regression and dispatched CI remain pending.
+**Checkpoint reconciled:** 12 November 2026 · this is a repository and
+evidence reconciliation, not a new Production interrogation. `origin/main` @
+`10825e6` contains the merged v4.1 work through the lean-package Stage D:
+Stage 2 (PR #52), links and patterns (PR #53), hardening (PR #56), hazard
+classification (PR #57), public-QR implementation (PR #58), readiness tooling
+(PR #59), and QR locations (PR #60). The later operational evidence recorded
+below states that v279, v280 and v286–v290 are applied in Production. No
+current deployment setting was changed or inferred by this checkpoint.
 
 ---
 
 ## Current objective
 
-Deliver Finding Management v4.1 stage by stage, one pull request per stage,
-preserving what already works. The backup prerequisite, Stage 0 and Stage 1
-are **merged**; `main` is at `07c1054`.
+Finish the independently implementable Finding Management v4.1 work through
+S6 while preserving existing behaviour. The S2–S5 staff workflows, reviewed
+links/patterns, workflow hardening and supplied hazard taxonomy are complete
+in merged commits. S6 readiness tooling and QR-location administration are
+also implemented. A pilot or any public/Production activation remains an
+operational decision, not a remaining implementation task.
 
-Stage 1 — navigation and the working queue — was reviewed against its own
-acceptance gate rather than accepted on a green run; the five defects it found
-are fixed and recorded in `docs/finding-management-v4.1/stage1-review.md`.
-
-Stage 2 is under way on PR #52: a private, staff-only intake workflow. Public
-QR intake, public uploads, emergency notification delivery, scanner hosting
-and Production rollout remain off until their independently owned operating
-decisions are supplied; a database `check` constraint, not configuration,
-keeps them off.
-
-The ESH corrective-action work (v262–v271) is complete and deployed. Earlier
-arcs — the My Team redesign (v233–v250), the CI and fixture corrections
-(v251–v255) and the test-quality work in v256 — are also complete. What
-remains is listed under _Remaining work_ and is either small, blocked on a
-credential, or a product decision.
+The current automation must keep public QR intake, public uploads, emergency
+notification delivery, scanner hosting and rollout disabled. Existing historical
+deployment records are evidence, not authority to change those controls.
 
 ## Current verified state
 
-| Area         | State                                                                                |
-| ------------ | ------------------------------------------------------------------------------------ |
-| Branch       | `codex/finding-v41-stage2`, based on the verified Stage 1 branch.                    |
-| Open work    | Stage 2 staff-only intake workflow; full regression, browser coverage and CI remain. |
-| Migrations   | 191 locally reset through `20261102006000` (v278); no hosted migration applied.      |
-| Schema drift | None; generated database types match the local schema.                               |
-| Local seed   | 9 users, 52 tasks. Waiting view renders 20 rows.                                     |
-| Production   | Fresh 31 October user-run schema dump checked locally: v271 source and scan          |
-|              | guard symbols present; v4.1 QR intake/location tables absent.                        |
-|              | Vercel variables and scanner hosting were not rechecked in this session.             |
+| Area                   | State                                                                                                                                    |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Merged v4.1 work       | S0–S6 technical work is represented by PRs #49–#60; later work is on `origin/main` @ `10825e6`.                                          |
+| Open implementation    | None identified for S2–S6. Public activation controls remain deliberately out of scope.                                                  |
+| Migrations             | Historical owner evidence records v279, v280 and v286–v290 applied in Production.                                                        |
+| Schema / type evidence | v287 added the supplied nine-category table and generated types; no drift is recorded.                                                   |
+| Deployment evidence    | The latest record is `deployment-2026-11-04.md`, supplemented by the 7 November ledger note below. It is not a live read on 12 November. |
+| Current validation     | This documentation reconciliation ran no test suite and makes no new validation claim.                                                   |
 
-### Validation last run (30 October, for v271)
+### Historical validation snapshot (30 October, for v271)
 
 | Gate                  | Result                                                                    |
 | --------------------- | ------------------------------------------------------------------------- |
@@ -867,18 +854,19 @@ how it runs locally.
 
 ## Blocker
 
-Nothing blocks the private staff workflow. What is blocked is activation and
-classification, and both are decisions rather than engineering:
+Nothing blocks the independent S2–S6 engineering work. The lean package
+supplied the nine hazard categories and v287 implements them as optional,
+audited classification; no historical finding was inferred or overwritten.
 
-- **Public QR intake** needs four calls nobody has made: whether anonymous
-  reporting is permitted and under what notice, who receives an immediate-hazard
-  alert in and out of hours and by what route, what happens to photograph
-  originals and their EXIF, and whether a private upload scanner is hosted or
-  the pilot goes text-only. The public half stays closed behind
-  `check (enabled = false)`, so it cannot be switched on by configuration.
-- **S3b classification** needs the hazard categories confirmed by ESH and plant
-  representatives. Stage 0 forbids inferring historical categories, so there is
-  nothing to build until the list exists.
+What remains blocked is operational activation, not code:
+
+- **Public QR and public uploads** require the owner to settle and record the
+  privacy notice, immediate-safety route, retention/EXIF policy, scanner or
+  text-only posture, daily queue ownership and pilot terms. This automation
+  must leave the public controls disabled.
+- **Emergency notification delivery, scanner hosting and Production rollout**
+  require external configuration and operating ownership. No setting is to be
+  invented or enabled by an agent.
 
 Every Production change remains gated on explicit approval.
 
@@ -1042,58 +1030,13 @@ answers live only on the machine that ran them.
 
 ## Exact next action
 
-All four lean-package stages are merged. `main` is green at `26ceccb`,
-verified by a complete suite run with the browser job included, and carries
-`db9124b` (PR #62, the environment-refusal hint) on top of it.
+No additional S2–S6 implementation is scheduled. The next action is an
+operational one only when the owner chooses to take it: use the current
+readiness runbook to establish present deployment state, then explicitly
+approve a restricted pilot with a queue owner, area, date and safety/privacy
+arrangements. This automation must not make that change and must leave public
+QR, public uploads, emergency delivery, scanner hosting and Production rollout
+disabled.
 
-**The assistant needs one more configuration change, not a deploy.**
-`AI_ALLOWED_EMAILS` must name the address the owner actually signs in with -
-the `EHS-001` account - and Vercel then needs a redeploy for the new value to
-reach a build. Nothing in the code is waiting.
-
-PR #63 (Stage 3 taxonomy) was closed on 8 November rather than merged. Its
-related-findings half is already on `main` as
-`20261103001000_v279_related_findings.sql`; what it uniquely held is the
-hazard taxonomy, and its migration is dated `20261102007000`, which sits
-below four migrations already applied in production, so it cannot be placed in
-order. The branch remains on the remote: re-cut the taxonomy as a new
-forward-dated migration, with its pgTAP test, whenever that work is scheduled. Production readiness is **PASS on six of seven
-steps**, recorded in `deployment-2026-11-04.md`:
-
-- a production backup of 413 storage objects and 71 tables, restored into
-  local and verified byte for byte;
-- all five migrations applied, verified from the schema dump, with
-  `security_invoker` intact on every replaced view;
-- the rotated service-role key proven live by a signed evidence download from
-  the running site, not by the variable;
-- `ESH_REPORT_SALT` set and redeployed - renamed from `PUBLIC_REPORT_SALT`,
-  which Vercel refuses to store as a secret because `PUBLIC_` is a public
-  framework prefix;
-- the Stage B loop proven end to end in Production: F-005 classified as
-  Machinery and equipment, the register row and the `hazard=machinery` filter
-  both following it;
-- a photograph uploaded reading "Not scanned", and a reply to an owner
-  recorded as "Accepted by the mail server", which is the only honest proof
-  that `EMAIL_TRANSPORT` is smtp;
-- public QR reporting confirmed **closed** on four screens.
-
-**Production deploys again; the scheduler is still not proven.** The build
-blockage is gone - `CRON_SECRET` was re-saved, and two production deployments
-have since built and gone live, `tamco-focus-drg9yhx6e` from `fe2f41d` and
-`tamco-focus-gborm9vtu` from `36f9d10`, both Ready and aliased. Since the
-reported failure mode was Vercel refusing a padded secret outright, a build
-that completes is direct evidence the padding has gone. The earlier claim that
-the live site is still the redeploy of `57ae8b2` is obsolete.
-
-What that does **not** prove is the scheduled work itself. The endpoint
-compares the bearer exactly, and a deploy succeeding says nothing about whether
-a cron invocation is accepted. An earlier PASS on this was withdrawn once
-already, because it rested on the absence of the "Worth knowing" panel, which
-is also absent when the health read fails - so do not accept an absence as the
-proof this time either. `npm run check:deployment` refuses a padded value
-rather than reporting it present, which makes it the cheapest first check.
-
-After that, the one-area pilot needs operational decisions rather than
-engineering: who watches the queue, which area, which date, and whether a
-scanner is hosted before photographs arrive from the floor. Still unmeasured:
-compression against real photographs, and the 30-60 second form target.
+The separate AI allow-list configuration noted in older history is not a
+Finding Management v4.1 blocker and is not changed by this workstream.
